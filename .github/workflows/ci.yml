@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-typecheck-test:
-    name: Lint, type-check, unit test
+  lint:
+    name: Lint and verification tools
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,9 +38,35 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+  typecheck-source:
+    name: Source type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
       - name: Type check
         run: pnpm type-check
 
+  typecheck-tests:
+    name: Test type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
       # The tests as well, held to a per-package count (`typecheck-budgets.json`).
       # `pnpm type-check` reads each package's `src` only, because that config is the
       # build's — so for a long time a test could name a field that does not exist and
@@ -49,8 +75,46 @@ jobs:
       - name: Type check the tests
         run: pnpm type-check:tests
 
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
       - name: Unit tests
         run: pnpm test
+
+  lint-typecheck-test:
+    # Preserve the required check name configured in branch protection.
+    name: Lint, type-check, unit test
+    needs: [lint, typecheck-source, typecheck-tests, unit-tests]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every verification job to succeed
+        shell: bash
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          SOURCE_RESULT: ${{ needs.typecheck-source.result }}
+          TEST_TYPES_RESULT: ${{ needs.typecheck-tests.result }}
+          UNIT_RESULT: ${{ needs.unit-tests.result }}
+        run: |
+          for check in LINT_RESULT SOURCE_RESULT TEST_TYPES_RESULT UNIT_RESULT; do
+            result="${!check}"
+            echo "$check: $result"
+            if [[ "$result" != "success" ]]; then
+              echo "Required verification did not succeed: $check"
+              exit 1
+            fi
+          done
 
   e2e-react:
     name: E2E (editor-react)

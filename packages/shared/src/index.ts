@@ -103,3 +103,4 @@ export * from './document-save/document-save';
 export * from './document-save/document-session';
 export * from './document-save/product-host';
 export * from './document-save/product-archive';
+export { FRAGMENT_CLIPBOARD_TYPE } from './clipboard';

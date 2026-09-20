@@ -9,11 +9,16 @@ import type { DocumentFragment, EditingBasis, EditingDecision, EditingPlan, Edit
 import { clip, fragment, fromNode, references, tree, walk } from './fragment';
 import { documentState, freeze, identity, schemaState, signature } from './state';
 import { defineEditingPolicy, effectiveAttributes, resolveEditingRule, sameAttributes } from './policy';
+import { planTextRange } from './text-range';
 
 const sessions = new WeakMap<object, FragmentEditor>();
 
-/** One policy owner per editor. This opt-in path does not replace legacy paste. */
+/** One policy owner per editor, shared by clipboard commands and explicit fragment edits. */
 export class FragmentEditor {
+  /** Reuse the policy owner configured by the product; never reset it per command. */
+  static forEditor(editor: Editor, initialPolicy: EditingPolicy = {}): FragmentEditor {
+    return sessions.get(editor) ?? new FragmentEditor(editor, initialPolicy);
+  }
   private policy: EditingPolicy = {};
   private policyRevision = 0;
   private readonly owner = identity(this);
@@ -33,10 +38,25 @@ export class FragmentEditor {
   }
   private documentId(): string { return `${identity(this.store)}:${this.store.getDocumentEpoch()}`; }
   private origin(): FragmentOrigin {
-    return { format: 'wonffice-fragment/1', schemaId: this.policy.schemaId ?? identity(this.schema), schemaRevision: schemaState(this.schema), documentId: this.documentId() };
+    return { format: 'wonffice-fragment/1', schemaId: this.policy.schemaId ?? identity(this.schema), schemaRevision: this.policy.schemaRevision ?? schemaState(this.schema), documentId: this.documentId() };
   }
   private basis(): EditingBasis {
     return { owner: this.owner, document: this.documentId(), revision: this.store.getEditRevision(), snapshot: documentState(this.store), schema: schemaState(this.schema), policy: this.policyRevision, selection: signature(this.editor.selection) };
+  }
+  /** Capture before asynchronous input. This token is local, not a transport credential. */
+  checkpoint(): string { return signature(this.basis()); }
+  isCurrent(checkpoint: string): boolean { return sessions.get(this.editor) === this && checkpoint === this.checkpoint(); }
+  /** Explicit plain-text import in the destination text vocabulary; no rich source schema is claimed. */
+  plainText(text: string, targetNodeId: string, literal = false): DocumentFragment {
+    const target = this.store.getNode(targetNodeId);
+    if (typeof target?.text !== 'string') throw new Error('Plain text requires a text target');
+    const leaf = (value: string): FragmentNode => ({ stype: target.stype, attributes: structuredClone(target.attributes), text: value });
+    const normalized = text.replace(/\r\n?/g, '\n');
+    if (literal || !normalized.includes('\n')) return freeze(fragment([leaf(normalized)], 'range', this.origin(), this.policy));
+    const parent = target.parentId ? this.store.getNode(target.parentId) : undefined;
+    if (!parent || this.schema.getNodeType(parent.stype)?.group !== 'block') throw new Error('Multiline text requires a flow block target');
+    const content = normalized.split('\n').map(line => ({ stype: parent.stype, attributes: structuredClone(parent.attributes), content: [leaf(line)] }));
+    return freeze(fragment(content, 'range', this.origin(), this.policy, 1));
   }
   captureNodes(ids: string[]): DocumentFragment {
     if (!ids.length || new Set(ids).size !== ids.length) throw new Error('Select distinct sibling nodes');
@@ -66,6 +86,41 @@ export class FragmentEditor {
     }
     return freeze(fragment([content], 'range', this.origin(), this.policy, open));
   }
+  /** Capture normalized text endpoints, including partial ancestors and all intervening nodes. */
+  captureRange(range: ModelSelection): DocumentFragment {
+    if (range.type !== 'range') throw new Error('Expected a text range');
+    const { startNodeId, endNodeId, startOffset, endOffset } = range;
+    if (startNodeId === endNodeId) return this.captureText(startNodeId, startOffset, endOffset);
+    const start = this.store.getNode(startNodeId), end = this.store.getNode(endNodeId);
+    if (typeof start?.text !== 'string' || typeof end?.text !== 'string'
+      || !Number.isInteger(startOffset) || !Number.isInteger(endOffset)
+      || startOffset < 0 || startOffset > start.text.length || endOffset < 0 || endOffset > end.text.length) throw new Error('Invalid text range endpoints');
+    const rootId = this.store.getRootNodeId();
+    if (!rootId) throw new Error('Missing document root');
+    let active = false, finished = false;
+    const visit = (node: FragmentNode): FragmentNode | null => {
+      if (finished) return null;
+      if (node.sourceId === startNodeId) active = true;
+      if (node.sourceId === endNodeId && !active) throw new Error('Range endpoints must be in document order');
+      if (typeof node.text === 'string') {
+        if (!active) return null;
+        const selected = clip(node, node.sourceId === startNodeId ? startOffset : 0, node.sourceId === endNodeId ? endOffset : node.text.length);
+        if (node.sourceId === endNodeId) finished = true;
+        return selected;
+      }
+      if (!node.content?.length) return active ? node : null;
+      const content = node.content.flatMap(child => { const selected = visit(child); return selected ? [selected] : []; });
+      return content.length ? { ...node, content } : null;
+    };
+    const selected = visit(tree(this.store, rootId));
+    if (!selected?.content?.length || !finished) throw new Error('Range is outside the document');
+    const depth = (id: string): number => {
+      let count = 0, parent = this.store.getNode(id)?.parentId;
+      while (parent && parent !== rootId) { count++; parent = this.store.getNode(parent)?.parentId; }
+      return count;
+    };
+    return freeze({ ...fragment(selected.content, 'range', this.origin(), this.policy, depth(startNodeId)), openEnd: depth(endNodeId) });
+  }
   plan(request: EditingRequest): EditingDecision {
     const losses: EditingPlan['losses'] = [];
     const trace: EditingRuleTrace[] = [];
@@ -92,7 +147,12 @@ export class FragmentEditor {
       const declared = references(input.content, this.policy);
       if (signature(declared) !== signature(input.references)) throw new Error('Fragment reference declarations differ from the target policy');
       const sourceIds = new Set<string>();
-      walk(input.content, node => { if (node.sourceId) sourceIds.add(node.sourceId); });
+      walk(input.content, node => {
+        if (Object.keys(node).some(key => !['stype', 'attributes', 'text', 'marks', 'content', 'sourceId'].includes(key))) throw new Error('Unsupported fragment node field');
+        if (node.sourceId === undefined) return;
+        if (typeof node.sourceId !== 'string' || !node.sourceId || sourceIds.has(node.sourceId)) throw new Error('Invalid or duplicate fragment source id');
+        sourceIds.add(node.sourceId);
+      });
       for (const ref of declared) {
         if (ref.kind === 'node' && sourceIds.has(ref.target)) continue;
         let source: FragmentNode | undefined;
@@ -138,39 +198,15 @@ export class FragmentEditor {
         actions.push(count ? 'replace' : 'insert');
         walk(content, (node, path) => { if (node.text !== undefined) caret = { path, offset: node.text.length }; });
       } else {
-        const { nodeId, from, to } = request.target;
-        const node = this.store.getNode(nodeId);
-        const parent = node?.parentId && this.store.getNode(node.parentId);
-        if (typeof node?.text !== 'string' || !parent || ![from, to].every(Number.isInteger) || from < 0 || from > to || to > node.text.length) throw new Error('Invalid text target');
-        const before = clip(fromNode(node), 0, from), after = clip(fromNode(node), to, node.text.length);
-        delete before.sourceId; delete after.sourceId;
-        if (Object.keys(this.policy.references?.[node.stype] ?? {}).some(key => node.attributes?.[key] !== undefined)) throw new Error('Splitting a reference-bearing text node requires a conversion');
-        let incoming: FragmentNode[] | undefined;
-        if (input.selection === 'range') {
-          const opened = this.inspectOpen(input, parent.sid!);
-          if (this.chooseOpen(opened, fromNode(parent), request.target.kind, trace) === 'join-inline') {
-            this.reportOpenLosses(opened.boundaries, fromNode(parent), parent.sid!, losses);
-            incoming = opened.leaves;
-          }
-        } else this.chooseClosed(content, fromNode(parent), request.target.kind, trace);
-        if (incoming) {
-          parentId = parent.sid!; index = parent.content!.indexOf(nodeId); removeIds = [nodeId];
-          content = [before, ...incoming, after];
-          retainIds['0'] = nodeId;
-          actions.push(from === to ? 'insert' : 'replace', 'join');
-          caret = { path: [incoming.length], offset: incoming.at(-1)!.text!.length };
-        } else {
-          if (parent.content?.length !== 1 || !parent.parentId) throw new Error('Initial closed-block insertion requires a single-run target block');
-          if (this.schema.getNodeType(parent.stype)?.isolating || this.schema.getNodeType(parent.stype)?.atom) throw new Error('Cannot split an isolated or atomic boundary');
-          if (Object.keys(this.policy.references?.[parent.stype] ?? {}).some(key => parent.attributes?.[key] !== undefined)) throw new Error('Splitting a reference-bearing block requires a conversion');
-          const prefix = { ...fromNode(parent), content: [before] }, suffix = { ...fromNode(parent), content: [after] };
-          delete prefix.sourceId; delete suffix.sourceId;
-          parentId = parent.parentId; index = this.store.getNode(parentId)!.content!.indexOf(parent.sid!); removeIds = [parent.sid!];
-          content = [prefix, ...content, suffix];
-          retainIds['0'] = parent.sid!; retainIds['0.0'] = nodeId;
-          actions.push(from === to ? 'insert' : 'replace', 'split');
-          walk(input.content, (n, path) => { if (n.text !== undefined) caret = { path: [path[0] + 1, ...path.slice(1)], offset: n.text.length }; });
-        }
+        const replacement = planTextRange(this.store, this.schema, this.policy, input, request.target, {
+          choose: (boundaries, leaves, target) => this.chooseOpen({ boundaries, leaves }, target, 'text', trace),
+          closed: (nodes, target) => this.chooseClosed(nodes, target, 'text', trace),
+          losses: (boundaries, target, id) => this.reportOpenLosses(boundaries, target, id, losses),
+          guard: (node, id) => this.guardOpenBoundary(input, node, id),
+        });
+        ({ parentId, index, removeIds, content, caret } = replacement);
+        Object.assign(retainIds, replacement.retainIds);
+        actions.push(...replacement.actions);
       }
       caret ??= { path: [content.length - 1], offset: 0 };
       const parent = this.store.getNode(parentId)!;
@@ -206,17 +242,20 @@ export class FragmentEditor {
     const boundaries: FragmentNode[] = [];
     for (let depth = 0; depth < input.openStart; depth++) {
       if (nodes.length !== 1 || !nodes[0].content) throw new Error('Initial range consumer requires a single open chain');
-      const node = nodes[0], def = this.schema.getNodeType(node.stype);
+      const node = nodes[0];
       boundaries.push(node);
-      if (def?.isolating || def?.atom) {
-        let target: INode | undefined = this.store.getNode(targetParent);
-        while (target && target.sid !== node.sourceId) target = target.parentId ? this.store.getNode(target.parentId) : undefined;
-        if (!target || input.origin.documentId !== this.documentId()) throw new Error('Cannot join across an isolated or atomic boundary');
-      }
+      this.guardOpenBoundary(input, node, targetParent);
       nodes = node.content!;
     }
     if (!nodes.length || nodes.some(node => typeof node.text !== 'string' || this.schema.getNodeType(node.stype)?.group !== 'inline')) throw new Error('Initial range consumer requires inline text leaves');
     return { boundaries, leaves: nodes };
+  }
+  private guardOpenBoundary(input: DocumentFragment, node: FragmentNode, targetParent: string): void {
+    const def = this.schema.getNodeType(node.stype);
+    if (!def?.isolating && !def?.atom) return;
+    let target = this.store.getNode(targetParent);
+    while (target && target.sid !== node.sourceId) target = target.parentId ? this.store.getNode(target.parentId) : undefined;
+    if (!target || input.origin.documentId !== this.documentId()) throw new Error('Cannot join across an isolated or atomic boundary');
   }
   private chooseOpen(opened: { boundaries: FragmentNode[]; leaves: FragmentNode[] }, target: FragmentNode, targetKind: EditingRequest['target']['kind'], trace: EditingRuleTrace[]): 'join-inline' | 'preserve' {
     const sources = opened.boundaries.length ? [opened.boundaries.at(-1)!] : opened.leaves;
@@ -254,6 +293,7 @@ export class FragmentEditor {
   }
   /** Called only under TransactionManager's lock, before any fragment writes. */
   materialize(plan: EditingPlan): { children: INode[]; caret: { nodeId: string; offset: number } | null } {
+    if (this.editor.isEditable === false) throw new Error('Editor is read-only');
     if (signature(plan.basis) !== signature(this.basis())) throw new Error('Stale editing plan');
     const ids = new Map<string, string>(), paths = new Map<string, string>();
     walk(plan.content, (node, path) => {
@@ -268,7 +308,11 @@ export class FragmentEditor {
       for (const ref of plan.references.filter(ref => ref.sourceId === node.sourceId)) {
         if (ref.kind === 'node' && ids.has(ref.target)) attributes[ref.attribute] = ids.get(ref.target)!;
       }
-      return { ...rest, ...(rest.attributes || Object.keys(attributes).length ? { attributes } : {}), sid: paths.get(path.join('.')), ...(content ? { content: content.map((child, index) => build(child, [...path, index])) } : {}) };
+      const retainedId = plan.retainIds[path.join('.')];
+      const existing = retainedId ? this.store.getNode(retainedId) : undefined;
+      const local = existing ? Object.fromEntries(['metadata', 'version', 'createdAt', 'updatedAt']
+        .filter(key => Object.hasOwn(existing, key)).map(key => [key, structuredClone(existing[key as keyof INode])])) : {};
+      return { ...local, ...rest, ...(rest.attributes || Object.keys(attributes).length ? { attributes } : {}), sid: paths.get(path.join('.')), ...(content ? { content: content.map((child, index) => build(child, [...path, index])) } : {}) };
     };
     const children = plan.content.map((node, index) => build(node, [index]));
     return { children, caret: plan.caret ? { nodeId: paths.get(plan.caret.path.join('.'))!, offset: plan.caret.offset } : null };
