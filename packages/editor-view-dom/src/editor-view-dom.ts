@@ -1,4 +1,4 @@
-import { FRAGMENT_CLIPBOARD_TYPE } from '@barocss/shared';
+import { attachFragmentDrag, FRAGMENT_CLIPBOARD_TYPE } from '@barocss/shared';
 import { Editor, ModelSelection, insideLockedRegion } from '@barocss/editor-core';
 import { selectionRectIn } from './selection-rect';
 import type { ModelData, RenderEnv } from '@barocss/dsl';
@@ -141,6 +141,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   private _boundHandleCompositionStart: ((event: CompositionEvent) => void) | null = null;
   private _boundHandleCompositionEnd: ((event: CompositionEvent) => void) | null = null;
   private _boundHandleCopy: ((event: ClipboardEvent) => void) | null = null;
+  private _fragmentDrag?: ReturnType<typeof attachFragmentDrag>;
   private _boundHandleDrop: ((event: DragEvent) => void) | null = null;
   private _boundHandleSelectionChange: ((event?: Event) => void) | null = null;
   private _boundHandleMouseDown: ((event: MouseEvent) => void) | null = null;
@@ -423,6 +424,13 @@ export class EditorViewDOM implements IEditorViewDOM {
     this.contentEditableElement.addEventListener('keydown', releaseNodeSelection, true);
     this._boundHandlePaste = this.handlePaste.bind(this);
     this._boundHandleDrop = this.handleDrop.bind(this);
+    this._fragmentDrag = attachFragmentDrag(this.contentEditableElement, {
+      command: (name, payload) => this.editor.executeCommand(name, payload), selection: () => this.editor.selection,
+      fromSelection: value => { const selected = this.selectionHandler.convertDOMSelectionToModel(value); return selected?.type === 'none' ? null : selected; },
+      fromRange: value => this.selectionHandler.convertStaticRangeToModel(value), node: id => this.editor.dataStore.getNode(id),
+      isBlock: id => this.editor.dataStore.getActiveSchema()?.getNodeType(this.editor.dataStore.getNode(id)?.stype ?? '')?.group === 'block',
+      composing: () => this._isComposing,
+    });
     this.contentEditableElement.addEventListener('paste', this._boundHandlePaste);
     // Strip the caret filler out of anything leaving the editor. The zero-width
     // character is renderer bookkeeping, not content, and a native copy reads the
@@ -1007,27 +1015,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     });
   }
 
-  handleDrop(event: DragEvent): void {
-    if (this.isEmbeddedInput(event.target)) return;
-    if (this._isComposing) {
-      return;
-    }
-
-    event.preventDefault();
-
-    const dataTransfer = event.dataTransfer;
-    if (!dataTransfer) return;
-
-    const html = dataTransfer.getData('text/html');
-    const text = dataTransfer.getData('text/plain');
-
-    if (!html && !text) return;
-
-    this.editor.executeCommand('paste', {
-      clipboardHtml: html || undefined,
-      clipboardText: text || undefined,
-    });
-  }
+  handleDrop(event: DragEvent): void { this._fragmentDrag?.drop(event); }
 
   handleSelectionChange(): void {
     // 1. Ignore if programmatic selection change
@@ -1500,6 +1488,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       this.contentEditableElement.removeEventListener('cut', this._boundHandleCopy);
       this._boundHandleCopy = null;
     }
+    this._fragmentDrag?.destroy(); this._fragmentDrag = undefined;
     if (this._boundHandleDrop) {
       this.contentEditableElement.removeEventListener('drop', this._boundHandleDrop);
       this._boundHandleDrop = null;

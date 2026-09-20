@@ -80,49 +80,54 @@ describe('DataStore Lock System', () => {
   describe('Transaction Ordering', () => {
     it('should process transactions in order (FIFO)', async () => {
       const results: number[] = [];
-      
-      // First transaction
-      const promise1 = dataStore.acquireLock().then(() => {
-        results.push(1);
-        setTimeout(() => dataStore.releaseLock(), 50);
+      const store = dataStore;
+      const promises = Array.from({ length: 3 }, async (_, i) => {
+        const lockId = await store.acquireLock();
+        results.push(i + 1);
+        await new Promise<void>(resolve => {
+          setTimeout(() => {
+            store.releaseLock(lockId);
+            resolve();
+          }, 50);
+        });
       });
-      
-      // Second transaction
-      const promise2 = dataStore.acquireLock().then(() => {
-        results.push(2);
-        setTimeout(() => dataStore.releaseLock(), 50);
-      });
-      
-      // Third transaction
-      const promise3 = dataStore.acquireLock().then(() => {
-        results.push(3);
-        setTimeout(() => dataStore.releaseLock(), 50);
-      });
-      
-      await Promise.all([promise1, promise2, promise3]);
+
+      await Promise.all(promises);
       expect(results).toEqual([1, 2, 3]);
+      expect(store.isLocked()).toBe(false);
+      expect(store.getQueueLength()).toBe(0);
     });
 
     it('should handle concurrent lock acquisitions', async () => {
-      const startTime = Date.now();
       const results: number[] = [];
-      
-      // Attempt to acquire multiple locks concurrently
-      const promises = Array.from({ length: 5 }, (_, i) => 
-        dataStore.acquireLock().then(() => {
+      const promises = Array.from({ length: 5 }, (_, i) =>
+        dataStore.acquireLock(`owner-${i + 1}`).then(lockId => {
           results.push(i + 1);
-          setTimeout(() => dataStore.releaseLock(), 10);
+          return lockId;
         })
       );
-      
+
+      for (let i = 0; i < promises.length; i++) {
+        const lockId = await promises[i];
+        // Let already-resolved acquisitions run before checking exclusivity.
+        await Promise.resolve();
+        expect(results).toEqual(Array.from({ length: i + 1 }, (_, j) => j + 1));
+        expect(dataStore.getCurrentLock()).toMatchObject({
+          lockId,
+          ownerId: `owner-${i + 1}`
+        });
+        expect(dataStore.getQueueLength()).toBe(promises.length - i - 1);
+        dataStore.releaseLock(lockId);
+      }
+
       await Promise.all(promises);
-      
-      // Verify executed in order
-      expect(results).toEqual([1, 2, 3, 4, 5]);
-      
-      // Verify total execution time is similar to sequential execution time
-      const totalTime = Date.now() - startTime;
-      expect(totalTime).toBeGreaterThan(40); // 5 * 10ms = at least 50ms
+      expect(dataStore.isLocked()).toBe(false);
+      expect(dataStore.getQueueLength()).toBe(0);
+      expect(dataStore.getLockStats()).toMatchObject({
+        totalAcquisitions: 5,
+        totalReleases: 5,
+        totalTimeouts: 0
+      });
     });
   });
 

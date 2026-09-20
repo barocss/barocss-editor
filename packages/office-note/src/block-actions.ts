@@ -1,6 +1,7 @@
+import { transferNodes } from '@barocss/extensions';
 import { copyNoteDatabaseResources } from './database';
 import type { Editor } from '@barocss/editor-core';
-import { addChild, moveNode, removeChild, transaction } from '@barocss/model';
+import { gapBeforeRemoval, addChild, moveNode, removeChild, transaction } from '@barocss/model';
 import { validateTree } from '@barocss/schema';
 import { NOTE_BLOCKS } from './note-schema';
 
@@ -221,9 +222,9 @@ function registerBatchActions(editor: Editor) {
         if (!at || !can(payload)) return false;
         const operations: unknown[] = [];
         if (action === 'move') {
-          // Move backwards when travelling down, so each insertion sees final sibling positions.
-          const ordered = payload!.at! > at.start ? [...at.ids].reverse() : at.ids;
-          ordered.forEach(id => operations.push(moveNode(id, at.root.sid!, payload!.at! + at.ids.indexOf(id))));
+          return transferNodes(editor, { nodeIds: at.ids, target: {
+            kind: 'children', parentId: at.root.sid!, index: gapBeforeRemoval(at.root.content as string[], at.ids, payload!.at!)
+          } });
         }
         else if (action === 'up') operations.push(moveNode(String(at.root.content![at.start - 1]), at.root.sid!, at.end));
         else if (action === 'down') operations.push(moveNode(String(at.root.content![at.end + 1]), at.root.sid!, at.start));
