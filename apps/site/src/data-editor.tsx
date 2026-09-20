@@ -22,6 +22,7 @@ import {
   assetsOf,
   assetSrc,
   richPlain,
+  isRichRef,
   richTextNamed,
   DATA_FIELD_KINDS,
   DATA_FIELD_KIND_ICONS,
@@ -88,6 +89,7 @@ function Cell({
   value,
   plain,
   richAt,
+  richResolved,
   pages,
   assets,
   onCommit,
@@ -99,6 +101,7 @@ function Cell({
   value: unknown;
   /** The **words** a rich value resolves to — a reference has none of its own to draw. */
   plain?: string;
+  richResolved?: boolean;
   /**
    * Where the rich value's nodes are, when this cell is somewhere they can be **edited**.
    *
@@ -147,7 +150,7 @@ function Cell({
         <NoteField host={richAt.host} sid={richAt.sid} onBlocks={richAt.onBlocks} registerFlush={richAt.registerFlush} />
       ) : (
         <span className="st-cell-rich" title={text}>
-          {plain || <em>비어 있음</em>}
+          {plain || (isRichRef(value) ? <em>{richResolved ? '비어 있음' : '본문을 찾을 수 없습니다'}</em> : text || <em>비어 있음</em>)}
         </span>
       );
 
@@ -858,6 +861,7 @@ export function DataTable({
                         field={field}
                         value={row[field.name]}
                         plain={richPlain(doc, row[field.name])}
+                        richResolved={!!richTextNamed(doc, row[field.name])}
                         pages={pages}
                         assets={assets}
                         onCommit={(value) =>
@@ -891,6 +895,34 @@ export function DataTable({
       </div>
     </div>
   );
+}
+
+function CreateRichText({ editor, nodeId, row, field }: {
+  editor: Editor;
+  nodeId: string;
+  row: number;
+  field: DataField;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState('');
+  const payload = { nodeId, row, field: field.name };
+  const create = async () => {
+    if (busy) return;
+    setBusy(true); setProblem('');
+    try {
+      if (!await editor.executeCommand('createDatasetRichText', payload)) {
+        setProblem('본문을 만들지 못했습니다. 다시 시도하세요.');
+      }
+    } catch {
+      setProblem('본문을 만들지 못했습니다. 다시 시도하세요.');
+    } finally { setBusy(false); }
+  };
+  return <div>
+    <Button ariaLabel={`${field.label ?? field.name} 작성`} disabled={busy || !editor.canRun('createDatasetRichText', payload)} onClick={() => void create()}>
+      {field.label ?? field.name} 작성
+    </Button>
+    {problem && <p role="alert">{problem}</p>}
+  </div>;
 }
 
 /**
@@ -1012,10 +1044,13 @@ export function RowForm({
               */}
               <em className="st-row-kind">{DATA_FIELD_KIND_NAMES[field.kind]}</em>
             </span>
-            <Cell key={`${at.sid}:${at.row}:${field.name}`}
+            {field.kind === 'richText' && (shown.record[field.name] === undefined || shown.record[field.name] === null || shown.record[field.name] === '') ? (
+              <CreateRichText key={`${at.sid}:${at.row}:${field.name}`} editor={editor} nodeId={at.sid} row={at.row} field={field} />
+            ) : <Cell key={`${at.sid}:${at.row}:${field.name}`}
               field={field}
               value={shown.record[field.name]}
               plain={richPlain(doc, shown.record[field.name])}
+              richResolved={!!richTextNamed(doc, shown.record[field.name])}
               /*
                * And **where those words live**, so the form draws the editor rather than the words.
                * A reference that resolves to nothing hands back nothing, and the cell falls back to
@@ -1044,7 +1079,7 @@ export function RowForm({
               onCommit={(value) => run('setDatasetCell', { nodeId: at.sid, row: at.row, field: field.name, value })}
               ariaLabel={`${field.name}`}
               data={{ 'row-cell': field.name }}
-            />
+            />}
           </label>
         ))}
 
