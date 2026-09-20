@@ -1,6 +1,61 @@
 import { expect, test, type Page, type Download } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
+test.describe.configure({ retries: 0 });
+test.use({ trace: 'retain-on-failure', screenshot: 'only-on-failure' });
+
+const recordedDownloads = new WeakMap<Page, Download[]>();
+const downloadsOf = (page: Page) => recordedDownloads.get(page) ?? [];
+
+test.beforeEach(async ({ page }) => {
+  const downloads: Download[] = [];
+  recordedDownloads.set(page, downloads);
+  page.on('download', download => downloads.push(download));
+});
+
+test.afterEach(async ({ page }, info) => {
+  const files = downloadsOf(page);
+  await info.attach('download-counts', {
+    body: JSON.stringify({ count: files.length, names: files.map(file => file.suggestedFilename()) }, null, 2),
+    contentType: 'application/json',
+  });
+  for (const [index, file] of files.entries()) {
+    try {
+      const failure = await file.failure();
+      await info.attach(`download-${index + 1}-status`, {
+        body: JSON.stringify({ name: file.suggestedFilename(), failure }), contentType: 'application/json',
+      });
+      const path = await file.path();
+      if (path) await info.attach(`download-${index + 1}-${file.suggestedFilename()}`, { path });
+    } catch (error) {
+      await info.attach(`download-${index + 1}-error`, { body: String(error), contentType: 'text/plain' });
+    }
+  }
+  if (info.status !== info.expectedStatus) {
+    try {
+      const state = await page.evaluate(() => {
+        const host = window as unknown as { editor?: { exportDocument(): unknown } };
+        const selection = document.getSelection();
+        return {
+          rowCount: document.querySelectorAll('[data-row-form]').length,
+          nestedBodyCount: document.querySelectorAll('[data-db-item-body]').length,
+          selectedText: selection?.toString(),
+          anchorOffset: selection?.anchorOffset,
+          focusOffset: selection?.focusOffset,
+          focused: document.activeElement?.outerHTML.slice(0, 2000),
+          bodies: [...document.querySelectorAll('[data-note-body], [data-db-item-body]')].map(element => element.textContent),
+          problems: [...document.querySelectorAll('[data-note-delivery-problem], [role="alert"]')].map(element => element.textContent),
+          hostDocument: host.editor?.exportDocument(),
+        };
+      });
+      await info.attach('note-save-state', { body: JSON.stringify(state, null, 2), contentType: 'application/json' });
+    } catch (error) {
+      await info.attach('note-save-state-error', { body: String(error), contentType: 'text/plain' });
+    }
+  }
+  recordedDownloads.delete(page);
+});
+
 const body = (page: Page, name = '본문') => page.locator(`[data-row-form] [data-field="${name}"] [data-note-body]`);
 async function setup(page: Page, blog = false) {
   await page.addInitScript(() => {
@@ -54,6 +109,7 @@ test('save from an open Note body awaits both host writes and keeps the editor u
   expect(await downloadText(await again)).toContain('STILL-EDITING');
   await page.keyboard.press('Escape'); await page.locator('[data-row-open]').first().click();
   await expect(body(page)).toContainText('STILL-EDITING');
+  expect(downloads).toHaveLength(2);
 });
 
 test('a rejected host write prevents downloading and keeps the body available for retry', async ({ page }) => {
@@ -72,6 +128,8 @@ test('a rejected host write prevents downloading and keeps the body available fo
   const wait = page.waitForEvent('download'); await page.keyboard.press(saveKey);
   expect(await downloadText(await wait)).toContain('RETRY-ME');
   await expect(page.locator('[data-note-delivery-problem]')).toHaveCount(0);
+  await expect(body(page)).toContainText('RETRY-ME');
+  expect(downloads).toHaveLength(1);
 });
 
 for (const all of [false, true]) test(`${all ? 'site ZIP' : 'page HTML'} export waits for a body write still pending after the row closes`, async ({ page }) => {
@@ -103,6 +161,7 @@ for (const all of [false, true]) test(`${all ? 'site ZIP' : 'page HTML'} export 
       (error, out) => error ? reject(error) : resolve(out)));
     expect(text).toContain('EXPORT-LATEST');
   } else expect(await downloadText(file)).toContain('EXPORT-LATEST');
+  expect(downloads).toHaveLength(1);
 });
 
 test('saving from a deeply nested database item flushes inner then outer bodies into the Site file', async ({ page }) => {
@@ -154,5 +213,73 @@ test('saving from a deeply nested database item flushes inner then outer bodies 
   await expect(last).toBeVisible();
   await page.keyboard.insertText(' STILL-NESTED');
   const again = page.waitForEvent('download'); await page.keyboard.press(saveKey);
-  expect(await downloadText(await again)).toContain('STILL-NESTED');
+  const latest = await downloadText(await again);
+  expect(latest).toContain('DEEPEST-FINAL');
+  expect(latest).toContain('STILL-NESTED');
+  expect(downloads).toHaveLength(2);
+  await expect(page.locator('[data-db-item-body]')).toHaveCount(2);
+  // SidePeek keeps Escape inside an active text edit; saving must preserve that ownership.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-db-item-body]')).toHaveCount(2);
+  await expect(page.locator('[data-row-form]')).toBeVisible();
+  await page.keyboard.insertText(' AFTER-ESCAPE');
+  await expect(last).toContainText('AFTER-ESCAPE');
+  const afterEscape = page.waitForEvent('download'); await page.keyboard.press(saveKey);
+  expect(await downloadText(await afterEscape)).toContain('AFTER-ESCAPE');
+  expect(downloads).toHaveLength(3);
 });
+
+
+for (const shortcut of ['Meta+s', 'Control+s'] as const) {
+  test(`${shortcut} saves from the Note dialog while selection, local undo and Escape remain owned by the dialog`, async ({ page }) => {
+    await setup(page);
+    const row = page.locator('[data-row-form]');
+    const unchangedSummary = await body(page, '요약').innerText();
+    const marker = shortcut === 'Meta+s' ? 'META-SAVE-UI' : 'CONTROL-SAVE-UI';
+    await type(page, ` ${marker}`);
+    for (let index = 0; index < marker.length; index++) await page.keyboard.press('Shift+ArrowLeft');
+    await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe(marker);
+    const focused = await page.evaluateHandle(() => document.activeElement);
+    expect(await hostText(page)).not.toContain(marker);
+
+    const download = page.waitForEvent('download');
+    await page.keyboard.press(shortcut);
+    const text = await downloadText(await download);
+    expect(text).toContain(marker);
+    expect(await hostText(page)).toContain(marker);
+    expect(downloadsOf(page)).toHaveLength(1);
+    await expect(row).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.getSelection()?.toString())).toBe(marker);
+    expect(await focused.evaluate(element => element === document.activeElement)).toBe(true);
+    await expect(body(page, '요약')).toHaveText(unchangedSummary);
+
+    // Replace the actual browser selection, then undo within this Note editor.
+    await page.keyboard.insertText('REPLACED-LOCALLY');
+    await expect(body(page)).toContainText('REPLACED-LOCALLY');
+    await expect(body(page)).not.toContainText(marker);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(body(page)).toContainText(marker);
+    await expect(body(page)).not.toContainText('REPLACED-LOCALLY');
+    await expect(body(page, '요약')).toHaveText(unchangedSummary);
+    await expect(row).toBeVisible();
+    expect(await hostText(page)).toContain(marker);
+    expect(downloadsOf(page)).toHaveLength(1);
+
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => body(page).evaluate(element => {
+      const selection = document.getSelection();
+      return selection?.isCollapsed && !!selection.anchorNode && element.contains(selection.anchorNode);
+    })).toBe(true);
+    // Selection UI owns Escape until it has closed; then the row dialog owns the key.
+    await expect(page.locator('[data-note-formatting]')).toHaveCount(0);
+    await expect(row).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(row).toHaveCount(0);
+    await page.locator('[data-row-open]').first().click();
+    await expect(body(page)).toContainText(marker);
+    await expect(body(page)).not.toContainText('REPLACED-LOCALLY');
+    await expect(body(page, '요약')).toHaveText(unchangedSummary);
+    expect(downloadsOf(page)).toHaveLength(1);
+    await focused.dispose();
+  });
+}
