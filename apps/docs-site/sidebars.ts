@@ -2,6 +2,7 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
+    { type: 'link', label: 'Live examples', href: '/examples' },
     'introduction',
     { type: 'link', label: 'All public packages', href: '/packages' },
     { type: 'category', label: 'Office integrations', items: ['guides/office-products', 'guides/office-styling', 'guides/package-boundaries'] },

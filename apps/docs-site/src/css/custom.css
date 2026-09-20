@@ -415,3 +415,26 @@ html[data-theme='light'] body { background-color: #ffffff; color: #1e293b; }
 .developer-group li { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
 .developer-group li span { color: var(--homepage-text-secondary); font-size: 12px; }
 .developer-demo { margin-top: 56px; }
+
+/* Live examples: preview CSS stays inside an independent iframe. */
+.examples-gallery { max-width: 1180px; padding: 48px 32px 80px; margin: 0 auto; }
+.examples-heading { max-width: 720px; margin-bottom: 28px; }
+.examples-heading h1 { font-size: 40px; letter-spacing: -.025em; }
+.examples-heading p, .example-header p { color: var(--homepage-text-secondary); }
+.examples-nav { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 28px; margin-bottom: 28px; border-bottom: 1px solid var(--homepage-border-color); }
+.examples-nav a { padding: 9px 16px; border: 1px solid var(--homepage-border-color); border-radius: 7px; color: var(--ifm-font-color-base); font-size: 14px; font-weight: 600; }
+.examples-nav a:hover { border-color: var(--ifm-color-primary); text-decoration: none; }
+.examples-nav a[aria-current='page'] { color: white; background: var(--ifm-color-primary); border-color: var(--ifm-color-primary); }
+.example-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
+.example-header h2 { font-size: 22px; margin-bottom: 6px; }
+.example-header p { margin: 0; }
+.example-actions { display: flex; gap: 20px; align-items: center; flex-shrink: 0; font-size: 14px; }
+.example-actions button { font-size: 14px; }
+.example-instruction { font-size: 14px; }
+.example-preview { border: 1px solid var(--homepage-border-color); border-radius: 10px; overflow: hidden; background: white; }
+.example-panel-label { padding: 12px 20px; color: var(--homepage-text-secondary); background: var(--homepage-section-bg); border-bottom: 1px solid var(--homepage-border-color); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.example-preview iframe { display: block; width: 100%; height: 430px; border: 0; }
+.example-source { margin-top: 36px; }
+.example-source pre { max-height: 580px; }
+.example-scope { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--homepage-border-color); }
+.example-scope h2 { font-size: 18px; }

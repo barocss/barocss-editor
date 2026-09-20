@@ -19,3 +19,16 @@ test('extracts complete TypeScript examples and preserves JSX', () => {
   const found = examples('```sh\nnpm install x\n```\n\n```tsx\nexport const view = <div />;\n```\n');
   assert.deepEqual(found, [{ language: 'tsx', code: 'export const view = <div />;\n' }]);
 });
+
+// A moved or renamed snippet must fail before a broken gallery is published.
+test('every live example has a runnable source and a documented package', async () => {
+  const { liveExamples } = await import('./live-examples.mjs');
+  const { catalogue } = await import('./catalogue.mjs');
+  const packages = new Set(catalogue().map(item => item.directory));
+  const live = liveExamples();
+  assert.ok(live.length >= 3);
+  for (const item of live) {
+    assert.match(item.code, new RegExp(`export function ${item.export}\\(`));
+    assert.ok(item.packages.every(name => packages.has(name)));
+  }
+});

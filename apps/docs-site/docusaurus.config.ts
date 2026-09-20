@@ -88,6 +88,7 @@ const config: Config = {
       },
       items: [
         { to: '/packages', label: 'Packages', position: 'left' },
+        { to: '/examples', label: 'Examples', position: 'left' },
         { to: '/docs/guides/office-products', label: 'Office integration', position: 'left' },
         {
           type: 'docSidebar',

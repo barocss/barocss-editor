@@ -22,6 +22,7 @@ export default function Home() {
           <h1>Build on one Office foundation.</h1>
           <p>Product kits, shared Office UI, and editor libraries. Choose the layer your application needs.</p>
           <Link className="button button--primary" to="/packages">Browse {catalogue.length} packages</Link>
+          <Link className="button button--secondary" style={{ marginLeft: 12 }} to="/examples">Try live examples</Link>
         </header>
         <section className="developer-paths" aria-label="Integration paths">
           {paths.map(([title, description, href]) => <Link key={href} to={href} className="developer-path"><h2>{title}</h2><p>{description}</p><span>Read the guide →</span></Link>)}
