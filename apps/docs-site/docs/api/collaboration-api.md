@@ -3,7 +3,7 @@ title: Collaboration API
 ---
 
 :::note Reference status
-This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
+This page is an older reference. Start with [Collaboration and saving](/docs/guides/collaboration-and-saving) for checked examples and current limitations. The Yjs edit path has known defects, and the room adapter requires a compatible bridge. The detailed examples below are not a production integration or persistence guarantee.
 :::
 
 # Collaboration API
