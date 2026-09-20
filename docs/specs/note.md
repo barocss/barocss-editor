@@ -425,4 +425,4 @@ Flattening moves all blocks into the parent in left-to-right order. No content i
 At <=640px columns stack; desktop weights persist. Insertion inside existing layouts is refused.
 Note JSON preserves the structure; Markdown/HTML export does not yet encode this layout.
 
-Site integration inventory (2026-09-19): 316 browser test declarations. This count is not a claim that every scenario has passed in the current run.
+Site integration inventory (2026-09-20): 319 browser test declarations. This count is not a claim that every scenario has passed in the current run.

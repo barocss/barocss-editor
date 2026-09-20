@@ -308,7 +308,7 @@ export function NoteEditor({
         * same re-measure on scroll. What differed was eight lines, all of them the site's `mode`
         * guard.
         */}
-      <SlashMenu editor={editor} active={!mathFocused} />
+      <SlashMenu editor={editor} active={!mathFocused} scope={body} />
       {pageReferences && <PageReferenceUI editor={editor} scope={body} references={pageReferences} />}
     </div>
   );
