@@ -194,37 +194,6 @@ export interface NodeTypeDefinition {
    *   - listItem:  maxIndentLevel: 5
    */
   maxIndentLevel?: number;
-  /**
-   * Drop Behavior Rules: 소스 노드 타입별 기본 드롭 행위 (힌트)
-   * 
-   * 이 규칙은 "기본값"으로 사용되며, defineDropBehavior로 오버라이드 가능
-   * 
-   * 구조:
-   * - 키: 소스 노드 타입 (stype) 또는 와일드카드 ('*')
-   * - 값: 드롭 행위 ('move' | 'copy' | 'merge' | 'transform' | 'wrap' | 'replace' | 'insert')
-   * 
-   * 우선순위:
-   * 1. 소스 타입 (stype) 정확히 일치
-   * 2. 와일드카드 ('*')
-   * 
-   * 사용 시나리오:
-   * - 스키마 정의 시 "이 노드 타입은 이런 기본 동작을 가진다"는 힌트 제공
-   * - 스키마 재사용 시 기본 동작 보장
-   * - 특정 에디터 인스턴스에서 다른 규칙이 필요하면 defineDropBehavior로 오버라이드
-   * 
-   * 예시:
-   * dropBehaviorRules: {
-   *   'inline-text': 'merge',      // Merge when inline-text is dropped
-   *   'inline-image': 'copy',      // Copy when inline-image is dropped
-   *   '*': 'move'                  // Default: move
-   * }
-   * 
-   * Notes:
-   * - This rule has lower priority than defineDropBehavior
-   * - Schema focuses on data model definition, default rules are just hints
-   * - See drop-behavior-architecture.md for detailed architecture discussion
-   */
-  dropBehaviorRules?: Record<string, 'move' | 'copy' | 'merge' | 'transform' | 'wrap' | 'replace' | 'insert'>;
 }
 
 // Mark definition

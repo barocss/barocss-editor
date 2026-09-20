@@ -163,7 +163,7 @@ export const articleEditingPolicy = defineEditingPolicy({
 
 이 첫 DSL은 단일 열린 경계의 inline 연결과 기존 보존 경로를 제어한다. 목록 번호/시작값의 재계산, 임의 트리 결합, 다중 런 분할, move 알고리즘은 구현하지 않는다. 바깥 열린 조상은 선택 문맥으로 취급하며, 격리·속성 손실·참조 검사를 유지한다. 바깥 조상별 사용자 규칙은 아직 제공하지 않는다.
 
-기존 `defineDropBehavior`는 전역 registry에 동작 이름을 등록한다. 새 정책은 editor별 값이며 copy/move 의도와 연결/보존 전략을 분리한다. 기존 DropBehavior 값을 새 규칙으로 자동 변환하지 않는다. #265에서 실제 DND 의도와 위치를 연결할 때 이 차이를 명시적으로 처리한다.
+기존 `defineDropBehavior`, 전역 registry, `getDropBehavior`, `DropBehavior` 관련 타입, 스키마 `dropBehaviorRules`는 #274에서 제거했다. 호환 API는 남기지 않는다. 새 정책은 editor별 값이며 copy/move 의도와 연결/보존 전략을 분리한다. 기존 동작 이름을 새 규칙으로 자동 변환하지 않는다. 실제 DND 의도와 위치를 planner에 연결하는 작업은 #265에 남아 있다.
 
 성공한 계획에는 `plan.trace`, 거절에는 `decision.trace`가 있다. 각 항목은 ruleIds, sourceType, targetType, boundary, targetKind, effect, reason을 가진다. 기본 규칙의 ID는 `builtin:`으로 시작한다. 호환성이나 격리 검사에서 먼저 거절하면 trace가 비어 있을 수 있다. trace는 정책 선택 기록이며, 최종 유효성은 decision.ok와 reason으로 확인한다.
 

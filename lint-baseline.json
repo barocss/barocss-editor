@@ -336,12 +336,6 @@
     "count": 1
   },
   {
-    "file": "packages/datastore/src/operations/drop-behavior-defaults.ts",
-    "rule": "@typescript-eslint/no-unused-vars",
-    "message": "'_defineDropBehavior' is defined but never used.",
-    "count": 1
-  },
-  {
     "file": "packages/datastore/src/operations/query-operations.ts",
     "rule": "@typescript-eslint/no-unused-vars",
     "message": "'_node' is assigned a value but never used.",
@@ -471,12 +465,6 @@
     "file": "packages/datastore/test/document-iterator.test.ts",
     "rule": "@typescript-eslint/no-unused-vars",
     "message": "'nodeId' is assigned a value but never used.",
-    "count": 1
-  },
-  {
-    "file": "packages/datastore/test/drop-behavior.test.ts",
-    "rule": "@typescript-eslint/no-unused-vars",
-    "message": "'context' is defined but never used. Allowed unused args must match /^_/u.",
     "count": 1
   },
   {

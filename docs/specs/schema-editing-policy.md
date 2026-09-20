@@ -53,7 +53,7 @@ preserve는 원래 조각 트리를 그대로 넣는다. 부분 section에 capti
 
 `plan.trace`와 거절 결과의 `trace`는 ruleIds/sourceType/targetType/boundary/targetKind/effect/reason을 기록한다. 기본 규칙은 예약한 `builtin:` ID를 사용한다. 선택 전 검사에서 거절한 결과는 빈 trace일 수 있다. trace가 연결을 선택했더라도 최종 구조 검사가 실패할 수 있다. plan은 정책 선언이 아니라 판단 결과이며, transaction은 유효한 계획을 실행한다.
 
-기존 DropBehavior는 전역 동작 이름 registry이며 새 DSL과 자동 호환되지 않는다. #265에서 입력 의도를 해석한 뒤 공통 planner를 호출해야 한다. 제품별 연결 사례와 실행 예제는 [사용 가이드](../schema-editing-guide.md#31-누가-판단-기준을-정의하나)를 참고한다.
+기존 DropBehavior 전역 registry·조회 API·스키마 힌트는 #274에서 제거했다. 호환 API는 없다. #265에서 입력 의도를 해석한 뒤 공통 planner를 호출해야 한다. 제품별 연결 사례와 실행 예제는 [사용 가이드](../schema-editing-guide.md#31-누가-판단-기준을-정의하나)를 참고한다.
 
 ## 조각과 호환성
 
@@ -71,7 +71,7 @@ adapter는 변환한 조각, `converted` 또는 `preserved`, 알려진 손실 �
 
 ## 계획과 적용
 
-`EditingRequest.intent`의 copy/move와 target의 삽입/교체 범위는 별개다. 계획의 actions는 insert/replace/split/join/wrap/transform이다. 이 첫 소비자는 copy만 실행한다. 기존 DropBehavior enum이나 전역 registry를 새 정책으로 재사용하지 않는다. 이들의 연결/정리는 #265에서 처리한다.
+`EditingRequest.intent`의 copy/move와 target의 삽입/교체 범위는 별개다. 계획의 actions는 insert/replace/split/join/wrap/transform이다. 이 첫 소비자는 copy만 실행한다. 기존 DropBehavior 타입과 전역 registry는 제거했다. 실제 DND 입력을 새 정책에 연결하는 작업은 #265에서 처리한다.
 
 계획은 변경 순서의 근거인 부모·위치·제거 ID·중첩 내용·유지 ID·참조·caret 경로와 판정/손실을 보관한다. 계획 작성은 문서, 선택, history, 이벤트, datastore ID 할당기를 변경하지 않는다. 결과는 동결하며 적용 전에 직렬화 가능한 operation으로 복사한다.
 

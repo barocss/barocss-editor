@@ -41,6 +41,8 @@ console.log(store.getRootNode()); // No document has been loaded yet.
 
 Do not create a second Editor over a live store to edit an embedded document. Use an independent session, such as openNoteTree, so selections and undo histories stay separate.
 
+The unused drop behavior APIs were removed without compatibility shims. Use editor-scoped fragment policies in `@barocss/model`; see the [editing guide](https://github.com/barocss/barocss-editor/blob/main/docs/schema-editing-guide.md). Actual DND input integration remains tracked in [#265](https://github.com/barocss/barocss-editor/issues/265).
+
 ## Documentation
 
 - [Package guide](https://editor.barocss.com/packages/datastore)
