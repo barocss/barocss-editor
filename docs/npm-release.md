@@ -81,4 +81,10 @@ Retry the same commit and exact content only. If the same version's bytes differ
 
 Initial npm organization access, trusted-publisher settings and real publication must be verified by the release owner. Repository checks cannot prove those external permissions before a publish.
 
+## Durable publication records and Git tags
+
+After a successful publication, preserve its verified metadata in Git using the [npm record procedure](../releases/npm/README.md). `pnpm release:npm:record` reads one explicit run, attempt and artifact. It verifies every exact registry version and archive integrity, then plans the corresponding Git tags. It does not publish packages, change npm `latest`, create Git tags, or create GitHub Releases.
+
+Commit the generated record through a normal PR before the Actions artifact expires. Records use the published source commit, even when the command runs from a newer checkout. Tag creation is a separate release-owner action after review. The existing npm release workflow still does not create tags automatically.
+
 References: [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/), [Changesets action](https://github.com/changesets/action).
