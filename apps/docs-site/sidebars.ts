@@ -20,6 +20,7 @@ const sidebars: SidebarsConfig = {
       items: [
         { type: 'doc', id: 'guides/office-products', label: 'Product integration' },
         { type: 'doc', id: 'guides/office-styling', label: 'Styling' },
+        { type: 'doc', id: 'guides/note-integration', label: 'Note integration' },
         { type: 'doc', id: 'guides/package-boundaries', label: 'Package boundaries' },
       ],
     },
