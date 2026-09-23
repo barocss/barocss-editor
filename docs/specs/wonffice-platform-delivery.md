@@ -4,10 +4,12 @@ artifact_type: delivery_plan
 status: ready_for_build
 owner_role: architect
 source_request: "Wonffice 서비스와 자동 개발 구조의 구현 순서 및 종료 기준"
-last_updated: 2026-09-19
+last_updated: 2026-09-23
 ---
 
 # Wonffice 플랫폼 구현 순서
+
+이 문서는 목표 구조와 인수 기준이다. 현재 구현 완료 목록은 아니다. 첫 외부 alpha의 최신 인수 결정과 증거 위치는 [출시 흐름](../release-flow.md)과 [#322](https://github.com/barocss/barocss-editor/issues/322)를 따른다. **Note를 먼저 구현·검증한 뒤 Word, Slides, Site를 검증한다. 네 제품 모두 실제 로컬 PostgreSQL 메타데이터·Fastify API·제품 UI와 Yorkie 원문 저장·실시간 동시편집 인수를 통과해야 외부 alpha를 검토한다.** 두 배포 형태의 인수도 유지한다. 출시일과 공식 후보는 미정이다.
 
 WP 번호는 로컬 설계 식별자이며 GitHub issue 번호가 아니다. 설계 문서 작성과 코드 완료를 구분한다. 최신 구현 상태는 연결 이슈와 병합·검증 기록으로 확인한다. GitHub 게시 시 같은 WP ID를 본문에 넣고 기존 이슈를 조회하여 중복 생성을 막는다.
 
@@ -26,15 +28,25 @@ GitHub 연결: 누적 기준점은 [#248](https://github.com/barocss/barocss-edi
 | WP-03 | agent-runner 감독·GitHub broker·격리 executor, PR까지 | 없음 | 승인된 작은 이슈 1건→격리 구현→필수 검사→PR. 중복 실행·권한 없는 요청·비밀정보 접근 차단 |
 | WP-04 | Agent 복구·중간 지시·예산·운영 상태 | WP-03 | 강제 종료·절전/재개·응답 유실·rate limit 후 복구. 수정된 요구와 오래된 head로 게시/병합 차단 |
 | WP-05 | office-api/worker, PostgreSQL·파일·OIDC, 두 배포 skeleton | 없음 | SaaS 설정과 내부 설치 설정에서 같은 이미지 기동. 계정·두 tenant·health·migration·기본 backup 확인 |
-| WP-06 | 서버 문서/revision·로컬 이전·Note 저장 연결 | WP-01,02,05 | 두 계정 저장·재열기·409 초안 보존·중복 저장·최종 입력 flush. 원본을 보존한 로컬 이전 |
+| WP-06 | 서버 문서/revision·로컬 이전·Note 저장 연결 | WP-01,02,05 | 두 계정 저장·재열기·충돌 시 초안 보존·중복 저장·최종 입력 flush. 원본을 보존한 로컬 이전. 활성 협업 원문은 Yorkie가 소유하며 이전 snapshot으로 덮어쓰지 않음 |
 | WP-07 | 나머지 제품 저장·공통 viewer·공유·자산·게시 | WP-06 | 네 제품 작성→서버 저장→재열기→공유. 권한 회수·파일 직접 접근·실패한 게시에서 이전 버전 보존 |
 | WP-08 | tenant 기능 registry·설정·설치·해제·버전 | WP-02,05,06 | A사 전용 기능, B사 우회 실행 거부. 호환 불가 설치 거부. 해제 후 데이터 보존 |
-| WP-09 | Yjs·Automerge·Yorkie 선택형 공급자 연결·권한·모델 adapter | WP-06 | 선택한 기존 공급자에서 두 브라우저 동시 수정·오프라인 복귀·권한 회수·undo·tenant 격리 검증 후 확대. 자체 동시 편집 서버는 구현하지 않음 |
+| WP-09 | 외부 alpha용 Yorkie 연결·권한·모델 adapter | WP-06 | Note를 먼저 실제 DB·API·UI·Yorkie와 두 계정에서 검증. Word·Slides·Site도 같은 후보에서 동시 수정·재접속·권한 회수·사용자별 undo·tenant 격리를 검증. 외부 alpha는 Yorkie Cloud 사용. 자체 동시 편집 서버는 구현하지 않음 |
 | WP-10 | Codex 기반 CI·증거 묶음·정책별 병합·비공개 미리보기 | WP-05 | red CI·변경된 head·완화된 검사·취소 요청이면 병합 차단. 허용된 실제 수정 1건은 활성 Codex 세션에서 미리보기까지 완료. 독립 실행 시에는 WP-04도 필요 |
 | WP-11 | 두 환경 배포·복원·관측·업데이트·출시 인수 | WP-07,08,09,10 | 동일 digest의 두 환경 전체 인수, 이전 버전 업데이트·실패 복구·백업 복원·PC 종료 중 서비스 유지 |
 | WP-12 | 고객 업무 Agent와 첫 업무 시나리오 | WP-02,07,08,11 | 고객 요청→견적 문서 생성→검토→권한 있는 공유. 기존 조합으로 불가능한 경우에만 개발 이슈 제안 |
 
 WP-03과 WP-05는 WP-01의 수정과 기술적으로 독립이다. 다만 처음부터 여러 무인 작업자를 돌리지 않는다. 감독·검증 체계가 확인된 후에만 독립 작업을 병렬 실행한다. WP-10이 끝나기 전의 runner는 PR까지만 자동 처리한다.
+
+### 외부 alpha 전 실제 통합 인수
+
+WP-05의 DB 기반, WP-06의 Note 저장 경로, WP-09의 협업 adapter는 각각 부분 결과다. 외부 alpha에는 **네 제품 모두** 실제 로컬 PostgreSQL, 인증한 서로 다른 사용자, Fastify API, 제품 UI, Yorkie 연결을 통과한 실행 결과가 필요하다. 외부 alpha의 협업 서비스는 Yorkie Cloud다. 로컬 개발에서 로컬 Yorkie 서버와 Yorkie Cloud 중 어느 쪽에 연결할지는 미확인이다. Cloud 연결을 완전 오프라인 검사라고 부르지 않는다.
+
+Yorkie는 동시편집 상태와 협업 원문을 소유한다. API·PostgreSQL은 사용자·회사·권한·문서 메타데이터를 소유한다. 이미지·첨부는 별도 파일 저장소를 쓴다. Wonffice가 인증과 접근 제어를 책임진다. 기존 Yjs·Automerge 코드는 자동 삭제하거나 병행 구현 대상으로 정하지 않는다.
+
+제품별로 Yorkie 원문·UI 내용과 PostgreSQL 메타데이터의 대응, 브라우저/서버 재시작 후 재열기, 두 사용자 변경 수렴과 영속성, 연결 단절·저장 실패·재시도, 구조 편집과 사용자별 undo/redo, 권한 부족·회수, 오래된 snapshot의 협업 변경 덮어쓰기 방지를 확인한다. 저장 확인된 변경과 대기 중인 변경을 구분한다. 하나의 제품 통과를 다른 제품 통과로 대체하지 않는다. QA의 상세 검사와 판정은 [#322](https://github.com/barocss/barocss-editor/issues/322)에 연결한다.
+
+Operator와 구현 담당은 **실제로 실행한** 로컬 기동·재시작·복원 명령과 환경 식별자, 합성 계정, API·PostgreSQL·Yorkie 확인 경로를 제공한다. Writer는 그 근거로 시작 안내·사용 방법·지원 범위·알려진 제한·문제 해결·업데이트 조치를 쓴다. 후보 commit, 포함 PR, 이미지 digest와 Yorkie 버전이 지정되기 전에는 실행 안내를 완성 또는 검증으로 표시하지 않는다. 로컬 통과 후에도 SaaS와 고객사 내부 설치의 실제 인수는 별도다.
 
 ## 2. 첫 작업 WP-01
 
@@ -48,13 +60,13 @@ WP-03과 WP-05는 WP-01의 수정과 기술적으로 독립이다. 다만 처음
 
 **구현 계약:** [Transaction 실패 복구 계약](transaction-recovery.md). WP-01 구현 PR에서 검사 증거와 병합 상태를 확인한다.
 
-추가 사용자 결정 — 2026-09-20: API는 Fastify를 사용한다. 동시 편집은 [Yjs·Automerge·Yorkie 선택형 공급자](wonffice-collaboration-providers.md)에 연결하며 자체 서버를 구현하지 않는다.
+추가 사용자 결정 — 2026-09-20: API는 Fastify를 사용한다. [협업 공급자 비교](wonffice-collaboration-providers.md) 이후 첫 외부 alpha는 Yorkie Cloud로 정했다. 로컬 개발에서 로컬 Yorkie 서버와 Yorkie Cloud 중 어느 쪽을 쓸지는 미확인이다. 자체 협업 서버를 새로 만들지 않는다.
 
 ## 3. 첫 백엔드 WP-05/06의 좁은 범위
 
 첫 구현 예제는 두 회사·두 계정, Note 문서 하나씩으로 한다. 회원가입의 모든 변형, 결제, 고급 관리자 화면을 동시에 만들지 않는다. 내부 설치는 기준 IdP를 포함한 테스트 구성을 사용하고, SaaS도 동일 인증 adapter를 검증한다.
 
-계획 API: session 조회, tenant/workspace 목록, 문서 생성/조회, `expectedRevision`을 받는 문서 변경, 요청 상태 조회. 이후 WP-07에서 asset 업로드 완료, share 생성/회수, publication job을 추가한다. HTTP 명세·runtime schema·오류 계약은 WP-02/05에서 같은 패키지로 관리한다.
+계획 API: session 조회, tenant/workspace 목록, 문서 생성/조회, 요청 상태 조회. 기존 `expectedRevision` snapshot 변경 계약은 비협업 경로와 충돌 처리 대상으로 검토한다. 활성 공동편집 원문은 Yorkie가 소유하므로 이전 snapshot 요청이 이를 덮어쓰면 안 된다. 이후 WP-07에서 asset 업로드 완료, share 생성/회수, publication job을 추가한다. HTTP 명세·runtime schema·오류 계약은 WP-02/05에서 같은 패키지로 관리한다.
 
 브라우저 테스트는 실제 서비스 API를 사용한다. tenant ID를 바꾼 요청, 다른 회사 document/asset ID, worker payload, cache·공유 token 경계를 검사한다. 로그인 버튼이 보인다는 사실만으로 권한 검증 완료를 선언하지 않는다.
 
@@ -65,7 +77,7 @@ WP-03과 WP-05는 WP-01의 수정과 기술적으로 독립이다. 다만 처음
 | 새 환경 설치·초기 관리자·로그인 | 필수 | 외부 SaaS 계정 없이 필수 | 출시 보류 |
 | 네 제품 작성·최종 입력 저장·재열기·공유 | 필수 | 필수 | 출시 보류 |
 | 회사·사용자·파일·공유 권한 격리 | 필수 | 단일 tenant 환경에서도 필수 | 출시 보류 |
-| 공동 편집 지원 범위와 충돌 복구 | 필수 | 필수 | 미검증 기능 비활성화, 범위 축소는 명시적 결정 |
+| 네 제품의 실시간 공동 편집과 충돌 복구 | 필수 | 필수 | 외부 alpha 보류. 지원 범위 변경은 사용자 결정과 문서 갱신 필요 |
 | PC 꺼짐·개발 Agent 중단 | 서비스 유지 | 서비스 유지 | 출시 보류 |
 | DB·파일·설정·키 복원 | 측정 기록 | 설치 도구로 재현 | 목표 미달 원인 해결 |
 | 이전 버전→새 버전·migration 실패 | staging 실험 | 이전 설치 이미지에서 실험 | 호환·복구 해결 |
@@ -84,6 +96,6 @@ runner를 켜기 전에 대상 저장소·승인한 업무 범위·금액/시간
 
 ## 6. 상태 기록
 
-2026-09-20: WP-01은 #266으로 main에 병합됐다. 백엔드 WP-05a의 실행 기반은 #330에서 진행한다. 인증·DB·파일·제품 저장·공동 편집과 독립 runner의 완료를 뜻하지 않는다.
+2026-09-23: WP-01은 #266으로 main에 병합됐다. WP-05a 서버 기동 기반은 #330/PR #333의 범위에서 완료됐다. #351/PR #352의 PostgreSQL tenant 기반과 #355의 로그인은 별도 진행 작업이다. 본문 저장·제품 UI 연결·실시간 협업, 네 제품의 통합 인수와 두 배포 환경 인수는 완료 근거가 없다. 공식 출시 후보도 지정되지 않았다. 개별 PR 검사 결과를 합산해 제품 출시 완료로 표시하지 않는다.
 
-백엔드 다음 순서: WP-05a 검증 후 PostgreSQL tenant 저장소와 migration, 이어서 OIDC·S3·두 설치 구성을 만든다. WP-02의 명시 실행 계약도 서버 문서 연결 전에 충족해야 한다. UI 공통화의 남은 범위는 [기존 계획](office-editor-ui-consolidation.md)에 유지한다. 이번 설계 전환 때문에 완료 처리하지 않는다.
+다음: Backend·제품 구현 담당이 Note의 실제 DB·API·UI·협업 경로를 연결하고 Word·Slides·Site로 확대한다. Operator가 동일 후보의 환경과 실행 기록을 제공하면 QA가 [#322](https://github.com/barocss/barocss-editor/issues/322)를 검증한다. Product Master PM이 출시 범위와 최종 판단을 관리한다. WP-02의 명시 실행 계약도 서버 문서 연결 전에 충족해야 한다. UI 공통화의 남은 범위는 [기존 계획](office-editor-ui-consolidation.md)에 유지한다.
