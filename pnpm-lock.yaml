@@ -1331,6 +1331,21 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
 
+  packages/office-note-file:
+    devDependencies:
+      '@barocss/office-note':
+        specifier: workspace:*
+        version: link:../office-note
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@20.19.30)
+      vite-plugin-dts:
+        specifier: ^3.9.1
+        version: 3.9.1(@types/node@20.19.30)(typescript@5.9.3)(vite@5.4.21)
+
   packages/office-site:
     dependencies:
       '@barocss/datastore':

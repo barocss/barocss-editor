@@ -22,6 +22,7 @@ The published package provides ES modules and TypeScript declarations. Use a bun
 | `@barocss/office-note/view` | React editing surface |
 | `@barocss/office-note/note.css` | Stylesheet |
 | `@barocss/office-note/workspace` | Workspace file codec |
+| `@barocss/office-note/file` | Note file reader and clock-free serializer for server snapshots |
 
 Import only these public paths. Source paths such as `@barocss/office-note/src/...` are not part of the published API.
 
@@ -66,6 +67,8 @@ Office React controls use Tailwind 4 utility classes. Configure the host to scan
 The example opens a new note on mount. For an existing document, pass its stored tree to `openNoteTree`. Supply a stable `session` value when your host has a durable body identity. Call `flush()` before an explicit save or export. The callback receives body blocks, not an entire workspace backup.
 
 The `/workspace` entry supplies the native file codec used by the local workspace. It does not mount the editor.
+
+The `/file` entry reads Note files without loading workspace storage. `serializeNoteFile(document, { savedAt })` produces stable bytes for the same inputs. Omit `savedAt` to leave it out of the file. `readNoteSnapshotFile(text)` rejects an empty or non-string `savedAt` while the local `readNoteFile` remains compatible with existing files. For a server-issued page ID, `copyNoteSnapshotFile(text, newPageId)` validates and normalizes the source, changes the root ID and its own page references, then returns the stored file text. The caller still owns authorization, ID generation, idempotency, hashing, and persistence.
 
 ## Integration notes
 
