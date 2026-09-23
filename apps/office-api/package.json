@@ -11,9 +11,15 @@
     "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "fastify": "5.12.5"
+    "@barocss/office-service": "workspace:^",
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
+    "pg": "8.23.0"
   },
   "files": [
     "dist"
-  ]
+  ],
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
 }

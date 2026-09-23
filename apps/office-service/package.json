@@ -3,12 +3,20 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./membership-store": {
+      "types": "./src/membership-store.ts",
+      "import": "./dist/membership-store.js"
+    }
+  },
+  "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
-    "migrate": "node dist/migrate-cli.js"
+    "migrate": "node dist/migrate-cli.js",
+    "membership:admin": "node dist/membership-admin-cli.js"
   },
   "dependencies": {
     "pg": "8.23.0"

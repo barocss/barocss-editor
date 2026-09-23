@@ -1,13 +1,24 @@
 import Fastify from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { TenantAccessDeniedError } from '@barocss/office-service/membership-store';
+import type { MembershipStore, VerifiedPrincipal } from '@barocss/office-service/membership-store';
+import { AuthProviderUnavailableError } from './oidc.js';
+import type { OidcVerifier } from './oidc.js';
 
 const statusSchema = {
   type: 'object', required: ['status'], additionalProperties: false,
   properties: { status: { type: 'string' } },
 } as const;
 const healthPaths = new Set(['/health/live', '/health/ready']);
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface ApiAuthDependencies {
+  verifier: OidcVerifier;
+  memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
+}
 
 /** HTTP boundary only. Domain services and collaboration providers remain separate. */
-export function createApiServer() {
+export function createApiServer(auth?: ApiAuthDependencies) {
   const app = Fastify({
     logger: false,
     trustProxy: false,
@@ -45,6 +56,53 @@ export function createApiServer() {
       handler: async (_request, reply) => reply.code(code).send({
         status: live ? 'alive' : 'service_not_configured',
       }),
+    });
+  }
+  if (auth) {
+    const authenticate = async (request: FastifyRequest, reply: FastifyReply): Promise<VerifiedPrincipal | null> => {
+      const header = request.headers.authorization;
+      const match = header?.match(/^Bearer ([A-Za-z0-9_.-]+)$/i);
+      if (!match) {
+        reply.code(401).send({ status: 'unauthorized' });
+        return null;
+      }
+      try {
+        return await auth.verifier.verify(match[1]);
+      } catch (error) {
+        const code = error instanceof AuthProviderUnavailableError ? 503 : 401;
+        // Do not return token claims, verifier errors, or provider endpoints.
+        reply.code(code).send({ status: code === 503 ? 'auth_unavailable' : 'unauthorized' });
+        return null;
+      }
+    };
+    app.get('/v1/me', async (request, reply) => {
+      const principal = await authenticate(request, reply);
+      if (!principal) return;
+      const query = request.query as Record<string, unknown>;
+      if (Object.keys(query).some(key => key !== 'after') ||
+        (query.after !== undefined && (typeof query.after !== 'string' || !uuid.test(query.after)))) {
+        return reply.code(400).send({ status: 'invalid_request' });
+      }
+      try {
+        const page = await auth.memberships.listTenantAccess(principal, query.after as string | undefined);
+        return { issuer: principal.issuer, subject: principal.subject, ...page };
+      } catch {
+        return reply.code(503).send({ status: 'service_unavailable' });
+      }
+    });
+    app.get('/v1/tenants/:tenantId/access', async (request, reply) => {
+      const principal = await authenticate(request, reply);
+      if (!principal) return;
+      const { tenantId } = request.params as { tenantId: string };
+      if (!uuid.test(tenantId)) return reply.code(400).send({ status: 'invalid_request' });
+      try {
+        return await auth.memberships.getTenantAccess(principal, tenantId);
+      } catch (error) {
+        if (error instanceof TenantAccessDeniedError) {
+          return reply.code(403).send({ status: 'forbidden' });
+        }
+        return reply.code(503).send({ status: 'service_unavailable' });
+      }
     });
   }
   return app;
