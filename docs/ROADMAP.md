@@ -1,5 +1,7 @@
 # Barocss Suite — Roadmap
 
+2026-09-20 트랜잭션 문서 점검: [#353](https://github.com/barocss/barocss-editor/issues/353)에서 model 공개 예제, 입력 형식, 커밋 전 실패와 커밋 후 오류, 선택·히스토리 옵션을 현재 main 기준으로 정리한다. 검증과 제한은 [감사 기록](specs/transaction-documentation-audit.md)에 남긴다. Undo/Redo 수정 #350은 별도 개발 범위이며 문서 완료가 제품 출시 준비 완료를 뜻하지 않는다.
+
 2026-09-20 문서화 1차: [#285](https://github.com/barocss/barocss-editor/issues/285)에서 코어·확장·model·제품 4개 README와 공개 확장 가이드를 정리한다. 기본 kit 교체와 확장 추가, Note 세션 옵션, schema·렌더러·명령·호스트의 경계를 설명한다. [문서 관리 계약과 후속 범위](specs/documentation-contract.md)를 기준으로 진행하며, 전체 제품 기능 문서가 완료되었다는 뜻은 아니다.
 
 2026-09-20 SE-01 구현: [#263](https://github.com/barocss/barocss-editor/issues/263)의 열린 문서 조각, editor별 정책, 읽기 전용 계획과 transaction 적용 경로를 추가했다. [지원 범위와 계약](specs/schema-editing-policy.md)을 참고한다. 실제 clipboard 연결 #264와 DND 연결 #265는 남아 있다. 전체 완료는 추적 이슈 #262의 완료 기준으로 판단한다.

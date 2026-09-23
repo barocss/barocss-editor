@@ -1,213 +1,151 @@
-:::note Reference status
-This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
-:::
-
 # Transactions
 
-Every document modification in Barocss goes through a **transaction** — an atomic, all-or-nothing unit of work. Transactions ensure data integrity, enable undo/redo, and coordinate with collaboration.
+A transaction groups document operations into one local commit. Use it to insert
+text, apply formatting or change structure with a shared failure boundary.
+Loading a document or writing directly to a DataStore is a different path; those
+calls do not acquire all editor transaction behavior automatically.
 
-## Transaction Lifecycle
+Start with the [complete model example](/packages/model#commit-a-batch-and-handle-a-rejected-edit).
+It creates an editor, inserts text and a bold mark, checks the result, then checks
+rollback after a deliberately invalid target. The package README is the source
+for that example and is compiled against packed public packages.
 
-```mermaid
-sequenceDiagram
-    participant Caller
-    participant TxManager as TransactionManager
-    participant Lock as Global Lock
-    participant DS as DataStore
-    participant History as HistoryManager
-    participant Editor
+## Choose an entry point
 
-    Caller->>TxManager: execute(operations, options)
-    TxManager->>Lock: acquireLock('transaction-execution')
-    TxManager->>DS: begin() — create overlay
-    TxManager->>DS: execute each operation
-    TxManager->>DS: end() — collect ops
-    TxManager->>DS: commit() — apply to base
-    TxManager->>History: push(ops, inverseOps, selection)
-    TxManager->>Lock: releaseLock()
-    TxManager->>Editor: emit('editor:content.change')
-    TxManager->>Editor: call extension onTransaction hooks
-    TxManager-->>Caller: TransactionResult
-```
+| Entry point | Before hooks | Additional wrapper notification |
+| --- | --- | --- |
+| `transaction(editor, operations, options).commit()` | Synchronous `onBeforeTransaction` hooks, sorted by extension priority | None |
+| `editor.executeTransaction({ operations, options })` | Does not run the DSL before hooks | `transactionExecuted` after the manager returns |
+| `TransactionManager.execute(operations, options)` | None | None |
 
-## Key Properties
+All three use the manager's operation execution, commit checks, history handling,
+content event and `onTransaction` hooks. Before hooks are not a universal access
+control boundary. A bare array passed to `editor.executeTransaction` returns
+`Unsupported transaction format.` Use the object form.
 
-| Property | Description |
-|----------|-------------|
-| **Atomic** | All operations succeed or all are rolled back |
-| **Locked** | Only one transaction runs at a time via global lock |
-| **Overlayed** | Changes are buffered in a COW overlay before commit |
-| **Undoable** | Forward and inverse operations are stored in history |
-| **Observable** | Extensions receive `onTransaction` hooks after commit |
+The DSL accepts builder results and flattens one level of nested arrays. For a
+text insertion, use `insertText(nodeId, pos, text)` or
+`control(nodeId, [insertText(pos, text)])`. The raw payload field is `pos`.
+Operation names, payloads and node IDs must match the active document and schema.
+TypeScript's permissive operation types do not replace runtime checks.
 
-## Creating Transactions
+## Local lifecycle
 
-### Using the Transaction DSL
+1. The DSL runs before hooks, if that entry point is used. Returning `null`
+   cancels without entering the manager. A thrown hook rejects the promise.
+2. The manager acquires the DataStore lock and creates an overlay. It snapshots
+   the selection after acquiring the lock.
+3. Operations execute in order against the overlay. Later operations can read
+   earlier writes. The manager collects operation results and available inverses.
+4. The manager resolves the proposed selection and ends the overlay write phase.
+   Ordinary edits validate the transaction scope against the active schema.
+5. The DataStore commits the overlay. Before this point, refusal, an unknown
+   operation or an exception causes owned overlay writes to roll back.
+6. After commit, the manager handles history, removes dangling selection targets,
+   emits `editor:content.change`, calls extension `onTransaction` hooks and applies
+   the final selection. Errors in these follow-up steps do not undo the commit.
+7. Cleanup releases the lock. The caller receives the result. The editor wrapper
+   then emits its additional `transactionExecuted` event.
 
-The most common way to create transactions:
+DataStore operation observers run during commit, before these manager follow-up
+steps. Content listeners can read the committed document but must not assume
+`editor.selection` already equals the intended final selection. The content
+event's `transaction.selectionAfter` carries that proposed selection.
 
-```typescript
-import { transaction, control, insertText, toggleMark } from '@barocss/model';
+## Read the outcome before retrying
 
-const result = await transaction(editor, [
-  ...control('text-1', [
-    insertText({ text: 'Hello', offset: 0 }),
-    toggleMark('bold', [0, 5])
-  ])
-]).commit();
+| Result | State | Action |
+| --- | --- | --- |
+| `success: false`, `committed: false` | No local commit by this transaction | Show `errors`; preserve user input and correct the cause |
+| `success: true`, `committed: true`, no follow-up errors | Local document committed | Continue; track saving separately |
+| Success with `postCommitErrors` | Local document committed, but a later step failed | Report the failing stage; do not repeat the edit |
+| Rejected promise | For example, a thrown DSL before hook | Catch at the caller boundary; investigate the failing integration |
 
-if (!result.success) {
-  console.error('Transaction failed:', result.errors);
-}
-```
+The public `committed` field is optional for compatibility with external result
+producers. Built-in results supply it. `errors` contains pre-commit failures;
+`postCommitErrors` contains collected failures after commit. A history failure can
+leave a committed edit without its expected history entry. A notification error
+can leave a view stale. Neither condition authorizes re-inserting the same text.
 
-### Using executeTransaction
+Optional result fields include `transactionId`, executed `operations`,
+`selectionBefore`, `selectionAfter` and `data`. An executed-operation list in a
+failed result is diagnostic; it does not prove any operation committed. Do not
+use `transactionId` as a server idempotency token.
 
-For programmatic use within extensions:
+## Atomicity has a boundary
 
-```typescript
-const result = await editor.executeTransaction([
-  { type: 'insertText', payload: { nodeId: 'text-1', text: 'Hello', offset: 0 } },
-  { type: 'toggleMark', payload: { nodeId: 'text-1', markType: 'bold', range: [0, 5] } }
-]);
-```
+Rollback protects changes made in the owned DataStore overlay. It does not undo
+network requests, file writes or arbitrary state changes in callbacks. An
+operation must not assume that an external side effect will roll back with its
+document changes.
 
-## Copy-on-Write Overlay
+The lock serializes transactions on that DataStore. It is not a cross-tab,
+cross-editor or server lock. Reads through the store can see pending overlay
+writes, so this is not a guarantee that no observer can see intermediate values.
+Committed operation publication and read isolation are different contracts.
 
-The DataStore uses a **Copy-on-Write (COW) overlay** during transactions. This means the base data is never modified until `commit()`:
+Do not await a nested transaction inside an operation that already holds the
+same lock. Schedule follow-up document work after the current transaction.
+Keep lifecycle hooks synchronous. Their returned promises are not awaited;
+asynchronous errors need their own handler.
 
-```mermaid
-flowchart LR
-    subgraph base["Base Store — immutable during tx"]
-        N1["node A — original"]
-        N2["node B — original"]
-    end
+## History and selection options
 
-    subgraph overlay["Overlay — writes go here"]
-        N1mod["node A — modified copy"]
-        N3["node C — new"]
-    end
+See the [canonical options table](/packages/model#options) for all four public
+options. Important distinctions:
 
-    Read["read(A)"] --> overlay
-    overlay -->|"found"| N1mod
-    Read2["read(B)"] --> overlay
-    overlay -->|"not found"| base
-    base --> N2
+- `applySelectionToView: false` skips the final editor selection update as well as
+  its view synchronization. It does not stop cleanup of references to deleted nodes.
+- `preserveSelectionInHistory: false` omits selection snapshots; it does not omit
+  the edit itself.
+- `recordInHistory: false` is suitable only when the integration can maintain its
+  derived state without a user undo entry.
+- `appendToPreviousEntry: true` requests attachment to the previous applied entry.
+  If there is no suitable entry, it records nothing instead of creating a new one.
 
-    Commit["commit()"] -->|"merge overlay → base"| base
-    Rollback["rollback()"] -->|"discard overlay"| overlay
-```
+There is no `selection` transaction option. Establish the editor selection or use
+an explicit `setSelection` operation. Individual operations may suggest a caret;
+the manager also has a newly created block fallback. Always inspect the result
+and test the next user action for structural operations.
 
-**Benefits:**
-- Reads during a transaction see the latest writes
-- If the transaction fails, rollback is instant (just discard the overlay)
-- No partial state is ever visible to other parts of the system
+Undo/redo uses its own wrapper around transaction replay. Current main's failed
+replay recovery is tracked in [#350](https://github.com/barocss/barocss-editor/issues/350).
+This guide does not claim that its pending fix is already available.
 
-## Global Lock
+## Custom operations and aliases
 
-Only one transaction can execute at a time. The `DataStore.acquireLock()` system ensures serialized access:
+Prefer a registered operation with a defined result and inverse when an edit
+must participate in undo/redo. The public `op(callback)` helper runs a callback,
+but its successful result is not collected as an undoable operation. Supplying an
+`inverse` there does not establish a working history contract.
 
-```typescript
-// Internally, TransactionManager does:
-const lockId = await dataStore.acquireLock('transaction-execution');
-try {
-  // ... execute operations ...
-} finally {
-  dataStore.releaseLock(lockId);
-}
-```
+Some creation operations establish aliases such as `$last`. Use only aliases
+provided by the operation you called. Their lifetime is the transaction overlay;
+they are not persistent node IDs. Do not store them for later edits or invent an
+alias based on an old example. Use the actual resulting document IDs for later
+transactions.
 
-If another transaction is already running, `acquireLock` queues the request and waits.
+## Troubleshooting
 
-## TransactionResult
+| Symptom | Check |
+| --- | --- |
+| Unsupported transaction format | Pass `{ operations, options }` to the editor method |
+| Unknown operation | Use a builder exported by the installed model package; check custom registration |
+| Node not found | Resolve the target in the current document; do not reuse IDs from another session |
+| Schema rejection | Check the final structure and allowed marks; do not disable validation to hide it |
+| Edit committed but view or undo is wrong | Inspect `postCommitErrors`; preserve the document and repair that integration |
+| Before hook not called | Check which entry point you used; the editor wrapper is not the DSL |
+| Commit succeeded but reload lost the edit | Inspect the host's persistence flow; local success is not a save acknowledgement |
 
-Every transaction returns a result:
+## Verification scope
 
-```typescript
-interface TransactionResult {
-  success: boolean;
-  errors: string[];
-  transactionId?: string;
-  operations?: TransactionOperation[];
-  selectionBefore?: ModelSelection | null;
-  selectionAfter?: ModelSelection | null;
-}
-```
+Reviewed source: `895f0cf20582ccfe5aa0d797121740befa825365`, including model 1.0.3.
+The examples use archives built from that source. This does not assert that an
+npm archive with the same version has identical contents, or that cloud storage
+and collaboration are ready. See the
+[source and validation audit](https://github.com/barocss/barocss-editor/blob/codex/353-transaction-docs/docs/specs/transaction-documentation-audit.md).
 
-## Error Handling and Rollback
-
-If any operation fails, the overlay is rolled back and no changes are applied:
-
-```mermaid
-flowchart TD
-    Begin["begin() — overlay created"] --> Op1["Operation 1 ✓"]
-    Op1 --> Op2["Operation 2 ✓"]
-    Op2 --> Op3["Operation 3 ✗ error"]
-    Op3 --> Rollback["rollback() — discard overlay"]
-    Rollback --> Result["TransactionResult: success=false"]
-```
-
-```typescript
-try {
-  // operations execute in overlay...
-} catch (error) {
-  dataStore.rollback();  // discard overlay
-  return { success: false, errors: [error.message] };
-}
-```
-
-## Transaction Options
-
-```typescript
-interface TransactionOptions {
-  applySelectionToView?: boolean;      // sync selection to DOM (default: true)
-  preserveSelectionInHistory?: boolean; // store selection in history entry (default: true)
-}
-```
-
-- **`applySelectionToView: false`** — useful for remote sync or programmatic changes where you don't want to move the user's cursor
-- **`preserveSelectionInHistory: false`** — for operations where selection restoration doesn't make sense
-
-## Alias System
-
-During a transaction, operations can create temporary aliases for newly created nodes. This is useful when a later operation needs to reference a node whose SID is generated at execution time:
-
-```typescript
-// The insertParagraph operation creates a new node with a generated SID
-// and stores it as an alias: dataStore.setAlias('$newBlock', generatedSid)
-// The next operation can reference '$newBlock'
-const result = await transaction(editor, [
-  insertParagraph({ after: 'p1' }),
-  // internally references '$newBlock' alias
-]).commit();
-```
-
-Aliases are **overlay-scoped** — they exist only within the transaction and are cleared after commit or rollback.
-
-## Extension Hooks
-
-Extensions can intercept transactions before they are committed:
-
-```typescript
-class MyExtension implements Extension {
-  onBeforeTransaction(editor: Editor, tx: Transaction): Transaction | null {
-    // Return null to cancel
-    // Return modified transaction to change operations
-    // Return original to pass through
-    return tx;
-  }
-
-  onTransaction(editor: Editor, tx: Transaction): void {
-    // Called after commit (notification only)
-  }
-}
-```
-
-See [Before Hooks Use Cases](../guides/before-hooks-use-cases) for detailed patterns.
-
-## Next Steps
-
-- Learn about [History](./history) — Undo/redo powered by transactions
-- Learn about [Editor Core](./editor-core) — Command system that creates transactions
-- See [Custom Operations](../guides/custom-operations) — Defining your own operations
-- See [Architecture: DataStore](../architecture/datastore) — Overlay/COW implementation details
+- [Model public API](/packages/model)
+- [Selection](./selection)
+- [History](./history)
+- [Editor core](./editor-core)
