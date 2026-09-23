@@ -25,7 +25,7 @@ Start with the [complete React mounting example](/packages/office-note#usage). O
 
 The [feature inventory](/packages/office-note#implemented-feature-surfaces) covers writing blocks, formatting, tables, databases, prose columns, math, media, and page references. It also separates ordinary tables from Note databases and identifies host-supplied integrations.
 
-That inventory describes code paths. It does not certify every browser interaction or claim complete Notion compatibility. In particular, menu/keyboard, heading insertion, and non-text selection regressions are tracked in [#278](https://github.com/barocss/barocss-editor/issues/278), [#279](https://github.com/barocss/barocss-editor/issues/279), [#280](https://github.com/barocss/barocss-editor/issues/280), [#281](https://github.com/barocss/barocss-editor/issues/281), and the [Note scenario work](https://github.com/barocss/barocss-editor/issues/282). An open fix PR is not part of this reviewed main baseline.
+That inventory describes code paths. It does not certify every browser interaction or claim complete Notion compatibility. As of 2026-09-23, the insert-menu pointer issue [#279](https://github.com/barocss/barocss-editor/issues/279) and non-text selection issue [#281](https://github.com/barocss/barocss-editor/issues/281) remain open. Keyboard scrolling [#278](https://github.com/barocss/barocss-editor/issues/278), heading insertion [#280](https://github.com/barocss/barocss-editor/issues/280), and scenario coverage [#282](https://github.com/barocss/barocss-editor/issues/282) are closed issues; their status alone does not certify the current product UI. Open fix PRs are outside the reviewed source baseline.
 
 ## Define save before adding autosave
 

@@ -3,7 +3,7 @@
 이 문서는 **어떤 규칙을 어디에 등록하고, 문서가 언제 바뀌는지** 설명한다.
 세부 계약은 [Schema 편집 정책과 문서 조각](specs/schema-editing-policy.md)을 참고한다.
 
-기준: 정책 기반은 [PR #270](https://github.com/barocss/barocss-editor/pull/270)으로 main에 반영됐다. 실제 clipboard 연결과 아래 확장된 범위는 #264 구현을 기준으로 설명한다. 패키지 배포 여부와 저장소 구현 상태는 별개다.
+기준: 정책 기반은 [PR #270](https://github.com/barocss/barocss-editor/pull/270)으로 main에 반영됐다. clipboard는 #284, DND는 #265 구현을 기준으로 설명한다. [DND 흐름과 제품 연결](specs/fragment-drag-and-drop.md)을 함께 참고한다. 패키지 배포 여부와 저장소 구현 상태는 별개다.
 
 ## 1. 먼저 볼 전체 흐름
 
@@ -46,14 +46,14 @@ flowchart LR
     Adapter --> Paste
     Paste --> New[정책 / 계획 / transaction / history]
     API[직접 FragmentEditor 호출] --> New
-    Drop[현재 drop 이벤트] -.->|실제 위치와 move 의도 연결은 265| New
+    Drop[실제 drop 위치와 로컬 drag 세션] --> New
 ```
 
 | 상태 | 범위 |
 | --- | --- |
 | #266·#270 main 반영 | transaction 복구, editor별 정책, 조각 계획과 적용 |
 | #264 구현 | 실제 clipboard 전송, 여러 text run·형제 문단 범위, 텍스트/HTML 변환, undo/redo |
-| #265 남음 | 실제 drop 위치, 내부 drag 출처, 복사/이동, 원본 제거에 따른 위치 보정 |
+| #265 구현 | 실제 drop 위치, 내부 drag 출처, 복사/이동, 원본 제거에 따른 위치 보정 |
 | #271–#273 후속 | Enter·Backspace·범위 삭제, 구조 변환, 템플릿·AI 결과 적용 |
 
 직접 transaction으로 호출하는 구형 `paste(INode[], range)`는 새 정책을 사용하지 않는다. 일반 schema-backed clipboard command는 새 경로를 사용한다. 표 셀 범위·캔버스·파일 업로드의 전용 경로는 이 구현 범위에 포함하지 않는다. 자세한 전송과 fallback 계약은 [clipboard 명세](../packages/extensions/docs/copy-paste-cut-spec.md)를 참고한다.
@@ -164,9 +164,9 @@ export const articleEditingPolicy = defineEditingPolicy({
 
 자식 삽입에 기본 감싸기가 필요하지만 후보가 여러 개이면 규칙 판정 전에 defaultBlock이 필요하다. `preserve`로 열린 `section(body)`를 보존해도 최종 schema가 `caption body+`를 요구하면 거절된다. 이 API가 빠진 caption을 임의 생성하지 않는다.
 
-이 DSL은 열린 끝의 inline 연결과 구조 보존을 제어한다. text 대상은 같은 부모의 여러 런과 형제 문단 사이의 범위를 지원한다. 양 끝의 전략이 다르면 거절한다. 다른 부모 경로 사이의 inline 교체는 아래 `rangeReplacement` 정책으로 별도 허용한다. 목록 번호/시작값 재계산, 임의 트리 결합, move는 지원하지 않는다. 바깥 열린 조상은 선택 문맥으로 취급하며, 격리·속성 손실·참조 검사를 유지한다. 바깥 조상별 사용자 규칙은 아직 제공하지 않는다.
+이 DSL은 열린 끝의 inline 연결과 구조 보존을 제어한다. text 대상은 같은 부모의 여러 런과 형제 문단 사이의 범위를 지원한다. 양 끝의 전략이 다르면 거절한다. 다른 부모 경로 사이의 inline 교체는 아래 `rangeReplacement` 정책으로 별도 허용한다. 목록 번호/시작값 재계산, 임의 트리 결합은 지원하지 않는다. move의 지원 범위는 DND 계약을 따른다. 바깥 열린 조상은 선택 문맥으로 취급하며, 격리·속성 손실·참조 검사를 유지한다. 바깥 조상별 사용자 규칙은 아직 제공하지 않는다.
 
-기존 `defineDropBehavior`, 전역 registry, `getDropBehavior`, `DropBehavior` 관련 타입, 스키마 `dropBehaviorRules`는 #274에서 제거했다. 호환 API는 남기지 않는다. 새 정책은 editor별 값이며 copy/move 의도와 연결/보존 전략을 분리한다. 기존 동작 이름을 새 규칙으로 자동 변환하지 않는다. 실제 DND 의도와 위치를 planner에 연결하는 작업은 #265에 남아 있다.
+기존 `defineDropBehavior`, 전역 registry, `getDropBehavior`, `DropBehavior` 관련 타입, 스키마 `dropBehaviorRules`는 #274에서 제거했다. 호환 API는 남기지 않는다. 새 정책은 editor별 값이며 copy/move 의도와 연결/보존 전략을 분리한다. 기존 동작 이름을 새 규칙으로 자동 변환하지 않는다. 실제 DND 의도와 위치는 #265의 로컬 세션과 view 연결을 통해 planner로 전달한다.
 
 성공한 계획에는 `plan.trace`, 거절에는 `decision.trace`가 있다. 각 항목은 ruleIds, sourceType, targetType, boundary, targetKind, effect, reason을 가진다. 기본 규칙의 ID는 `builtin:`으로 시작한다. 호환성이나 격리 검사에서 먼저 거절하면 trace가 비어 있을 수 있다. trace는 정책 선택 기록이며, 최종 유효성은 decision.ok와 reason으로 확인한다.
 
@@ -365,7 +365,7 @@ adapter 작성자는 다음을 결정한다.
 3. 바뀐 타입/속성에 맞춘 references 목록. 대상 정책의 선언과 일치해야 한다.
 4. 제거하거나 바꾼 의미를 losses에 기록하는 규칙. 처리하지 못하는 입력은 예외로 거절한다.
 
-convert는 문서나 선택을 수정하지 않는 순수 함수여야 한다. HTML 문자열을 이 callback에 바로 넣는 구조는 아니다. HTML/text 해석과 실제 clipboard 전달은 #264의 연결 작업이다.
+convert는 문서나 선택을 수정하지 않는 순수 함수여야 한다. HTML 문자열을 이 callback에 바로 넣는 구조는 아니다. HTML/text 해석과 실제 clipboard 전달은 #284의 연결부에서 수행한다.
 
 ## 7. schema를 다시 정의할 때
 

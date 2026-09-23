@@ -78,7 +78,7 @@ The following inventory is based on source commit `558714a8` (2026-09-20). It de
 | Surface | Included in the Note kit/view | Host responsibility or limit |
 | --- | --- | --- |
 | Writing | Paragraphs, headings, lists, tasks, quotes, callouts, toggles, code, inline formatting, and paragraph alignment | Use the matching Note schema, kit, and renderers together |
-| Insertion and selection | Slash menu, block menu, contextual formatting, block actions | Keyboard/menu regressions remain tracked in #278–#282; a visible control is not proof of every interaction |
+| Insertion and selection | Slash menu, block menu, contextual formatting, block actions | #279 (insert-menu pointer path) and #281 (non-text node selection) remain open as of 2026-09-23; a visible control is not proof of every interaction |
 | Tables | Table commands, cell tools, headers, colors, sizing, and cell-range operations | A document table is distinct from a Note database |
 | Databases | Property editing, item bodies, views, relations, formulas, rollups, and range operations | These operate on document data; they do not provision a server database or permissions |
 | Writing columns | Two, three, and four columns, resizing, block movement, and flattening | A prose layout, not Word page columns or a Slides canvas |
@@ -217,6 +217,15 @@ export function exchangeNoteMarkdown() {
 ```
 
 Expected: `{ extension: 'md', sameBody: true }` for this supported subset. Interchange imports derive a title from the filename; they do not preserve native page identity or prove a lossless conversion for every Note document. Show export errors and offer the native format instead of silently dropping content.
+## Customization boundary
+
+`openNoteTree(tree, options)` and `openNote(store, nodeId, options)` are the convenience path. Their options are `session`, `onChange`, and `after` (change-delivery delay, 350 ms by default). They construct the standard Note schema and kit internally. They do not accept `extensions`, `kit`, or a custom schema.
+
+For lower-level composition, use `createNoteEditor({ dataStore, schema, extensions, kit, keybindings })`. Supply a schema and store; keep the Note schema vocabulary when using Note commands and renderers. `extensions` appends behavior to the default kit. `kit` replaces that kit. Additional keybindings are registered after the Note bindings.
+
+With the lower-level factory, the host must load the document, connect change delivery, and destroy the editor. It does not receive the convenience session's `flush()` or `close()` wrapper. `NoteEditor` is the React surface; creating the model editor alone does not mount it.
+
+For a new block type, provide its schema, commands, rendering, and controls. A new renderer alone is not a complete editing feature. See the [extension guide](https://editor.barocss.com/docs/guides/editor-extensibility).
 
 ## Documentation
 

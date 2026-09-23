@@ -8,7 +8,7 @@ import type {
 } from 'react';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { ReactRenderer } from '@barocss/renderer-react';
-import { stripFiller } from '@barocss/shared';
+import { attachFragmentDrag, stripFiller } from '@barocss/shared';
 import { useEditorViewContext } from './EditorViewContext';
 import type { EditorViewContentLayerProps } from './types';
 
@@ -31,6 +31,19 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
 
   const [documentSnapshot, setDocumentSnapshot] = useState<unknown>(() => editor.getDocumentProxy?.() ?? null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const fragmentDragRef = useRef<ReturnType<typeof attachFragmentDrag> | null>(null);
+  useEffect(() => {
+    const root = contentRef.current; if (!root) return;
+    const drag = attachFragmentDrag(root, {
+      command: (name, payload) => editor.executeCommand(name, payload), selection: () => editor.selection,
+      fromSelection: value => { const selected = selectionHandler.convertDOMSelectionToModel(value); return selected?.type === 'none' ? null : selected; },
+      fromRange: value => selectionHandler.convertStaticRangeToModel(value), node: id => editor.dataStore.getNode(id),
+      isBlock: id => editor.dataStore.getActiveSchema()?.getNodeType(editor.dataStore.getNode(id)?.stype ?? '')?.group === 'block',
+      composing: () => viewStateRef.current.isComposing,
+    });
+    fragmentDragRef.current = drag;
+    return () => { drag.destroy(); fragmentDragRef.current = null; };
+  }, [editor, selectionHandler, viewStateRef]);
   const modelRenderGuardFrameRef = useRef<number | null>(null);
   const pendingModelSelectionRef = useRef<unknown>(null);
   const selectionRestoreFrameRef = useRef<number | null>(null);
@@ -253,7 +266,7 @@ export function EditorViewContentLayer({ options = {} }: EditorViewContentLayerP
 
   const handleDrop: DragEventHandler<HTMLDivElement> = (event) => {
     const dropEvent = event.nativeEvent as DragEvent;
-    inputHandler.handleDrop(dropEvent);
+    fragmentDragRef.current?.drop(dropEvent);
   };
 
   // beforeinput MUST be a native listener, not React's onBeforeInput.
