@@ -22,7 +22,9 @@ export async function withTenant<T>(pool: Pool, tenantId: string,
       AND NOT rolsuper AND NOT rolbypassrls
       AND NOT pg_has_role(current_user, 'wonffice_owner', 'MEMBER')
       AND NOT pg_has_role(current_user, 'wonffice_backup', 'MEMBER') AS safe,
-      NULLIF(current_setting('wonffice.tenant_id', true), '') IS NULL AS context_empty
+      NULLIF(current_setting('wonffice.tenant_id', true), '') IS NULL
+        AND NULLIF(current_setting('wonffice.oidc_issuer', true), '') IS NULL
+        AND NULLIF(current_setting('wonffice.oidc_subject', true), '') IS NULL AS context_empty
       FROM pg_roles WHERE rolname = current_user`);
     if (!role.rows[0]?.safe) throw new Error('invalid_application_role');
     // Reject role/database/connection defaults and stale context from other pool users.
@@ -32,6 +34,8 @@ export async function withTenant<T>(pool: Pool, tenantId: string,
     await client.query('COMMIT');
     // RESET can reactivate a configured default. Always leave an explicit empty context.
     await client.query("SELECT set_config('wonffice.tenant_id', '', false)");
+    await client.query("SELECT set_config('wonffice.oidc_issuer', '', false)");
+    await client.query("SELECT set_config('wonffice.oidc_subject', '', false)");
     healthy = true;
     return result;
   } catch (error) {

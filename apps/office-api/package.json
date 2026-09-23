@@ -4,16 +4,22 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @barocss/office-service build && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "dev": "pnpm build && pnpm start",
     "test": "pnpm build && vitest run",
     "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "fastify": "5.12.5"
+    "@barocss/office-service": "workspace:^",
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
+    "pg": "8.23.0"
   },
   "files": [
     "dist"
-  ]
+  ],
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
 }

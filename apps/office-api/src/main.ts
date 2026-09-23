@@ -1,9 +1,20 @@
 import { readConfig } from './config.js';
+import { readAuthConfig } from './auth-config.js';
+import { createOidcVerifier } from './oidc.js';
 import { createApiServer } from './server.js';
+import { MembershipStore } from '@barocss/office-service/membership-store';
+import pg from 'pg';
 
 async function main(): Promise<void> {
   const config = readConfig(process.env);
-  const app = createApiServer();
+  const authConfig = readAuthConfig(process.env);
+  const pool = authConfig ? new pg.Pool({ connectionString: authConfig.databaseUrl,
+    max: 10, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000 }) : null;
+  const app = createApiServer(authConfig && pool ? {
+    verifier: createOidcVerifier(authConfig),
+    memberships: new MembershipStore(pool),
+  } : undefined);
+  if (pool) app.addHook('onClose', async () => { await pool.end(); });
   let stopping = false;
   const stop = async () => {
     if (stopping) return;

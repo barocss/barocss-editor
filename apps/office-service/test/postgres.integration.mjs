@@ -7,6 +7,8 @@ import pg from 'pg';
 import { migrate } from '../dist/migrate.js';
 import { migrations } from '../dist/migrations.js';
 import { TenantStore, withTenant } from '../dist/tenant-store.js';
+import { MembershipStore, TenantAccessDeniedError } from '../dist/membership-store.js';
+import { applyMembershipChange } from '../dist/membership-admin.js';
 
 // Always create our own cluster. No DATABASE_URL or existing server is accepted.
 const bin = process.env.PG_BIN ?? execFileSync('pg_config', ['--bindir'], { encoding: 'utf8' }).trim();
@@ -44,15 +46,15 @@ try {
   const secondOwner = await connect('wonffice_owner'); clients.push(secondOwner);
   await check('concurrent migration applies exactly once; re-run is empty', async () => {
     const result = await Promise.all([migrate(owner), migrate(secondOwner)]);
-    assert.deepEqual(result.flat(), ['0001_tenant_workspaces']);
+    assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships', '0003_member_tenant_names']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('failed DDL and migration history roll back together', async () => {
     await assert.rejects(migrate(owner, [...migrations, {
-      id: '0002_failure', sql: 'CREATE TABLE wonffice.must_rollback (id integer); SELECT 1 / 0;',
+      id: '0004_failure', sql: 'CREATE TABLE wonffice.must_rollback (id integer); SELECT 1 / 0;',
     }]));
     assert.equal((await owner.query("SELECT to_regclass('wonffice.must_rollback') AS name")).rows[0].name, null);
-    assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice_meta.migrations')).rows[0].count, 1);
+    assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice_meta.migrations')).rows[0].count, 3);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('changed or unknown migration history is rejected', async () => {
@@ -75,8 +77,15 @@ try {
   });
   const alpha = randomUUID(), beta = randomUUID();
   await owner.query('INSERT INTO wonffice.tenants (id, name) VALUES ($1, $2), ($3, $4)', [alpha, 'Alpha', beta, 'Beta']);
+  const alice = randomUUID(), bob = randomUUID();
+  const issuer = 'http://127.0.0.1:18180/realms/wonffice';
+  await owner.query(`INSERT INTO wonffice.identities (id, issuer, subject)
+    VALUES ($1, $2, 'alice'), ($3, $2, 'bob')`, [alice, issuer, bob]);
+  await owner.query(`INSERT INTO wonffice.tenant_memberships (tenant_id, identity_id, role)
+    VALUES ($1, $2, 'editor'), ($3, $4, 'viewer')`, [alpha, alice, beta, bob]);
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 1 }); pools.push(pool);
   const store = new TenantStore(pool);
+  const memberships = new MembershipStore(pool);
   const a = await store.createWorkspace(alpha, 'Alpha workspace');
   const b = await store.createWorkspace(beta, 'Beta workspace');
   await check('actual app role is not owner, superuser, or BYPASSRLS', async () => {
@@ -92,8 +101,87 @@ try {
   });
   await check('no context reads nothing and cannot insert', async () => {
     assert.equal((await pool.query('SELECT id FROM wonffice.workspaces')).rowCount, 0);
+    assert.equal((await pool.query('SELECT id FROM wonffice.identities')).rowCount, 0);
+    assert.equal((await pool.query('SELECT tenant_id FROM wonffice.tenant_memberships')).rowCount, 0);
+    assert.equal((await pool.query('SELECT id FROM wonffice.tenants')).rowCount, 0);
     await assert.rejects(pool.query('INSERT INTO wonffice.workspaces (tenant_id, id, name) VALUES ($1, $2, $3)',
       [alpha, randomUUID(), 'rejected']), { code: '42501' });
+    await assert.rejects(pool.query(`UPDATE wonffice.tenant_memberships SET role = 'owner'`), { code: '42501' });
+  });
+  await check('identity and current membership authorize only their tenant', async () => {
+    assert.deepEqual(await memberships.getTenantAccess({ issuer, subject: 'alice' }, alpha),
+      { tenantId: alpha, role: 'editor' });
+    assert.deepEqual(await memberships.getTenantAccess({ issuer, subject: 'bob' }, beta),
+      { tenantId: beta, role: 'viewer' });
+    for (const principal of [
+      { issuer, subject: 'alice' },
+      { issuer: 'https://wrong.example', subject: 'bob' },
+      { issuer, subject: 'unknown' },
+    ]) {
+      await assert.rejects(memberships.getTenantAccess(principal, beta), TenantAccessDeniedError);
+    }
+    assert.equal((await pool.query('SELECT id FROM wonffice.identities')).rowCount, 0);
+  });
+  await check('principal list contains only active tenant names and roles', async () => {
+    assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'alice' }), {
+      tenants: [{ tenantId: alpha, name: 'Alpha', role: 'editor' }], nextCursor: null,
+    });
+    assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'bob' }), {
+      tenants: [{ tenantId: beta, name: 'Beta', role: 'viewer' }], nextCursor: null,
+    });
+    assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'unknown' }), {
+      tenants: [], nextCursor: null,
+    });
+    assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'alice' }, alpha), {
+      tenants: [], nextCursor: null,
+    });
+    assert.equal((await pool.query('SELECT id FROM wonffice.tenants')).rowCount, 0);
+  });
+  await check('membership revocation denies the next operation and does not run its callback', async () => {
+    await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at = now() WHERE tenant_id = $1', [alpha]);
+    let called = false;
+    await assert.rejects(memberships.withAuthorizedTenant({ issuer, subject: 'alice' }, alpha,
+      async () => { called = true; }), TenantAccessDeniedError);
+    assert.equal(called, false);
+    assert.equal(pool.totalCount, 0);
+    assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'alice' }), {
+      tenants: [], nextCursor: null,
+    });
+    await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at = NULL WHERE tenant_id = $1', [alpha]);
+  });
+  await check('approved first owner and admin changes are audited, idempotent and revocable', async () => {
+    const gamma = randomUUID();
+    const bootstrap = { action: 'bootstrap_owner', tenantId: gamma, tenantName: 'Gamma',
+      issuer, subject: 'alice', approvalRef: 'LOCAL-355-OWNER' };
+    assert.deepEqual(await applyMembershipChange(owner, bootstrap), { applied: true });
+    assert.deepEqual(await applyMembershipChange(owner, bootstrap), { applied: false });
+    await assert.rejects(applyMembershipChange(owner,
+      { ...bootstrap, tenantName: 'Another tenant name' }), /membership_approval_conflict/);
+    assert.deepEqual(await memberships.getTenantAccess({ issuer, subject: 'alice' }, gamma),
+      { tenantId: gamma, role: 'owner' });
+    await assert.rejects(applyMembershipChange(owner, {
+      action: 'grant', tenantId: gamma, issuer, subject: 'alice',
+      role: 'admin', approvalRef: 'LOCAL-355-OWNER-DOWNGRADE',
+    }), /owner_role_immutable/);
+    assert.deepEqual(await memberships.getTenantAccess({ issuer, subject: 'alice' }, gamma),
+      { tenantId: gamma, role: 'owner' });
+    await assert.rejects(applyMembershipChange(owner,
+      { ...bootstrap, approvalRef: 'LOCAL-355-OTHER', subject: 'bob' }), /membership_bootstrap_conflict/);
+    const grant = { action: 'grant', tenantId: gamma, issuer, subject: 'bob',
+      role: 'admin', approvalRef: 'LOCAL-355-ADMIN' };
+    assert.deepEqual(await applyMembershipChange(owner, grant), { applied: true });
+    assert.deepEqual(await applyMembershipChange(owner, grant), { applied: false });
+    assert.deepEqual(await memberships.getTenantAccess({ issuer, subject: 'bob' }, gamma),
+      { tenantId: gamma, role: 'admin' });
+    await assert.rejects(applyMembershipChange(owner,
+      { ...grant, action: 'revoke' }), /membership_approval_conflict/);
+    assert.deepEqual(await applyMembershipChange(owner,
+      { ...grant, action: 'revoke', approvalRef: 'LOCAL-355-REVOKE' }), { applied: true });
+    await assert.rejects(memberships.getTenantAccess({ issuer, subject: 'bob' }, gamma), TenantAccessDeniedError);
+    assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.membership_events
+      WHERE tenant_id = $1`, [gamma])).rows[0].count, 3);
+    await assert.rejects(applyMembershipChange(await connectAndTrack('wonffice_app'), bootstrap),
+      /invalid_membership_admin_role/);
   });
   await check('RLS blocks cross-tenant reads, updates, deletes and inserts', async () => {
     await withTenant(pool, alpha, async client => {
@@ -149,6 +237,19 @@ try {
       }
     }
   });
+  await check('configured identity defaults are rejected before the callback', async () => {
+    for (const key of ['wonffice.oidc_issuer', 'wonffice.oidc_subject']) {
+      const configuredPool = new pg.Pool({ ...config('wonffice_app'), max: 1,
+        options: `-c ${key}=untrusted` });
+      pools.push(configuredPool);
+      let called = false;
+      await assert.rejects(new MembershipStore(configuredPool).withAuthorizedTenant(
+        { issuer, subject: 'alice' }, alpha, async () => { called = true; }),
+      /invalid_tenant_context/);
+      assert.equal(called, false);
+      assert.equal(configuredPool.totalCount, 0);
+    }
+  });
   await check('backup membership is rejected before application work', async () => {
     await admin.query('GRANT wonffice_backup TO wonffice_app');
     try {
@@ -161,12 +262,31 @@ try {
       await admin.query('REVOKE wonffice_backup FROM wonffice_app');
     }
   });
+  await check('tenant list cursor covers more than 50 memberships without duplicates', async () => {
+    const extra = (await owner.query(`INSERT INTO wonffice.tenants (id, name)
+      SELECT gen_random_uuid(), 'List ' || n FROM generate_series(1, 51) AS n RETURNING id`)).rows.map(row => row.id);
+    await owner.query(`INSERT INTO wonffice.tenant_memberships (tenant_id, identity_id, role)
+      SELECT ids.id, $2, 'viewer' FROM unnest($1::uuid[]) AS ids(id)`, [extra, alice]);
+    const first = await memberships.listTenantAccess({ issuer, subject: 'alice' });
+    assert.equal(first.tenants.length, 50);
+    assert.ok(first.nextCursor);
+    const second = await memberships.listTenantAccess({ issuer, subject: 'alice' }, first.nextCursor);
+    assert.equal(second.tenants.length, 3);
+    assert.equal(second.nextCursor, null);
+    assert.equal(new Set([...first.tenants, ...second.tenants].map(row => row.tenantId)).size, 53);
+    assert.ok(first.tenants.every(row => row.name && row.role));
+    assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'bob' }), {
+      tenants: [{ tenantId: beta, name: 'Beta', role: 'viewer' }], nextCursor: null,
+    });
+  });
   const snapshot = async client => {
     const content = {};
-    for (const table of ['tenants', 'workspaces', 'documents']) {
+    for (const table of ['tenants', 'workspaces', 'documents', 'identities', 'membership_events']) {
       // Fixed internal table names; no external identifier is interpolated.
       content[table] = (await client.query(`SELECT * FROM wonffice.${table} ORDER BY id`)).rows;
     }
+    content.tenant_memberships = (await client.query(`SELECT * FROM wonffice.tenant_memberships
+      ORDER BY tenant_id, identity_id`)).rows;
     content.migrations = (await client.query('SELECT * FROM wonffice_meta.migrations ORDER BY id')).rows;
     return createHash('sha256').update(JSON.stringify(content)).digest('hex');
   };
@@ -185,6 +305,9 @@ try {
     const restoredStore = new TenantStore(restoredPool);
     assert.deepEqual((await restoredStore.listWorkspaces(alpha)).map(row => row.id), [a.id]);
     assert.deepEqual((await restoredStore.listWorkspaces(beta)).map(row => row.id), [b.id]);
+    const restoredMemberships = new MembershipStore(restoredPool);
+    assert.deepEqual(await restoredMemberships.getTenantAccess({ issuer, subject: 'alice' }, alpha),
+      { tenantId: alpha, role: 'editor' });
     assert.equal((await restoredPool.query('SELECT id FROM wonffice.workspaces')).rowCount, 0);
     await assert.rejects(withTenant(restoredPool, alpha, client => client.query(`INSERT INTO wonffice.documents
       (tenant_id, id, workspace_id, product) VALUES ($1, $2, $3, 'note')`, [alpha, randomUUID(), b.id])), { code: '23503' });
