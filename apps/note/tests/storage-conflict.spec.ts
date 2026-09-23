@@ -167,6 +167,42 @@ test('복구 목록 읽기 실패 뒤 다시 시도는 목록을 다시 읽고 �
   } finally { await other.close(); }
 });
 
+test('복구 목록의 비동기 IndexedDB 오류도 다시 읽어 복구한다', async ({ page }) => {
+  const other = await pair(page);
+  try {
+    await page.getByLabel('노트 제목').fill('비동기 오류 원본');
+    await expect(page.locator('[data-save-status]')).toHaveText('저장됨');
+    await other.getByLabel('노트 제목').fill('비동기 오류 초안');
+    await expect(other.locator('[data-save-status]')).toHaveText('충돌한 초안 보관됨');
+    const original = await stored(page), draft = (await recoveryRows(page))[0];
+    await other.addInitScript(() => {
+      const getAll = IDBObjectStore.prototype.getAll;
+      let blocked = true, count = 0;
+      (window as any).recoveryReadProbe = { unblock: () => { blocked = false; }, count: () => count };
+      IDBObjectStore.prototype.getAll = function () {
+        const request = getAll.call(this);
+        if (this.transaction.db.name === 'barocss-note-recovery') {
+          count++;
+          if (blocked) this.transaction.abort();
+        }
+        return request;
+      };
+    });
+    await other.reload();
+    const notice = other.locator('.nw-operation-notice').filter({ hasText: '복구 초안 목록을 읽지 못했습니다' });
+    await expect(notice.getByRole('alert')).toBeVisible();
+    await expect(other.locator('[data-save-status]')).toHaveText('확인이 필요합니다');
+    expect(await other.evaluate(() => (window as any).recoveryReadProbe.count())).toBe(1);
+    await other.evaluate(() => (window as any).recoveryReadProbe.unblock());
+    await notice.getByRole('button', { name: '다시 시도' }).click();
+    await expect(other.locator('[data-note-recovery]')).toContainText('비동기 오류 초안');
+    await expect(notice).toHaveCount(0);
+    expect(await other.evaluate(() => (window as any).recoveryReadProbe.count())).toBe(2);
+    expect(await stored(page)).toEqual(original);
+    expect((await recoveryRows(page))[0]).toEqual(draft);
+  } finally { await other.close(); }
+});
+
 test('문서 저장 실패의 다시 시도는 초안 목록과 별개로 저장을 재실행한다', async ({ page }) => {
   const other = await pair(page);
   try {
