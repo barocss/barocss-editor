@@ -1,5 +1,5 @@
 import { ownsEditorSelection } from './context-toolbar';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { watchAnswers, type Editor } from '@barocss/editor-core';
 import type { SlashCommandExtension } from '@barocss/extensions';
 import { useSelectionRect } from './use-selection-rect';
@@ -32,7 +32,8 @@ import { FloatingSurface, MenuAction, MenuActionText, Icon, useRevision } from '
  */
 export function SlashMenu({
   editor,
-  active = true
+  active = true,
+  scope
 }: {
   editor: Editor;
   /**
@@ -43,6 +44,8 @@ export function SlashMenu({
    * nothing.
    */
   active?: boolean;
+  /** Non-editable host around the editor, inside its modal and theme scope. */
+  scope?: RefObject<HTMLElement | null>;
 }) {
 
   /*
@@ -96,7 +99,7 @@ export function SlashMenu({
    * fourteen in the site's bubble toolbar, including the `true` on the scroll listener that is easy
    * to leave out and impossible to notice until a reader scrolls a pane rather than the window.
    */
-  const at = useSelectionRect(editor, active && menu?.open === true);
+  const at = useSelectionRect(editor, active && menu?.open === true, scope);
 
   /**
    * **`/` opens it, and what is typed after narrows it.**
@@ -220,7 +223,9 @@ export function SlashMenu({
   }, [menu?.open, menu?.currentIndex, menu?.query, rows, at?.top, at?.left]);
 
   return (
-    <FloatingSurface open={!!at && rows.length > 0} at={at} variant="menu" aria-label="블록 추가" style={{ width: 320 }}>
+    <FloatingSurface open={!!at && rows.length > 0} at={at} variant="menu" aria-label="블록 추가" style={{ width: 320 }}
+      portalRoot={scope?.current} ownedElements={scope ? [scope] : []}
+      onDismiss={() => { void editor.executeCommand('hideSlashMenu', {}); }}>
       <div ref={itemsHost}>{rows.map((item, index) => (
         <MenuAction
           key={item.id}

@@ -402,7 +402,7 @@ build, it fails, and somebody decides whether to teach the probe or to name the 
 | --- | ---: |
 | `apps/site/src` | **4,227 lines** |
 | components behind `@barocss/office-site/ui` | **5** |
-| browser test declarations (2026-09-19; inventory, not run results) | **316** |
+| browser test declarations (2026-09-20; inventory, not run results) | **319** |
 
 `apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
 five — moved into this package. That is the move `note.md` uses as its gauge, and the 316 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.

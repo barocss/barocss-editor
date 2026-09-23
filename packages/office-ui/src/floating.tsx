@@ -56,7 +56,11 @@ export interface FloatingSurfaceProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'toolbar' | 'panel' | 'menu';
   /** Explicit action menus can take keyboard focus; selection/slash surfaces retain it. */
   focusOnOpen?: boolean;
-  /** A host outside the editable region, inside the desired theme scope. */
+  /**
+   * A host outside the editable region, inside the desired theme scope.
+   * For modal editors, keep it inside the modal too: the default body portal is outside
+   * the modal's pointer and focus boundary. `ownedElements` separately defines dismissal.
+   */
   portalRoot?: HTMLElement | null;
   onDismiss?: (reason: FloatingDismissReason, event: KeyboardEvent | PointerEvent) => void;
   /** Triggers or separately portalled controls that belong to this surface. */

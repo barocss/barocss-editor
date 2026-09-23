@@ -621,3 +621,11 @@ ColorPicker는 색상·색상 알파·테마 색·스포이드를 제공한다. 
 - 표시 형식만 바꾸어도 양자화하거나 실행 취소 기록을 만들지 않는다. 다른 채널과 알파를 유지하며 변경한 채널만 반영한다. 회색·검정에서 색조·채도를 먼저 지정한 값은 현재 입력 세션에서 보존한다.
 - 채널 입력은 공통 NumberField의 확정·취소 동작을 사용한다. HEX 입력과 팝업 포커스 규칙은 유지한다.
 - 변환 근거: [Color.js procedural API](https://colorjs.io/api/modules/index_fn.html).
+
+### 모달 안의 편집 메뉴 — 2026-09-20
+
+- `FloatingSurface.portalRoot`는 편집 가능한 본문 밖에 둔다. 모달 안의 편집 메뉴라면 같은 Dialog·Drawer 안에 둔다. 기본 body 포털은 모달의 입력 범위 밖이다.
+- `ownedElements`는 바깥 클릭과 Escape의 소유 범위다. 포털의 포인터·포커스 접근을 대신 보장하지 않는다.
+- `office-editor-ui`의 `SlashMenu.scope`는 기존 편집 호스트를 전달한다. Note는 비편집 본문 래퍼를 제공한다. 클릭으로 삽입할 때 커서를 유지하고, Escape는 메뉴부터 닫는다.
+- 실제 Site 행과 일반 Note에서 검사한다. 메뉴가 보이는 것과 클릭을 받는 것을 구분한다. 전역 포인터 차단과 z-index 토큰은 유지한다.
+- [연구 근거와 검증 범위](../../docs/specs/office-ui-modal-surfaces.md). 이 변경은 중첩 모달·변형된 포털 호스트 전체의 동작을 보증하지 않는다.
