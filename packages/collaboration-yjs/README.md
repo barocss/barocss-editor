@@ -110,7 +110,7 @@ for host responsibilities and the current support boundary.
 - [Package guide](https://editor.barocss.com/packages/collaboration-yjs)
 - [Choose a package](https://editor.barocss.com/packages)
 - [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/collaboration-yjs)
-- [Detailed architecture reference](https://editor.barocss.com/docs/architecture/collaboration-yjs) (older deep reference; use the package guide for current entry points).
+- [Architecture reference](https://editor.barocss.com/docs/architecture/collaboration-yjs) (short summary; this README remains the source for examples).
 
 ## License
 

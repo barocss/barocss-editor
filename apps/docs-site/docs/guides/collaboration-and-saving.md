@@ -131,16 +131,17 @@ in [#330](https://github.com/barocss/barocss-editor/issues/330); technical alpha
 acceptance remains [#322](https://github.com/barocss/barocss-editor/issues/322).
 Server execution foundation PR #333 is merged, but authentication, database
 storage, backup/restore, and product provider integration are not established by
-that change. The planned product provider choices are Yjs, Automerge, and Yorkie;
-all three product integrations remain incomplete. The existing Liveblocks npm
-package is not an additional confirmed product provider.
+that change. The external alpha direction is Yorkie Cloud. Its integration with
+Note, Word, Slides, and Site is not yet verified. Local Yorkie deployment is
+undecided. Existing Yjs and Liveblocks packages are library adapters, not
+confirmed alternatives for that product release.
 
 Do not overwrite collaborative provider state with an ordinary document snapshot.
 Switching providers requires a verified export/migration process; it is not just
 a configuration change. See the
-[provider responsibility specification](https://github.com/barocss/barocss-editor/blob/895f0cf20582ccfe5aa0d797121740befa825365/docs/specs/wonffice-collaboration-providers.md)
-for the planned boundary. Plans are separate from the verified package behavior
-on this page.
+[release acceptance issue](https://github.com/barocss/barocss-editor/issues/322)
+for the current product decision. Plans are separate from the verified package
+behavior on this page.
 
 Technical Writer maintains these instructions and known limits. Implementation
 owners resolve adapter defects and supply integration evidence. Product Master PM

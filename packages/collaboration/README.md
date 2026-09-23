@@ -108,7 +108,7 @@ for support status, integration checks, and troubleshooting.
 - [Package guide](https://editor.barocss.com/packages/collaboration)
 - [Choose a package](https://editor.barocss.com/packages)
 - [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/collaboration)
-- [Detailed architecture reference](https://editor.barocss.com/docs/architecture/collaboration) (older deep reference; use the package guide for current entry points).
+- [Architecture reference](https://editor.barocss.com/docs/architecture/collaboration) (short summary; this README remains the source for examples).
 
 ## License
 

@@ -129,7 +129,7 @@ See [Collaboration and saving](https://editor.barocss.com/docs/guides/collaborat
 - [Package guide](https://editor.barocss.com/packages/collaboration-liveblocks)
 - [Choose a package](https://editor.barocss.com/packages)
 - [Source and tests](https://github.com/barocss/barocss-editor/tree/main/packages/collaboration-liveblocks)
-- [Detailed architecture reference](https://editor.barocss.com/docs/architecture/collaboration-liveblocks) (older deep reference; use the package guide for current entry points).
+- [Architecture reference](https://editor.barocss.com/docs/architecture/collaboration-liveblocks) (short summary; this README remains the source for examples).
 
 ## License
 
