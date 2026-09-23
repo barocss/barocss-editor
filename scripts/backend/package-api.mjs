@@ -8,10 +8,29 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const app = fileURLToPath(new URL('../../apps/office-api/', import.meta.url));
 const output = `${app}.container`;
 const run = (args, cwd = root) => execFileSync('pnpm', args, { cwd, stdio: 'inherit' });
-const lock = deploymentLock(parse(readFileSync(`${root}pnpm-lock.yaml`, 'utf8')), 'apps/office-api');
+const source = parse(readFileSync(`${root}pnpm-lock.yaml`, 'utf8'));
+if (source.lockfileVersion !== '6.0' || !source.importers?.['apps/office-api']) {
+  throw new Error('Unsupported API lockfile');
+}
+const dependencies = source.importers?.['apps/office-api']?.dependencies ?? {};
+const workspaceDependencies = Object.entries(dependencies)
+  .filter(([, entry]) => entry.version.startsWith('link:')).map(([name]) => name);
+if (workspaceDependencies.some(name => name !== '@barocss/office-service')) {
+  throw new Error('Unsupported API workspace dependency');
+}
 run(['--filter', '@barocss/office-api', 'build']);
 // This path is exclusively generated deployment output, never source or user data.
 rmSync(output, { recursive: true, force: true });
+if (workspaceDependencies.length) {
+  // pnpm deploy resolves the reviewed workspace link into a portable package.
+  // Frozen resolution uses the repository lockfile. pnpm deploy may need
+  // registry metadata even when every package tarball is already in the store.
+  run(['--filter', '@barocss/office-api', 'deploy', '--prod', '--prefer-offline',
+    '--frozen-lockfile', '--ignore-scripts', output]);
+  console.log('Packaged API and office-service from the frozen workspace lock');
+  process.exit(0);
+}
+const lock = deploymentLock(source, 'apps/office-api');
 mkdirSync(output);
 cpSync(`${app}dist`, `${output}/dist`, { recursive: true });
 cpSync(`${app}package.json`, `${output}/package.json`);
