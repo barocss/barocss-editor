@@ -1,0 +1,633 @@
+{
+  "schemaVersion": 1,
+  "repository": "barocss/barocss-editor",
+  "sourceCommit": "b300ea1ac43bd45958a89dea3d2d3548cc48cfda",
+  "evidence": {
+    "runId": 35484224273,
+    "attempt": 2,
+    "jobId": 106008768006,
+    "runUrl": "https://github.com/barocss/barocss-editor/actions/runs/35484224273/attempts/2",
+    "artifactId": 10596258684,
+    "artifactDigest": "sha256:4d8f43969c02001a210c69ed5e87eda6ea5e0b75ba887f939a439850dd026736",
+    "artifactCreatedAt": "2026-09-20T02:45:57Z"
+  },
+  "packages": [
+    {
+      "name": "@barocss/collaboration",
+      "version": "0.1.3",
+      "file": "barocss-collaboration-0.1.3.tgz",
+      "sha256": "aad09cba13507c07eaf6c9e73aa3004c2a2b76a61070b6fc872d7b9d05a95ae8",
+      "integrity": "sha512-stNQZHBS+kKVpqAVXs+uNOkJlLGDqOZxajcZXK9TypchbAIK4WiogqsYiPenheO+AGSbOuGLbOlcAp/veYPCcw==",
+      "tag": "@barocss/collaboration@0.1.3"
+    },
+    {
+      "name": "@barocss/collaboration-liveblocks",
+      "version": "0.1.3",
+      "file": "barocss-collaboration-liveblocks-0.1.3.tgz",
+      "sha256": "4853a2103b30673659fdcbbf712287e5e94336b6c6818f5d792e322144923558",
+      "integrity": "sha512-MekdZp1CdRHtFAswNBCC1DaSMEhPqjq4Sg5+K1EUYghEWgQCRbd6j8pjPFGlwbDHrCCwITK8AbOLthma6PZdDw==",
+      "tag": "@barocss/collaboration-liveblocks@0.1.3"
+    },
+    {
+      "name": "@barocss/collaboration-yjs",
+      "version": "0.1.3",
+      "file": "barocss-collaboration-yjs-0.1.3.tgz",
+      "sha256": "755365c525b9e0f983af355c462be7c5a9deb911daf3b9931cebf86eaaaf6a0a",
+      "integrity": "sha512-U1ZC7l0wO8cG6sLSJoO+WboGf5hHf81HK6TKQSSr7mUIQTvnYjrTljhLJbBL1uKNMuByU9z6q5r3RCT81lk4kw==",
+      "tag": "@barocss/collaboration-yjs@0.1.3"
+    },
+    {
+      "name": "@barocss/conformance",
+      "version": "0.1.2",
+      "file": "barocss-conformance-0.1.2.tgz",
+      "sha256": "ad12cecca43cdc88adb4be6dac9130f144edaf4df7fc71650b6bc20922a0a36f",
+      "integrity": "sha512-U8fWhYoJcS3mMz087RTuRo5cKcAfMdKFSBBhe8y0wCgQ4wy6b9wkxBgsSB0vOUs8v279SCJnKUT8qZSUzw3syg==",
+      "tag": "@barocss/conformance@0.1.2"
+    },
+    {
+      "name": "@barocss/converter",
+      "version": "1.0.3",
+      "file": "barocss-converter-1.0.3.tgz",
+      "sha256": "0b9103bf54b8a3b3e90234195d29443220b37735fc21a651948abe0fe796ea11",
+      "integrity": "sha512-A1/sz94lyqUPhxZiiDNd/neNSuqgjxVcS1x/SMFpPs4EYHzw+cogLEuytTOBPBTdvL29Q3G16qx3jorHKU0YLA==",
+      "tag": "@barocss/converter@1.0.3"
+    },
+    {
+      "name": "@barocss/datastore",
+      "version": "0.1.3",
+      "file": "barocss-datastore-0.1.3.tgz",
+      "sha256": "6644cb4dedad43556b11d0a671fe6159ef3974ddbff7127e8ea602e3c8ed32f4",
+      "integrity": "sha512-2hMq5Sp/208YW4QBcr6iXBei8Xf0axJAbQbkRy6ihHqreEUAK+9P+2qmttve2dWPukpIAbeOvdulkzSMw7VVLQ==",
+      "tag": "@barocss/datastore@0.1.3"
+    },
+    {
+      "name": "@barocss/devtool",
+      "version": "0.1.3",
+      "file": "barocss-devtool-0.1.3.tgz",
+      "sha256": "56081f6f112eb5f137c3f2d44afcead12043dcafb927599320e2de891b82dc4c",
+      "integrity": "sha512-VXEGtDHeYUznms4D9O4MpL2lriBHUwg7a2ApbkVtCUXQ9ZFmmIwgOf7QXqp0rP07d7rQbzWu5ORzDkwkxylBmQ==",
+      "tag": "@barocss/devtool@0.1.3"
+    },
+    {
+      "name": "@barocss/dom-observer",
+      "version": "0.1.1",
+      "file": "barocss-dom-observer-0.1.1.tgz",
+      "sha256": "e70215d8feaf99269a0232962032046683e1a7a70d59b1d342df5fd2c0263a3a",
+      "integrity": "sha512-NZzUD8i3v92tlQq7uHg23rEnyXRUvHNBb0d+zwgxUBa93H4P3P1p1kwBlAkcrxpcnYbEZWoH1TJW6jkBUpt01A==",
+      "tag": "@barocss/dom-observer@0.1.1"
+    },
+    {
+      "name": "@barocss/dsl",
+      "version": "1.1.1",
+      "file": "barocss-dsl-1.1.1.tgz",
+      "sha256": "11c7d7704358898c63c7c852830a5bd6af72323c81dc9a05bbcdd333dc4d6cf4",
+      "integrity": "sha512-pMIJ87nPTSjUpDzeN4pKjIYmO4N2SmiDccFMVF65+01lk0D3v3AbeLQzGuUk8u2f/z3ZDEx0tm1f5vNox5wj0A==",
+      "tag": "@barocss/dsl@1.1.1"
+    },
+    {
+      "name": "@barocss/editor-core",
+      "version": "1.0.3",
+      "file": "barocss-editor-core-1.0.3.tgz",
+      "sha256": "544818207b08aac6f1566f332a3211f6aa811353edc572727e5327c09f244246",
+      "integrity": "sha512-yz48BTHpz+y+oMyue2fElcm2lKkfselI/8E46fcCyGm6n89oC107o5D+68VnUp88YrcIG+wBYr24K8MMyjNs8g==",
+      "tag": "@barocss/editor-core@1.0.3"
+    },
+    {
+      "name": "@barocss/editor-view-dom",
+      "version": "0.1.3",
+      "file": "barocss-editor-view-dom-0.1.3.tgz",
+      "sha256": "4f1e579b17646d0f25e68cd4c05576c4ab7b29d0712382662fdf6a800c0f399c",
+      "integrity": "sha512-nn9E1LoKUdmBhCbb6FMoFDKM6NhFOB7+xF21OhyP0KfcbQiRidge+/hdksgCUzOkaHzIH4K0qNArrEfHBXwgIw==",
+      "tag": "@barocss/editor-view-dom@0.1.3"
+    },
+    {
+      "name": "@barocss/editor-view-react",
+      "version": "0.1.3",
+      "file": "barocss-editor-view-react-0.1.3.tgz",
+      "sha256": "522e00801777b59e7c6e25b3b346b0e87efe82714f725deb70deca86c092af5f",
+      "integrity": "sha512-lg5Pvw3QeQ5EfSi/ktGsyoEJkm2cCNPd97KdX4iwfKaMvNT/hOfyMV2RpgpR91Ty6ZhUPCqmXNfo+PuKjr84iA==",
+      "tag": "@barocss/editor-view-react@0.1.3"
+    },
+    {
+      "name": "@barocss/extensions",
+      "version": "1.0.3",
+      "file": "barocss-extensions-1.0.3.tgz",
+      "sha256": "148b72640536e8fe80b76632e4e50cdc5c2990c670f9655bedc800335599287d",
+      "integrity": "sha512-U8S+mmSU+xyTxAv+HuaRdoKz7JB13/hynplPZO1Xvj0aQB9XM4ziu8+/OrL+J8NfN1StQUegqTyhukTekO8hhQ==",
+      "tag": "@barocss/extensions@1.0.3"
+    },
+    {
+      "name": "@barocss/model",
+      "version": "1.0.3",
+      "file": "barocss-model-1.0.3.tgz",
+      "sha256": "6539612a560e55e5eb78ee01225c91a52952c3ca475828faaeb8252377b39b90",
+      "integrity": "sha512-8r3mboTrLWhOZWF83++Mxl2NFfwL6lQpGNR8Lha9NWvKlhJjNamha5oZcENl6myoCKNVMoFKL8NVinRSG7dazw==",
+      "tag": "@barocss/model@1.0.3"
+    },
+    {
+      "name": "@barocss/office-canvas",
+      "version": "0.1.2",
+      "file": "barocss-office-canvas-0.1.2.tgz",
+      "sha256": "f4b372e65dd2a4523767ecd38cf11adac65b7e74788da338b6c317b422342455",
+      "integrity": "sha512-JMe6ksbR8ufuepZyJffG9Skavio9PWotB9B4J+s9/20YAMY/TRO0JemKSRnj3xdWVdttaYzVbRDTo2+rFQbW7A==",
+      "tag": "@barocss/office-canvas@0.1.2"
+    },
+    {
+      "name": "@barocss/office-controls",
+      "version": "0.1.2",
+      "file": "barocss-office-controls-0.1.2.tgz",
+      "sha256": "6f07c6dc8d3b0fc0269a989fa55c2bedb9de02bef6f2e9b8530e78ed11008db4",
+      "integrity": "sha512-nLr08Ovgf3RPesmGLlTZvYub9gMhhhjs1mgi9C40fjyG66bi3x97EGmoMyutqviCCgH3Er4gZlzD112Q6ECLeg==",
+      "tag": "@barocss/office-controls@0.1.2"
+    },
+    {
+      "name": "@barocss/office-editor-ui",
+      "version": "0.1.2",
+      "file": "barocss-office-editor-ui-0.1.2.tgz",
+      "sha256": "9425a29560f8c5a373a9cd2d9768e15a336d7ce71292e7d70b562abb45c67b95",
+      "integrity": "sha512-HEhWXxEJDahCHD80kcE8lgF76y7Sk5mcsBRoLgH2ojlzEiZhvt7c42X8/flgXaLslr5XozgUQuqQUiiZt5UxjQ==",
+      "tag": "@barocss/office-editor-ui@0.1.2"
+    },
+    {
+      "name": "@barocss/office-icons",
+      "version": "0.1.2",
+      "file": "barocss-office-icons-0.1.2.tgz",
+      "sha256": "b4a59eb881a3da94040a70fc96675d9b24045cc449da52b10ea471e311bb8b50",
+      "integrity": "sha512-yYaTjMUbzU23qcNqB+JnLyEtLtuOJfSnXZ+DXz7X5Ft+wCupZ4vNo34S6sy8PMWC+/yrd0X706zgs5570EMqMA==",
+      "tag": "@barocss/office-icons@0.1.2"
+    },
+    {
+      "name": "@barocss/office-note",
+      "version": "0.1.2",
+      "file": "barocss-office-note-0.1.2.tgz",
+      "sha256": "a19c36b46201156d1bc46a1155b03c49d086e53fdf2df06e467acfb3cd82ea9e",
+      "integrity": "sha512-F4mMo8P7S6YpM2vByhcoPWhUUGs8iZDPZlyfWSLHXC4x32rQO6idLcWsCf13JPcIJc+VeBaK24FMupFhB6Obkg==",
+      "tag": "@barocss/office-note@0.1.2"
+    },
+    {
+      "name": "@barocss/office-site",
+      "version": "0.1.2",
+      "file": "barocss-office-site-0.1.2.tgz",
+      "sha256": "58140cc3a7152af96278395e3ac5ab1d09d1481c5365235bf76187b8f0387032",
+      "integrity": "sha512-AnIZZSApWTRs1njepcLzSj3Vei4h+j2k+6fZ1nOM1TxmVrf8gWsesONFiFtyx/SPW4KcVXhipXJBNqQOw3g3IA==",
+      "tag": "@barocss/office-site@0.1.2"
+    },
+    {
+      "name": "@barocss/office-slides",
+      "version": "0.1.2",
+      "file": "barocss-office-slides-0.1.2.tgz",
+      "sha256": "342d30bf965cf4c77009aefb61c9d477d9bcbf335a0b66c974e85d6077e7163c",
+      "integrity": "sha512-sn2fTbWDu+GGrCglqoWoJR7rUApK4wTauYbHMgN6cWf2DbLczBk6AOObHZxUK/Ht4mMzDIJniG1xeHZGW3alfw==",
+      "tag": "@barocss/office-slides@0.1.2"
+    },
+    {
+      "name": "@barocss/office-text",
+      "version": "0.1.2",
+      "file": "barocss-office-text-0.1.2.tgz",
+      "sha256": "e8f6e4d70420c65a319d4b4b4030400b5fce65e8a945ce0d1b59e2db6bcfac32",
+      "integrity": "sha512-3bAp5E43KBYX/Kf2HcAahBiIB5QrEDRGwR5qOdpq7NDJLlz1/vX418gnCMsvN+z/ofPjdvkJBPYlQan12b7bPw==",
+      "tag": "@barocss/office-text@0.1.2"
+    },
+    {
+      "name": "@barocss/office-ui",
+      "version": "0.1.2",
+      "file": "barocss-office-ui-0.1.2.tgz",
+      "sha256": "0be673658ff95b082b21512daca92ed4fd46a0a2d5d1851cd6f89bf70d2c6517",
+      "integrity": "sha512-22ZmlcY4vgL1oRbs0dweY+9XQ3cFh5Xh6FpDT3Xa9h5X9sLnF9dETcMUBwvbNGR0ckHAe8NEgTxCNggy1O7vQw==",
+      "tag": "@barocss/office-ui@0.1.2"
+    },
+    {
+      "name": "@barocss/office-word",
+      "version": "0.1.2",
+      "file": "barocss-office-word-0.1.2.tgz",
+      "sha256": "44ddd6a74c2ccf6c82d3c6b7dd92324b4baf30a678880e5d73f51d0a194adb17",
+      "integrity": "sha512-xsyC4ovk62Bq3ev2i3MlaMX4i/vd/lfh8UjuH2K4fQ1f8vFatlgVYDWgVxENzlcCZHa+FOI7TNz+FrAQl30k3A==",
+      "tag": "@barocss/office-word@0.1.2"
+    },
+    {
+      "name": "@barocss/office-workspace",
+      "version": "0.1.2",
+      "file": "barocss-office-workspace-0.1.2.tgz",
+      "sha256": "d1f6ca280136e0a822987056b692eafe800e7044469bdf985eadc1447c7efd8a",
+      "integrity": "sha512-lqXzqlByQWwmYavbwhFtXTopnBTmH3aPGD59URJjCBZtKcmdRHjm/o7BLEY+DhcJv8A3RKBcoxoxBx0ndQTXEA==",
+      "tag": "@barocss/office-workspace@0.1.2"
+    },
+    {
+      "name": "@barocss/query-editor",
+      "version": "0.1.2",
+      "file": "barocss-query-editor-0.1.2.tgz",
+      "sha256": "74eafbb4a0b3ee55212f4663e7e8e0d4e4f2d61e86f896e8eb6923ba8d3fca51",
+      "integrity": "sha512-tm25Lt3RHSB6Kju5JQAXJbo+GGbFaBQZZby8PmeXdcRzyfVdMeIFrxrGUk6y8NK+W+i7O+fZfl+vcP+igfqgKg==",
+      "tag": "@barocss/query-editor@0.1.2"
+    },
+    {
+      "name": "@barocss/renderer-dom",
+      "version": "1.0.3",
+      "file": "barocss-renderer-dom-1.0.3.tgz",
+      "sha256": "f5c65d5d3821ec5a6a5b8d02a083d895f8144003134c46cc438d92dd3a5c4212",
+      "integrity": "sha512-1hjoWq9CpwtPkM6u/BIywQa2JW0VARUHNgeaC6VSfIE5ICRIkmV0gm9LOKR75CrveOs4DuYLEK2hwSc30tq9Bg==",
+      "tag": "@barocss/renderer-dom@1.0.3"
+    },
+    {
+      "name": "@barocss/renderer-react",
+      "version": "0.2.1",
+      "file": "barocss-renderer-react-0.2.1.tgz",
+      "sha256": "2bb732cbff4e1143e1ea8b5f25d5bf318c7d2eca99a5d9838252a5c8615fc41c",
+      "integrity": "sha512-iFUe7VGNJRKykQGVgGNdo7DH0JV/QUwF00k8XlMopKE98TPQfEDiNDYkfU5t/Whb1TSfg+dgd98tIyVIODJCjQ==",
+      "tag": "@barocss/renderer-react@0.2.1"
+    },
+    {
+      "name": "@barocss/schema",
+      "version": "1.0.1",
+      "file": "barocss-schema-1.0.1.tgz",
+      "sha256": "a591d9a9c27d356ec8c3d69ed8f52dba09be170155dd26eb6ebf7f19f9a3f5f3",
+      "integrity": "sha512-DF+gv4yL5jpX/QVVxIqVmc4Cn7GoM/u5uRkTbibH733safKh2ApffhNz4DryOi8ECH+tKQ1M7OSy2WH5tJ0QCg==",
+      "tag": "@barocss/schema@1.0.1"
+    },
+    {
+      "name": "@barocss/shared",
+      "version": "1.0.1",
+      "file": "barocss-shared-1.0.1.tgz",
+      "sha256": "5d871486cf4a947ed053676367f8c0426d93518328e2d530a1bf129307a347ba",
+      "integrity": "sha512-3rXiJWvF5S/EhaT7Zte4jOtEbLgfBiZ6zUuU8sdFOPhhVZLv/o7XFQ8wUGNggDqSQpLbwolE8LexpjTdKPRkuQ==",
+      "tag": "@barocss/shared@1.0.1"
+    },
+    {
+      "name": "@barocss/text-analyzer",
+      "version": "0.1.1",
+      "file": "barocss-text-analyzer-0.1.1.tgz",
+      "sha256": "6112567990d1e20548c7c96d283155994153ba9add5400284acc4c00ddda2ab7",
+      "integrity": "sha512-Lhb87Jmbu30Za/QLa3rADLOw2UC4jcRjd4eT09OFGE00mX73C9cKRBMPNKn9PJ1RlGAhhcDH6KkpGU6eILUnTg==",
+      "tag": "@barocss/text-analyzer@0.1.1"
+    }
+  ],
+  "reports": {
+    "manifest": {
+      "sha256": "150d7ad3ea3a48adff0eebe7e8164eff58c8c73e4947e44a6291bfd868f92525",
+      "contents": {
+        "schemaVersion": 1,
+        "sourceCommit": "b300ea1ac43bd45958a89dea3d2d3548cc48cfda",
+        "packages": [
+          {
+            "name": "@barocss/collaboration",
+            "version": "0.1.3",
+            "file": "barocss-collaboration-0.1.3.tgz",
+            "sha256": "aad09cba13507c07eaf6c9e73aa3004c2a2b76a61070b6fc872d7b9d05a95ae8"
+          },
+          {
+            "name": "@barocss/collaboration-liveblocks",
+            "version": "0.1.3",
+            "file": "barocss-collaboration-liveblocks-0.1.3.tgz",
+            "sha256": "4853a2103b30673659fdcbbf712287e5e94336b6c6818f5d792e322144923558"
+          },
+          {
+            "name": "@barocss/collaboration-yjs",
+            "version": "0.1.3",
+            "file": "barocss-collaboration-yjs-0.1.3.tgz",
+            "sha256": "755365c525b9e0f983af355c462be7c5a9deb911daf3b9931cebf86eaaaf6a0a"
+          },
+          {
+            "name": "@barocss/conformance",
+            "version": "0.1.2",
+            "file": "barocss-conformance-0.1.2.tgz",
+            "sha256": "ad12cecca43cdc88adb4be6dac9130f144edaf4df7fc71650b6bc20922a0a36f"
+          },
+          {
+            "name": "@barocss/converter",
+            "version": "1.0.3",
+            "file": "barocss-converter-1.0.3.tgz",
+            "sha256": "0b9103bf54b8a3b3e90234195d29443220b37735fc21a651948abe0fe796ea11"
+          },
+          {
+            "name": "@barocss/datastore",
+            "version": "0.1.3",
+            "file": "barocss-datastore-0.1.3.tgz",
+            "sha256": "6644cb4dedad43556b11d0a671fe6159ef3974ddbff7127e8ea602e3c8ed32f4"
+          },
+          {
+            "name": "@barocss/devtool",
+            "version": "0.1.3",
+            "file": "barocss-devtool-0.1.3.tgz",
+            "sha256": "56081f6f112eb5f137c3f2d44afcead12043dcafb927599320e2de891b82dc4c"
+          },
+          {
+            "name": "@barocss/dom-observer",
+            "version": "0.1.1",
+            "file": "barocss-dom-observer-0.1.1.tgz",
+            "sha256": "e70215d8feaf99269a0232962032046683e1a7a70d59b1d342df5fd2c0263a3a"
+          },
+          {
+            "name": "@barocss/dsl",
+            "version": "1.1.1",
+            "file": "barocss-dsl-1.1.1.tgz",
+            "sha256": "11c7d7704358898c63c7c852830a5bd6af72323c81dc9a05bbcdd333dc4d6cf4"
+          },
+          {
+            "name": "@barocss/editor-core",
+            "version": "1.0.3",
+            "file": "barocss-editor-core-1.0.3.tgz",
+            "sha256": "544818207b08aac6f1566f332a3211f6aa811353edc572727e5327c09f244246"
+          },
+          {
+            "name": "@barocss/editor-view-dom",
+            "version": "0.1.3",
+            "file": "barocss-editor-view-dom-0.1.3.tgz",
+            "sha256": "4f1e579b17646d0f25e68cd4c05576c4ab7b29d0712382662fdf6a800c0f399c"
+          },
+          {
+            "name": "@barocss/editor-view-react",
+            "version": "0.1.3",
+            "file": "barocss-editor-view-react-0.1.3.tgz",
+            "sha256": "522e00801777b59e7c6e25b3b346b0e87efe82714f725deb70deca86c092af5f"
+          },
+          {
+            "name": "@barocss/extensions",
+            "version": "1.0.3",
+            "file": "barocss-extensions-1.0.3.tgz",
+            "sha256": "148b72640536e8fe80b76632e4e50cdc5c2990c670f9655bedc800335599287d"
+          },
+          {
+            "name": "@barocss/model",
+            "version": "1.0.3",
+            "file": "barocss-model-1.0.3.tgz",
+            "sha256": "6539612a560e55e5eb78ee01225c91a52952c3ca475828faaeb8252377b39b90"
+          },
+          {
+            "name": "@barocss/office-canvas",
+            "version": "0.1.2",
+            "file": "barocss-office-canvas-0.1.2.tgz",
+            "sha256": "f4b372e65dd2a4523767ecd38cf11adac65b7e74788da338b6c317b422342455"
+          },
+          {
+            "name": "@barocss/office-controls",
+            "version": "0.1.2",
+            "file": "barocss-office-controls-0.1.2.tgz",
+            "sha256": "6f07c6dc8d3b0fc0269a989fa55c2bedb9de02bef6f2e9b8530e78ed11008db4"
+          },
+          {
+            "name": "@barocss/office-editor-ui",
+            "version": "0.1.2",
+            "file": "barocss-office-editor-ui-0.1.2.tgz",
+            "sha256": "9425a29560f8c5a373a9cd2d9768e15a336d7ce71292e7d70b562abb45c67b95"
+          },
+          {
+            "name": "@barocss/office-icons",
+            "version": "0.1.2",
+            "file": "barocss-office-icons-0.1.2.tgz",
+            "sha256": "b4a59eb881a3da94040a70fc96675d9b24045cc449da52b10ea471e311bb8b50"
+          },
+          {
+            "name": "@barocss/office-note",
+            "version": "0.1.2",
+            "file": "barocss-office-note-0.1.2.tgz",
+            "sha256": "a19c36b46201156d1bc46a1155b03c49d086e53fdf2df06e467acfb3cd82ea9e"
+          },
+          {
+            "name": "@barocss/office-site",
+            "version": "0.1.2",
+            "file": "barocss-office-site-0.1.2.tgz",
+            "sha256": "58140cc3a7152af96278395e3ac5ab1d09d1481c5365235bf76187b8f0387032"
+          },
+          {
+            "name": "@barocss/office-slides",
+            "version": "0.1.2",
+            "file": "barocss-office-slides-0.1.2.tgz",
+            "sha256": "342d30bf965cf4c77009aefb61c9d477d9bcbf335a0b66c974e85d6077e7163c"
+          },
+          {
+            "name": "@barocss/office-text",
+            "version": "0.1.2",
+            "file": "barocss-office-text-0.1.2.tgz",
+            "sha256": "e8f6e4d70420c65a319d4b4b4030400b5fce65e8a945ce0d1b59e2db6bcfac32"
+          },
+          {
+            "name": "@barocss/office-ui",
+            "version": "0.1.2",
+            "file": "barocss-office-ui-0.1.2.tgz",
+            "sha256": "0be673658ff95b082b21512daca92ed4fd46a0a2d5d1851cd6f89bf70d2c6517"
+          },
+          {
+            "name": "@barocss/office-word",
+            "version": "0.1.2",
+            "file": "barocss-office-word-0.1.2.tgz",
+            "sha256": "44ddd6a74c2ccf6c82d3c6b7dd92324b4baf30a678880e5d73f51d0a194adb17"
+          },
+          {
+            "name": "@barocss/office-workspace",
+            "version": "0.1.2",
+            "file": "barocss-office-workspace-0.1.2.tgz",
+            "sha256": "d1f6ca280136e0a822987056b692eafe800e7044469bdf985eadc1447c7efd8a"
+          },
+          {
+            "name": "@barocss/query-editor",
+            "version": "0.1.2",
+            "file": "barocss-query-editor-0.1.2.tgz",
+            "sha256": "74eafbb4a0b3ee55212f4663e7e8e0d4e4f2d61e86f896e8eb6923ba8d3fca51"
+          },
+          {
+            "name": "@barocss/renderer-dom",
+            "version": "1.0.3",
+            "file": "barocss-renderer-dom-1.0.3.tgz",
+            "sha256": "f5c65d5d3821ec5a6a5b8d02a083d895f8144003134c46cc438d92dd3a5c4212"
+          },
+          {
+            "name": "@barocss/renderer-react",
+            "version": "0.2.1",
+            "file": "barocss-renderer-react-0.2.1.tgz",
+            "sha256": "2bb732cbff4e1143e1ea8b5f25d5bf318c7d2eca99a5d9838252a5c8615fc41c"
+          },
+          {
+            "name": "@barocss/schema",
+            "version": "1.0.1",
+            "file": "barocss-schema-1.0.1.tgz",
+            "sha256": "a591d9a9c27d356ec8c3d69ed8f52dba09be170155dd26eb6ebf7f19f9a3f5f3"
+          },
+          {
+            "name": "@barocss/shared",
+            "version": "1.0.1",
+            "file": "barocss-shared-1.0.1.tgz",
+            "sha256": "5d871486cf4a947ed053676367f8c0426d93518328e2d530a1bf129307a347ba"
+          },
+          {
+            "name": "@barocss/text-analyzer",
+            "version": "0.1.1",
+            "file": "barocss-text-analyzer-0.1.1.tgz",
+            "sha256": "6112567990d1e20548c7c96d283155994153ba9add5400284acc4c00ddda2ab7"
+          }
+        ]
+      }
+    },
+    "consumer": {
+      "sha256": "146e0f0d87d6efa9ed70e34c36695c3e3bd266840f84764273343fecec1c67ba",
+      "contents": {
+        "passed": true,
+        "packages": 31,
+        "manifestSha256": "150d7ad3ea3a48adff0eebe7e8164eff58c8c73e4947e44a6291bfd868f92525"
+      }
+    },
+    "publication": {
+      "sha256": "f03f1c4c2c1bbeb73a3522b216124bef64cdec71f74e4e095ed6c8de09e14607",
+      "contents": {
+        "sourceCommit": "b300ea1ac43bd45958a89dea3d2d3548cc48cfda",
+        "status": "published",
+        "completed": [
+          {
+            "name": "@barocss/schema",
+            "version": "1.0.1",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/datastore",
+            "version": "0.1.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/collaboration",
+            "version": "0.1.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/collaboration-liveblocks",
+            "version": "0.1.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/collaboration-yjs",
+            "version": "0.1.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/conformance",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/converter",
+            "version": "1.0.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/shared",
+            "version": "1.0.1",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/model",
+            "version": "1.0.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/editor-core",
+            "version": "1.0.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/devtool",
+            "version": "0.1.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/dom-observer",
+            "version": "0.1.1",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/dsl",
+            "version": "1.1.1",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/renderer-dom",
+            "version": "1.0.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/text-analyzer",
+            "version": "0.1.1",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/editor-view-dom",
+            "version": "0.1.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/renderer-react",
+            "version": "0.2.1",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/editor-view-react",
+            "version": "0.1.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/extensions",
+            "version": "1.0.3",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-canvas",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-controls",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-icons",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-ui",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-editor-ui",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-text",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-note",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-site",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-slides",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-word",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/office-workspace",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          },
+          {
+            "name": "@barocss/query-editor",
+            "version": "0.1.2",
+            "action": "skip-identical"
+          }
+        ]
+      }
+    }
+  }
+}

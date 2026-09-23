@@ -71,6 +71,16 @@ The `/workspace` entry supplies the native file codec used by the local workspac
 
 openNoteTree creates its own store, selection, history, and unique session. close flushes pending onChange delivery and releases the editor. The host must await its own asynchronous storage work. NoteEditor manages its renderer registry.
 
+## Customization boundary
+
+`openNoteTree(tree, options)` and `openNote(store, nodeId, options)` are the convenience path. Their options are `session`, `onChange`, and `after` (change-delivery delay, 350 ms by default). They construct the standard Note schema and kit internally. They do not accept `extensions`, `kit`, or a custom schema.
+
+For lower-level composition, use `createNoteEditor({ dataStore, schema, extensions, kit, keybindings })`. Supply a schema and store; keep the Note schema vocabulary when using Note commands and renderers. `extensions` appends behavior to the default kit. `kit` replaces that kit. Additional keybindings are registered after the Note bindings.
+
+With the lower-level factory, the host must load the document, connect change delivery, and destroy the editor. It does not receive the convenience session's `flush()` or `close()` wrapper. `NoteEditor` is the React surface; creating the model editor alone does not mount it.
+
+For a new block type, provide its schema, commands, rendering, and controls. A new renderer alone is not a complete editing feature. See the [extension guide](https://editor.barocss.com/docs/guides/editor-extensibility).
+
 ## Documentation
 
 - [Package guide](https://editor.barocss.com/packages/office-note)

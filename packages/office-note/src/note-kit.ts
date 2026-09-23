@@ -136,7 +136,7 @@ export function noteSlashItems(): {
     description: one.title,
     icon: one.icon,
     command: one.command,
-    ...(['insertMathBlock', 'insertMathInline', 'insertColumns2', 'insertColumns3', 'insertColumns4'].includes(one.command) ? { payload: { stripSlash: true } } : {}),
+    ...(['insertHeading', 'insertMathBlock', 'insertMathInline', 'insertColumns2', 'insertColumns3', 'insertColumns4'].includes(one.command) ? { payload: { stripSlash: true } } : {}),
     group: 'insert'
   }));
 }

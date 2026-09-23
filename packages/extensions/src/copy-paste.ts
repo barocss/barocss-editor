@@ -12,6 +12,7 @@ import {
   cleanOfficeHTML
 } from '@barocss/converter';
 import type { INode } from '@barocss/datastore';
+import { installFragmentDrag } from './fragment-drag';
 import { standardClipboardFragment, standardClipboardPolicy } from './standard-clipboard';
 
 interface ClipboardLike {
@@ -32,6 +33,7 @@ export class CopyPasteExtension implements Extension {
   priority = 100;
 
   private _htmlConverter: HTMLConverter | null = null;
+  private readonly _dragCleanup = new WeakMap<Editor, () => void>();
 
   onCreate(editor: Editor): void {
     // Initialize HTML/Markdown Converter and register default rules
@@ -42,7 +44,18 @@ export class CopyPasteExtension implements Extension {
     registerNotionHTMLRules();
     registerDefaultMarkdownRules();
 
-    // Whole sibling blocks are copied without manufacturing a text range through atoms.
+    this._dragCleanup.set(editor, installFragmentDrag(editor, {
+      editing: () => this._editing(editor),
+      copyInput: (fragment, target) => {
+        if (target.kind !== 'text') return undefined;
+        let ancestor = editor.dataStore.getNode(target.nodeId);
+        while (ancestor && !editor.dataStore.getActiveSchema()?.getNodeType(ancestor.stype)?.code) ancestor = ancestor.parentId ? editor.dataStore.getNode(ancestor.parentId) : undefined;
+        return ancestor ? this._literalInput(editor, this._editing(editor)!, fragment, undefined, target.nodeId) : undefined;
+      },
+      read: (json, html) => this._fragmentFromClipboard(json, html),
+      write: (fragment, clipboardData) => this._writeNative({ fragment, html: this._htmlConverter!.convert(fragment.content as INode[], 'html'), text: getClipboardText(fragment.content as INode[], editor) }, { clipboardData }),
+    }));
+
     editor.registerCommand({
       name: 'copyBlocks',
       execute: async (ed: Editor, payload?: { nodeIds?: string[] }) => {
@@ -275,6 +288,10 @@ export class CopyPasteExtension implements Extension {
     return (await editing.apply(decision.plan)).committed === true;
   }
   private _pasteLiteral(editor: Editor, editing: FragmentEditor, source: DocumentFragment, text: string | undefined, selection: ModelSelection): Promise<boolean> {
+    const input = this._literalInput(editor, editing, source, text, selection.startNodeId);
+    return this._pasteFragment(editor, editing, input.fragment, selection, true, input.losses);
+  }
+  private _literalInput(editor: Editor, editing: FragmentEditor, source: DocumentFragment, text: string | undefined, nodeId: string): { fragment: DocumentFragment; losses: EditingLoss[] } {
     // A schema code region explicitly chooses literal input. Report that conversion even though
     // this destination policy accepts it without a second user decision.
     const losses: EditingLoss[] = [{ kind: 'structure', reason: 'Literal target imports the plain-text representation instead of source structure' }];
@@ -285,7 +302,7 @@ export class CopyPasteExtension implements Extension {
     });
     visit(source.content);
     if (source.references.length) losses.push({ kind: 'reference', reason: 'Literal target imports reference labels instead of links' });
-    return this._pasteFragment(editor, editing, editing.plainText(text ?? getClipboardText(source.content as INode[], editor), selection.startNodeId, true), selection, true, losses);
+    return { fragment: editing.plainText(text ?? getClipboardText(source.content as INode[], editor), nodeId, true), losses };
   }
   private _writeNative(data: ClipboardLike, payload: NativeClipboardPayload): void {
     const html = data.fragment ? encodeClipboardFragment(data.fragment, data.html ?? '') : data.html ?? '';
@@ -447,8 +464,8 @@ export class CopyPasteExtension implements Extension {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onDestroy(_editor: Editor): void {
-    // no-op
+  onDestroy(editor: Editor): void {
+    this._dragCleanup.get(editor)?.(); this._dragCleanup.delete(editor);
   }
 }
 

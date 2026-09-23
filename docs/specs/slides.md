@@ -114,7 +114,7 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 
 | | |
 | --- | ---: |
-| commands registered | 193 (99 the deck's own) |
+| commands registered | 198 (99 the deck's own) |
 | of those, reachable from a surface | toolbar 61 · keys 13 · panel 14 · menu 7 |
 | attributes a reader can set, from the panel | 63 |
 | box types a reader can hold | 13 |

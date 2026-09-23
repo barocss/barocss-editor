@@ -25,6 +25,10 @@ The Office packages are reusable product kits. The complete applications in `app
 
 The `createWordEditor`, `createSlidesEditor`, and `createSiteEditor` functions do not mount a complete application. Their README examples are model-session examples. The reference hosts above contain the remaining assembly.
 
+## Customize a product
+
+Read [extension boundaries](editor-extensibility.md) before changing a kit or schema. `extensions` appends behavior; `kit` replaces the default bundle. Note's convenience session API has a narrower option contract than its lower-level factory.
+
 ## Workspace and files
 
 [office-workspace](/packages/office-workspace) coordinates a local catalogue and product navigation. Each product's `/workspace` entry provides its native file codec without mounting an editor.
