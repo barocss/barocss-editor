@@ -138,4 +138,4 @@ main 병합은 배포 버튼이 아니다. 릴리즈 PR에 manifest, 변경 내�
 
 ## npm library packages
 
-라이브러리 게시 절차는 [npm 패키지 출시 문서](npm-release.md)에 둔다. 현재 `origin/main`에는 `.github/workflows/npm-release.yml`과 버전 PR 워크플로가 없다. 따라서 문서의 수동 Action과 자동 버전 PR은 이 기준 commit에서 실행 가능한 경로로 확인되지 않았다. 실제 게시 절차·권한·npm 결과는 Operator가 검증해야 한다. 제품 배포가 라이브러리를 자동 게시하지 않는다.
+라이브러리 게시 절차는 [npm 패키지 출시 문서](npm-release.md)에 둔다. `main`에는 수동 게시용 `.github/workflows/npm-release.yml`과 버전 PR용 `.github/workflows/npm-version.yml`이 있다. 실제 게시 대상·권한·npm 결과는 제품 배포와 별도로 확인한다. 제품 배포가 라이브러리를 자동 게시하지 않는다.
