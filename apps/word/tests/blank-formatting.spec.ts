@@ -39,10 +39,15 @@ test('blank document alignment, lists and bold work through the toolbar', async 
   await page.keyboard.type('Formatting check');
   await page.locator('[data-control="align-center"]').click();
   await expect(page.locator('.w-paragraph')).toHaveCSS('text-align', 'center');
+  await expect(page.getByRole('toolbar', { name: '기본 문서 도구' })).toBeVisible();
+  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
   await page.locator('[data-control="bullet-list"]').click();
   await expect(page.locator('[data-control="bullet-list"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.w-paragraph')).toHaveAttribute('data-marker', /\S/);
+  await expect(page.locator('.w-paragraph')).toHaveText('Formatting check');
   await page.locator('[data-control="bullet-list"]').click();
   await expect(page.locator('[data-control="bullet-list"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.w-paragraph')).toHaveAttribute('data-marker', '');
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.press('Home');
   await page.keyboard.press('Shift+End');
