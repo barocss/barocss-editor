@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { DocumentSession, downloadDocumentArchive, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
 import { Button, Dialog, StatusNotice } from '@barocss/office-ui';
 import { DocumentSaveStatus } from './document-save-status';
@@ -25,6 +25,12 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
   const [rows, setRows] = useState<LibraryRow[]>([]), [drafts, setDrafts] = useState<LibraryRow[]>([]);
   const [problem, setProblem] = useState('');
   const lock = useRef(false);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const recent = useRef<HTMLButtonElement | null>(null);
+  const restoreFocus = () => {
+    const target = opener.current;
+    (target?.isConnected && !target.disabled ? target : recent.current)?.focus();
+  };
   const perform = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setProblem('');
@@ -39,6 +45,12 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
     const [saved, recovered] = await Promise.all([session.options.documents.rows(), session.options.drafts.rows()]);
     setRows(saved); setDrafts(recovered); setOpen(true);
   };
+  const openLibrary = (event: MouseEvent<HTMLButtonElement>) => {
+    if (lock.current) return;
+    // Disabling the trigger can blur it before the asynchronous library read finishes.
+    opener.current = event.currentTarget;
+    void perform(show);
+  };
   const failure = persistence.status === '저장 실패' || persistence.status === '복원 실패';
   return <>
     <DocumentSaveStatus status={persistence.status} className="office-save-status" {...{ [`data-${prefix}-save-status`]: true }} />
@@ -50,10 +62,10 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
         if (id) await session.open(id);
       } else await session.flush();
     })}>{persistence.status === '복원 실패' ? '복원 다시 시도' : '저장 다시 시도'}</Button>}
-    {persistence.status === '충돌한 초안 보관됨' && <Button disabled={busy} onClick={() => void perform(show)}>복구 초안 보기</Button>}
-    <Button onClick={() => void perform(show)} disabled={busy}>{busy && !open ? '처리 중…' : '최근 자료'}</Button>
+    {persistence.status === '충돌한 초안 보관됨' && <Button disabled={busy} onClick={openLibrary}>복구 초안 보기</Button>}
+    <Button ref={recent} onClick={openLibrary} disabled={busy}>{busy && !open ? '처리 중…' : '최근 자료'}</Button>
     {problem && !open && <span role="alert">{problem}</span>}
-    <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }} title={title}
+    <Dialog open={open} onClosed={restoreFocus} onOpenChange={value => { if (!busy) setOpen(value); }} title={title}
       description="이 브라우저에 자동 저장한 자료입니다. 다른 탭과 충돌한 작업은 복구 초안으로 보관합니다.">
       {failure && <StatusNotice tone="danger" title={persistence.status}>저장 또는 복원을 완료하지 못했습니다. 이 창을 유지하고 다시 시도하거나 파일로 저장하세요.</StatusNotice>}
       {problem && <StatusNotice tone="danger" title="작업을 완료하지 못했습니다">{problem}</StatusNotice>}
