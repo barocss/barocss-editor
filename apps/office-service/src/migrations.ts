@@ -1,3 +1,5 @@
+import { platformOperatorMigration } from './platform-operator-migration.js';
+
 export interface Migration { id: string; sql: string }
 
 // Applied migrations are immutable. Add a new entry instead of editing shipped SQL.
@@ -113,4 +115,4 @@ CREATE POLICY tenant_member_list ON wonffice.tenants TO wonffice_app
     WHERE revoked_at IS NULL
   ));
 `,
-}];
+}, platformOperatorMigration];

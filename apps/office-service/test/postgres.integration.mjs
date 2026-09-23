@@ -46,7 +46,8 @@ try {
   const secondOwner = await connect('wonffice_owner'); clients.push(secondOwner);
   await check('concurrent migration applies exactly once; re-run is empty', async () => {
     const result = await Promise.all([migrate(owner), migrate(secondOwner)]);
-    assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships', '0003_member_tenant_names']);
+    assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
+      '0003_member_tenant_names', '0005_platform_operators']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('failed DDL and migration history roll back together', async () => {
@@ -54,7 +55,8 @@ try {
       id: '0004_failure', sql: 'CREATE TABLE wonffice.must_rollback (id integer); SELECT 1 / 0;',
     }]));
     assert.equal((await owner.query("SELECT to_regclass('wonffice.must_rollback') AS name")).rows[0].name, null);
-    assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice_meta.migrations')).rows[0].count, 3);
+    assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice_meta.migrations')).rows[0].count,
+      migrations.length);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('changed or unknown migration history is rejected', async () => {

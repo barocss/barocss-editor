@@ -2,8 +2,11 @@ import Fastify from 'fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TenantAccessDeniedError } from '@barocss/office-service/membership-store';
 import type { MembershipStore, VerifiedPrincipal } from '@barocss/office-service/membership-store';
+import type { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
 import { AuthProviderUnavailableError } from './oidc.js';
 import type { OidcVerifier } from './oidc.js';
+import { healthState } from './health-state.js';
+import { registerOperatorRoutes } from './operator-routes.js';
 
 const statusSchema = {
   type: 'object', required: ['status'], additionalProperties: false,
@@ -15,6 +18,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export interface ApiAuthDependencies {
   verifier: OidcVerifier;
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
+  operators?: Pick<PlatformOperatorStore, 'getAccess' | 'getStatusAccess' | 'listTenantProvisioning'>;
 }
 
 /** HTTP boundary only. Domain services and collaboration providers remain separate. */
@@ -48,14 +52,12 @@ export function createApiServer(auth?: ApiAuthDependencies) {
     void reply.code(code).send({ status });
   });
   for (const path of healthPaths) {
-    const live = path === '/health/live';
-    const code = live ? 200 : 503;
+    const state = path === '/health/live' ? healthState.live : healthState.ready;
+    const code = state.httpStatus;
     app.route({
       method: ['GET', 'HEAD'], url: path,
       schema: { response: { [code]: statusSchema } },
-      handler: async (_request, reply) => reply.code(code).send({
-        status: live ? 'alive' : 'service_not_configured',
-      }),
+      handler: async (_request, reply) => reply.code(code).send({ status: state.status }),
     });
   }
   if (auth) {
@@ -104,6 +106,7 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         return reply.code(503).send({ status: 'service_unavailable' });
       }
     });
+    if (auth.operators) registerOperatorRoutes(app, { authenticate, operators: auth.operators });
   }
   return app;
 }
