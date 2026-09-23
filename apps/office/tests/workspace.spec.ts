@@ -182,7 +182,9 @@ test('downloads a product backup and restores it through the shared library UI',
 
 test('editing a deck preserves the name assigned in the shared library', async ({ page }) => {
   await page.goto('/'); await create(page, 'Slides', '이름을 유지할 발표 자료'); const url = page.url();
-  await page.getByLabel('새 슬라이드', { exact: true }).click(); await home(page);
+  await page.getByRole('toolbar', { name: '슬라이드 서식' }).getByRole('menuitem', { name: '슬라이드', exact: true }).click();
+  await page.getByRole('menu', { name: '슬라이드', exact: true }).getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+  await home(page);
   await page.getByRole('button', { name: 'S 이름을 유지할 발표 자료', exact: true }).click();
   await expect(page).toHaveURL(url);
   await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(2);
