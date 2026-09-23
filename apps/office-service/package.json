@@ -7,6 +7,10 @@
     "./membership-store": {
       "types": "./src/membership-store.ts",
       "import": "./dist/membership-store.js"
+    },
+    "./document-store": {
+      "types": "./src/document-store.ts",
+      "import": "./dist/document-store.js"
     }
   },
   "files": ["dist"],
