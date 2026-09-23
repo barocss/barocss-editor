@@ -1,3 +1,5 @@
+import { platformOperatorMigration } from './platform-operator-migration.js';
+
 export interface Migration { id: string; sql: string }
 
 // Applied migrations are immutable. Add a new entry instead of editing shipped SQL.
@@ -176,4 +178,4 @@ CREATE POLICY receipt_context ON wonffice.document_receipts TO wonffice_app
 GRANT SELECT, INSERT, UPDATE ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_app;
 GRANT SELECT ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_backup;
 `,
-}];
+}, platformOperatorMigration];

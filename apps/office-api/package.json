@@ -9,7 +9,8 @@
     "dev": "pnpm build && pnpm start",
     "test": "pnpm build && vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
-    "type-check": "tsc --noEmit -p tsconfig.json"
+    "type-check": "tsc --noEmit -p tsconfig.json",
+    "test:operator:oidc": "pnpm build && node test/operator.oidc.integration.mjs"
   },
   "dependencies": {
     "@barocss/office-service": "workspace:^",

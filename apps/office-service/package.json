@@ -8,6 +8,10 @@
       "types": "./src/membership-store.ts",
       "import": "./dist/membership-store.js"
     },
+    "./platform-operator-store": {
+      "types": "./src/platform-operator-store.ts",
+      "import": "./dist/platform-operator-store.js"
+    },
     "./document-store": {
       "types": "./src/document-store.ts",
       "import": "./dist/document-store.js"
@@ -19,8 +23,10 @@
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
+    "test:operator:postgres": "pnpm build && node test/platform-operator.postgres.integration.mjs",
     "migrate": "node dist/migrate-cli.js",
-    "membership:admin": "node dist/membership-admin-cli.js"
+    "membership:admin": "node dist/membership-admin-cli.js",
+    "operator:admin": "node dist/platform-operator-admin-cli.js"
   },
   "dependencies": {
     "@barocss/office-note-file": "workspace:^",
