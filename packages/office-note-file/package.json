@@ -1,0 +1,30 @@
+{
+  "name": "@barocss/office-note-file",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Node-ready Note snapshot codec for Wonffice services",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./types.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "types.d.ts"],
+  "scripts": {
+    "build": "vite build",
+    "type-check": "tsc --noEmit",
+    "test:run": "pnpm build && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@barocss/office-note": "workspace:*",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vite-plugin-dts": "^3.9.1"
+  },
+  "license": "MIT"
+}

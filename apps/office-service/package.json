@@ -11,11 +11,15 @@
     "./platform-operator-store": {
       "types": "./src/platform-operator-store.ts",
       "import": "./dist/platform-operator-store.js"
+    },
+    "./document-store": {
+      "types": "./src/document-store.ts",
+      "import": "./dist/document-store.js"
     }
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @barocss/office-note-file build && tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
@@ -25,6 +29,7 @@
     "operator:admin": "node dist/platform-operator-admin-cli.js"
   },
   "dependencies": {
+    "@barocss/office-note-file": "workspace:^",
     "pg": "8.23.0"
   },
   "devDependencies": {

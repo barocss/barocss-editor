@@ -4,11 +4,13 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
+import { copyNoteSnapshotFile, readNoteSnapshotFile } from '@barocss/office-note-file';
 import { migrate } from '../dist/migrate.js';
 import { migrations } from '../dist/migrations.js';
 import { TenantStore, withTenant } from '../dist/tenant-store.js';
 import { MembershipStore, TenantAccessDeniedError } from '../dist/membership-store.js';
 import { applyMembershipChange } from '../dist/membership-admin.js';
+import { DocumentStore, DocumentError } from '../dist/document-store.js';
 
 // Always create our own cluster. No DATABASE_URL or existing server is accepted.
 const bin = process.env.PG_BIN ?? execFileSync('pg_config', ['--bindir'], { encoding: 'utf8' }).trim();
@@ -47,12 +49,12 @@ try {
   await check('concurrent migration applies exactly once; re-run is empty', async () => {
     const result = await Promise.all([migrate(owner), migrate(secondOwner)]);
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
-      '0003_member_tenant_names', '0005_platform_operators']);
+      '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('failed DDL and migration history roll back together', async () => {
     await assert.rejects(migrate(owner, [...migrations, {
-      id: '0004_failure', sql: 'CREATE TABLE wonffice.must_rollback (id integer); SELECT 1 / 0;',
+      id: '9999_failure', sql: 'CREATE TABLE wonffice.must_rollback (id integer); SELECT 1 / 0;',
     }]));
     assert.equal((await owner.query("SELECT to_regclass('wonffice.must_rollback') AS name")).rows[0].name, null);
     assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice_meta.migrations')).rows[0].count,
@@ -197,11 +199,17 @@ try {
       'UPDATE wonffice.workspaces SET tenant_id = $1 WHERE id = $2', [beta, a.id])), { code: '42501' });
   });
   await check('composite document reference rejects another tenant workspace', async () => {
+    const invalidId = randomUUID();
     await assert.rejects(withTenant(pool, alpha, client => client.query(`INSERT INTO wonffice.documents
-      (tenant_id, id, workspace_id, product) VALUES ($1, $2, $3, 'note')`, [alpha, randomUUID(), b.id])), { code: '23503' });
+      (tenant_id, id, workspace_id, product, document_key, page_id)
+      VALUES ($1, $2, $3, 'note', $4, $2::uuid::text)`,
+    [alpha, invalidId, b.id, `wonffice-${alpha}-${invalidId}`])), { code: '23503' });
     for (const [tenant, workspace] of [[alpha, a.id], [beta, b.id]]) {
+      const documentId = randomUUID();
       await withTenant(pool, tenant, client => client.query(`INSERT INTO wonffice.documents
-        (tenant_id, id, workspace_id, product) VALUES ($1, $2, $3, 'note')`, [tenant, randomUUID(), workspace]));
+        (tenant_id, id, workspace_id, product, document_key, page_id)
+        VALUES ($1, $2, $3, 'note', $4, $2::uuid::text)`,
+      [tenant, documentId, workspace, `wonffice-${tenant}-${documentId}`]));
     }
   });
   await check('pool re-use clears tenant context after success and failure', async () => {
@@ -281,6 +289,217 @@ try {
       tenants: [{ tenantId: beta, name: 'Beta', role: 'viewer' }], nextCursor: null,
     });
   });
+  const documents = new DocumentStore(pool);
+  const alicePrincipal = { issuer, subject: 'alice' };
+  const bobPrincipal = { issuer, subject: 'bob' };
+  const originalPage = 'old-page';
+  const noteFile = (body, pageId = originalPage) => JSON.stringify({
+    format: 'barocss-note', version: 1,
+    document: { stype: 'note', attributes: { title: 'Plan', pageId }, content: [
+      { stype: 'paragraph', content: [{ stype: 'inline-text', text: body }] },
+      { stype: 'paragraph', content: [{ stype: 'pageReference', attributes: { pageId } },
+        { stype: 'pageReference', attributes: { pageId: 'other-page' } }] },
+    ] },
+  });
+  const noteInput = { workspaceId: a.id, product: 'note', title: 'Plan',
+    fileFormat: 'barocss-note', fileVersion: 1, snapshotText: noteFile('first'),
+    idempotencyKey: 'create-one', importMode: 'new-page-copy' };
+  let created;
+  await check('document create, exact retry and receipt are atomic; Note gets a new page identity', async () => {
+    created = await documents.create(alicePrincipal, alpha, noteInput);
+    assert.equal(created.document.revision, 1);
+    assert.notEqual(created.document.pageId, originalPage);
+    assert.equal(created.document.documentKey,
+      `wonffice-${alpha}-${created.document.documentId}`);
+    assert.deepEqual(await documents.create(alicePrincipal, alpha, noteInput), created);
+    assert.deepEqual(await documents.getReceipt(alicePrincipal, alpha, 'create', 'create-one'), created);
+    const opened = await documents.open(alicePrincipal, alpha, created.document.documentId);
+    assert.equal(created.snapshotText, opened.snapshotText);
+    assert.equal(created.snapshotText,
+      copyNoteSnapshotFile(noteInput.snapshotText, created.document.pageId).snapshotText);
+    const stored = JSON.parse(opened.snapshotText);
+    assert.equal(Object.hasOwn(stored, 'savedAt'), false);
+    assert.equal(stored.document.attributes.pageId, created.document.pageId);
+    assert.equal(stored.document.content[1].content[0].attributes.pageId, created.document.pageId);
+    assert.equal(stored.document.content[1].content[1].attributes.pageId, 'other-page');
+    assert.equal(opened.document.snapshotHash,
+      createHash('sha256').update(opened.snapshotText).digest('hex'));
+    assert.equal((await documents.list(alicePrincipal, alpha, { workspaceId: a.id })).documents
+      .filter(row => row.documentId === created.document.documentId).length, 1);
+    await assert.rejects(documents.create(alicePrincipal, alpha,
+      { ...noteInput, snapshotText: noteFile('changed') }),
+    error => error instanceof DocumentError && error.reason === 'key_reuse');
+    assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.documents
+      WHERE tenant_id = $1 AND workspace_id = $2 AND title = 'Plan'`, [alpha, a.id])).rows[0].count, 1);
+  });
+  await check('Note codec preserves savedAt and rejects invalid migration files', async () => {
+    const source = JSON.stringify({ ...JSON.parse(noteFile('timestamped')),
+      savedAt: '2026-09-23T01:00:00Z' });
+    const input = { ...noteInput, snapshotText: source, idempotencyKey: 'saved-at-copy' };
+    const receipt = await documents.create(alicePrincipal, alpha, input);
+    assert.deepEqual(await documents.create(alicePrincipal, alpha, input), receipt);
+    assert.equal(receipt.snapshotText,
+      copyNoteSnapshotFile(source, receipt.document.pageId).snapshotText);
+    assert.equal(readNoteSnapshotFile(receipt.snapshotText).savedAt, '2026-09-23T01:00:00Z');
+    assert.equal((await documents.open(alicePrincipal, alpha, receipt.document.documentId)).snapshotText,
+      receipt.snapshotText);
+    const invalid = JSON.stringify({ ...JSON.parse(source), savedAt: '' });
+    await assert.rejects(documents.create(alicePrincipal, alpha,
+      { ...input, snapshotText: invalid, idempotencyKey: 'invalid-saved-at' }),
+    error => error instanceof DocumentError && error.status === 422);
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, receipt.document.documentId,
+      { expectedRevision: 1, snapshotText: invalid, idempotencyKey: 'invalid-update-saved-at' }),
+    error => error instanceof DocumentError && error.status === 422);
+  });
+  await check('two database connections with the same create key commit one document', async () => {
+    const concurrentPool = new pg.Pool({ ...config('wonffice_app'), max: 3 }); pools.push(concurrentPool);
+    const concurrent = new DocumentStore(concurrentPool);
+    const input = { ...noteInput, title: 'Concurrent', idempotencyKey: 'concurrent-create' };
+    const results = await Promise.all([
+      concurrent.create(alicePrincipal, alpha, input), concurrent.create(alicePrincipal, alpha, input),
+    ]);
+    assert.equal(results[0].document.documentId, results[1].document.documentId);
+    assert.equal(results[0].snapshotText, results[1].snapshotText);
+    assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.documents
+      WHERE tenant_id = $1 AND title = 'Concurrent'`, [alpha])).rows[0].count, 1);
+    const different = await Promise.allSettled([
+      concurrent.create(alicePrincipal, alpha, { ...input, idempotencyKey: 'concurrent-different',
+        snapshotText: noteFile('A') }),
+      concurrent.create(alicePrincipal, alpha, { ...input, idempotencyKey: 'concurrent-different',
+        snapshotText: noteFile('B') }),
+    ]);
+    assert.equal(different.filter(one => one.status === 'fulfilled').length, 1);
+    assert.equal(different.filter(one => one.status === 'rejected' &&
+      one.reason instanceof DocumentError && one.reason.reason === 'key_reuse').length, 1);
+    assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.documents
+      WHERE tenant_id = $1 AND title = 'Concurrent'`, [alpha])).rows[0].count, 2);
+  });
+  await check('two active members share a document, other tenant and viewer writes stay denied', async () => {
+    await owner.query(`INSERT INTO wonffice.tenant_memberships (tenant_id, identity_id, role)
+      VALUES ($1, $2, 'editor')`, [alpha, bob]);
+    const same = await documents.open(bobPrincipal, alpha, created.document.documentId);
+    assert.equal(same.document.documentKey, created.document.documentKey);
+    await assert.rejects(documents.open(bobPrincipal, beta, created.document.documentId),
+      error => error instanceof DocumentError && error.status === 404);
+    await assert.rejects(documents.open(alicePrincipal, beta, created.document.documentId),
+      TenantAccessDeniedError);
+    await assert.rejects(documents.create(bobPrincipal, beta,
+      { ...noteInput, workspaceId: b.id, idempotencyKey: 'viewer-create' }),
+    error => error instanceof DocumentError && error.status === 403);
+    await assert.rejects(documents.open(alicePrincipal, alpha, randomUUID()),
+      error => error instanceof DocumentError && error.status === 404);
+  });
+  await check('Word, Slides and Site retain their distinct v1 envelopes and product-filtered list', async () => {
+    for (const [product, fileFormat] of [
+      ['word', 'barocss-word'], ['slides', 'barocss-slides'], ['site', 'barocss-site'],
+    ]) {
+      const snapshotText = JSON.stringify({ format: fileFormat, version: 1,
+        document: { stype: 'document', content: [] } });
+      const receipt = await documents.create(alicePrincipal, alpha, { workspaceId: a.id, product,
+        title: product, fileFormat, fileVersion: 1, snapshotText, idempotencyKey: `create-${product}` });
+      assert.equal((await documents.open(bobPrincipal, alpha, receipt.document.documentId)).snapshotText,
+        snapshotText);
+      assert.equal((await documents.list(bobPrincipal, alpha, { product })).documents
+        .some(row => row.documentId === receipt.document.documentId), true);
+      await assert.rejects(documents.create(alicePrincipal, alpha, { workspaceId: a.id, product,
+        title: product, fileFormat: 'barocss-note', fileVersion: 1, snapshotText,
+        idempotencyKey: `bad-${product}` }),
+      error => error instanceof DocumentError && error.status === 422);
+    }
+    await assert.rejects(documents.create(alicePrincipal, alpha,
+      { ...noteInput, idempotencyKey: 'note-without-copy', importMode: undefined }),
+    error => error instanceof DocumentError && error.status === 422);
+  });
+  await check('Note copy growth beyond the confirmed body limit returns 413 without a document or receipt', async () => {
+    const filler = 'x'.repeat(524288 - Buffer.byteLength(noteFile('')) - 10);
+    const source = noteFile(filler);
+    assert.equal(Buffer.byteLength(source), 524278);
+    await assert.rejects(documents.create(alicePrincipal, alpha,
+      { ...noteInput, snapshotText: source, idempotencyKey: 'oversize-transformed' }),
+    error => error instanceof DocumentError && error.status === 413);
+    await assert.rejects(documents.getReceipt(alicePrincipal, alpha, 'create', 'oversize-transformed'),
+      error => error instanceof DocumentError && error.status === 404);
+  });
+  await check('snapshot and metadata compare-and-swap reject lost updates and keep receipts', async () => {
+    const id = created.document.documentId;
+    const savedText = noteFile('second', created.document.pageId);
+    const update = { expectedRevision: 1, snapshotText: savedText, idempotencyKey: 'update-one' };
+    const [first, second] = await Promise.allSettled([
+      documents.updateSnapshot(alicePrincipal, alpha, id, update),
+      documents.updateSnapshot(bobPrincipal, alpha, id,
+        { expectedRevision: 1, snapshotText: noteFile('racing', created.document.pageId), idempotencyKey: 'race' }),
+    ]);
+    assert.equal([first, second].filter(one => one.status === 'fulfilled').length, 1);
+    assert.equal([first, second].filter(one => one.status === 'rejected' &&
+      one.reason instanceof DocumentError && one.reason.reason === 'revision_conflict').length, 1);
+    const opened = await documents.open(alicePrincipal, alpha, id);
+    assert.equal(opened.document.revision, 2);
+    const winner = first.status === 'fulfilled' ? first.value : second.value;
+    assert.equal(winner.snapshotText, opened.snapshotText);
+    assert.deepEqual(await documents.getReceipt(first.status === 'fulfilled' ? alicePrincipal : bobPrincipal,
+      alpha, 'update', winner.idempotencyKey), winner);
+    const metadata = await documents.updateMetadata(alicePrincipal, alpha, id,
+      { expectedMetadataRevision: 1, title: 'Revised', idempotencyKey: 'metadata-one' });
+    assert.equal(metadata.document.metadataRevision, 2);
+    assert.equal(metadata.document.revision, 2);
+    assert.deepEqual(await documents.updateMetadata(alicePrincipal, alpha, id,
+      { expectedMetadataRevision: 1, title: 'Revised', idempotencyKey: 'metadata-one' }), metadata);
+    await assert.rejects(documents.updateMetadata(bobPrincipal, alpha, id,
+      { expectedMetadataRevision: 1, title: 'Late', idempotencyKey: 'metadata-late' }),
+    error => error instanceof DocumentError && error.reason === 'revision_conflict');
+  });
+  await check('document key reuse and cross-tenant remapping are rejected at the database', async () => {
+    const id = created.document.documentId;
+    await assert.rejects(withTenant(pool, alpha, client => client.query(`UPDATE wonffice.documents
+      SET document_key = $3 WHERE tenant_id = $1 AND id = $2`,
+    [alpha, id, `wonffice-${beta}-${id}`])), { code: '23514' });
+    assert.equal((await withTenant(pool, beta, client => client.query(`UPDATE wonffice.documents
+      SET document_key = $3 WHERE tenant_id = $1 AND id = $2`,
+    [alpha, id, 'reused']))).rowCount, 0);
+    const forgedId = randomUUID();
+    await assert.rejects(withTenant(pool, beta, client => client.query(`INSERT INTO wonffice.documents
+      (tenant_id, id, workspace_id, product, document_key, page_id)
+      VALUES ($1, $2, $3, 'note', $4, $2::uuid::text)`,
+    [beta, forgedId, b.id, created.document.documentKey])), { code: '23514' });
+    const fresh = new DocumentStore(pool);
+    assert.equal((await fresh.open(bobPrincipal, alpha, id)).document.documentKey,
+      created.document.documentKey);
+  });
+  await check('revocation applies before receipt, list and body read', async () => {
+    await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at = now() WHERE tenant_id = $1 AND identity_id = $2',
+      [alpha, bob]);
+    for (const operation of [
+      documents.open(bobPrincipal, alpha, created.document.documentId),
+      documents.list(bobPrincipal, alpha),
+      documents.getReceipt(bobPrincipal, alpha, 'create', 'create-one'),
+    ]) await assert.rejects(operation, TenantAccessDeniedError);
+    await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at = NULL WHERE tenant_id = $1 AND identity_id = $2',
+      [alpha, bob]);
+  });
+  await check('collaborative mode never exposes or overwrites an old PostgreSQL snapshot', async () => {
+    const id = created.document.documentId;
+    const beforeCollab = { expectedRevision: 2, snapshotText: noteFile('before collaboration',
+      created.document.pageId), idempotencyKey: 'before-collab' };
+    const confirmed = await documents.updateSnapshot(alicePrincipal, alpha, id, beforeCollab);
+    assert.equal(confirmed.document.revision, 3);
+    await owner.query(`UPDATE wonffice.documents SET mode = 'collaborative'
+      WHERE tenant_id = $1 AND id = $2`, [alpha, id]);
+    const opened = await documents.open(alicePrincipal, alpha, id);
+    assert.equal(opened.document.mode, 'collaborative');
+    assert.equal(Object.hasOwn(opened, 'snapshotText'), false);
+    await assert.rejects(documents.getReceipt(alicePrincipal, alpha, 'create', 'create-one'),
+      error => error instanceof DocumentError && error.reason === 'mode_conflict');
+    await assert.rejects(documents.create(alicePrincipal, alpha, noteInput),
+      error => error instanceof DocumentError && error.reason === 'mode_conflict');
+    await assert.rejects(documents.getReceipt(alicePrincipal, alpha, 'update', 'before-collab'),
+      error => error instanceof DocumentError && error.reason === 'mode_conflict');
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, id, beforeCollab),
+      error => error instanceof DocumentError && error.reason === 'mode_conflict');
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, id,
+      { expectedRevision: opened.document.revision, snapshotText: noteFile('stale', created.document.pageId),
+        idempotencyKey: 'stale-update' }),
+    error => error instanceof DocumentError && error.reason === 'mode_conflict');
+  });
   const snapshot = async client => {
     const content = {};
     for (const table of ['tenants', 'workspaces', 'documents', 'identities', 'membership_events']) {
@@ -289,6 +508,10 @@ try {
     }
     content.tenant_memberships = (await client.query(`SELECT * FROM wonffice.tenant_memberships
       ORDER BY tenant_id, identity_id`)).rows;
+    content.document_snapshots = (await client.query(`SELECT * FROM wonffice.document_snapshots
+      ORDER BY tenant_id, document_id`)).rows;
+    content.document_receipts = (await client.query(`SELECT * FROM wonffice.document_receipts
+      ORDER BY tenant_id, identity_id, operation, idempotency_key`)).rows;
     content.migrations = (await client.query('SELECT * FROM wonffice_meta.migrations ORDER BY id')).rows;
     return createHash('sha256').update(JSON.stringify(content)).digest('hex');
   };
@@ -310,9 +533,15 @@ try {
     const restoredMemberships = new MembershipStore(restoredPool);
     assert.deepEqual(await restoredMemberships.getTenantAccess({ issuer, subject: 'alice' }, alpha),
       { tenantId: alpha, role: 'editor' });
+    const restoredDocuments = new DocumentStore(restoredPool);
+    assert.equal((await restoredDocuments.open(alicePrincipal, alpha, created.document.documentId))
+      .document.documentKey, created.document.documentKey);
     assert.equal((await restoredPool.query('SELECT id FROM wonffice.workspaces')).rowCount, 0);
+    const invalidId = randomUUID();
     await assert.rejects(withTenant(restoredPool, alpha, client => client.query(`INSERT INTO wonffice.documents
-      (tenant_id, id, workspace_id, product) VALUES ($1, $2, $3, 'note')`, [alpha, randomUUID(), b.id])), { code: '23503' });
+      (tenant_id, id, workspace_id, product, document_key, page_id)
+      VALUES ($1, $2, $3, 'note', $4, $2::uuid::text)`,
+    [alpha, invalidId, b.id, `wonffice-${alpha}-${invalidId}`])), { code: '23503' });
     await assert.rejects(restoredPool.query('TRUNCATE wonffice.workspaces'), { code: '42501' });
   });
 } finally {

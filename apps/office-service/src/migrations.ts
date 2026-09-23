@@ -115,4 +115,67 @@ CREATE POLICY tenant_member_list ON wonffice.tenants TO wonffice_app
     WHERE revoked_at IS NULL
   ));
 `,
+}, {
+  id: '0004_document_snapshots',
+  sql: `
+ALTER TABLE wonffice.documents
+  ADD COLUMN title text NOT NULL DEFAULT 'Untitled' CHECK (char_length(btrim(title)) BETWEEN 1 AND 200),
+  ADD COLUMN metadata_revision integer NOT NULL DEFAULT 1 CHECK (metadata_revision > 0),
+  ADD COLUMN mode text NOT NULL DEFAULT 'snapshot' CHECK (mode IN ('snapshot', 'initializing', 'collaborative')),
+  ADD COLUMN page_id text,
+  ADD COLUMN document_key text,
+  ADD COLUMN updated_at timestamptz NOT NULL DEFAULT now();
+UPDATE wonffice.documents SET document_key = 'wonffice-' || tenant_id::text || '-' || id::text;
+UPDATE wonffice.documents SET page_id = id::text WHERE product = 'note';
+ALTER TABLE wonffice.documents
+  ALTER COLUMN document_key SET NOT NULL,
+  ADD CONSTRAINT document_key_derived CHECK (document_key = 'wonffice-' || tenant_id::text || '-' || id::text),
+  ADD CONSTRAINT note_page_only CHECK ((product = 'note') = (page_id IS NOT NULL));
+CREATE UNIQUE INDEX documents_document_key ON wonffice.documents(document_key);
+CREATE UNIQUE INDEX documents_note_page ON wonffice.documents(tenant_id, page_id) WHERE page_id IS NOT NULL;
+
+CREATE TABLE wonffice.document_snapshots (
+  tenant_id uuid NOT NULL,
+  document_id uuid NOT NULL,
+  file_format text NOT NULL,
+  file_version integer NOT NULL CHECK (file_version > 0),
+  snapshot_text text NOT NULL CHECK (octet_length(snapshot_text) <= 524288),
+  snapshot_hash text NOT NULL CHECK (snapshot_hash ~ '^[0-9a-f]{64}$'),
+  revision integer NOT NULL CHECK (revision > 0),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, document_id),
+  FOREIGN KEY (tenant_id, document_id) REFERENCES wonffice.documents(tenant_id, id) ON DELETE RESTRICT
+);
+CREATE TABLE wonffice.document_receipts (
+  tenant_id uuid NOT NULL REFERENCES wonffice.tenants(id) ON DELETE RESTRICT,
+  identity_id uuid NOT NULL REFERENCES wonffice.identities(id) ON DELETE RESTRICT,
+  operation text NOT NULL CHECK (operation IN ('create', 'update', 'metadata')),
+  idempotency_key text NOT NULL CHECK (char_length(idempotency_key) BETWEEN 1 AND 120),
+  request_hash text NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+  document_id uuid,
+  result_head jsonb,
+  result_snapshot_text text CHECK (result_snapshot_text IS NULL OR octet_length(result_snapshot_text) <= 524288),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, identity_id, operation, idempotency_key),
+  FOREIGN KEY (tenant_id, document_id) REFERENCES wonffice.documents(tenant_id, id) ON DELETE RESTRICT,
+  CHECK ((document_id IS NULL) = (result_head IS NULL)),
+  CHECK (result_head IS NULL OR (operation = 'metadata') = (result_snapshot_text IS NULL))
+);
+ALTER TABLE wonffice.document_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wonffice.document_snapshots FORCE ROW LEVEL SECURITY;
+ALTER TABLE wonffice.document_receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wonffice.document_receipts FORCE ROW LEVEL SECURITY;
+CREATE POLICY snapshot_owner ON wonffice.document_snapshots TO wonffice_owner USING (true) WITH CHECK (true);
+CREATE POLICY snapshot_context ON wonffice.document_snapshots TO wonffice_app
+  USING (tenant_id = NULLIF(current_setting('wonffice.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('wonffice.tenant_id', true), '')::uuid);
+CREATE POLICY receipt_owner ON wonffice.document_receipts TO wonffice_owner USING (true) WITH CHECK (true);
+CREATE POLICY receipt_context ON wonffice.document_receipts TO wonffice_app
+  USING (tenant_id = NULLIF(current_setting('wonffice.tenant_id', true), '')::uuid
+    AND identity_id IN (SELECT id FROM wonffice.identities))
+  WITH CHECK (tenant_id = NULLIF(current_setting('wonffice.tenant_id', true), '')::uuid
+    AND identity_id IN (SELECT id FROM wonffice.identities));
+GRANT SELECT, INSERT, UPDATE ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_app;
+GRANT SELECT ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_backup;
+`,
 }, platformOperatorMigration];

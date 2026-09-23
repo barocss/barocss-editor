@@ -47,7 +47,7 @@ try {
   await check('migration adds only platform tables and keeps earlier history', async () => {
     assert.deepEqual(await migrate(owner), [
       '0001_tenant_workspaces', '0002_oidc_memberships', '0003_member_tenant_names',
-      '0005_platform_operators',
+      '0004_document_snapshots', '0005_platform_operators',
     ]);
     assert.deepEqual(await migrate(owner), []);
   });

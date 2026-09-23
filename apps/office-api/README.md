@@ -1,6 +1,6 @@
 # Wonffice API bootstrap
 
-Private Node.js/TypeScript application using Fastify. It verifies OIDC access tokens and current tenant membership for [#355](https://github.com/barocss/barocss-editor/issues/355). It does not yet store document bodies, serve the editor, or implement browser login pages. Do not expose it as a production service.
+Private Node.js/TypeScript application using Fastify. It verifies OIDC access tokens and current tenant membership for [#355](https://github.com/barocss/barocss-editor/issues/355). It provides tenant-authorized PostgreSQL snapshot document routes for [#367](https://github.com/barocss/barocss-editor/issues/367). It does not serve the editor or provide Yorkie capabilities. Do not expose it as a production service.
 
 ## Local execution
 
@@ -13,7 +13,7 @@ curl -i http://127.0.0.1:4100/health/live
 curl -i http://127.0.0.1:4100/health/ready
 ```
 
-`live` returns 200 while the process can answer HTTP. `ready` intentionally returns 503 with `service_not_configured`. Document storage and full product readiness are still absent. GET and HEAD are accepted on the probes. Other methods return 405; unknown routes return 404. Fastify stays at the HTTP boundary; membership checks run in office-service.
+`live` returns 200 while the process can answer HTTP. `ready` intentionally returns 503 with `service_not_configured`: document API routes alone do not prove product/Yorkie readiness. GET and HEAD are accepted on the probes. Other methods return 405; unknown routes return 404. Fastify stays at the HTTP boundary; membership and document transactions run in office-service.
 
 | Variable | Default | Accepted value |
 | --- | --- | --- |
@@ -39,10 +39,11 @@ The process uses explicit settings, not `NODE_ENV`, to select its network bindin
 pnpm --filter @barocss/office-api build
 pnpm --filter @barocss/office-api start
 pnpm --filter @barocss/office-api test
+PG_BIN=/path/to/postgresql/16/bin pnpm --filter @barocss/office-api test:postgres
 pnpm preflight
 ```
 
-The test command builds the real entry point and checks actual HTTP requests, invalid configuration, occupied ports, SIGINT, SIGTERM and an incomplete request at the shutdown deadline. Source and test type checks participate in repository preflight. The app test is included in the existing recursive unit-test CI command.
+The unit test command builds the real entry point and checks actual HTTP requests, invalid configuration, occupied ports, SIGINT, SIGTERM and an incomplete request at the shutdown deadline. `test:postgres` creates and removes a private PostgreSQL 16 cluster and synthetic local JWKS server, then checks signed tokens, two accounts, current membership, document create/retry/read/update and API restart. It does not use the operator's Keycloak realm. Source and test type checks participate in repository preflight. The unit test is included in the existing recursive CI command.
 
 ## Container artifact
 
@@ -69,6 +70,17 @@ The local Keycloak/PostgreSQL/API browser check uses synthetic accounts and a de
 
 ## API and collaboration boundaries
 
-Server-owned Fastify schemas validate inputs and serialize responses. Inputs do not receive implicit type coercion, defaults or silent removal of unexpected fields. The JSON body limit is 1 MiB. Error responses omit messages, stack traces, submitted values and validation internals. Proxy headers and request-ID headers are not trusted. Document data routes remain pending.
+The JSON body limit is 1 MiB; snapshot text is limited to 512 KiB. Inputs do not receive implicit type coercion, defaults or silent removal of unexpected fields. Error responses omit messages, stack traces, submitted values and validation internals. Proxy headers and request-ID headers are not trusted. All document routes require a verified bearer token and active PostgreSQL membership on every request.
+
+Document API paths under `/v1/tenants/:tenantId`:
+
+- `POST /documents`: `{workspaceId,product,title,fileFormat,fileVersion,snapshotText,idempotencyKey}`. Every Note create also requires `importMode: "new-page-copy"`. The server assigns `documentId`, `pageId` and `documentKey`; it remaps only the copied Note's self references.
+- `GET /documents?workspaceId=&product=&after=`: up to 50 current-tenant document heads and a UUID `nextCursor`.
+- `GET /documents/:documentId`: current document head and exact `snapshotText` only while `mode` is `snapshot`.
+- `PUT /documents/:documentId/snapshot`: `{expectedRevision,snapshotText,idempotencyKey}`. A successful compare-and-swap increments the snapshot revision.
+- `PATCH /documents/:documentId/metadata`: `{expectedMetadataRevision,title,idempotencyKey}`. The title's revision is independent of the snapshot revision.
+- `GET /receipts/:operation/:idempotencyKey`: the current principal's confirmed create/update/metadata receipt. Create and snapshot-update receipts include the exact confirmed `snapshotText`; metadata receipts contain a head only. Receipts have no automatic expiry in this alpha schema; a lost response must be resolved with the same key or this route before creating another document.
+
+The file format/version for Note, Word, Slides and Site is the product's `barocss-*` v1 envelope. The service rejects malformed envelopes and session-owned `sid`/`parentId`, but each product still owns full schema validation. A document key is an address, not an authorization token. A `409 revision_conflict` or `mode_conflict` leaves the confirmed body unchanged. The API does not seed Yorkie, issue capabilities, or turn a snapshot into an active collaborative document. #366 and product adapters must prove those transitions before external alpha.
 
 Wonffice does not implement its own collaboration server. Yorkie is the selected alpha provider, but this API check does not authenticate Yorkie connections or stop a direct local Yorkie client. Provider authorization and revocation require separate [#366](https://github.com/barocss/barocss-editor/issues/366) evidence. See the [provider contract](../../docs/specs/wonffice-collaboration-providers.md).
