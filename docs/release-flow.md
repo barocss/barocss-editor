@@ -4,17 +4,17 @@ artifact_type: delivery_policy
 status: qa_ready
 owner_role: release-manager
 source_request: "이슈 병렬 개발, 필수 CI, 출시 시점과 버전 관리 정리"
-last_updated: 2026-09-19
+last_updated: 2026-09-23
 ---
 
 # Wonffice 개발과 릴리즈
 
-이 문서는 개발·출시 정책이다. 출시 준비 완료 기록이 아니다. 클라우드 SaaS와 고객사 내부 설치 제품을 같은 버전으로 동시에 출시한다. 출시 날짜는 아직 확정하지 않았다. 백엔드의 첫 저장·복구 경로를 검증한 뒤 남은 작업과 기간을 산정한다.
+이 문서는 개발·출시 정책이다. 출시 준비 완료 기록이 아니다. 클라우드 SaaS와 고객사 내부 설치 제품을 같은 버전으로 동시에 출시한다. 출시 날짜와 통합 후보는 아직 확정하지 않았다. 실제 인수 결과는 [#322](https://github.com/barocss/barocss-editor/issues/322)에서 추적한다.
 
 ## 현재 상태와 정책의 적용 범위
 
 - 기준점: [#248](https://github.com/barocss/barocss-editor/issues/248), [PR #250](https://github.com/barocss/barocss-editor/pull/250). 필수 CI 통과 후 main에 병합했다. 후속 코드는 최신 main을 기준으로 한다.
-- 다음 코어 작업: [#249](https://github.com/barocss/barocss-editor/issues/249), transaction 실패 복구.
+- 코어 기반: [#249](https://github.com/barocss/barocss-editor/issues/249)의 transaction 복구는 PR #266으로 병합했다. 이 결과는 서비스 통합 인수를 대체하지 않는다.
 - 이 정책: [#251](https://github.com/barocss/barocss-editor/issues/251). 문서 작업은 최신 main을 반영한 독립 worktree에서 진행한다.
 - main 필수 검사 이름은 `Lint, type-check, unit test`, `E2E (editor-react)`다. 필수 검사를 통과하지 않으면 병합하지 않는다.
 - [PR #256](https://github.com/barocss/barocss-editor/pull/256)에서 실제 ESLint와 `pnpm preflight`를 연결했다. push 전에 로컬 lint·소스 타입·테스트 타입 검사를 실행한다. 기존 lint·타입 부채는 기준으로 명시하고 증가시키지 않는다. 상세 범위는 [로컬 사전 검사](local-verification.md)를 따른다.
@@ -58,20 +58,39 @@ last_updated: 2026-09-19
 
 | 단계 | 제품 버전 예시 | 통과 조건 |
 | --- | --- | --- |
-| 내부 alpha | `1.0.0-alpha.1` | 기준점 CI 안정화, transaction 복구, 공통 작업 계약, 두 환경 설치·로그인·Note 서버 저장·재열기 검증 |
+| 내부 alpha 준비 | `1.0.0-alpha.1` | 기준점 CI 안정화, transaction 복구, 공통 작업 계약, 두 환경 설치·로그인·Note 서버 저장·재열기 검증. 내부 범위 결과를 외부 제공 가능으로 표시하지 않음 |
+| 외부 alpha | 확정 전 | Note 다음 Word·Slides·Site까지 실제 로컬 PostgreSQL 메타데이터·Fastify API·제품 UI와 Yorkie 원문 저장·두 계정 실시간 동시편집을 같은 후보에서 검증. SaaS·내부 설치 인수와 사용자 안내도 별도 확인 |
 | 제한된 고객 beta | `1.0.0-beta.1` | Note·Word·Slides·Site 서버 저장·재열기·공유, 회사/사용자/자산 격리, 기본 백업·복구, 지원 범위 명시. 두 배포 방식 제공 |
 | 출시 후보 RC | `1.0.0-rc.1` | 기능 범위 동결. 동시 편집 충돌·재접속, 권한 회수, 고객별 기능 차단, 이전 후보에서 업데이트, 실패 복구, 내부 설치 오프라인 기본 작업 검증 |
 | 첫 정식 출시 | `1.0.0` | RC의 두 환경 검증 통과, 출시 차단 결함 없음, 관측·복구 절차·설치 문서 준비, 제품 소유자의 출시 결정 |
 
-로드맵 기준 alpha는 WP-01·02·05·06의 핵심 경로, beta는 WP-07까지와 WP-08·09의 격리·충돌 기준을 포함한다. RC와 정식 출시는 WP-08·09·10·11의 출시 검사를 모두 요구한다. 일부 선행 기능을 통과했다고 해당 WP 전체를 완료 처리하지 않는다. WP 정의는 [전달 계획](specs/wonffice-platform-delivery.md)을 따른다.
+내부 alpha 준비는 WP-01·02·05·06의 핵심 경로다. 사용자의 추가 결정에 따라 **외부 alpha에는 네 제품의 실제 DB 저장과 실시간 공동 편집 검증도 필요하다.** 이전의 beta·RC 단계 표기가 이 조건을 뒤로 미루지 않는다. 일부 선행 기능을 통과했다고 해당 WP 전체를 완료 처리하지 않는다. WP 정의는 [전달 계획](specs/wonffice-platform-delivery.md)을 따른다.
 
 독립 상주 Agent 실행기(WP-03·04), 모든 회사 업무 자동화(WP-12 이후), 모바일 편집은 첫 출시의 선행 조건이 아니다. 첫 서비스 범위와 장기 비전을 구분한다. 준비되지 않은 기능은 UI와 API 모두에서 차단한다.
 
 내부 alpha 검증 후 남은 이슈의 규모로 beta 목표 날짜를 정한다. beta 결과로 RC 날짜를 정한다. RC에서는 새 기능을 추가하지 않는다. 데이터 유실·회사 간 자료 노출·설치/저장 불능·복구 실패가 있으면 출시를 보류한다. 일정을 맞추려고 두 배포 방식 중 하나를 제외하지 않는다. 일정 또는 출시 범위를 바꿀 때는 제품 소유자가 결정한다.
 
+### 외부 alpha의 제품별 인수 증거
+
+Note를 먼저 구현·검증하고 Word, Slides, Site로 확대한다. **네 제품 모두 통과**하기 전에는 외부 alpha를 완료로 표시하지 않는다. 각 제품에서 실제 로컬 PostgreSQL, 인증한 서로 다른 계정 두 개, Fastify API, 제품 UI, 실제 Yorkie 연결을 사용한다. 외부 alpha의 협업 서비스는 Yorkie Cloud다. 내부 통합 검증에는 외부 Yorkie 연결을 허용하며 로컬 자체 설치는 필수가 아니다. 최종 테스트 배치는 미정이다. Cloud 연결을 완전 오프라인 검사라고 부르지 않는다.
+
+Yorkie는 동시편집 상태와 협업 원문을 소유한다. Wonffice API·PostgreSQL은 계정·회사·권한·문서 메타데이터를 소유한다. 이미지와 첨부는 별도 파일 저장소에 둔다. Wonffice가 인증과 접근 제어를 책임진다. 기존 Yjs·Automerge 코드는 이번 결정만으로 삭제하거나 병행 구현 대상으로 정하지 않는다.
+
+| 검사 | 실제 확인할 결과 |
+| --- | --- |
+| 저장·재열기 | UI 입력 후 Yorkie 협업 원문과 화면의 내용·구조·서식, API·PostgreSQL의 문서 메타데이터·권한 관계가 일치. 브라우저와 서버 재시작 후 재열기 |
+| 두 사용자 동시편집 | 독립 브라우저 세션에서 같은 문서 수정. 양쪽 변경 수렴과 새로고침·재접속 후 영속 결과 일치 |
+| 실패·복구 | 연결 단절, 서버 재시작, 저장 실패와 재시도. 저장 확인된 변경과 미확정 입력 구분, 유실·중복 검사 |
+| 구조·이력 | 지원 구조 변경과 사용자별 undo/redo. 다른 사용자의 확정 변경 보존 |
+| 권한·저장 소유권 | 권한 없는 접근과 권한 회수 후 읽기·쓰기 거부. 오래된 snapshot이 공동 편집의 새 변경을 덮어쓰지 않음 |
+
+같은 후보 commit, 포함 PR head, 앱 산출물 digest, PostgreSQL·인증·Yorkie 버전, 합성 자료, **실제 실행한** 명령·로그, 제품별 QA 판정을 연결한다. 상세 시나리오는 [#322](https://github.com/barocss/barocss-editor/issues/322)를 사용한다. DB CRUD, 브라우저 로컬 저장, snapshot revision 충돌, 협업 adapter 또는 단위 검사만으로 통합 인수를 통과 처리하지 않는다. 서로 다른 후보의 통과 결과를 합산하지 않는다.
+
+Backend·제품 담당은 구현과 실제 API/DB 확인 경로를 제공한다. Operator는 재현 가능한 로컬 기동·재시작·복원 절차와 후보 산출물을 제공한다. QA는 독립 실행 결과를 기록한다. Writer는 검증된 동작으로 시작 안내·사용 방법·지원 범위·알려진 제한·문제 해결·업데이트 및 사용자 조치를 작성한다. 실행하지 않은 명령과 확인하지 않은 동작은 **미확인**으로 표시한다. 로컬 통과는 SaaS·내부 설치 환경의 설치·권한·저장·백업·복원 인수를 대체하지 않는다. 최종 범위와 출시 판단은 Product Master PM이 관리한다.
+
 ## 제품 버전과 패키지 버전
 
-제품 버전은 Wonffice 서비스 전체의 배포 조합이다. Git tag는 `wonffice-v1.0.0-alpha.1`처럼 제품 이름을 포함한다. 루트 package.json의 기존 `1.0.0`은 첫 서비스가 출시되었다는 증거가 아니다. 제품 전체를 대표하는 비공개 workspace 패키지의 package.json을 제품 버전의 단일 기준으로 둔다. 이 패키지도 Changesets로 버전과 변경 내역을 관리하지만 npm에는 게시하지 않는다. 프런트엔드 office-app 하나의 버전을 전체 제품 버전으로 사용하지 않는다. 릴리즈 manifest는 이 제품 버전을 읽고 코드·이미지·DB 조합을 기록한다. 제품 버전과 manifest 검증 기반은 #252 / PR #254에서 검토 중이다. 게시된 태그의 불변성 검증과 실제 배포는 후속 구현 대상이다.
+제품 버전은 Wonffice 서비스 전체의 배포 조합이다. Git tag는 `wonffice-v1.0.0-alpha.1`처럼 제품 이름을 포함한다. 루트 package.json의 기존 `1.0.0`은 첫 서비스가 출시되었다는 증거가 아니다. 제품 전체를 대표하는 비공개 workspace 패키지의 package.json을 제품 버전의 단일 기준으로 둔다. 이 패키지도 Changesets로 버전과 변경 내역을 관리하지만 npm에는 게시하지 않는다. 프런트엔드 office-app 하나의 버전을 전체 제품 버전으로 사용하지 않는다. 릴리즈 manifest는 이 제품 버전을 읽고 코드·이미지·DB 조합을 기록한다. 제품 버전과 manifest 검증 기반은 #252 / PR #254에서 main에 병합됐다. 게시된 태그의 불변성 검증과 실제 배포는 후속 구현 대상이다.
 
 | 변화 | 제품 버전 규칙 |
 | --- | --- |
@@ -106,11 +125,10 @@ main 병합은 배포 버튼이 아니다. 릴리즈 PR에 manifest, 변경 내�
 
 ## 다음 실행 순서
 
-1. #248 / PR #250 기준점과 #255 / PR #256 로컬 사전 검사: main 반영 완료.
-2. #251: 이 정책을 검토·병합한다. 코드 변경 없이 독립 진행할 수 있다.
-3. [릴리즈 manifest/검증 도구 #252](https://github.com/barocss/barocss-editor/issues/252)는 PR #254에서 최신 main 기준 검증 중이다. 정책 병합 후 [#249](https://github.com/barocss/barocss-editor/issues/249)의 코어 복구를 별도 worktree에서 진행한다.
-4. WP-05 서버·두 배포 환경의 최소 구조를 구축한다. 그다음 WP-02·06 저장 경로를 연결한다.
-5. alpha 검증으로 beta 일정과 범위를 구체화한다. 진행 상황은 [GitHub milestone](https://github.com/barocss/barocss-editor/milestones)과 이슈에 기록한다. alpha, beta, RC, 1.0 milestone은 생성했고 날짜는 비워 두었다.
+1. [#322](https://github.com/barocss/barocss-editor/issues/322)에서 공식 통합 후보와 남은 WP-02·05·06 및 실시간 협업 구현의 상태를 추적한다.
+2. Backend·제품 담당이 Note의 DB·API·UI·협업 경로를 연결한 뒤 Word·Slides·Site로 확대한다. Operator가 실제 실행 환경과 명령을 기록한다.
+3. QA가 네 제품의 로컬 통합 인수를 같은 후보에서 수행한다. SaaS와 내부 설치의 환경별 결과도 별도로 기록한다.
+4. Writer가 실제 동작에 맞춘 사용자 안내와 제한·복구·업데이트 문서를 준비한다. PM이 증거와 위험을 검토한 뒤 출시 시점과 외부 범위를 결정한다.
 
 ## 근거
 
@@ -120,4 +138,4 @@ main 병합은 배포 버튼이 아니다. 릴리즈 PR에 manifest, 변경 내�
 
 ## npm library packages
 
-Library publication uses the separate [npm release flow](npm-release.md). Changesets creates the package version PR. The manual GitHub Action builds and validates actual tarballs before publication. Product deployment does not automatically publish libraries.
+라이브러리 게시 절차는 [npm 패키지 출시 문서](npm-release.md)에 둔다. `main`에는 수동 게시용 `.github/workflows/npm-release.yml`과 버전 PR용 `.github/workflows/npm-version.yml`이 있다. 실제 게시 대상·권한·npm 결과는 제품 배포와 별도로 확인한다. 제품 배포가 라이브러리를 자동 게시하지 않는다.
