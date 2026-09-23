@@ -17,6 +17,11 @@
       "import": "./src/note-view.tsx",
       "default": "./src/note-view.tsx"
     },
+    "./file": {
+      "types": "./src/note-file-codec.ts",
+      "import": "./src/note-file-codec.ts",
+      "default": "./src/note-file-codec.ts"
+    },
     "./note.css": "./src/note.css",
     "./workspace": "./src/workspace-adapter.ts"
   },
@@ -34,6 +39,11 @@
         "types": "./dist/view.d.ts",
         "import": "./dist/view.js",
         "default": "./dist/view.js"
+      },
+      "./file": {
+        "types": "./dist/file.d.ts",
+        "import": "./dist/file.js",
+        "default": "./dist/file.js"
       },
       "./note.css": "./dist/note.css",
       "./workspace": {
