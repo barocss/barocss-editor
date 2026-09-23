@@ -400,12 +400,12 @@ build, it fails, and somebody decides whether to teach the probe or to name the 
 
 | | |
 | --- | ---: |
-| `apps/site/src` | **4,227 lines** |
+| `apps/site/src` | **4,228 lines** |
 | components behind `@barocss/office-site/ui` | **5** |
-| browser test declarations (2026-09-19; inventory, not run results) | **316** |
+| browser test declarations (2026-09-20; inventory, not run results) | **317** |
 
 `apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
-five — moved into this package. That is the move `note.md` uses as its gauge, and the 316 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 317 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
 
 **283 of those 291 until `site-theme-values.spec.ts`**, and the eight it adds are worth naming
 because of what the suite could not previously say. Of 1,092 browser tests across the repository,

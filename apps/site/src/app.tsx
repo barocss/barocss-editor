@@ -1123,8 +1123,14 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     };
 
     const leave = (event: KeyboardEvent) => {
-      if ((event.target as Element | null)?.closest?.('[role="dialog"]')) return;
       if (!root) return;
+      const saving = siteKeyFor(event, mode);
+      // File saving belongs to the whole document, including an open embedded body editor.
+      if (saving?.view === 'file.save' && !event.defaultPrevented) {
+        event.preventDefault(); runEntry(saving); return;
+      }
+      // Dialogs keep editing keys and Escape; only document saving crosses this boundary.
+      if ((event.target as Element | null)?.closest?.('[role="dialog"]')) return;
       /*
        * Preview first, and without asking whether the reader is typing — in preview they are not,
        * and it is the one state where a reader can be stuck: no overlay, no panel to press, and the
@@ -1135,11 +1141,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         event.preventDefault();
         setPreview(false);
         return;
-      }
-      const saving = siteKeyFor(event, mode);
-      // File saving belongs to the whole document, including an open embedded body editor.
-      if (saving?.view === 'file.save' && !event.defaultPrevented) {
-        event.preventDefault(); runEntry(saving); return;
       }
       if (elsewhere(event)) return;
 
