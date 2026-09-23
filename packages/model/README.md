@@ -41,6 +41,12 @@ console.log(paragraph.content); // Pass the tree to your document loader.
 
 Tree builders return model data; constructing a node does not insert it into a live document. Apply edits through a transaction or an editor command so history and selection mapping can participate.
 
+## Live edits and transaction results
+
+Use `transaction(editor, operations).commit()` for a group of document operations. Await the result and check `success` before reporting an edit as successful. The transaction builder runs extension `onBeforeTransaction` hooks in priority order; returning `null` cancels the request. It then passes operations to the transaction manager.
+
+Tree construction, direct store access, and loading a document are different paths. They are not interchangeable with an undoable user edit. A client-side hook is also not a server authorization boundary. The [editor-core command example](https://editor.barocss.com/packages/editor-core#extend-an-editor) shows a complete operation-to-command integration.
+
 ## Documentation
 
 - [Package guide](https://editor.barocss.com/packages/model)

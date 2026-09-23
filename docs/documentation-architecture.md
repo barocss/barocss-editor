@@ -46,3 +46,7 @@ This refresh verifies package onboarding and the DOM/React guides. Existing deep
 Package README edits do not change an already published npm archive. They reach npm on the next package release. This documentation PR does not create package versions or publish packages.
 
 Review a framework migration only with evidence: build cost, broken navigation, unsupported content requirements, or sustained maintenance work that the current pipeline cannot resolve.
+
+## Implementation evidence and documentation ownership
+
+Use the [documentation contract](specs/documentation-contract.md) to distinguish verified API behavior, implementation evidence, and remaining audits. The public [extension guide](https://editor.barocss.com/docs/guides/editor-extensibility) explains how foundations and product kits compose. Keep runtime fixes in separate implementation PRs.
