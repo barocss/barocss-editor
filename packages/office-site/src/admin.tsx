@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Icon, IconButton, TextField } from '@barocss/office-ui';
 import { assetsOf } from './assets';
@@ -76,7 +76,7 @@ export function Admin({
 }: {
   editor: Editor;
   revision: number;
-  run: (name: string, payload?: Record<string, unknown>) => void;
+  run: (name: string, payload?: Record<string, unknown>) => Promise<boolean>;
   can: (name: string, payload?: Record<string, unknown>) => boolean;
   tab: AdminTab;
   onTab: (tab: AdminTab) => void;
@@ -544,24 +544,48 @@ function AdminData({
   onOpen
 }: {
   doc: { rootId: string; getNode: (sid: string) => any };
-  run: (name: string, payload?: Record<string, unknown>) => void;
+  run: (name: string, payload?: Record<string, unknown>) => Promise<boolean>;
   onOpen: (name: string) => void;
 }) {
   const [find, setFind] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [problem, setProblem] = useState(false);
+  const creatingNow = useRef(false);
   const all = datasetsOf(doc as never);
   const datasets = all.filter((one) => has(find, one.name, one.label, columnNames(one.fields).join(' '), one.url));
+
+  const create = async () => {
+    if (creatingNow.current) return;
+    creatingNow.current = true;
+    setCreating(true);
+    setProblem(false);
+    const taken = new Set(all.map((one) => one.name));
+    let name = '새 데이터';
+    for (let number = 2; taken.has(name); number += 1) name = `새 데이터 ${number}`;
+    try {
+      if (!await run('insertDataset', { name })) setProblem(true);
+    } catch {
+      setProblem(true);
+    } finally {
+      creatingNow.current = false;
+      setCreating(false);
+    }
+  };
 
   return (
     <>
       <AdminHead tab="data" count={all.length}>
         <Button
-          onClick={() => run('insertDataset', { name: '새 데이터' })}
+          onClick={() => void create()}
           data={{ 'admin-add': 'data' }}
           tone="accent"
+          disabled={creating}
         >
           새 데이터
         </Button>
       </AdminHead>
+
+      {problem ? <p role="alert">새 데이터를 만들지 못했습니다. 새 데이터는 저장되지 않았습니다.</p> : null}
 
       <AdminFind value={find} onValue={setFind} said="데이터 찾기" />
 
