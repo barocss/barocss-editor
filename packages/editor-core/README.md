@@ -45,6 +45,64 @@ editor.destroy();
 
 Create one editor per independent editing session. Load a document after construction, attach a view separately, and call destroy when the session ends.
 
+## Extend an editor
+
+An extension is an object or a class instance with a unique `name`. Install it with the constructor's `extensions` array or `editor.use(extension)`. Use `commands` for declarative command registration. `onCreate` and `onDestroy` can attach and remove host subscriptions. Create a fresh extension instance for each editor when it holds mutable state.
+
+This example adds a command that appends a paragraph. It uses the model transaction API so the edit participates in history. Install `@barocss/model` in addition to the packages above.
+
+```ts
+import { Editor, type Extension } from '@barocss/editor-core';
+import { createSchema, getMinimalSchemaDefinition } from '@barocss/schema';
+import { createCoreExtensions } from '@barocss/extensions';
+import { addChild, transaction } from '@barocss/model';
+
+export async function demonstrateCommand() {
+  const appendParagraph: Extension = {
+    name: 'example.append-paragraph',
+    commands: [{
+      name: 'example.appendParagraph',
+      canExecute: (editor) => !!editor.getRootId(),
+      execute: async (editor) => {
+        const root = editor.getRootId();
+        if (!root) return false;
+        const result = await transaction(editor, [addChild(root, {
+          stype: 'paragraph',
+          content: [{ stype: 'inline-text', text: 'Added through a command.' }],
+        })]).commit();
+        return result.success;
+      },
+    }],
+  };
+  const editor = new Editor({
+    schema: createSchema('command-example', getMinimalSchemaDefinition()),
+    extensions: [...createCoreExtensions(), appendParagraph],
+  });
+  try {
+    editor.loadDocument({ stype: 'document', content: [
+      { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Original.' }] },
+    ]}, 'command-example');
+    const inserted = await editor.executeCommand('example.appendParagraph');
+    const undone = await editor.executeCommand('undo');
+    return { inserted, undone };
+  } finally {
+    editor.destroy();
+  }
+}
+```
+
+This command targets the minimal document schema. It does not mount an editing view or add a toolbar button. Adapt the insertion target and schema checks before using it in a product kit.
+
+## Extension boundaries
+
+- `registerCommand` replaces an existing command with the same name. Use namespaced names for host commands.
+- `use` ignores an extension whose name is already installed. `unuse` removes commands declared in its `commands` array; it does not restore a previously overwritten command. Do not treat it as a general hot-swap mechanism.
+- `editor.on` returns no unsubscribe function. Pair it with `editor.off(event, callback)` using the same callback.
+- Transaction before-hooks run through the model transaction builder. Do not assume a hook intercepts direct store writes or every editor API.
+- A schema, command, renderer, and UI control are separate registrations. Installing one does not provide all four.
+
+See [extension boundaries and product customization](https://editor.barocss.com/docs/guides/editor-extensibility) for the supported composition paths.
+
 ## Documentation
 
 - [Package guide](https://editor.barocss.com/packages/editor-core)

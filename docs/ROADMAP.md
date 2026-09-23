@@ -2,11 +2,15 @@
 
 2026-09-20 선택·히스토리 문서 검증: [#341](https://github.com/barocss/barocss-editor/issues/341)에서 editor-core README와 Selection/History 개념 문서를 실제 API에 맞췄다. 선택 종류·입력 묶음·실행 취소·문제 해결 및 검증 범위는 [문서 감사](specs/selection-history-documentation-audit.md)에 기록한다. 제품 출시 완료와 사이트 게시 여부는 별도 확인한다.
 
+2026-09-20 문서화 1차: [#285](https://github.com/barocss/barocss-editor/issues/285)에서 코어·확장·model·제품 4개 README와 공개 확장 가이드를 정리한다. 기본 kit 교체와 확장 추가, Note 세션 옵션, schema·렌더러·명령·호스트의 경계를 설명한다. [문서 관리 계약과 후속 범위](specs/documentation-contract.md)를 기준으로 진행하며, 전체 제품 기능 문서가 완료되었다는 뜻은 아니다.
+
 2026-09-20 SE-01 구현: [#263](https://github.com/barocss/barocss-editor/issues/263)의 열린 문서 조각, editor별 정책, 읽기 전용 계획과 transaction 적용 경로를 추가했다. [지원 범위와 계약](specs/schema-editing-policy.md)을 참고한다. 실제 clipboard 연결 #264와 DND 연결 #265는 남아 있다. 전체 완료는 추적 이슈 #262의 완료 기준으로 판단한다.
 
 2026-09-20 WP-01 구현: [#249](https://github.com/barocss/barocss-editor/issues/249)의 transaction 실패 정리, commit 중 쓰기 복구, commit 후 오류 분리, 협업 이벤트 발행 시점을 보강했다. [결과·호환성 계약](specs/transaction-recovery.md)에 범위와 검증 항목을 기록했다. 검사 증거와 병합 상태는 구현 PR에서 확인한다. schema/fragment 후속 이슈 #263–#265는 이번 구현에 포함하지 않는다.
 
 ## 현재 제품 진행표 — 2026-09-19
+
+2026-09-20 Note 시나리오 자동화 및 재현 오류 수정: [#282 / PR #283](https://github.com/barocss/barocss-editor/pull/283)에서 독립 화면·iframe 임베드 화면의 검사를 구성했다. 슬래시 메뉴 스크롤·Enter 전파와 빈 문단의 제목 변환·Backspace 경계를 수정했고, Undo/Redo를 포함한 데스크톱 시나리오 16개가 로컬에서 통과했다. Note 단위 341개, 공통 extensions 276개, editor-ui 48개도 통과했다. 메뉴·구분선의 추가 재현 조건(#279, #281)은 유지한다. [시나리오 정의와 범위](specs/note-editing-scenarios.md).
 
 2026-09-19 Node 실행 기준: 로컬 검증과 CI의 버전 차이를 없애기 위해 프로젝트 기준을 22.22.0으로 고정했다. `.nvmrc`를 로컬 `nvm use`, CI 두 작업, 문서 빌드의 단일 기준으로 사용한다. 최초 CI의 fs.globSync 호환성 실패도 수정했다.
 

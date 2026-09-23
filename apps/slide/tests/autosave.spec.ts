@@ -4,7 +4,10 @@ import { openDeck, pickMenu, visibleBoxes } from './helpers';
 const saved = (page: Page) => expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
 const id = (page: Page) => new URL(page.url()).hash;
 const tree = (page: Page) => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument(), (key, value) => key === 'sid' || key === 'metadata' ? undefined : value));
-const add = (page: Page) => page.getByLabel('새 슬라이드', { exact: true }).click();
+const add = async (page: Page) => {
+  await page.getByRole('toolbar', { name: '슬라이드 서식' }).getByRole('menuitem', { name: '슬라이드', exact: true }).click();
+  await page.getByRole('menu', { name: '슬라이드', exact: true }).getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+};
 
 test('autosaves text and preserves the previous deck when starting a template', async ({ page }) => {
   await openDeck(page); await saved(page);
@@ -63,9 +66,11 @@ test('blocks template replacement on write failure and retries the latest edits'
   });
   await add(page);
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장 실패');
+  const pending = await tree(page);
   await pickMenu(page, 'file.library.1');
   await page.locator('[data-template-start]').click();
-  await expect(page.getByRole('alert')).toContainText('현재 자료를 저장하지 못했습니다');
+  await expect(page.getByRole('alert')).toHaveText('새 자료를 열지 못했습니다. 현재 자료의 저장 상태를 확인한 뒤 다시 시도하세요.');
+  expect(await tree(page)).toBe(pending);
   expect(id(page)).toBe(originalId);
   await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(7);
   await page.getByRole('button', { name: '취소', exact: true }).click();
@@ -73,6 +78,7 @@ test('blocks template replacement on write failure and retries the latest edits'
   await page.getByRole('button', { name: '저장 다시 시도' }).click();
   await saved(page);
   await page.reload(); await saved(page);
+  expect(await tree(page)).toBe(pending);
   await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(7);
 });
 

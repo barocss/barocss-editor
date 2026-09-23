@@ -70,3 +70,15 @@ local browser results.
 ## Upstream check
 
 Before publication, main advanced to `0d97e1f00948aafd27bd6bdf4ac2b9a2f9f51e60` via Note scenario PR #283. Its changed runtime files do not alter the audited core history or selection APIs. The examples and checks above used the exact baseline stated at the top. The new PR CI remains the integration gate.
+
+On 2026-09-23, this documentation was integrated with `origin/main`
+`41df1b8618d395d998de4402dee67760fdd564fa`. The audited editor,
+history, selection, transaction, and DOM input implementation files have not
+changed since the baseline above. The merge retains the extension guide in the
+editor-core README and both documentation entries in the roadmap.
+
+Replay-failure repair PR #354 is still separate at head
+`d9f73ad892a41ccd3f5f5443938f5d732f3da266`. The failure wording here and
+in the History page describes the current main behavior. Coordinate a wording
+update with #354 integration and verify the exact integrated implementation;
+the older wording must not be presented as the repaired contract.

@@ -129,8 +129,13 @@ test.describe('typing in a box', () => {
     expect(selection.inText).toBe(true);
 
     // The formatting half of the toolbar is alive, which it was not before.
-    await expect(page.getByLabel('굵게')).toBeEnabled();
-    await expect(page.getByLabel('가운데 맞춤')).toBeEnabled();
+    const toolbar = page.getByRole('toolbar', { name: '슬라이드 서식' });
+    await toolbar.getByRole('menuitem', { name: '글자', exact: true }).click();
+    // A checked formatting item has role menuitemcheckbox; an unchecked one has role menuitem.
+    await expect(page.getByRole('menu', { name: '글자', exact: true }).locator('[data-menu-item="bold"]')).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await toolbar.getByRole('menuitem', { name: '문단', exact: true }).click();
+    await expect(page.getByRole('menu', { name: '문단', exact: true }).locator('[data-menu-item="align-center"]')).toBeEnabled();
   });
 
   test('writes what is typed, and undoes it', async ({ page }) => {

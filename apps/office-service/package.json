@@ -1,0 +1,19 @@
+{
+  "name": "@barocss/office-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "type-check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:postgres": "pnpm build && node test/postgres.integration.mjs",
+    "migrate": "node dist/migrate-cli.js"
+  },
+  "dependencies": {
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

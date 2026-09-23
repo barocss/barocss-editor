@@ -4,7 +4,7 @@ artifact_type: architecture
 status: ready_for_build
 owner_role: architect
 source_request: "클라우드와 내부 설치 동시 출시, 고객사별 기능, 자동 개발, 서비스 백엔드"
-last_updated: 2026-09-19
+last_updated: 2026-09-23
 ---
 
 # Wonffice 플랫폼 설계 기준
@@ -27,9 +27,10 @@ flowchart TB
   Prem --> Service
   Business[고객 업무 Agent] --> Service
   Service --> Data[해당 배포의 DB·파일 저장소]
+  Service --> Collab[등록된 Yorkie 협업 서비스]
 ```
 
-그림의 서비스 API와 저장소는 배포마다 별개다. 내부 설치가 클라우드 DB를 공유하지 않는다.
+그림의 서비스 API와 DB·파일 저장소는 배포마다 별개다. 내부 설치가 클라우드 DB를 공유하지 않는다. 협업 문서는 Yorkie가 원본을 보관한다. 외부 alpha의 협업 공급자는 Yorkie Cloud다. 내부 설치의 Yorkie 실행·저장 구성은 검증 전이다.
 
 | 영역 | 책임 | 허용하지 않는 경계 통과 |
 | --- | --- | --- |
@@ -54,9 +55,11 @@ flowchart TB
 
 위 결함은 소스 경로를 확인한 결과다. 이번 설계 작업에서는 재현 테스트나 수정 완료를 주장하지 않는다. 가장 먼저 WP-01에서 실패 경로를 재현한다.
 
+서버 착수의 구체적인 데이터·외부 연동·고객 도메인·공동 편집 기준은 [백엔드 구축 기준](wonffice-backend-foundation.md)에 둔다. #330은 실행 기반의 첫 부분이며 WP-05 전체 완료가 아니다.
+
 ## 3. 서버 구성과 패키지 경계
 
-처음에는 TypeScript 기반 **모듈형 단일 서버**와 별도 worker 프로세스를 사용한다. API와 worker는 같은 도메인 코드를 사용한다. PostgreSQL이 메타데이터·문서 버전·작업 상태를 보관한다. 파일은 S3 호환 인터페이스로 분리한다. 인증은 OIDC를 기준으로 한다.
+Node.js·TypeScript와 Fastify 기반 **모듈형 단일 서버** 및 별도 worker 프로세스를 사용한다. Fastify는 HTTP 경계에만 둔다. API와 worker는 같은 도메인 코드를 사용한다. PostgreSQL은 사용자·회사·권한·문서 메타데이터·작업 상태와 일반 snapshot 저장 문서의 revision을 보관한다. 활성 협업 문서의 원본은 Yorkie가 보관한다. 파일은 S3 호환 인터페이스로 분리한다. 인증은 OIDC를 기준으로 한다.
 
 | 위치 — 신규는 계획 경로 | 책임 |
 | --- | --- |
@@ -69,7 +72,7 @@ flowchart TB
 | 신규 `apps/office-worker` | 출력·게시·정리·후속 작업. 같은 회사·권한 검사 |
 | 신규 `apps/agent-runner` | GitHub 개발 감독·복구·실행기 adapter. 제품 번들에 포함하지 않음 |
 
-API 프레임워크·ORM·OIDC 제품은 WP-05의 작은 실행 예제로 고정한다. PostgreSQL 작업 테이블과 outbox로 시작한다. Redis, Kafka, Kubernetes, 별도 검색 서버는 측정된 필요가 생긴 뒤 추가한다. 모든 제품을 하나의 새 모델로 재작성하지 않는다.
+API 프레임워크는 2026-09-20 사용자 결정에 따라 Fastify로 정한다. ORM·OIDC 제품은 WP-05의 작은 실행 예제로 고정한다. PostgreSQL 작업 테이블과 outbox로 시작한다. Redis, Kafka, Kubernetes, 별도 검색 서버는 측정된 필요가 생긴 뒤 추가한다. 모든 제품을 하나의 새 모델로 재작성하지 않는다.
 
 ## 4. 회사와 권한
 
@@ -78,8 +81,8 @@ API 프레임워크·ORM·OIDC 제품은 WP-05의 작은 실행 예제로 고정
 | 데이터 | 필수 관계·규칙 |
 | --- | --- |
 | tenant, identity, membership | 외부 identity의 issuer·subject 조합, 회사별 역할·정지 상태 |
-| workspace, document | tenant 소속, 전역 문서 ID, 제품 종류, 현재 revision, 삭제 상태 |
-| document_revision | 문서별 증가 revision, 제품 schemaVersion, snapshot, 작성 actor |
+| workspace, document | tenant 소속, 전역 문서 ID, 제품 종류·schemaVersion, 저장 모드, Yorkie 문서 key/연결 ID 또는 snapshot revision, 삭제 상태 |
+| document_revision | 일반 snapshot 저장 문서의 증가 revision, snapshot, 작성 actor. 협업 문서의 Yorkie 변경 로그를 중복 저장하지 않음 |
 | asset | tenant 소속, 저장 key, 크기·형식·hash, 업로드 상태·참조 |
 | capability_installation | tenant, 기능 ID·버전, 설정 revision, 활성 상태 |
 | share, publication | 권한/만료/회수 또는 공개 snapshot, 문서와 asset 참조 |
@@ -91,10 +94,10 @@ API 프레임워크·ORM·OIDC 제품은 WP-05의 작은 실행 예제로 고정
 
 ## 5. 문서 저장과 실행 계약
 
-첫 서버 저장은 snapshot + revision 비교로 구현한다. 로컬 IndexedDB는 초안·캐시·이전 원본을 보관한다. 서버로 이전한 문서의 확정 revision은 서버가 소유한다. 같은 문서를 로컬 자료함과 서버가 독립적으로 확정하지 않는다.
+snapshot 저장 모드 문서의 첫 서버 저장은 snapshot + revision 비교로 구현한다. 활성 협업 문서의 원본 저장은 Yorkie가 맡는다. 문서별 저장 모드와 연결은 서버가 결정한다. 로컬 IndexedDB는 초안·캐시·이전 원본을 보관한다. 서버로 이전한 snapshot 저장 모드 문서의 확정 revision은 서버가 소유한다. 같은 문서를 로컬 자료함과 서버가 독립적으로 확정하지 않는다.
 
 ```ts
-// 제안 계약. 현재 공개 API가 아니다.
+// 일반 snapshot 저장 모드의 제안 계약. 현재 공개 API가 아니다.
 type DocumentMutation = {
   requestId: string;
   workspaceId: string;
@@ -111,7 +114,7 @@ type MutationResult =
   | { status: 'committed'; revision: number; effects: 'complete' | 'pending' };
 ```
 
-tenant·actor·권한은 서버의 신뢰된 실행 context에서 제공한다. 요청자가 actor를 지정하지 않는다. 다음 순서를 고정한다.
+tenant·actor·권한은 서버의 신뢰된 실행 context에서 제공한다. 요청자가 actor를 지정하지 않는다. 다음 순서는 일반 snapshot 저장 모드에 적용한다.
 
 1. 인증·회사·대상·기능 설치·권한·입력 schema·크기 제한을 확인한다.
 2. `(tenant, actor, action, idempotencyKey)`를 조회한다. 같은 key와 다른 요청 hash는 거부한다. 재전송도 현재 접근 권한을 확인한다.
@@ -120,11 +123,13 @@ tenant·actor·권한은 서버의 신뢰된 실행 context에서 제공한다. 
 5. DB 저장이 실패하면 준비된 편집 인스턴스를 폐기한다. 성공 응답을 받기 전의 화면 변경은 로컬 초안이다. 서버 기준 snapshot으로 재조정할 수 있어야 한다.
 6. commit 후 출력·알림 등은 outbox에서 실행한다. 후처리 실패는 `committed / pending`이다. 본문 변경 전체를 다시 실행하지 않는다.
 
-중복 key의 동시 요청은 DB 유일 제약으로 하나만 확정한다. 결과 보관 기간은 클라이언트 재시도 기간 이상이어야 한다. 만료된 요청을 새 변경으로 재실행하지 않도록 요청 조회·만료 응답을 정의한다. 여러 문서·외부 서비스 작업은 하나의 편집 transaction에 넣지 않는다. 각 단계의 결과와 보상 작업을 기록한다.
+중복 key의 동시 요청은 DB 유일 제약으로 하나만 확정한다. 결과 보관 기간은 클라이언트 재시도 기간 이상이어야 한다. 만료된 요청을 새 변경으로 재실행하지 않도록 요청 조회·만료 응답을 정의한다. 여러 문서·외부 서비스 작업은 하나의 편집 transaction에 넣지 않는다. 각 단계의 결과와 보상 작업을 기록한다. 이 DB transaction은 Yorkie 문서 변경의 확정 경계가 아니다.
 
-원격 capability는 `describe / validate / preview / apply`로 좁힌다. preview는 대상 revision과 변경 요약을 반환한다. apply는 같은 revision·요청 hash·권한을 재확인한다. 사용자 커서에 의존하는 UI command 대신 명시한 node ID·범위를 쓴다. headless 실행은 DOM 없이 검사한다. 기존의 모든 command가 headless라고 가정하지 않는다.
+일반 snapshot 문서에 대한 원격 capability는 `describe / validate / preview / apply`로 좁힌다. preview는 대상 revision과 변경 요약을 반환한다. apply는 같은 revision·요청 hash·권한을 재확인한다. 협업 문서의 원격 편집 계약은 Yorkie 상태를 기준으로 별도 검증한다. 사용자 커서에 의존하는 UI command 대신 명시한 node ID·범위를 쓴다. headless 실행은 DOM 없이 검사한다. 기존의 모든 command가 headless라고 가정하지 않는다.
 
-실시간 협업은 별도 완료 항목이다. 공동 세션이 소유한 문서에는 독립 snapshot 덮어쓰기를 허용하지 않는다. 세션 epoch, update 저장·중복 제거, checkpoint, 권한 회수, 재접속, 사용자별 undo를 검증한 뒤 활성화한다. snapshot 충돌 처리를 실시간 협업 완료로 표시하지 않는다.
+실시간 협업은 [공급자 계약](wonffice-collaboration-providers.md)을 따른다. 외부 alpha의 선택은 Yorkie Cloud다. 내부 통합 검증에서도 실제 Yorkie를 사용하며 외부 Yorkie 연결을 허용한다. 자체/로컬 Yorkie 설치는 필수가 아니고 최종 테스트 배치는 미정이다. Yjs·Automerge는 미래 선택지이며 alpha의 병행 구현 범위가 아니다. 자체 협업 서버·CRDT 변경 로그 서버는 구현하지 않는다. 활성 공동 문서에는 일반 snapshot API의 덮어쓰기를 서버에서 거부한다. Wonffice는 문서 권한·연결 설정·ID 매핑·제품 adapter를 맡고 Yorkie의 저장 확인·권한 회수·재접속·사용자별 undo를 실제 제품에서 검사한다. Yorkie SDK의 로컬 변경 반영을 영속 저장 완료로 표시하지 않는다. snapshot 충돌 처리를 실시간 협업 완료로 표시하지 않는다.
+
+Note → Word → Slides → Site 순서로 네 제품 모두 실제 로컬 PostgreSQL·Fastify API·제품 UI와 선택한 Yorkie 서비스에 두 로그인 사용자를 연결해 검증한다. Yorkie 서비스는 외부에 있어도 된다. 각 제품의 구조와 schema, 원격 변경 후 참조 유효성, 사용자별 undo/redo, 재접속·재시작 후 원문 복원을 같은 후보에서 확인한다. 원격 변경에서 제품 schema를 보장할 방법과 Yorkie Tree undo 지원 범위는 제품 계약으로 추가 확인한다. 현재는 네 제품의 통합 완료 근거가 없다. [출시 인수 추적](https://github.com/barocss/barocss-editor/issues/322)은 이 조건을 기록한다.
 
 ## 6. 고객사별 기능과 새 기능 요청
 
@@ -147,7 +152,7 @@ tenant·actor·권한은 서버의 신뢰된 실행 context에서 제공한다. 
 
 공통 viewer route는 문서 종류에 맞는 읽기 전용 renderer를 선택한다. 팀 공유는 로그인·권한을 검사한다. 링크 공유는 별도 회수 가능 token을 사용하고 DB에는 token hash를 저장한다. 만료와 회수는 문서뿐 아니라 파일 접근에도 적용한다. 즉시 회수가 필요하면 파일을 인증 proxy로 전달하며 긴 수명의 서명 URL을 발급하지 않는다.
 
-공개 게시는 지정 revision의 별도 snapshot이다. 편집 중인 초안을 자동 공개하지 않는다. Site HTML/ZIP 다운로드는 호스팅 게시와 구분한다. 게시 job이 파일 업로드·접속 검사를 마친 뒤 publication을 활성화한다. 실패 시 이전 게시 버전을 유지한다.
+공개 게시는 일반 문서의 지정 revision 또는 협업 문서의 확인된 Yorkie 상태에서 만든 별도 snapshot이다. 편집 중인 초안을 자동 공개하지 않는다. Site HTML/ZIP 다운로드는 호스팅 게시와 구분한다. 게시 job이 파일 업로드·접속 검사를 마친 뒤 publication을 활성화한다. 실패 시 이전 게시 버전을 유지한다.
 
 파일 업로드는 회사·크기·형식·quota 검사를 거친 임시 영역을 사용한다. 처리 완료 후 참조한다. 사용하지 않는 파일은 보관 유예 후 정리한다. 공개 Site와 사용자 HTML은 인증 쿠키가 없는 별도 origin에서 제공한다. iframe·스크립트·업로드 형식 정책은 게시 계약에 포함한다.
 
@@ -158,9 +163,9 @@ tenant·actor·권한은 서버의 신뢰된 실행 context에서 제공한다. 
 | 실행 코드 | 같은 API·worker·웹 이미지 digest | 같은 digest와 버전 manifest |
 | 배포 | 운영자가 관리하는 서버 | 기준 Linux 서버용 Compose·설치/진단 도구 |
 | 인증 | 선택한 OIDC 제공자 | 고객 OIDC 또는 배포 묶음의 기준 IdP |
-| 데이터 | 클라우드 DB·객체 저장소 | 고객 내부 DB·S3 호환 저장소 |
+| 데이터 | 클라우드 DB·객체 저장소·Yorkie Cloud 협업 원본 | 고객 내부 DB·S3 호환 저장소. Yorkie 원본의 내부 설치 구성이 필요하며 미검증 |
 | 업데이트 | staging 검증 후 배포 정책 | 버전 고정, 관리자 지정 시간에 적용 |
-| 외부 연결 | 모델·통합 서비스를 정책에 따라 사용 | 기본 편집·저장에 외부 연결 불필요. AI는 허용한 공급자만 사용 |
+| 외부 연결 | 모델·통합 서비스를 정책에 따라 사용 | 내부 설치의 기본 편집·저장 요구와 Yorkie 실행 형태를 함께 검증. AI는 허용한 공급자만 사용 |
 | 관측 | 운영자 관측 시스템 | 로컬 로그·지표, 관리자 선택 시 익명화 진단 묶음 |
 
 기준 설치 묶음은 DB·파일 저장소·IdP·TLS 설정 경로까지 포함한다. 외부 관리형 서비스로 교체할 수 있다. 공급자별 SDK는 adapter에 둔다. 유료 공급자와 지원 버전은 실제 설치 검증 후 고정한다. 내부 설치에서 클라우드 요금제 조회 실패가 문서 열기를 막지 않게 한다.
@@ -175,4 +180,4 @@ DB migration은 이전 앱과 공존할 수 있는 추가 변경부터 배포한
 
 첫 내부 운영 목표는 RPO 24시간, RTO 4시간으로 제안한다. 복원 실험으로 검증하기 전에는 고객 SLA로 약속하지 않는다. 별도 고가용성 약속은 하지 않는다. 운영자 컴퓨터를 끈 상태에서도 두 제품 서버가 저장·열기·공유를 계속 수행해야 한다.
 
-첫 출시에는 네 제품의 저장·재열기·권한·공유, 두 회사 격리, 제한된 공동 편집 범위, 두 배포의 설치·업데이트·복원 검증이 필요하다. 공동 편집의 제품별 지원 범위는 실험 결과로 명시하며 미지원 범위를 숨기지 않는다. [구현 순서](wonffice-platform-delivery.md)의 출시 gate를 모두 통과해야 한다.
+외부 alpha 전에는 네 제품의 실제 DB·API·UI 저장, Yorkie 원본 재열기·동시 편집·권한·복구를 각각 검증한다. SaaS·내부 설치의 설치·업데이트·복원 조건은 별도로 확인한다. 공동 편집의 제품별 지원 연산과 제한은 실행 결과로 명시하며 미지원 범위를 숨기지 않는다. [구현 순서](wonffice-platform-delivery.md)의 출시 gate를 모두 통과해야 한다.
