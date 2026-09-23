@@ -1,5 +1,5 @@
 import { MultiBlockControl } from './multi-block-control';
-import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { ContextToolbar, SelectionLinkControl, SelectionColorControl, useNodeRect } from '@barocss/office-editor-ui';
 import { FloatingSurface, Icon } from '@barocss/office-ui';
@@ -15,13 +15,26 @@ export function NoteContextualToolbar({ editor, hold, sid, insertion, onFormatti
   insertion: (close: () => void) => ReactNode;
   onFormattingChange: (visible: boolean) => void;
 }) {
-  const [adding, setAdding] = useState(false);
+  const [insertTarget, setInsertTarget] = useState<string>();
   const trigger = useRef<HTMLButtonElement>(null);
-  const root = editor.dataStore.getNode(editor.getRootId()!);
+  const rootId = editor.getRootId();
+  useEffect(() => setInsertTarget(undefined), [editor, rootId]);
+  const root = editor.dataStore.getNode(rootId!);
   const firstChild = root?.content?.[0];
-  const target = sid ?? (typeof firstChild === 'string' ? firstChild : firstChild?.sid);
+  // Keep the open menu attached to the chosen block while the pointer crosses other blocks.
+  const target = insertTarget ?? sid ?? (typeof firstChild === 'string' ? firstChild : firstChild?.sid);
   const at = useNodeRect(editor, hold, target);
   const around = hold.current?.getBoundingClientRect();
+  const selectionNodeId = editor.selection?.startNodeId;
+  useEffect(() => {
+    if (!insertTarget) return;
+    let node = selectionNodeId ? editor.dataStore.getNode(selectionNodeId) : undefined;
+    while (node && node.sid !== insertTarget) {
+      node = typeof node.parentId === 'string' ? editor.dataStore.getNode(node.parentId) : undefined;
+    }
+    // A deleted block or a caret moved elsewhere no longer owns this insertion menu.
+    if (!node) setInsertTarget(undefined);
+  }, [editor, insertTarget, selectionNodeId, at]);
 
   const insert = () => {
     // A hovered block can differ from the caret's block. The adjacent + belongs
@@ -45,16 +58,16 @@ export function NoteContextualToolbar({ editor, hold, sid, insertion, onFormatti
       const run = first(target ?? editor.getRootId()!) ?? target;
       if (run) editor.selectionManager.setSelection({ type: 'range', startNodeId: run, endNodeId: run, startOffset: 0, endOffset: 0, collapsed: true });
     }
-    setAdding(value => !value);
+    setInsertTarget(value => value ? undefined : target);
   };
 
   return <>
-    {at && around && <button ref={trigger} type="button" className="on-add" data-note-add aria-label="블록 추가" aria-expanded={adding}
+    {at && around && <button ref={trigger} type="button" className="on-add" data-note-add aria-label="블록 추가" aria-expanded={!!insertTarget}
       style={{ top: at.top - around.top + 2, left: 2 }} onMouseDown={event => event.preventDefault()} onClick={insert}><Icon name="add" size={15} /></button>}
-    <FloatingSurface open={adding} at={trigger.current?.getBoundingClientRect() ?? null} variant="menu"
+    <FloatingSurface open={!!insertTarget} at={trigger.current?.getBoundingClientRect() ?? null} variant="menu"
       prefer="below" align="start" portalRoot={hold.current} data-note-insert aria-label="블록 추가"
-      onDismiss={() => setAdding(false)} ownedElements={[trigger]}>
-      {insertion(() => setAdding(false))}
+      onDismiss={() => setInsertTarget(undefined)} ownedElements={[trigger]}>
+      {insertion(() => setInsertTarget(undefined))}
     </FloatingSurface>
     <ContextToolbar editor={editor} scope={hold} controls={noteControlsIn('mark').filter(item => !additionalFormattingCommands.has(item.command))} mark="note-control"
       data-note-formatting onOpenChange={onFormattingChange}>
