@@ -16,7 +16,7 @@ const data = join(directory, 'data');
 const socket = join(directory, 'socket');
 mkdirSync(socket, { mode: 0o700 });
 const run = (name, args) => execFileSync(join(bin, name), args, { encoding: 'utf8', stdio: 'pipe' });
-const config = user => ({ host: socket, port: 5432, user, database: 'office_test' });
+const config = (user, database = 'office_test') => ({ host: socket, port: 5432, user, database });
 const clients = [];
 const pools = [];
 let started = false;
@@ -24,8 +24,8 @@ const check = async (name, work) => {
   await work();
   console.log(JSON.stringify({ result: 'passed', check: name }));
 };
-const connect = async user => {
-  const client = new pg.Client(config(user));
+const connect = async (user, database) => {
+  const client = new pg.Client(config(user, database));
   await client.connect();
   clients.push(client);
   return client;
@@ -42,6 +42,7 @@ try {
     CREATE ROLE wonffice_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
     CREATE ROLE wonffice_backup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS`);
   await admin.query('CREATE DATABASE office_test OWNER wonffice_owner');
+  await admin.query('CREATE DATABASE office_restored OWNER wonffice_owner');
   const owner = await connect('wonffice_owner');
   await check('migration adds only platform tables and keeps earlier history', async () => {
     assert.deepEqual(await migrate(owner), [
@@ -116,6 +117,28 @@ try {
     assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice.platform_operator_events')).rows[0].count, 2);
     assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.platform_operator_reads
       WHERE outcome = 'forbidden'`)).rows[0].count, 3);
+  });
+  await check('backup restores revoked grant and both audit tables without reviving access', async () => {
+    const snapshot = async client => {
+      const rows = {};
+      for (const table of ['platform_operator_grants', 'platform_operator_events', 'platform_operator_reads']) {
+        rows[table] = (await client.query(`SELECT * FROM wonffice.${table} ORDER BY 1`)).rows;
+      }
+      return rows;
+    };
+    const before = await snapshot(owner);
+    const archive = join(directory, 'operator.dump');
+    run('pg_dump', ['-h', socket, '-U', 'wonffice_backup', '-d', 'office_test', '-Fc', '-f', archive]);
+    run('pg_restore', ['-h', socket, '-U', 'wonffice_owner', '-d', 'office_restored', '--no-owner',
+      '--exit-on-error', '--single-transaction', archive]);
+    const restored = await connect('wonffice_owner', 'office_restored');
+    assert.deepEqual(await snapshot(restored), before);
+    assert.deepEqual(await migrate(restored), []);
+    const restoredPool = new pg.Pool({ ...config('wonffice_app', 'office_restored'), max: 1 });
+    pools.push(restoredPool);
+    const restoredService = new PlatformOperatorStore(restoredPool);
+    await assert.rejects(restoredService.getAccess(operator), PlatformOperatorAccessDeniedError);
+    assert.equal((await restoredPool.query('SELECT identity_id FROM wonffice.platform_operator_grants')).rowCount, 0);
   });
   await check('database outage never becomes an allowed cached grant', async () => {
     await pool.end(); pools.splice(pools.indexOf(pool), 1);
