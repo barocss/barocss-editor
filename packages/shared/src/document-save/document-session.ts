@@ -89,16 +89,16 @@ export class DocumentSession {
     const version = this.version;
     return await this.flush() && !this.stopped && this.version === version;
   }
-  async open(id: string): Promise<boolean> {
+  async open(id: string, preserveCurrentOnFailure = false): Promise<boolean> {
     const ticket = ++this.opening;
-    this.notify('불러오는 중');
     if (!await this.beforeReplace()) return false;
+    this.notify('불러오는 중');
     const version = this.version;
     let snapshot;
     try { await assertProductDocumentOpen(this.options.key, id); snapshot = await this.options.documents.read(id); }
-    catch (error) { if (!this.stopped) this.notify('복원 실패'); throw error; }
+    catch (error) { if (!this.stopped) this.notify(preserveCurrentOnFailure ? this.settled : '복원 실패'); throw error; }
     if (this.stopped || ticket !== this.opening || version !== this.version) return false;
-    if (!snapshot) { this.notify('복원 실패'); throw new Error('Missing document'); }
+    if (!snapshot) { this.notify(preserveCurrentOnFailure ? this.settled : '복원 실패'); throw new Error('Missing document'); }
     this.replacing = true;
     try {
       this.options.replace(snapshot.text);
