@@ -8,6 +8,7 @@
     "start": "node dist/main.js",
     "dev": "pnpm build && pnpm start",
     "test": "pnpm build && vitest run",
+    "test:postgres": "pnpm build && node test/postgres.integration.mjs",
     "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

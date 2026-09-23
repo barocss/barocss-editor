@@ -7,11 +7,15 @@
     "./membership-store": {
       "types": "./src/membership-store.ts",
       "import": "./dist/membership-store.js"
+    },
+    "./document-store": {
+      "types": "./src/document-store.ts",
+      "import": "./dist/document-store.js"
     }
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @barocss/office-note-file build && tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
@@ -19,6 +23,7 @@
     "membership:admin": "node dist/membership-admin-cli.js"
   },
   "dependencies": {
+    "@barocss/office-note-file": "workspace:^",
     "pg": "8.23.0"
   },
   "devDependencies": {
