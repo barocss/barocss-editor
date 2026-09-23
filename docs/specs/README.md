@@ -21,6 +21,9 @@ This directory and the linked package specs define **what the editor and each pa
 ### Wonffice 서비스와 자동 개발
 
 - [플랫폼 설계](wonffice-platform.md): 클라우드·내부 설치 동시 출시, 회사별 기능, 서버 저장·권한·공유.
+- [백엔드 구축 기준](wonffice-backend-foundation.md): Fastify API, PostgreSQL tenant 경계와 서비스 통합 단계.
+- [협업 공급자 계약](wonffice-collaboration-providers.md): Yorkie alpha의 데이터 소유·권한·복구 경계.
+- [로컬 OIDC 검증 절차](wonffice-local-oidc.md): Keycloak·PostgreSQL·API의 합성 계정 검사. 제품 로그인 인수는 별도다.
 - [Agent 실행 계약](wonffice-agent-runtime.md): GitHub 개발 흐름, 로컬 감독, 중간 지시, 자동 병합 범위.
 - [구현 순서와 완료 기준](wonffice-platform-delivery.md): WP-01–WP-12. 설계와 구현 상태를 구분한다.
 
