@@ -2,7 +2,7 @@ import { DocumentSaveStatus } from '@barocss/office-editor-ui';
 import { DocxImport } from './docx-import';
 import { DocxExport } from './docx-export';
 import { WordAutosave, wordDrafts, wordStore } from './autosave';
-import { downloadDocumentArchive, productLibraryArchive, type DocumentSessionStatus } from '@barocss/shared';
+import { ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type DocumentSessionStatus } from '@barocss/shared';
 import type { LibraryRow } from '@barocss/shared';
 import { forwardRef, useImperativeHandle, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
@@ -35,16 +35,18 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
     setStatus(`“${row.title || '제목 없는 문서'}” 보관함에 저장됨`);
     return row;
   };
-  const perform = async (action: () => Promise<void>) => {
+  const perform = async (action: () => Promise<void>, onError?: (error: unknown) => string) => {
     if (pending.current) return;
     pending.current = true; setBusy(true); setProblem('');
-    try { await action(); } catch { setProblem('문서 보관함 작업을 완료하지 못했습니다. 현재 문서는 유지됩니다. 다시 시도하세요.'); }
+    try { await action(); } catch (error) { setProblem(onError?.(error) ?? '문서 보관함 작업을 완료하지 못했습니다. 현재 문서는 유지됩니다. 다시 시도하세요.'); }
     finally { pending.current = false; setBusy(false); }
   };
   const openLibrary = () => void perform(async () => {
     setOpen(true); setLoaded(false); setQuery('');
     if (!await autosave.current?.flush()) throw new Error('Unsaved work');
-    setRows(await wordLibraryRows()); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
+    const saved = await wordLibraryRows();
+    const available = await Promise.all(saved.map(async row => !await isProductDocumentTrashed('word', row.name)));
+    setRows(saved.filter((_, index) => available[index])); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
   });
   useImperativeHandle(ref, () => ({ open: kind => { if (kind === 'library') openLibrary(); else setActions(true); } }));
   const titleOf = (row: { title?: string }) => row.title || '제목 없는 문서';
@@ -96,8 +98,14 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
             {visibleRows.map(row => <NavigationItem className="w-library-row" key={row.name} disabled={busy}
               leading={<Icon name="type-page" size={16} />} trailing="열기"
               aria-label={`${titleOf(row)} 열기`} onClick={() => void perform(async () => {
-                if (!await autosave.current?.open(row.name)) throw new Error('Pending input');
+                if (!await autosave.current?.open(row.name, true)) throw new Error('Pending input');
                 setStatus(`“${titleOf(row)}” 열림`); setOpen(false);
+              }, error => {
+                if (error instanceof ProductDocumentTrashedError) {
+                  setRows(current => current.filter(item => item.name !== row.name));
+                  return `“${titleOf(row)}”는 휴지통에 있습니다. 자료함에서 복원한 뒤 다시 여세요. 현재 문서는 유지됩니다.`;
+                }
+                return `“${titleOf(row)}”를 열지 못했습니다. 현재 문서를 확인하세요. 필요하면 같은 문서에서 다시 시도하세요.`;
               })}><strong>{titleOf(row)}</strong><small>{new Date(row.savedAt).toLocaleString()} · {row.surfaces}개 구역</small></NavigationItem>)}
           </div>
           {!visibleRows.length && !visibleDrafts.length && (rows.length || drafts.length

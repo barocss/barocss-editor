@@ -81,4 +81,20 @@ describe('local document session', () => {
     expect(one.store.keep).toHaveBeenCalledTimes(writes);
     expect(one.notify).toHaveBeenLastCalledWith('저장됨');
   });
+  it('keeps the current save state when a library target cannot be opened', async () => {
+    const one = await start(); const original = one.session.id;
+    await expect(one.session.open('missing', true)).rejects.toThrow('Missing document');
+    expect(one.session.id).toBe(original);
+    expect(one.content()).toBe('initial');
+    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
+    await expect(one.session.open('missing')).rejects.toThrow('Missing document');
+    expect(one.notify).toHaveBeenLastCalledWith('복원 실패');
+  });
+  it('reports a failed document replacement instead of claiming the old save is still shown', async () => {
+    const one = await start();
+    one.records.set('broken', { row: { name: 'broken', revision: 1 }, text: 'broken file' });
+    one.options.replace = () => { throw new Error('Invalid document'); };
+    await expect(one.session.open('broken', true)).rejects.toThrow('Invalid document');
+    expect(one.notify).toHaveBeenLastCalledWith('복원 실패');
+  });
 });
