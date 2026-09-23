@@ -8,6 +8,7 @@ import { chromium } from 'playwright';
 import pg from 'pg';
 import { migrate } from '../../office-service/dist/migrate.js';
 import { MembershipStore } from '../../office-service/dist/membership-store.js';
+import { DocumentStore } from '../../office-service/dist/document-store.js';
 import { PlatformOperatorStore } from '../../office-service/dist/platform-operator-store.js';
 import { applyPlatformOperatorChange } from '../../office-service/dist/platform-operator-admin.js';
 import { createApiServer } from '../dist/server.js';
@@ -123,7 +124,8 @@ try {
     OFFICE_OIDC_AUDIENCE: fixture.audience, OFFICE_API_DATABASE_URL: 'postgresql://synthetic/app' });
   assert.ok(authConfig);
   app = createApiServer({ verifier: createOidcVerifier(authConfig),
-    memberships: new MembershipStore(pool), operators: new PlatformOperatorStore(pool) });
+    memberships: new MembershipStore(pool), operators: new PlatformOperatorStore(pool),
+    documents: new DocumentStore(pool) });
   await app.listen({ host: '127.0.0.1', port: 0 });
   const apiAddress = new URL(app.server.address() ? `http://127.0.0.1:${app.server.address().port}` : '');
 
@@ -143,6 +145,7 @@ try {
   assert.deepEqual((await get(operatorToken, '/v1/operator/status', 200)).ready,
     { httpStatus: 503, status: 'service_not_configured' });
   assert.deepEqual(await get(operatorToken, `/v1/tenants/${tenantId}/access`, 403), { status: 'forbidden' });
+  assert.deepEqual(await get(operatorToken, `/v1/tenants/${tenantId}/documents`, 403), { status: 'forbidden' });
   assert.deepEqual(await get(ownerToken, '/v1/operator/access', 403), { status: 'forbidden' });
   assert.deepEqual(await get(ownerToken, `/v1/tenants/${tenantId}/access`, 200), { tenantId, role: 'owner' });
   assert.deepEqual(await get('invalid', '/v1/operator/access', 401), { status: 'unauthorized' });
@@ -160,7 +163,8 @@ try {
   owner = new pg.Client(config('wonffice_owner')); await owner.connect();
   pool = new pg.Pool({ ...config('wonffice_app'), max: 3 });
   app = createApiServer({ verifier: createOidcVerifier(authConfig),
-    memberships: new MembershipStore(pool), operators: new PlatformOperatorStore(pool) });
+    memberships: new MembershipStore(pool), operators: new PlatformOperatorStore(pool),
+    documents: new DocumentStore(pool) });
   await app.listen({ host: '127.0.0.1', port: 0 });
   apiAddress.port = String(app.server.address().port);
   assert.deepEqual(await get(operatorToken, '/v1/operator/status', 403), { status: 'forbidden' });
