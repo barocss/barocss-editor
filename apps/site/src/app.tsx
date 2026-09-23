@@ -1649,7 +1649,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             <Admin
               editor={editor}
               revision={revision}
-              run={(name, payload) => void (editor as never as { executeCommand: (n: string, p?: unknown) => void }).executeCommand(name, payload)}
+              run={(name, payload) => (editor as never as { executeCommand: (n: string, p?: unknown) => Promise<boolean> }).executeCommand(name, payload)}
               can={(name, payload) =>
                 (editor as never as { canExecuteCommand: (n: string, p?: unknown) => boolean }).canExecuteCommand(name, payload)
               }
