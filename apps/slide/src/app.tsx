@@ -358,8 +358,10 @@ export function App({
   useEffect(() => {
     // Undo/redo can restore an object on another slide without a DOM pointer event.
     if (presenting || editingComponent || editingDesign) return;
-    const selected = selectedNodeIds(editor?.selection);
-    let sid = selected[0];
+    const selection = editor?.selection;
+    const selected = selectedNodeIds(selection);
+    // Text commands select a caret, not a set of whole nodes. Follow its owning slide too.
+    let sid = selection?.type === 'range' ? selection.startNodeId : selected[0];
     const seen = new Set<string>();
     while (sid && !seen.has(sid)) {
       seen.add(sid);
