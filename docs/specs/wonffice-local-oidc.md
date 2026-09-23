@@ -33,6 +33,8 @@ WONFFICE_LOCAL_KEYCLOAK_ADMIN_ENV_FILE="$LOCAL_KEYCLOAK_ADMIN_ENV_FILE" \
 node scripts/backend/allow-local-keycloak-office-origin.mjs
 ```
 
+To test #369 without taking over an existing 5186 preview, set `WONFFICE_LOCAL_OFFICE_PORT=5191` for a second run. The script adds only the exact 5191 callback, web origin and post-logout root while retaining 5186 and the original 18200 login callback. The 5191 run is an intermediate UI check, not final 5186 acceptance.
+
 Prepare a **new** PostgreSQL 16 database on a private Unix socket with `wonffice_owner`, `wonffice_app` and `wonffice_backup` as described in [office-service](../../apps/office-service/README.md). For this synthetic local cluster only, disable TCP listening (`-h ''`) and use a private socket directory. Never use the trust-auth test configuration for an external installation. Apply reviewed migrations with `OFFICE_MIGRATION_DATABASE_URL` as `wonffice_owner` before starting the API.
 
 Create protected JSON manifests outside the repository. They must use real `issuer` and `subject` values from the generated Keycloak account file. Give each change a unique approval reference from the operator's change record. Apply in this order: bootstrap Alpha with Alice as owner, bootstrap Beta with Bob as owner, grant Bob `admin` in Alpha. The two tenant IDs go into a protected JSON file as `{ "alpha": "<UUID>", "beta": "<UUID>" }`. The change shapes are:
