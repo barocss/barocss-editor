@@ -37,9 +37,13 @@ if (!client?.id || !Array.isArray(client.redirectUris) || !Array.isArray(client.
 }
 const redirect = 'http://127.0.0.1:5186/auth/callback';
 const webOrigin = 'http://127.0.0.1:5186';
+const logoutRedirect = 'http://127.0.0.1:5186/';
 const redirectUris = [...new Set([...client.redirectUris, redirect])];
 const webOrigins = [...new Set([...client.webOrigins, webOrigin])];
 await request(`/admin/realms/wonffice-local/clients/${client.id}`, {
-  method: 'PUT', headers, body: JSON.stringify({ ...client, redirectUris, webOrigins }),
+  method: 'PUT', headers, body: JSON.stringify({
+    ...client, redirectUris, webOrigins,
+    attributes: { ...client.attributes, 'post.logout.redirect.uris': logoutRedirect },
+  }),
 });
-console.log(JSON.stringify({ event: 'local_office_oidc_origin_allowed', redirect, webOrigin }));
+console.log(JSON.stringify({ event: 'local_office_oidc_origin_allowed', redirect, webOrigin, logoutRedirect }));

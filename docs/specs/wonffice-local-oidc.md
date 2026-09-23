@@ -26,7 +26,7 @@ WONFFICE_LOCAL_KEYCLOAK_OUTPUT="$LOCAL_KEYCLOAK_USERS_FILE" \
 node scripts/backend/provision-local-keycloak.mjs
 ```
 
-For the separate Office UI integration in #369, allow only its agreed local callback and origin on the existing synthetic client. This idempotent step retains the 18200 callback used by the backend browser check. It adds `http://127.0.0.1:5186/auth/callback` and `http://127.0.0.1:5186`; it does not start or verify the Office UI. The Office Vite server must proxy `/api` to the local Fastify API because Fastify does not enable browser CORS.
+For the separate Office UI integration in #369, allow only its agreed local callback, origin and post-logout redirect on the existing synthetic client. This idempotent step retains the 18200 callback used by the backend browser check. It adds `http://127.0.0.1:5186/auth/callback`, `http://127.0.0.1:5186` and the exact post-logout redirect `http://127.0.0.1:5186/`; it does not start or verify the Office UI. The Office Vite server must proxy `/api` to the local Fastify API because Fastify does not enable browser CORS.
 
 ```sh
 WONFFICE_LOCAL_KEYCLOAK_ADMIN_ENV_FILE="$LOCAL_KEYCLOAK_ADMIN_ENV_FILE" \
