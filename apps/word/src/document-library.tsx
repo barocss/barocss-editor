@@ -105,7 +105,7 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
                   setRows(current => current.filter(item => item.name !== row.name));
                   return `“${titleOf(row)}”는 휴지통에 있습니다. 자료함에서 복원한 뒤 다시 여세요. 현재 문서는 유지됩니다.`;
                 }
-                return `“${titleOf(row)}”를 열지 못했습니다. 현재 문서는 유지됩니다. 같은 문서에서 다시 시도하세요.`;
+                return `“${titleOf(row)}”를 열지 못했습니다. 현재 문서를 확인하세요. 필요하면 같은 문서에서 다시 시도하세요.`;
               })}><strong>{titleOf(row)}</strong><small>{new Date(row.savedAt).toLocaleString()} · {row.surfaces}개 구역</small></NavigationItem>)}
           </div>
           {!visibleRows.length && !visibleDrafts.length && (rows.length || drafts.length

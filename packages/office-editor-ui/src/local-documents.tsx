@@ -84,7 +84,7 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
               setRows(current => current.filter(item => item.name !== row.name));
               return `“${row.title || '제목 없는 자료'}”는 휴지통에 있습니다. 자료함에서 복원한 뒤 다시 여세요. 현재 자료는 유지됩니다.`;
             }
-            return `“${row.title || '제목 없는 자료'}”를 열지 못했습니다. 현재 자료는 유지됩니다. 같은 자료에서 다시 시도하세요.`;
+            return `“${row.title || '제목 없는 자료'}”를 열지 못했습니다. 현재 자료를 확인하세요. 필요하면 같은 자료에서 다시 시도하세요.`;
           })}>열기</Button>
         </div>)}
       </div>

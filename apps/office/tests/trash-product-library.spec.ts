@@ -75,7 +75,7 @@ test('a temporary read failure keeps the target in the Slides library for a retr
     };
   }, aId);
   await target.click();
-  await expect(page.getByRole('dialog', { name: '최근 발표 자료' })).toContainText('“다시 열 대상 A”를 열지 못했습니다. 현재 자료는 유지됩니다.');
+  await expect(page.getByRole('dialog', { name: '최근 발표 자료' })).toContainText('“다시 열 대상 A”를 열지 못했습니다. 현재 자료를 확인하세요.');
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   expect(page.url()).toBe(bUrl);
   expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(bDocument);
