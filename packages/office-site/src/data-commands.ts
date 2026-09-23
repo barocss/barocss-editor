@@ -32,7 +32,7 @@
  */
 import { inspectFormula } from '@barocss/schema';
 import { Editor, Extension } from '@barocss/editor-core';
-import { addChild, node, removeChild, setAttrs, transaction } from '@barocss/model';
+import { addChild, node, removeChild, setAttrs, textNode, transaction } from '@barocss/model';
 import { copyOf } from '@barocss/office-canvas';
 import { ASSET_PREFIX, assetsOf } from './assets';
 import { nfc } from './names';
@@ -262,6 +262,13 @@ export class SiteDataExtension implements Extension {
       'setDatasetCell',
       async (payload) => await this._setCell(editor, payload),
       (payload) => this._canSetCell(editor, payload)
+    );
+
+    /** Create a cell's first body and reference together, without replacing existing values. */
+    register(
+      'createDatasetRichText',
+      async (payload) => await this._createDatasetRichText(editor, payload),
+      (payload) => this._emptyRichTextCell(editor, payload) !== undefined
     );
 
     /**
@@ -1005,6 +1012,34 @@ export class SiteDataExtension implements Extension {
 
     const step = setAttrs(String(dataset.sid), { fields: nextFields, records: nextRecords });
     return (await transaction(editor, [step, ...dropped] as never).commit()).success === true;
+  }
+
+  private _emptyRichTextCell(editor: Editor, payload?: Record<string, unknown>) {
+    if (!editor.isEditable || typeof payload?.nodeId !== 'string' || typeof payload.field !== 'string' || !Number.isInteger(payload.row)) return;
+    const { box, datasets } = this._resources(editor);
+    const dataset = datasets.find(one => one.sid === payload.nodeId);
+    if (!box || !dataset || !this._fields(dataset).some(one => one.name === payload.field && one.kind === 'richText')) return;
+    const row = Number(payload.row), records = dataset.attributes?.records;
+    if (!Array.isArray(records) || row < 0 || row >= records.length) return;
+    const record = records[row];
+    if (!record || typeof record !== 'object' || Array.isArray(record)) return;
+    const value = record[payload.field];
+    if (value !== undefined && value !== null && value !== '') return;
+    return { box, dataset, row, field: payload.field };
+  }
+
+  private async _createDatasetRichText(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const target = this._emptyRichTextCell(editor, payload);
+    if (!target) return false;
+    const { box, dataset, row, field } = target;
+    const id = this._freeRichId(editor, field);
+    const records = this._records(dataset);
+    records[row] = { ...records[row], [field]: richRef(id) };
+    const body = node('richText', { id }, [node('paragraph', {}, [textNode('inline-text', '')])]);
+    return (await transaction(editor, [
+      addChild(String(box.sid), body as never, (box.content ?? []).length),
+      setAttrs(String(dataset.sid), { records })
+    ] as never).commit()).success === true;
   }
 
   private _canSetCell(editor: Editor, payload?: Record<string, unknown>): boolean {
