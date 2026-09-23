@@ -212,6 +212,15 @@ export class HistoryManager {
     return true;
   }
 
+  /** Read the next replay entry without advancing the history cursor. */
+  peekUndo(): HistoryEntry | null {
+    return this.canUndo() ? this.history[this.currentIndex] : null;
+  }
+
+  peekRedo(): HistoryEntry | null {
+    return this.canRedo() ? this.history[this.currentIndex + 1] : null;
+  }
+
   /**
    * Undo - revert to previous state
    */

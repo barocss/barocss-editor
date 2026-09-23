@@ -40,6 +40,7 @@ export class TransactionManager {
   private _currentTransaction: Transaction | null = null;
   private _schema?: Schema;
   private _editor: Editor;
+  /** Legacy execute mode, captured at invocation. Editor replay uses a per-call mode. */
   public _isUndoRedoOperation: boolean = false;
   /**
    * Whether a commit is rejected when it would leave the document schema-invalid.
@@ -90,6 +91,26 @@ export class TransactionManager {
     operations: (TransactionOperation | OpFunction)[],
     options?: TransactionOptions
   ): Promise<TransactionResult> {
+    return this._execute(operations, options, this._isUndoRedoOperation);
+  }
+
+  /** Select, apply, and finalize a replay under the same FIFO lock as ordinary edits. */
+  async replayHistory(direction: 'undo' | 'redo'): Promise<boolean> {
+    try {
+      const result = await this._execute([], { applySelectionToView: false }, true, direction);
+      return result.committed === true || result.success;
+    } catch (error) {
+      console.error(`[Editor] ${direction} failed:`, error);
+      return false;
+    }
+  }
+
+  private async _execute(
+    operations: (TransactionOperation | OpFunction)[],
+    options: TransactionOptions | undefined,
+    isReplay: boolean,
+    replayDirection?: 'undo' | 'redo'
+  ): Promise<TransactionResult> {
     let lockId: string | null = null;
     let ownsTransaction = false;
     let ownsOverlay = false;
@@ -101,6 +122,19 @@ export class TransactionManager {
     try {
       // 1. Acquire global lock
       lockId = await this._dataStore.acquireLock('transaction-execution');
+
+      let replaySelection: ModelSelection | null | undefined;
+      if (replayDirection) {
+        const history = this._editor.historyManager;
+        const entry = replayDirection === 'undo' ? history.peekUndo() : history.peekRedo();
+        if (!entry) return { success: false, committed: false, errors: [] };
+        operations = replayDirection === 'undo' ? entry.inverseOperations : entry.operations;
+        const key = replayDirection === 'undo' ? 'selectionBefore' : 'selectionAfter';
+        if (entry.metadata && Object.prototype.hasOwnProperty.call(entry.metadata, key)) {
+          const selection = entry.metadata[key] as ModelSelection | null | undefined;
+          replaySelection = selection ? { ...selection } : selection;
+        }
+      }
 
       // 2. Start transaction
       if (this._dataStore.isTransactionActive()) {
@@ -202,7 +236,7 @@ export class TransactionManager {
       // whose intermediate shape differs.
       this._dataStore.end();
 
-      if (!this._isUndoRedoOperation && this._validateSchemaOnCommit) {
+      if (!isReplay && this._validateSchemaOnCommit) {
         const validation = this._dataStore.validateTransactionScope(this._schema);
         if (!validation.valid) {
           outcome = {
@@ -226,6 +260,14 @@ export class TransactionManager {
         }
       };
 
+      // The store's operation observers run inside commit. Requests they enqueue
+      // remain behind this lock. Finalize history before editor selection/content events.
+      if (replayDirection) {
+        this._editor.historyManager[replayDirection]();
+        this._editor.historyManager.closeGroup();
+      }
+      if (replaySelection !== undefined) context.selection.current = replaySelection;
+
       // Final selection state
       const selectionAfter = context.selection.current;
       afterCommit('selection validation', () => this._warnOnDanglingSelection(selectionBefore, selectionAfter, executedOperations));
@@ -247,7 +289,7 @@ export class TransactionManager {
         if (
           options?.appendToPreviousEntry === true &&
           executedOperations.length > 0 &&
-          this._shouldAddToHistory(executedOperations)
+          this._shouldAddToHistory(executedOperations, isReplay)
         ) {
           this._editor.historyManager.appendToLast({
             operations: executedOperations,
@@ -257,7 +299,7 @@ export class TransactionManager {
           options?.recordInHistory !== false &&
           options?.appendToPreviousEntry !== true &&
           executedOperations.length > 0 &&
-          this._shouldAddToHistory(executedOperations)
+          this._shouldAddToHistory(executedOperations, isReplay)
         ) {
           const shouldPreserveSelection = options?.preserveSelectionInHistory !== false;
           this._editor.historyManager.push({
@@ -331,9 +373,9 @@ export class TransactionManager {
         });
       }
       
-      // Pass selectionAfter to updateSelection only when applySelectionToView !== false
-      // (e.g. skip for remote sync or programmatic change)
-      const applySelectionToView = options?.applySelectionToView !== false;
+      // Restore replay selection after content listeners render restored nodes, while
+      // still holding the lock so queued edits start from the restored selection.
+      const applySelectionToView = replaySelection !== undefined || options?.applySelectionToView !== false;
       if (applySelectionToView) {
         afterCommit('selection update', () => this._editor.updateSelection(selectionAfter));
       }
@@ -509,12 +551,12 @@ export class TransactionManager {
     );
   }
 
-  private _shouldAddToHistory(operations: TransactionOperation[]): boolean {
+  private _shouldAddToHistory(operations: TransactionOperation[], isReplay: boolean): boolean {
     // Don't add empty operations to history
     if (operations.length === 0) return false;
     
     // Don't add undo/redo operations to history
-    if (this._isUndoRedoOperation) return false;
+    if (isReplay) return false;
     
     return true;
   }

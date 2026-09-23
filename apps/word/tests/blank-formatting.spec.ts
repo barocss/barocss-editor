@@ -72,4 +72,6 @@ test('Enter after a heading starts body text and undo restores the heading', asy
   await expect(page.locator('.w-paragraph')).toHaveAttribute('data-style', 'Body');
   await page.keyboard.press('Control+Shift+z');
   await expect(page.locator('.w-paragraph')).toHaveText('Body');
+  await page.keyboard.type('!');
+  await expect(page.locator('.w-paragraph')).toHaveText('Body!');
 });

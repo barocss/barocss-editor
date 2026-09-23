@@ -16,9 +16,13 @@ test('500 paragraphs retain edits, undo and saved content', async ({ page }, tes
   await expect(last).toContainText(' CHECK');
   const editMs = Date.now() - editStarted;
   await page.keyboard.press('Backspace'); await expect(last).toContainText(' CHEC');
+  // Deletion is a separate history entry from the preceding typing burst.
+  await page.keyboard.press('Control+z'); await expect(last).toHaveText('문단 500: 긴 문서에서 입력과 저장을 확인합니다. CHECK');
   await page.keyboard.press('Control+z'); await expect(last).toHaveText('문단 500: 긴 문서에서 입력과 저장을 확인합니다.');
-  await page.keyboard.press('Control+Shift+z'); await expect(last).toContainText(' CHEC');
+  await page.keyboard.press('Control+Shift+z'); await expect(last).toHaveText('문단 500: 긴 문서에서 입력과 저장을 확인합니다. CHECK');
+  await page.keyboard.press('Control+Shift+z'); await expect(last).toHaveText('문단 500: 긴 문서에서 입력과 저장을 확인합니다. CHEC');
+  await page.keyboard.type('!'); await expect(last).toContainText(' CHEC!');
   await expect(page.locator('[data-save-status]')).toHaveText('저장됨');
-  await page.reload(); await expect(paragraphs).toHaveCount(500); await expect(last).toContainText(' CHEC');
+  await page.reload(); await expect(paragraphs).toHaveCount(500); await expect(last).toContainText(' CHEC!');
   await testInfo.attach('timings', { body: JSON.stringify({ paragraphs: 500, loadedMs, editMs }), contentType: 'application/json' });
 });

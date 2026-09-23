@@ -147,12 +147,17 @@ test.describe('typing in a box', () => {
     const before = await text();
 
     await page.keyboard.type('XY', { delay: 60 });
-    await page.waitForTimeout(500);
-    expect((await text()).length).toBe(before.length + 2);
+    await expect.poll(text).toContain('XY');
+    const typed = await text();
+    expect(typed.length).toBe(before.length + 2);
 
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(500);
-    expect(await text()).toBe(before);
+    await expect.poll(text).toBe(before);
+    await page.keyboard.press('Control+Shift+z');
+    await expect.poll(text).toBe(typed);
+    // Type without placing the caret again: replay must restore the DOM selection too.
+    await page.keyboard.type('!');
+    await expect.poll(text).toBe(typed.replace('XY', 'XY!'));
   });
 });
 

@@ -6333,6 +6333,13 @@ test.describe('the data', () => {
     await page.keyboard.press('Meta+z');
     await page.waitForTimeout(400);
     expect(await words()).not.toContain('그리고 더.');
+    await page.keyboard.press('Meta+Shift+z');
+    await expect(rich.locator('[data-note-body]')).toContainText('그리고 더.');
+    await expect.poll(words).toContain('그리고 더.');
+    // The next input must land at the restored caret, without another click.
+    await page.keyboard.type('!');
+    await expect(rich.locator('[data-note-body]')).toContainText('그리고 더.!');
+    await expect.poll(words).toContain('그리고 더.!');
   });
 
   test('adds a property from the form, with its kind, and the table gets the column', async ({ page }) => {

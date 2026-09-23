@@ -1700,69 +1700,11 @@ declare module './editor' {
 }
 
 Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
-  const entry = this.historyManager.undo();
-  if (!entry) return false;
-  // Typing after an undo must start a fresh step, never merge into the one that
-  // was just undone.
-  this.historyManager.closeGroup();
-
-  const metadata = entry.metadata;
-  const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionBefore');
-  const selectionToRestore = hasSelectionMetadata ? metadata.selectionBefore : undefined;
-
-  try {
-    this.transactionManager._isUndoRedoOperation = true;
-    const result = await this.transactionManager.execute(entry.inverseOperations, {
-      applySelectionToView: false
-    });
-
-    if (result.success && hasSelectionMetadata) {
-      if (selectionToRestore === null) {
-        this.updateSelection(null as any);
-      } else if (selectionToRestore) {
-        this.updateSelection(selectionToRestore);
-      }
-    }
-
-    return result.success;
-  } catch (error) {
-    console.error('[Editor] undo failed:', error);
-    return false;
-  } finally {
-    this.transactionManager._isUndoRedoOperation = false;
-  }
+  return this.transactionManager.replayHistory('undo');
 };
 
 Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
-  const entry = this.historyManager.redo();
-  if (!entry) return false;
-  this.historyManager.closeGroup();
-
-  const metadata = entry.metadata;
-  const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionAfter');
-  const selectionToRestore = hasSelectionMetadata ? metadata.selectionAfter : undefined;
-
-  try {
-    this.transactionManager._isUndoRedoOperation = true;
-    const result = await this.transactionManager.execute(entry.operations, {
-      applySelectionToView: false
-    });
-
-    if (result.success && hasSelectionMetadata) {
-      if (selectionToRestore === null) {
-        this.updateSelection(null as any);
-      } else if (selectionToRestore) {
-        this.updateSelection(selectionToRestore);
-      }
-    }
-
-    return result.success;
-  } catch (error) {
-    console.error('[Editor] redo failed:', error);
-    return false;
-  } finally {
-    this.transactionManager._isUndoRedoOperation = false;
-  }
+  return this.transactionManager.replayHistory('redo');
 };
 
 Editor.prototype.canUndo = function(this: Editor): boolean {
