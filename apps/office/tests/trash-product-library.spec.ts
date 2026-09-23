@@ -86,6 +86,28 @@ test('a temporary read failure keeps the target in the Slides library for a retr
   expect(page.url()).toBe(aUrl);
 });
 
+test('keyboard focus stays in the dialog after a trashed row is removed', async ({ page, context }) => {
+  const aUrl = await createSlides(page, '키보드 대상 A');
+  const aId = new URL(aUrl).hash.slice('#slides='.length);
+  await createSlides(page, '키보드 현재 B');
+  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '최근 발표 자료' });
+  const target = page.locator(`[data-slide-document="${aId}"]`).getByRole('button', { name: '키보드 대상 A 열기' });
+  await target.focus();
+  const other = await context.newPage();
+  await other.goto('/');
+  await other.getByRole('button', { name: '키보드 대상 A 관리' }).click();
+  await other.getByRole('button', { name: '휴지통으로 이동' }).click();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toContainText('“키보드 대상 A”는 휴지통에 있습니다.');
+  await expect(target).toHaveCount(0);
+  expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null)).toBe(true);
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.activeElement?.matches('[role="dialog"] button:not(:disabled)'))).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  expect(await page.evaluate(() => document.activeElement?.matches('[role="dialog"] button:not(:disabled)'))).toBe(true);
+});
+
 for (const product of ['Word', 'Site'] as const) {
   test(`${product} rejects a stale trashed row and refreshes its product library`, async ({ page, context }) => {
     const aUrl = await createProduct(page, product, `${product} 휴지통 대상`);
