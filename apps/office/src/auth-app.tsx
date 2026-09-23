@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  AuthError, beginLogin, clearSession, confirmTenant, currentIntent, finishLogin,
+  AuthError, beginLogin, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
   isLogoutEvent, loadIdentity, providerLogout, announceLogout, consumeLogoutReturn, consumeResumeIntent,
   type EntryIntent, type Identity, type TenantAccess, type TenantRole,
 } from './auth-client';
@@ -12,6 +12,8 @@ type View =
   | { phase: 'choose'; identity: Identity; intent: EntryIntent }
   | { phase: 'empty' }
   | { phase: 'opened'; intent: EntryIntent; tenant: TenantAccess; role: TenantRole }
+  | { phase: 'operator-opened' }
+  | { phase: 'operator-denied' }
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
   | { phase: 'error'; error: AuthError };
 
@@ -57,6 +59,23 @@ export function AuthApp() {
       const identity = await loadIdentity();
       if (run !== generation.current) return;
       chosenIntent.current = intent;
+      if (intent === 'operator') {
+        selected.current = null;
+        try { await confirmOperator(); }
+        catch (error) {
+          if (run !== generation.current) return;
+          if (error instanceof AuthError && error.kind === 'forbidden') {
+            history.replaceState(null, '', '/');
+            setView({ phase: 'operator-denied' });
+            return;
+          }
+          throw error;
+        }
+        if (run !== generation.current) return;
+        history.replaceState(null, '', '/operator');
+        setView({ phase: 'operator-opened' });
+        return;
+      }
       if (identity.tenants.length === 0) { selected.current = null; setView({ phase: 'empty' }); return; }
       if (!tenant) { setView({ phase: 'choose', identity, intent }); return; }
       const fresh = identity.tenants.find(item => item.tenantId === tenant.tenantId);
@@ -95,7 +114,7 @@ export function AuthApp() {
       // A fresh navigation has no in-memory token. Reuse only the provider SSO session.
       void login(resumeIntent, false, true);
     } else {
-      setView({ phase: 'entry', message: consumeLogoutReturn() ? '로그아웃했습니다.' : location.pathname === '/admin' ? '관리자 권한을 확인하려면 로그인해 주세요.' : undefined });
+      setView({ phase: 'entry', message: consumeLogoutReturn() ? '로그아웃했습니다.' : location.pathname === '/operator' ? '서비스 운영 권한을 확인하려면 로그인해 주세요.' : location.pathname === '/admin' ? '회사 관리자 권한을 확인하려면 로그인해 주세요.' : undefined });
     }
     const onPageHide = () => showCurtain();
     const onPageShow = (event: PageTransitionEvent) => { if (event.persisted && !authCompleting.current) void checkAccess(); };
@@ -163,8 +182,8 @@ export function AuthApp() {
     <header className="office-auth-brand"><span>wonffice</span><small>서비스 로그인 후보 · 서버 권한 확인</small></header>
     {view.phase === 'checking' && <section><h1 tabIndex={-1} ref={heading}>접근 권한 확인 중</h1><p>현재 계정과 회사 권한을 서버에서 확인하고 있습니다.</p></section>}
     {view.phase === 'entry' && <section><h1 tabIndex={-1} ref={heading}>Wonffice에 들어가기</h1><p>로그인 뒤 현재 계정의 권한을 확인합니다.</p>{view.message && <p role="status">{view.message}</p>}
-      <div className="office-auth-actions"><button onClick={() => void login('user')}>사용자로 들어가기</button><button onClick={() => void login('admin')}>관리자로 들어가기</button></div>
-      <p className="office-auth-note">진입 선택은 권한을 부여하지 않습니다. 관리자 권한은 로그인 뒤 서버에서 확인합니다.</p>
+      <div className="office-auth-actions"><button onClick={() => void login('user')}>일반 사용자로 들어가기</button><button onClick={() => void login('admin')}>회사 관리자로 들어가기</button><button onClick={() => void login('operator')}>Wonffice 전체 서비스 운영자로 들어가기</button></div>
+      <p className="office-auth-note">진입 선택은 권한을 부여하지 않습니다. 회사 관리자와 서비스 운영자 권한은 각각 서버에서 확인합니다.</p>
     </section>}
     {view.phase === 'empty' && <section><h1 tabIndex={-1} ref={heading}>접근할 수 있는 회사가 없습니다</h1><p>로그인은 완료됐지만 현재 계정에 활성 회사가 없습니다.</p>
       <div className="office-auth-actions"><button onClick={() => void switchAccount()}>다른 계정으로 로그인</button><button onClick={() => void logout()}>로그아웃</button></div>
@@ -181,13 +200,21 @@ export function AuthApp() {
         {view.intent === 'admin' && <button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button>}
         <button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
+    {view.phase === 'operator-opened' && <section><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
+      <p>서버에서 현재 서비스 운영 권한을 확인했습니다.</p>
+      <p className="office-auth-note">운영 업무 화면은 아직 연결되지 않았습니다. 이 권한으로 회사 문서를 열 수 없습니다.</p>
+      <div className="office-auth-actions"><button onClick={() => void checkAccess()}>권한 다시 확인</button><button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
+    </section>}
+    {view.phase === 'operator-denied' && <section><h1 tabIndex={-1} ref={heading}>서비스 운영 권한이 없습니다</h1><p role="alert">현재 계정에는 Wonffice 전체 서비스 운영 권한이 없습니다. 이 선택만으로 운영 권한이 생기지 않습니다.</p>
+      <div className="office-auth-actions"><button onClick={() => void checkAccess('user', null)}>일반 사용자로 들어가기</button><button onClick={() => void checkAccess('admin', null)}>회사 관리자로 들어가기</button><button onClick={() => void switchAccount()}>계정 전환</button></div>
+    </section>}
     {view.phase === 'denied' && <section><h1 tabIndex={-1} ref={heading}>관리자 권한이 없습니다</h1><p role="alert">{view.tenant.name}의 현재 역할은 {roleName(view.role)}입니다. 이 선택만으로 관리자 권한이 생기지 않습니다.</p>
       <div className="office-auth-actions"><button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button><button onClick={() => { selected.current = null; void checkAccess(); }}>다른 회사 선택</button><button onClick={() => void switchAccount()}>계정 전환</button></div>
     </section>}
     {view.phase === 'error' && <section><h1 tabIndex={-1} ref={heading}>{view.error.kind === 'unauthorized' || view.error.kind === 'cancelled' || view.error.kind === 'login' ? '로그인이 필요합니다' : view.error.kind === 'forbidden' ? '접근 권한이 없습니다' : '접근 권한을 확인하지 못했습니다'}</h1><p role="alert">{view.error.message}</p>
       <div className="office-auth-actions">{view.error.kind === 'unavailable' && currentIntent() && <button onClick={() => void checkAccess()}>다시 확인</button>}
         {view.error.kind === 'forbidden' && currentIntent() && <button onClick={() => { selected.current = null; void checkAccess(); }}>다른 회사 선택</button>}
-        <button onClick={() => void login('user')}>다시 로그인</button><button onClick={() => { ++generation.current; clearSession(); selected.current = null; chosenIntent.current = null; setView({ phase: 'entry' }); }}>진입 선택</button></div>
+        <button onClick={() => void login(chosenIntent.current ?? currentIntent() ?? 'user')}>다시 로그인</button><button onClick={() => { ++generation.current; clearSession(); selected.current = null; chosenIntent.current = null; setView({ phase: 'entry' }); }}>진입 선택</button></div>
     </section>}
   </main>;
 }

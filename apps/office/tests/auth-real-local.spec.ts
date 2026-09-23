@@ -22,7 +22,7 @@ test('two independent Keycloak accounts reach server-derived Office entry', asyn
       const page = await context.newPage();
       const meResponse = page.waitForResponse(response => response.url().endsWith('/api/me') && response.status() === 200);
       await page.goto(officeOrigin);
-      await page.getByRole('button', { name: '사용자로 들어가기' }).click();
+      await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
       await page.locator('#username').fill(name);
       await page.locator('#password').fill(fixture.users[name].password);
       await page.locator('#kc-login').click();

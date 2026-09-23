@@ -1,4 +1,4 @@
-export type EntryIntent = 'user' | 'admin';
+export type EntryIntent = 'user' | 'admin' | 'operator';
 export type TenantRole = 'owner' | 'admin' | 'editor' | 'viewer';
 export type TenantAccess = { tenantId: string; name: string; role: TenantRole };
 export type Identity = { issuer: string; subject: string; tenants: TenantAccess[] };
@@ -142,7 +142,7 @@ export function currentIntent() { return activeSession?.intent ?? null; }
 export function consumeResumeIntent(): EntryIntent | null {
   const value = sessionStorage.getItem(resumeKey);
   sessionStorage.removeItem(resumeKey);
-  return value === 'user' || value === 'admin' ? value : null;
+  return value === 'user' || value === 'admin' || value === 'operator' ? value : null;
 }
 export function clearSession() { activeSession = null; sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(resumeKey); }
 export function announceLogout() { localStorage.setItem(logoutKey, String(Date.now())); }
@@ -212,6 +212,20 @@ export async function confirmTenant(tenantId: string): Promise<TenantRole> {
   const data = await apiGet(`/tenants/${encodeURIComponent(tenantId)}/access`) as Record<string, unknown>;
   if (data.tenantId !== tenantId || !roles.has(data.role as TenantRole)) throw new AuthError('unavailable', '회사 접근 응답을 확인하지 못했습니다.');
   return data.role as TenantRole;
+}
+
+export async function confirmOperator(): Promise<void> {
+  let data: unknown;
+  try { data = await apiGet('/operator/access'); }
+  catch (error) {
+    if (error instanceof AuthError && error.kind === 'forbidden') {
+      throw new AuthError('forbidden', '현재 계정에는 Wonffice 전체 서비스 운영 권한이 없습니다.');
+    }
+    throw error;
+  }
+  if (!data || typeof data !== 'object' || (data as Record<string, unknown>).operator !== true) {
+    throw new AuthError('unavailable', '서비스 운영 권한 응답을 확인하지 못했습니다.');
+  }
 }
 
 export async function providerLogout() {
