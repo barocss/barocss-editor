@@ -806,7 +806,7 @@ function cleanupPortal(portalId: string, target: HTMLElement): void {
 
 ## Related Documents
 
-- [Portal System Specification](portal-system-spec.md) - Portal system detailed specification
-- [Decorator Implementation Guide](decorator-implementation-guide.md) - Decorator implementation guide
-- [Renderer DOM Specification](renderer-dom-spec.md) - Rendering system specification
-- [DSL to JSON Specification](dsl-json-specification.md) - DSL syntax and JSON conversion structure detailed specification
+- [Portal System Specification](./dom/portal-system-spec.md) - Portal system detailed specification
+- [Decorator Guide](../apps/docs-site/docs/guides/decorator-guide.md) - Decorator concepts and examples
+- [Renderer DOM Specification](../packages/renderer-dom/docs/renderer-dom-spec.md) - Rendering system specification
+- [DSL Package](../packages/dsl/README.md) - Template definition and registry API

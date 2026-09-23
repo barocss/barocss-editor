@@ -26,8 +26,8 @@ This directory and the linked package specs define **what the editor and each pa
 
 ### 이 저장소가 어떻게 서 있고 어떻게 물어보나
 
-세 문서가 *무엇을 만드나* 가 아니라 **어떻게 결정하나** 를 적는다. 새 제품·새 모듈·새 검사를
-놓기 전에 이 셋을 본다.
+네 문서가 *무엇을 만드나* 가 아니라 **어떻게 결정하나** 를 적는다. 새 제품·새 모듈·새 검사를
+놓기 전에 이 문서들을 본다.
 
 - **`docs/specs/architecture.md`** — 무엇이 무엇 위에 서 있나. **그림은 그린 것이 아니라 잰
   것이다**(`package.json` 의 의존에서 층을 계산했다). 지금 어디가 아직 나뉘어 있는지도 세어서
@@ -48,32 +48,21 @@ This directory and the linked package specs define **what the editor and each pa
 - **`docs/specs/editor.md`** — Document model (tree, block, text, marks), selection (resolution, `selectionAfter`), operation semantics (e.g. insertParagraph, insertText guarantees), and references to architecture/flow docs.
 - **`docs/specs/standard-schema.md`** — Barocss standard schema: canonical node types, marks, content rules; minimal vs full tier; presets `getMinimalSchemaDefinition()` and `getStandardSchemaDefinition()` from `@barocss/schema`.
 
-### The products
+### Products and workspace
 
-One each, and they are a different kind of document from the two above: they say what a **product**
-is in this model, what it reuses, what is genuinely its own, and what it deliberately does not do.
-
-- **`docs/specs/word.md`** — Word. Written *after* it was built, so every number in it is produced by
-  a test (`office-word/test/spec-numbers.test.ts`) and its work list is a conformance ratchet rather
-  than a wish.
-- **`docs/specs/site-builder.md`** — the site builder. Written *before* it was built, because a
-  boundary recorded after the fact is a rationalisation.
-- **`docs/specs/note.md`** — the note. A third kind again: **written to record what a small product
-  cost and what it found**, because note was built to test the claim the other two make — *one
-  document engine, several products*. Its numbers are held by
-  `office-note/test/spec-numbers.test.ts`, and the smallest of them are held hardest: three declared
-  nodes, two keybindings, a 257-line app. If those grow quietly the document stops being evidence.
-- **`docs/specs/canvas-model.md`** — the canvas the deck and Word share, and the rules the suite's
-  chrome follows.
-- **`docs/specs/motion-model.md`** — what a deck means by time.
-
-The deck's own is still inside `docs/ROADMAP.md` — *"Slides, to the level of PowerPoint, Keynote,
-Canva and CapCut"* — and is owed as a file of its own.
+- [Product delivery scope](wonffice-delivery-scope.md): current product boundaries and remaining service work.
+- [Office workspace](office-workspace.md): local host, document identity, saving, and recovery.
+- [Note](note.md): product scope and implementation evidence. Numeric checks live in `packages/office-note/test/spec-numbers.test.ts`.
+- [Word](word.md): product contract and evidence. Numeric checks live in `packages/office-word/test/spec-numbers.test.ts`.
+- [Slides](slides.md): deck model, editing, and presentation scope.
+- [Site builder](site-builder.md): site structure and product boundaries.
+- [Canvas model](canvas-model.md): shared spatial concepts.
+- [Motion model](motion-model.md): deck timing concepts.
 
 ### Package specs
 
 - **`packages/model/SPEC.md`** — Model: transaction, operations (inputs/outputs, invariants), selection resolution. Exec tests in `packages/model/test/operations/*.exec.test.ts` are the concrete spec for each operation.
-- Other packages: add `packages/<name>/SPEC.md` when the package has a clear contract (API, invariants, or behavior that other packages or tests rely on). List new specs here and in `.cursor/AGENTS.md`.
+- Other packages: add `packages/<name>/SPEC.md` when the package has a clear contract (API, invariants, or behavior that other packages or tests rely on). List new specs here.
 
 ### Package specs (in package directories)
 
@@ -116,6 +105,6 @@ Full plan (when/what to update, build/verify) is in **`docs/docs-site-integratio
 
 1. **Before implementing**: Read the editor-wide spec for user-visible behavior and operation semantics; read the relevant package spec for the layer you are touching.
 2. **While implementing**: Follow the guarantees (e.g. `selectionAfter.nodeId` is a text node when the spec says so); add or adjust exec tests so they assert the spec.
-3. **After changing behavior**: Update the spec to match the new behavior; if user-facing, update **apps/docs-site** (see `docs/docs-site-integration.md`); then run the verification steps in `.cursor/AGENTS.md` (unit tests, E2E, optionally build docs-site).
+3. **After changing behavior**: Update the spec to match the new behavior; if user-facing, update **apps/docs-site** (see [docs-site integration](../docs-site-integration.md)); then follow the verification rules in the [root AGENTS.md](../../AGENTS.md).
 
-References: `.cursor/AGENTS.md` (feature loop, verification), `docs/platform-for-agent.md` (patterns), `docs/docs-site-integration.md` (when/how to update docs-site), `docs/testing-verification.md` (what to run).
+References: [root AGENTS.md](../../AGENTS.md) (work and verification), [documentation architecture](../documentation-architecture.md) (document ownership), [docs-site integration](../docs-site-integration.md) (published docs), [testing verification](../testing-verification.md) (test scope).
