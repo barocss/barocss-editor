@@ -77,6 +77,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Guides',
       items: [
+        { type: 'doc', id: 'guides/schema-editing', label: 'Schema-aware editing' },
         'guides/extension-design',
         'guides/custom-operations',
         'guides/advanced-extensions',
