@@ -127,9 +127,9 @@ tenant·actor·권한은 서버의 신뢰된 실행 context에서 제공한다. 
 
 일반 snapshot 문서에 대한 원격 capability는 `describe / validate / preview / apply`로 좁힌다. preview는 대상 revision과 변경 요약을 반환한다. apply는 같은 revision·요청 hash·권한을 재확인한다. 협업 문서의 원격 편집 계약은 Yorkie 상태를 기준으로 별도 검증한다. 사용자 커서에 의존하는 UI command 대신 명시한 node ID·범위를 쓴다. headless 실행은 DOM 없이 검사한다. 기존의 모든 command가 headless라고 가정하지 않는다.
 
-실시간 협업은 [공급자 계약](wonffice-collaboration-providers.md)을 따른다. 외부 alpha의 선택은 Yorkie Cloud다. 로컬 개발에서도 실제 Yorkie를 사용하지만 Cloud 연결과 자체 호스팅 중 실행 위치는 미정이다. Yjs·Automerge는 미래 선택지이며 alpha의 병행 구현 범위가 아니다. 자체 협업 서버·CRDT 변경 로그 서버는 구현하지 않는다. 활성 공동 문서에는 일반 snapshot API의 덮어쓰기를 서버에서 거부한다. Wonffice는 문서 권한·연결 설정·ID 매핑·제품 adapter를 맡고 Yorkie의 저장 확인·권한 회수·재접속·사용자별 undo를 실제 제품에서 검사한다. Yorkie SDK의 로컬 변경 반영을 영속 저장 완료로 표시하지 않는다. snapshot 충돌 처리를 실시간 협업 완료로 표시하지 않는다.
+실시간 협업은 [공급자 계약](wonffice-collaboration-providers.md)을 따른다. 외부 alpha의 선택은 Yorkie Cloud다. 내부 통합 검증에서도 실제 Yorkie를 사용하며 외부 Yorkie 연결을 허용한다. 자체/로컬 Yorkie 설치는 필수가 아니고 최종 테스트 배치는 미정이다. Yjs·Automerge는 미래 선택지이며 alpha의 병행 구현 범위가 아니다. 자체 협업 서버·CRDT 변경 로그 서버는 구현하지 않는다. 활성 공동 문서에는 일반 snapshot API의 덮어쓰기를 서버에서 거부한다. Wonffice는 문서 권한·연결 설정·ID 매핑·제품 adapter를 맡고 Yorkie의 저장 확인·권한 회수·재접속·사용자별 undo를 실제 제품에서 검사한다. Yorkie SDK의 로컬 변경 반영을 영속 저장 완료로 표시하지 않는다. snapshot 충돌 처리를 실시간 협업 완료로 표시하지 않는다.
 
-Note → Word → Slides → Site 순서로 네 제품 모두 실제 로컬 PostgreSQL·API·UI·두 로그인 사용자·Yorkie를 연결해 검증한다. 각 제품의 구조와 schema, 원격 변경 후 참조 유효성, 사용자별 undo/redo, 재시작 후 원문 복원을 같은 후보에서 확인한다. 원격 변경에서 제품 schema를 보장할 방법과 Yorkie Tree undo 지원 범위는 제품 계약으로 추가 확인한다. 현재는 네 제품의 통합 완료 근거가 없다. [출시 인수 추적](https://github.com/barocss/barocss-editor/issues/322)은 이 조건을 기록한다.
+Note → Word → Slides → Site 순서로 네 제품 모두 실제 로컬 PostgreSQL·Fastify API·제품 UI와 선택한 Yorkie 서비스에 두 로그인 사용자를 연결해 검증한다. Yorkie 서비스는 외부에 있어도 된다. 각 제품의 구조와 schema, 원격 변경 후 참조 유효성, 사용자별 undo/redo, 재접속·재시작 후 원문 복원을 같은 후보에서 확인한다. 원격 변경에서 제품 schema를 보장할 방법과 Yorkie Tree undo 지원 범위는 제품 계약으로 추가 확인한다. 현재는 네 제품의 통합 완료 근거가 없다. [출시 인수 추적](https://github.com/barocss/barocss-editor/issues/322)은 이 조건을 기록한다.
 
 ## 6. 고객사별 기능과 새 기능 요청
 

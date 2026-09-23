@@ -1,6 +1,6 @@
 # 동시 편집 공급자와 데이터 소유
 
-2026-09-20 사용자 결정: **Wonffice는 동시 편집 서버를 직접 구현하지 않는다.** 외부 alpha의 공급자는 **Yorkie Cloud**다. 로컬 개발에서도 실제 Yorkie를 사용한다. 로컬 Yorkie 서버와 Cloud 연결 중 실행 위치는 아직 결정되지 않았다. Yjs·Automerge는 미래 선택지이며 alpha에서 병행 구현하지 않는다. 기존 플랫폼 문서의 자체 세션·epoch·변경 로그 서버 계획은 이 결정으로 대체한다.
+2026-09-20 사용자 결정: **Wonffice는 동시 편집 서버를 직접 구현하지 않는다.** 외부 alpha의 공급자는 **Yorkie Cloud**다. 내부 통합 검증에서도 실제 Yorkie를 사용하며 외부 Yorkie 연결을 허용한다. 자체/로컬 Yorkie 설치는 필수가 아니다. 최종 테스트 배치는 미정이다. Yjs·Automerge는 미래 선택지이며 alpha에서 병행 구현하지 않는다. 기존 플랫폼 문서의 자체 세션·epoch·변경 로그 서버 계획은 이 결정으로 대체한다.
 
 현재 구현과 목표를 구분한다. 저장소에는 `collaboration`과 `collaboration-yjs` 클라이언트 코드가 있다. Yorkie 제품 adapter, 권한 격리, 영속 저장 또는 네 제품 연결의 완료 근거는 없다. 기존 Yjs 코드를 삭제하거나 Yorkie 지원 구현으로 취급하지 않는다.
 
@@ -21,7 +21,7 @@
 
 | 선택값 | 연결 대상 | 현재 범위 |
 | --- | --- | --- |
-| `yorkie` | Yorkie SDK와 Yorkie Cloud. 로컬 서버 사용 여부는 미정 | alpha 대상. 프로젝트·문서 key·인증 hook·저장·복원을 실제로 확인한다. |
+| `yorkie` | Yorkie SDK와 등록된 Yorkie 서비스. 내부 검증은 외부 Yorkie 또는 분리된 자체 서버를 선택할 수 있음 | alpha 대상. 프로젝트·문서 key·인증 hook·저장·복원을 실제로 확인한다. |
 | `yjs` | Yjs SDK와 검증할 기존 provider/server | 미래 선택지. 서버 제품·영속 저장·인증 연결은 미검증이다. |
 | `automerge` | Automerge SDK와 검증할 기존 repo/network/storage 또는 동기화 서비스 | 미래 선택지. 문서 URL·저장 adapter·접근 제한은 미검증이다. |
 
@@ -47,12 +47,12 @@ Yorkie `doc.update()`는 로컬 변경을 먼저 반영한 뒤 서버로 비동�
 
 ## 클라우드와 온프레미스
 
-Fastify 기반 office-api와 Yorkie 제품 adapter의 책임은 두 배포에서 같다. 외부 alpha는 Yorkie Cloud를 사용한다. 로컬 검증에서 Yorkie Cloud에 연결할지 자체 호스팅 Yorkie를 사용할지는 아직 결정되지 않았다. 자체 호스팅 서버의 기본 메모리 저장은 재시작 영속성이 없으며 공식 영속 저장 경로는 MongoDB다. 온프레미스가 Yorkie Cloud에 의존하는지, 자체 서버를 포함하는지와 복원 절차는 검증 전이다. Cloud 연결 검사를 완전 오프라인 내부 설치 지원으로 표시하지 않는다. Wonffice 제품 서버와 Yorkie 서버의 버전·백업·복구 지점을 함께 기록한다. 근거: [Yorkie 자체 호스팅](https://yorkie.dev/docs/self-hosted-server).
+Fastify 기반 office-api와 Yorkie 제품 adapter의 책임은 두 배포에서 같다. 외부 alpha는 Yorkie Cloud를 사용한다. 내부 통합 검증은 로컬 PostgreSQL·API·제품 UI에서 외부 Yorkie에 연결해도 된다. 분리된 자체 호스팅 Yorkie는 선택 가능한 검증 환경이며 필수가 아니다. 최종 테스트 배치와 키·웹훅 설정은 미확인이다. Cloud를 쓰면 전용 테스트 프로젝트의 브라우저용 public key와 서버 전용 secret key를 구분한다. secret key는 브라우저에 전달하지 않는다. 권한 회수 검증에는 Auth Webhook과 Cloud가 로컬 API에 도달할 안전한 경로가 필요하다. #355 인증·API가 준비되기 전에는 키 제공을 요청하지 않고 키를 이슈·PR에 기록하지 않는다. 외부 서비스 사용 허용은 고객 데이터 사용이나 운영 배포 승인이 아니다. 자체 호스팅 서버의 기본 메모리 저장은 재시작 영속성이 없으며 공식 영속 저장 경로는 MongoDB다. 온프레미스가 Yorkie Cloud에 의존하는지, 자체 서버를 포함하는지와 복원 절차는 검증 전이다. Cloud 연결 검사를 완전 오프라인 내부 설치 지원으로 표시하지 않는다. Wonffice 제품 서버와 Yorkie 서버의 버전·백업·복구 지점을 함께 기록한다. 근거: [Yorkie 프로젝트와 키](https://yorkie.dev/docs/advanced/projects), [Auth Webhook](https://yorkie.dev/docs/advanced/security), [Yorkie 자체 호스팅](https://yorkie.dev/docs/self-hosted-server).
 
 ## alpha 공동편집 인수 기준
 
 1. 공통 연결 계약과 Yorkie의 지원 기능을 먼저 정의한다. 미구현 adapter는 선택 가능한 기능으로 노출하지 않는다.
-2. 실제 Yorkie 서버·SDK·인증·영속 저장 구성을 고정한다. 로컬 실행 위치를 정하고 Cloud 연결과 완전 오프라인 검사를 구분한다.
+2. 실제 Yorkie 서비스·SDK·인증·영속 저장 구성을 고정한다. 외부 또는 자체 호스팅 중 선택한 테스트 배치, 프로젝트 키 경계와 웹훅 도달성을 기록한다. Cloud 연결과 완전 오프라인 검사를 구분한다.
 3. Note → Word → Slides → Site 순서로 네 제품 모두 PostgreSQL 메타데이터·API·UI·Yorkie 원문 재열기를 확인한다. 제품 모델 adapter에서 동시 입력, 노드 이동·삭제, 표와 제품 고유 구조를 검사한다. 수렴과 제품 schema·참조 유효성을 함께 확인한다.
 4. 각 제품에서 서로 다른 로그인 계정과 두 브라우저, 재접속, 연결 단절, 서버 재시작, 사용자별 undo/redo, 권한 회수, 다른 tenant 접근 차단을 실제 Yorkie로 검사한다.
 5. Yorkie에서 확인된 상태의 내보내기·게시·백업 복원을 확인한다. 공급자 장애 중 미확정 초안을 보존하고 일반 snapshot 요청이 활성 공동 문서를 덮어쓰지 못하게 한다.
