@@ -50,7 +50,7 @@ export function readNoteFile(text: string): { document: NoteDocument } | { error
   return { document: { stype: 'note', attributes: { title: typeof doc.attributes?.title === 'string' ? doc.attributes.title : '새 노트', ...(pageId !== undefined ? { pageId } : {}) }, content: doc.content } };
 }
 
-/** Read a server migration input without losing its optional savedAt field. */
+/** Read a server migration input without losing its optional savedAt field. A nonempty string is kept verbatim; its date syntax is not checked. */
 export function readNoteSnapshotFile(text: string): { document: NoteDocument; savedAt?: string } | { error: string } {
   const read = readNoteFile(text);
   if ('error' in read) return read;
@@ -62,7 +62,7 @@ export function readNoteSnapshotFile(text: string): { document: NoteDocument; sa
   return { ...read, savedAt: envelope.savedAt };
 }
 
-/** Build the Note C copy after the server has minted a new page ID for this request. */
+/** Build the Note C copy after the server has minted a new page ID. Malformed input returns an error; an invalid or unchanged server ID throws. */
 export function copyNoteSnapshotFile(sourceText: string, newPageId: string): { snapshotText: string; pageId: string } | { error: string } {
   if (!isNotePageId(newPageId)) throw new Error('새 노트의 페이지 ID가 올바르지 않습니다.');
   const read = readNoteSnapshotFile(sourceText);

@@ -26,6 +26,7 @@ describe('Note snapshot file codec', () => {
     expect(JSON.parse(text).savedAt).toBe(savedAt);
     expect(readNoteSnapshotFile(text)).toEqual({ document: document(), savedAt });
     expect(serializeNoteFile(document(), { savedAt })).toBe(text);
+    expect(readNoteSnapshotFile(serializeNoteFile(document(), { savedAt: 'not-a-date' }))).toEqual({ document: document(), savedAt: 'not-a-date' });
   });
 
   it('rejects invalid savedAt for server migration while the local reader remains compatible', () => {
@@ -77,5 +78,6 @@ describe('Note snapshot file codec', () => {
     expect(copyNoteSnapshotFile(malformed, 'copy-3')).toHaveProperty('error');
     expect(() => copyNoteSnapshotFile(serializeNoteFile(document()), 'original')).toThrow('달라야');
     expect(() => copyNoteSnapshotFile(serializeNoteFile(document()), '../invalid')).toThrow('페이지 ID');
+    expect(() => copyNoteSnapshotFile(serializeNoteFile(document()), '__proto__')).toThrow('페이지 ID');
   });
 });

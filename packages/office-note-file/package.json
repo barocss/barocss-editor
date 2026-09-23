@@ -6,15 +6,15 @@
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./types.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./types.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "types.d.ts"],
   "scripts": {
     "build": "vite build",
     "type-check": "tsc --noEmit",
