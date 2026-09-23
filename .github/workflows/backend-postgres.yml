@@ -1,0 +1,46 @@
+name: Backend PostgreSQL
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/office-service/**'
+      - '.github/workflows/backend-postgres.yml'
+      - 'pnpm-lock.yaml'
+      - '.nvmrc'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/office-service/**'
+      - '.github/workflows/backend-postgres.yml'
+      - 'pnpm-lock.yaml'
+      - '.nvmrc'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-postgres-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres:
+    name: PostgreSQL isolation and restore
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Require the PostgreSQL 16 binaries from the runner
+        run: test -x /usr/lib/postgresql/16/bin/initdb
+      - name: Verify migrations, tenant isolation, and a fresh database restore
+        env:
+          PG_BIN: /usr/lib/postgresql/16/bin
+        run: pnpm --filter @barocss/office-service test:postgres
