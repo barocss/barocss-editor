@@ -19,6 +19,7 @@ const sidebars: SidebarsConfig = {
       label: 'Office integration',
       items: [
         { type: 'doc', id: 'guides/office-products', label: 'Product integration' },
+        { type: 'doc', id: 'guides/editor-extensibility', label: 'Extension boundaries' },
         { type: 'doc', id: 'guides/shared-office-ui', label: 'Shared UI integration' },
         { type: 'doc', id: 'guides/office-styling', label: 'Styling' },
         { type: 'doc', id: 'guides/package-boundaries', label: 'Package boundaries' },
