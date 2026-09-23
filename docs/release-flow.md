@@ -72,7 +72,7 @@ last_updated: 2026-09-23
 
 ### 외부 alpha의 제품별 인수 증거
 
-Note를 먼저 구현·검증하고 Word, Slides, Site로 확대한다. **네 제품 모두 통과**하기 전에는 외부 alpha를 완료로 표시하지 않는다. 각 제품에서 실제 로컬 PostgreSQL, 인증한 서로 다른 계정 두 개, Fastify API, 제품 UI, 실제 Yorkie 연결을 사용한다. 외부 alpha의 협업 서비스는 Yorkie Cloud다. 로컬 개발에서 로컬 Yorkie 서버와 Yorkie Cloud 중 어디에 연결할지는 미확인이다. Cloud 연결을 완전 오프라인 검사라고 부르지 않는다.
+Note를 먼저 구현·검증하고 Word, Slides, Site로 확대한다. **네 제품 모두 통과**하기 전에는 외부 alpha를 완료로 표시하지 않는다. 각 제품에서 실제 로컬 PostgreSQL, 인증한 서로 다른 계정 두 개, Fastify API, 제품 UI, 실제 Yorkie 연결을 사용한다. 외부 alpha의 협업 서비스는 Yorkie Cloud다. 내부 통합 검증에는 외부 Yorkie 연결을 허용하며 로컬 자체 설치는 필수가 아니다. 최종 테스트 배치는 미정이다. Cloud 연결을 완전 오프라인 검사라고 부르지 않는다.
 
 Yorkie는 동시편집 상태와 협업 원문을 소유한다. Wonffice API·PostgreSQL은 계정·회사·권한·문서 메타데이터를 소유한다. 이미지와 첨부는 별도 파일 저장소에 둔다. Wonffice가 인증과 접근 제어를 책임진다. 기존 Yjs·Automerge 코드는 이번 결정만으로 삭제하거나 병행 구현 대상으로 정하지 않는다.
 

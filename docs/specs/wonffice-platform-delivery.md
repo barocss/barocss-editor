@@ -40,7 +40,7 @@ WP-03과 WP-05는 WP-01의 수정과 기술적으로 독립이다. 다만 처음
 
 ### 외부 alpha 전 실제 통합 인수
 
-WP-05의 DB 기반, WP-06의 Note 저장 경로, WP-09의 협업 adapter는 각각 부분 결과다. 외부 alpha에는 **네 제품 모두** 실제 로컬 PostgreSQL, 인증한 서로 다른 사용자, Fastify API, 제품 UI, Yorkie 연결을 통과한 실행 결과가 필요하다. 외부 alpha의 협업 서비스는 Yorkie Cloud다. 로컬 개발에서 로컬 Yorkie 서버와 Yorkie Cloud 중 어느 쪽에 연결할지는 미확인이다. Cloud 연결을 완전 오프라인 검사라고 부르지 않는다.
+WP-05의 DB 기반, WP-06의 Note 저장 경로, WP-09의 협업 adapter는 각각 부분 결과다. 외부 alpha에는 **네 제품 모두** 실제 로컬 PostgreSQL, 인증한 서로 다른 사용자, Fastify API, 제품 UI, Yorkie 연결을 통과한 실행 결과가 필요하다. 외부 alpha의 협업 서비스는 Yorkie Cloud다. 내부 통합 검증에는 외부 Yorkie 연결을 허용하며 로컬 자체 설치는 필수가 아니다. 최종 테스트 배치는 미정이다. Cloud 연결을 완전 오프라인 검사라고 부르지 않는다.
 
 Yorkie는 동시편집 상태와 협업 원문을 소유한다. API·PostgreSQL은 사용자·회사·권한·문서 메타데이터를 소유한다. 이미지·첨부는 별도 파일 저장소를 쓴다. Wonffice가 인증과 접근 제어를 책임진다. 기존 Yjs·Automerge 코드는 자동 삭제하거나 병행 구현 대상으로 정하지 않는다.
 
@@ -60,7 +60,7 @@ Operator와 구현 담당은 **실제로 실행한** 로컬 기동·재시작·�
 
 **구현 계약:** [Transaction 실패 복구 계약](transaction-recovery.md). WP-01 구현 PR에서 검사 증거와 병합 상태를 확인한다.
 
-추가 사용자 결정 — 2026-09-20: API는 Fastify를 사용한다. [협업 공급자 비교](wonffice-collaboration-providers.md) 이후 첫 외부 alpha는 Yorkie Cloud로 정했다. 로컬 개발에서 로컬 Yorkie 서버와 Yorkie Cloud 중 어느 쪽을 쓸지는 미확인이다. 자체 협업 서버를 새로 만들지 않는다.
+추가 사용자 결정 — 2026-09-20: API는 Fastify를 사용한다. [협업 공급자 비교](wonffice-collaboration-providers.md) 이후 첫 외부 alpha는 Yorkie Cloud로 정했다. 내부 통합 검증에는 외부 Yorkie 연결을 허용하며 로컬 자체 설치는 필수가 아니다. 최종 테스트 배치는 미정이다. 자체 협업 서버를 새로 만들지 않는다.
 
 ## 3. 첫 백엔드 WP-05/06의 좁은 범위
 
