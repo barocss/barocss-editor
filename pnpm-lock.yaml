@@ -446,6 +446,9 @@ importers:
 
   apps/office-service:
     dependencies:
+      '@barocss/office-note-file':
+        specifier: workspace:^
+        version: link:../../packages/office-note-file
       pg:
         specifier: 8.23.0
         version: 8.23.0

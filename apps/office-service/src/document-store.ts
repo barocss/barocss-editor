@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { copyNoteSnapshotFile, readNoteSnapshotFile } from '@barocss/office-note-file';
 import type { Pool, PoolClient } from 'pg';
 import { MembershipStore, type TenantRole, type VerifiedPrincipal } from './membership-store.js';
 
@@ -113,37 +114,6 @@ function parseSnapshot(text: unknown, product: Product): Record<string, unknown>
   return parsed;
 }
 
-function notePageId(parsed: Record<string, unknown>): string | undefined {
-  const document = parsed.document as Record<string, unknown>;
-  const attrs = document.attributes;
-  if (attrs === undefined) return undefined;
-  if (!record(attrs)) throw new DocumentError(422, 'invalid_snapshot');
-  const value = attrs.pageId;
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value) ||
-    ['__proto__', 'prototype', 'constructor'].includes(value)) throw new DocumentError(422, 'invalid_snapshot');
-  return value;
-}
-
-/** Only this page's self references follow the new identity. Other page links stay unchanged. */
-function copyNotePage(parsed: Record<string, unknown>, pageId: string): string {
-  const document = parsed.document as Record<string, unknown>;
-  const oldId = notePageId(parsed);
-  document.attributes = { ...(record(document.attributes) ? document.attributes : {}), pageId };
-  if (oldId) {
-    const visit = (value: unknown): void => {
-      if (Array.isArray(value)) { for (const child of value) visit(child); return; }
-      if (!record(value)) return;
-      if (value.stype === 'pageReference' && record(value.attributes) && value.attributes.pageId === oldId) {
-        value.attributes.pageId = pageId;
-      }
-      for (const child of Object.values(value)) visit(child);
-    };
-    visit(document.content);
-  }
-  return JSON.stringify(parsed);
-}
-
 interface Row {
   documentId: string; tenantId: string; workspaceId: string; product: Product;
   title: string; metadataRevision: number; mode: DocumentMode; pageId: string | null;
@@ -223,8 +193,10 @@ export class DocumentStore {
       input.fileVersion !== 1 || (input.product === 'note' ? input.importMode !== 'new-page-copy' : input.importMode !== undefined)) {
       throw new DocumentError(422, 'invalid_document_format');
     }
-    const parsed = parseSnapshot(input.snapshotText, input.product);
-    if (input.product === 'note') notePageId(parsed);
+    parseSnapshot(input.snapshotText, input.product);
+    if (input.product === 'note' && 'error' in readNoteSnapshotFile(input.snapshotText)) {
+      throw new DocumentError(422, 'invalid_snapshot');
+    }
     const digest = requestHash(['create', input.workspaceId, input.product, input.title,
       input.fileFormat, input.fileVersion, input.importMode ?? null, input.snapshotText]);
     return this.membership.withAuthorizedTenant(principal, tenantId, async (client, role) => {
@@ -237,7 +209,14 @@ export class DocumentStore {
       if (!workspace.rowCount) throw new DocumentError(404, 'not_found');
       const documentId = randomUUID();
       const pageId = input.product === 'note' ? randomUUID() : null;
-      const snapshotText = pageId ? copyNotePage(parsed, pageId) : input.snapshotText;
+      let snapshotText = input.snapshotText;
+      if (pageId) {
+        let copy: ReturnType<typeof copyNoteSnapshotFile>;
+        try { copy = copyNoteSnapshotFile(input.snapshotText, pageId); }
+        catch { throw new DocumentError(422, 'invalid_snapshot'); }
+        if ('error' in copy) throw new DocumentError(422, 'invalid_snapshot');
+        snapshotText = copy.snapshotText;
+      }
       checkSnapshotSize(snapshotText);
       const snapshotHash = hash(snapshotText);
       await client.query(`INSERT INTO wonffice.documents
@@ -309,8 +288,12 @@ export class DocumentStore {
       if (parsed.format !== current.fileFormat || parsed.version !== current.fileVersion) {
         throw new DocumentError(422, 'invalid_document_format');
       }
-      if (current.product === 'note' && notePageId(parsed) !== current.pageId) {
-        throw new DocumentError(422, 'invalid_page_id');
+      if (current.product === 'note') {
+        const note = readNoteSnapshotFile(input.snapshotText);
+        if ('error' in note) throw new DocumentError(422, 'invalid_snapshot');
+        if (note.document.attributes.pageId !== current.pageId) {
+          throw new DocumentError(422, 'invalid_page_id');
+        }
       }
       await client.query(`UPDATE wonffice.document_snapshots
         SET snapshot_text = $3, snapshot_hash = $4, revision = revision + 1, updated_at = now()

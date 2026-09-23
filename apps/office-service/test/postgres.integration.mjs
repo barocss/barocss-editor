@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
+import { copyNoteSnapshotFile, readNoteSnapshotFile } from '@barocss/office-note-file';
 import { migrate } from '../dist/migrate.js';
 import { migrations } from '../dist/migrations.js';
 import { TenantStore, withTenant } from '../dist/tenant-store.js';
@@ -312,7 +313,10 @@ try {
     assert.deepEqual(await documents.getReceipt(alicePrincipal, alpha, 'create', 'create-one'), created);
     const opened = await documents.open(alicePrincipal, alpha, created.document.documentId);
     assert.equal(created.snapshotText, opened.snapshotText);
+    assert.equal(created.snapshotText,
+      copyNoteSnapshotFile(noteInput.snapshotText, created.document.pageId).snapshotText);
     const stored = JSON.parse(opened.snapshotText);
+    assert.equal(Object.hasOwn(stored, 'savedAt'), false);
     assert.equal(stored.document.attributes.pageId, created.document.pageId);
     assert.equal(stored.document.content[1].content[0].attributes.pageId, created.document.pageId);
     assert.equal(stored.document.content[1].content[1].attributes.pageId, 'other-page');
@@ -325,6 +329,25 @@ try {
     error => error instanceof DocumentError && error.reason === 'key_reuse');
     assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.documents
       WHERE tenant_id = $1 AND workspace_id = $2 AND title = 'Plan'`, [alpha, a.id])).rows[0].count, 1);
+  });
+  await check('Note codec preserves savedAt and rejects invalid migration files', async () => {
+    const source = JSON.stringify({ ...JSON.parse(noteFile('timestamped')),
+      savedAt: '2026-09-23T01:00:00Z' });
+    const input = { ...noteInput, snapshotText: source, idempotencyKey: 'saved-at-copy' };
+    const receipt = await documents.create(alicePrincipal, alpha, input);
+    assert.deepEqual(await documents.create(alicePrincipal, alpha, input), receipt);
+    assert.equal(receipt.snapshotText,
+      copyNoteSnapshotFile(source, receipt.document.pageId).snapshotText);
+    assert.equal(readNoteSnapshotFile(receipt.snapshotText).savedAt, '2026-09-23T01:00:00Z');
+    assert.equal((await documents.open(alicePrincipal, alpha, receipt.document.documentId)).snapshotText,
+      receipt.snapshotText);
+    const invalid = JSON.stringify({ ...JSON.parse(source), savedAt: '' });
+    await assert.rejects(documents.create(alicePrincipal, alpha,
+      { ...input, snapshotText: invalid, idempotencyKey: 'invalid-saved-at' }),
+    error => error instanceof DocumentError && error.status === 422);
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, receipt.document.documentId,
+      { expectedRevision: 1, snapshotText: invalid, idempotencyKey: 'invalid-update-saved-at' }),
+    error => error instanceof DocumentError && error.status === 422);
   });
   await check('two database connections with the same create key commit one document', async () => {
     const concurrentPool = new pg.Pool({ ...config('wonffice_app'), max: 3 }); pools.push(concurrentPool);
