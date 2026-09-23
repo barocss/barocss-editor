@@ -364,6 +364,7 @@ Button과 DialogButton은 기본 버튼 속성과 이벤트를 전달한다. 기
 
 - PropertyGroup 제목은 긴 경우 줄바꿈한다. 접기 버튼과 초기화 버튼은 각각 동작한다. 같은 제목의 그룹도 고유한 본문 ID를 사용한다.
 - PropertyRow는 입력의 배치 그룹이다. 내부 입력과 버튼은 각자의 이름을 제공한다. 행 전체를 label로 감싸지 않는다.
+- Note처럼 본문·표 핸들·도구 버튼을 함께 가진 복합 편집기도 단일 label로 감싸지 않는다. 호스트는 보이는 필드명을 `aria-labelledby`로 연결한 그룹을 사용한다. 단일 입력의 label 연결은 유지한다. [Site 표 셀 포커스 연구](../../docs/specs/office-ui-composite-labels.md)에서 실제 입력·저장·재열기 검증을 구분한다.
 - PropertyToggle의 `value: null`은 혼합 상태다. 체크박스에 가로선과 `aria-checked="mixed"`를 표시한다. Space나 클릭은 선택한 대상 모두에 켜짐을 적용한다.
 - 숫자 혼합 값은 `null`로 전달해 —를 표시한다. 포커스만 옮겨서는 값을 적용하지 않는다. 제품에서 속성 기본값을 먼저 해석한 뒤 혼합 여부를 계산한다.
 - PropertyGroup의 `onReset`, `resetLabel`, `resetDisabled`로 초기화를 연결한다. 제품이 변경 범위와 실행 취소를 처리한다. 버튼 이름은 변경할 속성을 명시한다.
