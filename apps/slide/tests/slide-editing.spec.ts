@@ -141,7 +141,7 @@ test.describe('typing in a box', () => {
 
     const text = async () =>
       await page.evaluate(
-        (sid) => document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`)?.textContent ?? '',
+        (sid) => (document.querySelector(`.sl-stage [data-bc-sid="${sid}"]`)?.textContent ?? '').replace(/\uFEFF/g, ''),
         box.sid
       );
     const before = await text();
@@ -152,6 +152,20 @@ test.describe('typing in a box', () => {
 
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(500);
+    expect(await text()).toBe(before);
+
+    const paragraphs = page.locator(`.sl-stage [data-bc-sid="${box.sid}"] p`);
+    const count = await paragraphs.count();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await expect(paragraphs).toHaveCount(count + 1);
+    await page.keyboard.press('Backspace');
+    await expect(paragraphs).toHaveCount(count);
+    expect(await text()).toBe(before);
+    await page.keyboard.press('Control+z');
+    await expect(paragraphs).toHaveCount(count + 1);
+    await page.keyboard.press('Control+z');
+    await expect(paragraphs).toHaveCount(count);
     expect(await text()).toBe(before);
   });
 });

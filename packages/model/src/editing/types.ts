@@ -66,6 +66,12 @@ export interface EditingPolicy {
   /** Optional portable contract version. Set with schemaId and bump when compatibility changes. */
   schemaRevision?: string;
   defaultBlock?: string;
+  /** Empty editable run to create when deleting the last inline object. No type is guessed. */
+  defaultText?: string;
+  /** Explicitly removable empty container types, keyed by the left type and listing right types. */
+  removeEmptyBefore?: Record<string, string[]>;
+  /** Per-type split policy. Missing entries preserve the type; atEnd names the next block type. */
+  splits?: Record<string, { mode: 'same' | 'reject'; atEnd?: string }>;
   /** Opt into inline range replacement across target roles while retaining required empty containers. */
   rangeReplacement?: 'preserve-boundaries';
   /** Exact type names or '*'. Registrations belong to this editor, not a global registry. */
@@ -104,7 +110,9 @@ export interface EditingPlan {
   losses: EditingLoss[];
   trace: EditingRuleTrace[];
   noop?: boolean;
-  actions: ('move' | 'insert' | 'replace' | 'split' | 'join' | 'wrap' | 'transform')[];
+  /** Preserve a host's non-text selection during a programmatic text replacement. */
+  selectionAfter?: import('@barocss/editor-core').ModelSelection | null;
+  actions: ('delete' | 'move' | 'insert' | 'replace' | 'split' | 'join' | 'wrap' | 'transform')[];
   parentId: string;
   index: number;
   removeIds: string[];
@@ -115,3 +123,16 @@ export interface EditingPlan {
   caret: { path: number[]; offset: number } | null;
 }
 export type EditingDecision = { ok: true; plan: EditingPlan } | { ok: false; reason: string; losses: EditingLoss[]; trace: EditingRuleTrace[] };
+
+/** Host-proposed Enter strategies; only these built-in operations can be planned in isolation. */
+export interface StructuralOperation {
+  type: 'insertParagraph' | 'splitListItem' | 'transformNode' | 'moveChildren' | 'removeChild' | 'setAttrs' | 'addChild' | 'setSelection' | 'deleteRange' | 'deleteTextRange';
+  payload?: Record<string, unknown>;
+}
+export type StructuralRequest =
+  | { intent: 'remove'; nodeIds: string[] }
+  | { intent: 'delete'; range: import('@barocss/editor-core').ModelSelection }
+  | { intent: 'replace'; range: import('@barocss/editor-core').ModelSelection; text: string; preserveSelection?: boolean }
+  | { intent: 'join'; leftId: string; rightId: string }
+  | { intent: 'remove-gap'; leftId: string; rightId: string }
+  | { intent: 'split'; range: import('@barocss/editor-core').ModelSelection; operations?: StructuralOperation[]; handlesRange?: boolean };

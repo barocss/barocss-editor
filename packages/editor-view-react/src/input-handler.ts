@@ -468,8 +468,16 @@ export class ReactInputHandler {
       return;
     }
 
-    // insertText: never preventDefault. Browser updates DOM, MutationObserver syncs model and emits skipRender: true → no React re-render during typing (cursor stays).
+    // Selected typing changes structure: decide before the browser mutates the DOM.
+    // Collapsed typing keeps the native path so the caret and IME stay stable.
     if (inputType === 'insertText') {
+      const selection = window.getSelection();
+      if (!isIme && selection?.rangeCount && !selection.isCollapsed) {
+        if (this.tryHandleInsertViaGetTargetRanges(event)) return;
+        event.preventDefault();
+        this.insertTextAtSelection(event.data ?? '');
+        return;
+      }
       this.updateInsertHintFromBeforeInput(event);
       return;
     }

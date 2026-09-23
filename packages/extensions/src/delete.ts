@@ -1,3 +1,4 @@
+import { applyStructure, structuralEditing } from './structural-editing';
 import { Editor, Extension } from '@barocss/editor-core';
 import { hasRange } from './guards';
 import type { ModelSelection } from '@barocss/editor-core';
@@ -181,6 +182,8 @@ export class DeleteExtension implements Extension {
    * @returns Success status
    */
   private async _executeDeleteNode(editor: Editor, nodeId: string): Promise<boolean> {
+    const node = editor.dataStore.getNode(nodeId);
+    if (structuralEditing(editor) && node && !node.content?.length && editor.dataStore.getActiveSchema()?.getNodeType(node.stype)?.group === 'inline') return applyStructure(editor, { intent: 'remove', nodeIds: [nodeId] });
     const operations: unknown[] = this._buildDeleteNodeOperations(nodeId);
 
     /**
@@ -230,6 +233,7 @@ export class DeleteExtension implements Extension {
      * had a bare range, and one deleted inside the start run; all three were spelled *delete between
      * two points*.
      */
+    if (structuralEditing(editor)) return applyStructure(editor, { intent: 'delete', range });
     const result = await transaction(editor, deleteRangeOperations(range, editor) as never).commit();
     return result.success;
   }
@@ -242,6 +246,7 @@ export class DeleteExtension implements Extension {
    * @returns 성공 여부
    */
   private async _executeDeleteText(editor: Editor, range: ModelSelection): Promise<boolean> {
+    if (structuralEditing(editor)) return applyStructure(editor, { intent: 'delete', range });
     const operations = this._buildDeleteTextOperations(range, editor);
     const result = await transaction(editor, operations).commit();
     return result.success;
@@ -449,7 +454,7 @@ export class DeleteExtension implements Extension {
       }
 
       // Check if blocks are of the same type
-      if (currentParent.stype !== nextParent.stype) {
+      if (!structuralEditing(editor) && currentParent.stype !== nextParent.stype) {
         console.warn('[DeleteExtension] _executeDeleteForward: Cannot merge different block types', {
           currentParentType: currentParent.stype,
           nextParentType: nextParent.stype
@@ -590,6 +595,7 @@ export class DeleteExtension implements Extension {
           }) &&
           !insideLockedRegion(store as never, prevParent.sid, 'lockDelete') &&
           !insideLockedRegion(store as never, prevParent.sid, 'lockContent')) {
+        if (structuralEditing(editor)) return applyStructure(editor, { intent: 'remove-gap', leftId: prevParent.sid!, rightId: currentParent.sid! });
         return (await transaction(editor, [
           deleteOp(prevParent.sid),
           { type: 'setSelection', payload: {
@@ -600,7 +606,7 @@ export class DeleteExtension implements Extension {
       }
 
       // Check if blocks are of the same type
-      if (prevParent.stype !== currentParent.stype) {
+      if (!structuralEditing(editor) && prevParent.stype !== currentParent.stype) {
         console.warn('[DeleteExtension] _handleBackspaceAtOffsetZero: Cannot merge different block types', {
           prevParentType: prevParent.stype,
           currentParentType: currentParent.stype
@@ -666,6 +672,7 @@ export class DeleteExtension implements Extension {
    * state no reader should be able to observe.
    */
   private async _executeDeleteNodes(editor: Editor, nodeIds: string[]): Promise<boolean> {
+    if (structuralEditing(editor) && hasSelectedInlineObjects(editor)) return applyStructure(editor, { intent: 'remove', nodeIds });
     const operations: unknown[] = nodeIds.map((nodeId) => deleteOp(nodeId));
     if (hasSelectedInlineObjects(editor)) {
       const store = editor.dataStore;
@@ -716,6 +723,7 @@ export class DeleteExtension implements Extension {
     leftBlockId: string,
     rightBlockId: string
   ): Promise<boolean> {
+    if (structuralEditing(editor)) return applyStructure(editor, { intent: 'join', leftId: leftBlockId, rightId: rightBlockId });
     const operations = [
       {
         type: 'mergeBlockNodes',

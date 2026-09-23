@@ -14,7 +14,7 @@ export function standardClipboardFragment(nodes: INode[]): DocumentFragment {
 
 /** Installing the standard CopyPasteExtension opts into this converter contract, not arbitrary schemas. */
 export function standardClipboardPolicy(hasType: (type: string) => boolean): EditingPolicy {
-  return { rangeReplacement: 'preserve-boundaries', adapters: [{ format: origin.format, schemaId: origin.schemaId, convert: input => {
+  return { removeEmptyBefore: hasType('paragraph') && hasType('heading') ? { paragraph: ['heading'] } : undefined, defaultText: hasType('inline-text') ? 'inline-text' : undefined, rangeReplacement: 'preserve-boundaries', adapters: [{ format: origin.format, schemaId: origin.schemaId, convert: input => {
     if (input.origin.schemaRevision !== '1') throw new Error('Unsupported standard clipboard revision');
     const losses: { kind: 'reference'; reason: string }[] = [];
     const normalize = (node: FragmentNode): FragmentNode[] => {

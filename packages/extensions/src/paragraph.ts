@@ -1,3 +1,4 @@
+import { applyStructure, structuralEditing } from './structural-editing';
 import { holdsText } from '@barocss/shared';
 import { findAncestorNode } from '@barocss/datastore';
 import { hasRange } from './guards';
@@ -160,7 +161,14 @@ export class ParagraphExtension implements Extension {
       return false;
     }
 
-    // Use the visible caret supplied by keydown after block-only undo.
+    if (structuralEditing(editor)) {
+      // Deletion is planned from the same basis before evaluating the Enter candidate.
+      const title = editor.dataStore.getParent(selection.startNodeId)?.stype === 'calloutTitle';
+      const candidates = title ? ops : ops.filter(op => op.type !== 'deleteRange' && op.type !== 'deleteTextRange');
+      return applyStructure(editor, { intent: 'split', range: selection, operations: candidates, handlesRange: title });
+    }
+
+    // Legacy operation-only hosts do not expose the structural planning contract.
     editor.selectionManager.setSelection(selection);
     const result = await transaction(editor, ops, { applySelectionToView: true }).commit();
     return result.success;

@@ -220,9 +220,9 @@ describe('캐럿 리터럴', () => {
     expect(found, `깃발 없는 캐럿 리터럴:\n${found.join('\n')}`).toEqual([
       'packages/datastore/src/operations/range-operations.ts:422',
       'packages/datastore/src/operations/range-operations.ts:505',
-      'packages/editor-view-react/src/input-handler.ts:583',
-      'packages/editor-view-react/src/input-handler.ts:636',
-      'packages/editor-view-react/src/input-handler.ts:827',
+      'packages/editor-view-react/src/input-handler.ts:591',
+      'packages/editor-view-react/src/input-handler.ts:644',
+      'packages/editor-view-react/src/input-handler.ts:835',
       'packages/model/src/operations/insertText.ts:74'
     ]);
   });
