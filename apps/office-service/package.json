@@ -7,6 +7,10 @@
     "./membership-store": {
       "types": "./src/membership-store.ts",
       "import": "./dist/membership-store.js"
+    },
+    "./company-member-store": {
+      "types": "./src/company-member-store.ts",
+      "import": "./dist/company-member-store.js"
     }
   },
   "files": ["dist"],
@@ -15,6 +19,7 @@
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
+    "test:company:postgres": "pnpm build && node test/company-member.postgres.integration.mjs",
     "migrate": "node dist/migrate-cli.js",
     "membership:admin": "node dist/membership-admin-cli.js"
   },

@@ -2,8 +2,10 @@ import Fastify from 'fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TenantAccessDeniedError } from '@barocss/office-service/membership-store';
 import type { MembershipStore, VerifiedPrincipal } from '@barocss/office-service/membership-store';
+import type { CompanyMemberStore } from '@barocss/office-service/company-member-store';
 import { AuthProviderUnavailableError } from './oidc.js';
 import type { OidcVerifier } from './oidc.js';
+import { registerCompanyMemberRoutes } from './company-member-routes.js';
 
 const statusSchema = {
   type: 'object', required: ['status'], additionalProperties: false,
@@ -15,6 +17,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export interface ApiAuthDependencies {
   verifier: OidcVerifier;
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
+  companyMembers?: Pick<CompanyMemberStore, 'listMembers' | 'setRole' | 'revoke'>;
 }
 
 /** HTTP boundary only. Domain services and collaboration providers remain separate. */
@@ -104,6 +107,8 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         return reply.code(503).send({ status: 'service_unavailable' });
       }
     });
+    if (auth.companyMembers) registerCompanyMemberRoutes(app,
+      { authenticate, companyMembers: auth.companyMembers });
   }
   return app;
 }
