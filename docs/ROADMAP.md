@@ -1,5 +1,7 @@
 # Barocss Suite — Roadmap
 
+2026-09-20 문서화 1차: [#285](https://github.com/barocss/barocss-editor/issues/285)에서 코어·확장·model·제품 4개 README와 공개 확장 가이드를 정리한다. 기본 kit 교체와 확장 추가, Note 세션 옵션, schema·렌더러·명령·호스트의 경계를 설명한다. [문서 관리 계약과 후속 범위](specs/documentation-contract.md)를 기준으로 진행하며, 전체 제품 기능 문서가 완료되었다는 뜻은 아니다.
+
 2026-09-20 협업·저장 경계 문서: [#348](https://github.com/barocss/barocss-editor/issues/348)에서 협업 패키지의 초기 로딩·presence·room bridge와 운영 저장·동시 편집을 구분한다. [문서 감사](specs/collaboration-documentation-audit.md)에 검증과 제한을 기록한다. 서버 구현 #330과 제품 alpha 인수 #322의 완료를 대신하지 않는다.
 
 2026-09-20 SE-01 구현: [#263](https://github.com/barocss/barocss-editor/issues/263)의 열린 문서 조각, editor별 정책, 읽기 전용 계획과 transaction 적용 경로를 추가했다. [지원 범위와 계약](specs/schema-editing-policy.md)을 참고한다. 실제 clipboard 연결 #264와 DND 연결 #265는 남아 있다. 전체 완료는 추적 이슈 #262의 완료 기준으로 판단한다.
