@@ -31,7 +31,7 @@ import { createCoreExtensions, BoldExtension, ItalicExtension } from '@barocss/e
 
 const editor = new Editor({
   schema: createSchema('prose', getMinimalSchemaDefinition()),
-  extensions: [...createCoreExtensions(), BoldExtension, ItalicExtension],
+  extensions: [...createCoreExtensions(), new BoldExtension(), new ItalicExtension()],
 });
 // Supply renderers and a view before accepting user input.
 editor.destroy();
@@ -40,6 +40,14 @@ editor.destroy();
 ## Integration notes
 
 Adding an extension does not automatically add its schema nodes, renderers, toolbar buttons, or persistence. Product factories deliberately select supported extensions; avoid enabling every extension without checking those boundaries.
+
+## Compose supported behavior
+
+Pass extension **instances**, such as `new BoldExtension()`, not class constructors. The minimal schema declares bold and italic marks. The view must also register their mark renderers to display the result.
+
+`createCoreExtensions()` provides the baseline bundle. A product factory selects a different bundle for its document schema. Use the product's `extensions` option to add behavior without replacing that bundle. Use `kit` only when you intend to supply the whole replacement bundle.
+
+Some extensions supply fallback renderers through `defaultRenderers`. This does not add missing schema definitions, product controls, or storage. Test command availability and the rendered result together. See the [extension guide](https://editor.barocss.com/docs/guides/editor-extensibility).
 
 ## Documentation
 

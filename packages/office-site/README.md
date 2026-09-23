@@ -209,6 +209,23 @@ As reviewed on 2026-09-20. Repository documentation can describe changes newer t
 
 Check each issue's current status before depending on the affected interaction. `writerMayRun` and `writerMaySet` control editor modes; use a server permission system for access control.
 
+## Customization boundary
+
+`createSiteEditor(options)` accepts these composition options:
+
+| Option | Behavior |
+| --- | --- |
+| `extensions` | Append extension instances after the default product kit |
+| `kit` | Replace the default product extension kit, including when set to an empty array |
+| `schema` | Replace the default product schema; it is not merged automatically |
+| `keybindings` | Register additional bindings without clearing the existing registry |
+
+Keep the product's schema, commands, and renderers compatible. An arbitrary schema accepted by the factory does not make every product control work with that schema. A custom extension does not automatically add a toolbar or inspector control.
+
+The factory also installs Site content resolution for reusable content and collections. Replacing the extension kit does not remove this factory behavior. Keep asset storage, publishing, and access control in the host.
+
+See [extension boundaries and product customization](https://editor.barocss.com/docs/guides/editor-extensibility) before replacing a kit or adding a node type.
+
 ## Documentation
 
 - [Site integration guide](https://editor.barocss.com/docs/guides/site-integration)

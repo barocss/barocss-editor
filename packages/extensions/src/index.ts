@@ -237,3 +237,4 @@ export function createEditor(
 }
 
 export { standardClipboardPolicy } from './standard-clipboard';
+export { transferNodes, type NodeTransferPayload } from './fragment-drag';
