@@ -18,14 +18,14 @@ const workspaceDependencies = Object.entries(dependencies)
 if (workspaceDependencies.some(name => name !== '@barocss/office-service')) {
   throw new Error('Unsupported API workspace dependency');
 }
-if (workspaceDependencies.length) run(['--filter', '@barocss/office-service', 'build']);
 run(['--filter', '@barocss/office-api', 'build']);
 // This path is exclusively generated deployment output, never source or user data.
 rmSync(output, { recursive: true, force: true });
 if (workspaceDependencies.length) {
   // pnpm deploy resolves the reviewed workspace link into a portable package.
-  // Frozen offline resolution uses exactly the repository lockfile and store.
-  run(['--filter', '@barocss/office-api', 'deploy', '--prod', '--offline',
+  // Frozen resolution uses the repository lockfile. pnpm deploy may need
+  // registry metadata even when every package tarball is already in the store.
+  run(['--filter', '@barocss/office-api', 'deploy', '--prod', '--prefer-offline',
     '--frozen-lockfile', '--ignore-scripts', output]);
   console.log('Packaged API and office-service from the frozen workspace lock');
   process.exit(0);

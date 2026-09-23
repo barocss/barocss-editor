@@ -13,12 +13,21 @@ const jwks = createServer();
 let issuer: string;
 let jwksUrl: URL;
 let privateKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
+let jwksMode: 'ok' | 'server-error' | 'invalid-json' = 'ok';
 
 beforeAll(async () => {
   const keys = await generateKeyPair('RS256');
   privateKey = keys.privateKey;
   const publicJwk = await exportJWK(keys.publicKey);
   jwks.on('request', (_request, response) => {
+    if (jwksMode === 'server-error') {
+      response.writeHead(503).end();
+      return;
+    }
+    if (jwksMode === 'invalid-json') {
+      response.writeHead(200, { 'content-type': 'application/json' }).end('not-json');
+      return;
+    }
     response.writeHead(200, { 'content-type': 'application/json' });
     response.end(JSON.stringify({ keys: [{ ...publicJwk, kid: 'local-test', alg: 'RS256', use: 'sig' }] }));
   });
@@ -41,10 +50,10 @@ function config() {
 }
 
 async function token(overrides: { issuer?: string; audience?: string; expires?: number; type?: string;
-  key?: CryptoKey } = {}) {
+  key?: CryptoKey; kid?: string } = {}) {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ typ: overrides.type ?? 'Bearer' })
-    .setProtectedHeader({ alg: 'RS256', kid: 'local-test' })
+    .setProtectedHeader({ alg: 'RS256', kid: overrides.kid ?? 'local-test' })
     .setIssuer(overrides.issuer ?? issuer)
     .setAudience(overrides.audience ?? 'wonffice-api')
     .setSubject('alice')
@@ -72,7 +81,18 @@ describe('OIDC configuration and token verification', () => {
     await expect(verify(await token({ expires: Math.floor(Date.now() / 1000) - 30 }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
     const forged = await generateKeyPair('RS256');
     await expect(verify(await token({ key: forged.privateKey }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
+    await expect(verify(await token({ kid: 'unknown-key' }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
     await expect(verify('unsigned-or-malformed')).rejects.toBeInstanceOf(InvalidAccessTokenError);
+  });
+  it('classifies an actual JWKS HTTP outage or invalid provider response as unavailable', async () => {
+    try {
+      jwksMode = 'server-error';
+      await expect(createOidcVerifier(config()).verify(await token())).rejects.toBeInstanceOf(AuthProviderUnavailableError);
+      jwksMode = 'invalid-json';
+      await expect(createOidcVerifier(config()).verify(await token())).rejects.toBeInstanceOf(AuthProviderUnavailableError);
+    } finally {
+      jwksMode = 'ok';
+    }
   });
 });
 

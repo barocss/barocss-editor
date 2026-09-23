@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @barocss/office-service build && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "dev": "pnpm build && pnpm start",
     "test": "pnpm build && vitest run",

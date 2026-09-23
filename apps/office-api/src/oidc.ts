@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, errors, jwtVerify } from 'jose';
+import { createRemoteJWKSet, customFetch, errors, jwtVerify } from 'jose';
 import type { VerifiedPrincipal } from '@barocss/office-service/membership-store';
 import type { AuthConfig } from './auth-config.js';
 
@@ -10,7 +10,18 @@ export class AuthProviderUnavailableError extends Error {
 }
 
 export function createOidcVerifier(config: AuthConfig) {
-  const jwks = createRemoteJWKSet(config.jwksUrl, { timeoutDuration: 5000 });
+  const jwks = createRemoteJWKSet(config.jwksUrl, {
+    timeoutDuration: 5000,
+    [customFetch]: async (url, options) => {
+      try {
+        const response = await fetch(url, options);
+        if (response.status !== 200) throw new AuthProviderUnavailableError();
+        return response;
+      } catch {
+        throw new AuthProviderUnavailableError();
+      }
+    },
+  });
   return {
     async verify(token: string): Promise<VerifiedPrincipal> {
       if (token.length > 8192 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) {
@@ -31,7 +42,9 @@ export function createOidcVerifier(config: AuthConfig) {
         return { issuer: config.issuer, subject: payload.sub };
       } catch (error) {
         if (error instanceof AuthProviderUnavailableError || error instanceof InvalidAccessTokenError) throw error;
-        if (error instanceof errors.JWKSTimeout || error instanceof TypeError) {
+        if (error instanceof errors.JWKSTimeout || error instanceof errors.JWKSInvalid ||
+          error instanceof errors.JWKInvalid || error instanceof TypeError ||
+          (error instanceof errors.JOSEError && error.code === 'ERR_JOSE_GENERIC')) {
           throw new AuthProviderUnavailableError();
         }
         throw new InvalidAccessTokenError();
