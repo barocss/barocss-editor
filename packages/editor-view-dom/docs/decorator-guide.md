@@ -405,7 +405,7 @@ Decorators are managed in a separate channel, same as Selection:
 - **DocumentModel changes**: OT/CRDT channel (heavy data)
 - **Decorator changes**: Presence/Session channel (lightweight data, real-time sync)
 
-For details, see [Decorator Integration Guide](./decorator-integration.md).
+For remote decorator examples, see the [Decorator Guide](../../../apps/docs-site/docs/guides/decorator-guide.md#collaboration-remote-decorators).
 
 ## Real Usage Scenarios
 
@@ -511,6 +511,6 @@ class MyPlugin {
 
 ## Related Documentation
 
-- [Decorator Architecture](./decorator-architecture.md) - system architecture and design principles
-- [Decorator Integration Guide](./decorator-integration.md) - AI integration and collaborative environments
-- [Pattern & Custom Decorator Examples](./decorator-pattern-and-custom-examples.md) - detailed examples for Pattern and Custom Decorators
+- [Decorator Concepts](../../../apps/docs-site/docs/concepts/decorators.md) - architecture and decorator categories
+- [Decorator Guide](../../../apps/docs-site/docs/guides/decorator-guide.md) - pattern and remote decorator examples
+- [Decorator Examples](../../../apps/docs-site/docs/examples/decorators.md) - working usage examples

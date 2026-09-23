@@ -1,6 +1,6 @@
 # Barocss Architecture Documentation
 
-A collection of documents for understanding Barocss architecture.
+A collection of documents for understanding Barocss architecture. For current behavior, start with the [specification index](./specs/README.md) and the relevant package README. The architecture documents below provide background.
 
 ## 📚 Core Documents
 
@@ -69,9 +69,11 @@ renderer.render(container, model);
 - Package specs: **`packages/<name>/SPEC.md`** (e.g. `packages/model/SPEC.md`) - per-package contract and invariants
 
 ### dom/ Folder
-- `portal-system-spec.md` - Portal system specification
-- `portal-use-cases.md` - Portal use cases
-- `decorator-implementation-guide.md` - Decorator implementation guide
+- [Portal system specification](./dom/portal-system-spec.md)
+- [Portal use cases](./dom/portal-use-cases.md)
+
+### Decorators
+- [Decorator guide](../apps/docs-site/docs/guides/decorator-guide.md)
 
 ### Docs-site integration (agent flow)
 - **`docs-site-integration.md`** - How apps/docs-site fits into the full loop: spec → implementation → documentation → test → verify. When to update docs-site, where to add api/architecture/guides/examples, build/verify.
