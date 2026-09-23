@@ -3,115 +3,26 @@ title: '@barocss/collaboration-yjs'
 sidebar_label: '@barocss/collaboration-yjs'
 ---
 
-:::note Reference status
-This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
-:::
-
 # @barocss/collaboration-yjs
 
-`@barocss/collaboration-yjs` connects `DataStore` to Yjs (`Y.Doc` + provider) for CRDT-based realtime sync.
+`YjsAdapter` accepts a Y.Doc and optional Y.Map, awareness instance, adapter
+config, and conflict settings. The default map name is `barocss-document`.
+The adapter can hydrate known node entries from a local Y.Doc. Use the
+[checked package example](/packages/collaboration-yjs#usage) and the
+[Collaboration and saving guide](/docs/guides/collaboration-and-saving)
+instead of an unverified provider setup snippet.
 
-## Components
+## Known limits
 
-- `YjsAdapter` (extends `BaseAdapter`)
-- `Y.Doc` and `Y.Map` (default: `ydoc.getMap('barocss-document')`)
-- Provider: `y-websocket` or custom
+The current write path stores plain node objects for some operations but calls
+`.set()` on the stored value for updates and moves. That can reject a later
+edit. Nested Y.Map changes do not generally reach DataStore through the current
+observer. Text is not represented with Y.Text. A working Y.Doc connection or
+initial hydration therefore does not establish safe live editing, access
+control, or durable storage. The [package limitations](/packages/collaboration-yjs#known-limitations-and-troubleshooting)
+include reproduction details and cleanup requirements.
 
-## Quick Start
-
-```ts
-import { DataStore } from '@barocss/datastore';
-import { YjsAdapter } from '@barocss/collaboration-yjs';
-import * as Y from 'yjs';
-import { WebsocketProvider } from 'y-websocket';
-
-const ydoc = new Y.Doc();
-const ymap = ydoc.getMap('barocss-document');
-const provider = new WebsocketProvider('ws://localhost:1234', 'room-id', ydoc);
-
-const adapter = new YjsAdapter({
-  ydoc,
-  ymap,
-  config: {
-    clientId: 'user-1',
-    user: { id: 'user-1', name: 'User 1', color: '#ff0000' },
-    debug: true,
-  },
-});
-
-const dataStore = new DataStore();
-await adapter.connect(dataStore);
-```
-
-## Adapter Options
-
-- `ydoc: Y.Doc` (required)
-- `ymap?: Y.Map<any>` (optional, default `ydoc.getMap('barocss-document')`)
-- `config?: AdapterConfig` (see base collaboration)
-
-## Flow
-
-```mermaid
-graph TB
-    A["DataStore<br/>emitOperation"] --> B["YjsAdapter<br/>(BaseAdapter)"]
-    B --> C["Y.Doc"]
-    C --> D["Y.Map (barocss-document)"]
-    D --> E["Provider (y-websocket/custom)"]
-    E --> F["Other Clients"]
-```
-
-## Notes & Tips
-
-- Use `provider.on('status')` / `provider.on('sync')` for connection state.
-- Presence/awareness: use `y-protocols/awareness` with the same `Y.Doc`.
-- Custom sync: you can skip `y-websocket` and wire your own transport; just supply `ydoc` and manage updates.
-
-## Troubleshooting
-
-- Not syncing: check provider connection and `ymap` name consistency.
-- Circular updates: adapter guards apply; ensure remote updates are identified by Yjs origin.
-- State load: verify `ymap` contains initial document; call `getDocumentState()` if needed.
-# @barocss/collaboration-yjs
-
-Yjs adapter for Barocss Editor collaboration.
-
-## Purpose
-
-Integrates Barocss Editor with Yjs CRDT library for real-time collaborative editing.
-
-## Key Exports
-
-- `YjsAdapter` - Yjs collaboration adapter
-
-## Basic Usage
-
-```typescript
-import { Editor } from '@barocss/editor-core';
-import { YjsAdapter } from '@barocss/collaboration-yjs';
-import * as Y from 'yjs';
-
-// Create Yjs document
-const ydoc = new Y.Doc();
-
-// Create adapter
-const adapter = new YjsAdapter({
-  dataStore: editor.dataStore,
-  ydoc: ydoc
-});
-
-// Connect to Yjs provider (e.g., y-websocket)
-const provider = new WebsocketProvider('ws://localhost:1234', 'room-name', ydoc);
-```
-
-## Yjs Integration
-
-The adapter:
-- Converts Barocss operations to Yjs updates
-- Converts Yjs updates to Barocss operations
-- Handles Yjs document synchronization
-- Manages conflict resolution
-
-## Related
-
-- [Collaboration](./collaboration) - Base collaboration system
-- [Yjs Documentation](https://docs.yjs.dev/) - Yjs library documentation
+Wonffice's external alpha direction is Yorkie Cloud, recorded in
+[release tracking](https://github.com/barocss/barocss-editor/issues/322).
+This Yjs package is existing library code; it is not a Yorkie adapter or a
+verified Wonffice product integration.

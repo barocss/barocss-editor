@@ -3,119 +3,24 @@ title: '@barocss/collaboration-liveblocks'
 sidebar_label: '@barocss/collaboration-liveblocks'
 ---
 
-:::note Reference status
-This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
-:::
-
 # @barocss/collaboration-liveblocks
 
-`@barocss/collaboration-liveblocks` connects `DataStore` to Liveblocks rooms for managed realtime collaboration.
+`LiveblocksAdapter` accepts a room-shaped bridge, adapter config, and optional
+conflict settings. Its operation path calls `room.update` and subscribes to
+`operations`. Passing an arbitrary Liveblocks SDK Room has not been verified as
+compatible. Use the [checked bridge fixture](/packages/collaboration-liveblocks#required-room-bridge)
+and [Collaboration and saving](/docs/guides/collaboration-and-saving)
+to inspect the current contract.
 
-## Components
+## Known limits
 
-- `LiveblocksAdapter` (extends `BaseAdapter`)
-- `@liveblocks/client` `Room` (entered via `client.enter(roomId)`)
-- Liveblocks presence, storage, broadcast channels
+The snapshot written by `setDocumentState` is separate from the operation log
+loaded on connection. The snapshot serializer does not preserve marks.
+Connection, presence, or a successful local update does not prove that the
+intended document was stored and can be reopened. The
+[package limitations](/packages/collaboration-liveblocks#known-limitations-and-troubleshooting)
+cover cleanup and recovery boundaries.
 
-## Quick Start
-
-```ts
-import { DataStore } from '@barocss/datastore';
-import { LiveblocksAdapter } from '@barocss/collaboration-liveblocks';
-import { createClient } from '@liveblocks/client';
-
-const client = createClient({ publicApiKey: 'pk_live_...' });
-const room = client.enter('room-id');
-
-const adapter = new LiveblocksAdapter({
-  room,
-  config: {
-    clientId: 'user-1',
-    user: { id: 'user-1', name: 'User 1', color: '#ff0000' },
-    debug: true,
-  },
-});
-
-const dataStore = new DataStore();
-await adapter.connect(dataStore);
-```
-
-## Adapter Options
-
-- `room: Room` (required) – Liveblocks room instance
-- `config?: AdapterConfig` (see base collaboration)
-
-## Flow
-
-```mermaid
-graph TB
-    A["DataStore<br/>emitOperation"] --> B["LiveblocksAdapter<br/>(BaseAdapter)"]
-    B --> C["Liveblocks Room Storage"]
-    C --> D["Liveblocks Server"]
-    D --> E["Other Clients"]
-```
-
-## Presence & Events
-
-- Presence: `room.updatePresence({ cursor, selection })`
-- Room events: `room.subscribe('connection'|'error'|'others'|'storage'|'event', handler)`
-- Broadcast: `room.broadcastEvent({ type, data })`
-
-## Troubleshooting
-
-- Connection: verify API key or `authEndpoint`; watch `connection` events.
-- Storage not updating: subscribe to `storage` and inspect `storage.root`.
-- Operations not syncing: ensure storage structure matches adapter expectations and room subscriptions are active.
-
-## Best Practices
-
-- Use auth (`authEndpoint`) in production.
-- Handle reconnection on `connection`/`error` events.
-- Leverage presence for cursors/highlighting.
-- Always `disconnect`/`leave` on teardown.
-# @barocss/collaboration-liveblocks
-
-Liveblocks adapter for Barocss Editor collaboration.
-
-## Purpose
-
-Integrates Barocss Editor with Liveblocks for real-time collaborative editing.
-
-## Key Exports
-
-- `LiveblocksAdapter` - Liveblocks collaboration adapter
-
-## Basic Usage
-
-```typescript
-import { Editor } from '@barocss/editor-core';
-import { LiveblocksAdapter } from '@barocss/collaboration-liveblocks';
-import { createClient } from '@liveblocks/client';
-
-// Create Liveblocks client
-const client = createClient({
-  publicApiKey: 'your-api-key'
-});
-
-// Enter room
-const room = client.enter('room-name');
-
-// Create adapter
-const adapter = new LiveblocksAdapter({
-  dataStore: editor.dataStore,
-  room: room
-});
-```
-
-## Liveblocks Integration
-
-The adapter:
-- Converts Barocss operations to Liveblocks updates
-- Converts Liveblocks updates to Barocss operations
-- Handles Liveblocks room synchronization
-- Manages presence and awareness
-
-## Related
-
-- [Collaboration](./collaboration) - Base collaboration system
-- [Liveblocks Documentation](https://liveblocks.io/docs) - Liveblocks documentation
+This package is not a confirmed product provider for Wonffice's external alpha.
+[Release tracking](https://github.com/barocss/barocss-editor/issues/322)
+records the Yorkie Cloud direction and the still-unverified integration.

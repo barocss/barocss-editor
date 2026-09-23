@@ -2,160 +2,50 @@
 title: Collaboration API
 ---
 
-:::note Reference status
-This page predates the current package split. Use the [current package guides](/packages) for checked installation, public imports, and onboarding examples. The detailed examples below have not all been revalidated.
-:::
-
 # Collaboration API
 
-Core interfaces for building and using collaboration adapters, plus base behaviors shared by Yjs/Liveblocks adapters.
+The public packages expose adapter building blocks. Their API does not include a
+hosted service or a remote save acknowledgement. Start with the checked
+[Collaboration and saving guide](/docs/guides/collaboration-and-saving)
+and the package READMEs for runnable examples.
 
-## Interfaces
+## Core interface
 
-### CollaborationAdapter
+`CollaborationAdapter` defines `connect(dataStore)`, `disconnect()`,
+`isConnected()`, `sendOperation(operation)`, `receiveOperation(operation)`,
+`getDocumentState()`, and `setDocumentState(rootNode)`.
+`BaseAdapter` implements the lifecycle and requires subclasses to implement
+`doConnect`, `doDisconnect`, `doSendOperation`, `doReceiveOperation`,
+`doGetDocumentState`, and `doSetDocumentState`. Its constructor takes
+`AdapterConfig`; store attachment happens through `connect(dataStore)`.
 
-```ts
-interface CollaborationAdapter {
-  connect(dataStore: DataStore): Promise<void>;
-  disconnect(): Promise<void>;
-  isConnected(): boolean;
-  sendOperation(operation: AtomicOperation): Promise<void>;
-  receiveOperation(operation: AtomicOperation): Promise<void>;
-  getDocumentState(): Promise<INode | null>;
-  setDocumentState(rootNode: INode): Promise<void>;
-}
-```
+`AdapterConfig` includes optional `clientId`, `user`, `debug`, and
+`transformOperation`. `BaseAdapter.isRemoteOperation` defaults to `false`;
+provider subclasses must identify their own remote updates. Its protected
+`handleLocalOperation` and `applyOperationToDataStore` helpers are not a public
+host API. See the [base adapter README](/packages/collaboration#adapter-lifecycle-and-error-boundaries).
 
-### AdapterConfig
+## Existing provider adapters
 
-```ts
-interface AdapterConfig {
-  clientId?: string;
-  user?: {
-    id: string;
-    name?: string;
-    color?: string;
-    avatar?: string;
-  };
-  debug?: boolean;
-  transformOperation?: (op: AtomicOperation) => AtomicOperation;
-}
-```
+| Package | Constructor input | Current boundary |
+| --- | --- | --- |
+| `@barocss/collaboration-yjs` | `ydoc`, optional `ymap`, `awareness`, `config`, `conflictResolution` | Initial Y.Doc hydration has a checked example. Live editing has known update and observer defects. |
+| `@barocss/collaboration-liveblocks` | `room`, optional `config`, `conflictResolution` | Requires a compatible room bridge; an SDK Room alone has not been verified. |
 
-## BaseAdapter (for implementers)
+See the [Yjs example](/packages/collaboration-yjs#usage) and
+[room bridge fixture](/packages/collaboration-liveblocks#required-room-bridge).
+Neither adapter establishes product permissions, persistence, or collaborative
+undo by itself.
 
-Extend `BaseAdapter` to create a backend-specific adapter.
+## Other exports
 
-### Protected lifecycle
+`DefaultAwarenessManager` holds local and remote presence state in memory.
+`ConflictResolver` supports `last-writer-wins`, `first-writer-wins`, `merge`,
+and a custom resolver for atomic operations. These helpers do not transform
+arbitrary concurrent document structures or enforce tenant access. See the
+[collaboration package guide](/packages/collaboration#usage) for checked imports.
 
-- `doConnect(): Promise<void>`
-- `doDisconnect(): Promise<void>`
-- `doSendOperation(op: AtomicOperation): Promise<void>`
-- `doReceiveOperation(op: AtomicOperation): Promise<void>`
-- `doGetDocumentState(): Promise<INode | null>`
-- `doSetDocumentState(root: INode): Promise<void>`
-
-### Helpers
-
-- `applyOperationToDataStore(op)`: Applies a remote op while suppressing operation event loops.
-- `isRemoteOperation(op)`: Override to mark remote ops (default checks metadata flag).
-- `handleLocalOperation(op)`: Called when `DataStore` emits an operation; override to customize.
-
-## Yjs Adapter (summary)
-
-```ts
-import { YjsAdapter } from '@barocss/collaboration-yjs';
-
-const adapter = new YjsAdapter({
-  ydoc,               // Y.Doc (required)
-  ymap,               // optional Y.Map (default: ydoc.getMap('barocss-document'))
-  config,             // AdapterConfig
-});
-await adapter.connect(dataStore);
-```
-
-## Liveblocks Adapter (summary)
-
-```ts
-import { LiveblocksAdapter } from '@barocss/collaboration-liveblocks';
-import { createClient } from '@liveblocks/client';
-
-const room = createClient({ publicApiKey }).enter('room-id');
-const adapter = new LiveblocksAdapter({ room, config });
-await adapter.connect(dataStore);
-```
-
-## Custom Adapter Example (outline)
-
-```ts
-class CustomAdapter extends BaseAdapter {
-  constructor(private backend: Backend, config?: AdapterConfig) { super(config); }
-
-  protected async doConnect() {
-    await this.backend.connect();
-    this.backend.on('remote-op', (op) => this.receiveOperation(op));
-  }
-
-  protected async doSendOperation(op) {
-    await this.backend.send(op);
-  }
-
-  protected async doReceiveOperation(op) {
-    await this.applyOperationToDataStore(op);
-  }
-
-  protected async doGetDocumentState() {
-    return this.backend.loadAsINode();
-  }
-
-  protected async doSetDocumentState(root: INode) {
-    await this.backend.saveFromINode(root);
-  }
-}
-```
-
-## AwarenessManager
-
-Manages presence state and cursor positions for collaborative editing.
-
-### `DefaultAwarenessManager`
-
-```ts
-import { DefaultAwarenessManager } from '@barocss/collaboration';
-
-const awareness = new DefaultAwarenessManager({ staleThresholdMs: 30000 });
-```
-
-**Methods:**
-- `setLocalState(state: Partial<AwarenessState>): void` - Sets local presence
-- `setLocalCursor(anchor, head): void` - Sets local cursor position
-- `clearLocalCursor(): void` - Clears local cursor
-- `getLocalState(): AwarenessState | null` - Gets local state
-- `getRemoteStates(): Map<string, AwarenessState>` - Gets all remote states
-- `applyRemoteState(clientId, state): void` - Applies remote state update
-- `removeRemoteState(clientId): void` - Removes a remote client
-- `onRemoteChange(callback): () => void` - Subscribes to remote changes
-- `destroy(): void` - Cleanup
-
-## ConflictResolver
-
-Resolves conflicts between concurrent operations.
-
-### Strategies
-
-- `last-writer-wins` (default) - Latest timestamp wins
-- `first-writer-wins` - Earliest timestamp wins
-- `merge` - Merges update data from both operations
-- `custom` - Uses provided `customResolver` function
-
-```ts
-import { ConflictResolver } from '@barocss/collaboration';
-
-const resolver = new ConflictResolver({ strategy: 'last-writer-wins' });
-const result = resolver.resolve(localOp, remoteOp);
-```
-
-## Related
-
-- Architecture: `architecture/collaboration`, `architecture/collaboration-yjs`, `architecture/collaboration-liveblocks`
-- Data model: `api/datastore-api`, `api/model-api`
+Wonffice's external alpha direction is Yorkie Cloud, as recorded in
+[release tracking](https://github.com/barocss/barocss-editor/issues/322).
+That product integration remains unverified; the Yjs and room packages above
+are existing library APIs, not alternative alpha release configurations.

@@ -78,6 +78,7 @@ const sidebars: SidebarsConfig = {
       label: 'Guides',
       items: [
         'guides/extension-design',
+        { type: 'doc', id: 'guides/collaboration-and-saving', label: 'Collaboration and saving' },
         'guides/custom-operations',
         'guides/advanced-extensions',
         'guides/decorator-guide',
