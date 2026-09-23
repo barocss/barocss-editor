@@ -1,0 +1,48 @@
+name: Backend container
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/office-api/**'
+      - 'scripts/backend/**'
+      - '.github/workflows/backend-container.yml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.nvmrc'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/office-api/**'
+      - 'scripts/backend/**'
+      - '.github/workflows/backend-container.yml'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.nvmrc'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-container-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  container:
+    name: API container smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build the locked API artifact
+        run: node scripts/backend/package-api.mjs
+      - name: Verify the same image with default and explicit settings
+        run: node scripts/backend/verify-container.mjs

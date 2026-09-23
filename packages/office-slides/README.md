@@ -237,6 +237,22 @@ Expected: editing is `undefined`; forward plays build `1`, then moves to `second
 `createSlidePrint(editor, owner?)` is exported from `/ui`. `build()` constructs DOM print pages for non-hidden slides. `print()` prepares fonts/images and opens the browser print UI; `clear()` removes the pages. `attach()` installs print event handlers and returns cleanup. Load renderers and styles first. `SlidePrintDialog` exposes this workflow; PDF is a destination in the browser print dialog, not returned PDF bytes. Print output is static and does not preserve interactive motion/media playback.
 
 The public examples are model/geometry/playback checks, not certification of the complete editing application. At this source revision, [#298](https://github.com/barocss/barocss-editor/issues/298) records a new-slide input target defect; its fix in [#310](https://github.com/barocss/barocss-editor/pull/310) is separate and unmerged. [#301](https://github.com/barocss/barocss-editor/issues/301) and [#302](https://github.com/barocss/barocss-editor/issues/302) track UI test entry/selector repairs, not proof that every later feature assertion failed. [#303](https://github.com/barocss/barocss-editor/issues/303) tracks wider product verification. This documentation does not close those issues.
+## Customization boundary
+
+`createSlidesEditor(options)` accepts these composition options:
+
+| Option | Behavior |
+| --- | --- |
+| `extensions` | Append extension instances after the default product kit |
+| `kit` | Replace the default product extension kit, including when set to an empty array |
+| `schema` | Replace the default product schema; it is not merged automatically |
+| `keybindings` | Register additional bindings without clearing the existing registry |
+
+Keep the product's schema, commands, and renderers compatible. An arbitrary schema accepted by the factory does not make every product control work with that schema. A custom extension does not automatically add a toolbar or inspector control.
+
+The factory also installs component and variable content resolution. Replacing the extension kit does not remove this factory behavior. Keep slide geometry in document coordinates and viewport zoom in the host.
+
+See [extension boundaries and product customization](https://editor.barocss.com/docs/guides/editor-extensibility) before replacing a kit or adding a node type.
 
 ## Documentation
 

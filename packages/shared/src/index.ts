@@ -104,3 +104,5 @@ export * from './document-save/document-session';
 export * from './document-save/product-host';
 export * from './document-save/product-archive';
 export { FRAGMENT_CLIPBOARD_TYPE } from './clipboard';
+
+export { attachFragmentDrag, FRAGMENT_DRAG_TYPE, FRAGMENT_NODE_DRAG_TYPE, type FragmentDragFeedback, type FragmentDropTarget, type FragmentDragViewOptions } from './fragment-drag-view';

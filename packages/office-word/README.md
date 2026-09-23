@@ -57,6 +57,23 @@ Register `registerWordRenderers` in the registry passed to `EditorViewDOM`. The 
 
 createWordEditor creates a session, not a ready-mounted word processor. A host must connect the DOM view, page measurement/layout, selection overlays, storage, and UI. Importing the package does not provide a cloud document service.
 
+## Customization boundary
+
+`createWordEditor(options)` accepts these composition options:
+
+| Option | Behavior |
+| --- | --- |
+| `extensions` | Append extension instances after the default product kit |
+| `kit` | Replace the default product extension kit, including when set to an empty array |
+| `schema` | Replace the default product schema; it is not merged automatically |
+| `keybindings` | Register additional bindings without clearing the existing registry |
+
+Keep the product's schema, commands, and renderers compatible. An arbitrary schema accepted by the factory does not make every product control work with that schema. A custom extension does not automatically add a toolbar or inspector control.
+
+The `author` option supplies the identity used by document features such as comments. It is not authentication. The factory adds Word keybindings before caller keybindings. Keep pagination and measurement in the host; changing a renderer can change page geometry.
+
+See [extension boundaries and product customization](https://editor.barocss.com/docs/guides/editor-extensibility) before replacing a kit or adding a node type.
+
 ## Documentation
 
 - [Package guide](https://editor.barocss.com/packages/office-word)
