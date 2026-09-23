@@ -52,7 +52,7 @@ tenant 격리는 API 검사, 복합 외래 키, 저장소·캐시·worker 경계
 | 순서 | 작업 | 완료를 판단할 실제 증거 |
 | --- | --- | --- |
 | 1 — #330 / WP-05a | API 프로세스·설정·상태·종료·컨테이너 경로 | HTTP·빌드 산출물·종료 검사. 컨테이너 미검증이면 draft 유지 |
-| 2 — WP-05b | PostgreSQL migration과 tenant 저장소 | 실제 DB에서 두 tenant 격리, 앱 역할 RLS, migration 재실행·실패 복구, 백업 복원 |
+| 2 — #351 / WP-05b | PostgreSQL migration과 tenant 저장소 | [office-service](../../apps/office-service/README.md)의 실제 DB 격리·migration 재실행/실패 복구·DB 백업 복원 검사. OIDC·본문·파일 통합 복원은 후속 범위 |
 | 3 — WP-05c | OIDC·membership·S3·로컬 설치 묶음 | 실제 IdP 로그인, token 거부, 두 계정 격리, 파일 접근, 같은 이미지의 두 배포 설정 |
 | 4 — WP-02/06 | 직렬화 계약·서버 revision·Note 저장 | 두 계정 저장·재열기, 409 초안 보존, 중복 저장·flush, 원본을 보존한 로컬 이전 |
 | 5 — WP-09 | Yjs·Automerge·Yorkie 선택형 연결 | 기존 공급자에서 동시 수정·재접속·권한 회수·undo·tenant 격리·이전 검사 |
