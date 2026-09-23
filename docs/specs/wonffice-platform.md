@@ -54,9 +54,11 @@ flowchart TB
 
 위 결함은 소스 경로를 확인한 결과다. 이번 설계 작업에서는 재현 테스트나 수정 완료를 주장하지 않는다. 가장 먼저 WP-01에서 실패 경로를 재현한다.
 
+서버 착수의 구체적인 데이터·외부 연동·고객 도메인·공동 편집 기준은 [백엔드 구축 기준](wonffice-backend-foundation.md)에 둔다. #330은 실행 기반의 첫 부분이며 WP-05 전체 완료가 아니다.
+
 ## 3. 서버 구성과 패키지 경계
 
-처음에는 TypeScript 기반 **모듈형 단일 서버**와 별도 worker 프로세스를 사용한다. API와 worker는 같은 도메인 코드를 사용한다. PostgreSQL이 메타데이터·문서 버전·작업 상태를 보관한다. 파일은 S3 호환 인터페이스로 분리한다. 인증은 OIDC를 기준으로 한다.
+Node.js·TypeScript와 Fastify 기반 **모듈형 단일 서버** 및 별도 worker 프로세스를 사용한다. Fastify는 HTTP 경계에만 둔다. API와 worker는 같은 도메인 코드를 사용한다. PostgreSQL이 메타데이터·문서 버전·작업 상태를 보관한다. 파일은 S3 호환 인터페이스로 분리한다. 인증은 OIDC를 기준으로 한다.
 
 | 위치 — 신규는 계획 경로 | 책임 |
 | --- | --- |
@@ -69,7 +71,7 @@ flowchart TB
 | 신규 `apps/office-worker` | 출력·게시·정리·후속 작업. 같은 회사·권한 검사 |
 | 신규 `apps/agent-runner` | GitHub 개발 감독·복구·실행기 adapter. 제품 번들에 포함하지 않음 |
 
-API 프레임워크·ORM·OIDC 제품은 WP-05의 작은 실행 예제로 고정한다. PostgreSQL 작업 테이블과 outbox로 시작한다. Redis, Kafka, Kubernetes, 별도 검색 서버는 측정된 필요가 생긴 뒤 추가한다. 모든 제품을 하나의 새 모델로 재작성하지 않는다.
+API 프레임워크는 2026-09-20 사용자 결정에 따라 Fastify로 정한다. ORM·OIDC 제품은 WP-05의 작은 실행 예제로 고정한다. PostgreSQL 작업 테이블과 outbox로 시작한다. Redis, Kafka, Kubernetes, 별도 검색 서버는 측정된 필요가 생긴 뒤 추가한다. 모든 제품을 하나의 새 모델로 재작성하지 않는다.
 
 ## 4. 회사와 권한
 
@@ -124,7 +126,7 @@ tenant·actor·권한은 서버의 신뢰된 실행 context에서 제공한다. 
 
 원격 capability는 `describe / validate / preview / apply`로 좁힌다. preview는 대상 revision과 변경 요약을 반환한다. apply는 같은 revision·요청 hash·권한을 재확인한다. 사용자 커서에 의존하는 UI command 대신 명시한 node ID·범위를 쓴다. headless 실행은 DOM 없이 검사한다. 기존의 모든 command가 headless라고 가정하지 않는다.
 
-실시간 협업은 별도 완료 항목이다. 공동 세션이 소유한 문서에는 독립 snapshot 덮어쓰기를 허용하지 않는다. 세션 epoch, update 저장·중복 제거, checkpoint, 권한 회수, 재접속, 사용자별 undo를 검증한 뒤 활성화한다. snapshot 충돌 처리를 실시간 협업 완료로 표시하지 않는다.
+실시간 협업은 [선택형 공급자 계약](wonffice-collaboration-providers.md)을 따른다. Yjs·Automerge·Yorkie 중 하나를 선택하여 기존 솔루션에 연결한다. 자체 협업 서버·CRDT 변경 로그 서버는 구현하지 않는다. 공동 문서에는 독립 snapshot 덮어쓰기를 허용하지 않는다. Wonffice는 문서 권한·연결 설정·ID 매핑·제품 adapter를 맡고, 공급자별 저장·권한 회수·재접속·undo를 통합 검사한 뒤 활성화한다. snapshot 충돌 처리를 실시간 협업 완료로 표시하지 않는다.
 
 ## 6. 고객사별 기능과 새 기능 요청
 

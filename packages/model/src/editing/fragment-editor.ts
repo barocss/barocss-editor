@@ -9,6 +9,8 @@ import type { DocumentFragment, EditingBasis, EditingDecision, EditingPlan, Edit
 import { clip, fragment, fromNode, references, tree, walk } from './fragment';
 import { documentState, freeze, identity, schemaState, signature } from './state';
 import { defineEditingPolicy, effectiveAttributes, resolveEditingRule, sameAttributes } from './policy';
+import { planNodeMove, planTextMove } from './move';
+import type { TransactionResult } from '../transaction';
 import { planTextRange } from './text-range';
 
 const sessions = new WeakMap<object, FragmentEditor>();
@@ -45,6 +47,9 @@ export class FragmentEditor {
   }
   /** Capture before asynchronous input. This token is local, not a transport credential. */
   checkpoint(): string { return signature(this.basis()); }
+  /** Drag source validity excludes transient cursor changes, but includes document/schema/policy state. */
+  sourceCheckpoint(): string { return signature({ ...this.basis(), selection: undefined }); }
+  isSourceCurrent(checkpoint: string): boolean { return sessions.get(this.editor) === this && this.sourceCheckpoint() === checkpoint; }
   isCurrent(checkpoint: string): boolean { return sessions.get(this.editor) === this && checkpoint === this.checkpoint(); }
   /** Explicit plain-text import in the destination text vocabulary; no rich source schema is claimed. */
   plainText(text: string, targetNodeId: string, literal = false): DocumentFragment {
@@ -58,14 +63,14 @@ export class FragmentEditor {
     const content = normalized.split('\n').map(line => ({ stype: parent.stype, attributes: structuredClone(parent.attributes), content: [leaf(line)] }));
     return freeze(fragment(content, 'range', this.origin(), this.policy, 1));
   }
-  captureNodes(ids: string[]): DocumentFragment {
+  captureNodes(ids: string[], contiguous = true): DocumentFragment {
     if (!ids.length || new Set(ids).size !== ids.length) throw new Error('Select distinct sibling nodes');
     const nodes = ids.map(id => this.store.getNode(id));
     const parentId = nodes[0]?.parentId;
     const parent = parentId && this.store.getNode(parentId);
     if (!parent || nodes.some(node => !node || node.parentId !== parentId)) throw new Error('Select sibling nodes');
     const positions = ids.map(id => parent.content?.indexOf(id) ?? -1).sort((a, b) => a - b);
-    if (positions[0] < 0 || positions.some((position, i) => position !== positions[0] + i)) throw new Error('Select contiguous siblings');
+    if (positions[0] < 0 || contiguous && positions.some((position, i) => position !== positions[0] + i)) throw new Error('Select contiguous siblings');
     const content = positions.map(position => tree(this.store, parent.content![position] as string));
     return freeze(fragment(content, 'nodes', this.origin(), this.policy));
   }
@@ -127,7 +132,7 @@ export class FragmentEditor {
     try {
       if (this.store.isTransactionActive()) throw new Error('Plan outside an active transaction');
       const basis = this.basis();
-      if (request.intent !== 'copy') throw new Error('Move planning is not supported by this initial flow consumer');
+      if (request.intent === 'move') return this.planMove(request, trace);
       let input = structuredClone(request.fragment);
       if (input.version !== 1) throw new Error('Unsupported fragment version');
       let outcome: EditingPlan['outcome'] = 'direct';
@@ -236,6 +241,28 @@ export class FragmentEditor {
       return { ok: false, reason: error instanceof Error ? error.message : String(error), losses, trace };
     }
   }
+  private planMove(request: EditingRequest, trace: EditingRuleTrace[]): EditingDecision {
+    const basis = this.basis(), source = request.source;
+    if (!source) throw new Error('Move requires a local source');
+    const captured = source.kind === 'nodes' ? this.captureNodes(source.nodeIds, false) : this.captureText(source.nodeId, source.from, source.to);
+    if (signature(captured) !== signature(request.fragment)) throw new Error('Move fragment differs from the current source');
+    let replacement: ReturnType<typeof planNodeMove>;
+    if (source.kind === 'nodes') {
+      if (request.target.kind !== 'children') throw new Error('Whole-node moves require a child gap');
+      const parent = this.store.getNode(request.target.parentId);
+      if (!parent) throw new Error('Missing move destination');
+      this.chooseClosed(captured.content, fromNode(parent), 'children', trace);
+      replacement = planNodeMove(this.store, this.schema, source.nodeIds, request.target);
+    } else {
+      if (request.target.kind !== 'text') throw new Error('Text moves require a text destination');
+      const insertion = this.plan({ ...request, intent: 'copy' });
+      if (!insertion.ok) return insertion;
+      trace.push(...insertion.plan.trace);
+      replacement = planTextMove(this.store, this.schema, this.policy, source, request.target, insertion.plan);
+    }
+    if (signature(basis) !== signature(this.basis())) throw new Error('Move planning changed its basis');
+    return { ok: true, plan: freeze({ ...replacement, basis, outcome: 'direct', trace, losses: [], references: [] }) };
+  }
   private inspectOpen(input: DocumentFragment, targetParent: string): { boundaries: FragmentNode[]; leaves: FragmentNode[] } {
     if (input.openStart !== input.openEnd) throw new Error('Unequal open boundaries require the extended paste planner');
     let nodes = input.content;
@@ -288,7 +315,11 @@ export class FragmentEditor {
       if (!target) losses.push({ kind: 'attribute', reason: `Open ${node.stype} boundary attributes are not transferred to the target` });
     }
   }
-  apply(plan: EditingPlan) {
+  apply(plan: EditingPlan): Promise<TransactionResult> {
+    if (plan.noop) {
+      const valid = this.editor.isEditable !== false && !this.store.isTransactionActive() && this.isCurrent(signature(plan.basis));
+      return Promise.resolve({ success: valid, committed: false, operations: [], errors: valid ? [] : ['Stale or read-only editing plan'] });
+    }
     return transaction(this.editor, [{ type: 'fragmentEdit', payload: { plan } }]).commit();
   }
   /** Called only under TransactionManager's lock, before any fragment writes. */

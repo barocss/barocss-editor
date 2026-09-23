@@ -4,20 +4,20 @@ title: Schema-aware fragment editing
 
 # Schema-aware fragment editing
 
-Use `FragmentEditor` from `@barocss/model` to capture a document fragment, compute a read-only editing plan, and apply that plan through a transaction. This guide describes the source implementation at `558714a8` and issue [#308](https://github.com/barocss/barocss-editor/issues/308). It does not claim that an older npm archive contains every source change.
+Use `FragmentEditor` from `@barocss/model` to capture a document fragment, compute a read-only editing plan, and apply that plan through a transaction. This guide describes the source implementation at `94a94968` and issue [#308](https://github.com/barocss/barocss-editor/issues/308). It does not claim that an older npm archive contains every source change.
 
 ## Current support
 
 | Path | Reviewed implementation |
 | --- | --- |
-| Capture | Contiguous sibling nodes and supported text selections, including cut ancestor boundaries |
-| Plan/apply | Copy into a child gap or replace supported text/child ranges |
+| Capture | Sibling nodes (contiguous by default) and supported text selections, including cut ancestor boundaries |
+| Plan/apply | Copy into a child gap or replace supported text/child ranges; local whole-node and single-run text moves with supported targets |
 | Clipboard | Schema-backed DOM/React body copy, cut, and paste use the fragment transport and policy path |
-| DND | Pointer-target and internal move integration remain separate work in #265 |
+| DND | The shared DOM/React view resolves text or child-gap targets and uses the fragment planner; product handle UI remains product-owned |
 | Enter, Backspace, structural transforms, AI edits | Follow-up work in #271–#273; not a promise of this planner |
 | Tables, canvas, uploads | Keep their dedicated paths; not covered by this prose planner |
 
-`EditingRequest.intent` declares both `copy` and `move`, but this implementation rejects `move` planning. A type declaration is not proof that both values execute. Empty fragments and fragments with nonempty `resources` are also rejected by this consumer.
+`move` requires a live local `source` that matches the captured fragment. Whole-node moves need a child gap. Text moves need a single source run and a text target with a lossless inline join. Multi-run text moves and cross-document atomic moves are not supported. Empty fragments and fragments with nonempty `resources` are rejected by the copy consumer. See the [drag-and-drop guide](../concepts/drag-and-drop.md) for shared view behavior and other limits.
 
 ## Capture, plan, inspect, apply
 
@@ -31,7 +31,7 @@ Planning does not write the document or allocate target IDs. Application checks 
 
 ## Complete example
 
-Install `@barocss/editor-core`, `@barocss/schema`, and `@barocss/model`. This example creates its own editor without a view. It uses custom body/text names, explicitly configures a joining rule, demonstrates a rejected move and stale plan, then copies text and undoes the edit.
+Install `@barocss/editor-core`, `@barocss/schema`, and `@barocss/model`. This example creates its own editor without a view. It uses custom body/text names, explicitly configures a joining rule, rejects a stale plan, then copies and moves text with Undo after each edit.
 
 ```ts
 import { Editor } from '@barocss/editor-core';
@@ -70,7 +70,6 @@ export async function demonstrateFragmentEditing() {
     editing.configure(policy);
     const fragment = editing.captureText('s', 0, 6);
     const target = { kind: 'text' as const, nodeId: 't', from: 2, to: 2 };
-    const move = editing.plan({ intent: 'move', fragment, target });
     const previous = editing.plan({ intent: 'copy', fragment, target });
     if (!previous.ok) throw new Error(previous.reason);
 
@@ -87,14 +86,29 @@ export async function demonstrateFragmentEditing() {
     const after = words(editor.exportDocument().content[1]);
     const undone = await editor.undo();
     const restored = words(editor.exportDocument().content[1]);
-    return { moveRejected: !move.ok, staleRejected: !stale.success, after, undone, restored };
+
+    const move = editing.plan({
+      intent: 'move', fragment, target,
+      source: { kind: 'text', nodeId: 's', from: 0, to: 6 },
+    });
+    if (!move.ok) throw new Error(move.reason);
+    const moved = await editing.apply(move.plan);
+    if (!moved.success) throw new Error(moved.errors.join('; '));
+    const sourceAfterMove = words(editor.exportDocument().content[0]);
+    const targetAfterMove = words(editor.exportDocument().content[1]);
+    const moveUndone = await editor.undo();
+    return {
+      staleRejected: !stale.success, after, undone, restored,
+      moveApplied: moved.committed, sourceAfterMove, targetAfterMove,
+      moveUndone, sourceRestored: words(editor.exportDocument().content[0]),
+    };
   } finally {
     editor.destroy();
   }
 }
 ```
 
-Expected result: `moveRejected` and `staleRejected` are true; `after` is `tasourcerget`; `undone` is true; `restored` is `target`. The source body remains separate. The explicit node IDs are local fixture identities, not a suggested cross-document identifier scheme.
+Expected result: `staleRejected`, `undone`, `moveApplied`, and `moveUndone` are true. `after` and `targetAfterMove` are `tasourcerget`; `restored` is `target`; `sourceAfterMove` is empty; `sourceRestored` is `source`. Copy leaves the source intact. Move removes the selected source text and Undo restores it. The explicit node IDs are local fixture identities, not a suggested cross-document identifier scheme.
 
 This example rejects losses instead of prompting. A product can show the loss report and ask the user to choose an allowed conversion. If the document or selection changes during that interaction, create a new plan and recheck the report.
 

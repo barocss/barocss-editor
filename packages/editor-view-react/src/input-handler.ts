@@ -166,24 +166,6 @@ export class ReactInputHandler {
     });
   }
 
-  handleDrop(event: DragEvent): void {
-    if (this.isImePhase()) return;
-
-    event.preventDefault();
-
-    const dataTransfer = event.dataTransfer;
-    if (!dataTransfer) return;
-
-    const html = dataTransfer.getData('text/html');
-    const text = dataTransfer.getData('text/plain');
-
-    if (!html && !text) return;
-
-    this.editor.executeCommand('paste', {
-      clipboardHtml: html || undefined,
-      clipboardText: text || undefined,
-    });
-  }
 
   /**
    * Sync model to DOM for the focused inline-text node. Call once after compositionend so the final composed text is applied (no intermediate C1).
