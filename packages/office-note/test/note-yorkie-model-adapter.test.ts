@@ -128,7 +128,7 @@ describe('real Note model to Yorkie text slice', () => {
     expect(doc.createChangePack().getChanges()).toHaveLength(changes);
   });
 
-  it('refuses an unstaged local edit when remote text arrives, then never republishes applied remote text', async () => {
+  it('refuses an unstaged local deletion when remote text arrives, then never republishes applied remote text', async () => {
     const first = open();
     const second = open();
     const a = yorkie('000000000000000000000001');
@@ -139,7 +139,9 @@ describe('real Note model to Yorkie text slice', () => {
     bindYorkieNote(second, b);
 
     await replace(first, 'X');
-    await replace(second, 'Y');
+    expect((await second.editor.executeTransaction({ operations: [
+      { type: 'setText', payload: { nodeId: 'note:run', text: 'A' } },
+    ] })).committed).toBe(true);
     expect(stageLocalNoteText(first, a)).toBe(true);
     b.applyChanges(a.createChangePack().getChanges().slice(initialChanges.length), OpSource.Remote);
     expect(() => stageLocalNoteText(second, b)).toThrow('remote text arrived before local staging');
@@ -168,5 +170,39 @@ describe('real Note model to Yorkie text slice', () => {
     expect(clean.editor.selection).toEqual(selectionBefore);
     expect(stageLocalNoteText(clean, c)).toBe(false);
     expect(c.createChangePack().getChanges()).toHaveLength(pending);
+  });
+
+  it('keeps a queued local insertion when remote apply waits for the same transaction lock, then recovers', async () => {
+    const first = open();
+    const second = open();
+    const a = yorkie('000000000000000000000001');
+    const b = yorkie('000000000000000000000002');
+    seedYorkieFromNote(first, a);
+    const initialChanges = a.createChangePack().getChanges();
+    b.applyChanges(initialChanges, OpSource.Remote);
+    bindYorkieNote(second, b);
+
+    a.update(root => root.note!.content[0].content[0].text!.edit(1, 1, 'X'));
+    b.applyChanges(a.createChangePack().getChanges().slice(initialChanges.length), OpSource.Remote);
+    expect(decodeYorkieNote(b.getRoot()).content[0].content[0].text).toBe('AXB');
+
+    // Deliberately do not await the local transaction before starting remote apply.
+    const local = second.editor.executeTransaction({
+      operations: [{ type: 'setText', payload: { nodeId: 'note:run', text: 'ALB' } }],
+    });
+    const remote = applyRemoteNoteText(second, b,
+      { actorId: '000000000000000000000001', sessionId: 'session-a', editId: 'edit-x' },
+      { actorId: '000000000000000000000002', sessionId: 'session-b' });
+    expect((await local).committed).toBe(true);
+    await expect(remote).rejects.toThrow('local text is not staged');
+    expect(second.editor.dataStore.getNode('note:run')?.text).toBe('ALB');
+
+    expect(stageLocalNoteText(second, b)).toBe(true);
+    expect(decodeYorkieNote(b.getRoot()).content[0].content[0].text).toBe('ALXB');
+    expect(await applyRemoteNoteText(second, b,
+      { actorId: '000000000000000000000001', sessionId: 'session-a', editId: 'edit-x' },
+      { actorId: '000000000000000000000002', sessionId: 'session-b' })).toBe(true);
+    expect(second.editor.dataStore.getNode('note:run')?.text).toBe('ALXB');
+    expect(stageLocalNoteText(second, b)).toBe(false);
   });
 });

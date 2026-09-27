@@ -1,4 +1,5 @@
 import type { Document } from '@yorkie-js/sdk';
+import { op } from '@barocss/model';
 import type { NoteSession } from './session';
 import {
   decodeYorkieNote,
@@ -119,8 +120,22 @@ export function stageLocalNoteText(session: NoteSession, doc: Document<YorkieNot
   if (!baseline) throw new Error('Unsupported Note collaboration change: session is not bound to Yorkie');
   const live = readTextOnlyNote(session);
   const shared = decodeYorkieNote(doc.getRoot());
-  if (oneTextDifference(baseline, shared)) reject('remote text arrived before local staging');
+  const remoteDifference = oneTextDifference(baseline, shared);
   const difference = oneTextDifference(baseline, live);
+  if (remoteDifference) {
+    // A pure insertion on each side can be placed into the current Yorkie Text
+    // without discarding either value. All other overlap stays explicit.
+    if (!difference) throw new Error('Unsupported Note collaboration change: remote text arrived before local staging');
+    if (remoteDifference.id !== difference.id) reject('remote text arrived before local staging');
+    const remoteEdit = minimalEdit(remoteDifference.before, remoteDifference.after);
+    const localEdit = minimalEdit(difference.before, difference.after);
+    if (remoteEdit.from !== remoteEdit.to || localEdit.from !== localEdit.to ||
+      !remoteEdit.value || !localEdit.value) reject('remote text arrived before local staging');
+    const position = localEdit.from + (remoteEdit.from < localEdit.from ? remoteEdit.value.length : 0);
+    doc.update(root => editYorkieNoteText(root, difference.id, position, position, localEdit.value));
+    baselines.set(session, live);
+    return true;
+  }
   if (!difference) return false;
   const edit = minimalEdit(difference.before, difference.after);
   doc.update(root => editYorkieNoteText(root, difference.id, edit.from, edit.to, edit.value));
@@ -139,23 +154,34 @@ export async function applyRemoteNoteText(
   if (remote.actorId === self.actorId && remote.sessionId === self.sessionId) return false;
   const baseline = baselines.get(session);
   if (!baseline) throw new Error('Unsupported Note collaboration change: session is not bound to Yorkie');
-  const live = readTextOnlyNote(session);
-  if (oneTextDifference(baseline, live)) reject('local text is not staged');
-  const shared = decodeYorkieNote(doc.getRoot());
-  const difference = oneTextDifference(live, shared);
-  if (!difference) return false;
+  let noChange = false;
+  let appliedTree: SeededNoteNode | undefined;
   const result = await session.editor.executeTransaction({
-    operations: [{
-      type: 'setText',
-      payload: { nodeId: difference.id, text: difference.after },
-    }],
+    operations: [op((context) => {
+      // This function runs after TransactionManager acquires the same DataStore
+      // lock as local editor transactions. A queued local edit is visible here.
+      const live = readTextOnlyNote(session);
+      if (oneTextDifference(baseline, live)) reject('local text is not staged');
+      const shared = decodeYorkieNote(doc.getRoot());
+      const difference = oneTextDifference(live, shared);
+      if (!difference) {
+        noChange = true;
+        return { success: false, error: 'No remote text change' };
+      }
+      const updated = context.dataStore.updateNode(difference.id, { text: difference.after });
+      if (!updated?.valid) return { success: false, error: updated?.errors[0] ?? 'Remote text update failed' };
+      appliedTree = shared;
+      return { success: true };
+    })],
     options: {
       provenance: { origin: 'remote', ...remote },
       recordInHistory: false,
       applySelectionToView: false,
     },
   });
+  if (noChange) return false;
   if (!result.success || !result.committed) throw new Error(result.errors.join('; ') || 'Remote text transaction failed');
-  baselines.set(session, shared);
+  if (!appliedTree) throw new Error('Remote text transaction had no decoded Note');
+  baselines.set(session, appliedTree);
   return true;
 }
