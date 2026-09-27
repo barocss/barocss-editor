@@ -85,6 +85,7 @@ export class DataStore {
   private rootNodeId: string | undefined;
   public version: number = 1;
   private _editRevision = 0;
+  private _suppressOperationEvents = 0;
   private _documentEpoch = 0;
 
   /** Changes when root identity is set or the document map is replaced. */
@@ -356,12 +357,21 @@ export class DataStore {
    */
   emitOperation(operation: AtomicOperation): void {
     this._editRevision++;
+    if (this._suppressOperationEvents) return;
     // Do not use local collection; overlay is the single source of truth
     if (this._overlay && this._overlay.isActive()) {
       this._overlay.recordOperation(operation);
       return;
     }
     this._eventEmitter.emit('operation', operation);
+  }
+
+  /** Hydrating a document is a local snapshot replacement, not a collaborative edit. */
+  withoutOperationEvents<T>(action: () => T): T {
+    if (this.isTransactionActive()) throw new Error('Cannot load a document during an active transaction');
+    this._suppressOperationEvents++;
+    try { return action(); }
+    finally { this._suppressOperationEvents--; }
   }
 
   /**

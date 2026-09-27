@@ -81,4 +81,87 @@ describe('local document session', () => {
     expect(one.store.keep).toHaveBeenCalledTimes(writes);
     expect(one.notify).toHaveBeenLastCalledWith('저장됨');
   });
+  it('never writes a partially replaced B model under B after A fails', async () => {
+    const one = await start();
+    const b = one.session.id;
+    const revision = one.records.get(b)?.row.revision;
+    one.records.set('a', { row: { name: 'a', revision: 1 }, text: 'A saved' });
+    one.options.replace = () => { one.edit('B partly replaced'); throw new Error('load failed'); };
+
+    await expect(one.session.open('a')).rejects.toThrow('load failed');
+    expect(one.session.id).toBe(b);
+    expect(one.session.recoveryRequired).toBe(true);
+    expect(one.notify).toHaveBeenLastCalledWith('복구 필요');
+    await expect(one.session.open('a')).rejects.toThrow('Reopen the current saved document');
+    one.edit('B edited after failure');
+    expect(await one.session.flush()).toBe(false);
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    one.session.stop();
+    await Promise.resolve();
+    expect(one.records.get(b)?.text).toBe('initial');
+    expect(one.records.get(b)?.row.revision).toBe(revision);
+  });
+  it('keeps B and allows A retry after a read failure before replacement', async () => {
+    const one = await start(); const b = one.session.id;
+    one.records.set('a', { row: { name: 'a', revision: 1 }, text: 'A saved' });
+    one.store.read.mockRejectedValueOnce(new Error('read failed'));
+    await expect(one.session.open('a', true)).rejects.toThrow('read failed');
+    expect(one.session.recoveryRequired).toBe(false);
+    expect(one.session.id).toBe(b);
+    expect(one.content()).toBe('initial');
+    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
+    expect(await one.session.open('a', true)).toBe(true);
+    expect(one.session.id).toBe('a');
+    expect(one.content()).toBe('A saved');
+  });
+  it('reopens B from its saved copy before allowing another document', async () => {
+    const one = await start(); const b = one.session.id;
+    one.records.set('a', { row: { name: 'a', revision: 1 }, text: 'A saved' });
+    const replace = one.options.replace;
+    one.options.replace = () => { one.edit('partial A'); throw new Error('load failed'); };
+    await expect(one.session.open('a')).rejects.toThrow('load failed');
+    one.options.replace = replace;
+    expect(await one.session.open(b)).toBe(true);
+    expect(one.content()).toBe('initial');
+    expect(one.session.recoveryRequired).toBe(false);
+    expect(await one.session.open('a')).toBe(true);
+    expect(one.content()).toBe('A saved');
+  });
+  it('reopens the saved current document after a missing startup document and failed replacement', async () => {
+    history.replaceState(null, '', '#test=missing');
+    const one = setup(); running.push(one.session);
+    await one.session.start();
+    expect(one.notify).toHaveBeenLastCalledWith('복원 실패');
+
+    one.edit('B saved after startup failure');
+    const b = one.session.id;
+    expect(await one.session.flush()).toBe(true);
+    expect(one.records.get(b)?.text).toBe('B saved after startup failure');
+    one.records.set('a', { row: { name: 'a', revision: 1 }, text: 'A saved' });
+    const replace = one.options.replace;
+    one.options.replace = () => { one.edit('partial A'); throw new Error('load failed'); };
+    await expect(one.session.open('a')).rejects.toThrow('load failed');
+    expect(one.session.recoveryRequired).toBe(true);
+    one.options.replace = replace;
+    expect(await one.session.open(b)).toBe(true);
+    expect(one.content()).toBe('B saved after startup failure');
+    expect(one.session.recoveryRequired).toBe(false);
+  });
+  it('retries the original startup target when no current document was saved', async () => {
+    history.replaceState(null, '', '#test=startup');
+    const one = setup(); running.push(one.session);
+    one.records.set('startup', { row: { name: 'startup', revision: 1 }, text: 'saved startup' });
+    const replace = one.options.replace;
+    one.options.replace = () => { one.edit('partial startup'); throw new Error('load failed'); };
+    await one.session.start();
+    expect(one.session.recoveryRequired).toBe(true);
+    one.options.replace = replace;
+    expect(await one.session.open('startup')).toBe(true);
+    expect(one.content()).toBe('saved startup');
+    expect(one.session.recoveryRequired).toBe(false);
+  });
 });
