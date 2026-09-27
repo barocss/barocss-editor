@@ -20,7 +20,7 @@ function fixture() {
     },
     marks: { strong: { name: 'strong' } }
   });
-  const editor = new Editor({ schema, history: { coalesceMs: 0 } });
+  const editor = new Editor({ schema });
   editor.loadDocument({ sid: 'doc', stype: 'document', content: [
     { sid: 'p', stype: 'paragraph', content: [
       { sid: 't', stype: 'inline-text', text: 'before' },
@@ -171,11 +171,12 @@ describe('pre-commit collaboration guard', () => {
         paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
         'inline-text': { name: 'inline-text', group: 'inline' }
       }, marks: {}
-    }), history: { coalesceMs: 0 } });
+    }) });
     editor.loadDocument({ stype: 'document', content: [
       { sid: 'p', stype: 'paragraph', content: [{ sid: 't', stype: 'inline-text', text: 'before' }] }
     ] });
     expect((await editor.transaction([setText('t', 'accepted')]).commit()).success).toBe(true);
+    editor.historyManager.closeGroup();
     if (direction === 'redo') expect(await editor.undo()).toBe(true);
 
     let entered!: () => void;
@@ -257,7 +258,7 @@ describe('pre-commit collaboration guard', () => {
   it('retains a successful guarded commit when a post-commit listener fails', async () => {
     const { dataStore, editor, editorInstance } = fixture();
     registerPreCommitGuard(editorInstance, () => {});
-    editor.emit.mockImplementationOnce(() => { throw new Error('listener down'); });
+    vi.mocked(editor.emit).mockImplementationOnce(() => { throw new Error('listener down'); });
     const result = await transaction(editorInstance, [setText('t', 'committed')]).commit();
     expect(result).toMatchObject({ success: true, committed: true,
       postCommitErrors: [expect.stringContaining('listener down')] });
@@ -276,7 +277,7 @@ describe('pre-commit collaboration guard', () => {
         paragraph: { name: 'paragraph', group: 'block', content: 'inline*' },
         'inline-text': { name: 'inline-text', group: 'inline' }
       }, marks: {}
-    }), history: { coalesceMs: 0 } });
+    }) });
     editor.loadDocument({ stype: 'document', content: [
       { sid: 'p', stype: 'paragraph', content: [{ sid: 't', stype: 'inline-text', text: 'before' }] }
     ] });
