@@ -41,7 +41,7 @@ try {
   assert.deepEqual(await migrate(owner), [
     '0001_tenant_workspaces', '0002_oidc_memberships', '0003_member_tenant_names',
     '0004_document_snapshots', '0005_platform_operators',
-    '0006_company_member_admin',
+    '0006_company_member_admin', '0007_document_collaboration_seed',
   ]);
   const issuer = 'http://127.0.0.1:18180/realms/wonffice';
   const alpha = randomUUID(), beta = randomUUID();

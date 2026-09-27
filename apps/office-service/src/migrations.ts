@@ -179,4 +179,41 @@ CREATE POLICY receipt_context ON wonffice.document_receipts TO wonffice_app
 GRANT SELECT, INSERT, UPDATE ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_app;
 GRANT SELECT ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_backup;
 `,
-}, platformOperatorMigration, companyMemberMigration];
+}, platformOperatorMigration, companyMemberMigration, {
+  id: '0007_document_collaboration_seed',
+  sql: `
+CREATE TABLE wonffice.document_collaboration_seeds (
+  tenant_id uuid NOT NULL,
+  document_id uuid NOT NULL,
+  provider text NOT NULL CHECK (provider = 'yorkie'),
+  provider_project text NOT NULL CHECK (char_length(provider_project) BETWEEN 1 AND 120),
+  provider_build text NOT NULL CHECK (char_length(provider_build) BETWEEN 1 AND 120),
+  seed_id uuid NOT NULL,
+  request_key text NOT NULL CHECK (char_length(request_key) BETWEEN 1 AND 120),
+  snapshot_revision integer NOT NULL CHECK (snapshot_revision > 0),
+  snapshot_hash text NOT NULL CHECK (snapshot_hash ~ '^[0-9a-f]{64}$'),
+  status text NOT NULL CHECK (status IN ('initializing', 'uncertain', 'confirmed')),
+  confirmed_provider_checkpoint text CHECK (confirmed_provider_checkpoint IS NULL OR
+    char_length(confirmed_provider_checkpoint) BETWEEN 1 AND 120),
+  confirmed_provider_snapshot_hash text CHECK (confirmed_provider_snapshot_hash IS NULL OR
+    confirmed_provider_snapshot_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  confirmed_at timestamptz,
+  PRIMARY KEY (tenant_id, document_id),
+  UNIQUE (seed_id),
+  FOREIGN KEY (tenant_id, document_id) REFERENCES wonffice.documents(tenant_id, id) ON DELETE RESTRICT,
+  CHECK ((status = 'confirmed') = (confirmed_at IS NOT NULL AND
+    confirmed_provider_checkpoint IS NOT NULL AND confirmed_provider_snapshot_hash IS NOT NULL))
+);
+ALTER TABLE wonffice.document_collaboration_seeds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wonffice.document_collaboration_seeds FORCE ROW LEVEL SECURITY;
+CREATE POLICY collaboration_seed_owner ON wonffice.document_collaboration_seeds TO wonffice_owner
+  USING (true) WITH CHECK (true);
+CREATE POLICY collaboration_seed_context ON wonffice.document_collaboration_seeds TO wonffice_app
+  USING (tenant_id = NULLIF(current_setting('wonffice.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('wonffice.tenant_id', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE ON wonffice.document_collaboration_seeds TO wonffice_app;
+GRANT SELECT ON wonffice.document_collaboration_seeds TO wonffice_backup;
+`,
+}];

@@ -9,6 +9,7 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { migrate } from '../../office-service/dist/migrate.js';
 import { MembershipStore } from '@barocss/office-service/membership-store';
 import { DocumentStore } from '@barocss/office-service/document-store';
+import { CollaborationStore } from '@barocss/office-service/collaboration-store';
 import { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
 import { CompanyMemberStore } from '@barocss/office-service/company-member-store';
 import { applyPlatformOperatorChange } from '../../office-service/dist/platform-operator-admin.js';
@@ -80,9 +81,22 @@ try {
     VALUES ($1, $2, 'editor'), ($1, $3, 'editor'), ($4, $3, 'viewer')`,
   [alpha, aliceId, bobId, beta]);
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 3 }); pools.push(pool);
+  const providerSeeds = new Map();
+  let failNextSeed = false;
+  let allowInspection = true;
+  const provider = {
+    async seed(task) { providerSeeds.set(task.seedId, {
+      documentKey: task.documentKey, providerProject: task.providerProject,
+      providerBuild: task.providerBuild, seedId: task.seedId,
+      snapshotRevision: task.snapshotRevision, snapshotHash: task.snapshotHash,
+      providerCheckpoint: 'synthetic-checkpoint-1', providerSnapshotHash: task.snapshotHash,
+    }); if (failNextSeed) { failNextSeed = false; throw new Error('lost_provider_ack'); } },
+    async inspect(task) { return allowInspection ? providerSeeds.get(task.seedId) ?? null : null; },
+  };
   const dependencies = () => ({ verifier: createOidcVerifier(authConfig),
     memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
     documents: new DocumentStore(pool),
+    collaboration: new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', provider),
     operators: new PlatformOperatorStore(pool), companyMembers: new CompanyMemberStore(pool) });
   app = createApiServer(dependencies());
   const alice = { authorization: `Bearer ${await token('alice')}` };
@@ -174,6 +188,60 @@ try {
     const different = await post(docUrl, alice, { ...create, snapshotText: file('changed') });
     assert.equal(different.statusCode, 409);
     assert.deepEqual(different.json(), { status: 'key_reuse' });
+  });
+  await check('protected collaboration request freezes the snapshot and preserves key across API restart', async () => {
+    const initial = await post(docUrl, alice, { ...create, idempotencyKey: 'seed-http-document' });
+    assert.equal(initial.statusCode, 201, initial.body);
+    const id = initial.json().document.documentId;
+    const path = `${docUrl}/${id}/collaboration`;
+    const payload = { expectedRevision: 1, idempotencyKey: 'seed-http-one' };
+    assert.equal((await post(path, {}, payload)).statusCode, 401);
+    assert.equal((await post(`/v1/tenants/${beta}/documents/${id}/collaboration`, bob,
+      payload)).statusCode, 403);
+    const seeded = await post(path, alice, payload);
+    assert.equal(seeded.statusCode, 200, seeded.body);
+    assert.equal(seeded.json().documentKey, initial.json().document.documentKey);
+    assert.equal((await app.inject({ url: `${docUrl}/${id}`, headers: bob })).json().snapshotText, undefined);
+    assert.equal((await app.inject({ method: 'PUT', url: `${docUrl}/${id}/snapshot`, headers: alice,
+      payload: { expectedRevision: 1, idempotencyKey: 'old-http-snapshot',
+        snapshotText: initial.json().snapshotText } })).statusCode, 409);
+    await app.close();
+    app = createApiServer(dependencies());
+    const reopened = await app.inject({ url: `${docUrl}/${id}`, headers: alice });
+    assert.equal(reopened.statusCode, 200, reopened.body);
+    assert.equal(reopened.json().document.documentKey, seeded.json().documentKey);
+    assert.equal(reopened.json().document.mode, 'collaborative');
+    const confirmation = await new CollaborationStore(pool, 'synthetic-project', 'synthetic-build')
+      .resolve({ issuer, subject: 'alice' }, seeded.json().documentKey, 'read');
+    assert.equal(confirmation.providerCheckpoint, 'synthetic-checkpoint-1');
+    assert.equal(confirmation.providerSnapshotHash, initial.json().document.snapshotHash);
+  });
+  await check('signed writer reconciles an uncertain seed without a second provider write', async () => {
+    const initial = await post(docUrl, alice, { ...create, idempotencyKey: 'uncertain-http-document' });
+    assert.equal(initial.statusCode, 201, initial.body);
+    const id = initial.json().document.documentId;
+    const path = `${docUrl}/${id}/collaboration`;
+    failNextSeed = true;
+    allowInspection = false;
+    const payload = { expectedRevision: 1, idempotencyKey: 'uncertain-http-seed' };
+    assert.equal((await post(path, alice, payload)).statusCode, 503);
+    const pending = await app.inject({ url: `${docUrl}/${id}`, headers: alice });
+    assert.equal(pending.json().document.mode, 'initializing');
+    assert.equal(pending.json().transitionStatus, 'uncertain');
+    assert.equal(pending.json().snapshotText, undefined);
+    const retry = await post(path, alice, payload);
+    assert.equal(retry.statusCode, 200, retry.body);
+    assert.equal(retry.json().transitionStatus, 'uncertain');
+    assert.equal((await post(`${path}/reconcile`, {}, {})).statusCode, 401);
+    assert.equal((await post(`/v1/tenants/${beta}/documents/${id}/collaboration/reconcile`, bob, {})).statusCode, 403);
+    assert.equal((await post(`${path}/reconcile`, alice, {})).statusCode, 409);
+    allowInspection = true;
+    await app.close();
+    app = createApiServer(dependencies());
+    const recovered = await post(`${path}/reconcile`, alice, {});
+    assert.equal(recovered.statusCode, 200, recovered.body);
+    assert.equal(recovered.json().mode, 'collaborative');
+    assert.equal(providerSeeds.size, 2);
   });
   await check('signed operator grant never opens tenant documents and every denied probe is audited', async () => {
     const operator = { authorization: `Bearer ${await token('operator')}` };

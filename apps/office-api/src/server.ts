@@ -7,6 +7,7 @@ import type { CompanyMemberStore } from '@barocss/office-service/company-member-
 import { DocumentError } from '@barocss/office-service/document-store';
 import type { DocumentStore, CreateDocumentInput, UpdateMetadataInput,
   UpdateSnapshotInput, DocumentOperation, Product } from '@barocss/office-service/document-store';
+import type { CollaborationStore } from '@barocss/office-service/collaboration-store';
 import { AuthProviderUnavailableError } from './oidc.js';
 import type { OidcVerifier } from './oidc.js';
 import { healthState } from './health-state.js';
@@ -25,6 +26,7 @@ export interface ApiAuthDependencies {
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
   workspaces?: Pick<MembershipStore, 'listWorkspaces'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
+  collaboration?: Pick<CollaborationStore, 'requestTransition' | 'reconcile'>;
   operators?: Pick<PlatformOperatorStore, 'getAccess' | 'getStatusAccess' | 'listTenantProvisioning'>;
   companyMembers?: Pick<CompanyMemberStore, 'listMembers' | 'setRole' | 'revoke'>;
 }
@@ -210,6 +212,26 @@ export function createApiServer(auth?: ApiAuthDependencies) {
           return documents.getReceipt(principal, tenantId, operation, idempotencyKey);
         });
       });
+      if (auth.collaboration) {
+        app.post('/v1/tenants/:tenantId/documents/:documentId/collaboration', async (request, reply) => {
+          return route(request, reply, async (principal, tenantId) => {
+            const { documentId } = request.params as { documentId: string };
+            if (!uuid.test(documentId)) throw new DocumentError(400, 'invalid_request');
+            const body = objectBody(request.body, ['expectedRevision', 'idempotencyKey'],
+              ['expectedRevision', 'idempotencyKey']);
+            return auth.collaboration!.requestTransition(principal, tenantId, documentId,
+              body as unknown as { expectedRevision: number; idempotencyKey: string });
+          });
+        });
+        app.post('/v1/tenants/:tenantId/documents/:documentId/collaboration/reconcile', async (request, reply) => {
+          return route(request, reply, async (principal, tenantId) => {
+            const { documentId } = request.params as { documentId: string };
+            if (!uuid.test(documentId)) throw new DocumentError(400, 'invalid_request');
+            objectBody(request.body ?? {}, [], []);
+            return auth.collaboration!.reconcile(principal, tenantId, documentId);
+          });
+        });
+      }
     }
   }
   return app;

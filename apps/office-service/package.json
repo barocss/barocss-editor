@@ -19,6 +19,10 @@
     "./document-store": {
       "types": "./src/document-store.ts",
       "import": "./dist/document-store.js"
+    },
+    "./collaboration-store": {
+      "types": "./src/collaboration-store.ts",
+      "import": "./dist/collaboration-store.js"
     }
   },
   "files": ["dist"],
