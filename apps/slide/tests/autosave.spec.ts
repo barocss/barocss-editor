@@ -89,3 +89,42 @@ test('keeps a missing document URL intact and does not overwrite it with a sampl
   await page.getByRole('button', { name: '최근 자료', exact: true }).click();
   await expect(page.locator('[data-slide-document]')).toHaveCount(0);
 });
+
+test('keeps the saved deck after a partial load failure and requires a saved-copy reload', async ({ page }) => {
+  await openDeck(page); await saved(page);
+  const targetId = id(page).slice(8);
+  await pickMenu(page, 'file.library.1');
+  await page.locator('[data-template="report"]').click();
+  await page.locator('[data-template-start]').click();
+  await saved(page);
+  const currentUrl = page.url();
+  const currentTree = await tree(page);
+  await page.evaluate(() => {
+    const store = (window as any).editor.dataStore;
+    const setNode = store.setNode.bind(store);
+    let calls = 0;
+    store.setNode = (...args: unknown[]) => {
+      setNode(...args);
+      if (++calls === 2) throw new Error('Injected partial load failure');
+    };
+    (window as any).restoreSetNode = () => { store.setNode = setNode; };
+  });
+
+  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '최근 발표 자료' });
+  await page.locator(`[data-slide-document="${targetId}"]`).getByRole('button').click();
+  await expect(page.locator('[data-slide-save-status]')).toHaveText('복구 필요');
+  expect(page.url()).toBe(currentUrl);
+  expect(await tree(page)).toBe(currentTree);
+  await page.evaluate(() => (window as any).restoreSetNode());
+  await expect(dialog.getByRole('button', { name: '보관함 전체 백업' })).toBeDisabled();
+  await expect(page.locator(`[data-slide-document="${targetId}"]`).getByRole('button')).toBeDisabled();
+  const reopen = dialog.getByRole('button', { name: '저장본 다시 열기' });
+  await expect(reopen).toBeFocused();
+  await reopen.click();
+  await dialog.getByRole('button', { name: '화면 버리고 저장본 열기' }).click();
+  await saved(page);
+  expect(await tree(page)).toBe(currentTree);
+  await page.reload(); await saved(page);
+  expect(await tree(page)).toBe(currentTree);
+});
