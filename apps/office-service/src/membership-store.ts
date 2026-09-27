@@ -8,6 +8,10 @@ export class TenantAccessDeniedError extends Error {
   constructor() { super('tenant_access_denied'); }
 }
 
+export class InvalidWorkspaceCursorError extends Error {
+  constructor() { super('invalid_workspace_cursor'); }
+}
+
 /** Membership is read in the same transaction as the authorized tenant operation. */
 export class MembershipStore {
   constructor(private readonly pool: Pool) {}
@@ -80,5 +84,24 @@ export class MembershipStore {
   async getTenantAccess(principal: VerifiedPrincipal, tenantId: string) {
     return this.withAuthorizedTenant(principal, tenantId,
       async (_client, role) => ({ tenantId, role }));
+  }
+
+  async listWorkspaces(principal: VerifiedPrincipal, tenantId: string, after?: string) {
+    if (after !== undefined) assertUuid(after);
+    const page = await this.withAuthorizedTenant(principal, tenantId, async client => {
+      if (after) {
+        const cursor = await client.query(`SELECT 1 FROM wonffice.workspaces
+          WHERE tenant_id = $1 AND id = $2`, [tenantId, after]);
+        if (!cursor.rowCount) return null;
+      }
+      const result = await client.query<{ id: string; name: string }>(`SELECT id, name
+        FROM wonffice.workspaces WHERE tenant_id = $1
+        AND ($2::uuid IS NULL OR id > $2::uuid)
+        ORDER BY id LIMIT 51`, [tenantId, after ?? null]);
+      const workspaces = result.rows.slice(0, 50);
+      return { workspaces, nextCursor: result.rows.length > 50 ? workspaces[49].id : null };
+    });
+    if (!page) throw new InvalidWorkspaceCursorError();
+    return page;
   }
 }

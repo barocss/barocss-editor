@@ -1,12 +1,17 @@
 import Fastify from 'fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { TenantAccessDeniedError } from '@barocss/office-service/membership-store';
+import { InvalidWorkspaceCursorError, TenantAccessDeniedError } from '@barocss/office-service/membership-store';
 import type { MembershipStore, VerifiedPrincipal } from '@barocss/office-service/membership-store';
+import type { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
+import type { CompanyMemberStore } from '@barocss/office-service/company-member-store';
 import { DocumentError } from '@barocss/office-service/document-store';
 import type { DocumentStore, CreateDocumentInput, UpdateMetadataInput,
   UpdateSnapshotInput, DocumentOperation, Product } from '@barocss/office-service/document-store';
 import { AuthProviderUnavailableError } from './oidc.js';
 import type { OidcVerifier } from './oidc.js';
+import { healthState } from './health-state.js';
+import { registerOperatorRoutes } from './operator-routes.js';
+import { registerCompanyMemberRoutes } from './company-member-routes.js';
 
 const statusSchema = {
   type: 'object', required: ['status'], additionalProperties: false,
@@ -18,7 +23,10 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export interface ApiAuthDependencies {
   verifier: OidcVerifier;
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
+  workspaces?: Pick<MembershipStore, 'listWorkspaces'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
+  operators?: Pick<PlatformOperatorStore, 'getAccess' | 'getStatusAccess' | 'listTenantProvisioning'>;
+  companyMembers?: Pick<CompanyMemberStore, 'listMembers' | 'setRole' | 'revoke'>;
 }
 
 function objectBody(value: unknown, allowed: readonly string[], required: readonly string[]) {
@@ -59,14 +67,12 @@ export function createApiServer(auth?: ApiAuthDependencies) {
     void reply.code(code).send({ status });
   });
   for (const path of healthPaths) {
-    const live = path === '/health/live';
-    const code = live ? 200 : 503;
+    const state = path === '/health/live' ? healthState.live : healthState.ready;
+    const code = state.httpStatus;
     app.route({
       method: ['GET', 'HEAD'], url: path,
       schema: { response: { [code]: statusSchema } },
-      handler: async (_request, reply) => reply.code(code).send({
-        status: live ? 'alive' : 'service_not_configured',
-      }),
+      handler: async (_request, reply) => reply.code(code).send({ status: state.status }),
     });
   }
   if (auth) {
@@ -115,6 +121,28 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         return reply.code(503).send({ status: 'service_unavailable' });
       }
     });
+    const workspaces = auth.workspaces;
+    if (workspaces) {
+      app.get('/v1/tenants/:tenantId/workspaces', async (request, reply) => {
+        const principal = await authenticate(request, reply);
+        if (!principal) return;
+        const { tenantId } = request.params as { tenantId: string };
+        const query = request.query as Record<string, unknown>;
+        if (!uuid.test(tenantId) || Object.keys(query).some(key => key !== 'after') ||
+          (query.after !== undefined && (typeof query.after !== 'string' || !uuid.test(query.after)))) {
+          return reply.code(400).send({ status: 'invalid_request' });
+        }
+        try { return await workspaces.listWorkspaces(principal, tenantId, query.after as string | undefined); }
+        catch (error) {
+          if (error instanceof TenantAccessDeniedError) return reply.code(403).send({ status: 'forbidden' });
+          if (error instanceof InvalidWorkspaceCursorError) return reply.code(400).send({ status: 'invalid_cursor' });
+          return reply.code(503).send({ status: 'service_unavailable' });
+        }
+      });
+    }
+    if (auth.operators) registerOperatorRoutes(app, { authenticate, operators: auth.operators });
+    if (auth.companyMembers) registerCompanyMemberRoutes(app,
+      { authenticate, companyMembers: auth.companyMembers });
     if (auth.documents) {
       const documents = auth.documents;
       const route = async <T>(request: FastifyRequest, reply: FastifyReply,

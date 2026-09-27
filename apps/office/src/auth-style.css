@@ -1,0 +1,20 @@
+.office-auth { box-sizing: border-box; min-height: 100vh; padding: 30px clamp(20px, 5vw, 72px); color: #20242c; background: #f8f8f5; font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+.office-auth * { box-sizing: border-box; }
+.office-auth-brand { display: flex; justify-content: space-between; gap: 20px; align-items: baseline; border-bottom: 1px solid #d8dad7; padding-bottom: 22px; }
+.office-auth-brand span { font-size: 24px; font-weight: 700; letter-spacing: -.04em; }
+.office-auth-brand small { color: #565e67; font-size: 13px; }
+.office-auth section { max-width: 680px; margin: clamp(52px, 12vh, 140px) auto 0; }
+.office-auth h1 { margin: 0 0 16px; font-size: clamp(30px, 4vw, 44px); line-height: 1.18; letter-spacing: -.04em; }
+.office-auth p { margin: 0 0 18px; }
+.office-auth-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.office-auth button { border: 1px solid #3b4450; border-radius: 8px; background: #fff; color: #20242c; min-height: 44px; padding: 10px 17px; font: inherit; cursor: pointer; }
+.office-auth button:hover { background: #ecf0f3; }
+.office-auth button:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.office-auth-actions button:first-child { background: #20242c; color: #fff; }
+.office-auth-actions button:first-child:hover { background: #3b4450; }
+.office-auth-note { margin-top: 30px !important; padding: 15px 18px; border-left: 3px solid #7b8793; background: #eef0ef; color: #39434c; }
+.office-auth-tenants { list-style: none; padding: 0; margin: 28px 0; display: grid; gap: 10px; }
+.office-auth-tenants button { width: 100%; display: flex; justify-content: space-between; gap: 16px; text-align: left; }
+.office-auth-tenants span { color: #565e67; }
+#office-auth-curtain { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; padding: 24px; background: #f8f8f5; color: #20242c; font: 18px/1.5 system-ui, -apple-system, sans-serif; text-align: center; }
+#office-auth-curtain[hidden] { display: none; }
