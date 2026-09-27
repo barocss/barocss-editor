@@ -31,6 +31,8 @@ Set all four auth variables together. Partial configuration fails startup. When 
 
 `GET /v1/operator/access`, `/v1/operator/tenants` and `/v1/operator/status` require a separate active platform-operator grant for the verified `(issuer, subject)`. Each request checks PostgreSQL again; tenant ownership never grants this access. The tenant page returns at most 50 IDs, names and `owner_provisioned` or `owner_missing`. This reflects owner bootstrap only, not product readiness. The status route reports the same live/ready values as the local health probes; a 503 ready probe remains `service_not_configured`. A missing token returns 401, a missing or revoked grant returns 403, and database or audit failure returns 503. Operator status does not include customer documents, logs or deploy actions. Real operator grant approval remains undecided; only synthetic local accounts have been verified.
 
+The company member API for #377 has `GET /v1/tenants/:tenantId/members?after=<uuid>`, `PATCH /v1/tenants/:tenantId/members/:memberId` with `{ "role": "editor" | "viewer" }`, and `DELETE` at the same member URL. Each route checks the caller's current owner/admin membership in that tenant. The list returns at most 50 internal member IDs, current roles, active flags and self flags. It does not return OIDC subjects, email or tokens. Changes are limited to existing editor/viewer members; owner/admin promotion, demotion and revocation are rejected. Unauthenticated requests return 401, denied requests 403, conflicts 409, and database or audit failures 503. An internal UUID cannot identify a person safely for a human administrator. The Office UI must wait for a reviewed display identifier and target confirmation contract before enabling member changes. This API alone is not an external administration workflow.
+
 The process uses explicit settings, not `NODE_ENV`, to select its network binding. It does not load `.env` files. Startup errors do not print environment values. SIGINT and SIGTERM close the listener and drain active HTTP connections. The deadline closes remaining connections and terminates the process with a failure exit code, even if a close hook has not completed. Logs contain lifecycle events only.
 
 ## Build and checks
@@ -40,10 +42,12 @@ pnpm --filter @barocss/office-api build
 pnpm --filter @barocss/office-api start
 pnpm --filter @barocss/office-api test
 PG_BIN=/path/to/postgresql/16/bin pnpm --filter @barocss/office-api test:postgres
+# Requires a protected synthetic local Keycloak fixture and two browser contexts:
+pnpm --filter @barocss/office-api test:company:oidc
 pnpm preflight
 ```
 
-The unit test command builds the real entry point and checks actual HTTP requests, invalid configuration, occupied ports, SIGINT, SIGTERM and an incomplete request at the shutdown deadline. `test:postgres` creates and removes a private PostgreSQL 16 cluster and synthetic local JWKS server, then checks signed tokens, two accounts, current membership, document create/retry/read/update and API restart. It does not use the operator's Keycloak realm. Source and test type checks participate in repository preflight. The unit test is included in the existing recursive CI command.
+The unit test command builds the real entry point and checks actual HTTP requests, invalid configuration, occupied ports, SIGINT, SIGTERM and an incomplete request at the shutdown deadline. `test:postgres` creates and removes a private PostgreSQL 16 cluster and synthetic local JWKS server, then checks signed tokens, current membership, document create/retry/read/update, operator isolation, company member changes and API restart. It does not use the operator's Keycloak realm. Source and test type checks participate in repository preflight. The unit test is included in the existing recursive CI command.
 
 ## Container artifact
 

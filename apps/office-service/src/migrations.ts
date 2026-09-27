@@ -1,4 +1,5 @@
 import { platformOperatorMigration } from './platform-operator-migration.js';
+import { companyMemberMigration } from './company-member-migration.js';
 
 export interface Migration { id: string; sql: string }
 
@@ -178,4 +179,4 @@ CREATE POLICY receipt_context ON wonffice.document_receipts TO wonffice_app
 GRANT SELECT, INSERT, UPDATE ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_app;
 GRANT SELECT ON wonffice.document_snapshots, wonffice.document_receipts TO wonffice_backup;
 `,
-}, platformOperatorMigration];
+}, platformOperatorMigration, companyMemberMigration];

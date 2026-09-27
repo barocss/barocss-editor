@@ -49,7 +49,8 @@ try {
   await check('concurrent migration applies exactly once; re-run is empty', async () => {
     const result = await Promise.all([migrate(owner), migrate(secondOwner)]);
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
-      '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators']);
+      '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators',
+      '0006_company_member_admin']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('failed DDL and migration history roll back together', async () => {

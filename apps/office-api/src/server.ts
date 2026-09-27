@@ -3,6 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { TenantAccessDeniedError } from '@barocss/office-service/membership-store';
 import type { MembershipStore, VerifiedPrincipal } from '@barocss/office-service/membership-store';
 import type { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
+import type { CompanyMemberStore } from '@barocss/office-service/company-member-store';
 import { DocumentError } from '@barocss/office-service/document-store';
 import type { DocumentStore, CreateDocumentInput, UpdateMetadataInput,
   UpdateSnapshotInput, DocumentOperation, Product } from '@barocss/office-service/document-store';
@@ -10,6 +11,7 @@ import { AuthProviderUnavailableError } from './oidc.js';
 import type { OidcVerifier } from './oidc.js';
 import { healthState } from './health-state.js';
 import { registerOperatorRoutes } from './operator-routes.js';
+import { registerCompanyMemberRoutes } from './company-member-routes.js';
 
 const statusSchema = {
   type: 'object', required: ['status'], additionalProperties: false,
@@ -23,6 +25,7 @@ export interface ApiAuthDependencies {
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
   operators?: Pick<PlatformOperatorStore, 'getAccess' | 'getStatusAccess' | 'listTenantProvisioning'>;
+  companyMembers?: Pick<CompanyMemberStore, 'listMembers' | 'setRole' | 'revoke'>;
 }
 
 function objectBody(value: unknown, allowed: readonly string[], required: readonly string[]) {
@@ -118,6 +121,8 @@ export function createApiServer(auth?: ApiAuthDependencies) {
       }
     });
     if (auth.operators) registerOperatorRoutes(app, { authenticate, operators: auth.operators });
+    if (auth.companyMembers) registerCompanyMemberRoutes(app,
+      { authenticate, companyMembers: auth.companyMembers });
     if (auth.documents) {
       const documents = auth.documents;
       const route = async <T>(request: FastifyRequest, reply: FastifyReply,

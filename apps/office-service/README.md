@@ -31,6 +31,8 @@ Set credentials through your secret manager or interactive administrator tooling
 
 The Note create path builds `@barocss/office-note-file` before the service. It uses the same Note file codec as the product to validate and copy a page, preserve optional `savedAt`, and remap only references to the copied page. The server retains the original request bytes for its idempotency hash and returns the exact stored bytes in the receipt.
 
+Migration `0006_company_member_admin` adds a narrow company member boundary after the independent platform operator grant. `CompanyMemberStore` reads current owner/admin membership for every list, editor/viewer role change, and revocation. It returns only internal member IDs, roles, active state, self marker, and a bounded cursor. It cannot invite people, create identities, or assign, demote, or revoke an owner/admin. Platform operator status alone does not grant company member access. Mutations and denied probes append an audit event with tenant, verified actor issuer/subject (also when no identity row exists), optional actor/target IDs, action, outcome, request ID, and time. Only the owner and backup database roles can read these events; the app role can execute the bounded functions but cannot update membership or read the audit table. A failed audit append rolls back the role change or denies the read.
+
 Existing metadata-only rows from the earlier schema receive a stable key and Note page ID during migration, but no invented body. The document API lists only rows with a real snapshot. An operator must use a reviewed import path to recover legacy metadata-only rows; an empty body must never appear as confirmed customer content.
 
 All three tenant tables enable and force RLS. The application policy uses `wonffice.tenant_id`. `withTenant` obtains one pool connection, begins a transaction, checks the app role, rejects nonempty inherited context, sets local context with a parameter, runs the operation, commits, clears context, and releases. Failure rolls back and destroys the connection. Tenant defaults in role, database, connection options, or previous pool use are rejected before running the callback. Do not configure a tenant default or grant owner/backup membership to the app role. Remove an invalid setting/grant and recreate affected pools before retrying. Successful cleanup writes an explicit empty context; it does not use RESET, which can restore a default. `TenantStore` currently supports workspace creation and a bounded list of at most 100 workspaces. Pagination and metadata editing are not implemented.
@@ -86,6 +88,7 @@ Dump files do not contain cluster role definitions or credentials. Provision the
 ```sh
 pnpm --filter @barocss/office-service test
 PG_BIN=/path/to/postgresql/16/bin pnpm --filter @barocss/office-service test:postgres
+PG_BIN=/path/to/postgresql/16/bin pnpm --filter @barocss/office-service test:company:postgres
 ```
 
 The integration runner always creates and cleans its own temporary PostgreSQL cluster. It accepts no existing database URL, uses synthetic values, disables TCP listening, and does not contact production services. PostgreSQL binaries must exist; missing binaries fail instead of marking an unrun test successful. Linux CI runs the same command. Root execution is unsupported by PostgreSQL `initdb`.

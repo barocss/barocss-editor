@@ -10,6 +10,7 @@ import { migrate } from '../../office-service/dist/migrate.js';
 import { MembershipStore } from '@barocss/office-service/membership-store';
 import { DocumentStore } from '@barocss/office-service/document-store';
 import { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
+import { CompanyMemberStore } from '@barocss/office-service/company-member-store';
 import { applyPlatformOperatorChange } from '../../office-service/dist/platform-operator-admin.js';
 import { readAuthConfig } from '../dist/auth-config.js';
 import { createOidcVerifier } from '../dist/oidc.js';
@@ -84,7 +85,7 @@ try {
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 3 }); pools.push(pool);
   const dependencies = () => ({ verifier: createOidcVerifier(authConfig),
     memberships: new MembershipStore(pool), documents: new DocumentStore(pool),
-    operators: new PlatformOperatorStore(pool) });
+    operators: new PlatformOperatorStore(pool), companyMembers: new CompanyMemberStore(pool) });
   app = createApiServer(dependencies());
   const alice = { authorization: `Bearer ${await token('alice')}` };
   const bob = { authorization: `Bearer ${await token('bob')}` };
@@ -204,6 +205,55 @@ try {
     assert.equal(result.json().document.documentKey, documentKey);
     assert.equal(result.json().document.title, 'Revised');
     assert.equal(result.json().document.revision, 2);
+  });
+  await check('current company roles gate member changes and survive API restart', async () => {
+    const alphaOwnerId = randomUUID(), alphaAdminId = randomUUID(), betaOwnerId = randomUUID();
+    await owner.query(`INSERT INTO wonffice.identities (id, issuer, subject)
+      VALUES ($1, $2, 'alpha-owner'), ($3, $2, 'alpha-admin'), ($4, $2, 'beta-owner')`,
+    [alphaOwnerId, issuer, alphaAdminId, betaOwnerId]);
+    await owner.query(`INSERT INTO wonffice.tenant_memberships (tenant_id, identity_id, role)
+      VALUES ($1, $2, 'owner'), ($1, $3, 'admin'), ($4, $5, 'owner')`,
+    [alpha, alphaOwnerId, alphaAdminId, beta, betaOwnerId]);
+    const alphaOwner = { authorization: `Bearer ${await token('alpha-owner')}` };
+    const alphaAdmin = { authorization: `Bearer ${await token('alpha-admin')}` };
+    const betaOwner = { authorization: `Bearer ${await token('beta-owner')}` };
+    const unknown = { authorization: `Bearer ${await token('unknown-member')}` };
+    const membersUrl = `/v1/tenants/${alpha}/members`;
+    const get = (url, headers) => app.inject({ url, headers });
+    const patch = (memberId, headers, role) => app.inject({ method: 'PATCH',
+      url: `${membersUrl}/${memberId}`, headers, payload: { role } });
+    assert.equal((await app.inject(membersUrl)).statusCode, 401);
+    assert.equal((await get(membersUrl, alice)).statusCode, 403);
+    assert.equal((await get(membersUrl, bob)).statusCode, 403);
+    assert.equal((await get(membersUrl, unknown)).statusCode, 403);
+    assert.equal((await get(`/v1/tenants/${beta}/members`, alphaOwner)).statusCode, 403);
+    assert.equal((await get(`/v1/tenants/${beta}/members`, betaOwner)).statusCode, 200);
+    const list = await get(membersUrl, alphaOwner);
+    assert.equal(list.statusCode, 200, list.body);
+    assert.equal(list.json().members.some(row => row.memberId === aliceId && row.role === 'editor'), true);
+    assert.equal(list.body.includes('alpha-owner'), false);
+    assert.equal(list.body.includes(issuer), false);
+    assert.equal((await get(membersUrl, alphaAdmin)).statusCode, 200);
+    assert.equal((await patch(aliceId, alphaOwner, 'viewer')).statusCode, 200);
+    assert.deepEqual((await get(`/v1/tenants/${alpha}/access`, alice)).json(),
+      { tenantId: alpha, role: 'viewer' });
+    assert.equal((await patch(aliceId, alphaAdmin, 'editor')).statusCode, 200);
+    assert.equal((await patch(alphaOwnerId, alphaAdmin, 'viewer')).statusCode, 403);
+    assert.equal((await patch(alphaAdminId, alphaOwner, 'viewer')).statusCode, 403);
+    assert.equal((await patch(aliceId, alphaOwner, 'owner')).statusCode, 400);
+    assert.equal((await patch(aliceId, unknown, 'viewer')).statusCode, 403);
+    const revoke = await app.inject({ method: 'DELETE', url: `${membersUrl}/${aliceId}`,
+      headers: alphaOwner });
+    assert.equal(revoke.statusCode, 200, revoke.body);
+    assert.equal((await get(`/v1/tenants/${alpha}/access`, alice)).statusCode, 403);
+    assert.equal((await get(`${docUrl}/${documentId}`, alice)).statusCode, 403);
+    await app.close();
+    app = createApiServer(dependencies());
+    assert.equal((await get(membersUrl, alphaAdmin)).statusCode, 200);
+    assert.equal((await get(`/v1/tenants/${alpha}/access`, alice)).statusCode, 403);
+    const audit = await owner.query(`SELECT action, outcome FROM wonffice.company_member_admin_events
+      WHERE tenant_id = $1`, [alpha]);
+    assert.ok(audit.rows.some(row => row.action === 'revoke' && row.outcome === 'applied'));
   });
 } finally {
   if (app) await app.close();

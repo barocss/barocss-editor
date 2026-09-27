@@ -4,6 +4,7 @@ import { createOidcVerifier } from './oidc.js';
 import { createApiServer } from './server.js';
 import { MembershipStore } from '@barocss/office-service/membership-store';
 import { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
+import { CompanyMemberStore } from '@barocss/office-service/company-member-store';
 import { DocumentStore } from '@barocss/office-service/document-store';
 import pg from 'pg';
 
@@ -16,6 +17,7 @@ async function main(): Promise<void> {
     verifier: createOidcVerifier(authConfig),
     memberships: new MembershipStore(pool),
     operators: new PlatformOperatorStore(pool),
+    companyMembers: new CompanyMemberStore(pool),
     documents: new DocumentStore(pool),
   } : undefined);
   if (pool) app.addHook('onClose', async () => { await pool.end(); });

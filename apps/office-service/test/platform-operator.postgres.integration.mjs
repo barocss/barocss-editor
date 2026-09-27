@@ -44,10 +44,10 @@ try {
   await admin.query('CREATE DATABASE office_test OWNER wonffice_owner');
   await admin.query('CREATE DATABASE office_restored OWNER wonffice_owner');
   const owner = await connect('wonffice_owner');
-  await check('migration adds only platform tables and keeps earlier history', async () => {
+  await check('platform grant migration precedes company member admin and keeps earlier history', async () => {
     assert.deepEqual(await migrate(owner), [
       '0001_tenant_workspaces', '0002_oidc_memberships', '0003_member_tenant_names',
-      '0004_document_snapshots', '0005_platform_operators',
+      '0004_document_snapshots', '0005_platform_operators', '0006_company_member_admin',
     ]);
     assert.deepEqual(await migrate(owner), []);
   });
