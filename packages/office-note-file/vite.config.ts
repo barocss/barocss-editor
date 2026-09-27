@@ -9,6 +9,6 @@ export default defineConfig({
   plugins: [dts({ entryRoot: resolve(root, 'src'), outDir: resolve(root, 'dist'), include: [resolve(root, 'src/**/*')] })],
   build: {
     lib: { entry: resolve(root, 'src/index.ts'), formats: ['es'], fileName: 'index' },
-    rollupOptions: { external: [] }
+    rollupOptions: { external: ['node:crypto'] }
   }
 });
