@@ -12,6 +12,7 @@ import { MembershipStore, TenantAccessDeniedError } from '../dist/membership-sto
 import { applyMembershipChange } from '../dist/membership-admin.js';
 import { DocumentStore, DocumentError } from '../dist/document-store.js';
 import { CollaborationStore } from '../dist/collaboration-store.js';
+import { CapabilityStore, CapabilityError } from '../dist/capability-store.js';
 
 // Always create our own cluster. No DATABASE_URL or existing server is accepted.
 const bin = process.env.PG_BIN ?? execFileSync('pg_config', ['--bindir'], { encoding: 'utf8' }).trim();
@@ -51,7 +52,8 @@ try {
     const result = await Promise.all([migrate(owner), migrate(secondOwner)]);
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
       '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators',
-      '0006_company_member_admin', '0007_document_collaboration_seed']);
+      '0006_company_member_admin', '0007_document_collaboration_seed',
+      '0008_document_capabilities']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('failed DDL and migration history roll back together', async () => {
@@ -537,6 +539,115 @@ try {
       WHERE tenant_id = $1 AND identity_id = $2`, [alpha, bob]);
     await assert.rejects(collab.resolve(alicePrincipal, `wonffice-${alpha}-${randomUUID()}`, 'write'),
       error => error instanceof DocumentError && error.status === 404);
+  });
+  await check('capability checks current session, document, role and exact Yorkie attributes', async () => {
+    const documentId = (await owner.query('SELECT id FROM wonffice.documents WHERE document_key = $1',
+      [seededKey])).rows[0].id;
+    let currentSession = true;
+    let gateCalls = 0;
+    const capability = new CapabilityStore(pool, 'synthetic-project', 'synthetic-build',
+      async session => { gateCalls++; return currentSession && session.issuer === issuer &&
+        session.subject === 'alice' && session.sessionId === 'session-one'; });
+    const input = { principal: alicePrincipal, sessionId: 'session-one',
+      oidcExpiresAt: Math.floor(Date.now() / 1000) + 90, tenantId: alpha, documentId, access: 'rw' };
+    const issued = await capability.issue(input);
+    assert.match(issued.token, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(issued.documentKey, seededKey);
+    assert.ok(issued.expiresAt <= Date.now() / 1000 + 60);
+    const stored = (await owner.query(`SELECT token_hash, issuer, subject, session_id,
+      provider_project, provider_build, access
+      FROM wonffice.document_capabilities WHERE document_id = $1`, [documentId])).rows[0];
+    assert.equal(stored.token_hash, createHash('sha256').update(issued.token).digest('hex'));
+    assert.equal(stored.provider_project, 'synthetic-project');
+    assert.equal(stored.provider_build, 'synthetic-build');
+    assert.ok(!JSON.stringify(stored).includes(issued.token));
+    await assert.rejects(pool.query('SELECT * FROM wonffice.document_capabilities'), { code: '42501' });
+    const authorize = (method, attributes, token = issued.token) =>
+      capability.authorize({ token, method, attributes });
+    const read = [{ key: seededKey, verb: 'r' }];
+    const write = [{ key: seededKey, verb: 'rw' }];
+    for (const method of ['AttachDocument', 'DetachDocument', 'PushPull', 'Watch', 'WatchDocument']) {
+      assert.equal((await authorize(method, read)).status, 200);
+      assert.equal((await authorize(method, write)).status, 200);
+    }
+    for (const method of ['ActivateClient', 'DeactivateClient']) {
+      assert.equal((await authorize(method, [])).status, 200);
+      assert.equal((await authorize(method, read)).status, 403);
+    }
+    for (const [method, attrs] of [
+      ['RemoveDocument', write], ['WatchChannel', read], ['CreateRevision', read],
+      ['Broadcast', []], ['unknown', []], ['PushPull', []],
+      ['PushPull', [{ key: seededKey, verb: 'invalid' }]],
+      ['PushPull', [{ key: seededKey, verb: 'r', extra: true }]],
+      ['PushPull', [{ key: 'foreign-key', verb: 'r' }]],
+      ['PushPull', [read[0], read[0]]],
+    ]) assert.equal((await authorize(method, attrs)).status, 403);
+    assert.equal((await authorize('PushPull', read, 'wrong-token')).status, 401);
+    assert.ok(gateCalls > 1);
+    const readOnly = await capability.issue({ ...input, access: 'r' });
+    assert.equal((await authorize('PushPull', read, readOnly.token)).status, 200);
+    assert.equal((await authorize('PushPull', write, readOnly.token)).status, 403);
+    currentSession = false;
+    assert.equal((await authorize('ActivateClient', [])).status, 403);
+    await assert.rejects(capability.issue(input), error => error instanceof CapabilityError && error.status === 403);
+    const gateOutage = new CapabilityStore(pool, 'synthetic-project', 'synthetic-build',
+      async () => { throw new Error('synthetic_session_outage'); });
+    assert.equal((await gateOutage.authorize({ token: issued.token,
+      method: 'ActivateClient', attributes: [] })).status, 503);
+    await assert.rejects(gateOutage.issue(input),
+      error => error instanceof CapabilityError && error.status === 503);
+    const databaseOutage = new CapabilityStore({ query: async () => {
+      throw new Error('synthetic_database_outage');
+    } }, 'synthetic-project', 'synthetic-build', async () => true);
+    assert.deepEqual(await databaseOutage.authorize({ token: issued.token,
+      method: 'ActivateClient', attributes: [] }),
+    { allowed: false, status: 503, reason: 'unavailable' });
+    currentSession = true;
+    await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'viewer'
+      WHERE tenant_id = $1 AND identity_id = $2`, [alpha, alice]);
+    assert.equal((await authorize('PushPull', write)).status, 403);
+    assert.equal((await authorize('PushPull', read, readOnly.token)).status, 200);
+    await owner.query(`UPDATE wonffice.tenant_memberships SET revoked_at = now()
+      WHERE tenant_id = $1 AND identity_id = $2`, [alpha, alice]);
+    assert.equal((await authorize('ActivateClient', [])).status, 403);
+    await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'editor', revoked_at = NULL
+      WHERE tenant_id = $1 AND identity_id = $2`, [alpha, alice]);
+    await owner.query(`UPDATE wonffice.document_collaboration_seeds SET provider_build = 'other-build'
+      WHERE tenant_id = $1 AND document_id = $2`, [alpha, documentId]);
+    assert.equal((await authorize('PushPull', read)).status, 403);
+    const changedProvider = new CapabilityStore(pool, 'synthetic-project', 'other-build',
+      async session => session.sessionId === 'session-one');
+    assert.equal((await changedProvider.authorize({ token: issued.token,
+      method: 'PushPull', attributes: read })).status, 403);
+    const replacementToken = await changedProvider.issue(input);
+    assert.equal((await changedProvider.authorize({ token: replacementToken.token,
+      method: 'PushPull', attributes: read })).status, 200);
+    await assert.rejects(capability.issue(input),
+      error => error instanceof CapabilityError && error.status === 403);
+    await owner.query(`UPDATE wonffice.document_collaboration_seeds SET provider_build = 'synthetic-build'
+      WHERE tenant_id = $1 AND document_id = $2`, [alpha, documentId]);
+    await owner.query(`UPDATE wonffice.document_collaboration_seeds SET status = 'uncertain',
+      confirmed_at = NULL, confirmed_provider_checkpoint = NULL,
+      confirmed_provider_snapshot_hash = NULL WHERE tenant_id = $1 AND document_id = $2`,
+    [alpha, documentId]);
+    assert.equal((await authorize('PushPull', read)).status, 403);
+    await assert.rejects(capability.issue(input),
+      error => error instanceof CapabilityError && error.status === 403);
+    await owner.query(`UPDATE wonffice.document_collaboration_seeds SET status = 'confirmed',
+      confirmed_at = now(), confirmed_provider_checkpoint = 'synthetic-checkpoint-1',
+      confirmed_provider_snapshot_hash = (SELECT snapshot_hash
+        FROM wonffice.document_snapshots WHERE tenant_id = $1 AND document_id = $2)
+      WHERE tenant_id = $1 AND document_id = $2`, [alpha, documentId]);
+    await owner.query(`UPDATE wonffice.documents SET mode = 'snapshot'
+      WHERE tenant_id = $1 AND id = $2`, [alpha, documentId]);
+    assert.equal((await authorize('PushPull', read)).status, 403);
+    await owner.query(`UPDATE wonffice.documents SET mode = 'collaborative'
+      WHERE tenant_id = $1 AND id = $2`, [alpha, documentId]);
+    await owner.query(`UPDATE wonffice.document_capabilities SET expires_at = now() - interval '1 second'
+      WHERE token_hash = $1`, [stored.token_hash]);
+    assert.equal((await authorize('ActivateClient', [])).status, 401);
+    await assert.rejects(capability.issue({ ...input, oidcExpiresAt: Math.floor(Date.now() / 1000) - 1 }),
+      error => error instanceof CapabilityError && error.status === 401);
   });
   await check('ambiguous seed stays closed until read-only reconciliation', async () => {
     const receipt = await documents.create(alicePrincipal, alpha,

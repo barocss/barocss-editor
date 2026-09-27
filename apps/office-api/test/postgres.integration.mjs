@@ -10,6 +10,7 @@ import { migrate } from '../../office-service/dist/migrate.js';
 import { MembershipStore } from '@barocss/office-service/membership-store';
 import { DocumentStore } from '@barocss/office-service/document-store';
 import { CollaborationStore } from '@barocss/office-service/collaboration-store';
+import { CapabilityStore } from '@barocss/office-service/capability-store';
 import { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
 import { CompanyMemberStore } from '@barocss/office-service/company-member-store';
 import { applyPlatformOperatorChange } from '../../office-service/dist/platform-operator-admin.js';
@@ -69,8 +70,9 @@ try {
     OFFICE_OIDC_JWKS_URL: `${issuer}/certs`, OFFICE_OIDC_AUDIENCE: 'wonffice-api',
     OFFICE_API_DATABASE_URL: 'postgresql://synthetic/unused' });
   assert.ok(authConfig);
-  const token = (subject, expiry = Math.floor(Date.now() / 1000) + 300) =>
-    new SignJWT({ typ: 'Bearer' }).setProtectedHeader({ alg: 'RS256', kid: 'synthetic' })
+  const token = (subject, expiry = Math.floor(Date.now() / 1000) + 300, sessionId) =>
+    new SignJWT({ typ: 'Bearer', ...(sessionId ? { sid: sessionId } : {}) })
+      .setProtectedHeader({ alg: 'RS256', kid: 'synthetic' })
       .setIssuer(issuer).setAudience('wonffice-api').setSubject(subject)
       .setIssuedAt().setExpirationTime(expiry).sign(keys.privateKey);
   await owner.query('INSERT INTO wonffice.tenants (id, name) VALUES ($1, $2), ($3, $4)',
@@ -93,10 +95,14 @@ try {
     }); if (failNextSeed) { failNextSeed = false; throw new Error('lost_provider_ack'); } },
     async inspect(task) { return allowInspection ? providerSeeds.get(task.seedId) ?? null : null; },
   };
+  const currentSessions = new Set(['alice-session', 'bob-session']);
   const dependencies = () => ({ verifier: createOidcVerifier(authConfig),
     memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
     documents: new DocumentStore(pool),
     collaboration: new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', provider),
+    capabilities: new CapabilityStore(pool, 'synthetic-project', 'synthetic-build',
+      async session => currentSessions.has(session.sessionId)),
+    verifyYorkieCaller: async request => request.headers['x-synthetic-caller'] === 'local-only',
     operators: new PlatformOperatorStore(pool), companyMembers: new CompanyMemberStore(pool) });
   app = createApiServer(dependencies());
   const alice = { authorization: `Bearer ${await token('alice')}` };
@@ -158,7 +164,7 @@ try {
     fileFormat: 'barocss-note', fileVersion: 1, importMode: 'new-page-copy',
     snapshotText: file('first'), idempotencyKey: 'create-http-one' };
   const post = (url, headers, payload) => app.inject({ method: 'POST', url, headers, payload });
-  let documentId, documentKey;
+  let documentId, documentKey, collaborativeId, collaborativeKey;
   await check('signed OIDC token and active membership gate every document route', async () => {
     assert.equal((await app.inject(docUrl)).statusCode, 401);
     assert.equal((await app.inject({ url: docUrl,
@@ -193,6 +199,7 @@ try {
     const initial = await post(docUrl, alice, { ...create, idempotencyKey: 'seed-http-document' });
     assert.equal(initial.statusCode, 201, initial.body);
     const id = initial.json().document.documentId;
+    collaborativeId = id;
     const path = `${docUrl}/${id}/collaboration`;
     const payload = { expectedRevision: 1, idempotencyKey: 'seed-http-one' };
     assert.equal((await post(path, {}, payload)).statusCode, 401);
@@ -201,6 +208,7 @@ try {
     const seeded = await post(path, alice, payload);
     assert.equal(seeded.statusCode, 200, seeded.body);
     assert.equal(seeded.json().documentKey, initial.json().document.documentKey);
+    collaborativeKey = seeded.json().documentKey;
     assert.equal((await app.inject({ url: `${docUrl}/${id}`, headers: bob })).json().snapshotText, undefined);
     assert.equal((await app.inject({ method: 'PUT', url: `${docUrl}/${id}/snapshot`, headers: alice,
       payload: { expectedRevision: 1, idempotencyKey: 'old-http-snapshot',
@@ -215,6 +223,46 @@ try {
       .resolve({ issuer, subject: 'alice' }, seeded.json().documentKey, 'read');
     assert.equal(confirmation.providerCheckpoint, 'synthetic-checkpoint-1');
     assert.equal(confirmation.providerSnapshotHash, initial.json().document.snapshotHash);
+  });
+  await check('real loopback API issues a session-bound capability and local Yorkie callback rechecks it', async () => {
+    const sessionHeader = { authorization: `Bearer ${await token('alice',
+      Math.floor(Date.now() / 1000) + 300, 'alice-session')}` };
+    let httpApp = createApiServer(dependencies());
+    try {
+      await httpApp.listen({ host: '127.0.0.1', port: 0 });
+      let port = httpApp.server.address().port;
+      const issue = () => fetch(`http://127.0.0.1:${port}/v1/tenants/${alpha}/documents/${collaborativeId}/capabilities`, {
+        method: 'POST', headers: { ...sessionHeader, 'content-type': 'application/json' },
+        body: JSON.stringify({ access: 'rw' }),
+      });
+      const issuedResponse = await issue();
+      assert.equal(issuedResponse.status, 201);
+      const issued = await issuedResponse.json();
+      assert.equal(issued.documentKey, collaborativeKey);
+      assert.equal(issued.access, 'rw');
+      assert.equal(typeof issued.token, 'string');
+      const callback = (body, caller = 'local-only') => fetch(`http://127.0.0.1:${port}/internal/yorkie/auth`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-synthetic-caller': caller },
+        body: JSON.stringify(body),
+      });
+      const watch = { token: issued.token, method: 'Watch',
+        attributes: [{ key: collaborativeKey, verb: 'r' }] };
+      assert.equal((await callback(watch)).status, 200);
+      assert.equal((await callback(watch, 'untrusted')).status, 401);
+      assert.equal((await callback({ ...watch, token: 'forged' })).status, 401);
+      assert.equal((await callback({ ...watch, attributes: [{ key: documentKey, verb: 'r' }] })).status, 403);
+      await httpApp.close();
+      httpApp = createApiServer(dependencies());
+      await httpApp.listen({ host: '127.0.0.1', port: 0 });
+      port = httpApp.server.address().port;
+      assert.equal((await callback(watch)).status, 200);
+      currentSessions.delete('alice-session');
+      assert.equal((await callback(watch)).status, 403);
+      assert.equal((await issue()).status, 403);
+    } finally {
+      currentSessions.add('alice-session');
+      await httpApp.close();
+    }
   });
   await check('signed writer reconciles an uncertain seed without a second provider write', async () => {
     const initial = await post(docUrl, alice, { ...create, idempotencyKey: 'uncertain-http-document' });

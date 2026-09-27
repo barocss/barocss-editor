@@ -216,4 +216,50 @@ CREATE POLICY collaboration_seed_context ON wonffice.document_collaboration_seed
 GRANT SELECT, INSERT, UPDATE ON wonffice.document_collaboration_seeds TO wonffice_app;
 GRANT SELECT ON wonffice.document_collaboration_seeds TO wonffice_backup;
 `,
+}, {
+  id: '0008_document_capabilities',
+  sql: `
+CREATE TABLE wonffice.document_capabilities (
+  token_hash text PRIMARY KEY CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+  tenant_id uuid NOT NULL,
+  document_id uuid NOT NULL,
+  issuer text NOT NULL CHECK (char_length(issuer) BETWEEN 1 AND 2048),
+  subject text NOT NULL CHECK (char_length(subject) BETWEEN 1 AND 255),
+  session_id text NOT NULL CHECK (char_length(session_id) BETWEEN 1 AND 255),
+  provider_project text NOT NULL CHECK (char_length(provider_project) BETWEEN 1 AND 120),
+  provider_build text NOT NULL CHECK (char_length(provider_build) BETWEEN 1 AND 120),
+  access text NOT NULL CHECK (access IN ('r', 'rw')),
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  FOREIGN KEY (tenant_id, document_id) REFERENCES wonffice.documents(tenant_id, id) ON DELETE RESTRICT,
+  CHECK (expires_at <= created_at + interval '60 seconds')
+);
+CREATE INDEX document_capabilities_expiry ON wonffice.document_capabilities(expires_at);
+ALTER TABLE wonffice.document_capabilities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE wonffice.document_capabilities FORCE ROW LEVEL SECURITY;
+CREATE POLICY capability_owner ON wonffice.document_capabilities TO wonffice_owner
+  USING (true) WITH CHECK (true);
+CREATE POLICY capability_issue ON wonffice.document_capabilities TO wonffice_app
+  WITH CHECK (tenant_id = NULLIF(current_setting('wonffice.tenant_id', true), '')::uuid
+    AND issuer = NULLIF(current_setting('wonffice.oidc_issuer', true), '')
+    AND subject = NULLIF(current_setting('wonffice.oidc_subject', true), ''));
+GRANT INSERT ON wonffice.document_capabilities TO wonffice_app;
+GRANT SELECT ON wonffice.document_capabilities TO wonffice_backup;
+
+-- A random token's hash identifies one capability before a tenant context exists.
+-- The function can read only this table. Document and membership reads remain under app RLS.
+CREATE FUNCTION wonffice.lookup_document_capability(p_hash text)
+RETURNS TABLE(tenant_id uuid, document_id uuid, issuer text, subject text,
+  session_id text, provider_project text, provider_build text, access text)
+LANGUAGE sql SECURITY DEFINER
+SET search_path = pg_catalog AS $$
+  SELECT c.tenant_id, c.document_id, c.issuer, c.subject, c.session_id,
+    c.provider_project, c.provider_build, c.access
+  FROM wonffice.document_capabilities AS c
+  WHERE c.token_hash = p_hash AND c.expires_at > clock_timestamp()
+    AND c.expires_at <= c.created_at + interval '60 seconds'
+$$;
+REVOKE ALL ON FUNCTION wonffice.lookup_document_capability(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION wonffice.lookup_document_capability(text) TO wonffice_app;
+`,
 }];

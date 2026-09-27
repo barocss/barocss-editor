@@ -8,6 +8,7 @@ import { DocumentError } from '@barocss/office-service/document-store';
 import type { DocumentStore, CreateDocumentInput, UpdateMetadataInput,
   UpdateSnapshotInput, DocumentOperation, Product } from '@barocss/office-service/document-store';
 import type { CollaborationStore } from '@barocss/office-service/collaboration-store';
+import { CapabilityError } from '@barocss/office-service/capability-store';
 import { AuthProviderUnavailableError } from './oidc.js';
 import type { OidcVerifier } from './oidc.js';
 import { healthState } from './health-state.js';
@@ -22,11 +23,21 @@ const healthPaths = new Set(['/health/live', '/health/ready']);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface ApiAuthDependencies {
-  verifier: OidcVerifier;
+  verifier: Pick<OidcVerifier, 'verify'> & Partial<Pick<OidcVerifier, 'verifySession'>>;
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
   workspaces?: Pick<MembershipStore, 'listWorkspaces'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
   collaboration?: Pick<CollaborationStore, 'requestTransition' | 'reconcile'>;
+  capabilities?: {
+    issue(input: { principal: VerifiedPrincipal; sessionId: string; oidcExpiresAt: number;
+      tenantId: string; documentId: string; access: 'r' | 'rw' }):
+      Promise<{ token: string; expiresAt: number; documentKey: string; access: 'r' | 'rw' }>;
+    authorize(request: { token: string; method: string;
+      attributes: Array<{ key: string; verb: string }> }):
+      Promise<{ allowed: boolean; status: 200 | 401 | 403 | 503; reason: string }>;
+  };
+  /** Inject only after the caller's identity is established by the local transport. */
+  verifyYorkieCaller?: (request: FastifyRequest) => Promise<boolean>;
   operators?: Pick<PlatformOperatorStore, 'getAccess' | 'getStatusAccess' | 'listTenantProvisioning'>;
   companyMembers?: Pick<CompanyMemberStore, 'listMembers' | 'setRole' | 'revoke'>;
 }
@@ -94,6 +105,49 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         return null;
       }
     };
+    if (auth.capabilities && auth.verifyYorkieCaller) {
+      app.post('/internal/yorkie/auth', { bodyLimit: 16384 }, async (request, reply) => {
+        try {
+          if (!await auth.verifyYorkieCaller!(request)) {
+            return reply.code(401).send({ allowed: false, reason: 'unknown_caller' });
+          }
+        } catch {
+          return reply.code(503).send({ allowed: false, reason: 'caller_unavailable' });
+        }
+        let body: Record<string, unknown>;
+        try {
+          body = objectBody(request.body, ['token', 'method', 'attributes'],
+            ['token', 'method', 'attributes']);
+        } catch {
+          return reply.code(400).send({ allowed: false, reason: 'invalid_request' });
+        }
+        const clientMethod = body.method === 'ActivateClient' || body.method === 'DeactivateClient';
+        // Yorkie serializes the nil attributes of client lifecycle calls as JSON null.
+        const attributes = body.attributes === null && clientMethod ? [] : body.attributes;
+        if (typeof body.token !== 'string' || body.token.length > 256 ||
+          typeof body.method !== 'string' || body.method.length > 64 ||
+          !Array.isArray(attributes) || attributes.length > 16 ||
+          attributes.some(value => !value || typeof value !== 'object' || Array.isArray(value) ||
+            Object.keys(value).some(key => !['key', 'verb'].includes(key)) ||
+            typeof value.key !== 'string' || typeof value.verb !== 'string' ||
+            value.key.length > 160 || value.verb.length > 2)) {
+          return reply.code(400).send({ allowed: false, reason: 'invalid_request' });
+        }
+        try {
+          const decision = await auth.capabilities!.authorize({ token: body.token,
+            method: body.method, attributes });
+          if (decision.status === 200 && decision.allowed === true) {
+            return reply.code(200).send({ allowed: true, reason: 'allowed' });
+          }
+          const status = decision.status === 401 || decision.status === 403 ? decision.status : 503;
+          const reason = status === 401 ? 'invalid_capability'
+            : status === 403 ? 'forbidden' : 'authorization_unavailable';
+          return reply.code(status).send({ allowed: false, reason });
+        } catch {
+          return reply.code(503).send({ allowed: false, reason: 'authorization_unavailable' });
+        }
+      });
+    }
     app.get('/v1/me', async (request, reply) => {
       const principal = await authenticate(request, reply);
       if (!principal) return;
@@ -230,6 +284,46 @@ export function createApiServer(auth?: ApiAuthDependencies) {
             objectBody(request.body ?? {}, [], []);
             return auth.collaboration!.reconcile(principal, tenantId, documentId);
           });
+        });
+      }
+      if (auth.capabilities) {
+        app.post('/v1/tenants/:tenantId/documents/:documentId/capabilities', async (request, reply) => {
+          const header = request.headers.authorization;
+          const match = header?.match(/^Bearer ([A-Za-z0-9_.-]+)$/i);
+          if (!match) return reply.code(401).send({ status: 'unauthorized' });
+          if (!auth.verifier.verifySession) return reply.code(503).send({ status: 'auth_unavailable' });
+          let principal: Awaited<ReturnType<NonNullable<typeof auth.verifier.verifySession>>>;
+          try { principal = await auth.verifier.verifySession(match[1]); }
+          catch (error) {
+            const code = error instanceof AuthProviderUnavailableError ? 503 : 401;
+            return reply.code(code).send({ status: code === 503 ? 'auth_unavailable' : 'unauthorized' });
+          }
+          const { tenantId, documentId } = request.params as { tenantId: string; documentId: string };
+          if (!uuid.test(tenantId) || !uuid.test(documentId)) {
+            return reply.code(400).send({ status: 'invalid_request' });
+          }
+          let body: Record<string, unknown>;
+          try { body = objectBody(request.body, ['access'], ['access']); }
+          catch { return reply.code(400).send({ status: 'invalid_request' }); }
+          if (body.access !== 'r' && body.access !== 'rw') {
+            return reply.code(400).send({ status: 'invalid_request' });
+          }
+          try {
+            const issued = await auth.capabilities!.issue({ principal, sessionId: principal.sessionId,
+              oidcExpiresAt: principal.expiresAt, tenantId, documentId, access: body.access });
+            return reply.code(201).send({ token: issued.token, expiresAt: issued.expiresAt,
+              documentKey: issued.documentKey, access: issued.access });
+          } catch (error) {
+            if (error instanceof TenantAccessDeniedError) return reply.code(403).send({ status: 'forbidden' });
+            if (error instanceof DocumentError) return reply.code(error.status).send({ status: error.reason });
+            if (error instanceof CapabilityError) {
+              const status = error.status === 401 ? 'unauthorized'
+                : error.status === 403 ? 'forbidden'
+                  : error.status === 400 ? 'invalid_request' : 'service_unavailable';
+              return reply.code(error.status).send({ status });
+            }
+            return reply.code(503).send({ status: 'service_unavailable' });
+          }
         });
       }
     }

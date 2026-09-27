@@ -50,9 +50,10 @@ function config() {
 }
 
 async function token(overrides: { issuer?: string; audience?: string; expires?: number; type?: string;
-  key?: CryptoKey; kid?: string } = {}) {
+  key?: CryptoKey; kid?: string; sessionId?: string } = {}) {
   const now = Math.floor(Date.now() / 1000);
-  return new SignJWT({ typ: overrides.type ?? 'Bearer' })
+  return new SignJWT({ typ: overrides.type ?? 'Bearer',
+    ...(overrides.sessionId ? { sid: overrides.sessionId } : {}) })
     .setProtectedHeader({ alg: 'RS256', kid: overrides.kid ?? 'local-test' })
     .setIssuer(overrides.issuer ?? issuer)
     .setAudience(overrides.audience ?? 'wonffice-api')
@@ -83,6 +84,17 @@ describe('OIDC configuration and token verification', () => {
     await expect(verify(await token({ key: forged.privateKey }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
     await expect(verify(await token({ kid: 'unknown-key' }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
     await expect(verify('unsigned-or-malformed')).rejects.toBeInstanceOf(InvalidAccessTokenError);
+  });
+  it('extracts only a signed, bounded login session for provider capabilities', async () => {
+    const verify = createOidcVerifier(config()).verifySession;
+    const expires = Math.floor(Date.now() / 1000) + 300;
+    expect(await verify(await token({ sessionId: 'keycloak-session', expires }))).toEqual({
+      issuer, subject: 'alice', sessionId: 'keycloak-session', expiresAt: expires,
+    });
+    await expect(verify(await token())).rejects.toBeInstanceOf(InvalidAccessTokenError);
+    await expect(verify(await token({ sessionId: 'x'.repeat(256) }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
+    await expect(verify(await token({ sessionId: 'ok', audience: 'wrong' })))
+      .rejects.toBeInstanceOf(InvalidAccessTokenError);
   });
   it('classifies an actual JWKS HTTP outage or invalid provider response as unavailable', async () => {
     try {
