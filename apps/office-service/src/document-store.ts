@@ -262,9 +262,14 @@ export class DocumentStore {
         ' WHERE d.tenant_id = $1 AND d.id = $2', [tenantId, documentId]);
       if (!found.rows[0]) throw new DocumentError(404, 'not_found');
       const document = head(found.rows[0]);
-      return document.mode === 'snapshot'
-        ? { document, snapshotText: found.rows[0].snapshotText }
-        : { document };
+      if (document.mode === 'snapshot') return { document, snapshotText: found.rows[0].snapshotText };
+      if (document.mode === 'initializing') {
+        const attempt = await client.query<{ status: string }>(`SELECT status
+          FROM wonffice.document_collaboration_seeds WHERE tenant_id = $1 AND document_id = $2`,
+        [tenantId, documentId]);
+        return { document, transitionStatus: attempt.rows[0]?.status ?? 'uncertain' };
+      }
+      return { document };
     });
   }
 
