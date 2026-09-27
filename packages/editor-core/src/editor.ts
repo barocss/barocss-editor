@@ -431,16 +431,41 @@ export class Editor implements ContextProvider {
    * name, and that is the promise: a session names an instance, not a kind.
    */
   loadDocument(treeDocument: any, sessionId?: string): void {
-    const loader = new DataStoreLoader(this._dataStore, sessionId);
-    const rootId = loader.loadDocument(treeDocument);
-    this._rootId = rootId;
-    const exporter = new DataStoreExporter(this._dataStore);
-    const tree = exporter.exportToTree(rootId);
-    this._document = this._convertToDocumentState(tree);
-    this._addToHistory(this._document);
+    if (this._dataStore.isTransactionActive()) throw new Error('Cannot load a document during an active transaction');
+    // The loader installs new nodes in the map. Retain the old node references for rollback;
+    // their attributes can contain functions, which structuredClone cannot copy.
+    const previous = {
+      nodes: new Map(this._dataStore.getNodes()),
+      storeRoot: this._dataStore.getRootNodeId(),
+      sessionId: this._dataStore.getSessionId(),
+      version: this._dataStore.version,
+      rootId: this._rootId,
+      document: this._document,
+      history: this._history,
+      historyIndex: this._historyIndex,
+      faults: this._documentFaults
+    };
+    try {
+      const rootId = this._dataStore.withoutOperationEvents(() =>
+        new DataStoreLoader(this._dataStore, sessionId).loadDocument(treeDocument));
+      this._rootId = rootId;
+      const exporter = new DataStoreExporter(this._dataStore);
+      const tree = exporter.exportToTree(rootId);
+      this._document = this._convertToDocumentState(tree);
+      this._addToHistory(this._document);
 
-    this._reportDocumentFaults(treeDocument);
-    this.emit('editor:content.change', { content: this.document, transaction: null, rootId });
+      this._reportDocumentFaults(treeDocument);
+      this.emit('editor:content.change', { content: this.document, transaction: null, rootId });
+    } catch (error) {
+      this._dataStore.restoreFromSnapshot(previous.nodes, previous.storeRoot, previous.version);
+      if (this._dataStore.getSessionId() !== previous.sessionId) this._dataStore.setSessionId(previous.sessionId);
+      this._rootId = previous.rootId;
+      this._document = previous.document;
+      this._history = previous.history;
+      this._historyIndex = previous.historyIndex;
+      this._documentFaults = previous.faults;
+      throw error;
+    }
   }
 
   /**

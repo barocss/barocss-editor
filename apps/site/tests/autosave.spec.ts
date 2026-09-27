@@ -56,6 +56,10 @@ test('blocks replacement on storage failure and retries the retained snapshot', 
   await page.getByRole('textbox', { name: '홈 이름', exact: true }).fill('보존할 작업');
   await page.getByRole('heading', { name: /페이지/ }).click();
   await expect(page.locator('[data-site-save-status]')).toHaveText('저장 실패');
+  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('현재 자료의 저장을 확인하지 못했습니다');
+  await expect(page.locator('[data-site-save-status]')).toHaveText('저장 실패');
+  await page.keyboard.press('Escape');
   await newSite(page);
   await expect(page.getByRole('alert')).toContainText('현재 자료를 저장하지 못했습니다');
   expect(page.url()).toBe(url);
@@ -71,6 +75,89 @@ test('does not overwrite a missing site with the sample', async ({ page }) => {
   await page.getByRole('button', { name: '최근 자료', exact: true }).click();
   await expect(page.locator('[data-site-document]')).toHaveCount(0);
   expect(new URL(page.url()).hash).toBe('#site=missing-site');
+});
+
+test('keeps the saved site when opening another site fails during model replacement', async ({ page }) => {
+  await ready(page);
+  const currentUrl = page.url();
+  const currentId = new URL(currentUrl).hash.slice(6);
+  await rename(page, '보존할 사이트');
+  await newSite(page); await saved(page);
+  const targetId = new URL(page.url()).hash.slice(6);
+  await rename(page, '열 대상 사이트');
+  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await page.locator(`[data-site-document="${currentId}"]`).getByRole('button').click();
+  await saved(page);
+
+  await page.evaluate(() => {
+    const editor = (window as any).editor;
+    const store = editor.dataStore;
+    const setNode = store.setNode.bind(store);
+    let calls = 0;
+    store.setNode = (...args: unknown[]) => {
+      setNode(...args);
+      if (++calls === 2) throw new Error('Injected partial load failure');
+    };
+    (window as any).restoreSetNode = () => { store.setNode = setNode; };
+  });
+  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await page.locator(`[data-site-document="${targetId}"]`).getByRole('button').click();
+  await expect(page.locator('[data-site-save-status]')).toHaveText('복구 필요');
+  expect(page.url()).toBe(currentUrl);
+  await page.evaluate(() => (window as any).restoreSetNode());
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: '보관함 전체 백업' })).toBeDisabled();
+  await expect(dialog.locator(`[data-site-document="${targetId}"]`).getByRole('button')).toBeDisabled();
+  const reopen = dialog.getByRole('button', { name: '저장본 다시 열기' });
+  await expect(reopen).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  expect(await dialog.evaluate(modal => modal.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press('Tab');
+  await expect(reopen).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByText('현재 화면의 저장되지 않은 내용이 사라집니다')).toBeVisible();
+  const confirm = dialog.getByRole('button', { name: '화면 버리고 저장본 열기' });
+  await confirm.focus();
+  await page.keyboard.press('Enter');
+  await saved(page);
+  await expect(page.getByRole('textbox', { name: '보존할 사이트 이름', exact: true })).toHaveValue('보존할 사이트');
+  await page.reload(); await saved(page);
+  await expect(page.getByRole('textbox', { name: '보존할 사이트 이름', exact: true })).toHaveValue('보존할 사이트');
+});
+
+test('reopens a site saved after a missing startup document when the next open fails', async ({ page }) => {
+  await ready(page);
+  const targetId = new URL(page.url()).hash.slice(6);
+  await rename(page, '열 대상 사이트');
+  await page.goto('/#site=missing-site');
+  await page.reload();
+  await expect(page.locator('[data-site-save-status]')).toHaveText('복원 실패');
+  await newSite(page); await saved(page);
+  const currentUrl = page.url();
+  await rename(page, '현재 저장 사이트');
+
+  await page.evaluate(() => {
+    const store = (window as any).editor.dataStore;
+    const setNode = store.setNode.bind(store);
+    let calls = 0;
+    store.setNode = (...args: unknown[]) => {
+      setNode(...args);
+      if (++calls === 2) throw new Error('Injected partial load failure');
+    };
+    (window as any).restoreSetNode = () => { store.setNode = setNode; };
+  });
+  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await page.locator(`[data-site-document="${targetId}"]`).getByRole('button').click();
+  await expect(page.locator('[data-site-save-status]')).toHaveText('복구 필요');
+  expect(page.url()).toBe(currentUrl);
+  await page.evaluate(() => (window as any).restoreSetNode());
+
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: '저장본 다시 열기' }).click();
+  await dialog.getByRole('button', { name: '화면 버리고 저장본 열기' }).click();
+  await saved(page);
+  await page.reload(); await saved(page);
+  await expect(page.getByRole('textbox', { name: '현재 저장 사이트 이름', exact: true })).toHaveValue('현재 저장 사이트');
 });
 
 test('autosaves the final input from an embedded Note before reload', async ({ page }) => {
