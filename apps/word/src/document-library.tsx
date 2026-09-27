@@ -4,7 +4,7 @@ import { DocxExport } from './docx-export';
 import { WordAutosave, wordDrafts, wordStore } from './autosave';
 import { downloadDocumentArchive, productLibraryArchive, type DocumentSessionStatus } from '@barocss/shared';
 import type { LibraryRow } from '@barocss/shared';
-import { forwardRef, useImperativeHandle, useEffect, useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { Button, Dialog, EmptyState, Icon, NavigationItem, StatusIndicator, StatusNotice, TextField } from '@barocss/office-ui';
 import { wordLibraryRows, keepWordDocument, wordFileText, type WordLibraryRow } from '@barocss/office-word';
@@ -16,6 +16,12 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [query, setQuery] = useState(''), [loaded, setLoaded] = useState(false);
   const pending = useRef(false);
+  const libraryOpener = useRef<HTMLElement | null>(null);
+  const libraryButton = useRef<HTMLButtonElement | null>(null);
+  const restoreLibraryFocus = () => {
+    const target = libraryOpener.current;
+    (target?.isConnected && target !== document.body && !target.matches(':disabled') ? target : libraryButton.current)?.focus();
+  };
   const [rows, setRows] = useState<WordLibraryRow[]>([]);
   const [problem, setProblem] = useState(''), [status, setStatus] = useState('');
   const autosave = useRef<WordAutosave | null>(null);
@@ -41,18 +47,25 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
     try { await action(); } catch { setProblem('문서 보관함 작업을 완료하지 못했습니다. 현재 문서는 유지됩니다. 다시 시도하세요.'); }
     finally { pending.current = false; setBusy(false); }
   };
-  const openLibrary = () => void perform(async () => {
-    setOpen(true); setLoaded(false); setQuery('');
-    if (!await autosave.current?.flush()) throw new Error('Unsaved work');
-    setRows(await wordLibraryRows()); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
-  });
+  const openLibrary = (event?: MouseEvent<HTMLButtonElement>) => {
+    if (pending.current) return;
+    if (!open) {
+      const target = event?.currentTarget ?? document.activeElement;
+      libraryOpener.current = target instanceof HTMLElement && target !== document.body && target !== document.documentElement ? target : null;
+    }
+    void perform(async () => {
+      setOpen(true); setLoaded(false); setQuery('');
+      if (!await autosave.current?.flush()) throw new Error('Unsaved work');
+      setRows(await wordLibraryRows()); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
+    });
+  };
   useImperativeHandle(ref, () => ({ open: kind => { if (kind === 'library') openLibrary(); else setActions(true); } }));
   const titleOf = (row: { title?: string }) => row.title || '제목 없는 문서';
   const matching = (row: { title?: string }) => titleOf(row).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
   const visibleRows = rows.filter(matching), visibleDrafts = drafts.filter(matching);
   return <div className="w-document-library">
     <Button tone="quiet" onClick={() => setActions(true)}>문서 작업</Button>
-    <Button disabled={busy} onClick={openLibrary}>문서 보관함</Button>
+    <Button ref={libraryButton} disabled={busy} onClick={openLibrary}>문서 보관함</Button>
     <Dialog open={actions} onOpenChange={value => { if (!pending.current) setActions(value); }} title="문서 작업" description="문서를 보관하거나 DOCX 파일을 가져오고 내보냅니다.">
       <div className="w-file-action-list">
         <Button disabled={busy} onClick={() => void perform(async () => { await save(); })}>보관함에 사본 저장</Button>
@@ -71,11 +84,15 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
         if (id) await session.open(id);
       } else await session.flush();
     })}>{autoStatus === '복원 실패' ? '복원 다시 시도' : '저장 다시 시도'}</Button>}
-    {autoStatus === '충돌한 초안 보관됨' && <Button disabled={busy} onClick={() => void perform(async () => {
-      setRows(await wordLibraryRows()); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
-    })}>복구 초안 보기</Button>}
+    {autoStatus === '충돌한 초안 보관됨' && <Button disabled={busy} onClick={event => {
+      if (pending.current) return;
+      libraryOpener.current = event.currentTarget;
+      void perform(async () => {
+        setRows(await wordLibraryRows()); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
+      });
+    }}>복구 초안 보기</Button>}
     {problem && autoStatus !== '저장 실패' && autoStatus !== '복원 실패' && <span role="alert">{problem}</span>}
-    <Dialog open={open} onOpenChange={value => { if (!pending.current) setOpen(value); }} title="문서 보관함" description="이 브라우저에 저장한 문서와 복구 초안입니다."
+    <Dialog open={open} onClosed={restoreLibraryFocus} onOpenChange={value => { if (!pending.current) setOpen(value); }} title="문서 보관함" description="이 브라우저에 저장한 문서와 복구 초안입니다."
       footer={<Button disabled={busy || !loaded} onClick={() => void perform(async () => {
         if (!await autosave.current?.beforeReplace()) throw new Error('Pending input');
         downloadDocumentArchive(await productLibraryArchive('word', wordStore, wordDrafts), 'wonffice-word-library.json');
