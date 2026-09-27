@@ -45,6 +45,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const [open, setOpen] = useState<OpenState>();
   const [pending, setPending] = useState<Pending>();
   const [problem, setProblem] = useState<Problem>();
+  const [conflictCopy, setConflictCopy] = useState<{ generation: string; snapshotText: string }>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<{ owner: object; generation: string; documentId: string | null; editable: boolean; value: NoteSession }>();
@@ -57,6 +58,13 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const canEdit = role !== 'viewer';
   const isDirty = !!currentOpen && currentOpen.version !== currentOpen.confirmedVersion;
 
+  const draftSnapshot = () => {
+    if (!currentOpen) return null;
+    currentSession?.flush();
+    const tree = currentSession && noteTreeOf({ getNode: id => currentSession.editor.dataStore.getNode(id) as never }, currentSession.rootId);
+    return noteFileText(tree ? { ...currentOpen.note, content: tree.content as unknown[] } : currentOpen.note);
+  };
+
   useEffect(() => {
     onUnsafeChange?.(isDirty || !!currentPending || busy);
   }, [isDirty, currentPending, busy, onUnsafeChange]);
@@ -66,6 +74,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     setOpen({ owner: client, generation: crypto.randomUUID(), documentId: result.document.documentId, head: result.document,
       note: result.note, revision: result.document.revision, version: 0, confirmedVersion: 0 });
     setProblem(undefined);
+    setConflictCopy(undefined);
     navigate.current?.(result.document.documentId);
   }, [client]);
 
@@ -202,6 +211,42 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     } finally { if (activeClient.current === client) setBusy(false); }
   };
 
+  const copyConflictedDraft = async () => {
+    if (currentProblem?.kind !== 'conflict' || !currentOpen) return;
+    const snapshotText = draftSnapshot();
+    if (!snapshotText) return;
+    try {
+      await navigator.clipboard.writeText(snapshotText);
+      setConflictCopy({ generation: currentOpen.generation, snapshotText });
+    } catch {
+      setConflictCopy(undefined);
+      setProblem({ owner: client, kind: 'conflict', message: '초안을 복사하지 못했습니다. 브라우저의 클립보드 권한을 확인하세요.' });
+    }
+  };
+
+  const openLatestAfterConflict = async () => {
+    if (currentProblem?.kind !== 'conflict' || !currentOpen?.documentId || busy ||
+      conflictCopy?.generation !== currentOpen.generation) return;
+    if (conflictCopy.snapshotText !== draftSnapshot()) {
+      setConflictCopy(undefined);
+      setProblem({ owner: client, kind: 'conflict', message: '복사한 뒤 초안이 바뀌었습니다. 변경된 초안을 다시 복사하세요.' });
+      return;
+    }
+    if (!window.confirm('복사한 초안을 별도로 보관했나요? 서버 최신본을 열면 현재 편집 화면이 교체됩니다.')) return;
+    setBusy(true);
+    try {
+      const result = await client.open(currentOpen.documentId);
+      if (activeClient.current !== client) return;
+      if (result.mode === 'snapshot') showOpened(result);
+      else setProblem({ owner: client, kind: 'mode', message: '이 문서는 공동 편집 모드입니다. 스냅샷 편집을 열지 않았습니다.' });
+    } catch (error) {
+      if (activeClient.current !== client) return;
+      setProblem(error instanceof ServerNoteError && (error.status === 401 || error.status === 403)
+        ? { owner: client, kind: 'denied', message: '이 작업 공간에 접근할 수 없습니다.' }
+        : { owner: client, kind: 'conflict', message: '서버 최신본을 열지 못했습니다. 복사한 초안은 유지됩니다.' });
+    } finally { if (activeClient.current === client) setBusy(false); }
+  };
+
   const status = currentProblem?.kind === 'denied' ? '접근 거부' : busy ? '저장 중…' :
     currentPending ? '저장 확인 필요' : isDirty ? '저장되지 않음' : currentOpen ? '서버 저장 확인됨' : '문서 선택';
   return <div className="nw-shell" data-server-note-workspace>
@@ -223,6 +268,12 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       <main className="nw-main" aria-label="서버 노트 편집">
         {currentProblem && <StatusNotice tone="danger" title="작업을 완료하지 못했습니다">
           {currentProblem.message}{currentProblem.kind === 'load' && <Button onClick={() => void load()}>다시 시도</Button>}
+          {currentProblem.kind === 'conflict' && <>
+            <p>내 초안을 JSON으로 복사한 뒤 서버 최신본을 열어 차이를 확인하세요. 서버의 다른 변경은 자동으로 덮어쓰지 않습니다.</p>
+            <Button disabled={busy} onClick={() => void copyConflictedDraft()}>초안 복사</Button>
+            <Button disabled={busy || !conflictCopy || conflictCopy.generation !== currentOpen?.generation}
+              onClick={() => void openLatestAfterConflict()}>서버 최신본 열기</Button>
+          </>}
         </StatusNotice>}
         {currentProblem?.kind !== 'denied' && currentOpen && <section className="nw-document" aria-label="노트 편집">
           <h1>{currentOpen.note.attributes.title}</h1>
