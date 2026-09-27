@@ -68,6 +68,7 @@ try {
   await owner.connect();
   await migrate(owner);
   const alpha = randomUUID(), beta = randomUUID();
+  const alphaWorkspace = randomUUID(), betaWorkspace = randomUUID();
   const alice = randomUUID(), bob = randomUUID();
   await owner.query('INSERT INTO wonffice.tenants (id, name) VALUES ($1, $2), ($3, $4)',
     [alpha, 'Synthetic Alpha', beta, 'Synthetic Beta']);
@@ -76,6 +77,9 @@ try {
   await owner.query(`INSERT INTO wonffice.tenant_memberships (tenant_id, identity_id, role)
     VALUES ($1, $2, 'owner'), ($1, $3, 'viewer'), ($4, $3, 'owner')`,
   [alpha, alice, bob, beta]);
+  await owner.query(`INSERT INTO wonffice.workspaces (tenant_id, id, name)
+    VALUES ($1, $2, 'Alpha workspace'), ($3, $4, 'Beta workspace')`,
+  [alpha, alphaWorkspace, beta, betaWorkspace]);
   await applyPlatformOperatorChange(owner, { action: 'grant', issuer: fixture.issuer,
     subject: fixture.users['alpha-editor'].id, actorRef: 'synthetic-test',
     approvalRef: 'synthetic-office-auth-ui-369' });
