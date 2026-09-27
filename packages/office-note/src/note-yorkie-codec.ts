@@ -4,7 +4,7 @@ import { Text } from '@yorkie-js/sdk';
 export interface SeededNoteNode {
   id: string;
   stype: string;
-  attributes?: Record<string, string>;
+  attributes?: Record<string, string | number | boolean | null>;
   text?: string;
   content: SeededNoteNode[];
 }
@@ -12,7 +12,7 @@ export interface SeededNoteNode {
 export interface YorkieNoteNode {
   id: string;
   stype: string;
-  attributes?: Record<string, string>;
+  attributes?: Record<string, string | number | boolean | null>;
   text?: Text;
   content: YorkieNoteNode[];
 }
