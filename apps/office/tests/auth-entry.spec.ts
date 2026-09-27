@@ -385,6 +385,136 @@ test('a new Note keeps its unsaved view through a successful access recheck', as
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
 });
 
+test('revoked Note access hides an actual unsaved edit and restores it only for the same authorized account', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' private draft');
+  await expect(paragraph).toContainText('private draft');
+  await expect(page.locator('[data-server-note-workspace]').getByRole('button', { name: '저장', exact: true })).toBeEnabled();
+  let writes = 0;
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}/snapshot`, route => {
+    writes++;
+    return route.fulfill({ status: 403, contentType: 'application/json', body: '{"status":"forbidden"}' });
+  });
+  await page.unroute(`**/api/v1/tenants/${id}/access`);
+  await page.route(`**/api/v1/tenants/${id}/access`, route => route.fulfill({ status: 403, contentType: 'application/json', body: '{"status":"forbidden"}' }));
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeVisible();
+  await expect(page.locator('[data-server-note-workspace]')).toBeHidden();
+  await expect(page.getByText('private draft')).toBeHidden();
+  await expect(page.locator('[data-server-note-workspace]').getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+  expect(writes).toBe(0);
+  page.once('dialog', dialog => void dialog.dismiss());
+  await page.getByRole('button', { name: '진입 선택' }).click();
+  await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeVisible();
+  await page.unroute(`**/api/v1/tenants/${id}/access`);
+  await page.route(`**/api/v1/tenants/${id}/access`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tenantId: id, role: 'editor' }) }));
+  await page.getByRole('button', { name: '초안 권한 다시 확인' }).click();
+  await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
+  await expect(paragraph).toContainText('private draft');
+  expect(writes).toBe(0);
+});
+
+test('a different account cannot recover another account’s mounted Note draft', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' account-one-draft');
+  await expect(paragraph).toContainText('account-one-draft');
+  await page.unroute('**/api/v1/me');
+  await page.route('**/api/v1/me', route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ issuer, subject: 'different-user', tenants: [{ tenantId: id, name: 'Alpha Company', role: 'editor' }], nextCursor: null }) }));
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeVisible();
+  await expect(page.locator('[data-server-note-workspace]')).toHaveCount(0);
+  await expect(page.getByText('account-one-draft')).toHaveCount(0);
+});
+
+test('Note navigation keeps the current unsaved document through a verified access recheck', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  const nextId = '00000000-0000-4000-8000-000000000009';
+  const nextPageId = '00000000-0000-4000-8000-000000000010';
+  const nextSnapshot = JSON.stringify({ format: 'barocss-note', version: 1,
+    document: { stype: 'note', attributes: { title: 'Second Note', pageId: nextPageId },
+      content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Second body' }] }] } });
+  const nextHead = { ...documentHead, documentId: nextId, pageId: nextPageId, title: 'Second Note',
+    documentKey: `wonffice-${id}-${nextId}`, snapshotHash: createHash('sha256').update(nextSnapshot).digest('hex') };
+  await page.unroute(`**/api/v1/tenants/${id}/documents?**`);
+  await page.route(`**/api/v1/tenants/${id}/documents?**`, route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ documents: [documentHead, nextHead], nextCursor: null }) }));
+  await page.route(`**/api/v1/tenants/${id}/documents/${nextId}`, route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ document: nextHead, snapshotText: nextSnapshot }) }));
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.locator('[data-server-note-workspace]').getByRole('button', { name: 'Second Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' navigation draft');
+  await expect(paragraph).toContainText('navigation draft');
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
+  await expect(paragraph).toContainText('navigation draft');
+  await expect(page).toHaveURL(new RegExp(`document=${nextId}`));
+});
+
+test('a stale Note save requires copying the typed draft before opening the server revision', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await mockLogin(page, { documentCount: 1 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' local conflict draft');
+  await expect(paragraph).toContainText('local conflict draft');
+  let puts = 0;
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}/snapshot`, route => {
+    puts++;
+    return route.fulfill({ status: 409, contentType: 'application/json', body: '{"status":"conflict"}' });
+  });
+  const note = page.locator('[data-server-note-workspace]');
+  await note.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(note.getByText('서버의 최신본이 변경되었습니다.')).toBeVisible();
+  expect(puts).toBe(1);
+  await expect(paragraph).toContainText('local conflict draft');
+  await expect(note.getByRole('button', { name: '저장', exact: true })).toBeDisabled();
+  await expect(note.getByRole('button', { name: '서버 최신본 열기' })).toBeDisabled();
+  await note.getByRole('button', { name: '초안 복사' }).click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain('local conflict draft');
+  expect(JSON.parse(copied).format).toBe('barocss-note');
+  const latestSnapshot = JSON.stringify({ format: 'barocss-note', version: 1,
+    document: { stype: 'note', attributes: { title: 'Alpha Note', pageId },
+      content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Server latest' }] }] } });
+  await page.unroute(`**/api/v1/tenants/${id}/documents/${documentId}`);
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ document: { ...documentHead, revision: 2, snapshotHash: createHash('sha256').update(latestSnapshot).digest('hex') }, snapshotText: latestSnapshot }) }));
+  page.once('dialog', dialog => void dialog.accept());
+  await note.getByRole('button', { name: '서버 최신본 열기' }).click();
+  await expect(page.locator('[data-server-note-workspace] .on-doc > p').first()).toContainText('Server latest');
+  expect(puts).toBe(1);
+});
+
 test('operator-only identity reaches operator entry after current server grant', async ({ page }) => {
   await mockLogin(page, { tenants: 0, operatorStatus: 200 });
   await page.goto('/');

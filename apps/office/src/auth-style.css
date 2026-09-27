@@ -5,6 +5,7 @@
 .office-auth-brand small { color: #565e67; font-size: 13px; }
 .office-auth section { max-width: 680px; margin: clamp(52px, 12vh, 140px) auto 0; }
 .office-auth .office-auth-note-host { max-width: none; margin-top: 20px; }
+.office-auth .office-auth-note-host[hidden] { display: none; }
 .office-auth h1 { margin: 0 0 16px; font-size: clamp(30px, 4vw, 44px); line-height: 1.18; letter-spacing: -.04em; }
 .office-auth p { margin: 0 0 18px; }
 .office-auth-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
