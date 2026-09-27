@@ -47,10 +47,11 @@ export class PlatformOperatorStore {
         WHERE identity_id = $1 AND revoked_at IS NULL`, [identityId]) : null;
       denied = !grant?.rowCount;
       if (!denied) value = await read(client);
-      // The app role can append only its current verified identity's audit row.
-      if (identityId) await client.query(`INSERT INTO wonffice.platform_operator_reads
-        (id, identity_id, operation, outcome) VALUES ($1, $2, $3, $4)`,
-      [randomUUID(), identityId, operation, denied ? 'forbidden' : 'allowed']);
+      // Every verified principal is audited, including one without an identity row.
+      await client.query(`INSERT INTO wonffice.platform_operator_reads
+        (id, identity_id, issuer, subject, operation, outcome) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [randomUUID(), identityId ?? null, principal.issuer, principal.subject,
+        operation, denied ? 'forbidden' : 'allowed']);
       await client.query('COMMIT');
       await client.query("SELECT set_config('wonffice.tenant_id', '', false)");
       await client.query("SELECT set_config('wonffice.oidc_issuer', '', false)");

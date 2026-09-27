@@ -9,6 +9,8 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { migrate } from '../../office-service/dist/migrate.js';
 import { MembershipStore } from '@barocss/office-service/membership-store';
 import { DocumentStore } from '@barocss/office-service/document-store';
+import { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
+import { applyPlatformOperatorChange } from '../../office-service/dist/platform-operator-admin.js';
 import { readAuthConfig } from '../dist/auth-config.js';
 import { createOidcVerifier } from '../dist/oidc.js';
 import { createApiServer } from '../dist/server.js';
@@ -81,7 +83,8 @@ try {
   [alpha, aliceId, bobId, beta]);
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 3 }); pools.push(pool);
   const dependencies = () => ({ verifier: createOidcVerifier(authConfig),
-    memberships: new MembershipStore(pool), documents: new DocumentStore(pool) });
+    memberships: new MembershipStore(pool), documents: new DocumentStore(pool),
+    operators: new PlatformOperatorStore(pool) });
   app = createApiServer(dependencies());
   const alice = { authorization: `Bearer ${await token('alice')}` };
   const bob = { authorization: `Bearer ${await token('bob')}` };
@@ -123,6 +126,55 @@ try {
     const different = await post(docUrl, alice, { ...create, snapshotText: file('changed') });
     assert.equal(different.statusCode, 409);
     assert.deepEqual(different.json(), { status: 'key_reuse' });
+  });
+  await check('signed operator grant never opens tenant documents and every denied probe is audited', async () => {
+    const operator = { authorization: `Bearer ${await token('operator')}` };
+    const unknown = { authorization: `Bearer ${await token('unknown-operator')}` };
+    const forbidden = async (url, headers) => {
+      const response = await app.inject({ url, headers });
+      assert.equal(response.statusCode, 403, response.body);
+      assert.deepEqual(response.json(), { status: 'forbidden' });
+    };
+    await forbidden('/v1/operator/access', unknown);
+    await forbidden('/v1/operator/tenants', unknown);
+    await forbidden('/v1/operator/status', unknown);
+    await forbidden('/v1/operator/access', alice);
+    const grant = { action: 'grant', issuer, subject: 'operator',
+      actorRef: 'LOCAL-API-TEST', approvalRef: 'LOCAL-API-OPERATOR-GRANT' };
+    assert.deepEqual(await applyPlatformOperatorChange(owner, grant), { applied: true });
+    const access = await app.inject({ url: '/v1/operator/access', headers: operator });
+    assert.equal(access.statusCode, 200);
+    assert.deepEqual(access.json(), { operator: true });
+    const tenants = await app.inject({ url: '/v1/operator/tenants', headers: operator });
+    assert.equal(tenants.statusCode, 200);
+    assert.deepEqual(tenants.json().tenants.map(row => row.tenantId).sort(), [alpha, beta].sort());
+    assert.equal(tenants.body.includes(documentId), false);
+    assert.equal(tenants.body.includes(documentKey), false);
+    const status = await app.inject({ url: '/v1/operator/status', headers: operator });
+    assert.equal(status.statusCode, 200);
+    assert.deepEqual(status.json().ready, { httpStatus: 503, status: 'service_not_configured' });
+    await forbidden(`${docUrl}/${documentId}`, operator);
+    await forbidden(docUrl, operator);
+    const open = (await app.inject({ url: `${docUrl}/${documentId}`, headers: alice })).json();
+    const write = await app.inject({ method: 'PUT', url: `${docUrl}/${documentId}/snapshot`,
+      headers: operator, payload: { expectedRevision: 1,
+        snapshotText: file('operator-write').replace('source-page', open.document.pageId),
+        idempotencyKey: 'operator-write' } });
+    assert.equal(write.statusCode, 403, write.body);
+    assert.deepEqual(write.json(), { status: 'forbidden' });
+    const createAsOperator = await post(docUrl, operator,
+      { ...create, idempotencyKey: 'operator-create' });
+    assert.equal(createAsOperator.statusCode, 403, createAsOperator.body);
+    assert.deepEqual(createAsOperator.json(), { status: 'forbidden' });
+    const reads = await owner.query(`SELECT identity_id, subject, operation, outcome
+      FROM wonffice.platform_operator_reads WHERE subject = 'unknown-operator' ORDER BY operation`);
+    assert.deepEqual(reads.rows, ['access', 'status', 'tenants'].map(operation => ({
+      identity_id: null, subject: 'unknown-operator', operation, outcome: 'forbidden',
+    })));
+    assert.deepEqual(await applyPlatformOperatorChange(owner,
+      { ...grant, action: 'revoke', approvalRef: 'LOCAL-API-OPERATOR-REVOKE' }), { applied: true });
+    await forbidden('/v1/operator/access', operator);
+    await forbidden('/v1/operator/tenants', operator);
   });
   await check('snapshot revision, metadata revision and revoked membership reject writes', async () => {
     const initial = (await app.inject({ url: `${docUrl}/${documentId}`, headers: alice })).json();

@@ -19,7 +19,9 @@ CREATE TABLE wonffice.platform_operator_events (
 );
 CREATE TABLE wonffice.platform_operator_reads (
   id uuid PRIMARY KEY,
-  identity_id uuid NOT NULL REFERENCES wonffice.identities(id) ON DELETE RESTRICT,
+  identity_id uuid REFERENCES wonffice.identities(id) ON DELETE RESTRICT,
+  issuer text NOT NULL CHECK (char_length(issuer) BETWEEN 1 AND 2048),
+  subject text NOT NULL CHECK (char_length(subject) BETWEEN 1 AND 255),
   operation text NOT NULL CHECK (operation IN ('access', 'tenants', 'status')),
   outcome text NOT NULL CHECK (outcome IN ('allowed', 'forbidden')),
   created_at timestamptz NOT NULL DEFAULT now()
@@ -40,7 +42,14 @@ CREATE POLICY platform_read_owner ON wonffice.platform_operator_reads TO wonffic
 CREATE POLICY platform_grant_self ON wonffice.platform_operator_grants TO wonffice_app
   USING (identity_id IN (SELECT id FROM wonffice.identities));
 CREATE POLICY platform_read_self ON wonffice.platform_operator_reads TO wonffice_app
-  WITH CHECK (identity_id IN (SELECT id FROM wonffice.identities));
+  WITH CHECK (
+    issuer = NULLIF(current_setting('wonffice.oidc_issuer', true), '')
+    AND subject = NULLIF(current_setting('wonffice.oidc_subject', true), '')
+    AND (identity_id IS NULL OR identity_id IN (
+      SELECT id FROM wonffice.identities WHERE issuer = NULLIF(current_setting('wonffice.oidc_issuer', true), '')
+        AND subject = NULLIF(current_setting('wonffice.oidc_subject', true), '')
+    ))
+  );
 GRANT SELECT ON wonffice.platform_operator_grants TO wonffice_app;
 GRANT INSERT ON wonffice.platform_operator_reads TO wonffice_app;
 GRANT SELECT ON wonffice.platform_operator_grants, wonffice.platform_operator_events,

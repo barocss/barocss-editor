@@ -96,14 +96,21 @@ try {
     await assert.rejects(pool.query(`INSERT INTO wonffice.platform_operator_events
       (id, identity_id, actor_ref, approval_ref, action) VALUES (gen_random_uuid(), gen_random_uuid(), $1, $2, $3)`,
       ['unsafe', 'unsafe', 'grant']), { code: '42501' });
-    const reads = await owner.query('SELECT operation, outcome FROM wonffice.platform_operator_reads ORDER BY created_at, id');
+    const reads = await owner.query(`SELECT identity_id, issuer, subject, operation, outcome
+      FROM wonffice.platform_operator_reads ORDER BY created_at, id`);
     assert.equal(reads.rows.filter(row => row.outcome === 'allowed').length, 2);
-    assert.equal(reads.rows.filter(row => row.outcome === 'forbidden').length, 1);
+    assert.deepEqual(reads.rows.filter(row => row.outcome === 'forbidden').map(row => ({
+      identity_id: row.identity_id, issuer: row.issuer, subject: row.subject,
+    })).sort((a, b) => a.subject.localeCompare(b.subject)), [
+      { identity_id: ownerId, issuer, subject: companyOwner.subject },
+      { identity_id: null, issuer, subject: nonoperator.subject },
+    ]);
   });
   await check('audit write failure prevents an operator read from succeeding', async () => {
     await owner.query('REVOKE INSERT ON wonffice.platform_operator_reads FROM wonffice_app');
     try {
       await assert.rejects(service.getAccess(operator), { code: '42501' });
+      await assert.rejects(service.getAccess(nonoperator), { code: '42501' });
     } finally {
       await owner.query('GRANT INSERT ON wonffice.platform_operator_reads TO wonffice_app');
     }
@@ -116,7 +123,7 @@ try {
     await assert.rejects(service.listTenantProvisioning(operator), PlatformOperatorAccessDeniedError);
     assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice.platform_operator_events')).rows[0].count, 2);
     assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.platform_operator_reads
-      WHERE outcome = 'forbidden'`)).rows[0].count, 3);
+      WHERE outcome = 'forbidden'`)).rows[0].count, 4);
   });
   await check('backup restores revoked grant and both audit tables without reviving access', async () => {
     const snapshot = async client => {
