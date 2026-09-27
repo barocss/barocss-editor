@@ -85,7 +85,7 @@ export class DocumentSession {
     const id = new URLSearchParams(location.hash.slice(1)).get(this.options.key);
     if (id) {
       try { await this.open(id); } catch { if (!this.stopped) this.notify(this.quarantined ? '복구 필요' : '복원 실패'); }
-    } else { this.hasCurrentDocument = true; this.remember(); this.capture(); this.schedule(); }
+    } else { this.remember(); this.capture(); this.schedule(); }
     if (!this.stopped && ['note', 'word', 'slides', 'site'].includes(this.options.key))
       this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, beforeNavigate: () => this.beforeReplace() });
   }
@@ -114,6 +114,7 @@ export class DocumentSession {
     if (text === this.last) return;
     this.last = text;
     this.writes.capture({ name: this.id, title, count }, text);
+    this.hasCurrentDocument = true;
   }
   async flush() {
     clearTimeout(this.timer);

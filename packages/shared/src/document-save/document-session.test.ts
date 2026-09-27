@@ -131,4 +131,37 @@ describe('local document session', () => {
     expect(await one.session.open('a')).toBe(true);
     expect(one.content()).toBe('A saved');
   });
+  it('reopens the saved current document after a missing startup document and failed replacement', async () => {
+    history.replaceState(null, '', '#test=missing');
+    const one = setup(); running.push(one.session);
+    await one.session.start();
+    expect(one.notify).toHaveBeenLastCalledWith('복원 실패');
+
+    one.edit('B saved after startup failure');
+    const b = one.session.id;
+    expect(await one.session.flush()).toBe(true);
+    expect(one.records.get(b)?.text).toBe('B saved after startup failure');
+    one.records.set('a', { row: { name: 'a', revision: 1 }, text: 'A saved' });
+    const replace = one.options.replace;
+    one.options.replace = () => { one.edit('partial A'); throw new Error('load failed'); };
+    await expect(one.session.open('a')).rejects.toThrow('load failed');
+    expect(one.session.recoveryRequired).toBe(true);
+    one.options.replace = replace;
+    expect(await one.session.open(b)).toBe(true);
+    expect(one.content()).toBe('B saved after startup failure');
+    expect(one.session.recoveryRequired).toBe(false);
+  });
+  it('retries the original startup target when no current document was saved', async () => {
+    history.replaceState(null, '', '#test=startup');
+    const one = setup(); running.push(one.session);
+    one.records.set('startup', { row: { name: 'startup', revision: 1 }, text: 'saved startup' });
+    const replace = one.options.replace;
+    one.options.replace = () => { one.edit('partial startup'); throw new Error('load failed'); };
+    await one.session.start();
+    expect(one.session.recoveryRequired).toBe(true);
+    one.options.replace = replace;
+    expect(await one.session.open('startup')).toBe(true);
+    expect(one.content()).toBe('saved startup');
+    expect(one.session.recoveryRequired).toBe(false);
+  });
 });
