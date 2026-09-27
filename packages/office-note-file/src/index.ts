@@ -5,6 +5,23 @@ import {
   readNoteSnapshotFile as read,
   serializeNoteFile as serialize
 } from '@barocss/office-note/file';
+export {
+  NOTE_FULL_SEED_V2,
+  parseFullNoteSeedSource,
+  createFullNoteSeed,
+  decodeFullNoteSeedTree,
+  typedFullNoteSeedTree,
+  canonicalFullNoteSeedHash,
+  createInitialFullNoteSeedRoot,
+  decodeFullNoteSeedRoot,
+  decodeInitialFullNoteSeedRoot,
+  type FullNoteSeed,
+  type FullNoteSeedNode,
+  type FullNoteSeedSource,
+  type FullNoteSeedMarker,
+  type FullNoteEditProof,
+  type FullNoteSeedRoot
+} from './note-full-seed-v2';
 
 export const NOTE_FILE_FORMAT = format;
 export const NOTE_FILE_VERSION = version;
