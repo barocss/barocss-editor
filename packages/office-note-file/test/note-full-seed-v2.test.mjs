@@ -165,4 +165,32 @@ test('initial seed marker binds immutable source while live edit proofs remain s
   assert.notEqual(canonicalFullNoteSeedHash(changed.note), seed.canonicalTreeHash);
   assert.throws(() => decodeFullNoteSeedRoot({ ...changed,
     editProofs: [...changed.editProofs, changed.editProofs[0]] }), /editProofs\[1\]/);
+  const sparseProofs = new Array(1);
+  assert.throws(() => decodeFullNoteSeedRoot({ ...root, editProofs: sparseProofs }), /root.editProofs/);
+});
+
+test('provider dataset records reject non-JSON runtime objects without erasing values', () => {
+  const source = parseFullNoteSeedSource(file([paragraph('body'), { stype: 'resources', content: [
+    { stype: 'dataset', attributes: { name: 'tasks', rowIds: ['row-1'],
+      records: [{ details: { nested: ['safe', { unicode: '🌿', empty: '' }] } }] } }
+  ] }]));
+  const seed = createFullNoteSeed(source, { pageId: 'page-1', mintNodeId: mint() });
+  assert.deepEqual(decodeFullNoteSeedTree(seed.tree), seed.tree);
+  assert.deepEqual(seed.tree.content[1].content[0].attributes.records[0].details,
+    { nested: ['safe', { unicode: '🌿', empty: '' }] });
+  const record = seed.tree.content[1].content[0].attributes.records[0];
+  for (const unsupported of [new Date('2026-09-28T00:00:00Z'),
+    new Map([['critical', 'kept']]), new Set(['critical']), /critical/]) {
+    record.details = unsupported;
+    assert.throws(() => decodeFullNoteSeedTree(seed.tree), /invalid_note_full_seed_source/);
+  }
+  record.details = { nested: ['safe', { unicode: '🌿', empty: '' }] };
+  const sparse = new Array(2);
+  sparse[1] = 'survives';
+  record.details = sparse;
+  assert.throws(() => decodeFullNoteSeedTree(seed.tree), /invalid_note_full_seed_source/);
+  const accessor = {};
+  Object.defineProperty(accessor, 'critical', { enumerable: true, get: () => 'kept' });
+  record.details = accessor;
+  assert.throws(() => decodeFullNoteSeedTree(seed.tree), /invalid_note_full_seed_source/);
 });

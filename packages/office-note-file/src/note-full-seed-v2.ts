@@ -64,8 +64,18 @@ export interface FullNoteSeedRoot {
 const definition = getNoteSchemaDefinition();
 const nodeDefinitions = definition.nodes;
 const markDefinitions = definition.marks ?? {};
-const record = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value);
+const record = (value: unknown): value is Record<string, unknown> => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  try {
+    const prototype: unknown = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return false;
+    return Reflect.ownKeys(value).every(key => {
+      if (typeof key !== 'string') return false;
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      return !!descriptor?.enumerable && Object.hasOwn(descriptor, 'value');
+    });
+  } catch { return false; }
+};
 function fail(path: string): never { throw new Error(`invalid_note_full_seed_source:${path}`); }
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
@@ -124,7 +134,15 @@ function json(value: unknown, path: string, depth = 0): Json {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
   if (typeof value === 'number' && Number.isFinite(value) && !Object.is(value, -0) &&
       (!Number.isInteger(value) || Number.isSafeInteger(value))) return value;
-  if (Array.isArray(value)) return value.map((item, index) => json(item, `${path}[${index}]`, depth + 1));
+  if (Array.isArray(value)) {
+    if (Object.getPrototypeOf(value) !== Array.prototype ||
+        Reflect.ownKeys(value).length !== value.length + 1 ||
+        !Array.from({ length: value.length }, (_, index) => {
+          const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+          return !!descriptor?.enumerable && Object.hasOwn(descriptor, 'value');
+        }).every(Boolean)) fail(path);
+    return value.map((item, index) => json(item, `${path}[${index}]`, depth + 1));
+  }
   if (!record(value)) fail(path);
   const result: JsonObject = {};
   for (const [key, item] of Object.entries(value)) {
@@ -325,6 +343,7 @@ export function createInitialFullNoteSeedRoot(seed: FullNoteSeed, identity: {
   seedId: string; documentKey: string; providerProject: string;
   providerBuild: string; snapshotRevision: number;
 }): FullNoteSeedRoot {
+  if (!record(identity)) fail('marker');
   fields(identity as Record<string, unknown>, ['seedId', 'documentKey', 'providerProject',
     'providerBuild', 'snapshotRevision'], 'marker');
   if (Object.keys(identity).length !== 5) fail('marker');
@@ -361,8 +380,9 @@ export function decodeFullNoteSeedRoot(value: unknown): FullNoteSeedRoot {
   const note = decodeFullNoteSeedTree(value.note);
   if (note.attributes?.pageId !== marker.pageId) fail('root.page_id');
   if (!Array.isArray(value.editProofs)) fail('root.editProofs');
+  const proofInput = json(value.editProofs, 'root.editProofs') as Json[];
   const proofKeys = new Set<string>();
-  const editProofs = value.editProofs.map((entry, index) => {
+  const editProofs = proofInput.map((entry, index) => {
     if (!record(entry)) fail(`root.editProofs[${index}]`);
     fields(entry, ['actor', 'session', 'editId', 'operationHash'], `root.editProofs[${index}]`);
     if (Object.keys(entry).length !== 4 ||
