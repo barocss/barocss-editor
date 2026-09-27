@@ -227,7 +227,11 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const openLatestAfterConflict = async () => {
     if (currentProblem?.kind !== 'conflict' || !currentOpen?.documentId || busy ||
       conflictCopy?.generation !== currentOpen.generation) return;
-    if (conflictCopy.snapshotText !== draftSnapshot()) {
+    const copied = readNoteSnapshotFile(conflictCopy.snapshotText);
+    const currentText = draftSnapshot();
+    const current = currentText ? readNoteSnapshotFile(currentText) : null;
+    if ('error' in copied || !current || 'error' in current ||
+      JSON.stringify(copied.document) !== JSON.stringify(current.document)) {
       setConflictCopy(undefined);
       setProblem({ owner: client, kind: 'conflict', message: '복사한 뒤 초안이 바뀌었습니다. 변경된 초안을 다시 복사하세요.' });
       return;
