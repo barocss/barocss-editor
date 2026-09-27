@@ -117,6 +117,30 @@ export class TransactionManager {
     operations: (TransactionOperation | OpFunction)[],
     options?: TransactionOptions
   ): Promise<TransactionResult> {
+    // Capture the compatibility flag before waiting for another transaction.
+    return this._execute(operations, options, this._isUndoRedoOperation);
+  }
+
+  /** Select and finalize a replay under the same lock as ordinary edits. */
+  async replayHistory(direction: 'undo' | 'redo'): Promise<boolean> {
+    try {
+      const result = await this._execute([], {
+        applySelectionToView: false,
+        provenance: { origin: 'history' }
+      }, true, direction);
+      return result.committed === true;
+    } catch (error) {
+      console.error(`[Editor] ${direction} failed:`, error);
+      return false;
+    }
+  }
+
+  private async _execute(
+    operations: (TransactionOperation | OpFunction)[],
+    options: TransactionOptions | undefined,
+    isReplay: boolean,
+    replayDirection?: 'undo' | 'redo'
+  ): Promise<TransactionResult> {
     let lockId: string | null = null;
     let ownsTransaction = false;
     let ownsOverlay = false;
@@ -133,6 +157,19 @@ export class TransactionManager {
       // 1. Acquire global lock
       lockId = await this._dataStore.acquireLock('transaction-execution');
 
+      let replaySelection: ModelSelection | null | undefined;
+      if (replayDirection) {
+        const history = this._editor.historyManager;
+        const entry = replayDirection === 'undo' ? history.peekUndo() : history.peekRedo();
+        if (!entry) return { success: false, committed: false, errors: [] };
+        operations = replayDirection === 'undo' ? entry.inverseOperations : entry.operations;
+        const key = replayDirection === 'undo' ? 'selectionBefore' : 'selectionAfter';
+        if (entry.metadata && Object.prototype.hasOwnProperty.call(entry.metadata, key)) {
+          const selection = entry.metadata[key] as ModelSelection | null | undefined;
+          replaySelection = selection ? { ...selection } : selection;
+        }
+      }
+
       // 2. Start transaction
       if (this._dataStore.isTransactionActive()) {
         throw new Error('DataStore transaction already in progress');
@@ -141,7 +178,7 @@ export class TransactionManager {
       ownsTransaction = true;
       // Capture replay policy for this execution. A different queued editor
       // action must never change the history decision of the lock owner.
-      isHistoryReplay = options?.provenance?.origin === 'history' || this._isUndoRedoOperation;
+      isHistoryReplay = isReplay || options?.provenance?.origin === 'history';
       guard = preCommitGuards.get(this._editor);
       if (guard) {
         // Some structural operations mutate references from the committed map
@@ -307,6 +344,14 @@ export class TransactionManager {
         }
       };
 
+      // Commit observers may queue another edit. Move the cursor before those
+      // requests can acquire the lock, but never before the model commit.
+      if (replayDirection) {
+        this._editor.historyManager[replayDirection]();
+        this._editor.historyManager.closeGroup();
+      }
+      if (replaySelection !== undefined) context.selection.current = replaySelection;
+
       // Final selection state
       const selectionAfter = context.selection.current;
       afterCommit('selection validation', () => this._warnOnDanglingSelection(selectionBefore, selectionAfter, executedOperations));
@@ -418,7 +463,8 @@ export class TransactionManager {
       
       // Pass selectionAfter to updateSelection only when applySelectionToView !== false
       // (e.g. skip for remote sync or programmatic change)
-      const applySelectionToView = provenance?.origin !== 'remote' && options?.applySelectionToView !== false;
+      const applySelectionToView = provenance?.origin !== 'remote' &&
+        (replaySelection !== undefined || options?.applySelectionToView !== false);
       if (applySelectionToView) {
         afterCommit('selection update', () => this._editor.updateSelection(selectionAfter));
       }

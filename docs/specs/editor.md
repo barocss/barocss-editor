@@ -123,11 +123,16 @@ This section is used as the checklist when comparing behavior to `ProseMirror`-s
 - A history entry should represent one logical editor command when the command is user initiated.
 - For history operations that create/replace blocks, `selectionAfter` must point to a valid location in text content for the next insertion point.
 - Undo/redo replay should preserve `selectionAfter` semantics consistently across view layers (DOM/React).
+- Local replay and ordinary model edits acquire the same FIFO DataStore lock. Replay selects its undo or redo entry only after acquiring that lock, so a queued edit can commit before entry selection.
+- A replay advances the history cursor and closes the typing group only after its model commit. An operation refusal, exception, or lock failure before commit leaves the document, selection, history cursor, and typing group unchanged. The caller may retry the same entry.
+- After a model commit, a later hook or selection notification error is reported as a post-commit error; `editor.undo()` or `editor.redo()` still returns `true`. The committed operation must not be replayed again to recover that notification.
+- This contract covers one editor's local operation history. It does not turn file or server snapshots into undo entries, and it does not provide actor-safe undo for collaborative documents.
 
 ### 6.3 Acceptance tests for standard compliance
 
 - `packages/editor-core/test/commands.test.ts` (command-to-transaction wiring)
 - `packages/editor-core/test/undo-redo-history.test.ts` (history shape and replay)
+- `packages/model/test/transaction/replay-history.test.ts` and `replay-order.test.ts` (failure recovery and FIFO ordering)
 - `packages/editor-core/test/editor.test.ts` (selection event flow)
 - `packages/editor-view-dom/test/core/editor-view-dom.test.ts` (local vs remote selection application)
 - `packages/editor-view-react/test/EditorView.test.tsx` (selection conversion entry points)
