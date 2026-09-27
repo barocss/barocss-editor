@@ -74,9 +74,6 @@ try {
       .setIssuedAt().setExpirationTime(expiry).sign(keys.privateKey);
   await owner.query('INSERT INTO wonffice.tenants (id, name) VALUES ($1, $2), ($3, $4)',
     [alpha, 'Alpha', beta, 'Beta']);
-  await owner.query(`INSERT INTO wonffice.workspaces (tenant_id, id, name)
-    VALUES ($1, $2, 'Alpha workspace'), ($3, $4, 'Beta workspace')`,
-  [alpha, workspaceA, beta, workspaceB]);
   await owner.query('INSERT INTO wonffice.identities (id, issuer, subject) VALUES ($1, $2, $3), ($4, $2, $5)',
     [aliceId, issuer, 'alice', bobId, 'bob']);
   await owner.query(`INSERT INTO wonffice.tenant_memberships (tenant_id, identity_id, role)
@@ -84,12 +81,62 @@ try {
   [alpha, aliceId, bobId, beta]);
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 3 }); pools.push(pool);
   const dependencies = () => ({ verifier: createOidcVerifier(authConfig),
-    memberships: new MembershipStore(pool), documents: new DocumentStore(pool),
+    memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
+    documents: new DocumentStore(pool),
     operators: new PlatformOperatorStore(pool), companyMembers: new CompanyMemberStore(pool) });
   app = createApiServer(dependencies());
   const alice = { authorization: `Bearer ${await token('alice')}` };
   const bob = { authorization: `Bearer ${await token('bob')}` };
   const docUrl = `/v1/tenants/${alpha}/documents`;
+  const workspaceUrl = `/v1/tenants/${alpha}/workspaces`;
+  await check('workspace discovery distinguishes no workspaces from authentication and tenant denial', async () => {
+    assert.equal((await app.inject(workspaceUrl)).statusCode, 401);
+    assert.equal((await app.inject({ url: workspaceUrl,
+      headers: { authorization: `Bearer ${await token('alice', Math.floor(Date.now() / 1000) - 30)}` } })).statusCode, 401);
+    const empty = await app.inject({ url: workspaceUrl, headers: alice });
+    assert.equal(empty.statusCode, 200, empty.body);
+    assert.deepEqual(empty.json(), { workspaces: [], nextCursor: null });
+    assert.equal((await app.inject({ url: `/v1/tenants/${beta}/workspaces`, headers: alice })).statusCode, 403);
+    assert.equal((await app.inject({ url: '/v1/tenants/not-uuid/workspaces', headers: alice })).statusCode, 400);
+    assert.equal((await app.inject({ url: `${workspaceUrl}?after=not-uuid`, headers: alice })).statusCode, 400);
+  });
+  await owner.query(`INSERT INTO wonffice.workspaces (tenant_id, id, name)
+    VALUES ($1, $2, 'Alpha workspace'), ($3, $4, 'Beta workspace')`,
+  [alpha, workspaceA, beta, workspaceB]);
+  await check('workspace pages contain only authorized tenant IDs and reject foreign cursors', async () => {
+    const extra = Array.from({ length: 51 }, (_, index) => ({ id: randomUUID(), name: `Alpha ${index}` }));
+    for (const row of extra) await owner.query('INSERT INTO wonffice.workspaces (tenant_id, id, name) VALUES ($1, $2, $3)',
+      [alpha, row.id, row.name]);
+    const first = await app.inject({ url: workspaceUrl, headers: alice });
+    assert.equal(first.statusCode, 200, first.body);
+    assert.equal(first.json().workspaces.length, 50);
+    assert.ok(first.json().nextCursor);
+    const second = await app.inject({ url: `${workspaceUrl}?after=${first.json().nextCursor}`, headers: alice });
+    assert.equal(second.statusCode, 200, second.body);
+    assert.equal(second.json().workspaces.length, 2);
+    assert.equal(second.json().nextCursor, null);
+    const all = [...first.json().workspaces, ...second.json().workspaces];
+    assert.deepEqual(all.map(row => row.id), [workspaceA, ...extra.map(row => row.id)].sort());
+    assert.deepEqual(all.map(row => Object.keys(row).sort()), Array(52).fill(['id', 'name']));
+    const betaPage = await app.inject({ url: `/v1/tenants/${beta}/workspaces`, headers: bob });
+    assert.deepEqual(betaPage.json(), { workspaces: [{ id: workspaceB, name: 'Beta workspace' }], nextCursor: null });
+    for (const after of [workspaceB, randomUUID()]) {
+      const invalid = await app.inject({ url: `${workspaceUrl}?after=${after}`, headers: alice });
+      assert.equal(invalid.statusCode, 400, invalid.body);
+      assert.deepEqual(invalid.json(), { status: 'invalid_cursor' });
+    }
+  });
+  await check('workspace database outage is 503, not an empty list', async () => {
+    const unavailablePool = new pg.Pool({ ...config('wonffice_app', 'missing_database'), connectionTimeoutMillis: 500 });
+    const unavailableMemberships = new MembershipStore(unavailablePool);
+    const unavailable = createApiServer({ verifier: createOidcVerifier(authConfig),
+      memberships: unavailableMemberships, workspaces: unavailableMemberships });
+    try {
+      const response = await unavailable.inject({ url: workspaceUrl, headers: alice });
+      assert.equal(response.statusCode, 503, response.body);
+      assert.deepEqual(response.json(), { status: 'service_unavailable' });
+    } finally { await unavailable.close(); await unavailablePool.end(); }
+  });
   const file = text => JSON.stringify({ format: 'barocss-note', version: 1,
     document: { stype: 'note', attributes: { title: 'Plan', pageId: 'source-page' },
       content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text }] }] } });
@@ -195,6 +242,7 @@ try {
     await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at = now() WHERE tenant_id = $1 AND identity_id = $2',
       [alpha, bobId]);
     assert.equal((await app.inject({ url: `${docUrl}/${documentId}`, headers: bob })).statusCode, 403);
+    assert.equal((await app.inject({ url: workspaceUrl, headers: bob })).statusCode, 403);
     assert.equal((await app.inject({ url: `${docUrl}/${documentId}`, headers: alice })).statusCode, 200);
   });
   await check('new API process objects reopen the same PostgreSQL document/key', async () => {
@@ -246,6 +294,7 @@ try {
       headers: alphaOwner });
     assert.equal(revoke.statusCode, 200, revoke.body);
     assert.equal((await get(`/v1/tenants/${alpha}/access`, alice)).statusCode, 403);
+    assert.equal((await get(workspaceUrl, alice)).statusCode, 403);
     assert.equal((await get(`${docUrl}/${documentId}`, alice)).statusCode, 403);
     await app.close();
     app = createApiServer(dependencies());

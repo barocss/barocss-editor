@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { TenantAccessDeniedError } from '@barocss/office-service/membership-store';
+import { InvalidWorkspaceCursorError, TenantAccessDeniedError } from '@barocss/office-service/membership-store';
 import type { MembershipStore, VerifiedPrincipal } from '@barocss/office-service/membership-store';
 import type { PlatformOperatorStore } from '@barocss/office-service/platform-operator-store';
 import type { CompanyMemberStore } from '@barocss/office-service/company-member-store';
@@ -23,6 +23,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export interface ApiAuthDependencies {
   verifier: OidcVerifier;
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
+  workspaces?: Pick<MembershipStore, 'listWorkspaces'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
   operators?: Pick<PlatformOperatorStore, 'getAccess' | 'getStatusAccess' | 'listTenantProvisioning'>;
   companyMembers?: Pick<CompanyMemberStore, 'listMembers' | 'setRole' | 'revoke'>;
@@ -120,6 +121,25 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         return reply.code(503).send({ status: 'service_unavailable' });
       }
     });
+    const workspaces = auth.workspaces;
+    if (workspaces) {
+      app.get('/v1/tenants/:tenantId/workspaces', async (request, reply) => {
+        const principal = await authenticate(request, reply);
+        if (!principal) return;
+        const { tenantId } = request.params as { tenantId: string };
+        const query = request.query as Record<string, unknown>;
+        if (!uuid.test(tenantId) || Object.keys(query).some(key => key !== 'after') ||
+          (query.after !== undefined && (typeof query.after !== 'string' || !uuid.test(query.after)))) {
+          return reply.code(400).send({ status: 'invalid_request' });
+        }
+        try { return await workspaces.listWorkspaces(principal, tenantId, query.after as string | undefined); }
+        catch (error) {
+          if (error instanceof TenantAccessDeniedError) return reply.code(403).send({ status: 'forbidden' });
+          if (error instanceof InvalidWorkspaceCursorError) return reply.code(400).send({ status: 'invalid_cursor' });
+          return reply.code(503).send({ status: 'service_unavailable' });
+        }
+      });
+    }
     if (auth.operators) registerOperatorRoutes(app, { authenticate, operators: auth.operators });
     if (auth.companyMembers) registerCompanyMemberRoutes(app,
       { authenticate, companyMembers: auth.companyMembers });

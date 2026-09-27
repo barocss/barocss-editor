@@ -85,7 +85,8 @@ try {
     OFFICE_OIDC_AUDIENCE: fixture.audience, OFFICE_API_DATABASE_URL: 'postgresql://synthetic/unused' });
   if (!auth) throw new Error('synthetic_auth_config_missing');
   app = createApiServer({ verifier: createOidcVerifier(auth),
-    memberships: new MembershipStore(pool), documents: new DocumentStore(pool),
+    memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
+    documents: new DocumentStore(pool),
     operators: new PlatformOperatorStore(pool), companyMembers: new CompanyMemberStore(pool) });
   await app.listen({ host: '127.0.0.1', port });
   console.log(JSON.stringify({ event: 'office_auth_ui_local_api_ready', port }));

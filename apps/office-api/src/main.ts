@@ -16,6 +16,7 @@ async function main(): Promise<void> {
   const app = createApiServer(authConfig && pool ? {
     verifier: createOidcVerifier(authConfig),
     memberships: new MembershipStore(pool),
+    workspaces: new MembershipStore(pool),
     operators: new PlatformOperatorStore(pool),
     companyMembers: new CompanyMemberStore(pool),
     documents: new DocumentStore(pool),
