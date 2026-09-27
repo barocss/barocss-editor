@@ -45,8 +45,8 @@ test('two independent Keycloak accounts reach server-derived Office entry', asyn
       } else {
         await expect(page.getByRole('heading', { name: '회사를 선택하세요' })).toBeVisible();
         await page.locator('.office-auth-tenants button').first().click();
-        await expect(page.getByText('이 회사에는 저장된 문서가 없습니다.')).toBeVisible();
-        await expect(page.getByText('서버 문서 자료함은 아직 연결되지 않았습니다.')).toBeVisible();
+        await expect(page.getByRole('heading', { name: /· 사용자/ })).toBeVisible();
+        await expect(page.getByRole('button', { name: /^(Alpha|Beta) workspace$/ })).toBeVisible();
       }
       await expect(page.locator('.office-auth')).toBeVisible();
       await page.getByRole('button', { name: '로그아웃' }).click();
@@ -134,5 +134,60 @@ test('account switch can select the other Keycloak user without restoring prior 
     await expect(page.getByRole('heading', { name: 'Synthetic Alpha · 사용자' })).toHaveCount(0);
   } finally {
     await context.close();
+  }
+});
+
+test('two real accounts open one PostgreSQL Note while viewer cannot write', async ({ browser }) => {
+  const fixture = syntheticAccounts();
+  const ownerContext = await browser.newContext();
+  const viewerContext = await browser.newContext();
+  try {
+    const owner = await ownerContext.newPage();
+    await signIn(owner, 'alpha-editor', fixture.users['alpha-editor'].password, '일반 사용자로 들어가기');
+    await owner.getByRole('button', { name: /Synthetic Alpha/ }).click();
+    await owner.getByRole('button', { name: 'Alpha workspace' }).click();
+    await owner.getByRole('button', { name: '새 Note 만들기' }).click();
+    await owner.getByRole('button', { name: '새 노트', exact: true }).click();
+    const body = owner.locator('[data-server-note-workspace] [data-note-editor] .on-doc p').first();
+    await expect(body).toBeVisible();
+    await body.click();
+    await owner.keyboard.type('Shared PostgreSQL Note');
+    await expect(owner.locator('[data-save-status]')).toContainText('저장되지 않음');
+    await owner.getByRole('button', { name: '저장', exact: true }).click();
+    await expect(owner.locator('[data-save-status]')).toContainText('서버 저장 확인됨');
+    const savedUrl = new URL(owner.url());
+    const documentId = savedUrl.searchParams.get('document');
+    expect(documentId).toMatch(/^[0-9a-f-]{36}$/i);
+
+    const reopened = await ownerContext.newPage();
+    await reopened.goto(`${officeOrigin}/products/note/?${savedUrl.searchParams}`);
+    await expect(reopened.getByRole('heading', { name: 'Wonffice에 들어가기' })).toBeVisible();
+    await expect(reopened.locator('[data-note-editor]')).toHaveCount(0);
+    await reopened.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+    await expect(reopened.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('Shared PostgreSQL Note');
+    await reopened.locator('[data-server-note-workspace] [data-note-editor] .on-doc p').first().click();
+    await reopened.keyboard.type(' unsaved');
+    await expect(reopened.locator('[data-save-status]')).toContainText('저장되지 않음');
+    reopened.once('dialog', dialog => void dialog.dismiss());
+    await reopened.getByRole('button', { name: '자료함으로 돌아가기' }).click();
+    await expect(reopened.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('unsaved');
+    reopened.once('dialog', dialog => void dialog.dismiss());
+    await reopened.getByRole('button', { name: '로그아웃' }).click();
+    await expect(reopened.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('unsaved');
+    reopened.once('dialog', dialog => void dialog.accept());
+    await reopened.getByRole('button', { name: '자료함으로 돌아가기' }).click();
+    await expect(reopened.getByRole('heading', { name: 'Synthetic Alpha · 사용자' })).toBeVisible();
+
+    const viewer = await viewerContext.newPage();
+    await signIn(viewer, 'beta-viewer', fixture.users['beta-viewer'].password, '일반 사용자로 들어가기');
+    await viewer.getByRole('button', { name: /Synthetic Alpha/ }).click();
+    await viewer.getByRole('button', { name: 'Alpha workspace' }).click();
+    await viewer.getByRole('button', { name: '새 노트' }).click();
+    await expect(viewer.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('Shared PostgreSQL Note');
+    await expect(viewer.locator('[data-server-note-workspace]').getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    await expect(viewer.locator('[data-server-note-workspace] .nw-sidebar > button', { hasText: '새 노트' })).toHaveCount(0);
+    expect(new URL(viewer.url()).searchParams.get('document')).toBe(documentId);
+  } finally {
+    await Promise.all([ownerContext.close(), viewerContext.close()]);
   }
 });

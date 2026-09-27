@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AuthError, beginLogin, checkDocuments, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
+  AuthError, beginLogin, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
   isLogoutEvent, loadIdentity, providerLogout, consumeLogoutReturn, consumeResumeIntent,
-  type EntryIntent, type Identity, type TenantAccess, type TenantRole,
+  listWorkspaces, listNoteDocuments, openVerifiedNote, noteIntentFromSearch, noteIntentSearch, authorizedFetch,
+  type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext,
 } from './auth-client';
 import './auth-style.css';
 
@@ -11,7 +12,9 @@ type View =
   | { phase: 'entry'; message?: string }
   | { phase: 'choose'; identity: Identity; intent: EntryIntent }
   | { phase: 'empty' }
-  | { phase: 'opened'; intent: EntryIntent; tenant: TenantAccess; role: TenantRole; documents?: 'empty' | 'available' }
+  | { phase: 'opened'; intent: EntryIntent; tenant: TenantAccess; role: TenantRole; workspaces?: WorkspaceAccess[]; workspaceCursor?: string | null }
+  | { phase: 'library'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; documents: DocumentAccess[]; cursor: string | null }
+  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; context: VerifiedNoteContext }
   | { phase: 'operator-opened' }
   | { phase: 'operator-denied' }
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
@@ -37,13 +40,18 @@ function asAuthError(error: unknown) {
   return error instanceof AuthError ? error : new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 시도해 주세요.');
 }
 
-export function AuthApp() {
+export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNoteContext, onUnsafeChange: (unsafe: boolean) => void) => ReactNode } = {}) {
   const [view, setView] = useState<View>({ phase: 'checking' });
   const selected = useRef<TenantAccess | null>(null);
   const chosenIntent = useRef<EntryIntent | null>(null);
   const generation = useRef(0);
   const authCompleting = useRef(location.pathname === '/auth/callback');
   const heading = useRef<HTMLHeadingElement>(null);
+  const noteIntent = useRef(noteIntentFromSearch(location.search));
+  const currentView = useRef(view);
+  currentView.current = view;
+  const noteUnsafe = useRef(false);
+  const canLeaveNote = () => !noteUnsafe.current || window.confirm('저장되지 않은 노트가 있습니다. 이 화면을 떠나면 입력 내용이 사라집니다. 계속할까요?');
 
   useLayoutEffect(() => {
     if (view.phase !== 'checking') hideCurtain();
@@ -52,13 +60,16 @@ export function AuthApp() {
 
   async function checkAccess(intent = chosenIntent.current ?? currentIntent(), tenant = selected.current) {
     const run = ++generation.current;
+    const retainedNote = currentView.current.phase === 'note' ? currentView.current : null;
     showCurtain();
-    setView({ phase: 'checking' });
+    curtain().textContent = '현재 계정의 접근 권한 확인 중';
+    if (!retainedNote) setView({ phase: 'checking' });
     if (!intent) { selected.current = null; chosenIntent.current = null; setView({ phase: 'entry' }); return; }
     try {
       const identity = await loadIdentity();
       if (run !== generation.current) return;
       chosenIntent.current = intent;
+      const direct = noteIntent.current ?? noteIntentFromSearch(location.search);
       if (intent === 'operator') {
         selected.current = null;
         try { await confirmOperator(); }
@@ -77,21 +88,73 @@ export function AuthApp() {
         return;
       }
       if (identity.tenants.length === 0) { selected.current = null; setView({ phase: 'empty' }); return; }
-      if (!tenant) { setView({ phase: 'choose', identity, intent }); return; }
-      const fresh = identity.tenants.find(item => item.tenantId === tenant.tenantId);
+      if (!tenant && direct && intent === 'user') tenant = identity.tenants.find(item => item.tenantId === direct.tenantId) ?? null;
+      if (!tenant) {
+        if (direct) throw new AuthError('forbidden', '선택한 회사에 접근할 수 없습니다.');
+        setView({ phase: 'choose', identity, intent }); return;
+      }
+      const wantedTenantId = tenant.tenantId;
+      const fresh = identity.tenants.find(item => item.tenantId === wantedTenantId);
       if (!fresh) { selected.current = null; setView({ phase: 'error', error: new AuthError('forbidden', '현재 계정에는 이 회사의 접근 권한이 없습니다.') }); return; }
       const role = await confirmTenant(fresh.tenantId);
       if (run !== generation.current) return;
       selected.current = fresh;
       if (intent === 'admin' && role !== 'owner' && role !== 'admin') setView({ phase: 'denied', tenant: fresh, role });
       else {
-        const documents = intent === 'user' ? await checkDocuments(fresh.tenantId) : undefined;
+        const workspacePage = intent === 'user' ? await listWorkspaces(fresh.tenantId) : undefined;
         if (run !== generation.current) return;
+        if (retainedNote && !retainedNote.context.documentId && !direct && intent === 'user') {
+          if (role === 'viewer') throw new AuthError('forbidden', '문서 작성 권한이 취소되었습니다.');
+          let page = workspacePage!;
+          let exists = page.items.some(item => item.id === retainedNote.context.workspaceId);
+          const seen = new Set<string>();
+          while (!exists && page.nextCursor && !seen.has(page.nextCursor) && seen.size < 100) {
+            seen.add(page.nextCursor);
+            page = await listWorkspaces(fresh.tenantId, page.nextCursor);
+            if (run !== generation.current) return;
+            exists = page.items.some(item => item.id === retainedNote.context.workspaceId);
+          }
+          if (!exists || retainedNote.context.tenantId !== fresh.tenantId) throw new AuthError('forbidden', '선택한 자료함에 접근할 수 없습니다.');
+          setView({ ...retainedNote, tenant: fresh, role, context: { ...retainedNote.context, role } });
+          hideCurtain();
+          return;
+        }
+        if (direct && intent === 'user') {
+          let page = workspacePage!;
+          let workspace = page.items.find(item => item.id === direct.workspaceId);
+          const seen = new Set<string>();
+          while (!workspace && page.nextCursor && !seen.has(page.nextCursor) && seen.size < 100) {
+            seen.add(page.nextCursor);
+            page = await listWorkspaces(fresh.tenantId, page.nextCursor);
+            if (run !== generation.current) return;
+            workspace = page.items.find(item => item.id === direct.workspaceId);
+          }
+          if (!workspace) throw new AuthError('forbidden', '선택한 자료함에 접근할 수 없습니다.');
+          const context = await openVerifiedNote(fresh.tenantId, workspace.id, direct.documentId, role);
+          if (run !== generation.current) return;
+          history.replaceState(null, '', `${location.pathname.startsWith('/products/note') ? '/products/note/' : '/'}?${noteIntentSearch(direct)}`);
+          if (retainedNote && retainedNote.role === role && retainedNote.context.tenantId === context.tenantId &&
+            retainedNote.context.workspaceId === context.workspaceId && retainedNote.context.documentId === context.documentId) {
+            setView({ ...retainedNote, tenant: fresh, role, context: { ...retainedNote.context, role } });
+            hideCurtain();
+          } else setView({ phase: 'note', tenant: fresh, role, context });
+          return;
+        }
         history.replaceState(null, '', intent === 'admin' ? '/admin' : '/');
-        setView({ phase: 'opened', intent, tenant: fresh, role, documents });
+        setView({ phase: 'opened', intent, tenant: fresh, role, workspaces: workspacePage?.items, workspaceCursor: workspacePage?.nextCursor });
       }
     } catch (error) {
       if (run !== generation.current) return;
+      if (retainedNote && asAuthError(error).kind === 'unavailable') {
+        const overlay = curtain();
+        const message = document.createElement('p');
+        message.textContent = '서버 연결을 확인하지 못했습니다. 편집 중인 내용은 이 화면에 보존했습니다.';
+        const retry = document.createElement('button');
+        retry.textContent = '권한 다시 확인';
+        retry.onclick = () => void checkAccess();
+        overlay.replaceChildren(message, retry);
+        return;
+      }
       selected.current = null;
       setView({ phase: 'error', error: asAuthError(error) });
     }
@@ -157,16 +220,20 @@ export function AuthApp() {
   }
 
   async function open(tenant: TenantAccess, intent: EntryIntent) {
+    noteIntent.current = null;
     selected.current = tenant;
     chosenIntent.current = intent;
     await checkAccess(intent, tenant);
   }
 
   async function logout() {
+    if (currentView.current.phase === 'note' && !canLeaveNote()) return;
+    noteUnsafe.current = false;
     ++generation.current;
     showCurtain();
     selected.current = null;
     chosenIntent.current = null;
+    noteIntent.current = null;
     setView({ phase: 'checking' });
     const redirected = await providerLogout();
     if (!redirected) setView({ phase: 'entry', message: '이 브라우저의 로그인 정보는 지웠습니다. 로그인 서버의 세션 종료는 확인하지 못했습니다. 다시 로그인할 때 계정을 입력해야 합니다.' });
@@ -174,6 +241,54 @@ export function AuthApp() {
 
   async function switchAccount() {
     await logout();
+  }
+
+  async function enterWorkspace(tenant: TenantAccess, role: TenantRole, workspace: WorkspaceAccess) {
+    const run = ++generation.current;
+    showCurtain(); setView({ phase: 'checking' });
+    try {
+      const page = await listNoteDocuments(tenant.tenantId, workspace.id);
+      if (run !== generation.current) return;
+      setView({ phase: 'library', tenant, role, workspace, documents: page.items, cursor: page.nextCursor });
+    } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
+  }
+
+  async function moreWorkspaces(current: Extract<View, { phase: 'opened' }>) {
+    if (!current.workspaceCursor) return;
+    const run = generation.current;
+    try {
+      const page = await listWorkspaces(current.tenant.tenantId, current.workspaceCursor);
+      if (run !== generation.current) return;
+      if (page.nextCursor === current.workspaceCursor || page.items.some(item => current.workspaces?.some(existing => existing.id === item.id))) {
+        throw new AuthError('unavailable', '자료함 목록을 끝까지 불러오지 못했습니다.');
+      }
+      setView({ ...current, workspaces: [...(current.workspaces ?? []), ...page.items], workspaceCursor: page.nextCursor });
+    } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
+  }
+
+  async function moreDocuments(current: Extract<View, { phase: 'library' }>) {
+    if (!current.cursor) return;
+    const run = generation.current;
+    try {
+      const page = await listNoteDocuments(current.tenant.tenantId, current.workspace.id, current.cursor);
+      if (run !== generation.current) return;
+      if (page.nextCursor === current.cursor || page.items.some(item => current.documents.some(existing => existing.documentId === item.documentId))) {
+        throw new AuthError('unavailable', '문서 목록을 끝까지 불러오지 못했습니다.');
+      }
+      setView({ ...current, documents: [...current.documents, ...page.items], cursor: page.nextCursor });
+    } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
+  }
+
+  async function enterNote(current: Extract<View, { phase: 'library' }>, documentId: string) {
+    const run = ++generation.current;
+    showCurtain(); setView({ phase: 'checking' });
+    try {
+      const context = await openVerifiedNote(current.tenant.tenantId, current.workspace.id, documentId, current.role);
+      if (run !== generation.current) return;
+      noteIntent.current = { tenantId: context.tenantId, workspaceId: context.workspaceId, documentId };
+      history.replaceState(null, '', `/?${noteIntentSearch(noteIntent.current)}`);
+      setView({ phase: 'note', tenant: current.tenant, role: current.role, context });
+    } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
 
   return <main className="office-auth">
@@ -194,12 +309,25 @@ export function AuthApp() {
       <p>서버가 확인한 현재 역할: {roleName(view.role)}</p>
       {view.intent === 'admin' ? <p className="office-auth-note">관리 업무 화면은 아직 연결되지 않았습니다. 서비스 운영자 권한은 회사 관리자 권한과 별도로 정합니다.</p> :
         <>
-          <p>{view.documents === 'empty' ? '이 회사에는 저장된 문서가 없습니다.' : '이 회사에 저장된 문서가 있습니다.'}</p>
-          <p className="office-auth-note">서버 문서 자료함은 아직 연결되지 않았습니다. 이 브라우저의 로컬 자료는 회사 자료로 표시하지 않습니다.</p>
+          <h2>자료함</h2>
+          {view.workspaces?.length === 0 && <p>이 회사에는 자료함이 없습니다. 관리자가 자료함을 준비해야 합니다.</p>}
+          <ul className="office-auth-tenants">{view.workspaces?.map(workspace => <li key={workspace.id}><button onClick={() => void enterWorkspace(view.tenant, view.role, workspace)}>{workspace.name}</button></li>)}</ul>
+          {view.workspaceCursor && <button onClick={() => void moreWorkspaces(view)}>자료함 더 보기</button>}
         </>}
       <div className="office-auth-actions"><button onClick={() => void checkAccess()}>권한 다시 확인</button><button onClick={() => { selected.current = null; void checkAccess(); }}>회사 바꾸기</button>
         {view.intent === 'admin' && <button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button>}
         <button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
+    </section>}
+    {view.phase === 'library' && <section><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · Note 자료</h1>
+      {view.documents.length === 0 && <p>이 자료함에는 저장된 Note 문서가 없습니다.</p>}
+      <ul className="office-auth-tenants">{view.documents.map(item => <li key={item.documentId}><button onClick={() => void enterNote(view, item.documentId)}>{item.title}</button></li>)}</ul>
+      {view.cursor && <button onClick={() => void moreDocuments(view)}>문서 더 보기</button>}
+      {view.role !== 'viewer' && <button onClick={() => setView({ phase: 'note', tenant: view.tenant, role: view.role,
+        context: { tenantId: view.tenant.tenantId, workspaceId: view.workspace.id, role: view.role, authorizedFetch } })}>새 Note 만들기</button>}
+      <div className="office-auth-actions"><button onClick={() => void checkAccess('user', view.tenant)}>자료함 목록</button><button onClick={() => void logout()}>로그아웃</button></div>
+    </section>}
+    {view.phase === 'note' && <section className="office-auth-note-host"><div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; noteUnsafe.current = false; noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>
+      {noteRenderer ? noteRenderer(view.context, unsafe => { noteUnsafe.current = unsafe; }) : <p role="status">Note 편집 화면 연결을 기다리고 있습니다.</p>}
     </section>}
     {view.phase === 'operator-opened' && <section><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
       <p>서버에서 현재 서비스 운영 권한을 확인했습니다.</p>
