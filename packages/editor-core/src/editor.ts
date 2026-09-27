@@ -1700,23 +1700,33 @@ declare module './editor' {
 }
 
 Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
+  // History reserves its cursor before replay. Do not reserve while another
+  // transaction owns the model lock, or its pending commit may lose its entry.
+  if (this.dataStore.isLocked()) return false;
   const entry = this.historyManager.undo();
   if (!entry) return false;
   // Typing after an undo must start a fresh step, never merge into the one that
-  // was just undone.
+  // was just undone. Keep this before the content event as in the snapshot path.
   this.historyManager.closeGroup();
 
   const metadata = entry.metadata;
   const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionBefore');
   const selectionToRestore = hasSelectionMetadata ? metadata.selectionBefore : undefined;
+  let committed = false;
 
   try {
-    this.transactionManager._isUndoRedoOperation = true;
     const result = await this.transactionManager.execute(entry.inverseOperations, {
-      applySelectionToView: false
+      applySelectionToView: false,
+      provenance: { origin: 'history' }
     });
-
-    if (result.success && hasSelectionMetadata) {
+    committed = result.success;
+    if (!committed) {
+      // The history cursor moves before the model transaction. A rejected
+      // pre-commit guard leaves the document untouched, so restore its cursor.
+      this.historyManager.redo();
+      return false;
+    }
+    if (hasSelectionMetadata) {
       if (selectionToRestore === null) {
         this.updateSelection(null as any);
       } else if (selectionToRestore) {
@@ -1726,14 +1736,14 @@ Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
 
     return result.success;
   } catch (error) {
+    if (!committed) this.historyManager.redo();
     console.error('[Editor] undo failed:', error);
     return false;
-  } finally {
-    this.transactionManager._isUndoRedoOperation = false;
   }
 };
 
 Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
+  if (this.dataStore.isLocked()) return false;
   const entry = this.historyManager.redo();
   if (!entry) return false;
   this.historyManager.closeGroup();
@@ -1741,14 +1751,19 @@ Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
   const metadata = entry.metadata;
   const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionAfter');
   const selectionToRestore = hasSelectionMetadata ? metadata.selectionAfter : undefined;
+  let committed = false;
 
   try {
-    this.transactionManager._isUndoRedoOperation = true;
     const result = await this.transactionManager.execute(entry.operations, {
-      applySelectionToView: false
+      applySelectionToView: false,
+      provenance: { origin: 'history' }
     });
-
-    if (result.success && hasSelectionMetadata) {
+    committed = result.success;
+    if (!committed) {
+      this.historyManager.undo();
+      return false;
+    }
+    if (hasSelectionMetadata) {
       if (selectionToRestore === null) {
         this.updateSelection(null as any);
       } else if (selectionToRestore) {
@@ -1758,10 +1773,9 @@ Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
 
     return result.success;
   } catch (error) {
+    if (!committed) this.historyManager.undo();
     console.error('[Editor] redo failed:', error);
     return false;
-  } finally {
-    this.transactionManager._isUndoRedoOperation = false;
   }
 };
 

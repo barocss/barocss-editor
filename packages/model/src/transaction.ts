@@ -1,4 +1,4 @@
-import { DataStore } from '@barocss/datastore';
+import { DataStore, type INode } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import { TransactionOperation, OpFunction, OpResult } from './transaction-dsl';
 import { globalOperationRegistry } from './operations/define-operation';
@@ -35,6 +35,31 @@ export interface TransactionResult {
   operations?: TransactionOperation[];
   selectionBefore?: ModelSelection | null;
   selectionAfter?: ModelSelection | null;
+}
+
+/** A read-only view of the final overlay state before it becomes visible. */
+export interface PreCommitCandidate {
+  rootId: string | undefined;
+  getNode(nodeId: string): INode | undefined;
+}
+
+export interface PreCommitGuardContext {
+  operations: readonly TransactionOperation[];
+  provenance: EditProvenance;
+  candidate: PreCommitCandidate;
+}
+
+/** Return a reason to reject the proposed edit. Throwing also rejects it. */
+export type PreCommitGuard = (context: PreCommitGuardContext) => string | void | Promise<string | void>;
+
+const preCommitGuards = new WeakMap<Editor, PreCommitGuard>();
+
+/** Install one host policy for all model transaction entry points on an editor. */
+export function registerPreCommitGuard(editor: Editor, guard: PreCommitGuard): () => void {
+  preCommitGuards.set(editor, guard);
+  return () => {
+    if (preCommitGuards.get(editor) === guard) preCommitGuards.delete(editor);
+  };
 }
 
 export class TransactionManager {
@@ -100,6 +125,9 @@ export class TransactionManager {
     const postCommitErrors: string[] = [];
     let selectionBefore: ModelSelection | null = null;
     let provenance: EditProvenance | undefined;
+    let guard: PreCommitGuard | undefined;
+    let guardedBaseSnapshot: Map<string, INode> | undefined;
+    let isHistoryReplay = false;
     
     try {
       // 1. Acquire global lock
@@ -111,6 +139,18 @@ export class TransactionManager {
       }
       this._beginTransaction('DSL Transaction');
       ownsTransaction = true;
+      // Capture replay policy for this execution. A different queued editor
+      // action must never change the history decision of the lock owner.
+      isHistoryReplay = options?.provenance?.origin === 'history' || this._isUndoRedoOperation;
+      guard = preCommitGuards.get(this._editor);
+      if (guard) {
+        // Some structural operations mutate references from the committed map
+        // while building the overlay. Its ordinary rollback restores recorded
+        // writes, but a guarded refusal must also restore any such references.
+        guardedBaseSnapshot = new Map(
+          [...this._dataStore.getNodes()].map(([id, node]) => [id, structuredClone(node)])
+        );
+      }
       const input = options?.provenance;
       if (input?.origin === 'remote' &&
         (![input.editId, input.actorId, input.sessionId].every(value => typeof value === 'string' && value.trim().length > 0))) {
@@ -216,13 +256,40 @@ export class TransactionManager {
       // whose intermediate shape differs.
       this._dataStore.end();
 
-      if (!this._isUndoRedoOperation && this._validateSchemaOnCommit) {
+      if (!isHistoryReplay && this._validateSchemaOnCommit) {
         const validation = this._dataStore.validateTransactionScope(this._schema);
         if (!validation.valid) {
           outcome = {
             success: false,
             committed: false,
             errors: validation.errors,
+            operations: executedOperations,
+            selectionBefore,
+            selectionAfter: selectionBefore
+          };
+          return outcome;
+        }
+      }
+
+      if (guard) {
+        // getNode reads the uncommitted overlay. Clone each returned node so a
+        // host policy cannot mutate the candidate while inspecting it.
+        const reason = await guard({
+          operations: executedOperations,
+          provenance: provenance!,
+          candidate: {
+            rootId: this._dataStore.getRootNodeId(),
+            getNode: (nodeId) => {
+              const node = this._dataStore.getNode(nodeId);
+              return node === undefined ? undefined : structuredClone(node);
+            }
+          }
+        });
+        if (reason) {
+          outcome = {
+            success: false,
+            committed: false,
+            errors: [reason],
             operations: executedOperations,
             selectionBefore,
             selectionAfter: selectionBefore
@@ -262,7 +329,7 @@ export class TransactionManager {
           provenance?.origin === 'local' &&
           options?.appendToPreviousEntry === true &&
           executedOperations.length > 0 &&
-          this._shouldAddToHistory(executedOperations)
+          this._shouldAddToHistory(executedOperations, isHistoryReplay)
         ) {
           this._editor.historyManager.appendToLast({
             operations: executedOperations,
@@ -273,7 +340,7 @@ export class TransactionManager {
           options?.recordInHistory !== false &&
           options?.appendToPreviousEntry !== true &&
           executedOperations.length > 0 &&
-          this._shouldAddToHistory(executedOperations)
+          this._shouldAddToHistory(executedOperations, isHistoryReplay)
         ) {
           const shouldPreserveSelection = options?.preserveSelectionInHistory !== false;
           this._editor.historyManager.push({
@@ -377,6 +444,11 @@ export class TransactionManager {
       // must not roll back another caller's overlay or clear its manager state.
       try {
         if (ownsOverlay && !committed) this._dataStore.rollback();
+        if (guardedBaseSnapshot && !committed) {
+          const nodes = this._dataStore.getNodes();
+          nodes.clear();
+          for (const [id, node] of guardedBaseSnapshot) nodes.set(id, node);
+        }
       } finally {
         if (ownsTransaction) this._currentTransaction = null;
         if (lockId) {
@@ -528,12 +600,12 @@ export class TransactionManager {
     );
   }
 
-  private _shouldAddToHistory(operations: TransactionOperation[]): boolean {
+  private _shouldAddToHistory(operations: TransactionOperation[], isHistoryReplay: boolean): boolean {
     // Don't add empty operations to history
     if (operations.length === 0) return false;
     
     // Don't add undo/redo operations to history
-    if (this._isUndoRedoOperation) return false;
+    if (isHistoryReplay) return false;
     
     return true;
   }
