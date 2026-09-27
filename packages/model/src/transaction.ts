@@ -4,7 +4,7 @@ import { TransactionOperation, OpFunction, OpResult } from './transaction-dsl';
 import { globalOperationRegistry } from './operations/define-operation';
 import { createTransactionContext, TransactionContext } from '.';
 import type { Editor } from '@barocss/editor-core';
-import type { TransactionOptions } from './transaction-dsl';
+import type { EditProvenance, TransactionOptions } from './transaction-dsl';
 
 export interface Transaction {
   sid: string;
@@ -30,6 +30,8 @@ export interface TransactionResult {
   errors: string[];
   data?: any;
   transactionId?: string;
+  /** Stable edit identity for committed changes. */
+  provenance?: EditProvenance;
   operations?: TransactionOperation[];
   selectionBefore?: ModelSelection | null;
   selectionAfter?: ModelSelection | null;
@@ -97,6 +99,7 @@ export class TransactionManager {
     let outcome: TransactionResult | undefined;
     const postCommitErrors: string[] = [];
     let selectionBefore: ModelSelection | null = null;
+    let provenance: EditProvenance | undefined;
     
     try {
       // 1. Acquire global lock
@@ -108,6 +111,17 @@ export class TransactionManager {
       }
       this._beginTransaction('DSL Transaction');
       ownsTransaction = true;
+      const input = options?.provenance;
+      if (input?.origin === 'remote' &&
+        (![input.editId, input.actorId, input.sessionId].every(value => typeof value === 'string' && value.trim().length > 0))) {
+        throw new Error('Remote edit requires editId, actorId, and sessionId');
+      }
+      provenance = {
+        origin: input?.origin ?? 'local',
+        editId: input?.editId ?? this._currentTransaction!.sid,
+        ...(input?.actorId === undefined ? {} : { actorId: input.actorId }),
+        ...(input?.sessionId === undefined ? {} : { sessionId: input.sessionId })
+      };
       selectionBefore = this._editor.selectionManager.getCurrentSelection();
 
       // 3. Start DataStore overlay transaction
@@ -245,6 +259,7 @@ export class TransactionManager {
          * same answer `recordInHistory: false` gives.
          */
         if (
+          provenance?.origin === 'local' &&
           options?.appendToPreviousEntry === true &&
           executedOperations.length > 0 &&
           this._shouldAddToHistory(executedOperations)
@@ -254,6 +269,7 @@ export class TransactionManager {
             inverseOperations: inverseOperations.reverse()
           });
         } else if (
+          provenance?.origin === 'local' &&
           options?.recordInHistory !== false &&
           options?.appendToPreviousEntry !== true &&
           executedOperations.length > 0 &&
@@ -283,6 +299,7 @@ export class TransactionManager {
         postCommitErrors,
         errors: [],
         transactionId: this._currentTransaction!.sid,
+        provenance,
         operations: executedOperations,
         selectionBefore,
         selectionAfter
@@ -311,7 +328,8 @@ export class TransactionManager {
         get content() {
           return editor.document;
         },
-        transaction: result
+        transaction: result,
+        provenance
       }));
       
       // After hooks: Call extension onTransaction handlers
@@ -333,7 +351,7 @@ export class TransactionManager {
       
       // Pass selectionAfter to updateSelection only when applySelectionToView !== false
       // (e.g. skip for remote sync or programmatic change)
-      const applySelectionToView = options?.applySelectionToView !== false;
+      const applySelectionToView = provenance?.origin !== 'remote' && options?.applySelectionToView !== false;
       if (applySelectionToView) {
         afterCommit('selection update', () => this._editor.updateSelection(selectionAfter));
       }
@@ -348,6 +366,7 @@ export class TransactionManager {
         errors: committed ? [] : [error instanceof Error ? error.message : 'Unknown error'],
         ...(committed ? { postCommitErrors } : {}),
         transactionId: ownsTransaction ? this._currentTransaction?.sid : undefined,
+        ...(committed ? { provenance } : {}),
         operations: [],
         selectionBefore,
         selectionAfter: committed ? this._editor.selectionManager.getCurrentSelection() : selectionBefore

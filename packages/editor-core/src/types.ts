@@ -1,4 +1,4 @@
-import { Transaction } from '@barocss/model';
+import type { EditProvenance, Transaction, TransactionResult } from '@barocss/model';
 import { Schema } from '@barocss/schema';
 import type { Editor } from './editor';
 import type { Keybinding } from './keybinding';
@@ -306,7 +306,8 @@ export type EditorEventType =
 export interface EditorEvents {
   'editor:content.change': { 
     content: DocumentState; 
-    transaction: Transaction | null;
+    transaction: Transaction | TransactionResult | null;
+    provenance?: EditProvenance;
     from?: string;
     skipRender?: boolean;
     rootId?: string;
