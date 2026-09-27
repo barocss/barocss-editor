@@ -379,6 +379,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
       {view.phase === 'note' && <div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>}
       {noteRenderer ? noteRenderer(mountedNote.context, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
         rememberedDocumentId.current = documentId;
+        noteIntent.current = { tenantId: mountedNote.context.tenantId, workspaceId: mountedNote.context.workspaceId, documentId };
       }) : <p role="status">Note 편집 화면 연결을 기다리고 있습니다.</p>}
     </section>}
     {view.phase === 'operator-opened' && <section><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>

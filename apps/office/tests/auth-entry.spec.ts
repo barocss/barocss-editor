@@ -468,10 +468,24 @@ test('Note navigation keeps the current unsaved document through a verified acce
   await page.keyboard.press('End');
   await page.keyboard.insertText(' navigation draft');
   await expect(paragraph).toContainText('navigation draft');
+  const recheckedDocuments: string[] = [];
+  page.on('request', request => {
+    if (request.method() === 'GET' && request.url().includes(`/api/v1/tenants/${id}/documents/`)) {
+      recheckedDocuments.push(request.url());
+    }
+  });
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(page.locator('#office-auth-curtain')).toBeVisible();
+  await expect(page.locator('#office-auth-curtain')).toBeHidden();
+  expect(recheckedDocuments.some(url => url.endsWith(`/documents/${nextId}`))).toBe(true);
+  expect(recheckedDocuments.some(url => url.endsWith(`/documents/${documentId}`))).toBe(false);
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
   await expect(paragraph).toContainText('navigation draft');
   await expect(page).toHaveURL(new RegExp(`document=${nextId}`));
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' still editable');
+  await expect(paragraph).toContainText('navigation draft still editable');
 });
 
 test('a stale Note save requires copying the typed draft before opening the server revision', async ({ page, context }) => {
