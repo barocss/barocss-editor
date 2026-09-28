@@ -53,8 +53,44 @@ try {
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
       '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators',
       '0006_company_member_admin', '0007_document_collaboration_seed',
-      '0008_document_capabilities']);
+      '0008_document_capabilities', '0009_full_note_collaboration_seed']);
     assert.deepEqual(await migrate(owner), []);
+  });
+  await check('upgrade quarantines legacy confirmed raw roots without changing snapshot bytes', async () => {
+    await admin.query('CREATE DATABASE office_upgrade OWNER wonffice_owner');
+    const upgrade = await connect('wonffice_owner', 'office_upgrade'); clients.push(upgrade);
+    await migrate(upgrade, migrations.slice(0, -1));
+    const tenantId = randomUUID(), workspaceId = randomUUID(), documentId = randomUUID();
+    const seedId = randomUUID(), original = '{"legacy":"raw snapshot"}';
+    const digest = createHash('sha256').update(original).digest('hex');
+    await upgrade.query('INSERT INTO wonffice.tenants (id, name) VALUES ($1, $2)', [tenantId, 'Upgrade']);
+    await upgrade.query(`INSERT INTO wonffice.workspaces (tenant_id, id, name)
+      VALUES ($1, $2, $3)`, [tenantId, workspaceId, 'Legacy']);
+    await upgrade.query(`INSERT INTO wonffice.documents
+      (tenant_id, id, workspace_id, product, page_id, document_key, mode)
+      VALUES ($1, $2, $3, 'note', $4, $5, 'collaborative')`,
+    [tenantId, documentId, workspaceId, documentId, `wonffice-${tenantId}-${documentId}`]);
+    await upgrade.query(`INSERT INTO wonffice.document_snapshots
+      (tenant_id, document_id, file_format, file_version, snapshot_text, snapshot_hash, revision)
+      VALUES ($1, $2, 'barocss-note', 1, $3, $4, 1)`,
+    [tenantId, documentId, original, digest]);
+    await upgrade.query(`INSERT INTO wonffice.document_collaboration_seeds
+      (tenant_id, document_id, provider, provider_project, provider_build, seed_id,
+        request_key, snapshot_revision, snapshot_hash, status, confirmed_at,
+        confirmed_provider_checkpoint, confirmed_provider_snapshot_hash)
+      VALUES ($1, $2, 'yorkie', 'old-project', 'old-build', $3,
+        'old-attempt', 1, $4, 'confirmed', now(), 'old-checkpoint', $4)`,
+    [tenantId, documentId, seedId, digest]);
+    assert.deepEqual(await migrate(upgrade), ['0009_full_note_collaboration_seed']);
+    const result = (await upgrade.query(`SELECT d.mode, s.snapshot_text, c.status,
+      c.confirmed_provider_checkpoint, c.confirmed_provider_snapshot_hash
+      FROM wonffice.documents d JOIN wonffice.document_snapshots s
+        ON s.tenant_id = d.tenant_id AND s.document_id = d.id
+      JOIN wonffice.document_collaboration_seeds c
+        ON c.tenant_id = d.tenant_id AND c.document_id = d.id
+      WHERE d.tenant_id = $1 AND d.id = $2`, [tenantId, documentId])).rows[0];
+    assert.deepEqual(result, { mode: 'initializing', snapshot_text: original, status: 'uncertain',
+      confirmed_provider_checkpoint: null, confirmed_provider_snapshot_hash: null });
   });
   await check('failed DDL and migration history roll back together', async () => {
     await assert.rejects(migrate(owner, [...migrations, {
@@ -481,6 +517,26 @@ try {
       [alpha, bob]);
   });
   let seededKey;
+  await check('unsupported Note source is rejected before a durable attempt or provider write', async () => {
+    const unsupported = JSON.parse(noteFile('keep me'));
+    unsupported.document.content[0].content[0].unknown = 'must not be dropped';
+    const receipt = await documents.create(alicePrincipal, alpha, {
+      ...noteInput, snapshotText: JSON.stringify(unsupported),
+      idempotencyKey: 'unsupported-collaboration-source',
+    });
+    let writes = 0;
+    const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', {
+      async seed() { writes++; }, async inspect() { return null; },
+    });
+    await assert.rejects(collab.requestTransition(alicePrincipal, alpha,
+      receipt.document.documentId, { expectedRevision: 1, idempotencyKey: 'reject-unsupported' }),
+    error => error instanceof DocumentError && error.status === 422);
+    assert.equal(writes, 0);
+    assert.equal((await documents.open(alicePrincipal, alpha, receipt.document.documentId)).document.mode,
+      'snapshot');
+    assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.document_collaboration_seeds
+      WHERE tenant_id = $1 AND document_id = $2`, [alpha, receipt.document.documentId])).rows[0].count, 0);
+  });
   await check('collaboration seed freezes snapshots and resolves only confirmed current members', async () => {
     const receipt = await documents.create(alicePrincipal, alpha,
       { ...noteInput, idempotencyKey: 'collaboration-document' });
@@ -492,7 +548,7 @@ try {
         providerProject: task.providerProject, providerBuild: task.providerBuild,
         seedId: task.seedId, snapshotRevision: task.snapshotRevision,
         snapshotHash: task.snapshotHash, providerCheckpoint: 'synthetic-checkpoint-1',
-        providerSnapshotHash: task.snapshotHash }); },
+        providerSnapshotHash: task.canonicalSeed.canonicalTreeHash }); },
       async inspect(task) { return seen.get(task.seedId) ?? null; },
     };
     const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder);
@@ -511,17 +567,47 @@ try {
     assert.equal(promoted.mode, 'collaborative');
     assert.equal(promoted.documentKey, receipt.document.documentKey);
     assert.equal(seen.size, 1);
+    const frozen = (await owner.query(`SELECT snapshot_revision, snapshot_hash, source_snapshot_text,
+      codec_version, canonical_seed, canonical_seed_hash
+      FROM wonffice.document_collaboration_seeds WHERE tenant_id = $1 AND document_id = $2`,
+    [alpha, id])).rows[0];
+    assert.equal(frozen.snapshot_revision, 1);
+    assert.equal(frozen.snapshot_hash, receipt.document.snapshotHash);
+    assert.equal(frozen.source_snapshot_text, before.snapshotText);
+    assert.equal(frozen.codec_version, 'note-full-seed-v2');
+    assert.equal(frozen.canonical_seed.canonicalTreeHash, frozen.canonical_seed_hash);
+    const ids = [frozen.canonical_seed.tree.id,
+      ...frozen.canonical_seed.tree.content.flatMap(block => [block.id,
+        ...block.content.map(child => child.id)])];
+    assert.equal(new Set(ids).size, ids.length);
+    assert.ok(ids.every(value => value.startsWith('node:')));
+    assert.equal((await collab.requestTransition(alicePrincipal, alpha, id,
+      { expectedRevision: 1, idempotencyKey: 'seed-once' })).mode, 'collaborative');
+    assert.equal((await owner.query(`SELECT canonical_seed FROM wonffice.document_collaboration_seeds
+      WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows[0].canonical_seed.tree.id,
+    frozen.canonical_seed.tree.id);
     assert.equal((await documents.open(alicePrincipal, alpha, id)).snapshotText, undefined);
     const seed = (await owner.query(`SELECT status, confirmed_provider_checkpoint,
       confirmed_provider_snapshot_hash FROM wonffice.document_collaboration_seeds
       WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows[0];
     assert.equal(seed.status, 'confirmed');
     assert.equal(seed.confirmed_provider_checkpoint, 'synthetic-checkpoint-1');
-    assert.equal(seed.confirmed_provider_snapshot_hash, receipt.document.snapshotHash);
+    assert.equal(seed.confirmed_provider_snapshot_hash, (await owner.query(`SELECT canonical_seed_hash FROM wonffice.document_collaboration_seeds WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows[0].canonical_seed_hash);
     await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, id,
       { expectedRevision: 1, snapshotText: before.snapshotText, idempotencyKey: 'stale-after-seed' }),
     error => error instanceof DocumentError && error.reason === 'mode_conflict');
     assert.equal((await collab.resolve(alicePrincipal, receipt.document.documentKey, 'write')).documentId, id);
+    await owner.query(`UPDATE wonffice.document_collaboration_seeds
+      SET confirmed_provider_snapshot_hash = snapshot_hash WHERE tenant_id = $1 AND document_id = $2`,
+    [alpha, id]);
+    await assert.rejects(collab.resolve(alicePrincipal, receipt.document.documentKey, 'read'),
+      error => error instanceof DocumentError && error.status === 404);
+    await assert.rejects(collab.requestTransition(alicePrincipal, alpha, id,
+      { expectedRevision: 1, idempotencyKey: 'seed-once' }),
+    error => error instanceof DocumentError && error.reason === 'seed_uncertain');
+    await owner.query(`UPDATE wonffice.document_collaboration_seeds
+      SET confirmed_provider_snapshot_hash = canonical_seed_hash WHERE tenant_id = $1 AND document_id = $2`,
+    [alpha, id]);
     const other = await documents.create(alicePrincipal, alpha,
       { ...noteInput, idempotencyKey: 'other-collaboration-document' });
     assert.equal((await collab.requestTransition(alicePrincipal, alpha, other.document.documentId,
@@ -635,8 +721,7 @@ try {
       error => error instanceof CapabilityError && error.status === 403);
     await owner.query(`UPDATE wonffice.document_collaboration_seeds SET status = 'confirmed',
       confirmed_at = now(), confirmed_provider_checkpoint = 'synthetic-checkpoint-1',
-      confirmed_provider_snapshot_hash = (SELECT snapshot_hash
-        FROM wonffice.document_snapshots WHERE tenant_id = $1 AND document_id = $2)
+      confirmed_provider_snapshot_hash = canonical_seed_hash
       WHERE tenant_id = $1 AND document_id = $2`, [alpha, documentId]);
     await owner.query(`UPDATE wonffice.documents SET mode = 'snapshot'
       WHERE tenant_id = $1 AND id = $2`, [alpha, documentId]);
@@ -683,7 +768,7 @@ try {
     seeder.inspect = async () => ({ documentKey: task.documentKey, providerProject: task.providerProject,
       providerBuild: task.providerBuild, seedId: task.seedId,
       snapshotRevision: task.snapshotRevision, snapshotHash: task.snapshotHash,
-      providerCheckpoint: 'synthetic-checkpoint-2', providerSnapshotHash: task.snapshotHash });
+      providerCheckpoint: 'synthetic-checkpoint-2', providerSnapshotHash: task.canonicalSeed.canonicalTreeHash });
     assert.equal((await restarted.reconcile(alicePrincipal, alpha, id)).mode, 'collaborative');
     assert.equal((await restarted.resolve(alicePrincipal, receipt.document.documentKey, 'read')).documentId, id);
   });
@@ -701,7 +786,7 @@ try {
         providerProject: task.providerProject, providerBuild: task.providerBuild,
         seedId: task.seedId, snapshotRevision: task.snapshotRevision,
         snapshotHash: task.snapshotHash, providerCheckpoint: 'synthetic-checkpoint-3',
-        providerSnapshotHash: task.snapshotHash }; },
+        providerSnapshotHash: task.canonicalSeed.canonicalTreeHash }; },
     };
     const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder);
     const first = collab.requestTransition(alicePrincipal, alpha, id,
@@ -793,7 +878,7 @@ try {
     assert.equal(confirmed.providerBuild, 'synthetic-build');
     assert.equal(confirmed.providerCheckpoint, 'synthetic-checkpoint-1');
     assert.equal(confirmed.providerSnapshotHash,
-      (await restoredDocuments.open(alicePrincipal, alpha, confirmed.documentId)).document.snapshotHash);
+      (await withTenant(restoredPool, alpha, client => client.query(`SELECT canonical_seed_hash FROM wonffice.document_collaboration_seeds WHERE tenant_id = $1 AND document_id = $2`, [alpha, confirmed.documentId]))).rows[0].canonical_seed_hash);
     assert.equal((await restoredPool.query('SELECT id FROM wonffice.workspaces')).rowCount, 0);
     const invalidId = randomUUID();
     await assert.rejects(withTenant(restoredPool, alpha, client => client.query(`INSERT INTO wonffice.documents
