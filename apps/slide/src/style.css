@@ -284,10 +284,6 @@ body {
 
 .sl-toolbar.office-compact-toolbar .sl-font-row { display: contents; }
 
-/* Keep deck navigation and reusable components together at compact widths. */
+/* All navigation views occupy the same column. */
 .sl-workspace-navigation { display:flex; min-height:0; }
-.sl-body[data-compact] .sl-workspace-navigation { flex-direction:column; }
-.sl-body[data-compact] .sl-workspace-navigation .sl-sidebar { flex:1; }
-.sl-body[data-compact] .sl-workspace-navigation .sl-components { width:100%; max-height:50%; border-top:1px solid var(--ou-line); }
-.sl-body[data-compact] .sl-workspace-navigation .sl-components-closed { width:100%; min-height:32px; padding:4px; }
 .sl-shell[data-presenting='true'] .sl-body > .office-workspace-side-panel { display:none; }

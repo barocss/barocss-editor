@@ -2087,40 +2087,16 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
 }
 
-/* The components list: the same shape as the layer list, beside it. */
+/* The components list fills its navigation tab. */
 .sl-components {
-  flex: none;
-  width: 200px;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   background: var(--ou-panel, #ffffff);
-  border-right: 1px solid var(--ou-line, #d4d4d4);
   font-size: 12px;
-}
-
-.sl-components-closed {
-  flex: none;
-  width: 24px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 8px;
-  color: var(--ou-muted, #6b6b6b);
-  background: var(--ou-panel, #ffffff);
-  border-right: 1px solid var(--ou-line, #d4d4d4);
-}
-
-.sl-components-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ou-muted, #6b6b6b);
-  border-bottom: 1px solid var(--ou-line, #d4d4d4);
 }
 
 .sl-components-empty {
@@ -2582,10 +2558,7 @@
 }
 
 /* Not in the show, like the rulers and the guides: an audience is looking. */
-.sl-shell[data-presenting='true'] .sl-components,
-.sl-shell[data-presenting='true'] .sl-components-closed {
-  display: none;
-}
+.sl-shell[data-presenting='true'] .sl-components { display: none; }
 
 /*
  * The file picker's button, hidden — the reader asks in 파일 now.

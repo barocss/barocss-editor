@@ -80,7 +80,7 @@ const deckWithComponent = async (page: Page) =>
   });
 
 const openPanel = async (page: Page) => {
-  await page.locator('.sl-components-closed').click();
+  await page.getByRole('tab', { name: '컴포넌트' }).click();
   await expect(page.locator('.sl-components')).toHaveCount(1);
   // The list is drawn from the document, so it arrives with the next render rather than with
   // the click.
@@ -95,6 +95,31 @@ const openPanel = async (page: Page) => {
  * two, which is how this suite learned that the row and the drawing both say what they are.
  */
 const row = (page: Page, id: string) => page.locator(`.sl-components [data-component-id="${id}"]`);
+
+test('navigation tabs share one column and keep the current slide', async ({ page }) => {
+  await openDeck(page);
+  const tabs = page.getByRole('tablist', { name: '탐색 방식' });
+  const slidesTab = tabs.getByRole('tab', { name: '슬라이드' });
+  const layersTab = tabs.getByRole('tab', { name: '레이어' });
+  const componentsTab = tabs.getByRole('tab', { name: '컴포넌트' });
+  const slide = await currentSlide(page);
+  const width = await page.locator('[data-workspace-panel="navigation"]').evaluate(node => node.getBoundingClientRect().width);
+
+  await slidesTab.focus();
+  await slidesTab.press('ArrowRight');
+  await expect(layersTab).toHaveAttribute('aria-selected', 'true');
+  await layersTab.press('ArrowRight');
+  await expect(componentsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.sl-sidebar .sl-components')).toBeVisible();
+  await expect(page.locator('.sl-components-closed')).toHaveCount(0);
+  await expect(page.locator('[data-doc-var-row="주의"]')).toHaveCount(1);
+  expect(await page.locator('[data-workspace-panel="navigation"]').evaluate(node => node.getBoundingClientRect().width)).toBe(width);
+
+  await slidesTab.click();
+  await expect(slidesTab).toHaveAttribute('aria-selected', 'true');
+  expect(await currentSlide(page)).toBe(slide);
+  expect(await page.locator('[data-workspace-panel="navigation"]').evaluate(node => node.getBoundingClientRect().width)).toBe(width);
+});
 
 test.describe('a component’s definition', () => {
   test('is listed beside the deck, and is not one of its slides', async ({ page }) => {
@@ -393,7 +418,7 @@ test.describe('working with a component', () => {
 
     const drawn = await page.evaluate(() => {
       const card = document.querySelector('.sl-def-component') as HTMLElement | null;
-      const ruler = document.querySelector('[data-ruler="x"]') as HTMLElement | null;
+      const ruler = document.querySelector('[data-ruler="x"] .sl-ruler-scale') as HTMLElement | null;
       if (!card || !ruler) return null;
       const rect = card.getBoundingClientRect();
       return {
@@ -629,7 +654,7 @@ test.describe('how big a card is', () => {
     // And the panel says it in words as well as by the greyed fields, because a number a
     // reader can type that changes nothing is the same fault as a drag that does nothing.
     await expect(page.locator('.sl-properties')).toContainText('크기는 컴포넌트가 정합니다');
-    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeDisabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: '너비', exact: true })).toBeDisabled();
   });
 
   test('changes the card’s size, and every placement follows', async ({ page }) => {
@@ -702,6 +727,7 @@ test.describe('a card in the layer list', () => {
         );
       });
     });
+    await page.getByRole('tab', { name: '슬라이드' }).click();
     await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
     await page.waitForTimeout(400);
     await page.getByRole('tab', { name: '레이어', exact: true }).click();
@@ -869,6 +895,7 @@ test.describe('a card with motion of its own', () => {
         (one: string) => store.getNode(one)?.attributes?.id === 'cards'
       );
     });
+    await page.getByRole('tab', { name: '슬라이드' }).click();
     await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
     await page.waitForTimeout(600);
 
@@ -950,6 +977,7 @@ test.describe('the timeline’s line about a card', () => {
         (one: string) => store.getNode(one)?.attributes?.id === 'cards'
       );
     });
+    await page.getByRole('tab', { name: '슬라이드' }).click();
     await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
     await page.waitForTimeout(600);
 
@@ -1201,7 +1229,7 @@ test.describe('a card built out of a frame', () => {
     // Offered, because the model has an answer for the drag.
     const handle = page.locator('[data-handle="se"]');
     await expect(handle).toHaveCount(1);
-    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeEnabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: '너비', exact: true })).toBeEnabled();
 
     /**
      * Measured off the **drawing**, in pixels.
