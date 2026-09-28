@@ -32,7 +32,7 @@
  */
 import { inspectFormula } from '@barocss/schema';
 import { Editor, Extension } from '@barocss/editor-core';
-import { addChild, node, removeChild, setAttrs, textNode, transaction } from '@barocss/model';
+import { addChild, node, op, removeChild, setAttrs, textNode, transaction } from '@barocss/model';
 import { copyOf } from '@barocss/office-canvas';
 import { ASSET_PREFIX, assetsOf } from './assets';
 import { nfc } from './names';
@@ -1034,17 +1034,34 @@ export class SiteDataExtension implements Extension {
     // overlapping calls snapshot the same records and allocate the same resource ID.
     const previous = this._richTextCreateQueue.get(editor) ?? Promise.resolve();
     const result = previous.then(async () => {
-      const target = this._emptyRichTextCell(editor, payload);
-      if (!target) return false;
-      const { box, dataset, row, field } = target;
-      const id = this._freeRichId(editor, field);
-      const records = this._records(dataset);
-      records[row] = { ...records[row], [field]: richRef(id) };
-      const body = node('richText', { id }, [node('paragraph', {}, [textNode('inline-text', '')])]);
-      return (await transaction(editor, [
-        addChild(String(box.sid), body as never, (box.content ?? []).length),
-        setAttrs(String(dataset.sid), { records })
-      ] as never).commit()).success === true;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const target = this._emptyRichTextCell(editor, payload);
+        if (!target) return false;
+        const { box, dataset, row, field } = target;
+        const id = this._freeRichId(editor, field);
+        const expectedRecords = JSON.stringify(dataset.attributes?.records);
+        const expectedChildren = JSON.stringify(box.content ?? []);
+        const records = this._records(dataset);
+        records[row] = { ...records[row], [field]: richRef(id) };
+        const body = node('richText', { id }, [node('paragraph', {}, [textNode('inline-text', '')])]);
+        const done = await transaction(editor, [
+          // Runs after the model FIFO lock is acquired and before any write. A
+          // different editor command can otherwise replace our records snapshot.
+          op(() => {
+            const current = this._emptyRichTextCell(editor, payload);
+            const fresh = current &&
+              JSON.stringify(current.dataset.attributes?.records) === expectedRecords &&
+              JSON.stringify(current.box.content ?? []) === expectedChildren &&
+              this._freeRichId(editor, field) === id;
+            return fresh ? { success: true } : { success: false, error: 'stale dataset body plan' };
+          }),
+          addChild(String(box.sid), body as never, (box.content ?? []).length),
+          setAttrs(String(dataset.sid), { records })
+        ] as never).commit();
+        if (done.success) return true;
+        if (!done.errors.some(error => error.includes('stale dataset body plan'))) return false;
+      }
+      return false;
     });
     this._richTextCreateQueue.set(editor, result.then(() => {}, () => {}));
     return result;
@@ -1058,17 +1075,32 @@ export class SiteDataExtension implements Extension {
   }
 
   private async _setCell(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
-    if (!this._canSetCell(editor, payload)) return false;
-    const dataset = this._dataset(editor, payload)!;
-    const row = this._rowAt(editor, payload)!;
-    const field = String(payload!.field);
-    const records = this._records(dataset);
-    /* Stored as what the column says it holds — see `cellFor`, and what a price stored as words cost. */
-    const kind = fieldNamed(this._fields(dataset), field)?.kind;
-    records[row] = { ...records[row], [field]: cellFor(payload!.value, kind) };
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (!this._canSetCell(editor, payload)) return false;
+      const dataset = this._dataset(editor, payload)!;
+      const row = this._rowAt(editor, payload)!;
+      const field = String(payload!.field);
+      const expectedRecords = JSON.stringify(dataset.attributes?.records);
+      const expectedFields = JSON.stringify(dataset.attributes?.fields);
+      const records = this._records(dataset);
+      /* Stored as what the column says it holds — see `cellFor`, and what a price stored as words cost. */
+      const kind = fieldNamed(this._fields(dataset), field)?.kind;
+      records[row] = { ...records[row], [field]: cellFor(payload!.value, kind) };
 
-    const step = setAttrs(String(dataset.sid), { records });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+      const done = await transaction(editor, [
+        op(() => {
+          const current = this._dataset(editor, payload);
+          const fresh = current && this._canSetCell(editor, payload) &&
+            JSON.stringify(current.attributes?.records) === expectedRecords &&
+            JSON.stringify(current.attributes?.fields) === expectedFields;
+          return fresh ? { success: true } : { success: false, error: 'stale dataset cell plan' };
+        }),
+        setAttrs(String(dataset.sid), { records })
+      ] as never).commit();
+      if (done.success) return true;
+      if (!done.errors.some(error => error.includes('stale dataset cell plan'))) return false;
+    }
+    return false;
   }
 
   /**

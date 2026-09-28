@@ -121,6 +121,67 @@ describe('createDatasetRichText', () => {
     expect(editor.exportDocument()).toEqual(after);
   });
 
+  it.each(['create-first', 'cell-first'])('preserves a concurrent edit to another row (%s)', async order => {
+    const { editor, doc, payload, records } = setup();
+    const create = () => editor.run(command, payload);
+    const edit = () => editor.run('setDatasetCell', { ...payload, row: 1, field: 'Title', value: 'Second changed' });
+    const results = order === 'create-first'
+      ? await Promise.all([create(), edit()])
+      : await Promise.all([edit(), create()]);
+    expect(results).toEqual([true, true]);
+    expect(records()[1].Title).toBe('Second changed');
+    expect(richTextNamed(doc, records()[0].Body)).toBeDefined();
+  });
+
+  it('replans after a queued cell edit commits under the model lock', async () => {
+    const { editor, store, doc, payload, records } = setup();
+    const held = await store.acquireLock('existing work');
+    let enqueued = 0;
+    let queued!: () => void;
+    const waiting = new Promise<void>(resolve => { queued = resolve; });
+    const original = store.acquireLock.bind(store);
+    store.acquireLock = async owner => {
+      if (++enqueued === 2) queued();
+      return original(owner);
+    };
+    try {
+      const edit = editor.run('setDatasetCell', { ...payload, row: 1, field: 'Title', value: 'Second changed' });
+      const create = editor.run(command, payload);
+      await waiting;
+      store.releaseLock(held);
+      expect(await Promise.all([edit, create])).toEqual([true, true]);
+      expect(records()[1].Title).toBe('Second changed');
+      expect(richTextNamed(doc, records()[0].Body)).toBeDefined();
+    } finally {
+      store.acquireLock = original;
+      store.releaseLock(held);
+    }
+  });
+
+  it('keeps a queued body creation when a later cell edit starts during the model lock', async () => {
+    const { editor, store, doc, payload, records } = setup();
+    const held = await store.acquireLock('existing work');
+    let firstQueued!: () => void;
+    const waiting = new Promise<void>(resolve => { firstQueued = resolve; });
+    const original = store.acquireLock.bind(store);
+    store.acquireLock = async owner => {
+      firstQueued();
+      return original(owner);
+    };
+    try {
+      const create = editor.run(command, payload);
+      await waiting;
+      const edit = editor.run('setDatasetCell', { ...payload, row: 1, field: 'Title', value: 'Second changed' });
+      store.releaseLock(held);
+      expect(await Promise.all([create, edit])).toEqual([true, true]);
+      expect(records()[1].Title).toBe('Second changed');
+      expect(richTextNamed(doc, records()[0].Body)).toBeDefined();
+    } finally {
+      store.acquireLock = original;
+      store.releaseLock(held);
+    }
+  });
+
   it.each(['text:요약-스택', 'text:missing', 'plain text', ' ', 0, false, [], {}])('refuses an existing value %j without changing resources, rows or history', async value => {
     const { editor, payload } = setup(value);
     const before = editor.exportDocument(), entries = editor.historyManager.getStats().totalEntries;
