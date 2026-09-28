@@ -73,6 +73,54 @@ describe('createDatasetRichText', () => {
     expect(editor.exportDocument()).toEqual(before);
   });
 
+  it('preserves both rows and distinct resources when two empty cells are created together', async () => {
+    const { editor, doc, payload, records } = setup();
+    const before = editor.exportDocument();
+    const beforeRich = richTextsOf(doc).length;
+    const results = await Promise.all([
+      editor.run(command, payload),
+      editor.run(command, { ...payload, row: 1 }),
+    ]);
+    expect(results).toEqual([true, true]);
+    const first = records()[0].Body, second = records()[1].Body;
+    expect(first).toMatch(/^text:.+/);
+    expect(second).toMatch(/^text:.+/);
+    expect(second).not.toBe(first);
+    expect(richTextNamed(doc, first)).toBeDefined();
+    expect(richTextNamed(doc, second)).toBeDefined();
+    expect(richTextsOf(doc)).toHaveLength(beforeRich + 2);
+    expect(records()[0].Title).toBe('First');
+    expect(records()[1].Title).toBe('Second');
+    expect(records()[1].Other).toBe('text:missing');
+    const after = editor.exportDocument();
+    await editor.undo();
+    expect(records()[0].Body).toBe(first);
+    expect(records()[1].Body).toBe('');
+    await editor.undo();
+    expect(editor.exportDocument()).toEqual(before);
+    await editor.redo();
+    await editor.redo();
+    expect(editor.exportDocument()).toEqual(after);
+  });
+
+  it('creates only one resource when the same empty cell is requested together', async () => {
+    const { editor, doc, payload, records } = setup();
+    const before = editor.exportDocument();
+    const beforeRich = richTextsOf(doc).length;
+    const beforeEntries = editor.historyManager.getStats().totalEntries;
+    const results = await Promise.all([editor.run(command, payload), editor.run(command, payload)]);
+    expect(results.sort()).toEqual([false, true]);
+    expect(records()[0].Body).toMatch(/^text:.+/);
+    expect(richTextNamed(doc, records()[0].Body)).toBeDefined();
+    expect(richTextsOf(doc)).toHaveLength(beforeRich + 1);
+    expect(editor.historyManager.getStats().totalEntries).toBe(beforeEntries + 1);
+    const after = editor.exportDocument();
+    await editor.undo();
+    expect(editor.exportDocument()).toEqual(before);
+    await editor.redo();
+    expect(editor.exportDocument()).toEqual(after);
+  });
+
   it.each(['text:요약-스택', 'text:missing', 'plain text', ' ', 0, false, [], {}])('refuses an existing value %j without changing resources, rows or history', async value => {
     const { editor, payload } = setup(value);
     const before = editor.exportDocument(), entries = editor.historyManager.getStats().totalEntries;

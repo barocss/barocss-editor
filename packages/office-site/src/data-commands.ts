@@ -56,6 +56,7 @@ const newStableRowId = () => `site-item-${globalThis.crypto?.randomUUID?.() ?? `
 export class SiteDataExtension implements Extension {
   name = 'siteData';
   priority = 48;
+  private readonly _richTextCreateQueue = new WeakMap<Editor, Promise<void>>();
 
   onCreate(editor: Editor): void {
     const register = (
@@ -1028,18 +1029,25 @@ export class SiteDataExtension implements Extension {
     return { box, dataset, row, field: payload.field };
   }
 
-  private async _createDatasetRichText(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
-    const target = this._emptyRichTextCell(editor, payload);
-    if (!target) return false;
-    const { box, dataset, row, field } = target;
-    const id = this._freeRichId(editor, field);
-    const records = this._records(dataset);
-    records[row] = { ...records[row], [field]: richRef(id) };
-    const body = node('richText', { id }, [node('paragraph', {}, [textNode('inline-text', '')])]);
-    return (await transaction(editor, [
-      addChild(String(box.sid), body as never, (box.content ?? []).length),
-      setAttrs(String(dataset.sid), { records })
-    ] as never).commit()).success === true;
+  private _createDatasetRichText(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    // Each command must plan from the state left by the previous creation. Otherwise
+    // overlapping calls snapshot the same records and allocate the same resource ID.
+    const previous = this._richTextCreateQueue.get(editor) ?? Promise.resolve();
+    const result = previous.then(async () => {
+      const target = this._emptyRichTextCell(editor, payload);
+      if (!target) return false;
+      const { box, dataset, row, field } = target;
+      const id = this._freeRichId(editor, field);
+      const records = this._records(dataset);
+      records[row] = { ...records[row], [field]: richRef(id) };
+      const body = node('richText', { id }, [node('paragraph', {}, [textNode('inline-text', '')])]);
+      return (await transaction(editor, [
+        addChild(String(box.sid), body as never, (box.content ?? []).length),
+        setAttrs(String(dataset.sid), { records })
+      ] as never).commit()).success === true;
+    });
+    this._richTextCreateQueue.set(editor, result.then(() => {}, () => {}));
+    return result;
   }
 
   private _canSetCell(editor: Editor, payload?: Record<string, unknown>): boolean {
