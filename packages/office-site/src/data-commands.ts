@@ -56,9 +56,13 @@ const newStableRowId = () => `site-item-${globalThis.crypto?.randomUUID?.() ?? `
 export class SiteDataExtension implements Extension {
   name = 'siteData';
   priority = 48;
-  private readonly _richTextCreateQueue = new WeakMap<Editor, Promise<void>>();
+  private readonly _datasetWriteQueue = new WeakMap<Editor, Promise<void>>();
 
   onCreate(editor: Editor): void {
+    const recordWrites = new Set([
+      'setDatasetField', 'setDatasetCell', 'setDatasetCells',
+      'addDatasetRow', 'removeDatasetRow', 'removeDataset', 'duplicateDataset'
+    ]);
     const register = (
       name: string,
       execute: (payload?: Record<string, unknown>) => Promise<boolean>,
@@ -66,7 +70,11 @@ export class SiteDataExtension implements Extension {
     ) =>
       editor.registerCommand({
         name,
-        execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
+        execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
+          if (!recordWrites.has(name)) return execute(payload);
+          const sameTarget = this._queuedDatasetTarget(editor, name, payload);
+          return this._enqueueDatasetWrite(editor, () => sameTarget() ? execute(payload) : Promise.resolve(false));
+        },
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
       });
 
@@ -352,6 +360,37 @@ export class SiteDataExtension implements Extension {
       async (payload) => await this._duplicate(editor, payload),
       (payload) => { const dataset = this._dataset(editor, payload); return !!dataset && !Array.isArray(dataset.attributes?.rowIds); }
     );
+  }
+
+  private _enqueueDatasetWrite(editor: Editor, write: () => Promise<boolean>): Promise<boolean> {
+    const previous = this._datasetWriteQueue.get(editor) ?? Promise.resolve();
+    const result = previous.then(write);
+    this._datasetWriteQueue.set(editor, result.then(() => {}, () => {}));
+    return result;
+  }
+
+  private _queuedDatasetTarget(editor: Editor, command: string, payload?: Record<string, unknown>): () => boolean {
+    const rowCommands = ['setDatasetCell', 'setDatasetCells', 'removeDatasetRow'];
+    const explicitInsert = command === 'addDatasetRow' && Number.isInteger(payload?.at);
+    if (!rowCommands.includes(command) && !explicitInsert) return () => true;
+    const dataset = this._dataset(editor, payload);
+    const records = dataset?.attributes?.records;
+    if (!dataset || !Array.isArray(records)) return () => false;
+    const ids = dataset.attributes?.rowIds;
+    const originalIds = JSON.stringify(ids);
+    const count = records.length;
+    const row = Number(payload?.row);
+    const originalRowId = !explicitInsert && Number.isInteger(row) && Array.isArray(ids) && typeof ids[row] === 'string'
+      ? ids[row] as string : undefined;
+    const originalRow = !explicitInsert && Number.isInteger(row) ? JSON.stringify(records[row]) : undefined;
+    return () => {
+      const current = this._dataset(editor, payload);
+      const currentRecords = current?.attributes?.records;
+      if (!current || !Array.isArray(currentRecords)) return false;
+      if (originalRowId !== undefined) return current.attributes?.rowIds?.[row] === originalRowId;
+      return currentRecords.length === count && JSON.stringify(current.attributes?.rowIds) === originalIds &&
+        (explicitInsert || JSON.stringify(currentRecords[row]) === originalRow);
+    };
   }
 
   /** A name nothing else has, made from the one being copied — 상품, 상품 2, 상품 3. */
@@ -726,8 +765,27 @@ export class SiteDataExtension implements Extension {
       for (const key of Object.keys(row)) if (!fields.includes(key)) fields.push(key);
     }
 
-    const step = setAttrs(String(dataset.sid), { fields, records });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    // Fetch outside the queue, then refuse an old response if a reader edited
+    // the dataset before it arrived. The final write shares the Site FIFO.
+    const snapshot = (one: Node) => JSON.stringify([
+      one.attributes?.fields, one.attributes?.records, one.attributes?.rowIds,
+      one.attributes?.kind, one.attributes?.url
+    ]);
+    const expected = snapshot(dataset);
+    return this._enqueueDatasetWrite(editor, async () => {
+      const current = this._dataset(editor, payload);
+      if (!current || snapshot(current) !== expected) return false;
+      const done = await transaction(editor, [
+        op(() => {
+          const latest = this._dataset(editor, payload);
+          return latest && snapshot(latest) === expected
+            ? { success: true }
+            : { success: false, error: 'stale dataset refresh plan' };
+        }),
+        setAttrs(String(dataset.sid), { fields, records })
+      ] as never).commit();
+      return done.success === true;
+    });
   }
 
   /** The container this schema keeps referred-to things in — datasets, connections, files. */
@@ -1030,13 +1088,29 @@ export class SiteDataExtension implements Extension {
   }
 
   private _createDatasetRichText(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
-    // Each command must plan from the state left by the previous creation. Otherwise
-    // overlapping calls snapshot the same records and allocate the same resource ID.
-    const previous = this._richTextCreateQueue.get(editor) ?? Promise.resolve();
-    const result = previous.then(async () => {
+    const initial = this._emptyRichTextCell(editor, payload);
+    if (!initial) return Promise.resolve(false);
+    const initialRecords = initial.dataset.attributes?.records as Record<string, unknown>[];
+    const rowIds = initial.dataset.attributes?.rowIds;
+    const originalRowId = Array.isArray(rowIds) && typeof rowIds[initial.row] === 'string'
+      ? rowIds[initial.row] as string : undefined;
+    const originalRow = JSON.stringify(initialRecords[initial.row]);
+    const originalCount = initialRecords.length;
+    const sameRow = (dataset: Node): boolean => {
+      const currentIds = dataset.attributes?.rowIds;
+      return originalRowId !== undefined
+        ? Array.isArray(currentIds) && currentIds[initial.row] === originalRowId
+        : !Array.isArray(currentIds) && Array.isArray(dataset.attributes?.records) &&
+          dataset.attributes.records.length === originalCount &&
+          JSON.stringify(dataset.attributes.records[initial.row]) === originalRow;
+    };
+
+    // All public Site dataset writers share this queue. A row that moves while
+    // waiting is refused instead of creating a body for the new row at its index.
+    return this._enqueueDatasetWrite(editor, async () => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const target = this._emptyRichTextCell(editor, payload);
-        if (!target) return false;
+        if (!target || !sameRow(target.dataset)) return false;
         const { box, dataset, row, field } = target;
         const id = this._freeRichId(editor, field);
         const expectedRecords = JSON.stringify(dataset.attributes?.records);
@@ -1049,7 +1123,7 @@ export class SiteDataExtension implements Extension {
           // different editor command can otherwise replace our records snapshot.
           op(() => {
             const current = this._emptyRichTextCell(editor, payload);
-            const fresh = current &&
+            const fresh = current && sameRow(current.dataset) &&
               JSON.stringify(current.dataset.attributes?.records) === expectedRecords &&
               JSON.stringify(current.box.content ?? []) === expectedChildren &&
               this._freeRichId(editor, field) === id;
@@ -1063,8 +1137,6 @@ export class SiteDataExtension implements Extension {
       }
       return false;
     });
-    this._richTextCreateQueue.set(editor, result.then(() => {}, () => {}));
-    return result;
   }
 
   private _canSetCell(editor: Editor, payload?: Record<string, unknown>): boolean {

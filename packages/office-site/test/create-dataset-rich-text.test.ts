@@ -136,12 +136,11 @@ describe('createDatasetRichText', () => {
   it('replans after a queued cell edit commits under the model lock', async () => {
     const { editor, store, doc, payload, records } = setup();
     const held = await store.acquireLock('existing work');
-    let enqueued = 0;
     let queued!: () => void;
     const waiting = new Promise<void>(resolve => { queued = resolve; });
     const original = store.acquireLock.bind(store);
     store.acquireLock = async owner => {
-      if (++enqueued === 2) queued();
+      queued();
       return original(owner);
     };
     try {
@@ -152,6 +151,73 @@ describe('createDatasetRichText', () => {
       expect(await Promise.all([edit, create])).toEqual([true, true]);
       expect(records()[1].Title).toBe('Second changed');
       expect(richTextNamed(doc, records()[0].Body)).toBeDefined();
+    } finally {
+      store.acquireLock = original;
+      store.releaseLock(held);
+    }
+  });
+
+  it.each(['addDatasetRow', 'removeDatasetRow'])('keeps the created body when %s follows it', async writer => {
+    const { editor, store, doc, payload, records } = setup();
+    const held = await store.acquireLock('existing work');
+    let queued!: () => void;
+    const waiting = new Promise<void>(resolve => { queued = resolve; });
+    const original = store.acquireLock.bind(store);
+    store.acquireLock = async owner => { queued(); return original(owner); };
+    try {
+      const create = editor.run(command, payload);
+      await waiting;
+      const change = editor.run(writer, { nodeId: payload.nodeId, row: 1 });
+      store.releaseLock(held);
+      expect(await Promise.all([create, change])).toEqual([true, true]);
+      expect(richTextNamed(doc, records()[0].Body)).toBeDefined();
+    } finally {
+      store.acquireLock = original;
+      store.releaseLock(held);
+    }
+  });
+
+  it('refuses a queued creation if an inserted row takes the original row index', async () => {
+    const { editor, store, doc, payload, records } = setup();
+    const beforeRich = richTextsOf(doc).length;
+    const held = await store.acquireLock('existing work');
+    let queued!: () => void;
+    const waiting = new Promise<void>(resolve => { queued = resolve; });
+    const original = store.acquireLock.bind(store);
+    store.acquireLock = async owner => { queued(); return original(owner); };
+    try {
+      const add = editor.run('addDatasetRow', { nodeId: payload.nodeId, at: 0 });
+      await waiting;
+      const create = editor.run(command, { ...payload, row: 1 });
+      store.releaseLock(held);
+      expect(await Promise.all([add, create])).toEqual([true, false]);
+      expect(store.getNode(payload.nodeId)!.attributes!.rowIds).toEqual([expect.any(String), 'first', 'second']);
+      expect(records()[1].Body).toBeUndefined();
+      expect(records()[2].Body).toBe('');
+      expect(richTextsOf(doc)).toHaveLength(beforeRich);
+    } finally {
+      store.acquireLock = original;
+      store.releaseLock(held);
+    }
+  });
+
+  it('refuses a queued cell edit if an inserted row takes the original row index', async () => {
+    const { editor, store, payload, records } = setup();
+    const held = await store.acquireLock('existing work');
+    let queued!: () => void;
+    const waiting = new Promise<void>(resolve => { queued = resolve; });
+    const original = store.acquireLock.bind(store);
+    store.acquireLock = async owner => { queued(); return original(owner); };
+    try {
+      const add = editor.run('addDatasetRow', { nodeId: payload.nodeId, at: 0 });
+      await waiting;
+      const edit = editor.run('setDatasetCell', {
+        nodeId: payload.nodeId, row: 1, field: 'Title', value: 'Wrong row'
+      });
+      store.releaseLock(held);
+      expect(await Promise.all([add, edit])).toEqual([true, false]);
+      expect(records()[1].Title).toBe('First');
+      expect(records()[2].Title).toBe('Second');
     } finally {
       store.acquireLock = original;
       store.releaseLock(held);
