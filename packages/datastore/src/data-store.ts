@@ -123,6 +123,9 @@ export class DataStore {
   private _sessionId: string | number = 0;
   // Operation collection state
   private _overlay: TransactionalOverlay | undefined;
+  /** The committed store that owns the lock for this private transaction copy. */
+  private _guardedDraftOwner: DataStore | undefined;
+  private _guardedDraftBaseRevision: number | undefined;
   // Overlay-scoped alias map (non-persistent)
   private _overlayAliases: Map<string, string> | undefined;
   // Temporary alias set used during createNodeWithChildren to detect duplicates
@@ -196,14 +199,14 @@ export class DataStore {
   public readonly range: RangeOperations;
   public readonly serialization: SerializationOperations;
 
-  constructor(rootNodeId?: string, schema?: Schema, sessionId?: string | number) {
+  constructor(rootNodeId?: string, schema?: Schema, sessionId?: string | number, claimSession = true) {
     this.rootNodeId = rootNodeId;
     /*
      * **A name of its own when the caller has none.** `0` was the default, so every store that did
      * not say otherwise minted `0:1`, `0:2` — identical strings in every one of them.
      */
     this._sessionId = sessionId ?? DataStore.mintSessionId();
-    this._claimSession(this._sessionId);
+    if (claimSession) this._claimSession(this._sessionId);
     if (schema) {
       this.setActiveSchema(schema);
     }
@@ -425,6 +428,54 @@ export class DataStore {
 
   getNodes(): Map<string, INode> {
     return this.nodes;
+  }
+
+  /**
+   * Build a detached transaction store. Public readers keep using this store;
+   * only the model's operation context receives the draft. The caller supplies
+   * a schema-safe deep copier so operation writes cannot mutate committed nodes.
+   */
+  createGuardedDraft(copyNode: (node: INode) => INode): DataStore {
+    if (!this.isLocked() || this.isTransactionActive()) {
+      throw new Error('Guarded draft requires a locked committed store');
+    }
+    const draft = new DataStore(this.rootNodeId, this._activeSchema, this._sessionId, false);
+    draft.nodes = new Map([...this.nodes].map(([id, node]) => [id, copyNode(node)]));
+    draft.version = this.version;
+    draft._counter = this._counter;
+    draft._editRevision = this._editRevision;
+    draft._documentEpoch = this._documentEpoch;
+    draft._registeredSchemas = new Map(this._registeredSchemas);
+    draft._contentResolver = this._contentResolver;
+    draft._guardedDraftOwner = this;
+    draft._guardedDraftBaseRevision = this._editRevision;
+    return draft;
+  }
+
+  /** Publish a finished private transaction in one synchronous turn. */
+  publishGuardedDraft(draft: DataStore, operations: readonly AtomicOperation[]): void {
+    if (draft._guardedDraftOwner !== this || draft._guardedDraftBaseRevision !== this._editRevision ||
+        !this.isLocked() || this.isTransactionActive() || draft.isTransactionActive()) {
+      throw new Error('Guarded draft is stale or still active');
+    }
+    this.nodes = draft.nodes;
+    this.rootNodeId = draft.rootNodeId;
+    this.version = draft.version;
+    this._counter = draft._counter;
+    this._editRevision = draft._editRevision;
+    this._documentEpoch = draft._documentEpoch;
+    draft._guardedDraftOwner = undefined;
+    for (const operation of operations) this._eventEmitter.emit('operation', operation);
+  }
+
+  /** Keep issued IDs and write revisions monotonic when a private edit fails. */
+  discardGuardedDraft(draft: DataStore): void {
+    if (draft._guardedDraftOwner !== this) return;
+    if (draft._guardedDraftBaseRevision === this._editRevision) {
+      this._counter = Math.max(this._counter, draft._counter);
+      this._editRevision = Math.max(this._editRevision, draft._editRevision);
+    }
+    draft._guardedDraftOwner = undefined;
   }
   setNodes(nodes: Map<string, INode>): void {
     this._documentEpoch++;
@@ -2457,7 +2508,7 @@ export class DataStore {
    * 락이 현재 사용 중인지 확인합니다.
    */
   isLocked(): boolean {
-    return this._currentLock !== null;
+    return this._currentLock !== null || !!this._guardedDraftOwner?.isLocked();
   }
 
   /**
