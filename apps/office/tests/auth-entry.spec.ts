@@ -13,6 +13,7 @@ const documentHead = { documentId, tenantId: id, workspaceId, product: 'note', t
   documentKey: `wonffice-${id}-${documentId}`, fileFormat: 'barocss-note', fileVersion: 1,
   snapshotHash: createHash('sha256').update(snapshotText).digest('hex') };
 const issuer = 'http://127.0.0.1:18180/realms/wonffice-local';
+const officeOrigin = `http://127.0.0.1:${process.env.OFFICE_AUTH_TEST_PORT ?? '5191'}`;
 type Role = 'owner' | 'admin' | 'editor' | 'viewer';
 
 async function mockLogin(page: Page, options: { role?: Role; tenants?: number; apiStatus?: number; accessStatus?: number; operatorStatus?: number; workspaceCount?: number; workspacesStatus?: number; documentCount?: number; documentsStatus?: number; openStatus?: number; openWorkspace?: string } = {}) {
@@ -25,11 +26,11 @@ async function mockLogin(page: Page, options: { role?: Role; tenants?: number; a
   }));
   await page.route(`${issuer}/protocol/openid-connect/auth**`, route => {
     const state = new URL(route.request().url()).searchParams.get('state');
-    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('http://127.0.0.1:5191/auth/callback?code=synthetic&state=${encodeURIComponent(state ?? '')}')</script>` });
+    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('${officeOrigin}/auth/callback?code=synthetic&state=${encodeURIComponent(state ?? '')}')</script>` });
   });
   await page.route(`${issuer}/protocol/openid-connect/logout**`, route => {
     const state = new URL(route.request().url()).searchParams.get('state');
-    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('http://127.0.0.1:5191/?state=${encodeURIComponent(state ?? '')}')</script>` });
+    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('${officeOrigin}/?state=${encodeURIComponent(state ?? '')}')</script>` });
   });
   await page.route(`${issuer}/protocol/openid-connect/token`, route => route.fulfill({
     contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
@@ -243,7 +244,7 @@ test('reload uses provider SSO and checks current membership again', async ({ pa
   await page.route(`${issuer}/protocol/openid-connect/auth**`, route => {
     const url = new URL(route.request().url());
     prompts.push(url.searchParams.get('prompt') ?? '');
-    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('http://127.0.0.1:5191/auth/callback?code=synthetic&state=${encodeURIComponent(url.searchParams.get('state') ?? '')}')</script>` });
+    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('${officeOrigin}/auth/callback?code=synthetic&state=${encodeURIComponent(url.searchParams.get('state') ?? '')}')</script>` });
   });
   await page.goto('/');
   await page.getByRole('button', { name: '회사 관리자로 들어가기' }).click();
@@ -258,7 +259,7 @@ test('a cancelled provider login returns to an explicit retry state', async ({ p
   await mockLogin(page);
   await page.route(`${issuer}/protocol/openid-connect/auth**`, route => {
     const state = new URL(route.request().url()).searchParams.get('state');
-    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('http://127.0.0.1:5191/auth/callback?error=access_denied&state=${encodeURIComponent(state ?? '')}')</script>` });
+    return route.fulfill({ contentType: 'text/html', body: `<script>location.replace('${officeOrigin}/auth/callback?error=access_denied&state=${encodeURIComponent(state ?? '')}')</script>` });
   });
   await page.goto('/');
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
@@ -527,6 +528,45 @@ test('a stale Note save requires copying the typed draft before opening the serv
   await note.getByRole('button', { name: '서버 최신본 열기' }).click();
   await expect(page.locator('[data-server-note-workspace] .on-doc > p').first()).toContainText('Server latest');
   expect(puts).toBe(1);
+});
+
+test('an authorized collaborative Note is not reported as a tenant denial or opened from a stale snapshot', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  await page.unroute(`**/api/v1/tenants/${id}/documents/${documentId}`);
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ document: { ...documentHead, mode: 'collaborative' } }),
+  }));
+  let snapshotWrites = 0;
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}/snapshot`, route => {
+    snapshotWrites++;
+    return route.fulfill({ status: 409, contentType: 'application/json', body: '{"status":"collaborative_mode"}' });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await expect(page.getByRole('heading', { name: '공동 편집을 열 수 없습니다' })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('공동 편집 연결이 준비되지 않았습니다');
+  await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toHaveCount(0);
+  await expect(page.locator('[data-server-note-workspace]')).toHaveCount(0);
+  expect(snapshotWrites).toBe(0);
+});
+
+test('an initializing Note is not presented as a missing tenant grant', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  await page.unroute(`**/api/v1/tenants/${id}/documents/${documentId}`);
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ document: { ...documentHead, mode: 'initializing' } }),
+  }));
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await expect(page.getByRole('heading', { name: '공동 편집을 열 수 없습니다' })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('공동 편집 문서를 준비하는 중입니다');
+  await expect(page.locator('[data-server-note-workspace]')).toHaveCount(0);
 });
 
 test('operator-only identity reaches operator entry after current server grant', async ({ page }) => {
