@@ -409,7 +409,7 @@ test.describe('a library where the reader is looking', () => {
     await page.waitForTimeout(300);
 
     // The panel says whose it is — a badge only on the ones that came from somewhere.
-    await page.locator('.sl-components-closed').click();
+    await page.getByRole('tab', { name: '컴포넌트' }).click();
     await page.waitForTimeout(600);
     await expect(page.locator('[data-component-from="one-engine-two-products"]')).toHaveCount(1);
     await expect(page.locator('[data-component-outdated]')).toHaveCount(0);
@@ -448,9 +448,9 @@ test.describe('a library where the reader is looking', () => {
      * Closed and opened again, because that is when the reading happens: a keystroke is not a
      * reason to open three files, and a brand kit does not change while somebody is typing here.
      */
-    await page.locator('.sl-components [aria-label="컴포넌트 닫기"]').click();
+    await page.getByRole('tab', { name: '슬라이드' }).click();
     await page.waitForTimeout(300);
-    await page.locator('.sl-components-closed').click();
+    await page.getByRole('tab', { name: '컴포넌트' }).click();
     await page.waitForTimeout(900);
     await expect(page.locator('[data-component-outdated="metric-card"]')).toHaveCount(1);
   });

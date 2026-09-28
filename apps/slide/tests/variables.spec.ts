@@ -16,7 +16,7 @@ import { openDeck } from './helpers';
  * problem a variable exists to solve, so the test changes one value and reads the slide.
  */
 const panel = async (page: Page) => {
-  await page.locator('.sl-components-closed').click();
+  await page.getByRole('tab', { name: '컴포넌트' }).click();
   await expect(page.locator('.sl-components')).toHaveCount(1);
   // The list is drawn from the document, so it arrives with the next render rather than the click.
   await page.waitForTimeout(400);
@@ -346,12 +346,12 @@ test.describe('the deck’s own variables', () => {
      * straight back by the next pass, which is a field that changes nothing — the fault the
      * placement's refused handles were measured for.
      */
-    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeDisabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: '너비', exact: true })).toBeDisabled();
     await expect(page.locator('[data-handle="se"]')).toHaveCount(0);
     await expect(page.locator('.sl-properties')).toContainText('크기를 문서 변수가 정합니다');
 
     // The position is still theirs: only what the variable owns is taken away.
-    await expect(page.locator('.sl-properties').getByLabel('X', { exact: true })).toBeEnabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: 'X', exact: true })).toBeEnabled();
 
     // And changing the variable moves the shape — one field, every shape bound to it.
     await value.fill('3600');
@@ -463,11 +463,11 @@ test.describe('the deck’s own variables', () => {
     expect(after.x).toBe(1200);
 
     // And the panel says why the two fields are greyed, rather than leaving a reader to discover it.
-    await expect(page.locator('.sl-properties').getByLabel('X', { exact: true })).toBeDisabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: 'X', exact: true })).toBeDisabled();
     await expect(page.locator('.sl-properties')).toContainText('자리를 문서 변수가 정합니다');
 
     // Its size is still the reader's: one binding takes one gesture away.
-    await expect(page.locator('.sl-properties').getByLabel('너비', { exact: true })).toBeEnabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: '너비', exact: true })).toBeEnabled();
 
     // And changing the variable moves it — which is the point of having done any of this.
     await value.fill('3600');

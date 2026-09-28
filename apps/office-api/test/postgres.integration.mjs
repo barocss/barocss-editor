@@ -91,7 +91,7 @@ try {
       documentKey: task.documentKey, providerProject: task.providerProject,
       providerBuild: task.providerBuild, seedId: task.seedId,
       snapshotRevision: task.snapshotRevision, snapshotHash: task.snapshotHash,
-      providerCheckpoint: 'synthetic-checkpoint-1', providerSnapshotHash: task.snapshotHash,
+      providerCheckpoint: 'synthetic-checkpoint-1', providerSnapshotHash: task.canonicalSeed.canonicalTreeHash,
     }); if (failNextSeed) { failNextSeed = false; throw new Error('lost_provider_ack'); } },
     async inspect(task) { return allowInspection ? providerSeeds.get(task.seedId) ?? null : null; },
   };
@@ -222,7 +222,8 @@ try {
     const confirmation = await new CollaborationStore(pool, 'synthetic-project', 'synthetic-build')
       .resolve({ issuer, subject: 'alice' }, seeded.json().documentKey, 'read');
     assert.equal(confirmation.providerCheckpoint, 'synthetic-checkpoint-1');
-    assert.equal(confirmation.providerSnapshotHash, initial.json().document.snapshotHash);
+    assert.match(confirmation.providerSnapshotHash, /^[0-9a-f]{64}$/);
+    assert.notEqual(confirmation.providerSnapshotHash, initial.json().document.snapshotHash);
   });
   await check('real loopback API issues a session-bound capability and local Yorkie callback rechecks it', async () => {
     const sessionHeader = { authorization: `Bearer ${await token('alice',

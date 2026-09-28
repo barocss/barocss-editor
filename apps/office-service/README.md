@@ -87,6 +87,16 @@ Dump files do not contain cluster role definitions or credentials. Provision the
 
 ## Verification
 
+Migration `0009_full_note_collaboration_seed` adds the frozen source text,
+versioned canonical Note tree and typed-tree hash to the collaboration attempt.
+The server stores them with the attempt before provider I/O. Retry and
+reconciliation reuse that tree and its node IDs. A confirmed provider proof
+must match its canonical hash; the source-byte hash remains a separate fact.
+Migration quarantines older confirmed raw seed rows as uncertain and moves
+their documents to initializing mode without changing the frozen snapshot or
+Yorkie root. They do not qualify for document-key resolution or ordinary
+capability issuance. An uncertain attempt is never automatically seeded again.
+
 ```sh
 pnpm --filter @barocss/office-service test
 PG_BIN=/path/to/postgresql/16/bin pnpm --filter @barocss/office-service test:postgres

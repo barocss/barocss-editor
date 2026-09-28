@@ -262,4 +262,31 @@ $$;
 REVOKE ALL ON FUNCTION wonffice.lookup_document_capability(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION wonffice.lookup_document_capability(text) TO wonffice_app;
 `,
+}, {
+  id: '0009_full_note_collaboration_seed',
+  sql: `
+ALTER TABLE wonffice.document_collaboration_seeds
+  ADD COLUMN codec_version text,
+  ADD COLUMN canonical_seed jsonb,
+  ADD COLUMN canonical_seed_hash text,
+  ADD COLUMN source_snapshot_text text;
+ALTER TABLE wonffice.document_collaboration_seeds
+  ADD CONSTRAINT full_note_seed_complete CHECK (
+    (codec_version IS NULL AND canonical_seed IS NULL AND canonical_seed_hash IS NULL
+      AND source_snapshot_text IS NULL) OR
+    (codec_version = 'note-full-seed-v2' AND canonical_seed IS NOT NULL
+      AND canonical_seed_hash ~ '^[0-9a-f]{64}$' AND source_snapshot_text IS NOT NULL));
+-- Old raw roots have no canonical tree proof. Preserve their attempt and frozen
+-- snapshot, but close ordinary collaboration access until manual inspection.
+UPDATE wonffice.document_collaboration_seeds
+  SET status = 'uncertain', confirmed_at = NULL,
+    confirmed_provider_checkpoint = NULL, confirmed_provider_snapshot_hash = NULL,
+    updated_at = now()
+  WHERE codec_version IS NULL AND status = 'confirmed';
+UPDATE wonffice.documents AS d SET mode = 'initializing', updated_at = now()
+  FROM wonffice.document_collaboration_seeds AS s
+  WHERE s.tenant_id = d.tenant_id AND s.document_id = d.id
+    AND s.codec_version IS NULL AND s.status = 'uncertain'
+    AND d.mode = 'collaborative';
+`,
 }];

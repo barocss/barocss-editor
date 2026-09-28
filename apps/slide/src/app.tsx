@@ -844,14 +844,8 @@ export function App({
     [editor, current]
   );
 
-  /**
-   * Whether the components list is showing.
-   *
-   * Closed by default and remembered for the session, like the layer list: a deck with no
-   * components has nothing to say here, and a panel that opens itself takes room from the
-   * slide every time the app starts.
-   */
-  const [componentsOpen, setComponentsOpen] = useState(false);
+  /** One left navigation column keeps the stage width stable across all three views. */
+  const [sidebarTab, setSidebarTab] = useState<'slides' | 'layers' | 'components'>('slides');
 
   /**
    * Which of this deck's **imported** definitions are behind the deck they came from.
@@ -879,7 +873,7 @@ export function App({
   }, [dialog]);
 
   useEffect(() => {
-    if (!componentsOpen || components.length === 0) return;
+    if (sidebarTab !== 'components' || components.length === 0) return;
     let dropped = false;
 
     void (async () => {
@@ -916,7 +910,7 @@ export function App({
     };
     // On opening, and when the deck's own definitions change — a definition just re-imported is no
     // longer behind, and the badge has to stop saying so.
-  }, [componentsOpen, components, editor]);
+  }, [sidebarTab, components, editor]);
 
   /**
    * Whether the find bar is showing.
@@ -1905,7 +1899,7 @@ export function App({
       {editor && !presenting && <Ribbon editor={editor} slides={slides} current={current} />}
 
       <AdaptiveWorkspace className="sl-body" enabled={!!editor && !presenting}>
-        <WorkspaceSidePanel side="navigation" width={240 + (componentsOpen ? 200 : components.length ? 24 : 0)}>
+        <WorkspaceSidePanel side="navigation" width={240}>
           <div className="sl-workspace-navigation">
             <SlideSidebar
               editor={editor}
@@ -1913,29 +1907,21 @@ export function App({
               slides={slides}
               current={current}
               editingSlide={current}
+              tab={sidebarTab}
+              onTabChange={setSidebarTab}
+              componentCount={components.length}
               onSelect={sid => { setCurrent(sid); leaveSelection(); }}
               onRename={(sid, name) => void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
-            />
-
-            {/*
-              * The components a deck defines, and the way in and out of one.
-              *
-              * Beside the layer list because both answer "which thing" — and a definition has to
-              * be opened from *somewhere*: it is a resource rather than a page, so there is no
-              * filmstrip row to click. See `component-panel.tsx` for why that is the right place
-              * for it rather than a page of the file you scroll to.
-              */}
-            <ComponentPanel
-              editor={editor}
-              open={componentsOpen}
-              editing={editingComponent}
-              onOpen={openDefinition}
-              onClose={() => setComponentsOpen((was) => !was)}
-              behindSource={behindSource}
-              canMake={canMakeComponent}
-              onMake={makeComponent}
-              onPlace={placeComponent}
-              slideId={current}
+              componentPanel={<ComponentPanel
+                editor={editor}
+                editing={editingComponent}
+                onOpen={openDefinition}
+                behindSource={behindSource}
+                canMake={canMakeComponent}
+                onMake={makeComponent}
+                onPlace={placeComponent}
+                slideId={current}
+              />}
             />
 
           </div>

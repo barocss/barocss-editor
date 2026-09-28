@@ -76,6 +76,23 @@ The local Keycloak/PostgreSQL/API browser check uses synthetic accounts and a de
 
 ## API and collaboration boundaries
 
+The full Note Yorkie seeder is not an active startup path. It needs two server-only, short-lived tokens
+for each durable attempt: `seed` may write only while that exact attempt is
+initializing; `inspect` may only attach and sync as a fresh read-only client.
+The token issuer and Yorkie webhook must bind tenant, document key, seed ID,
+project/build, current member, purpose and expiry. They must invalidate the
+seed-write token when an attempt becomes uncertain and both tokens after
+promotion. The existing ordinary user capability cannot authorize seeding.
+The pinned Yorkie SDK 0.7.22 `Client.attachDocument` calls the provider's
+`AttachDocument` RPC even in manual sync mode. We have not proved that this RPC
+can inspect a missing document without creating it, so a fresh-client inspect
+adapter remains blocked until the provider supplies a verified read-only
+existing-document operation or denies creation for inspect-read credentials.
+`main.ts` therefore does not expose the transition route. `/health/ready`
+remains 503 until the real provider, authorization callback and dependency
+readiness check are connected and verified. `/health/live` proves only that
+the HTTP process is running.
+
 The JSON body limit is 1 MiB; snapshot text is limited to 512 KiB. Inputs do not receive implicit type coercion, defaults or silent removal of unexpected fields. Error responses omit messages, stack traces, submitted values and validation internals. Proxy headers and request-ID headers are not trusted. All document routes require a verified bearer token and active PostgreSQL membership on every request.
 
 Document API paths under `/v1/tenants/:tenantId`:

@@ -74,6 +74,8 @@ export class CapabilityStore {
         ON s.tenant_id = d.tenant_id AND s.document_id = d.id
       WHERE d.tenant_id = $1 AND d.id = $2 AND d.mode = 'collaborative'
         AND s.status = 'confirmed' AND s.provider = 'yorkie'
+        AND s.codec_version = 'note-full-seed-v2'
+        AND s.canonical_seed_hash = s.confirmed_provider_snapshot_hash
         AND s.provider_project = $3 AND s.provider_build = $4`,
     [tenantId, documentId, this.providerProject, this.providerBuild]);
     return found.rows[0]?.documentKey;
