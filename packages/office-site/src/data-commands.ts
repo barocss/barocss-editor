@@ -378,6 +378,7 @@ export class SiteDataExtension implements Extension {
     if (!dataset || !Array.isArray(records)) return () => false;
     const ids = dataset.attributes?.rowIds;
     const originalIds = JSON.stringify(ids);
+    const originalRecords = JSON.stringify(records);
     const count = records.length;
     const row = Number(payload?.row);
     const originalRowId = !explicitInsert && Number.isInteger(row) && Array.isArray(ids) && typeof ids[row] === 'string'
@@ -387,6 +388,10 @@ export class SiteDataExtension implements Extension {
       const current = this._dataset(editor, payload);
       const currentRecords = current?.attributes?.records;
       if (!current || !Array.isArray(currentRecords)) return false;
+      // A rectangular paste can cover rows beyond its first target. Refuse a
+      // queued paste after any dataset change instead of writing a shifted row.
+      if (command === 'setDatasetCells') return JSON.stringify(current.attributes?.rowIds) === originalIds &&
+        JSON.stringify(currentRecords) === originalRecords;
       if (originalRowId !== undefined) return current.attributes?.rowIds?.[row] === originalRowId;
       return currentRecords.length === count && JSON.stringify(current.attributes?.rowIds) === originalIds &&
         (explicitInsert || JSON.stringify(currentRecords[row]) === originalRow);

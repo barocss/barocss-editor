@@ -333,6 +333,31 @@ describe('a block pasted into the grid', () => {
     expect(after[0]).toEqual(before[0]);
   });
 
+  it('refuses a queued rectangular paste when a legacy dataset gains a row in its target range', async () => {
+    const nodeId = sidOf();
+    const originalNames = products().records.map(row => row['이름']);
+    const held = await store.acquireLock('existing work');
+    let queued!: () => void;
+    const waiting = new Promise<void>(resolve => { queued = resolve; });
+    const acquire = store.acquireLock.bind(store);
+    store.acquireLock = async owner => { queued(); return acquire(owner); };
+    try {
+      const add = editor.executeCommand('addDatasetRow', { nodeId, at: 1 });
+      await waiting;
+      const paste = editor.executeCommand('setDatasetCells', {
+        nodeId, row: 0, field: '이름', values: [['First pasted'], ['Second pasted']]
+      });
+      store.releaseLock(held);
+      expect(await Promise.all([add, paste])).toEqual([true, false]);
+      expect(products().records.map(row => row['이름'])).toEqual([
+        originalNames[0], '', ...originalNames.slice(1)
+      ]);
+    } finally {
+      store.acquireLock = acquire;
+      store.releaseLock(held);
+    }
+  });
+
   /*
    * **Rows grow.** Stopping at the table's own length would silently drop the rest and look exactly
    * like a paste that worked — which is the failure mode every check in this package is about.

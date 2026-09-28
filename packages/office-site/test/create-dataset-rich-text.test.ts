@@ -224,6 +224,31 @@ describe('createDatasetRichText', () => {
     }
   });
 
+  it('refuses a queued rectangular paste if insertion shifts a later target row', async () => {
+    const { editor, store, payload, records } = setup();
+    const before = structuredClone(records());
+    const held = await store.acquireLock('existing work');
+    let queued!: () => void;
+    const waiting = new Promise<void>(resolve => { queued = resolve; });
+    const original = store.acquireLock.bind(store);
+    store.acquireLock = async owner => { queued(); return original(owner); };
+    try {
+      const add = editor.run('addDatasetRow', { nodeId: payload.nodeId, at: 1 });
+      await waiting;
+      const paste = editor.run('setDatasetCells', {
+        nodeId: payload.nodeId, row: 0, field: 'Title',
+        values: [['First pasted'], ['Second pasted']]
+      });
+      store.releaseLock(held);
+      expect(await Promise.all([add, paste])).toEqual([true, false]);
+      expect(records().map(row => row.Title)).toEqual([before[0].Title, '', before[1].Title]);
+      expect(store.getNode(payload.nodeId)!.attributes!.rowIds).toEqual(['first', expect.any(String), 'second']);
+    } finally {
+      store.acquireLock = original;
+      store.releaseLock(held);
+    }
+  });
+
   it('keeps a queued body creation when a later cell edit starts during the model lock', async () => {
     const { editor, store, doc, payload, records } = setup();
     const held = await store.acquireLock('existing work');
