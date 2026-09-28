@@ -121,6 +121,54 @@ test('navigation tabs share one column and keep the current slide', async ({ pag
   expect(await page.locator('[data-workspace-panel="navigation"]').evaluate(node => node.getBoundingClientRect().width)).toBe(width);
 });
 
+test('focused navigation arrows do not nudge a selected shape', async ({ page }) => {
+  await openDeck(page);
+  const tabs = page.getByRole('tablist', { name: '탐색 방식' });
+  const slidesTab = tabs.getByRole('tab', { name: '슬라이드' });
+  const layersTab = tabs.getByRole('tab', { name: '레이어' });
+  const componentsTab = tabs.getByRole('tab', { name: '컴포넌트' });
+
+  await layersTab.click();
+  await page.locator('.sl-layers-list li').last().locator('.sl-layer-pick').click();
+  const before = await page.evaluate(() => {
+    const editor = (window as any).editor;
+    const sid = editor.selection?.nodeIds?.[0];
+    return {
+      sid,
+      x: editor.dataStore.getNode(sid)?.attributes?.x,
+      document: JSON.stringify(editor.exportDocument()),
+      selection: JSON.stringify(editor.selection),
+      history: editor.getHistoryStats()
+    };
+  });
+  expect(before.sid).toBeTruthy();
+
+  await slidesTab.focus();
+  await slidesTab.press('ArrowRight');
+  await expect(layersTab).toBeFocused();
+  await layersTab.press('ArrowRight');
+  await expect(componentsTab).toBeFocused();
+  await componentsTab.press('ArrowLeft');
+  await expect(layersTab).toBeFocused();
+  await layersTab.press('ArrowLeft');
+  await expect(slidesTab).toBeFocused();
+  expect(await page.evaluate(() => {
+    const editor = (window as any).editor;
+    return {
+      document: JSON.stringify(editor.exportDocument()),
+      selection: JSON.stringify(editor.selection),
+      history: editor.getHistoryStats()
+    };
+  })).toEqual({ document: before.document, selection: before.selection, history: before.history });
+
+  // With focus on the canvas overlay, the same arrow still nudges the selection.
+  await page.locator('.sl-overlay').evaluate(node => { (node as HTMLElement).tabIndex = -1; (node as HTMLElement).focus(); });
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => page.evaluate(sid => (window as any).editor.dataStore.getNode(sid)?.attributes?.x, before.sid)).toBe(before.x + 15);
+  await page.keyboard.press('Delete');
+  await expect(page.locator(`.sl-layers-list [data-layer="${before.sid}"]`)).toHaveCount(0);
+});
+
 test.describe('a component’s definition', () => {
   test('is listed beside the deck, and is not one of its slides', async ({ page }) => {
     await openDeck(page);
