@@ -241,6 +241,22 @@ describe('rows from an address', () => {
     expect(columnNames(fieldsFrom(attrs().fields))).toEqual(['이름', '가격', '비고']);
   });
 
+  it('refuses an old refresh response after a reader changes a cell', async () => {
+    const { editor, sid, attrs } = await setup();
+    let reply!: (value: unknown) => void;
+    const pending = new Promise<unknown>(resolve => { reply = resolve; });
+    const refresh = editor.executeCommand('refreshDataset', {
+      nodeId: sid,
+      fetch: (async () => ({ ok: true, json: async () => await pending })) as unknown as typeof fetch,
+    });
+    expect(await editor.executeCommand('setDatasetCell', {
+      nodeId: sid, row: 0, field: '이름', value: 'Local edit'
+    })).toBe(true);
+    reply([{ 이름: 'Remote old row' }]);
+    expect(await refresh).toBe(false);
+    expect(attrs().records[0]['이름']).toBe('Local edit');
+  });
+
   it('never empties a dataset, whatever the service says', async () => {
     const { editor, sid, attrs } = await setup();
     await editor.executeCommand('refreshDataset', { nodeId: sid, fetch: answers([{ 이름: '가' }]) });
@@ -315,6 +331,31 @@ describe('a block pasted into the grid', () => {
     // Columns the paste did not reach, and rows above it, are the document's own.
     expect(after[1]['가격']).toBe(before[1]['가격']);
     expect(after[0]).toEqual(before[0]);
+  });
+
+  it('refuses a queued rectangular paste when a legacy dataset gains a row in its target range', async () => {
+    const nodeId = sidOf();
+    const originalNames = products().records.map(row => row['이름']);
+    const held = await store.acquireLock('existing work');
+    let queued!: () => void;
+    const waiting = new Promise<void>(resolve => { queued = resolve; });
+    const acquire = store.acquireLock.bind(store);
+    store.acquireLock = async owner => { queued(); return acquire(owner); };
+    try {
+      const add = editor.executeCommand('addDatasetRow', { nodeId, at: 1 });
+      await waiting;
+      const paste = editor.executeCommand('setDatasetCells', {
+        nodeId, row: 0, field: '이름', values: [['First pasted'], ['Second pasted']]
+      });
+      store.releaseLock(held);
+      expect(await Promise.all([add, paste])).toEqual([true, false]);
+      expect(products().records.map(row => row['이름'])).toEqual([
+        originalNames[0], '', ...originalNames.slice(1)
+      ]);
+    } finally {
+      store.acquireLock = acquire;
+      store.releaseLock(held);
+    }
   });
 
   /*

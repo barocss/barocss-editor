@@ -49,16 +49,140 @@ export interface PreCommitGuardContext {
   candidate: PreCommitCandidate;
 }
 
+/** Input intent before any operation can expose a transaction overlay. */
+export interface PreExecutionGuardContext {
+  operations: readonly (TransactionOperation | OpFunction)[];
+  provenance: EditProvenance;
+  rootId: string | undefined;
+}
+
+export type PreExecutionGuard = (context: PreExecutionGuardContext) => string | void | Promise<string | void>;
+
+const isGuardPromise = (value: unknown): value is Promise<string | void> =>
+  value !== null && typeof value === 'object' && typeof (value as Promise<unknown>).then === 'function';
+
 /** Return a reason to reject the proposed edit. Throwing also rejects it. */
 export type PreCommitGuard = (context: PreCommitGuardContext) => string | void | Promise<string | void>;
 
 const preCommitGuards = new WeakMap<Editor, PreCommitGuard>();
+const preExecutionGuards = new WeakMap<Editor, PreExecutionGuard>();
+
+/**
+ * Node attributes may contain schema validation functions. structuredClone
+ * rejects those functions. A private draft receives inert stand-ins rather
+ * than the committed functions: even an ordinary function can close over
+ * mutable state, and its own properties may hold mutable objects. Restore the
+ * original functions only after the guard has accepted the finished draft.
+ * Refuse shared memory, accessors and custom prototypes before any operation.
+ */
+function cloneGuardNode<T>(
+  value: T,
+  seen = new WeakMap<object, unknown>(),
+  functions?: WeakMap<object, unknown>
+): T {
+  if (typeof value === 'function') {
+    if (seen.has(value)) return seen.get(value) as T;
+    const inert = () => { throw new Error('Guarded node functions are not callable'); };
+    seen.set(value, inert);
+    functions?.set(inert, value);
+    return inert as T;
+  }
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return seen.get(value) as T;
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (value instanceof RegExp) return new RegExp(value.source, value.flags) as T;
+  if (value instanceof Map) {
+    const copy = new Map();
+    seen.set(value, copy);
+    for (const [key, item] of value) copy.set(cloneGuardNode(key, seen, functions), cloneGuardNode(item, seen, functions));
+    return copy as T;
+  }
+  if (value instanceof Set) {
+    const copy = new Set();
+    seen.set(value, copy);
+    for (const item of value) copy.add(cloneGuardNode(item, seen, functions));
+    return copy as T;
+  }
+  if (typeof SharedArrayBuffer !== 'undefined' &&
+      (value instanceof SharedArrayBuffer ||
+        (ArrayBuffer.isView(value) && value.buffer instanceof SharedArrayBuffer))) {
+    throw new Error('Guarded node contains shared memory');
+  }
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return structuredClone(value);
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+    throw new Error('Guarded node contains a custom prototype');
+  }
+  const copy: object = Array.isArray(value) ? [] : Object.create(prototype);
+  seen.set(value, copy);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
+    if (!('value' in descriptor)) throw new Error('Guarded node contains an accessor');
+    Object.defineProperty(copy, key, { ...descriptor, value: cloneGuardNode(descriptor.value, seen, functions) });
+  }
+  return copy as T;
+}
+
+/** Rebuild accepted draft values with the original, never-exposed functions. */
+function restoreGuardFunctions<T>(
+  value: T,
+  functions: WeakMap<object, unknown>,
+  seen = new WeakMap<object, unknown>()
+): T {
+  if (typeof value === 'function') {
+    const original = functions.get(value);
+    if (!original) throw new Error('Guarded draft introduced a function');
+    return original as T;
+  }
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return seen.get(value) as T;
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (value instanceof RegExp) return new RegExp(value.source, value.flags) as T;
+  if (value instanceof Map) {
+    const copy = new Map();
+    seen.set(value, copy);
+    for (const [key, item] of value) copy.set(restoreGuardFunctions(key, functions, seen), restoreGuardFunctions(item, functions, seen));
+    return copy as T;
+  }
+  if (value instanceof Set) {
+    const copy = new Set();
+    seen.set(value, copy);
+    for (const item of value) copy.add(restoreGuardFunctions(item, functions, seen));
+    return copy as T;
+  }
+  if (typeof SharedArrayBuffer !== 'undefined' &&
+      (value instanceof SharedArrayBuffer ||
+        (ArrayBuffer.isView(value) && value.buffer instanceof SharedArrayBuffer))) {
+    throw new Error('Guarded draft contains shared memory');
+  }
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return structuredClone(value);
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+    throw new Error('Guarded draft contains a custom prototype');
+  }
+  const copy: object = Array.isArray(value) ? [] : Object.create(prototype);
+  seen.set(value, copy);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
+    if (!('value' in descriptor)) throw new Error('Guarded draft contains an accessor');
+    Object.defineProperty(copy, key, { ...descriptor, value: restoreGuardFunctions(descriptor.value, functions, seen) });
+  }
+  return copy as T;
+}
 
 /** Install one host policy for all model transaction entry points on an editor. */
 export function registerPreCommitGuard(editor: Editor, guard: PreCommitGuard): () => void {
   preCommitGuards.set(editor, guard);
   return () => {
     if (preCommitGuards.get(editor) === guard) preCommitGuards.delete(editor);
+  };
+}
+
+/** Install one host policy before the model starts its uncommitted overlay. */
+export function registerPreExecutionGuard(editor: Editor, guard: PreExecutionGuard): () => void {
+  preExecutionGuards.set(editor, guard);
+  return () => {
+    if (preExecutionGuards.get(editor) === guard) preExecutionGuards.delete(editor);
   };
 }
 
@@ -150,7 +274,8 @@ export class TransactionManager {
     let selectionBefore: ModelSelection | null = null;
     let provenance: EditProvenance | undefined;
     let guard: PreCommitGuard | undefined;
-    let guardedBaseSnapshot: Map<string, INode> | undefined;
+    let transactionStore = this._dataStore;
+    const draftFunctions = new WeakMap<object, unknown>();
     let isHistoryReplay = false;
     
     try {
@@ -180,14 +305,6 @@ export class TransactionManager {
       // action must never change the history decision of the lock owner.
       isHistoryReplay = isReplay || options?.provenance?.origin === 'history';
       guard = preCommitGuards.get(this._editor);
-      if (guard) {
-        // Some structural operations mutate references from the committed map
-        // while building the overlay. Its ordinary rollback restores recorded
-        // writes, but a guarded refusal must also restore any such references.
-        guardedBaseSnapshot = new Map(
-          [...this._dataStore.getNodes()].map(([id, node]) => [id, structuredClone(node)])
-        );
-      }
       const input = options?.provenance;
       if (input?.origin === 'remote' &&
         (![input.editId, input.actorId, input.sessionId].every(value => typeof value === 'string' && value.trim().length > 0))) {
@@ -201,12 +318,35 @@ export class TransactionManager {
       };
       selectionBefore = this._editor.selectionManager.getCurrentSelection();
 
+      const beforeExecution = preExecutionGuards.get(this._editor);
+      if (beforeExecution) {
+        const reason = await beforeExecution({
+          operations,
+          provenance,
+          rootId: this._dataStore.getRootNodeId()
+        });
+        if (reason) {
+          outcome = {
+            success: false,
+            committed: false,
+            errors: [reason],
+            operations: [],
+            selectionBefore,
+            selectionAfter: selectionBefore
+          };
+          return outcome;
+        }
+      }
+
       // 3. Start DataStore overlay transaction
-      this._dataStore.begin();
+      // A guarded transaction mutates only a detached draft. All editor,
+      // exporter, cached proxy and renderer reads still use the committed store.
+      if (guard) transactionStore = this._dataStore.createGuardedDraft(node => cloneGuardNode(node, undefined, draftFunctions));
+      transactionStore.begin();
       ownsOverlay = true;
 
       const context = createTransactionContext(
-        this._dataStore, 
+        transactionStore,
         this._editor.selectionManager.clone(), 
         this._schema!
       );
@@ -277,7 +417,7 @@ export class TransactionManager {
       // Explicit operation intent also applies when a caller supplied a range before
       // DOM selection reconciliation has populated the editor's current selection.
       if (lastSelectionAfter) {
-        const nodeId = this._dataStore.resolveAlias(lastSelectionAfter.nodeId);
+        const nodeId = transactionStore.resolveAlias(lastSelectionAfter.nodeId);
         context.selection.setCaret(nodeId, lastSelectionAfter.offset);
       } else if (!hasExplicitSelection && context.selection.current && context.lastCreatedBlock) {
         const nodeId =
@@ -291,10 +431,10 @@ export class TransactionManager {
       // the document must not. Undo/redo replays operations that were already
       // accepted, so it is exempt; re-checking it would reject a valid rollback
       // whose intermediate shape differs.
-      this._dataStore.end();
+      transactionStore.end();
 
       if (!isHistoryReplay && this._validateSchemaOnCommit) {
-        const validation = this._dataStore.validateTransactionScope(this._schema);
+        const validation = transactionStore.validateTransactionScope(this._schema);
         if (!validation.valid) {
           outcome = {
             success: false,
@@ -311,17 +451,20 @@ export class TransactionManager {
       if (guard) {
         // getNode reads the uncommitted overlay. Clone each returned node so a
         // host policy cannot mutate the candidate while inspecting it.
-        const reason = await guard({
+        const answer = guard({
           operations: executedOperations,
           provenance: provenance!,
           candidate: {
-            rootId: this._dataStore.getRootNodeId(),
+            rootId: transactionStore.getRootNodeId(),
             getNode: (nodeId) => {
-              const node = this._dataStore.getNode(nodeId);
-              return node === undefined ? undefined : structuredClone(node);
+              const node = transactionStore.getNode(nodeId);
+              return node === undefined ? undefined : cloneGuardNode(node);
             }
           }
         });
+        // A synchronous guard must commit in the same turn as its durable
+        // executed-intent write, without another public read interleaving.
+        const reason = isGuardPromise(answer) ? await answer : answer;
         if (reason) {
           outcome = {
             success: false,
@@ -335,7 +478,14 @@ export class TransactionManager {
         }
       }
 
-      this._dataStore.commit();
+      const atomicOperations = guard ? transactionStore.getCollectedOperations() : [];
+      transactionStore.commit();
+      if (guard) {
+        const nodes = transactionStore.getNodes();
+        for (const [id, node] of nodes) nodes.set(id, restoreGuardFunctions(node, draftFunctions));
+        const publishedOperations = restoreGuardFunctions(atomicOperations, draftFunctions);
+        this._dataStore.publishGuardedDraft(transactionStore, publishedOperations);
+      }
       committed = true;
       const afterCommit = (stage: string, effect: () => void): void => {
         try { effect(); }
@@ -489,11 +639,9 @@ export class TransactionManager {
       // Only clean up state acquired by this execution. A failed lock acquisition
       // must not roll back another caller's overlay or clear its manager state.
       try {
-        if (ownsOverlay && !committed) this._dataStore.rollback();
-        if (guardedBaseSnapshot && !committed) {
-          const nodes = this._dataStore.getNodes();
-          nodes.clear();
-          for (const [id, node] of guardedBaseSnapshot) nodes.set(id, node);
+        if (ownsOverlay && !committed) transactionStore.rollback();
+        if (guard && transactionStore !== this._dataStore && !committed) {
+          this._dataStore.discardGuardedDraft(transactionStore);
         }
       } finally {
         if (ownsTransaction) this._currentTransaction = null;

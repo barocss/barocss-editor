@@ -32,7 +32,7 @@
  */
 import { inspectFormula } from '@barocss/schema';
 import { Editor, Extension } from '@barocss/editor-core';
-import { addChild, node, removeChild, setAttrs, transaction } from '@barocss/model';
+import { addChild, node, op, removeChild, setAttrs, textNode, transaction } from '@barocss/model';
 import { copyOf } from '@barocss/office-canvas';
 import { ASSET_PREFIX, assetsOf } from './assets';
 import { nfc } from './names';
@@ -56,8 +56,13 @@ const newStableRowId = () => `site-item-${globalThis.crypto?.randomUUID?.() ?? `
 export class SiteDataExtension implements Extension {
   name = 'siteData';
   priority = 48;
+  private readonly _datasetWriteQueue = new WeakMap<Editor, Promise<void>>();
 
   onCreate(editor: Editor): void {
+    const recordWrites = new Set([
+      'setDatasetField', 'setDatasetCell', 'setDatasetCells',
+      'addDatasetRow', 'removeDatasetRow', 'removeDataset', 'duplicateDataset'
+    ]);
     const register = (
       name: string,
       execute: (payload?: Record<string, unknown>) => Promise<boolean>,
@@ -65,7 +70,11 @@ export class SiteDataExtension implements Extension {
     ) =>
       editor.registerCommand({
         name,
-        execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
+        execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
+          if (!recordWrites.has(name)) return execute(payload);
+          const sameTarget = this._queuedDatasetTarget(editor, name, payload);
+          return this._enqueueDatasetWrite(editor, () => sameTarget() ? execute(payload) : Promise.resolve(false));
+        },
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
       });
 
@@ -264,6 +273,13 @@ export class SiteDataExtension implements Extension {
       (payload) => this._canSetCell(editor, payload)
     );
 
+    /** Create a cell's first body and reference together, without replacing existing values. */
+    register(
+      'createDatasetRichText',
+      async (payload) => await this._createDatasetRichText(editor, payload),
+      (payload) => this._emptyRichTextCell(editor, payload) !== undefined
+    );
+
     /**
      * **A block of cells**, which is how data gets into this product at all.
      *
@@ -344,6 +360,42 @@ export class SiteDataExtension implements Extension {
       async (payload) => await this._duplicate(editor, payload),
       (payload) => { const dataset = this._dataset(editor, payload); return !!dataset && !Array.isArray(dataset.attributes?.rowIds); }
     );
+  }
+
+  private _enqueueDatasetWrite(editor: Editor, write: () => Promise<boolean>): Promise<boolean> {
+    const previous = this._datasetWriteQueue.get(editor) ?? Promise.resolve();
+    const result = previous.then(write);
+    this._datasetWriteQueue.set(editor, result.then(() => {}, () => {}));
+    return result;
+  }
+
+  private _queuedDatasetTarget(editor: Editor, command: string, payload?: Record<string, unknown>): () => boolean {
+    const rowCommands = ['setDatasetCell', 'setDatasetCells', 'removeDatasetRow'];
+    const explicitInsert = command === 'addDatasetRow' && Number.isInteger(payload?.at);
+    if (!rowCommands.includes(command) && !explicitInsert) return () => true;
+    const dataset = this._dataset(editor, payload);
+    const records = dataset?.attributes?.records;
+    if (!dataset || !Array.isArray(records)) return () => false;
+    const ids = dataset.attributes?.rowIds;
+    const originalIds = JSON.stringify(ids);
+    const originalRecords = JSON.stringify(records);
+    const count = records.length;
+    const row = Number(payload?.row);
+    const originalRowId = !explicitInsert && Number.isInteger(row) && Array.isArray(ids) && typeof ids[row] === 'string'
+      ? ids[row] as string : undefined;
+    const originalRow = !explicitInsert && Number.isInteger(row) ? JSON.stringify(records[row]) : undefined;
+    return () => {
+      const current = this._dataset(editor, payload);
+      const currentRecords = current?.attributes?.records;
+      if (!current || !Array.isArray(currentRecords)) return false;
+      // A rectangular paste can cover rows beyond its first target. Refuse a
+      // queued paste after any dataset change instead of writing a shifted row.
+      if (command === 'setDatasetCells') return JSON.stringify(current.attributes?.rowIds) === originalIds &&
+        JSON.stringify(currentRecords) === originalRecords;
+      if (originalRowId !== undefined) return current.attributes?.rowIds?.[row] === originalRowId;
+      return currentRecords.length === count && JSON.stringify(current.attributes?.rowIds) === originalIds &&
+        (explicitInsert || JSON.stringify(currentRecords[row]) === originalRow);
+    };
   }
 
   /** A name nothing else has, made from the one being copied — 상품, 상품 2, 상품 3. */
@@ -718,8 +770,27 @@ export class SiteDataExtension implements Extension {
       for (const key of Object.keys(row)) if (!fields.includes(key)) fields.push(key);
     }
 
-    const step = setAttrs(String(dataset.sid), { fields, records });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    // Fetch outside the queue, then refuse an old response if a reader edited
+    // the dataset before it arrived. The final write shares the Site FIFO.
+    const snapshot = (one: Node) => JSON.stringify([
+      one.attributes?.fields, one.attributes?.records, one.attributes?.rowIds,
+      one.attributes?.kind, one.attributes?.url
+    ]);
+    const expected = snapshot(dataset);
+    return this._enqueueDatasetWrite(editor, async () => {
+      const current = this._dataset(editor, payload);
+      if (!current || snapshot(current) !== expected) return false;
+      const done = await transaction(editor, [
+        op(() => {
+          const latest = this._dataset(editor, payload);
+          return latest && snapshot(latest) === expected
+            ? { success: true }
+            : { success: false, error: 'stale dataset refresh plan' };
+        }),
+        setAttrs(String(dataset.sid), { fields, records })
+      ] as never).commit();
+      return done.success === true;
+    });
   }
 
   /** The container this schema keeps referred-to things in — datasets, connections, files. */
@@ -1007,6 +1078,72 @@ export class SiteDataExtension implements Extension {
     return (await transaction(editor, [step, ...dropped] as never).commit()).success === true;
   }
 
+  private _emptyRichTextCell(editor: Editor, payload?: Record<string, unknown>) {
+    if (!editor.isEditable || typeof payload?.nodeId !== 'string' || typeof payload.field !== 'string' || !Number.isInteger(payload.row)) return;
+    const { box, datasets } = this._resources(editor);
+    const dataset = datasets.find(one => one.sid === payload.nodeId);
+    if (!box || !dataset || !this._fields(dataset).some(one => one.name === payload.field && one.kind === 'richText')) return;
+    const row = Number(payload.row), records = dataset.attributes?.records;
+    if (!Array.isArray(records) || row < 0 || row >= records.length) return;
+    const record = records[row];
+    if (!record || typeof record !== 'object' || Array.isArray(record)) return;
+    const value = record[payload.field];
+    if (value !== undefined && value !== null && value !== '') return;
+    return { box, dataset, row, field: payload.field };
+  }
+
+  private _createDatasetRichText(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
+    const initial = this._emptyRichTextCell(editor, payload);
+    if (!initial) return Promise.resolve(false);
+    const initialRecords = initial.dataset.attributes?.records as Record<string, unknown>[];
+    const rowIds = initial.dataset.attributes?.rowIds;
+    const originalRowId = Array.isArray(rowIds) && typeof rowIds[initial.row] === 'string'
+      ? rowIds[initial.row] as string : undefined;
+    const originalRow = JSON.stringify(initialRecords[initial.row]);
+    const originalCount = initialRecords.length;
+    const sameRow = (dataset: Node): boolean => {
+      const currentIds = dataset.attributes?.rowIds;
+      return originalRowId !== undefined
+        ? Array.isArray(currentIds) && currentIds[initial.row] === originalRowId
+        : !Array.isArray(currentIds) && Array.isArray(dataset.attributes?.records) &&
+          dataset.attributes.records.length === originalCount &&
+          JSON.stringify(dataset.attributes.records[initial.row]) === originalRow;
+    };
+
+    // All public Site dataset writers share this queue. A row that moves while
+    // waiting is refused instead of creating a body for the new row at its index.
+    return this._enqueueDatasetWrite(editor, async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const target = this._emptyRichTextCell(editor, payload);
+        if (!target || !sameRow(target.dataset)) return false;
+        const { box, dataset, row, field } = target;
+        const id = this._freeRichId(editor, field);
+        const expectedRecords = JSON.stringify(dataset.attributes?.records);
+        const expectedChildren = JSON.stringify(box.content ?? []);
+        const records = this._records(dataset);
+        records[row] = { ...records[row], [field]: richRef(id) };
+        const body = node('richText', { id }, [node('paragraph', {}, [textNode('inline-text', '')])]);
+        const done = await transaction(editor, [
+          // Runs after the model FIFO lock is acquired and before any write. A
+          // different editor command can otherwise replace our records snapshot.
+          op(() => {
+            const current = this._emptyRichTextCell(editor, payload);
+            const fresh = current && sameRow(current.dataset) &&
+              JSON.stringify(current.dataset.attributes?.records) === expectedRecords &&
+              JSON.stringify(current.box.content ?? []) === expectedChildren &&
+              this._freeRichId(editor, field) === id;
+            return fresh ? { success: true } : { success: false, error: 'stale dataset body plan' };
+          }),
+          addChild(String(box.sid), body as never, (box.content ?? []).length),
+          setAttrs(String(dataset.sid), { records })
+        ] as never).commit();
+        if (done.success) return true;
+        if (!done.errors.some(error => error.includes('stale dataset body plan'))) return false;
+      }
+      return false;
+    });
+  }
+
   private _canSetCell(editor: Editor, payload?: Record<string, unknown>): boolean {
     const dataset = this._dataset(editor, payload);
     if (!dataset || this._rowAt(editor, payload) === undefined) return false;
@@ -1015,17 +1152,32 @@ export class SiteDataExtension implements Extension {
   }
 
   private async _setCell(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
-    if (!this._canSetCell(editor, payload)) return false;
-    const dataset = this._dataset(editor, payload)!;
-    const row = this._rowAt(editor, payload)!;
-    const field = String(payload!.field);
-    const records = this._records(dataset);
-    /* Stored as what the column says it holds — see `cellFor`, and what a price stored as words cost. */
-    const kind = fieldNamed(this._fields(dataset), field)?.kind;
-    records[row] = { ...records[row], [field]: cellFor(payload!.value, kind) };
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (!this._canSetCell(editor, payload)) return false;
+      const dataset = this._dataset(editor, payload)!;
+      const row = this._rowAt(editor, payload)!;
+      const field = String(payload!.field);
+      const expectedRecords = JSON.stringify(dataset.attributes?.records);
+      const expectedFields = JSON.stringify(dataset.attributes?.fields);
+      const records = this._records(dataset);
+      /* Stored as what the column says it holds — see `cellFor`, and what a price stored as words cost. */
+      const kind = fieldNamed(this._fields(dataset), field)?.kind;
+      records[row] = { ...records[row], [field]: cellFor(payload!.value, kind) };
 
-    const step = setAttrs(String(dataset.sid), { records });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+      const done = await transaction(editor, [
+        op(() => {
+          const current = this._dataset(editor, payload);
+          const fresh = current && this._canSetCell(editor, payload) &&
+            JSON.stringify(current.attributes?.records) === expectedRecords &&
+            JSON.stringify(current.attributes?.fields) === expectedFields;
+          return fresh ? { success: true } : { success: false, error: 'stale dataset cell plan' };
+        }),
+        setAttrs(String(dataset.sid), { records })
+      ] as never).commit();
+      if (done.success) return true;
+      if (!done.errors.some(error => error.includes('stale dataset cell plan'))) return false;
+    }
+    return false;
   }
 
   /**

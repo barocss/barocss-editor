@@ -372,7 +372,7 @@ visitor** is this product's own, and everything about text and arrangement is no
 
 | | count |
 | --- | ---: |
-| commands registered | **191** (84 the site's own) |
+| commands registered | **192** (85 the site's own) |
 | toolbar controls · commands · icons | **44** · 37 · 34 |
 | `/` menu rows | 13 |
 | keys · the commands they run | **26** · 12 |
@@ -400,12 +400,12 @@ build, it fails, and somebody decides whether to teach the probe or to name the 
 
 | | |
 | --- | ---: |
-| `apps/site/src` | **4,228 lines** |
+| `apps/site/src` | **4,263 lines** |
 | components behind `@barocss/office-site/ui` | **5** |
-| browser test declarations (2026-09-28; inventory, not run results) | **322** |
+| browser test declarations (2026-09-28; inventory, not run results) | **325** |
 
 `apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
-five — moved into this package. That is the move `note.md` uses as its gauge, and the 322 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 325 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
 
 **283 of those 291 until `site-theme-values.spec.ts`**, and the eight it adds are worth naming
 because of what the suite could not previously say. Of 1,092 browser tests across the repository,
@@ -3020,3 +3020,7 @@ sid를 홀더에 얹고 안의 재생기는 `pointer-events: none`으로 둡니�
 픽스처다. 시작한다는 것이 **남의 페이지를 지우는 일**이 되는 그 모양이고, Word 는 같은 자리에서
 `createStarterDocument()` 로 답했다(제목·표면·빈 문단, 그뿐). 사이트도 그래야 한다 — 빈
 사이트가 무엇인가는 크롬이 아니라 **문서에 대한 사실**이다.
+
+### 빈 데이터 행의 서식 있는 글 작성
+
+행 폼에서 본문이나 요약 값이 비어 있으면 작성 버튼을 표시한다. `createDatasetRichText`는 빈 문단 리소스와 그 행의 `text:` 참조를 한 트랜잭션으로 만든다. 실행 취소는 두 변경을 함께 되돌린다. 이미 값이 있는 필드나 찾을 수 없는 참조는 덮어쓰지 않는다. 정상적인 빈 글은 `비어 있음`으로, 끊어진 참조는 `본문을 찾을 수 없습니다`로 표시한다.
