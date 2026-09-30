@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
-import { DocumentSession, downloadDocumentArchive, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
+import { DocumentSession, ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
 import { Button, Dialog, StatusNotice } from '@barocss/office-ui';
 import { DocumentSaveStatus } from './document-save-status';
 
@@ -51,7 +51,8 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
     if (!savedCurrent && !session.recoveryRequired)
       setProblem('현재 자료의 저장을 확인하지 못했습니다. 다른 자료를 열기 전에 저장을 다시 시도하세요.');
     const [saved, recovered] = await Promise.all([session.options.documents.rows(), session.options.drafts.rows()]);
-    setRows(saved); setDrafts(recovered); setOpen(true);
+    const available = await Promise.all(saved.map(async row => !await isProductDocumentTrashed(session.options.key, row.name)));
+    setRows(saved.filter((_, index) => available[index])); setDrafts(recovered); setOpen(true);
   };
   const openLibrary = (event: MouseEvent<HTMLButtonElement>) => {
     if (lock.current) return;
@@ -119,6 +120,12 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
           <Button disabled={busy || recoveryRequired} ariaLabel={`${row.title || '제목 없는 자료'} 열기`} onClick={() => void perform(async () => {
             if (await persistence.session.current?.open(row.name, true)) { onOpened(); setOpen(false); }
             else throw new Error('Pending edit');
+          }, error => {
+            if (error instanceof ProductDocumentTrashedError) {
+              setRows(current => current.filter(item => item.name !== row.name));
+              return `“${row.title || '제목 없는 자료'}”는 휴지통에 있습니다. 자료함에서 복원한 뒤 다시 여세요. 현재 자료는 유지됩니다.`;
+            }
+            return `“${row.title || '제목 없는 자료'}”를 열지 못했습니다. 현재 자료를 확인하세요. 필요하면 같은 자료에서 다시 시도하세요.`;
           })}>열기</Button>
         </div>)}
       </div>
