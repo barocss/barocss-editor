@@ -54,26 +54,24 @@ One each, and they are a different kind of document from the two above: they say
 is in this model, what it reuses, what is genuinely its own, and what it deliberately does not do.
 
 - **`docs/specs/word.md`** — Word. Written *after* it was built, so every number in it is produced by
-  a test (`office-word/test/spec-numbers.test.ts`) and its work list is a conformance ratchet rather
+  a test ([packages/office-word/test/spec-numbers.test.ts](../../packages/office-word/test/spec-numbers.test.ts)) and its work list is a conformance ratchet rather
   than a wish.
-- **`docs/specs/site-builder.md`** — the site builder. Written *before* it was built, because a
-  boundary recorded after the fact is a rationalisation.
+- **[docs/specs/site-builder.md](site-builder.md)** — the site builder. Its documentation inventory is checked by
+  [packages/office-site/test/spec-numbers.test.ts](../../packages/office-site/test/spec-numbers.test.ts).
 - **`docs/specs/note.md`** — the note. A third kind again: **written to record what a small product
   cost and what it found**, because note was built to test the claim the other two make — *one
-  document engine, several products*. Its numbers are held by
-  `office-note/test/spec-numbers.test.ts`, and the smallest of them are held hardest: three declared
-  nodes, two keybindings, a 257-line app. If those grow quietly the document stops being evidence.
+  document engine, several products*. Its product contract is checked by
+  [packages/office-note/test/spec-numbers.test.ts](../../packages/office-note/test/spec-numbers.test.ts).
 - **`docs/specs/canvas-model.md`** — the canvas the deck and Word share, and the rules the suite's
   chrome follows.
 - **`docs/specs/motion-model.md`** — what a deck means by time.
 
-The deck's own is still inside `docs/ROADMAP.md` — *"Slides, to the level of PowerPoint, Keynote,
-Canva and CapCut"* — and is owed as a file of its own.
+- **[docs/specs/slides.md](slides.md)** — the deck's product specification.
 
 ### Package specs
 
 - **`packages/model/SPEC.md`** — Model: transaction, operations (inputs/outputs, invariants), selection resolution. Exec tests in `packages/model/test/operations/*.exec.test.ts` are the concrete spec for each operation.
-- Other packages: add `packages/<name>/SPEC.md` when the package has a clear contract (API, invariants, or behavior that other packages or tests rely on). List new specs here and in `.cursor/AGENTS.md`.
+- Other packages: add `packages/<name>/SPEC.md` when the package has a clear contract (API, invariants, or behavior that other packages or tests rely on). List new specs here and follow the [repository work rules](../../AGENTS.md).
 
 ### Package specs (in package directories)
 
@@ -116,6 +114,6 @@ Full plan (when/what to update, build/verify) is in **`docs/docs-site-integratio
 
 1. **Before implementing**: Read the editor-wide spec for user-visible behavior and operation semantics; read the relevant package spec for the layer you are touching.
 2. **While implementing**: Follow the guarantees (e.g. `selectionAfter.nodeId` is a text node when the spec says so); add or adjust exec tests so they assert the spec.
-3. **After changing behavior**: Update the spec to match the new behavior; if user-facing, update **apps/docs-site** (see `docs/docs-site-integration.md`); then run the verification steps in `.cursor/AGENTS.md` (unit tests, E2E, optionally build docs-site).
+3. **After changing behavior**: Update the spec to match the new behavior; if user-facing, update **apps/docs-site** (see [docs-site integration](../docs-site-integration.md)); then follow the [repository work rules](../../AGENTS.md) and [local verification](../local-verification.md). Run the package and browser tests required for the change.
 
-References: `.cursor/AGENTS.md` (feature loop, verification), `docs/platform-for-agent.md` (patterns), `docs/docs-site-integration.md` (when/how to update docs-site), `docs/testing-verification.md` (what to run).
+References: [AGENTS.md](../../AGENTS.md) (current work rules), [local verification](../local-verification.md) (preflight and lint baseline), [platform for agents](../platform-for-agent.md) (patterns), [docs-site integration](../docs-site-integration.md) (when/how to update docs-site), [test verification](../testing-verification.md) (what to run).
