@@ -151,6 +151,50 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  e2e-product-scenarios:
+    name: E2E (${{ matrix.label }} editing scenarios)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - product: word
+            label: Word
+          - product: slide
+            label: Slides
+          - product: site
+            label: Site
+          - product: office
+            label: Office
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run selected product journeys and validate reports
+        run: pnpm test:e2e:${{ matrix.product }}:scenarios
+        env:
+          CI: true
+      - name: Keep native reports, scenario mapping and diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.product }}-scenario-results-${{ github.sha }}
+          path: |
+            apps/${{ matrix.product }}/test-results/scenarios/
+            apps/${{ matrix.product }}/playwright-report/scenarios/
+          if-no-files-found: error
+          retention-days: 7
+
   npm-consumers:
     name: Npm package consumers
     runs-on: ubuntu-latest

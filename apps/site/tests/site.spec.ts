@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { siteControlsIn } from '@barocss/office-site';
+import { readSiteArchive, retainDownload } from './scenario-downloads';
 
 /**
  * The site builder, in a browser.
@@ -9482,7 +9483,7 @@ test.describe('the menubar', () => {
     await expect(menuItem(page, '페이지 삭제')).toBeEnabled();
   });
 
-  test('publishes the page, which is the gesture this product is for', async ({ page }) => {
+  test('publishes the page, which is the gesture this product is for', async ({ page }, info) => {
     await ready(page);
 
     const wait = page.waitForEvent('download');
@@ -9492,9 +9493,13 @@ test.describe('the menubar', () => {
 
     // The address becomes the filename the way a host would serve it.
     expect(file.suggestedFilename()).toBe('index.html');
+    const downloaded = await retainDownload(file, info);
+    expect(downloaded.text).toContain('문서 한 벌로 세 가지를 만듭니다');
+    expect(downloaded.text).toContain('세 제품을 따로 사서 붙이던 자리를 대신합니다.');
+    expect(downloaded.text).toContain('</html>');
   });
 
-  test('publishes the whole site as one archive, folders and all', async ({ page }) => {
+  test('publishes the whole site as one archive, folders and all', async ({ page }, info) => {
     await ready(page);
 
     /*
@@ -9541,6 +9546,12 @@ test.describe('the menubar', () => {
      */
     expect(names).toContain('sitemap.xml');
     expect(names).toContain('robots.txt');
+    const downloaded = await retainDownload(file, info);
+    const files = await readSiteArchive(downloaded.path);
+    expect(files['index.html']).toContain('문서 한 벌로 세 가지를 만듭니다');
+    expect(files['제품/index.html']).toContain('문서, 덱, 사이트가 같은 문서 규칙을 따릅니다.');
+    expect(files['sitemap.xml']).toContain('/제품');
+    expect(files['robots.txt']).toContain('Sitemap:');
   });
 
   /**

@@ -164,13 +164,23 @@ test('exports a legacy product library with its conflict draft and imports both 
   expect(result).toEqual({ count: 2, total: 3, unchanged: true, draftKept: true });
 });
 
-test('downloads a product backup and restores it through the shared library UI', async ({ page }) => {
+test('downloads a product backup and restores it through the shared library UI', async ({ page }, info) => {
   await page.goto('/'); await create(page, 'Word', '백업 화면 검증');
+  const originalUrl = page.url();
+  const originalKey = `word:${new URL(originalUrl).hash.slice(6)}`;
+  const originalText = 'OFFICE BACKUP ORIGINAL';
+  await page.locator('.w-paragraph').last().click();
+  await page.keyboard.type(originalText);
   await page.getByRole('button', { name: '문서 보관함', exact: true }).click();
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: '보관함 전체 백업', exact: true }).click();
   const file = await downloadEvent; const bytes = await readFile((await file.path())!);
-  expect(JSON.parse(bytes.toString()).format).toBe('wonffice-product-library');
+  const archive = JSON.parse(bytes.toString());
+  expect(archive.format).toBe('wonffice-product-library');
+  expect(archive.documents).toHaveLength(1);
+  expect(archive.documents[0].row.name).toBe(new URL(originalUrl).hash.slice(6));
+  expect(archive.documents[0].text.match(/OFFICE BACKUP ORIGINAL/g)).toHaveLength(1);
+  await info.attach('authored-product-backup', { body: bytes, contentType: 'application/json' });
   await page.keyboard.press('Escape'); await home(page);
   await page.getByRole('button', { name: '백업 및 가져오기' }).click();
   await page.locator('input[type=file]').setInputFiles({ name: 'word-library.json', mimeType: 'application/json', buffer: bytes });
@@ -178,6 +188,26 @@ test('downloads a product backup and restores it through the shared library UI',
   await expect(page.locator('[data-document]')).toHaveCount(2);
   await expect(page.getByRole('status')).toContainText('1개 자료를 새 사본으로 복원');
   await expect(page.getByRole('button', { name: 'W 백업 화면 검증', exact: true })).toBeVisible();
+  const copy = page.locator('[data-document]').filter({ has: page.getByRole('button', { name: 'W 백업 화면 검증 (복원)', exact: true }) });
+  const copyKey = await copy.getAttribute('data-document');
+  expect(copyKey).not.toBe(originalKey);
+  await copy.getByRole('button', { name: 'W 백업 화면 검증 (복원)', exact: true }).click();
+  const copyUrl = page.url();
+  expect(copyUrl).not.toBe(originalUrl);
+  await expect(page.locator('.w-paragraph').last()).toHaveText(originalText);
+  await page.locator('.w-paragraph').last().click();
+  await page.keyboard.press('End'); await page.keyboard.type(' COPY ONLY');
+  await home(page);
+  await page.locator(`[data-document="${originalKey}"]`).getByRole('button', { name: 'W 백업 화면 검증', exact: true }).click();
+  await expect(page).toHaveURL(originalUrl);
+  await expect(page.locator('.w-paragraph').last()).toHaveText(originalText);
+  await page.reload();
+  await expect(page.locator('.w-paragraph').last()).toHaveText(originalText);
+  await home(page);
+  await page.locator(`[data-document="${copyKey}"]`).getByRole('button', { name: 'W 백업 화면 검증 (복원)', exact: true }).click();
+  await expect(page).toHaveURL(copyUrl);
+  await expect(page.locator('.w-paragraph').last()).toHaveText(`${originalText} COPY ONLY`);
+  await info.attach('independent-backup-identities', { body: JSON.stringify({ originalKey, copyKey, originalUrl, copyUrl, originalText }), contentType: 'application/json' });
 });
 
 test('editing a deck preserves the name assigned in the shared library', async ({ page }) => {

@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { openDeck, pickMenu } from './helpers';
 
 test.use({ screenshot: 'only-on-failure', trace: 'retain-on-failure' });
@@ -214,6 +216,45 @@ for (const deck of ['sample', 'blank'] as const) {
           documentUrl,
           before: beforeReload.slides.map(slide => slide.sid),
           after: restoredIds,
+        }, null, 2),
+        contentType: 'application/json',
+      });
+
+      // Inspect the actual file after persistence, including every slide and the
+      // resources its formatting uses. The expected tree is read from the model;
+      // no export formatter or model command prepares the authored content.
+      const expectedDocument = await page.evaluate(() => {
+        const editor = (window as unknown as { editor: { exportDocument(): unknown } }).editor;
+        return JSON.parse(JSON.stringify(editor.exportDocument(), (key, value) =>
+          key === 'sid' || key === 'parentId' ? undefined : value));
+      });
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        pickMenu(page, 'file.document.2'),
+      ]);
+      const downloadPath = test.info().outputPath('authored-deck.slides.json');
+      await download.saveAs(downloadPath);
+      const bytes = await readFile(downloadPath);
+      await test.info().attach('authored-deck-download', {
+        path: downloadPath,
+        contentType: 'application/json',
+      });
+      const file = JSON.parse(bytes.toString('utf8'));
+      expect(file.format).toBe('barocss-slides');
+      expect(file.version).toBe(1);
+      expect(file.document).toEqual(expectedDocument);
+      expect(JSON.stringify(file.document).split(marker)).toHaveLength(2);
+      expect(download.suggestedFilename()).toMatch(/\.slides\.json$/);
+      await test.info().attach('authored-deck-download-audit', {
+        body: JSON.stringify({
+          scenarioId: `SLIDES-NEW-${deck.toUpperCase()}-${String(delay).padStart(4, '0')}`,
+          filename: download.suggestedFilename(),
+          bytes: bytes.length,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+          documentUrl,
+          slideCount: restored.slides.length,
+          markerOccurrences: 1,
+          completePersistedDocumentMatches: true,
         }, null, 2),
         contentType: 'application/json',
       });
