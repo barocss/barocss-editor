@@ -4,6 +4,8 @@ async function create(page: Page, product: 'Word' | 'Slides' | 'Site', title: st
   await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill(title);
   await page.getByRole('button', { name: '만들기', exact: true }).click();
+  // Slides loads a separate entry before its mounted editor starts persistence.
+  if (product === 'Slides') await expect(page.getByRole('toolbar', { name: '슬라이드 서식', exact: true })).toBeVisible();
   await expect(page.locator(`[data-${product === 'Slides' ? 'slide' : product.toLowerCase()}-save-status]`)).toHaveText('저장됨');
 }
 

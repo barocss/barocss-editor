@@ -228,9 +228,9 @@ for (const exitCode of [1, 137, null, undefined, '0']) {
   });
 }
 
-test('the selected manifest retains all 27 distinct product journeys and runnable evidence', () => {
+test('the selected manifest retains all 28 distinct product journeys and runnable evidence', () => {
   assert.deepEqual(Object.keys(manifest.products).sort(), ['office', 'site', 'slide', 'word']);
-  const scopes = { word: 2, slide: 6, site: 7, office: 12 };
+  const scopes = { word: 2, slide: 7, site: 7, office: 12 };
   const ids = new Set();
   const ports = new Set();
   for (const [name, expectedCount] of Object.entries(scopes)) {
@@ -249,7 +249,7 @@ test('the selected manifest retains all 27 distinct product journeys and runnabl
       assert.ok(Array.isArray(scenario.reproduce) && scenario.reproduce.length > 0, `${scenario.id} lacks reproduction steps`);
     }
   }
-  assert.equal(ids.size, 27);
+  assert.equal(ids.size, 28);
   for (const name of ['note', 'unknown', '__proto__', 'constructor', 'toString']) {
     assert.throws(() => selectedProduct(name), /No selected scenarios/);
   }

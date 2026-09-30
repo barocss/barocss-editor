@@ -190,10 +190,11 @@ test('downloads a product backup and restores it through the shared library UI',
   await expect(page.getByRole('button', { name: 'W 백업 화면 검증', exact: true })).toBeVisible();
   const copy = page.locator('[data-document]').filter({ has: page.getByRole('button', { name: 'W 백업 화면 검증 (복원)', exact: true }) });
   const copyKey = await copy.getAttribute('data-document');
+  expect(copyKey).toMatch(/^word:/);
   expect(copyKey).not.toBe(originalKey);
   await copy.getByRole('button', { name: 'W 백업 화면 검증 (복원)', exact: true }).click();
-  const copyUrl = page.url();
-  expect(copyUrl).not.toBe(originalUrl);
+  const copyHash = `#word=${copyKey?.slice(5)}`;
+  await expect.poll(() => new URL(page.url()).hash).toBe(copyHash);
   await expect(page.locator('.w-paragraph').last()).toHaveText(originalText);
   await page.locator('.w-paragraph').last().click();
   await page.keyboard.press('End'); await page.keyboard.type(' COPY ONLY');
@@ -205,9 +206,9 @@ test('downloads a product backup and restores it through the shared library UI',
   await expect(page.locator('.w-paragraph').last()).toHaveText(originalText);
   await home(page);
   await page.locator(`[data-document="${copyKey}"]`).getByRole('button', { name: 'W 백업 화면 검증 (복원)', exact: true }).click();
-  await expect(page).toHaveURL(copyUrl);
+  await expect.poll(() => new URL(page.url()).hash).toBe(copyHash);
   await expect(page.locator('.w-paragraph').last()).toHaveText(`${originalText} COPY ONLY`);
-  await info.attach('independent-backup-identities', { body: JSON.stringify({ originalKey, copyKey, originalUrl, copyUrl, originalText }), contentType: 'application/json' });
+  await info.attach('independent-backup-identities', { body: JSON.stringify({ originalKey, copyKey, originalUrl, copyHash, originalText }), contentType: 'application/json' });
 });
 
 test('editing a deck preserves the name assigned in the shared library', async ({ page }) => {

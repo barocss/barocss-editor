@@ -13,7 +13,7 @@ describe('convertModelSelectionToDOM', () => {
     document.body.appendChild(container);
 
     // Create SelectionHandler (Editor is mocked)
-    const mockEditor = {} as any;
+    const mockEditor = { dataStore: { getNode: (id: string) => ({ stype: 'inline-text', text: id === 'text-bold' ? 'bold text' : 'Hello world' }) } } as any;
     selectionHandler = new DOMSelectionHandlerImpl(mockEditor);
 
     // Create test DOM structure
@@ -68,6 +68,83 @@ describe('convertModelSelectionToDOM', () => {
     complexTextContainer.appendChild(complexWrapper);
     container.appendChild(complexTextContainer);
   }
+
+  describe('Native anchor and focus direction', () => {
+    for (const direction of ['forward', 'backward'] as const) {
+      it(`preserves ${direction} endpoints across marked text runs and editor focus`, () => {
+        container.setAttribute('contenteditable', 'true');
+        container.tabIndex = 0;
+        container.focus();
+        const start = container.querySelector('[data-bc-sid="text-1"]')!;
+        const end = container.querySelector('[data-bc-sid="text-bold"]')!;
+        const originalText = container.textContent;
+        selectionHandler.convertModelSelectionToDOM({
+          type: 'range', startNodeId: 'text-1', startOffset: 6,
+          endNodeId: 'text-bold', endOffset: 4, collapsed: false, direction
+        });
+        const selection = window.getSelection()!;
+        expect(selection.toString()).toBe('worldbold');
+        expect(selection.anchorNode).toBe(direction === 'backward' ? end.firstChild!.firstChild : start.firstChild);
+        expect(selection.anchorOffset).toBe(direction === 'backward' ? 4 : 6);
+        expect(selection.focusNode).toBe(direction === 'backward' ? start.firstChild : end.firstChild!.firstChild);
+        expect(selection.focusOffset).toBe(direction === 'backward' ? 6 : 4);
+        expect(container.textContent).toBe(originalText);
+        expect(container.querySelector('[data-bc-sid="text-1"]')).toBe(start);
+        expect(container.querySelector('[data-bc-sid="text-bold"]')).toBe(end);
+        expect(document.activeElement).toBe(container);
+      });
+    }
+
+    it('round-trips a backward native selection inside one model text node', () => {
+      const text = container.querySelector('[data-bc-sid="text-1"]')!.firstChild!;
+      const native = window.getSelection()!;
+      native.setBaseAndExtent(text, 7, text, 2);
+      const model = selectionHandler.convertDOMSelectionToModel(native) as {
+        startNodeId: string; startOffset: number; endNodeId: string; endOffset: number; direction: string;
+      };
+      expect(model.direction).toBe('backward');
+      selectionHandler.convertModelSelectionToDOM(model);
+      expect(native.toString()).toBe('llo w');
+      expect(native.anchorNode).toBe(text);
+      expect(native.anchorOffset).toBe(7);
+      expect(native.focusNode).toBe(text);
+      expect(native.focusOffset).toBe(2);
+    });
+
+    it('keeps a collapsed caret inside a split marked text node', () => {
+      const target = container.querySelector('[data-bc-sid="text-bold"]')!;
+      const text = target.firstChild!.firstChild as Text;
+      const tail = text.splitText(4);
+      selectionHandler.convertModelSelectionToDOM({
+        type: 'range', startNodeId: 'text-bold', startOffset: 7,
+        endNodeId: 'text-bold', endOffset: 7, collapsed: true, direction: 'none'
+      });
+      const selection = window.getSelection()!;
+      expect(selection.isCollapsed).toBe(true);
+      expect(selection.anchorNode).toBe(tail);
+      expect(selection.focusNode).toBe(tail);
+      expect(selection.anchorOffset).toBe(3);
+      expect(selection.focusOffset).toBe(3);
+      expect(target.textContent).toBe('bold text');
+    });
+
+    it('preserves backward endpoints within one split marked text container', () => {
+      const target = container.querySelector('[data-bc-sid="text-bold"]')!;
+      const text = target.firstChild!.firstChild as Text;
+      const tail = text.splitText(4);
+      selectionHandler.convertModelSelectionToDOM({
+        type: 'range', startNodeId: 'text-bold', startOffset: 1,
+        endNodeId: 'text-bold', endOffset: 7, collapsed: false, direction: 'backward'
+      });
+      const selection = window.getSelection()!;
+      expect(selection.toString()).toBe('old te');
+      expect(selection.anchorNode).toBe(tail);
+      expect(selection.anchorOffset).toBe(3);
+      expect(selection.focusNode).toBe(text);
+      expect(selection.focusOffset).toBe(1);
+      expect(target.textContent).toBe('bold text');
+    });
+  });
 
   describe('Text selection conversion', () => {
     it('should create selection in simple text container', () => {

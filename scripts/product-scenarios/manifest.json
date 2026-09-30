@@ -166,6 +166,23 @@
             "Download through the file menu.",
             "Inspect the actual filename, file format/version and absence of session IDs."
           ]
+        },
+        {
+          "id": "SLIDES-OVERLAY-LATE-ARRIVAL-001",
+          "file": "apps/slide/tests/overlay-arrival.spec.ts",
+          "title": "[SLIDES-OVERLAY-LATE-ARRIVAL-001] mounts the current slide overlay after delayed rendering without a user gesture",
+          "interaction": "Fresh desktop browser, held native idle callback and CPU throttling to delay the real renderer yield; no model writes or user gestures",
+          "expected": "The same current editable slide appears and its overlay matches its bounds at unchanged pane geometry and identity",
+          "connectedIssues": [
+            303,
+            390
+          ],
+          "reproduce": [
+            "Open a fresh Slides session while the test holds the renderer idle callback.",
+            "Confirm the saved current slide and pane are ready while the slide DOM and overlay are absent.",
+            "Release the original idle callback without clicking or dispatching a view event.",
+            "Assert the slide and aligned overlay appear at the same identity and pane dimensions."
+          ]
         }
       ]
     },
