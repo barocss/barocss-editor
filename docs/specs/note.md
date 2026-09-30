@@ -197,6 +197,11 @@ unsaved work stays pending and the latest-version switch is blocked until retry/
 the latest version creates a fresh editor session for both its title and body. This does not add
 server synchronization or collaborative merge.
 
+Recovery-list read failures are separate from document-save failures. The recovery notice's retry
+action reads the draft library again and shows its held drafts when storage recovers. A failed read
+keeps the notice, including a delayed failure after an unrelated save completes. Listing or retrying
+does not rewrite the original document or the held draft. Document-save retry retains its own path.
+
 Imports must reject malformed or unsupported trees visibly without overwriting existing notes.
 An unreadable stored note must not prevent opening healthy notes. Retain its original data and
 provide original-file export and a reason for the failure, even if every stored note is unreadable.
