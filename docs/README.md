@@ -64,23 +64,30 @@ renderer.render(container, model);
 ## 🔗 Related Documents
 
 ### specs/ Folder
-- **`specs/README.md`** - How specs are organized (editor-wide vs package-level), when to update, how agents use them
-- **`specs/editor.md`** - Editor-wide spec: document model, selection semantics, operation semantics
+- **[specs/README.md](./specs/README.md)** - How specs are organized (editor-wide vs package-level), when to update, how agents use them
+- **[specs/editor.md](./specs/editor.md)** - Editor-wide spec: document model, selection semantics, operation semantics
 - Package specs: **`packages/<name>/SPEC.md`** (e.g. `packages/model/SPEC.md`) - per-package contract and invariants
 
 ### dom/ Folder
-- `portal-system-spec.md` - Portal system specification
-- `portal-use-cases.md` - Portal use cases
-- `decorator-implementation-guide.md` - Decorator implementation guide
+- [Portal system specification](./dom/portal-system-spec.md)
+- [Portal use cases](./dom/portal-use-cases.md)
+
+### Package documentation
+- [Decorator usage guide](../packages/editor-view-dom/docs/decorator-guide.md) - Setup, categories, templates, and management examples
 
 ### Docs-site integration (agent flow)
-- **`docs-site-integration.md`** - How apps/docs-site fits into the full loop: spec → implementation → documentation → test → verify. When to update docs-site, where to add api/architecture/guides/examples, build/verify.
+- **[docs-site-integration.md](./docs-site-integration.md)** - How apps/docs-site fits into the full loop: spec → implementation → documentation → test → verify. When to update docs-site, where to add api/architecture/guides/examples, build/verify.
 
 ### Release
-- **`release-flow.md`** - 릴리즈 절차: Changesets 추가, Version Packages PR, npm 배포 (NPM_TOKEN 등)
+- **[release-flow.md](./release-flow.md)** - 릴리즈 절차: Changesets 추가, Version Packages PR, npm 배포 (NPM_TOKEN 등)
+
+### Verification
+- [Repository work rules](../AGENTS.md) - Current workflow and verification requirements
+- [Local verification](./local-verification.md) - Node version, preflight, and lint baseline
+- [Test verification](./testing-verification.md) - Package and browser test commands
 
 ### Others
-- `api-reference.md` - API reference
+- [api-reference.md](./api-reference.md) - API reference
 
 ## 🎓 Learning Path
 
