@@ -1,7 +1,7 @@
 import { MultiBlockControl } from './multi-block-control';
-import { useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Editor } from '@barocss/editor-core';
-import { ContextToolbar, SelectionLinkControl, SelectionColorControl, useNodeRect } from '@barocss/office-editor-ui';
+import { ContextToolbar, SelectionLinkControl, SelectionColorControl, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import { FloatingSurface, Icon } from '@barocss/office-ui';
 import { AdditionalFormattingControl, additionalFormattingCommands } from './additional-formatting-control';
 import { HeadingLevelControl } from './heading-level-control';
@@ -15,13 +15,43 @@ export function NoteContextualToolbar({ editor, hold, sid, insertion, onFormatti
   insertion: (close: () => void) => ReactNode;
   onFormattingChange: (visible: boolean) => void;
 }) {
-  const [adding, setAdding] = useState(false);
+  const [inserting, setInserting] = useState<{ sid: string; selection: Editor['selection'] }>();
+  const revision = useEditorRevision(editor);
   const trigger = useRef<HTMLButtonElement>(null);
-  const root = editor.dataStore.getNode(editor.getRootId()!);
+  const rootId = editor.getRootId();
+  useEffect(() => setInserting(undefined), [editor, rootId]);
+  const root = editor.dataStore.getNode(rootId!);
   const firstChild = root?.content?.[0];
-  const target = sid ?? (typeof firstChild === 'string' ? firstChild : firstChild?.sid);
+  // Pointer hover can change while an insertion menu remains open.
+  const target = inserting?.sid ?? sid ?? (typeof firstChild === 'string' ? firstChild : firstChild?.sid);
   const at = useNodeRect(editor, hold, target);
   const around = hold.current?.getBoundingClientRect();
+
+  useEffect(() => {
+    if (!inserting) return;
+    const previous = inserting.selection;
+    const current = editor.selection;
+    // Keep the menu only while its block and complete selection still exist.
+    // Range expansion can keep the same start node while changing its destination.
+    if (!editor.dataStore.getNode(inserting.sid) || !previous || !current ||
+        current.type !== previous.type || current.startNodeId !== previous.startNodeId ||
+        current.endNodeId !== previous.endNodeId || current.startOffset !== previous.startOffset ||
+        current.endOffset !== previous.endOffset) setInserting(undefined);
+  }, [editor, inserting, revision]);
+
+  useEffect(() => {
+    const host = hold.current;
+    if (!inserting || !host) return;
+    // The editor owns Escape while this menu is open. Body clicks still dismiss it.
+    const outside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || trigger.current?.contains(target) ||
+          target.closest('[data-note-insert]')) return;
+      setInserting(undefined);
+    };
+    host.addEventListener('pointerdown', outside, true);
+    return () => host.removeEventListener('pointerdown', outside, true);
+  }, [hold, inserting]);
 
   const insert = () => {
     // A hovered block can differ from the caret's block. The adjacent + belongs
@@ -45,16 +75,18 @@ export function NoteContextualToolbar({ editor, hold, sid, insertion, onFormatti
       const run = first(target ?? editor.getRootId()!) ?? target;
       if (run) editor.selectionManager.setSelection({ type: 'range', startNodeId: run, endNodeId: run, startOffset: 0, endOffset: 0, collapsed: true });
     }
-    setAdding(value => !value);
+    // A hover opener may start from a field outside this editor. Give its menu an owned key target.
+    if (!hold.current?.contains(hold.current.ownerDocument.activeElement)) trigger.current?.focus({ preventScroll: true });
+    setInserting(value => value || !target ? undefined : { sid: target, selection: editor.selection && { ...editor.selection } });
   };
 
   return <>
-    {at && around && <button ref={trigger} type="button" className="on-add" data-note-add aria-label="블록 추가" aria-expanded={adding}
+    {at && around && <button ref={trigger} type="button" className="on-add" data-note-add aria-label="블록 추가" aria-expanded={!!inserting}
       style={{ top: at.top - around.top + 2, left: 2 }} onMouseDown={event => event.preventDefault()} onClick={insert}><Icon name="add" size={15} /></button>}
-    <FloatingSurface open={adding} at={trigger.current?.getBoundingClientRect() ?? null} variant="menu"
+    <FloatingSurface open={!!inserting} at={trigger.current?.getBoundingClientRect() ?? null} variant="menu"
       prefer="below" align="start" portalRoot={hold.current} data-note-insert aria-label="블록 추가"
-      onDismiss={() => setAdding(false)} ownedElements={[trigger]}>
-      {insertion(() => setAdding(false))}
+      onDismiss={() => setInserting(undefined)} ownedElements={[trigger, hold]}>
+      {insertion(() => setInserting(undefined))}
     </FloatingSurface>
     <ContextToolbar editor={editor} scope={hold} controls={noteControlsIn('mark').filter(item => !additionalFormattingCommands.has(item.command))} mark="note-control"
       data-note-formatting onOpenChange={onFormattingChange}>
