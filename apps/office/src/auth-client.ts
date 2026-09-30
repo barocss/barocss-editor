@@ -40,7 +40,7 @@ export function noteIntentSearch(intent: NoteIntent) {
 }
 
 export class AuthError extends Error {
-  constructor(public readonly kind: 'cancelled' | 'login' | 'unauthorized' | 'forbidden' | 'unavailable' | 'configuration', message: string) {
+  constructor(public readonly kind: 'cancelled' | 'login' | 'unauthorized' | 'forbidden' | 'unavailable' | 'configuration' | 'collaboration_unavailable', message: string) {
     super(message);
   }
 }
@@ -241,9 +241,18 @@ export async function openVerifiedNote(tenantId: string, workspaceId: string, do
   const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`) as Record<string, unknown>;
   const head = data?.document as Record<string, unknown> | undefined;
   if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
-    head.product !== 'note' || head.mode !== 'snapshot' || typeof data.snapshotText !== 'string' ||
+    head.product !== 'note' ||
     typeof head.revision !== 'number' || typeof head.title !== 'string' || typeof head.fileFormat !== 'string' || typeof head.fileVersion !== 'number') {
     throw new AuthError('forbidden', '선택한 문서의 회사, 자료함 또는 제품이 일치하지 않습니다.');
+  }
+  if (head.mode === 'initializing' || head.mode === 'collaborative') {
+    if (Object.hasOwn(data, 'snapshotText')) throw new AuthError('unavailable', '문서 응답을 확인하지 못했습니다. 다시 시도해 주세요.');
+    throw new AuthError('collaboration_unavailable', head.mode === 'initializing'
+      ? '공동 편집 문서를 준비하는 중입니다. 잠시 뒤 다시 확인해 주세요.'
+      : '공동 편집 연결이 준비되지 않았습니다. 나중에 다시 확인해 주세요.');
+  }
+  if (head.mode !== 'snapshot' || typeof data.snapshotText !== 'string') {
+    throw new AuthError('unavailable', '문서 응답을 확인하지 못했습니다. 다시 시도해 주세요.');
   }
   return { tenantId, workspaceId, documentId, role, document: head as unknown as DocumentAccess,
     snapshotText: data.snapshotText, authorizedFetch };
