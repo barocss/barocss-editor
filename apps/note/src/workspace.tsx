@@ -65,6 +65,7 @@ export function Workspace() {
   const openNavigation = (mode: 'find' | 'outline') => setNavigationRequest(previous => ({ mode, id: (previous?.id ?? 0) + 1, pageId: selected }));
   const [ready, setReady] = useState(false);
   const [problem, setProblem] = useState('');
+  const [draftsProblem, setDraftsProblem] = useState(false);
   const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const pending = useRef(new Set<string>());
@@ -137,7 +138,10 @@ export function Workspace() {
     versions.current.set(id, (versions.current.get(id) ?? 0) + 1);
     setSaving(true);
   };
-  const refreshDrafts = async () => setDrafts(await recoveryLibrary.rows());
+  const refreshDrafts = async () => {
+    setDrafts(await recoveryLibrary.rows());
+    setDraftsProblem(false);
+  };
   const persist = (id: string) => {
     const document = documents.current.get(id);
     if (!document) return;
@@ -181,7 +185,7 @@ export function Workspace() {
       documents.current = new Map(rows.map(row => [row.id, row.document]));
       metadata.current = new Map(rows.map(row => [row.id, row.meta]));
       storageRevisions.current = new Map(rows.map(row => [row.id, row.revision ?? 0]));
-      void refreshDrafts().catch(() => setProblem('복구 초안 목록을 읽지 못했습니다. 다시 시도하세요.'));
+      void refreshDrafts().catch(() => setDraftsProblem(true));
       setNotes(rows);
       setUnreadable(unreadable);
       const remembered = pageInHash();
@@ -473,7 +477,7 @@ export function Workspace() {
           if (id === 'open') picker.current?.click();
           else if (id === 'export') setPanel('export');
           else if (id === 'find' || id === 'outline') openNavigation(id);
-        }} />} actions={<><StatusIndicator data-save-status busy={!problem && (!ready || saving)} tone={problem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
+        }} />} actions={<><StatusIndicator data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
         <Button disabled={!ready || !selected} onClick={() => setPanel('export')}>내보내기</Button>
         <Button tone="quiet" disabled={!ready || !selected || selectedTrashed} onClick={() => setPanel('page')}>페이지 설정</Button>
         <input ref={picker} hidden disabled={!ready} type="file" accept=".json,.md,.markdown,.html,.htm,.csv" aria-label="노트 파일" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importFile(file); }} />
@@ -511,6 +515,7 @@ export function Workspace() {
     <main className="nw-main" data-workspace-main tabIndex={-1}>
 
       {unreadable.length > 0 && <div className="nw-problem" role="alert">노트 {unreadable.length}개를 열 수 없습니다. 원본은 보관함에 그대로 있습니다. 읽을 수 있는 원본 파일은 왼쪽에서 내보내세요.</div>}
+      {draftsProblem && <StatusNotice className="nw-operation-notice" tone="danger" title="복구 초안 목록을 읽지 못했습니다" actions={<Button onClick={() => void refreshDrafts().catch(() => setDraftsProblem(true))}>다시 시도</Button>}>복구 초안 목록을 읽지 못했습니다. 다시 시도하세요.</StatusNotice>}
       {problem && <StatusNotice className="nw-operation-notice" tone="danger" title="작업을 완료하지 못했습니다" actions={<Button onClick={() => { if (!ready) setAttempt(n => n + 1); else { setProblem(''); for (const id of pending.current) persist(id); } }}>다시 시도</Button>}>{problem}</StatusNotice>}
       {conflicts.includes(selected) && <div className="nw-problem" role="alert" data-note-conflict>
         <span>다른 창에서 이 페이지가 변경되었습니다. 최신본을 덮어쓰지 않고 내 편집을 복구 초안으로 보관합니다.</span>
