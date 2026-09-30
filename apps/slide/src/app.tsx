@@ -1,7 +1,7 @@
 import { documentTitle } from '@barocss/office-text';
 import { EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Editor, ModelSelection } from '@barocss/editor-core';
+import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
@@ -14,7 +14,6 @@ import {
   AppMain,
   AppShell,
   Button,
-  onApple,
   ZoomControl,
   type LengthUnit
 } from '@barocss/office-ui';
@@ -79,20 +78,16 @@ import { Properties } from '@barocss/office-slides/ui';
 import { Ribbon } from '@barocss/office-slides/ui';
 import {
   SLIDES_KEYS,
-  slidesMenus,
-  slidesSearchCommands,
-  slidesSearchPayload,
   SLIDES_ZOOM_LADDER,
-  matchesKey,
-  slidesMenuEntry,
-  slidesMenuId
+  matchesKey
 } from '@barocss/office-slides';
 
 import { Present, SelectionOverlay, Stage, TimelinePane, createSlidePrint, SlidePrintDialog } from '@barocss/office-slides/ui';
 import { LibraryDialog } from '@barocss/office-slides/ui';
 import { libraryDeck, libraryRows } from '@barocss/office-slides';
 import { useDeck, useRevision, useSlidePersistence, SlideDocuments } from '@barocss/office-slides/ui';
-import { useEditorRevision, captureTextSelection } from '@barocss/office-editor-ui';
+import { useEditorRevision } from '@barocss/office-editor-ui';
+import { useSlideMenuSearch, type SlideMenuFileAction, type SlideMenuViewAction } from './use-slide-menu-search';
 
 /**
  * The deck app.
@@ -929,162 +924,46 @@ export function App({
    */
   const [auditing, setAuditing] = useState(false);
 
-  /**
-   * The menubar, drawn from `SLIDES_MENUS` and greyed against the deck.
-   *
-   * An entry a reader can press that then does nothing is worse than one that is not there, and
-   * every command in the model already answers `canExecute`. A `view` entry has no command to ask,
-   * so it is never disabled: whether the audit pane is up is always a question a reader may answer.
-   */
-  const menus = useMemo(
-    () =>
-      slidesMenus(onApple()).map((menu) => ({
-        id: menu.id,
-        label: menu.label,
-        blocks: menu.blocks.map((block) => ({
-          id: block.id,
-          items: block.items.map((item, index) => ({
-            id: slidesMenuId(menu, block, index),
-            label: item.label,
-            hint: item.hint,
-            /*
-             * Why a greyed entry is greyed. A disabled control that says nothing is the commonest
-             * small cruelty in a tool: the reader can see the thing they want and has no way to
-             * learn what would make it available.
-             */
-            title:
-              item.view === 'scroll' && moveBy === 'links'
-                ? '버튼으로만 이동하는 덱은 스크롤로 볼 수 없습니다 — 스크롤은 한 줄이기 때문입니다'
-                : undefined,
-            checked:
-              item.view === 'audit'
-                ? auditing
-                : item.view === 'map'
-                  ? mapping
-                  : item.view === 'focus'
-                    ? focused
-                    : undefined,
-            disabled: item.view === 'scroll' ? moveBy === 'links' : item.command
-              ? !editor?.canExecuteCommand?.(
-                  item.command,
-                  // `needs: 'slide'` is the model asking for the slide on screen, which only the app
-                  // knows — the document has no notion of one being current. Without it
-                  // 슬라이드 복제 answers `canExecute` against nothing and is greyed forever.
-                  (item.needs === 'slide' ? { ...item.payload, slideId: current } : item.payload) as never
-                )
-              : false
-          }))
-        }))
-      })),
-    [editor, answers, current, moveBy, auditing, mapping, focused]
-  );
-
-  /**
-   * What a pick does — a command, or a change to how the reader is looking.
-   *
-   * The `view` branch is the one `switch` the model promises, and it is most of this menubar: opening
-   * a dialog, showing a pane, starting a presentation. None of those is a fact about the deck, which
-   * is why none of them is a command.
-   */
-  const runEntry = useCallback(
-    (entry: { command?: string; view?: string; payload?: Record<string, unknown>; needs?: string }) => {
-      switch (entry.view) {
-        case 'file.new':
-          return files.current?.create();
-        case 'file.open':
-          return files.current?.open();
-        case 'file.save':
-          return files.current?.save();
-        case 'file.print':
-          return setDialog('print');
-        case 'library':
-          return setDialog((was) => (was === 'library' ? null : 'library'));
-        case 'template':
-          return setDialog('template');
-        case 'dialog.size':
-          return setDialog('size');
-        case 'dialog.layout':
-          return setDialog('layout');
-        case 'dialog.theme':
-          return setDialog('theme');
-        case 'audit':
-          return setAuditing((was) => !was);
-        case 'map':
-          return setMapping((was) => !was);
-        case 'focus':
-          return setFocused((on) => !on);
-        case 'present':
-          return setPresenting(true);
-        case 'scroll':
-          /*
-           * The whole act, which was the button's: where the reader already is, then the show.
-           * A scroll show that started at the top would lose the slide they were looking at.
-           */
-          if (moveBy === 'links') return;
-          setScrolled(scrollTopOf(current, stretches));
-          setScrolling(true);
-          return setPresenting(true);
-        default:
-          break;
-      }
-
-      if (entry.command) {
-        void editor?.executeCommand(
-          entry.command,
-          (entry.needs === 'slide' ? { ...entry.payload, slideId: current } : entry.payload) as never
-        );
-      }
-    },
-    [editor, current, moveBy, stretches]
-  );
-
-  const [commandOpen, setCommandOpen] = useState(false);
-  const [recentCommands, setRecentCommands] = useState<string[]>([]);
-  const [commandError, setCommandError] = useState('');
-  const searchTarget = useRef<{ rootId: string; slideId?: string; selection?: ModelSelection } | undefined>(undefined);
-  const searchEntries = useMemo(() => slidesSearchCommands(onApple()), []);
-  const menuItems = menus.flatMap(menu => menu.blocks.flatMap(block => block.items));
-  const searchCommands = searchEntries.map(entry => {
-    const menu = menuItems.find(item => item.id === entry.id);
-    const disabled = !editor || (menu ? menu.disabled :
-      (!!entry.control?.needsSlide && !current) || !editor.canExecuteCommand(entry.command!, slidesSearchPayload(entry, current, here?.number) as never));
-    return { ...entry, disabled, disabledReason: menu?.title ?? '현재 슬라이드 또는 선택한 객체에서는 실행할 수 없습니다.' };
-  });
-  const openCommandSearch = () => {
-    const rootId = editor?.getRootId();
-    if (!editor || !view || !rootId) return;
-    searchTarget.current = { rootId, slideId: current, selection: structuredClone(captureTextSelection(editor, view, { allowBlurred: true }) ?? editor.selection ?? undefined) };
-    setCommandError(''); setCommandOpen(true);
-  };
-  const pickSearchCommand = async (id: string) => {
-    const target = searchTarget.current, entry = searchEntries.find(item => item.id === id);
-    if (!editor || !target || !entry) return;
-    if (editor.getRootId() !== target.rootId || current !== target.slideId) {
-      setCommandError('문서 또는 현재 슬라이드가 변경되었습니다. 명령을 다시 선택하세요.'); return;
+  const onFileAction = useCallback((action: SlideMenuFileAction) => {
+    files.current?.[action]();
+  }, []);
+  const onViewAction = useCallback((action: SlideMenuViewAction) => {
+    switch (action) {
+      case 'print':
+        return setDialog('print');
+      case 'library':
+        return setDialog((was) => (was === 'library' ? null : 'library'));
+      case 'template':
+        return setDialog('template');
+      case 'size':
+        return setDialog('size');
+      case 'layout':
+        return setDialog('layout');
+      case 'theme':
+        return setDialog('theme');
+      case 'audit':
+        return setAuditing((was) => !was);
+      case 'map':
+        return setMapping((was) => !was);
+      case 'focus':
+        return setFocused((on) => !on);
+      case 'present':
+        return setPresenting(true);
+      case 'scroll':
+        if (moveBy === 'links') return;
+        setScrolled(scrollTopOf(current, stretches));
+        setScrolling(true);
+        return setPresenting(true);
     }
-    try {
-      if (target.selection) editor.updateSelection({ selection: target.selection, applySelectionToView: true });
-      if (entry.command) {
-        const payload = slidesSearchPayload(entry, target.slideId, here?.number);
-        if (!editor.canExecuteCommand(entry.command, payload as never) || !await editor.executeCommand(entry.command, payload as never)) {
-          setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
-        }
-      } else {
-        if (menuItems.find(item => item.id === entry.id)?.disabled) { setCommandError('현재 상태에서 명령을 실행할 수 없습니다.'); return; }
-        runEntry(entry);
-      }
-      setRecentCommands(previous => [id, ...previous.filter(value => value !== id)].slice(0, 5));
-    } catch { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); }
-  };
+  }, [current, moveBy, stretches]);
 
-  /** A pick in the menubar, which is `runEntry` with the entry looked up. */
-  const onMenu = useCallback(
-    (id: string) => {
-      const entry = slidesMenuEntry(id);
-      if (entry) runEntry(entry);
-    },
-    [runEntry]
-  );
+  const {
+    menus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    dismissCommandError, openCommandSearch, pickSearchCommand, onMenu, runEntry
+  } = useSlideMenuSearch({
+    editor, view, current, slideNumber: here?.number, answers, moveBy,
+    auditing, mapping, focused, onFileAction, onViewAction
+  });
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1848,7 +1727,7 @@ export function App({
       }}
     >
       <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} />
-      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={() => setCommandError('')} /></TaskStatusRegion>}
+      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
       <EditorHeader product="Slides" className="sl-topbar"
         fallbackNavigation={<ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}

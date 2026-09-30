@@ -41,6 +41,16 @@ test('search inserts on the current slide and preserves object selection for dup
   expect(await page.evaluate(() => (window as any).editor.selection)).toEqual(selection);
 });
 
+test('desktop search opens slide settings with close focus and dismisses with Escape', async ({ page }) => {
+  await openDeck(page);
+  await run(page, '슬라이드 크기');
+  const dialog = page.getByRole('dialog', { name: '슬라이드 크기', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '닫기', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+});
+
 test('search opens slide settings after restoring focus and fits a narrow viewport', async ({ page }) => {
   await openDeck(page);
   await run(page, '슬라이드 크기');

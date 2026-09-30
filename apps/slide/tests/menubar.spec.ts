@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, visibleBoxes } from './helpers';
 
 /**
  * The **menubar** — and this is the product that had already grown one without having one.
@@ -43,8 +43,20 @@ test.describe('the menubar', () => {
 
     await expect(bar(page).getByRole('menuitem', { name: '파일' })).toBeVisible();
     await expect(bar(page).getByRole('menuitem', { name: '슬라이드' })).toBeVisible();
-    // And the toolbar, which holds what acts on the selection.
-    await expect(page.locator('[data-control="bold"]')).toBeVisible();
+    await expect(page.locator('.sl-toolbar [data-group="insert"]')).toBeVisible();
+    // Character controls appear for selected text, not for an empty selection.
+    const [box] = await visibleBoxes(page, '.sl-text-frame');
+    expect(box).toBeDefined();
+    await page.mouse.dblclick(box.x, box.y);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Shift+Home');
+    await page.locator('.sl-toolbar').getByRole('menuitem', { name: '글자', exact: true }).click();
+    const bold = page.locator('[data-menu-item="bold"]');
+    await expect(bold).toBeVisible();
+    await expect(bold).toContainText('굵게');
+    await expect(bold).toBeEnabled();
+    await expect(bar(page).getByRole('menuitem', { name: '파일' })).toBeVisible();
+    await expect(bar(page).getByRole('menuitem', { name: '슬라이드' })).toBeVisible();
   });
 
   test('teaches the shortcuts, which had only a tooltip', async ({ page }) => {
