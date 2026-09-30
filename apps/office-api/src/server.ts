@@ -7,7 +7,7 @@ import type { CompanyMemberStore } from '@barocss/office-service/company-member-
 import { DocumentError } from '@barocss/office-service/document-store';
 import type { DocumentStore, CreateDocumentInput, UpdateMetadataInput,
   UpdateSnapshotInput, DocumentOperation, Product } from '@barocss/office-service/document-store';
-import type { CollaborationStore } from '@barocss/office-service/collaboration-store';
+import { CollaborationAuthorityError, type CollaborationSession, type CollaborationStore } from '@barocss/office-service/collaboration-store';
 import { CapabilityError } from '@barocss/office-service/capability-store';
 import { AuthProviderUnavailableError } from './oidc.js';
 import type { OidcVerifier } from './oidc.js';
@@ -267,22 +267,42 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         });
       });
       if (auth.collaboration) {
+        const collaborationRoute = async <T>(request: FastifyRequest, reply: FastifyReply,
+          operation: (session: CollaborationSession, tenantId: string) => Promise<T>) => {
+          const match = request.headers.authorization?.match(/^Bearer ([A-Za-z0-9_.-]+)$/i);
+          if (!match) return reply.code(401).send({ status: 'unauthorized' });
+          if (!auth.verifier.verifySession) return reply.code(503).send({ status: 'auth_unavailable' });
+          let session: CollaborationSession;
+          try { session = await auth.verifier.verifySession(match[1]); }
+          catch (error) {
+            const code = error instanceof AuthProviderUnavailableError ? 503 : 401;
+            return reply.code(code).send({ status: code === 503 ? 'auth_unavailable' : 'unauthorized' });
+          }
+          const { tenantId } = request.params as { tenantId: string };
+          if (!uuid.test(tenantId)) return reply.code(400).send({ status: 'invalid_request' });
+          try { return await operation(session, tenantId); }
+          catch (error) {
+            if (error instanceof TenantAccessDeniedError) return reply.code(403).send({ status: 'forbidden' });
+            if (error instanceof DocumentError || error instanceof CollaborationAuthorityError) return reply.code(error.status).send({ status: error.reason });
+            return reply.code(503).send({ status: 'service_unavailable' });
+          }
+        };
         app.post('/v1/tenants/:tenantId/documents/:documentId/collaboration', async (request, reply) => {
-          return route(request, reply, async (principal, tenantId) => {
+          return collaborationRoute(request, reply, async (session, tenantId) => {
             const { documentId } = request.params as { documentId: string };
             if (!uuid.test(documentId)) throw new DocumentError(400, 'invalid_request');
             const body = objectBody(request.body, ['expectedRevision', 'idempotencyKey'],
               ['expectedRevision', 'idempotencyKey']);
-            return auth.collaboration!.requestTransition(principal, tenantId, documentId,
+            return auth.collaboration!.requestTransition(session, tenantId, documentId,
               body as unknown as { expectedRevision: number; idempotencyKey: string });
           });
         });
         app.post('/v1/tenants/:tenantId/documents/:documentId/collaboration/reconcile', async (request, reply) => {
-          return route(request, reply, async (principal, tenantId) => {
+          return collaborationRoute(request, reply, async (session, tenantId) => {
             const { documentId } = request.params as { documentId: string };
             if (!uuid.test(documentId)) throw new DocumentError(400, 'invalid_request');
             objectBody(request.body ?? {}, [], []);
-            return auth.collaboration!.reconcile(principal, tenantId, documentId);
+            return auth.collaboration!.reconcile(session, tenantId, documentId);
           });
         });
       }
