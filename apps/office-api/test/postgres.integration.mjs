@@ -99,14 +99,15 @@ try {
   const dependencies = () => ({ verifier: createOidcVerifier(authConfig),
     memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
     documents: new DocumentStore(pool),
-    collaboration: new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', provider),
+    collaboration: new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', provider,
+      async session => currentSessions.has(session.sessionId)),
     capabilities: new CapabilityStore(pool, 'synthetic-project', 'synthetic-build',
       async session => currentSessions.has(session.sessionId)),
     verifyYorkieCaller: async request => request.headers['x-synthetic-caller'] === 'local-only',
     operators: new PlatformOperatorStore(pool), companyMembers: new CompanyMemberStore(pool) });
   app = createApiServer(dependencies());
-  const alice = { authorization: `Bearer ${await token('alice')}` };
-  const bob = { authorization: `Bearer ${await token('bob')}` };
+  const alice = { authorization: `Bearer ${await token('alice', Math.floor(Date.now() / 1000) + 300, 'alice-session')}` };
+  const bob = { authorization: `Bearer ${await token('bob', Math.floor(Date.now() / 1000) + 300, 'bob-session')}` };
   const docUrl = `/v1/tenants/${alpha}/documents`;
   const workspaceUrl = `/v1/tenants/${alpha}/workspaces`;
   await check('workspace discovery distinguishes no workspaces from authentication and tenant denial', async () => {
@@ -194,6 +195,27 @@ try {
     const different = await post(docUrl, alice, { ...create, snapshotText: file('changed') });
     assert.equal(different.statusCode, 409);
     assert.deepEqual(different.json(), { status: 'key_reuse' });
+  });
+  await check('signature-valid tokens without a current session cannot dispatch collaboration or reconciliation', async () => {
+    const initial = await post(docUrl, alice, { ...create, idempotencyKey: 'session-denied-http-document' });
+    const id = initial.json().document.documentId;
+    const path = `${docUrl}/${id}/collaboration`;
+    const verifier = createOidcVerifier(authConfig);
+    const noSession = await token('alice');
+    const revoked = await token('alice', Math.floor(Date.now() / 1000) + 300, 'revoked-session');
+    for (const value of [noSession, revoked]) {
+      assert.deepEqual(await verifier.verify(value), { issuer, subject: 'alice' });
+    }
+    const before = providerSeeds.size;
+    for (const [suffix, payload] of [['', { expectedRevision: 1, idempotencyKey: 'denied-session-seed' }],
+      ['/reconcile', {}]]) for (const [value, status] of [[noSession, 401], [revoked, 403],
+      [await token('alice', Math.floor(Date.now() / 1000) - 30, 'alice-session'), 401]]) {
+      const response = await post(path + suffix, { authorization: `Bearer ${value}` }, payload);
+      assert.equal(response.statusCode, status, response.body);
+    }
+    assert.equal(providerSeeds.size, before);
+    assert.equal((await owner.query(`SELECT count(*)::int AS count FROM wonffice.document_collaboration_seeds
+      WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows[0].count, 0);
   });
   await check('protected collaboration request freezes the snapshot and preserves key across API restart', async () => {
     const initial = await post(docUrl, alice, { ...create, idempotencyKey: 'seed-http-document' });
@@ -287,7 +309,10 @@ try {
     allowInspection = true;
     await app.close();
     app = createApiServer(dependencies());
-    const recovered = await post(`${path}/reconcile`, alice, {});
+    currentSessions.delete('alice-session');
+    assert.equal((await post(`${path}/reconcile`, alice, {})).statusCode, 403);
+    const recovered = await post(`${path}/reconcile`, bob, {});
+    currentSessions.add('alice-session');
     assert.equal(recovered.statusCode, 200, recovered.body);
     assert.equal(recovered.json().mode, 'collaborative');
     assert.equal(providerSeeds.size, 2);

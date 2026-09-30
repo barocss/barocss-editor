@@ -11,6 +11,18 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const requestKey = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/;
 const documentKey = /^wonffice-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
+/** Current verified caller authority. Never persist it in the frozen seed attempt. */
+export interface CollaborationSession extends VerifiedPrincipal {
+  readonly sessionId: string;
+  /** Verified access-token expiry in Unix seconds. */
+  readonly expiresAt: number;
+}
+export class CollaborationAuthorityError extends Error {
+  constructor(readonly status: 401 | 403 | 503, readonly reason: string) { super(reason); }
+}
+
+export type CollaborationSessionGate = (session: CollaborationSession) => Promise<boolean>;
+
 export interface SeedTask {
   tenantId: string;
   documentId: string;
@@ -33,8 +45,8 @@ export type SeedProof = Omit<SeedTask, 'tenantId' | 'documentId' | 'snapshotText
 
 /** A server-owned adapter must read back the durable provider state before returning proof. */
 export interface CollaborationSeeder {
-  seed(task: SeedTask): Promise<void>;
-  inspect(task: SeedTask): Promise<SeedProof | null>;
+  seed(task: SeedTask, session: CollaborationSession): Promise<void>;
+  inspect(task: SeedTask, session: CollaborationSession): Promise<SeedProof | null>;
 }
 
 interface SeedRow {
@@ -115,11 +127,48 @@ function restoredSeed(row: SeedRow, snapshotText: string, snapshotHash: string):
 export class CollaborationStore {
   private readonly membership: MembershipStore;
   constructor(private readonly pool: Pool, private readonly providerProject: string,
-    private readonly providerBuild: string, private readonly seeder?: CollaborationSeeder) {
+    private readonly providerBuild: string, private readonly seeder?: CollaborationSeeder,
+    private readonly sessionGate?: CollaborationSessionGate) {
     if (!providerProject || providerProject.length > 120 || !providerBuild || providerBuild.length > 120) {
       throw new Error('invalid_collaboration_provider_identity');
     }
     this.membership = new MembershipStore(pool);
+  }
+
+  private operationSession(session: CollaborationSession): CollaborationSession {
+    if (!session || typeof session.issuer !== 'string' || !session.issuer || session.issuer.length > 2048 ||
+      typeof session.subject !== 'string' || !session.subject || session.subject.length > 255 ||
+      typeof session.sessionId !== 'string' || !session.sessionId || session.sessionId.length > 255 ||
+      !Number.isSafeInteger(session.expiresAt)) throw new CollaborationAuthorityError(401, 'unauthorized');
+    return Object.freeze({ issuer: session.issuer, subject: session.subject,
+      sessionId: session.sessionId, expiresAt: session.expiresAt });
+  }
+
+  private async requireSession(session: CollaborationSession) {
+    if (session.expiresAt <= Date.now() / 1000) throw new CollaborationAuthorityError(401, 'session_expired');
+    if (!this.sessionGate) throw new CollaborationAuthorityError(503, 'auth_unavailable');
+    let current: boolean;
+    try { current = await this.sessionGate(session); }
+    catch { throw new CollaborationAuthorityError(503, 'auth_unavailable'); }
+    if (current !== true) throw new CollaborationAuthorityError(403, 'forbidden');
+    // A session check can itself take time. Never admit an expired token afterward.
+    if (session.expiresAt <= Date.now() / 1000) throw new CollaborationAuthorityError(401, 'session_expired');
+  }
+
+  private async requireAuthority(client: PoolClient, session: CollaborationSession, tenantId: string) {
+    await this.requireSession(session);
+    // Re-read after the session gate and any document-lock wait. The transaction's
+    // RLS identity is the present caller, never the initiating SeedTask.
+    const found = await client.query<{ role: TenantRole }>(`SELECT role FROM wonffice.tenant_memberships
+      WHERE tenant_id = $1 AND revoked_at IS NULL`, [tenantId]);
+    if (!found.rows[0]) throw new TenantAccessDeniedError();
+    requireWriter(found.rows[0].role);
+    if (session.expiresAt <= Date.now() / 1000) throw new CollaborationAuthorityError(401, 'session_expired');
+  }
+
+  private async currentWriter(session: CollaborationSession, tenantId: string) {
+    await this.membership.withAuthorizedTenant(session, tenantId,
+      async client => { await this.requireAuthority(client, session, tenantId); });
   }
 
   private async task(client: PoolClient, tenantId: string, documentId: string): Promise<SeedTask> {
@@ -135,10 +184,9 @@ export class CollaborationStore {
       canonicalSeed: restoredSeed(attempt, document.snapshotText, document.snapshotHash) };
   }
 
-  private async markUncertain(principal: VerifiedPrincipal, task: SeedTask) {
+  private async markUncertain(task: SeedTask) {
     // The requester can lose membership while the provider call is in flight. This
     // internal state update uses the previously authorized, server-created seed ID.
-    void principal;
     await withTenant(this.pool, task.tenantId, async client => {
       await client.query(`UPDATE wonffice.document_collaboration_seeds SET status = 'uncertain', updated_at = now()
         WHERE tenant_id = $1 AND document_id = $2 AND seed_id = $3 AND status = 'initializing'`,
@@ -146,9 +194,9 @@ export class CollaborationStore {
     });
   }
 
-  private async promote(principal: VerifiedPrincipal, task: SeedTask, proof: SeedProof | null) {
+  private async promote(session: CollaborationSession, task: SeedTask, proof: SeedProof | null) {
     if (!matches(task, proof)) throw new DocumentError(409, 'seed_uncertain');
-    return this.membership.withAuthorizedTenant(principal, task.tenantId, async (client, role) => {
+    return this.membership.withAuthorizedTenant(session, task.tenantId, async (client, role) => {
       requireWriter(role);
       const found = await client.query<DocumentRow>(selectDocument +
         ' WHERE d.tenant_id = $1 AND d.id = $2 FOR UPDATE OF d, s',
@@ -167,6 +215,7 @@ export class CollaborationStore {
           task.canonicalSeed.canonicalTreeHash) {
         throw new DocumentError(409, 'mode_conflict');
       }
+      await this.requireAuthority(client, session, task.tenantId);
       await client.query(`UPDATE wonffice.document_collaboration_seeds
         SET status = 'confirmed', confirmed_at = now(), updated_at = now(),
           confirmed_provider_checkpoint = $3, confirmed_provider_snapshot_hash = $4
@@ -178,16 +227,19 @@ export class CollaborationStore {
     });
   }
 
-  async requestTransition(principal: VerifiedPrincipal, tenantId: string, documentId: string,
+  async requestTransition(caller: CollaborationSession, tenantId: string, documentId: string,
     input: { expectedRevision: number; idempotencyKey: string }) {
     validateId(tenantId); validateId(documentId);
     if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1 ||
       !requestKey.test(input.idempotencyKey)) throw new DocumentError(400, 'invalid_request');
+    const session = this.operationSession(caller);
+    await this.requireSession(session);
     if (!this.seeder) throw new Error('collaboration_seeder_unconfigured');
-    const reservation = await this.membership.withAuthorizedTenant(principal, tenantId, async (client, role) => {
+    const reservation = await this.membership.withAuthorizedTenant(session, tenantId, async (client, role) => {
       requireWriter(role);
       const found = await client.query<DocumentRow>(selectDocument +
         ' WHERE d.tenant_id = $1 AND d.id = $2 FOR UPDATE OF d, s', [tenantId, documentId]);
+      await this.requireAuthority(client, session, tenantId);
       const current = found.rows[0];
       if (!current) throw new DocumentError(404, 'not_found');
       if (current.mode !== 'snapshot') {
@@ -238,22 +290,27 @@ export class CollaborationStore {
     if (reservation.kind === 'existing') return reservation.result;
     const task = reservation.task;
     try {
-      await this.seeder.seed(task);
-      const proof = await this.seeder.inspect(task);
+      await this.currentWriter(session, tenantId);
+      await this.seeder.seed(task, session);
+      await this.currentWriter(session, tenantId);
+      const proof = await this.seeder.inspect(task, session);
       if (!matches(task, proof)) throw new Error('provider_seed_unconfirmed');
-      return await this.promote(principal, task, proof);
+      return await this.promote(session, task, proof);
     } catch (error) {
-      await this.markUncertain(principal, task);
-      if (error instanceof DocumentError || error instanceof TenantAccessDeniedError) throw error;
+      await this.markUncertain(task);
+      if (error instanceof DocumentError || error instanceof CollaborationAuthorityError ||
+        error instanceof TenantAccessDeniedError) throw error;
       throw new Error('provider_seed_uncertain');
     }
   }
 
   /** Reconciliation reads the pinned provider state. It never retries an unknown seed write. */
-  async reconcile(principal: VerifiedPrincipal, tenantId: string, documentId: string) {
+  async reconcile(caller: CollaborationSession, tenantId: string, documentId: string) {
     validateId(tenantId); validateId(documentId);
+    const session = this.operationSession(caller);
+    await this.requireSession(session);
     if (!this.seeder) throw new Error('collaboration_seeder_unconfigured');
-    const task = await this.membership.withAuthorizedTenant(principal, tenantId, async (client, role) => {
+    const task = await this.membership.withAuthorizedTenant(session, tenantId, async (client, role) => {
       requireWriter(role);
       const found = await client.query<DocumentRow>(selectDocument +
         ' WHERE d.tenant_id = $1 AND d.id = $2', [tenantId, documentId]);
@@ -264,8 +321,14 @@ export class CollaborationStore {
     if (task.providerProject !== this.providerProject || task.providerBuild !== this.providerBuild) {
       throw new DocumentError(409, 'provider_mismatch');
     }
-    const proof = await this.seeder.inspect(task);
-    return this.promote(principal, task, proof);
+    try {
+      await this.currentWriter(session, tenantId);
+      const proof = await this.seeder.inspect(task, session);
+      return await this.promote(session, task, proof);
+    } catch (error) {
+      await this.markUncertain(task);
+      throw error;
+    }
   }
 
   /** An address alone never grants provider access. The principal and current DB role are checked. */

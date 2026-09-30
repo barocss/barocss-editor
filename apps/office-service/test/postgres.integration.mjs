@@ -11,7 +11,7 @@ import { TenantStore, withTenant } from '../dist/tenant-store.js';
 import { MembershipStore, TenantAccessDeniedError } from '../dist/membership-store.js';
 import { applyMembershipChange } from '../dist/membership-admin.js';
 import { DocumentStore, DocumentError } from '../dist/document-store.js';
-import { CollaborationStore } from '../dist/collaboration-store.js';
+import { CollaborationStore, CollaborationAuthorityError } from '../dist/collaboration-store.js';
 import { CapabilityStore, CapabilityError } from '../dist/capability-store.js';
 
 // Always create our own cluster. No DATABASE_URL or existing server is accepted.
@@ -516,6 +516,217 @@ try {
     await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at = NULL WHERE tenant_id = $1 AND identity_id = $2',
       [alpha, bob]);
   });
+  const aliceSession = { ...alicePrincipal, sessionId: 'alice-current-session',
+    expiresAt: Math.floor(Date.now() / 1000) + 3600 };
+  const bobSession = { ...bobPrincipal, sessionId: 'bob-current-session', expiresAt: aliceSession.expiresAt };
+  const currentSession = async session =>
+    (session.subject === 'alice' && session.sessionId === aliceSession.sessionId) ||
+    (session.subject === 'bob' && session.sessionId === bobSession.sessionId);
+  await check('absent gate and missing, expired, revoked or unavailable sessions never reserve or dispatch', async () => {
+    for (const [name, session, gate, status] of [
+      ['missing-session', alicePrincipal, currentSession, 401],
+      ['expired-session', { ...aliceSession, expiresAt: 1 }, currentSession, 401],
+      ['absent-gate', aliceSession, undefined, 503],
+      ['revoked-session', aliceSession, async () => false, 403],
+      ['unavailable-session', aliceSession, async () => { throw new Error('session_backend_down'); }, 503],
+    ]) {
+      const receipt = await documents.create(alicePrincipal, alpha,
+        { ...noteInput, idempotencyKey: name });
+      let calls = 0;
+      const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', {
+        async seed() { calls++; }, async inspect() { calls++; return null; },
+      }, gate);
+      await assert.rejects(collab.requestTransition(session, alpha, receipt.document.documentId,
+        { expectedRevision: 1, idempotencyKey: name }),
+      error => (error instanceof DocumentError || error instanceof CollaborationAuthorityError) && error.status === status);
+      assert.equal(calls, 0);
+      assert.equal((await owner.query(`SELECT count(*)::int AS count
+        FROM wonffice.document_collaboration_seeds WHERE tenant_id = $1 AND document_id = $2`,
+      [alpha, receipt.document.documentId])).rows[0].count, 0);
+    }
+  });
+  await check('session loss at each next boundary stops calls and preserves one frozen consumed attempt', async () => {
+    for (const [boundary, deniedCall, expectedWrites, expectedInspects] of [
+      ['reserve', 2, 0, 0], ['dispatch', 3, 0, 0],
+      ['inspect', 4, 1, 0], ['locked-promote', 5, 1, 1],
+    ]) for (const loss of ['revoked', 'expired', 'unavailable', 'viewer', 'membership-revoked']) {
+      const key = `${boundary}-${loss}`;
+      const receipt = await documents.create(alicePrincipal, alpha, { ...noteInput, idempotencyKey: key });
+      const id = receipt.document.documentId;
+      let checks = 0, writes = 0, inspections = 0, frozen;
+      const realNow = Date.now;
+      const gate = async session => {
+        assert.deepEqual(session, aliceSession);
+        assert.ok(Object.isFrozen(session));
+        if (++checks !== deniedCall) return true;
+        if (loss === 'revoked') return false;
+        if (loss === 'expired') Date.now = () => aliceSession.expiresAt * 1000;
+        if (loss === 'unavailable') throw new Error('session_backend_down');
+        if (loss === 'viewer') await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'viewer'
+          WHERE tenant_id = $1 AND identity_id = $2`, [alpha, alice]);
+        if (loss === 'membership-revoked') await owner.query(`UPDATE wonffice.tenant_memberships SET revoked_at = now()
+          WHERE tenant_id = $1 AND identity_id = $2`, [alpha, alice]);
+        return true;
+      };
+      const proof = task => ({ documentKey: task.documentKey, providerProject: task.providerProject,
+        providerBuild: task.providerBuild, seedId: task.seedId, snapshotRevision: task.snapshotRevision,
+        snapshotHash: task.snapshotHash, providerCheckpoint: 'controlled-only',
+        providerSnapshotHash: task.canonicalSeed.canonicalTreeHash });
+      const seeder = {
+        async seed(task, session) {
+          writes++; frozen = structuredClone(task);
+          assert.deepEqual(session, aliceSession);
+          assert.equal(task.sessionId, undefined); assert.equal(task.subject, undefined);
+        },
+        async inspect(task, session) {
+          inspections++;
+          assert.deepEqual(task, frozen);
+          assert.deepEqual(session, aliceSession);
+          return proof(task);
+        },
+      };
+      const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder, gate);
+      try {
+        await assert.rejects(collab.requestTransition(aliceSession, alpha, id,
+          { expectedRevision: 1, idempotencyKey: key }),
+        error => loss === 'membership-revoked' ? error instanceof TenantAccessDeniedError :
+          (error instanceof DocumentError || error instanceof CollaborationAuthorityError) && error.status === (loss === 'expired' ? 401 :
+            loss === 'unavailable' ? 503 : 403));
+      } finally {
+        Date.now = realNow;
+        await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'editor', revoked_at = NULL
+          WHERE tenant_id = $1 AND identity_id = $2`, [alpha, alice]);
+      }
+      assert.equal(writes, expectedWrites); assert.equal(inspections, expectedInspects);
+      const rows = (await owner.query(`SELECT * FROM wonffice.document_collaboration_seeds
+        WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows;
+      if (boundary === 'reserve') {
+        assert.equal(rows.length, 0);
+        console.log(JSON.stringify({ authorityBoundary: boundary, loss, writes, inspections, reserved: false }));
+        continue;
+      }
+      assert.equal(rows.length, 1); assert.equal(rows[0].status, 'uncertain');
+      assert.equal(rows[0].confirmed_provider_checkpoint, null);
+      const stable = structuredClone(rows[0]);
+      const recovering = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', {
+        async seed() { assert.fail('reconciliation must never seed'); },
+        async inspect(task, session) {
+          assert.deepEqual(session, bobSession);
+          assert.equal(task.seedId, stable.seed_id);
+          assert.equal(task.snapshotText, stable.source_snapshot_text);
+          assert.deepEqual(task.canonicalSeed, stable.canonical_seed);
+          return writes === 1 ? proof(task) : null;
+        },
+      }, currentSession);
+      assert.equal((await recovering.requestTransition(bobSession, alpha, id,
+        { expectedRevision: 1, idempotencyKey: key })).transitionStatus, 'uncertain');
+      if (writes === 1) assert.equal((await recovering.reconcile(bobSession, alpha, id)).mode, 'collaborative');
+      else await assert.rejects(recovering.reconcile(bobSession, alpha, id),
+        error => error instanceof DocumentError && error.reason === 'seed_uncertain');
+      const after = (await owner.query(`SELECT * FROM wonffice.document_collaboration_seeds
+        WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows[0];
+      for (const field of ['seed_id', 'source_snapshot_text', 'canonical_seed', 'canonical_seed_hash',
+        'snapshot_hash', 'snapshot_revision']) assert.deepEqual(after[field], stable[field]);
+      console.log(JSON.stringify({ authorityBoundary: boundary, loss, writes, inspections,
+        reserved: true, recovery: writes === 1 ? 'current-writer-inspect-only' : 'absent-proof-denied' }));
+    }
+  });
+  await check('database outages at each authority boundary stop the next call and preserve consumed reservations', async () => {
+    for (const [boundary, deniedCall, expectedWrites, expectedInspects] of [
+      ['reserve', 2, 0, 0], ['dispatch', 3, 0, 0], ['inspect', 4, 1, 0], ['locked-promote', 5, 1, 1],
+    ]) {
+      const receipt = await documents.create(alicePrincipal, alpha,
+        { ...noteInput, idempotencyKey: `authority-database-${boundary}` });
+      const id = receipt.document.documentId;
+      let checks = 0, writes = 0, inspections = 0, unavailable = false;
+      const isolatedPool = { connect: async () => {
+        if (unavailable) throw new Error('database_unavailable');
+        const client = await pool.connect();
+        return { query: (...args) => {
+          if (unavailable) throw new Error('database_unavailable');
+          return client.query(...args);
+        }, release: (...args) => client.release(...args) };
+      } };
+      const collab = new CollaborationStore(isolatedPool, 'synthetic-project', 'synthetic-build', {
+        async seed() { writes++; },
+        async inspect(task) { inspections++; return { documentKey: task.documentKey,
+          providerProject: task.providerProject, providerBuild: task.providerBuild,
+          seedId: task.seedId, snapshotRevision: task.snapshotRevision, snapshotHash: task.snapshotHash,
+          providerCheckpoint: 'controlled-only', providerSnapshotHash: task.canonicalSeed.canonicalTreeHash }; },
+      }, async () => { if (++checks === deniedCall) unavailable = true; return true; });
+      await assert.rejects(collab.requestTransition(aliceSession, alpha, id,
+        { expectedRevision: 1, idempotencyKey: 'database-outage' }), /database_unavailable/);
+      assert.equal(writes, expectedWrites); assert.equal(inspections, expectedInspects);
+      const rows = (await owner.query(`SELECT * FROM wonffice.document_collaboration_seeds
+        WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows;
+      if (boundary === 'reserve') { assert.equal(rows.length, 0); continue; }
+      assert.equal(rows.length, 1); assert.equal(rows[0].status, 'initializing');
+      assert.equal(rows[0].confirmed_provider_checkpoint, null);
+      unavailable = false;
+      assert.equal((await collab.requestTransition(aliceSession, alpha, id,
+        { expectedRevision: 1, idempotencyKey: 'database-outage' })).mode, 'initializing');
+      assert.equal(writes, expectedWrites); assert.equal(inspections, expectedInspects);
+      console.log(JSON.stringify({ databaseBoundary: boundary, writes, inspections,
+        durableState: 'initializing-consumed-no-retry' }));
+    }
+  });
+  await check('reconciliation rechecks its own current writer before inspection and locked promotion', async () => {
+    for (const [boundary, deniedCall, expectedInspects] of [['inspect', 2, 0], ['locked-promote', 3, 1]]) {
+      for (const loss of ['revoked', 'expired', 'unavailable', 'viewer', 'membership-revoked']) {
+        const receipt = await documents.create(alicePrincipal, alpha,
+          { ...noteInput, idempotencyKey: `reconcile-${boundary}-${loss}` });
+        const id = receipt.document.documentId;
+        let frozen;
+        const initial = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', {
+          async seed(task) { frozen = structuredClone(task); throw new Error('lost_ack'); },
+          async inspect() { assert.fail('lost ack must stop before inspection'); },
+        }, currentSession);
+        await assert.rejects(initial.requestTransition(aliceSession, alpha, id,
+          { expectedRevision: 1, idempotencyKey: 'one-consumed-seed' }), /provider_seed_uncertain/);
+        let checks = 0, inspections = 0;
+        const realNow = Date.now;
+        const reconciling = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', {
+          async seed() { assert.fail('no second seed write'); },
+          async inspect(task, session) {
+            inspections++; assert.deepEqual(task, frozen); assert.deepEqual(session, bobSession);
+            return { documentKey: task.documentKey, providerProject: task.providerProject,
+              providerBuild: task.providerBuild, seedId: task.seedId, snapshotRevision: task.snapshotRevision,
+              snapshotHash: task.snapshotHash, providerCheckpoint: 'controlled-only',
+              providerSnapshotHash: task.canonicalSeed.canonicalTreeHash };
+          },
+        }, async session => {
+          assert.deepEqual(session, bobSession);
+          if (++checks !== deniedCall) return true;
+          if (loss === 'revoked') return false;
+          if (loss === 'expired') Date.now = () => bobSession.expiresAt * 1000;
+          if (loss === 'unavailable') throw new Error('session_backend_down');
+          if (loss === 'viewer') await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'viewer'
+            WHERE tenant_id = $1 AND identity_id = $2`, [alpha, bob]);
+          if (loss === 'membership-revoked') await owner.query(`UPDATE wonffice.tenant_memberships SET revoked_at = now()
+            WHERE tenant_id = $1 AND identity_id = $2`, [alpha, bob]);
+          return true;
+        });
+        try {
+          await assert.rejects(reconciling.reconcile(bobSession, alpha, id), error =>
+            loss === 'membership-revoked' ? error instanceof TenantAccessDeniedError :
+            (error instanceof CollaborationAuthorityError || error instanceof DocumentError) &&
+            error.status === (loss === 'expired' ? 401 : loss === 'unavailable' ? 503 : 403));
+        } finally {
+          Date.now = realNow;
+          await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'editor', revoked_at = NULL
+            WHERE tenant_id = $1 AND identity_id = $2`, [alpha, bob]);
+        }
+        assert.equal(inspections, expectedInspects);
+        const attempt = (await owner.query(`SELECT * FROM wonffice.document_collaboration_seeds
+          WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows[0];
+        assert.equal(attempt.status, 'uncertain'); assert.equal(attempt.seed_id, frozen.seedId);
+        assert.deepEqual(attempt.canonical_seed, frozen.canonicalSeed);
+        assert.equal(attempt.source_snapshot_text, frozen.snapshotText);
+        assert.equal(attempt.confirmed_provider_checkpoint, null);
+        console.log(JSON.stringify({ reconciliationBoundary: boundary, loss, inspections, reseeds: 0 }));
+      }
+    }
+  });
   let seededKey;
   await check('unsupported Note source is rejected before a durable attempt or provider write', async () => {
     const unsupported = JSON.parse(noteFile('keep me'));
@@ -527,8 +738,8 @@ try {
     let writes = 0;
     const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', {
       async seed() { writes++; }, async inspect() { return null; },
-    });
-    await assert.rejects(collab.requestTransition(alicePrincipal, alpha,
+    }, currentSession);
+    await assert.rejects(collab.requestTransition(aliceSession, alpha,
       receipt.document.documentId, { expectedRevision: 1, idempotencyKey: 'reject-unsupported' }),
     error => error instanceof DocumentError && error.status === 422);
     assert.equal(writes, 0);
@@ -551,18 +762,18 @@ try {
         providerSnapshotHash: task.canonicalSeed.canonicalTreeHash }); },
       async inspect(task) { return seen.get(task.seedId) ?? null; },
     };
-    const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder);
+    const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder, currentSession);
     const before = await documents.open(alicePrincipal, alpha, id);
     await assert.rejects(collab.resolve(alicePrincipal, receipt.document.documentKey, 'write'),
       error => error instanceof DocumentError && error.status === 404);
-    await assert.rejects(collab.requestTransition(bobPrincipal, beta, id,
+    await assert.rejects(collab.requestTransition(bobSession, beta, id,
       { expectedRevision: 1, idempotencyKey: 'foreign-seed' }),
     error => error instanceof DocumentError && error.status === 403);
-    await assert.rejects(collab.requestTransition(alicePrincipal, alpha, id,
+    await assert.rejects(collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 2, idempotencyKey: 'stale-seed' }),
     error => error instanceof DocumentError && error.reason === 'revision_conflict');
     assert.equal((await documents.open(alicePrincipal, alpha, id)).document.mode, 'snapshot');
-    const promoted = await collab.requestTransition(alicePrincipal, alpha, id,
+    const promoted = await collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'seed-once' });
     assert.equal(promoted.mode, 'collaborative');
     assert.equal(promoted.documentKey, receipt.document.documentKey);
@@ -581,7 +792,7 @@ try {
         ...block.content.map(child => child.id)])];
     assert.equal(new Set(ids).size, ids.length);
     assert.ok(ids.every(value => value.startsWith('node:')));
-    assert.equal((await collab.requestTransition(alicePrincipal, alpha, id,
+    assert.equal((await collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'seed-once' })).mode, 'collaborative');
     assert.equal((await owner.query(`SELECT canonical_seed FROM wonffice.document_collaboration_seeds
       WHERE tenant_id = $1 AND document_id = $2`, [alpha, id])).rows[0].canonical_seed.tree.id,
@@ -602,7 +813,7 @@ try {
     [alpha, id]);
     await assert.rejects(collab.resolve(alicePrincipal, receipt.document.documentKey, 'read'),
       error => error instanceof DocumentError && error.status === 404);
-    await assert.rejects(collab.requestTransition(alicePrincipal, alpha, id,
+    await assert.rejects(collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'seed-once' }),
     error => error instanceof DocumentError && error.reason === 'seed_uncertain');
     await owner.query(`UPDATE wonffice.document_collaboration_seeds
@@ -610,7 +821,7 @@ try {
     [alpha, id]);
     const other = await documents.create(alicePrincipal, alpha,
       { ...noteInput, idempotencyKey: 'other-collaboration-document' });
-    assert.equal((await collab.requestTransition(alicePrincipal, alpha, other.document.documentId,
+    assert.equal((await collab.requestTransition(aliceSession, alpha, other.document.documentId,
       { expectedRevision: 1, idempotencyKey: 'seed-once' })).mode, 'collaborative');
     assert.equal((await collab.resolve(bobPrincipal, receipt.document.documentKey, 'read')).documentId, id);
     await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'viewer'
@@ -741,8 +952,8 @@ try {
     let task;
     const seeder = { async seed(value) { task = value; throw new Error('lost_ack'); },
       async inspect() { return null; } };
-    const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder);
-    await assert.rejects(collab.requestTransition(alicePrincipal, alpha, id,
+    const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder, currentSession);
+    await assert.rejects(collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'uncertain-seed' }), /provider_seed_uncertain/);
     const opened = await documents.open(alicePrincipal, alpha, id);
     assert.equal(opened.document.mode, 'initializing');
@@ -751,25 +962,25 @@ try {
     await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, id,
       { expectedRevision: 1, snapshotText: receipt.snapshotText, idempotencyKey: 'blocked-seed' }),
     error => error instanceof DocumentError && error.reason === 'mode_conflict');
-    assert.equal((await collab.requestTransition(alicePrincipal, alpha, id,
+    assert.equal((await collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'uncertain-seed' })).transitionStatus, 'uncertain');
-    await assert.rejects(collab.requestTransition(alicePrincipal, alpha, id,
+    await assert.rejects(collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'different-seed' }),
     error => error instanceof DocumentError && error.reason === 'initialization_in_progress');
     assert.equal(task.documentKey, receipt.document.documentKey);
-    await assert.rejects(collab.reconcile(alicePrincipal, alpha, id),
+    await assert.rejects(collab.reconcile(aliceSession, alpha, id),
       error => error instanceof DocumentError && error.reason === 'seed_uncertain');
     seeder.inspect = async () => ({ documentKey: task.documentKey, providerProject: task.providerProject,
       providerBuild: task.providerBuild, seedId: task.seedId,
       snapshotRevision: task.snapshotRevision, snapshotHash: task.snapshotHash });
-    const restarted = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder);
-    await assert.rejects(restarted.reconcile(alicePrincipal, alpha, id),
+    const restarted = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder, currentSession);
+    await assert.rejects(restarted.reconcile(aliceSession, alpha, id),
       error => error instanceof DocumentError && error.reason === 'seed_uncertain');
     seeder.inspect = async () => ({ documentKey: task.documentKey, providerProject: task.providerProject,
       providerBuild: task.providerBuild, seedId: task.seedId,
       snapshotRevision: task.snapshotRevision, snapshotHash: task.snapshotHash,
       providerCheckpoint: 'synthetic-checkpoint-2', providerSnapshotHash: task.canonicalSeed.canonicalTreeHash });
-    assert.equal((await restarted.reconcile(alicePrincipal, alpha, id)).mode, 'collaborative');
+    assert.equal((await restarted.reconcile(aliceSession, alpha, id)).mode, 'collaborative');
     assert.equal((await restarted.resolve(alicePrincipal, receipt.document.documentKey, 'read')).documentId, id);
   });
   await check('concurrent transition requests write one seed and revocation blocks promotion', async () => {
@@ -788,11 +999,11 @@ try {
         snapshotHash: task.snapshotHash, providerCheckpoint: 'synthetic-checkpoint-3',
         providerSnapshotHash: task.canonicalSeed.canonicalTreeHash }; },
     };
-    const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder);
-    const first = collab.requestTransition(alicePrincipal, alpha, id,
+    const collab = new CollaborationStore(pool, 'synthetic-project', 'synthetic-build', seeder, currentSession);
+    const first = collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'concurrent-seed' });
     while (!observed) await new Promise(resolve => setTimeout(resolve, 5));
-    const second = await collab.requestTransition(alicePrincipal, alpha, id,
+    const second = await collab.requestTransition(aliceSession, alpha, id,
       { expectedRevision: 1, idempotencyKey: 'concurrent-seed' });
     assert.equal(second.mode, 'initializing');
     assert.equal(writes, 1);
@@ -807,7 +1018,7 @@ try {
       WHERE d.tenant_id = $1 AND d.id = $2`, [alpha, id])).rows[0].status, 'uncertain');
     await owner.query(`UPDATE wonffice.tenant_memberships SET revoked_at = NULL
       WHERE tenant_id = $1 AND identity_id = $2`, [alpha, alice]);
-    assert.equal((await collab.reconcile(alicePrincipal, alpha, id)).mode, 'collaborative');
+    assert.equal((await collab.reconcile(aliceSession, alpha, id)).mode, 'collaborative');
     assert.equal(writes, 1);
   });
   await check('collaborative mode never exposes or overwrites an old PostgreSQL snapshot', async () => {
