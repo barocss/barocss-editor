@@ -707,9 +707,6 @@ export function Stage({
   const freeBoard = !!boards?.length && !focus && !fill;
   const [camera, setCamera] = useState({ x: 32, y: 56 });
   const [boardDraft, setBoardDraft] = useState<{ sid: string; x: number; y: number } | null>(null);
-  useLayoutEffect(() => {
-    frame.current?.dispatchEvent(new Event('slides:viewport-change'));
-  }, [camera, boardDraft, scale]);
   const zoomAnchor = useRef<{ x: number; y: number } | null>(null);
   const previousScale = useRef(1);
   const boardBounds = useMemo(() => {
@@ -809,6 +806,10 @@ export function Stage({
   }, [ruler, scale]);
 
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    // A yielded renderer can mount the current slide without resizing the pane.
+    frame.current?.dispatchEvent(new Event('slides:viewport-change'));
+  }, [camera, boardDraft, scale, size?.width, size?.height]);
   const [rulerOrigin, setRulerOrigin] = useState({ x: 0, y: 0 });
   useLayoutEffect(() => {
     const pane = frame.current;

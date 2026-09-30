@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
+import type { Editor } from '@barocss/editor-core';
 import { placeCaret } from './helpers';
+import { verifyDownloadedTable } from './docx-download';
 
 const tab = (page: import('@playwright/test').Page, name: string) => page.getByRole('tab', { name, exact: true });
 
@@ -30,8 +32,26 @@ test('ribbon style previews and keyboard commands change the document once', asy
   await expect(tab(page, '홈')).toBeFocused();
 });
 
-test('layout actions open real settings and table insertion accepts dimensions', async ({ page }) => {
+test('layout actions open real settings and table insertion accepts dimensions', async ({ page }, testInfo) => {
   await page.goto('/');
+  const status = page.locator('[data-word-save-status]');
+  await expect(status).toHaveText('저장됨');
+  const initial = page.url();
+  await placeCaret(page, '.w-paragraph');
+  await page.keyboard.type('Previous document');
+  await expect(status).toHaveText('저장됨');
+  await page.locator('.w-menubar [data-menu=file]').click();
+  const confirmation = page.waitForEvent('dialog');
+  const create = page.getByRole('menuitem', { name: '새 문서', exact: true }).click();
+  const prompt = await confirmation;
+  expect(prompt.type()).toBe('confirm');
+  expect(prompt.message()).toBe('저장하지 않은 변경이 사라집니다. 계속할까요?');
+  await prompt.accept();
+  await create;
+  await expect(page.locator('#editor')).not.toContainText('Previous document');
+  await expect(status).toHaveText('저장됨');
+  await expect.poll(() => page.url()).not.toBe(initial);
+  const created = page.url();
   await page.getByRole('button', { name: '상세 도구', exact: true }).click();
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Table follows');
@@ -53,9 +73,25 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await expect(page.locator('.w-document table')).toHaveCount(1);
   await expect(page.locator('.w-document table tr')).toHaveCount(2);
   await expect(page.locator('.w-document table td, .w-document table th')).toHaveCount(8);
-  await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  await placeCaret(page, '.w-cell', 0);
+  await page.keyboard.type('CELL A1');
+  await placeCaret(page, '.w-cell', 1);
+  await page.keyboard.type('CELL B1');
+  const cells = ['CELL A1', 'CELL B1', '', '', '', '', '', ''];
+  await expect(page.locator('.w-cell')).toHaveText(cells);
+  await expect(status).toHaveText('저장됨');
   await page.reload();
+  await expect(status).toHaveText('저장됨');
+  expect(page.url()).toBe(created);
+  await expect(page.locator('#editor .w-paragraph').first()).toHaveText('Table follows');
+  await expect(page.locator('.w-document table tr')).toHaveCount(2);
   await expect(page.locator('.w-document table td, .w-document table th')).toHaveCount(8);
+  await expect(page.locator('.w-cell')).toHaveText(cells);
+  await testInfo.attach('final-document-selection', { body: JSON.stringify(await page.evaluate(() => {
+    const { editor } = window as Window & { editor: Editor };
+    return { url: location.href, document: editor.exportDocument(), selection: editor.selection };
+  }), null, 2), contentType: 'application/json' });
+  await verifyDownloadedTable(page, testInfo, 'Table follows', cells);
 });
 
 test('review tracking reports its state and menu toggles show the open pane', async ({ page }) => {

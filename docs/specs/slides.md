@@ -125,7 +125,7 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 | theme slots — colour, font | 12 · 2 |
 | components · hooks behind `./ui` | 30 · 4 |
 | `apps/slide/src` | **2,640 lines** — `app.tsx` 2,300, `main.tsx` 160, `use-slide-menu-search.ts` 180 |
-| browser test declarations | 466 |
+| browser test declarations | 467 |
 
 There is deliberately **no line count of this package** in that table, and finding
 out why was worth the round. A package's total moves when somebody adds a
