@@ -1,0 +1,10 @@
+.w-paragraph-proposal { width: 360px; max-height: calc(100vh - 160px); overflow: auto; padding: 22px; border-left: 1px solid var(--w-border, #d5d5d5); background: var(--w-surface, #fff); color: var(--w-text, #202020); font: 13px/1.65 system-ui, sans-serif; }
+.w-paragraph-proposal header > span { font-size: 11px; letter-spacing: .08em; color: #676767; }
+.w-paragraph-proposal h2 { font-size: 20px; line-height: 1.35; margin: 8px 0 14px; }
+.w-paragraph-proposal h3 { font-size: 12px; margin: 0 0 8px; color: #626262; }
+.w-paragraph-proposal section { padding: 17px 0; border-top: 1px solid #e4e4e4; }
+.w-paragraph-proposal p { margin: 6px 0 12px; }
+.w-paragraph-proposal [data-proposal-original], .w-paragraph-proposal [data-proposal-replacement] { font-size: 15px; line-height: 1.7; }
+.w-paragraph-proposal button { padding: 8px 10px; margin: 0 6px 8px 0; border: 1px solid #ccc; border-radius: 4px; background: #fafafa; color: inherit; font: inherit; }
+.w-paragraph-proposal button:disabled { color: #777; cursor: not-allowed; }
+.w-paragraph-proposal [role=status] { padding: 10px; background: #f4f4f2; }

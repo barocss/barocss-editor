@@ -269,3 +269,5 @@ export { CommandSearch, CommandSearchTrigger, type SearchCommand } from './comma
 export { TaskStatus, TaskStatusRegion, type TaskPhase } from './task-status';
 
 export { visibleRangeRect, observeRangeAnchor } from './range-anchor';
+
+export { ParagraphProposalReview, type ParagraphProposalReviewProps } from './paragraph-proposal-review';
