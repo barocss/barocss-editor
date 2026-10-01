@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { cn } from './cn';
 import { Menu, type MenuBlock } from './menu';
 
@@ -52,7 +52,8 @@ export function MenuBar({
   menus,
   onPick,
   label,
-  className
+  className,
+  portalContainer
 }: {
   menus: MenuBarMenu[];
   /** The entry a reader chose. Which command that is, is the product's business. */
@@ -60,6 +61,8 @@ export function MenuBar({
   /** What the row is, for a reader who cannot see it. */
   label: string;
   className?: string;
+  /** Resolve the current owned host when the menu opens; default remains body. */
+  portalContainer?: RefObject<HTMLElement | null>;
 }) {
   const [open, setOpen] = useState<string | undefined>(undefined);
   const host = useRef<HTMLDivElement>(null);
@@ -142,6 +145,7 @@ export function MenuBar({
           at={at(shown.id)}
           blocks={shown.blocks}
           label={shown.label}
+          portalContainer={portalContainer}
           onPick={(id) => {
             setOpen(undefined);
             onPick(id);

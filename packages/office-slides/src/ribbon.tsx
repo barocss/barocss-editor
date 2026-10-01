@@ -66,9 +66,11 @@ export interface RibbonProps {
   canRunIntent?: () => boolean;
   captureIntent?: () => (() => boolean);
   portalContainer?: RefObject<HTMLElement | null>;
+  /** Selection surfaces show direct actions; permanent/full Ribbon retains menus. */
+  directControls?: boolean;
 }
 
-export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer }: RibbonProps) {
+export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer, directControls = false }: RibbonProps) {
   /**
    * Which way to draw a chord, asked once — and asked of `office-ui`.
    *
@@ -435,7 +437,7 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
                 }
               }}
             >
-              {(rows) => !portalContainer && !['history', 'insert'].includes(group.id) ? <MenuBar label={`${group.id} 도구`} menus={[{
+              {(rows) => !directControls && !['history', 'insert'].includes(group.id) ? <MenuBar portalContainer={portalContainer} label={`${group.id} 도구`} menus={[{
                 id: `tools-${group.id}`, label: ({ slide: '슬라이드', character: '글자', paragraph: '문단', list: '목록', order: '순서', align: '정렬', table: '표', group: '객체' } as Record<string, string>)[group.id] ?? group.id,
                 blocks: [{ id: group.id, items: rows.map(one => ({ id: one.key, label: one.label, hint: one.shortcut, disabled: one.disabled, checked: one.state === 'on' ? true : undefined })) }]
               }]} onPick={id => rows.find(one => one.key === id)?.run()} /> :

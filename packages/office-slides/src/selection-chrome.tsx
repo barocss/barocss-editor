@@ -70,7 +70,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
         const captured = captureSlidesSelectionOwner(lifetime, selection);
         return <div key={`${lifetime.generation}:${JSON.stringify(selection)}`}>
           <Ribbon editor={editor} slides={slides} current={current} groupIds={['character', 'paragraph', 'list']}
-            portalContainer={chrome} canRunIntent={() => ownsSlidesSelection(captured)} />
+            directControls portalContainer={chrome} canRunIntent={() => ownsSlidesSelection(captured)} />
           <Button onMouseDown={event => event.preventDefault()} onClick={onInspect}>자세한 속성</Button>
         </div>;
       }}
@@ -78,7 +78,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
     {!expanded && !textRange && target && <FloatingSurface open={(visibility.open || canvasOwned) && !!at} at={at} portalRoot={scope.current}
       aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={reason => { lifetime.generation += 1; setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope]}>
       <div ref={objectChrome} key={`${lifetime.generation}:${JSON.stringify(editor.selection)}`}>
-        <Ribbon editor={editor} slides={slides} current={current} groupIds={groups} portalContainer={objectChrome}
+        <Ribbon editor={editor} slides={slides} current={current} groupIds={groups} directControls portalContainer={objectChrome}
           canRunIntent={() => ownsSlidesSelection(owner)} />
         <Button onMouseDown={event => event.preventDefault()} onClick={onInspect}>자세한 속성</Button>
       </div>

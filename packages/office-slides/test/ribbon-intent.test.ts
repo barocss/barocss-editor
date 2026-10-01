@@ -1,6 +1,6 @@
 import { act, createElement, createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createSlidesEditor } from '../src/slides-kit';
 import { createSampleDeck } from '../src/sample-deck';
 import { deckSlides } from '../src/deck';
@@ -11,10 +11,12 @@ import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlides
 let host: HTMLDivElement, root: Root, editor: ReturnType<typeof createSlidesEditor>, dispose: () => void;
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+  vi.stubGlobal('CSS', { escape: (value: string) => value });
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
   editor = createSlidesEditor(); editor.loadDocument(createSampleDeck(), 'ribbon427');
 });
-afterEach(() => { act(() => root.unmount()); host.remove(); dispose?.(); editor.destroy(); });
+afterEach(() => { act(() => root.unmount()); host.remove(); dispose?.(); editor.destroy(); vi.unstubAllGlobals(); });
 it('full Ribbon refuses a field command from a retired canvas intent and accepts a fresh intent', async () => {
   const slides = deckSlides({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) });
   const slide = slides[0].sid, lifetime = createSlidesSelectionLifetime(editor, slide);
@@ -31,6 +33,31 @@ it('full Ribbon refuses a field command from a retired canvas intent and accepts
   expect(deckFileText(editor.exportDocument())).toBe(before); expect(editor.canRun('undo')).toBe(false);
   act(render);
   await act(async () => host.querySelector<HTMLButtonElement>('[data-control="insert-rectangle"]')!.click());
+  const inserted = deckFileText(editor.exportDocument()); expect(inserted).not.toBe(before);
+  await act(async () => { await editor.undo(); }); expect(deckFileText(editor.exportDocument())).toBe(before);
+  await act(async () => { await editor.redo(); }); expect(deckFileText(editor.exportDocument())).toBe(inserted);
+});
+
+it('preserves the owned slide menu while refusing a retired popup and allowing a fresh menu command', async () => {
+  const slides = deckSlides({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) });
+  const slide = slides[0].sid, lifetime = createSlidesSelectionLifetime(editor, slide);
+  dispose = trackSlidesSelectionLifetime(lifetime);
+  const container = createRef<HTMLElement>(); container.current = host;
+  const render = () => {
+    const owner = captureSlidesSelectionOwner(lifetime);
+    root.render(createElement(Ribbon, { editor, slides, current: slide, groupIds: ['slide'], portalContainer: container, canRunIntent: () => ownsSlidesSelection(owner) }));
+  };
+  const open = () => host.querySelector<HTMLButtonElement>('[data-menu="tools-slide"]')!.click();
+  act(render); act(open);
+  expect(host.querySelector('[role="menu"]')).not.toBeNull();
+  const before = deckFileText(editor.exportDocument());
+  const execute = vi.spyOn(editor, 'executeCommand');
+  changeSlidesSelectionContext(lifetime, slide, 'notes'); changeSlidesSelectionContext(lifetime, slide, 'canvas');
+  await act(async () => host.querySelector<HTMLButtonElement>('[data-menu-item="slide-new"]')!.click());
+  expect(deckFileText(editor.exportDocument())).toBe(before);
+  act(render); act(open);
+  await act(async () => host.querySelector<HTMLButtonElement>('[data-menu-item="slide-new"]')!.click());
+  await act(async () => { await Promise.all(execute.mock.results.map(result => result.value)); });
   const inserted = deckFileText(editor.exportDocument()); expect(inserted).not.toBe(before);
   await act(async () => { await editor.undo(); }); expect(deckFileText(editor.exportDocument())).toBe(before);
   await act(async () => { await editor.redo(); }); expect(deckFileText(editor.exportDocument())).toBe(inserted);
