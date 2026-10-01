@@ -4,6 +4,7 @@ import { readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/fi
 import { noteTreeOf, openNoteTree, type NoteDocument, type NoteSession } from '@barocss/office-note';
 import { Button, EditorHeader, StatusIndicator, StatusNotice } from '@barocss/office-ui';
 import { pageTemplate } from './workspace-library';
+import { ServerLocalNoteCopy } from './server-local-copy';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
   type NoteSaveAttempt, type OpenServerNote, type ServerNoteHead } from './server-documents';
 import { createServerPendingStore, newPendingNoteDraftId, type PendingNoteBase, type PendingNoteRecord,
@@ -94,6 +95,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     const record = pendingStore.write({
       draftId: reuse ? existing.draftId : newPendingNoteDraftId(),
       documentRef, base, status: reuse && existing.status === 'pending' ? 'pending' : 'draft', snapshotText,
+      ...(reuse && existing.source ? { source: existing.source } : {}),
       ...(reuse && existing.status === 'pending' && existing.attempt ? { attempt: existing.attempt } : {})
     });
     const next = { owner: pendingStore, generation, record };
@@ -139,7 +141,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     setProblem(undefined);
     try {
       try {
-        setRecoveryState({ owner: pendingStore, records: pendingStore.list().filter(record => record.status !== 'confirmed') });
+        setRecoveryState({ owner: pendingStore, records: pendingStore.list() });
         setRecoveryError(undefined);
       } catch {
         setRecoveryError({ owner: pendingStore, message: '저장된 초안 목록을 확인하지 못했습니다. 브라우저 저장소를 확인한 뒤 목록을 다시 여세요.' });
@@ -212,8 +214,9 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   }, [client, currentOpen?.generation, currentOpen?.documentId, canEdit, currentProblem?.kind === 'denied',
     persistDraft, recordProtectionFailure, workspaceId]);
 
-  useEffect(() => { currentSession?.editor.setEditable(canEdit && !busy && !currentPending); },
-    [currentSession, canEdit, busy, currentPending]);
+  useEffect(() => { currentSession?.editor.setEditable(canEdit && !busy && !currentPending &&
+      !(currentDraft?.record.source && currentDraft.record.status !== 'confirmed')); },
+    [currentSession, canEdit, busy, currentPending, currentDraft]);
 
   const openDocument = async (documentId: string) => {
     if (busy || isDirty || currentPending) return;
@@ -245,6 +248,41 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       persistDraft(snapshotText, { operation: 'create', workspaceId }, String(note.attributes.pageId), generation);
     } catch { recordProtectionFailure(generation, 1); }
     setProblem(undefined);
+  };
+
+  const prepareLocalCopy = async (source: { name: string; snapshotText: string }) => {
+    if (!canEdit || busy || isDirty || currentPending || currentProblem?.kind === 'denied') return;
+    const read = readNoteSnapshotFile(source.snapshotText);
+    if ('error' in read) return;
+    setBusy(true);
+    try {
+      await client.list();
+      if (activeClient.current !== client) return;
+      const draftId = newPendingNoteDraftId();
+      const attempt = noteSaveAttempt({ operation: 'create', workspaceId,
+        title: read.document.attributes.title, snapshotText: source.snapshotText, idempotencyKey: draftId });
+      const record = pendingStore.write({ draftId, documentRef: read.document.attributes.pageId ?? source.name,
+        base: { operation: 'create', workspaceId }, status: 'pending', snapshotText: source.snapshotText,
+        attempt, source: { kind: 'indexeddb-note', name: source.name } });
+      const generation = crypto.randomUUID();
+      const nextDraft = { owner: pendingStore, generation, record };
+      draftRef.current = nextDraft;
+      versionRef.current = 1;
+      snapshotRef.current = source.snapshotText;
+      setDraftState(nextDraft);
+      setRecoveryState(previous => ({ owner: pendingStore,
+        records: [...(previous?.owner === pendingStore ? previous.records : []), record] }));
+      setPending({ owner: client, attempt, version: 1 });
+      setOpen({ owner: client, generation, documentId: null, head: null, note: read.document,
+        revision: null, version: 1, confirmedVersion: 0 });
+      setProtection({ owner: client, generation, version: 1, protected: true });
+      setProblem(undefined);
+    } catch (error) {
+      if (activeClient.current !== client) return;
+      const denied = error instanceof ServerNoteError && [401, 403, 404].includes(error.status ?? 0);
+      setProblem({ owner: client, kind: denied ? 'denied' : 'save',
+        message: '서버 사본 요청을 준비하지 못했습니다. 서버에 보내지 않았으며 로컬 원본은 그대로 있습니다.' });
+    } finally { if (activeClient.current === client) setBusy(false); }
   };
 
   const recoverRecord = async (record: PendingNoteRecord) => {
@@ -318,7 +356,8 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       : { operation: 'update', documentId: fixed.attempt.documentId, expectedRevision: fixed.attempt.expectedRevision };
     try {
       const record = pendingStore.write({ draftId, documentRef, base, status: 'pending',
-        snapshotText: fixed.attempt.snapshotText, attempt: fixed.attempt });
+        snapshotText: fixed.attempt.snapshotText, attempt: fixed.attempt,
+        ...(reusableDraft?.record.source ? { source: reusableDraft.record.source } : {}) });
       const nextDraft = { owner: pendingStore, generation: currentOpen.generation, record };
       draftRef.current = nextDraft;
       setDraftState(nextDraft);
@@ -351,12 +390,15 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       }
       try {
         const record = pendingStore.write({ draftId, documentRef, base, status: 'confirmed',
-          snapshotText: fixed.attempt.snapshotText, attempt: fixed.attempt });
+          snapshotText: fixed.attempt.snapshotText, attempt: fixed.attempt,
+          ...(reusableDraft?.record.source ? { source: reusableDraft.record.source,
+            confirmedCopy: { documentId: confirmed.document.documentId, pageId: confirmed.document.pageId,
+              revision: confirmed.document.revision, snapshotHash: confirmed.document.snapshotHash } } : {}) });
         const nextDraft = { owner: pendingStore, generation: currentOpen.generation, record };
         draftRef.current = nextDraft;
         setDraftState(nextDraft);
         setRecoveryState(previous => previous?.owner === pendingStore
-          ? { owner: pendingStore, records: previous.records.filter(item => item.draftId !== record.draftId) } : previous);
+          ? { owner: pendingStore, records: previous.records.filter(item => item.draftId !== record.draftId).concat(record) } : previous);
       } catch { /* The verified receipt can be checked again from the durable pending record. */ }
       setHeads(previous => previous?.owner === client
         ? { owner: client, rows: [confirmed.document, ...previous.rows.filter(row => row.documentId !== confirmed.document.documentId)] }
@@ -434,6 +476,13 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     <div className="nw-workspace">
       <aside className="nw-sidebar" aria-label="서버 노트 목록">
         {canEdit && <Button disabled={loading || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'} onClick={create}>새 노트</Button>}
+        {canEdit && <ServerLocalNoteCopy key={`${issuer}\0${subject}\0${tenantId}\0${workspaceId}`}
+          disabled={loading || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'}
+          onSelect={source => { void prepareLocalCopy(source); }} />}
+        {recoveryRecords.filter(record => record.source && record.status === 'confirmed').map(record =>
+          <p key={record.draftId} data-confirmed-local-copy>로컬 노트 {record.source!.name}의 서버 사본을 확인했습니다.
+            원본은 이 기기의 Note 저장소에, 확인된 요청은 이 브라우저의 복구 저장소에 남아 있습니다.
+            서버 문서: {record.confirmedCopy?.documentId ?? '저장 요청으로 다시 확인 가능'}.</p>)}
         {!!availableRecovery.length && <section aria-label="저장된 초안 복구">
           <h2>저장된 초안</h2>
           <p>초안은 계정과 자료함에 연결해 이 브라우저에 보관했습니다. 복구할 항목을 직접 선택하세요.</p>
@@ -457,6 +506,11 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       <main className="nw-main" aria-label="서버 노트 편집">
         {recoveryError?.owner === pendingStore && <StatusNotice tone="danger" title="초안 목록을 확인하지 못했습니다">{recoveryError.message}</StatusNotice>}
         {currentProtection?.error && <StatusNotice tone="danger" title="현재 입력을 보관하지 못했습니다">{currentProtection.error}</StatusNotice>}
+        {currentDraft?.record.source && <StatusNotice tone="warning" title={currentDraft.record.status === 'confirmed' ? '서버 사본 확인됨' : '로컬 노트 사본 확인 필요'}>
+          로컬 원본 {currentDraft.record.source.name}은 이 기기의 Note 저장소에 유지합니다.
+          {currentDraft.record.status !== 'confirmed' && ' 저장 확인·재시도를 눌러 서버 사본을 만드세요. 서버 응답과 재조회를 확인하기 전에는 완료가 아닙니다.'}
+          다른 페이지의 참조는 자동으로 바꾸지 않습니다.
+        </StatusNotice>}
         {currentProblem && <StatusNotice tone="danger" title="작업을 완료하지 못했습니다">
           {currentProblem.message}{currentProblem.kind === 'load' && <Button onClick={() => void load()}>다시 시도</Button>}
           {currentProblem.kind === 'conflict' && <>

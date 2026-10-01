@@ -105,4 +105,25 @@ describe('durable Note recovery records', () => {
       base: { operation: 'update', documentId: docId, expectedRevision: 1 }, status: 'draft', snapshotText: snapshot
     })).toThrow('pending_note_write_not_verified');
   });
+  it('retains a selected IndexedDB source and its confirmed server mapping across reloads', () => {
+    const storage = new MemoryStorage();
+    const store = createServerPendingStore(scope, storage);
+    const attempt = noteSaveAttempt({ operation: 'create', workspaceId: scope.workspaceId,
+      title: 'Recovered', snapshotText: snapshot, idempotencyKey: 'copy-source-1' });
+    const input = { draftId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', documentRef: pageId,
+      base: { operation: 'create' as const, workspaceId: scope.workspaceId }, status: 'pending' as const,
+      snapshotText: snapshot, attempt, source: { kind: 'indexeddb-note' as const, name: pageId } };
+    store.write(input);
+    expect(createServerPendingStore(scope, storage).list()[0]?.source).toEqual(input.source);
+    const confirmedCopy = { documentId: docId, pageId: '55555555-5555-4555-8555-555555555555',
+      revision: 1, snapshotHash: 'a'.repeat(64) };
+    store.write({ ...input, status: 'confirmed', confirmedCopy });
+    const restored = createServerPendingStore(scope, storage).list()[0];
+    expect(restored.source).toEqual(input.source);
+    expect(restored.snapshotText).toBe(snapshot);
+    expect(restored.confirmedCopy).toEqual(confirmedCopy);
+    expect(() => store.write({ ...input, source: { ...input.source, name: 'another-local-source' } }))
+      .toThrow('fixed_pending_note_cannot_be_replaced');
+  });
+
 });

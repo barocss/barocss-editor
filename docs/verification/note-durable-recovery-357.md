@@ -34,4 +34,6 @@ The real harness uses the existing local Keycloak realm on 18180, API on 14101, 
 
 ## Remaining #357 acceptance
 
-The real four-case suite covers login/roles, account entry switching, one writer with a viewer, server save/reopen and durable navigation/logout recovery. It does not prove two writers, full browser/API process restart with the same DB, pre/post-commit response loss, DB write failure, explicit IndexedDB-to-server C-copy migration, or complete UI/API/DB structural comparison. These remain on #357. Automatic retention/deletion and external release readiness remain separate decisions.
+The real four-case suite covers login/roles, account entry switching, one writer with a viewer, server save/reopen and durable navigation/logout recovery. It does not prove two writers, full browser/API process restart with the same DB, pre/post-commit response loss, DB write failure, the full IndexedDB migration fault matrix, or complete UI/API/DB structural comparison. These remain on #357. Automatic retention/deletion and external release readiness remain separate decisions.
+
+The subsequent explicit local Note copy UI and its focused evidence are described in [note-local-copy-357.md](note-local-copy-357.md).
