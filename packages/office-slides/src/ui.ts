@@ -81,3 +81,5 @@ export { useDeck, useNote, useRevision } from './deck-model';
 export { SlideDocuments, useSlidePersistence } from './document-library';
 
 export { SlideSidebar } from './slide-sidebar';
+
+export { SlidesDocumentChrome } from './selection-chrome';

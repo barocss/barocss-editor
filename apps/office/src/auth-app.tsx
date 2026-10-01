@@ -184,11 +184,12 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           const context = await openVerifiedSnapshot(fresh.tenantId, workspace.id, direct.documentId, role, direct.product);
           if (run !== generation.current) return;
           history.replaceState(null, '', `/?${snapshotIntentSearch(direct)}`);
-          if (retainedNote && (context.product === 'word' || role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
+          const retainNativeRuntime = context.product === 'word' || context.product === 'slides';
+          if (retainedNote && (retainNativeRuntime || role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
             retainedNote.context.workspaceId === context.workspaceId && retainedNote.context.product === context.product && rememberedDocumentId.current === context.documentId) {
-            // Preserve the Word runtime and protected draft while applying this fresh role.
+            // Preserve native Word/Slides runtimes and protected drafts while applying this fresh role.
             // Keep its guarded fetch identity so role changes do not reload the initial snapshot.
-            const retained = context.product === 'word'
+            const retained = retainNativeRuntime
               ? { ...retainedNote, role, context: { ...retainedNote.context, role } }
               : retainedNote;
             rememberedNote.current = retained;

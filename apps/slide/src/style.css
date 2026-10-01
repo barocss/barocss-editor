@@ -287,3 +287,13 @@ body {
 /* All navigation views occupy the same column. */
 .sl-workspace-navigation { display:flex; min-height:0; }
 .sl-shell[data-presenting='true'] .sl-body > .office-workspace-side-panel { display:none; }
+
+/* Keep detail controls mounted while returning space to the canvas. */
+.sl-inspector-slot:not([hidden]) { display: contents; }
+.sl-inspector-slot[hidden] { display: none; }
+
+/* The authenticated entry styles its own sections, not native slide sheets. */
+.office-auth .sl-shell .sl-slide { max-width: none; margin: 0; }
+
+/* Observe owned reselection before the native range settles; expose no pending actions. */
+[data-slides-formatting][data-slides-selection-pending="true"] { display: none; }

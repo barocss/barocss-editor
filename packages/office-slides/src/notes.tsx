@@ -160,7 +160,8 @@ export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
         <p className="sl-notes-empty">
           이 슬라이드에는 노트가 없습니다. 아래를 눌러 추가하세요.
           <Button
-            onClick={() => void editor?.executeCommand?.('addSlideNote', { slideId: slideSid })}
+            disabled={!editor?.isEditable}
+            onClick={() => { if (editor?.isEditable) void editor.executeCommand('addSlideNote', { slideId: slideSid }); }}
           >
             노트 추가
           </Button>

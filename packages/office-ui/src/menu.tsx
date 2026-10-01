@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
@@ -76,7 +76,8 @@ export function Menu({
   blocks,
   onPick,
   onClose,
-  label
+  label,
+  portalContainer
 }: {
   /** Where the pointer was, in client coordinates. */
   at: { x: number; y: number };
@@ -84,6 +85,8 @@ export function Menu({
   onPick: (id: string) => void;
   onClose: () => void;
   label: string;
+  /** Optional owned chrome host; omitted keeps the existing body portal. */
+  portalContainer?: RefObject<HTMLElement | null>;
 }) {
   const host = useDismiss<HTMLDivElement>(true, onClose);
   const [place, setPlace] = useState<{ left: number; top: number }>({ left: at.x, top: at.y });
@@ -215,6 +218,6 @@ export function Menu({
         </div>
       ))}
     </div>,
-    document.body
+    portalContainer?.current ?? document.body
   );
 }

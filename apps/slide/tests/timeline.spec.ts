@@ -57,6 +57,8 @@ const stepAttrs = (page: Page, index = 0) =>
  * could say about motion; there is a list now.
  */
 const giveBuild = async (page: Page, effect: string) => {
+  const detail = page.locator('.sl-topbar').getByRole('button', { name: '자세한 속성', exact: true });
+  if (await detail.getAttribute('aria-expanded') === 'false') await detail.click();
   const props = page.locator('.sl-properties');
   await props.locator('[data-tab="motion"]').click();
   await page.waitForTimeout(200);

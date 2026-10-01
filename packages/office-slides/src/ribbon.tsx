@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type RefObject } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   ChoiceSelect,
@@ -61,9 +61,16 @@ export interface RibbonProps {
   slides: Slide[];
   /** Which slide the reader is on — the app's fact, not the document's. */
   current?: string;
+  /** Opt-in composition; omitted keeps the complete existing Ribbon. */
+  groupIds?: readonly string[];
+  canRunIntent?: () => boolean;
+  captureIntent?: () => (() => boolean);
+  portalContainer?: RefObject<HTMLElement | null>;
+  /** Selection surfaces show direct actions; permanent/full Ribbon retains menus. */
+  directControls?: boolean;
 }
 
-export function Ribbon({ editor, slides, current }: RibbonProps) {
+export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer, directControls = false }: RibbonProps) {
   /**
    * Which way to draw a chord, asked once — and asked of `office-ui`.
    *
@@ -248,6 +255,7 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
    * this draws that refusal rather than restating the rule and drifting from it.
    */
   const enabled = (control: SlidesToolbarControl): boolean => {
+    if (!editor.isEditable) return false;
     if (control.needsSlide && !current) return false;
     // A file-picking control is asking whether a *picture* could be placed, and
     // the command cannot answer that without a file. Whether there is a slide is
@@ -290,7 +298,7 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
     const options = choiceOptions(model, current);
 
     return (
-    <ChoiceSelect
+    <ChoiceSelect portalContainer={portalContainer}
       key={model.id}
       testClass={`sl-toolbar-${model.id}`}
       ariaLabel={model.label}
@@ -301,6 +309,7 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
       onChange={(id) => {
         const chosen = model.options.find((option) => String(option.value) === id);
         if (!chosen) return;
+        if (!editor.isEditable || canRunIntent?.() === false) return;
         void editor?.executeCommand(model.command, { [model.key]: chosen.value });
       }}
     />
@@ -330,16 +339,14 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
         }) === false
       }
       clearLabel={model.clearCommand ? '없음' : undefined}
-      onPick={(value) =>
-        void editor?.executeCommand(model.command, { [model.key]: value })
-      }
-      onClear={() => void editor?.executeCommand(model.clearCommand!)}
+      onPick={(value) => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(model.command, { [model.key]: value }); }}
+      onClear={() => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(model.clearCommand!); }}
     />
   );
 
   return (
     <RibbonToolbar compact className="sl-toolbar" label="슬라이드 서식">
-      {summary && !summary.empty && <RibbonGroup id="font" label="글꼴" layout="stack">
+      {(!groupIds || groupIds.includes('character')) && summary && !summary.empty && <RibbonGroup id="font" label="글꼴" layout="stack">
       <div className="sl-font-row">{choice(WORD_FONTS, 'min-w-36')}
       {choice(WORD_FONT_SIZES, 'min-w-16')}</div>
       {/*
@@ -375,6 +382,7 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
       */}
       {SLIDES_TOOLBAR.filter(
         (group) =>
+          (!groupIds || groupIds.includes(group.id)) &&
           (!['character', 'paragraph', 'list'].includes(group.id) || (summary && !summary.empty)) &&
           (!group.when || group.controls.some((control) => editor.canRun(control.command, control.payload)))
       ).map((group) => (
@@ -403,6 +411,8 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
                 can: (control) => enabled(control),
                 state: (control) => stateOf(control) as never,
                 onRun: (control) => {
+                  if (!editor.isEditable || canRunIntent?.() === false) return;
+                  const ownsIntent = captureIntent?.() ?? canRunIntent;
                   if (control.needsFile) {
                     /*
                      * What the picker will accept, from what the command makes: a video button that
@@ -415,11 +425,10 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
                           ? 'audio/*'
                           : 'image/*';
                     pickPicture(
-                      (payload) =>
-                        void editor?.executeCommand(control.command, {
-                          ...payloadFor(control),
-                          ...payload
-                        }),
+                      (payload) => {
+                        if (!editor.isEditable || ownsIntent?.() === false) return;
+                        void editor.executeCommand(control.command, { ...payloadFor(control), ...payload });
+                      },
                       accept
                     );
                     return;
@@ -428,7 +437,7 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
                 }
               }}
             >
-              {(rows) => !['history', 'insert'].includes(group.id) ? <MenuBar label={`${group.id} 도구`} menus={[{
+              {(rows) => !directControls && !['history', 'insert'].includes(group.id) ? <MenuBar portalContainer={portalContainer} label={`${group.id} 도구`} menus={[{
                 id: `tools-${group.id}`, label: ({ slide: '슬라이드', character: '글자', paragraph: '문단', list: '목록', order: '순서', align: '정렬', table: '표', group: '객체' } as Record<string, string>)[group.id] ?? group.id,
                 blocks: [{ id: group.id, items: rows.map(one => ({ id: one.key, label: one.label, hint: one.shortcut, disabled: one.disabled, checked: one.state === 'on' ? true : undefined })) }]
               }]} onPick={id => rows.find(one => one.key === id)?.run()} /> :

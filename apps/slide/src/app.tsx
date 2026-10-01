@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { selectedNodeIds } from '@barocss/editor-core';
 import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
 import { AuditPanel, SlideSidebar } from '@barocss/office-slides/ui';
-import { NotesPane, Presenter } from '@barocss/office-slides/ui';
+import { NotesPane, Presenter, SlidesDocumentChrome } from '@barocss/office-slides/ui';
 import {
   AdaptiveWorkspace,
   WorkspaceSidePanel,
@@ -74,7 +74,6 @@ import { ComponentPanel } from '@barocss/office-slides/ui';
 import { FindBar } from '@barocss/office-slides/ui';
 import { PresenterWindow } from '@barocss/office-slides/ui';
 import { Properties } from '@barocss/office-slides/ui';
-import { Ribbon } from '@barocss/office-slides/ui';
 import {
   SLIDES_KEYS,
   SLIDES_ZOOM_LADDER,
@@ -125,6 +124,9 @@ export function App({
    * 내주고 **앱이 셋에게 건넨다** — 무엇이 무엇에 연결되는가는 앱이 아는 일이다.
    */
   const stage = useRef<HTMLDivElement>(null);
+  const toolScope = useRef<HTMLElement | null>(null);
+  const [fullTools, setFullTools] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const mounted = useRef(false);
   const [instance, setInstance] = useState<SlidesRuntime | null>(null);
   const serverRef = useRef(server);
@@ -135,6 +137,7 @@ export function App({
   useEffect(() => {
     if (!host.current || mounted.current) return;
     mounted.current = true;
+    toolScope.current = host.current.closest('.sl-main');
     const runtime = mount(host.current);
     const generation = ++lifetime.current;
     setInstance(runtime);
@@ -1723,7 +1726,8 @@ export function App({
       if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
 
       event.preventDefault();
-      void (event.shiftKey ? editor?.redo?.() : editor?.undo?.());
+      if (!editor?.isEditable) return;
+      void (event.shiftKey ? editor.redo() : editor.undo());
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1784,7 +1788,7 @@ export function App({
           />
           <Button title="한 장만 보기 / 전체 보기" onClick={() => setFocused(on => !on)} data={{ 'focus-toggle': '' }}>{focused ? '캔버스 보기' : '한 장 보기'}</Button>
         </>}
-        actions={<><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments persistence={persistence} onOpened={() => {
+        actions={<><Button aria-expanded={fullTools} onMouseDown={event => event.preventDefault()} onClick={() => setFullTools(value => !value)}>전체 도구</Button><Button aria-controls="slides-details" aria-expanded={inspectorOpen} onMouseDown={event => event.preventDefault()} onClick={() => setInspectorOpen(value => !value)}>자세한 속성</Button><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
           }} />}
           {!server && <FileActions
@@ -1817,7 +1821,7 @@ export function App({
        * because they draw with the same components, not because they share a
        * list of controls.
        */}
-      {editor && !presenting && <ReadOnlyControls enabled={readOnly}><Ribbon editor={editor} slides={slides} current={current} /></ReadOnlyControls>}
+      {editor && !presenting && <ReadOnlyControls enabled={readOnly}><SlidesDocumentChrome editor={editor} slides={slides} current={current} scope={toolScope} expanded={fullTools} onInspect={() => setInspectorOpen(true)} /></ReadOnlyControls>}
 
       <AdaptiveWorkspace className="sl-body" enabled={!!editor && !presenting}>
         <WorkspaceSidePanel side="navigation" width={240}>
@@ -2088,7 +2092,7 @@ export function App({
            * thing the app needed; this is that thing.
            */}
           {!presenting && (
-            <ReadOnlyControls enabled={readOnly}><NotesPane editor={editor} slideSid={current} revision={revision} /></ReadOnlyControls>
+            <NotesPane editor={editor} slideSid={current} revision={revision} />
           )}
 
         </AppMain>
@@ -2098,7 +2102,7 @@ export function App({
          * the suite's components; what is in it is a deck's — a box has a
          * position, which is the whole difference between a slide and a page.
          */}
-        <WorkspaceSidePanel side="inspector" width={280}>
+        <div id="slides-details" className="sl-inspector-slot" hidden={!inspectorOpen || presenting}><WorkspaceSidePanel side="inspector" width={280}>
           <Properties
             readOnly={readOnly}
             editor={editor}
@@ -2116,7 +2120,7 @@ export function App({
             /** The reader's own decks, for a button that points at one by name. */
             libraryDecks={libraryDecks}
           />
-        </WorkspaceSidePanel>
+        </WorkspaceSidePanel></div>
       </AdaptiveWorkspace>
 
       {/*
