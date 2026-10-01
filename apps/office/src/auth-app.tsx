@@ -184,10 +184,17 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           const context = await openVerifiedSnapshot(fresh.tenantId, workspace.id, direct.documentId, role, direct.product);
           if (run !== generation.current) return;
           history.replaceState(null, '', `/?${snapshotIntentSearch(direct)}`);
-          if (retainedNote && (role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
+          if (retainedNote && (context.product === 'word' || role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
             retainedNote.context.workspaceId === context.workspaceId && retainedNote.context.product === context.product && rememberedDocumentId.current === context.documentId) {
+            // Preserve the Word runtime and protected draft while applying this fresh role.
+            // Keep its guarded fetch identity so role changes do not reload the initial snapshot.
+            const retained = context.product === 'word'
+              ? { ...retainedNote, role, context: { ...retainedNote.context, role } }
+              : retainedNote;
+            rememberedNote.current = retained;
+            setMountedNote(retained);
             noteAccess.current = true;
-            setView(retainedNote);
+            setView(retained);
             hideCurtain();
           } else if (retainedNote) throw new AuthError('forbidden', '이 초안을 다시 편집할 권한이 없습니다.');
           else rememberNote({ phase: 'note', tenant: fresh, role, context }, identity);

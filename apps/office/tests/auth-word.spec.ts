@@ -179,3 +179,150 @@ test('unsupported native file leaves current Word model and source file unchange
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Retained current Word');
   expect(JSON.parse(source).document.content[0].stype).toBe('unknownWordNode');
 });
+
+test('selected Word tools retire while a save owns the current busy document', async ({ page }) => {
+  const state = await setup(page);
+  await type(page, 'Busy owned Word input');
+  await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
+  const tools = page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true });
+  await expect(tools).toBeVisible();
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, async route => {
+    entered(); await held; await route.fallback();
+  }, { times: 1 });
+  await save(page).click(); await waiting;
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('저장 중…');
+  await expect(tools).toHaveCount(0);
+  const paragraph = shell(page).locator('.w-paragraph').first();
+  const before = await paragraph.textContent();
+  await paragraph.click(); await page.keyboard.type('DENIED_WHILE_BUSY');
+  await page.keyboard.press('ControlOrMeta+b'); await page.keyboard.press('ControlOrMeta+z');
+  await expect(paragraph).toHaveText(before!);
+  expect(state.writes).toHaveLength(0);
+  release();
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  expect(state.writes).toHaveLength(1);
+  expect(state.text()).toContain('Busy owned Word input');
+  expect(state.text()).not.toContain('DENIED_WHILE_BUSY');
+});
+
+test('current viewer permission retires selected Word tools before further mutation', async ({ page }) => {
+  const state = await setup(page);
+  await type(page, 'Permission owned Word input');
+  await save(page).click();
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const paragraph = shell(page).locator('.w-paragraph').first();
+  await paragraph.click(); await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
+  const tools = page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true });
+  await expect(tools).toBeVisible();
+  const savedText = state.text();
+  const json = (body: unknown) => ({ contentType: 'application/json', body: JSON.stringify(body) });
+  await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'word-synthetic',
+    tenants: [{ tenantId, name: 'Word Company', role: 'viewer' }], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role: 'viewer' })));
+  const rechecked = page.waitForResponse(response => response.url().endsWith('/api/v1/me'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await rechecked;
+  await expect(save(page)).toHaveCount(0);
+  await expect(tools).toHaveCount(0);
+  await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
+  await expect(shell(page).locator('.w-paragraph').first()).toContainText('Permission owned Word input');
+  await shell(page).locator('.w-paragraph').first().click();
+  await page.keyboard.type('DENIED_AFTER_PERMISSION_CHANGE'); await page.keyboard.press('ControlOrMeta+b');
+  expect(state.writes).toHaveLength(1); expect(state.text()).toBe(savedText);
+  await expect(shell(page).locator('.w-paragraph').first()).not.toContainText('DENIED_AFTER_PERMISSION_CHANGE');
+});
+
+
+async function changeCurrentWordRole(page: Page, role: 'editor' | 'viewer') {
+  const json = (body: unknown) => ({ contentType: 'application/json', body: JSON.stringify(body) });
+  await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'word-synthetic',
+    tenants: [{ tenantId, name: 'Word Company', role }], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role })));
+  const rechecked = page.waitForResponse(response => response.url().endsWith('/api/v1/me'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await rechecked;
+  await expect(page.locator('#office-auth-curtain')).not.toBeVisible();
+}
+
+test('dirty Word draft survives current viewer demotion and writer promotion', async ({ page }) => {
+  const state = await setup(page);
+  const serverText = state.text();
+  await type(page, 'Protected role-change draft');
+  const paragraph = shell(page).locator('.w-paragraph').first();
+  const visible = await paragraph.textContent();
+  const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:'))
+    .sort().map(key => localStorage.getItem(key)));
+  const protectedDraft = await pending();
+  await changeCurrentWordRole(page, 'viewer');
+  await expect(paragraph).toHaveText(visible!);
+  await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
+  await paragraph.click(); await page.keyboard.type('DENIED'); await page.keyboard.press('ControlOrMeta+z');
+  await expect(paragraph).toHaveText(visible!);
+  expect(await pending()).toEqual(protectedDraft);
+  expect(state.text()).toBe(serverText); expect(state.writes).toHaveLength(0);
+  await changeCurrentWordRole(page, 'editor');
+  await expect(save(page)).toBeVisible();
+  await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(1);
+  await expect(paragraph).toHaveText(visible!);
+  await paragraph.click(); await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
+  await expect(page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true })).toBeVisible();
+  await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  expect(state.text()).toContain('Protected role-change draft'); expect(state.writes).toHaveLength(1);
+});
+
+test('delayed imported Word file cannot replace the document after viewer demotion', async ({ page }) => {
+  const state = await setup(page); await type(page, 'Retain before delayed import');
+  await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const paragraph = shell(page).locator('.w-paragraph').first();
+  const visible = await paragraph.textContent();
+  const source = createStarterDocument();
+  const surface = source.content![1];
+  if (typeof surface === 'string') throw new Error('Starter surface missing');
+  const block = surface.content![0];
+  if (typeof block === 'string') throw new Error('Starter paragraph missing');
+  const text = block.content![0];
+  if (typeof text === 'string') throw new Error('Starter text missing');
+  text.text = 'Delayed imported source';
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, async route => {
+    entered(); await held; await route.fallback();
+  }, { times: 1 });
+  await shell(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({
+    name: 'delayed.word.json', mimeType: 'application/json', buffer: Buffer.from(wordFileText(source, '')) });
+  await waiting;
+  const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:'))
+    .sort().map(key => localStorage.getItem(key)));
+  const protectedRecords = await pending();
+  await changeCurrentWordRole(page, 'viewer');
+  release();
+  await expect(shell(page).locator('[data-save-status]')).not.toHaveText('저장 중…');
+  await expect(paragraph).toHaveText(visible!);
+  expect(await pending()).toEqual(protectedRecords);
+  expect(state.writes).toHaveLength(1); expect(state.text()).not.toContain('Delayed imported source');
+});
+
+test('fixed Word save waits for restored writer authority after a held list response', async ({ page }) => {
+  const state = await setup(page); await type(page, 'Frozen permission retry input');
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, async route => {
+    entered(); await held; await route.fallback();
+  }, { times: 1 });
+  await save(page).click(); await waiting;
+  const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:'))
+    .sort().map(key => JSON.parse(localStorage.getItem(key)!)).filter(record => record.status === 'pending'));
+  const fixed = await pending(); expect(fixed).toHaveLength(1);
+  await changeCurrentWordRole(page, 'viewer'); release();
+  await expect(shell(page).locator('[data-save-status]')).not.toHaveText('저장 중…');
+  expect(state.writes).toHaveLength(0); expect(await pending()).toEqual(fixed);
+  await changeCurrentWordRole(page, 'editor');
+  await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0].idempotencyKey).toBe(fixed[0].attempt.idempotencyKey);
+  expect(state.writes[0].snapshotText).toBe(fixed[0].attempt.snapshotText);
+  expect(state.text()).toContain('Frozen permission retry input');
+});

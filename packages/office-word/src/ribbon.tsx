@@ -375,7 +375,7 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
     </ContextToolbar>}
     {documentPresentation && !expanded && objectTarget && <FloatingSurface open={objectContext.open && !!objectAt} at={objectAt} portalRoot={pane ?? scope?.current}
       aria-label={objectTarget.kind === 'table' ? '선택한 표 도구' : '선택한 그림 도구'} data-word-object-tools onDismiss={objectContext.dismiss} ownedElements={[ownedScope]}>
-      <div ref={objectChrome}><RibbonToolbar compact label="선택 개체 도구" className="w-selection-tools"><WordObjectLayoutControls key={`${objectTarget.rootId}:${objectTarget.nodeId}`} editor={editor} target={objectTarget} container={pane} portalContainer={objectChrome} />
+      <div ref={objectChrome}><RibbonToolbar label="선택 개체 도구" className="w-selection-tools"><WordObjectLayoutControls key={`${objectTarget.rootId}:${objectTarget.nodeId}`} editor={editor} target={objectTarget} container={pane} portalContainer={objectChrome} />
         <RibbonToggle expanded={expanded} onChange={setExpanded} panelId={panelId} />
       </RibbonToolbar></div>
     </FloatingSurface>}

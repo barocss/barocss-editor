@@ -105,16 +105,18 @@ export function useEditorTextSelection(editor: Editor, {
 }
 
 /** Shared selection lifecycle and command rendering; products supply their Control declarations. */
-export function ContextToolbar({ editor, controls, scope, active = true, label = '선택한 글 서식', mark,
+export function ContextToolbar({ editor, controls, scope, portalRoot, active = true, label = '선택한 글 서식', mark,
   children, onOpenChange, ...hooks
 }: {
   editor: Editor;
   controls: readonly Control[];
   scope?: RefObject<HTMLElement | null>;
+  /** Untransformed destination for viewport-positioned tools; ownership remains scoped. */
+  portalRoot?: HTMLElement | null;
   active?: boolean;
   label?: string;
   mark?: string;
-  children?: ReactNode | ((selection: ModelSelection | null) => ReactNode);
+  children?: ReactNode | ((selection: ModelSelection | null, chrome: RefObject<HTMLElement | null>) => ReactNode);
   onOpenChange?: (open: boolean) => void;
   [hook: `data-${string}`]: string | number | boolean | undefined;
 }) {
@@ -152,7 +154,7 @@ export function ContextToolbar({ editor, controls, scope, active = true, label =
   const visible = open && !!context?.at;
   useEffect(() => { onOpenChange?.(visible); }, [visible, onOpenChange]);
   return <FloatingSurface open={visible} at={context?.at ?? null} aria-label={label}
-    portalRoot={scope?.current} onDismiss={dismiss} ownedElements={scope ? [scope] : []}
+    portalRoot={portalRoot ?? scope?.current} onDismiss={dismiss} ownedElements={scope ? [scope] : []}
     {...hooks}>
     <div ref={chrome} className="flex min-w-0 flex-wrap items-center gap-0.5" data-editor-context-toolbar>
       <Controls editor={editor} controls={controls} mark={mark} appearance="contextual"
@@ -160,7 +162,7 @@ export function ContextToolbar({ editor, controls, scope, active = true, label =
           if (context?.selection) editor.selectionManager.setSelection(context.selection);
           void editor.executeCommand(control.command, control.payload);
         }} />
-      {typeof children === 'function' ? children(context?.selection ?? null) : children}
+      {typeof children === 'function' ? children(context?.selection ?? null, chrome) : children}
     </div>
   </FloatingSurface>;
 }
