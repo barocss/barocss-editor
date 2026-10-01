@@ -117,3 +117,22 @@ it('permits editing a viewer find query without changing the document', async ()
   expect(session.editor.isEditable).toBe(false);
   expect(native()).toBe(initial);
 });
+
+
+it('delivers an embedded body without replacing the enclosing document or its history', async () => {
+  session.close();
+  session = openNoteTree({ stype: 'note', content: [{ stype: 'callout', content: [
+    { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Embedded body' }] }
+  ] }] });
+  const child = session.editor.dataStore.getNode(session.rootId)!.content![0] as string;
+  let flush: (() => Promise<boolean>) | undefined;
+  await act(async () => root.render(createElement(NoteEditor, {
+    editor: session.editor, rootId: child, writeAllowed: true,
+    registerBeforeSnapshot: callback => { flush = callback; return () => { flush = undefined; }; }
+  })));
+  const original = native();
+  const body = host.querySelector('.on-doc');
+  expect(await flush!()).toBe(true);
+  expect(native()).toBe(original);
+  expect(host.querySelector('.on-doc')).toBe(body);
+});

@@ -96,7 +96,7 @@ export function NoteEditor({
   const deliveries = useRef(new Set<() => Promise<boolean>>());
   const mutable = writeAllowed ?? editor.isEditable;
   const composing = useRef(new Set<EventTarget>());
-  const owner = useMemo(() => ({ editor, rootId, sessionId: editor.dataStore.getSessionId() }), [editor, rootId, editor.dataStore.getSessionId()]);
+  const owner = useMemo(() => ({ editor, rootId, documentRootId: editor.dataStore.getRootNodeId(), sessionId: editor.dataStore.getSessionId() }), [editor, rootId, editor.dataStore.getSessionId()]);
   const lifetime = useRef(owner);
   lifetime.current = owner;
   useLayoutEffect(() => {
@@ -110,7 +110,7 @@ export function NoteEditor({
   const flushDocument = useCallback(async () => {
     const capturedOwner = lifetime.current;
     const capturedRoot = editor.dataStore.getNode(rootId);
-    const current = () => lifetime.current === capturedOwner && editor.dataStore.getRootNodeId() === rootId && editor.dataStore.getNode(rootId) === capturedRoot;
+    const current = () => lifetime.current === capturedOwner && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && editor.dataStore.getNode(rootId) === capturedRoot;
     if (composing.current.size) return false;
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     for (const flush of [...deliveries.current].reverse()) {
