@@ -61,6 +61,21 @@ it('retires deferred work after range A to B to A, but permits a fresh captured 
   expect(native()).toBe(initial);
 });
 
+it('retires deferred work after clearing and restoring range A without changing native data', () => {
+  const owner = captureWordSelectionOwner(editor, editor.selection, lifetime);
+  const selection = structuredClone(editor.selection!);
+  const initial = native();
+  const version = editor.dataStore.getVersion();
+  editor.updateSelection(null);
+  expect(editor.selection).toBeNull();
+  expect(ownsWordSelection(editor, owner)).toBe(false);
+  editor.updateSelection(selection);
+  expect(editor.dataStore.getVersion()).toBe(version);
+  expect(native()).toBe(initial);
+  expect(ownsWordSelection(editor, owner)).toBe(false);
+  expect(ownsWordSelection(editor, captureWordSelectionOwner(editor, editor.selection, lifetime))).toBe(true);
+});
+
 it('retires a target after same-session root replacement and refuses A to B to A reuse', () => {
   const owner = captureWordSelectionOwner(editor, editor.selection, lifetime);
   const initial = createSampleDocument();

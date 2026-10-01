@@ -14,13 +14,13 @@ export function trackWordSelectionLifetime(lifetime: ReturnType<typeof createWor
   };
   const retire = () => { lifetime.generation += 1; };
   editor.on('editor:selection.model', changedSelection);
-  editor.on('selection.change', changedSelection);
+  editor.on('editor:selection.change', changedSelection);
   editor.on('editor:content.change', retire);
   editor.on('editor:editable.change', retire);
   return () => {
     retire();
     editor.off('editor:selection.model', changedSelection);
-    editor.off('selection.change', changedSelection);
+    editor.off('editor:selection.change', changedSelection);
     editor.off('editor:content.change', retire);
     editor.off('editor:editable.change', retire);
   };
