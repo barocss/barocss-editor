@@ -5,7 +5,7 @@ import { createSchema } from '@barocss/schema';
 import { Editor } from '@barocss/editor-core';
 import { WORD_ENV_KEY, installCellSelection } from '@barocss/office-text';
 import { createSlidesEditor, getSlidesSchemaDefinition, registerSlidesRenderers,
-  createConnectorPass, createDeckEnv, trackPropertyCss, readDeckFile, deckFileText } from '@barocss/office-slides';
+  createConnectorPass, createDeckEnv, trackPropertyCss, normalizeSlidesNativeDocument } from '@barocss/office-slides';
 
 export interface SlidesRuntime {
   editor: Editor;
@@ -22,11 +22,7 @@ export interface SlidesRuntimeOptions {
 
 type NativeSourceShape = { metadata: unknown; hasMetadata: boolean; hasAttributes: boolean; loadedAt: unknown; emptyContent: boolean };
 
-const nativeTree = (value: unknown): unknown => {
-  const file = readDeckFile(deckFileText(value));
-  if ('error' in file) throw new Error(file.error);
-  return file.document;
-};
+const nativeTree = normalizeSlidesNativeDocument;
 const canonical = (value: unknown): string => {
   const ordered = (item: unknown): unknown => {
     if (Array.isArray(item)) return item.map(ordered);
@@ -83,7 +79,7 @@ export function assertSlidesNativeDocument(value: unknown): void {
   const source = nativeTree(value);
   const probe = createSlidesEditor({ editable: false });
   try {
-    Editor.prototype.loadDocument.call(probe, source, 'slides-native-validation');
+    probe.loadDocument(source as never, 'slides-native-validation');
     if (probe.documentFaults.length) throw new Error('Slides document does not match its native schema.');
     const exported = probe.exportDocument();
     const roundtrip = reconcile(exported, mapNativeSource(source, exported));
@@ -119,7 +115,7 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
     const source = nativeTree(value);
     loadingNative = source;
     try {
-      Editor.prototype.loadDocument.call(editor, source, 'slides');
+      editor.loadDocument(source as never, 'slides');
       const mapped = mapNativeSource(source, editor.exportDocument());
       sourceShape.clear();
       for (const [id, shape] of mapped) sourceShape.set(id, shape);

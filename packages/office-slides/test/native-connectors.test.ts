@@ -86,7 +86,7 @@ describe('native connector refusal and identity stability', () => {
       } finally { fixture.editor.dataStore.rollback(); }
       const observed: unknown[] = [];
       fixture.editor.on('editor:content.change', () => observed.push(fixture.editor.selection));
-      fixture.editor.loadDocument(source, session);
+      fixture.editor.loadDocument(source, String(session));
       expect(observed).toEqual([null]);
       expect(fixture.editor.selection).toBeNull();
       expect(JSON.parse(deckFileText(fixture.editor.exportDocument())).document).toEqual(source);

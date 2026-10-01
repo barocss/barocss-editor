@@ -161,3 +161,17 @@ describe('durable Slides recovery records', () => {
   });
 
 });
+
+
+it('retains an old v1 pending body and immutable attempt through restart', () => {
+  const legacy = JSON.stringify({ format: 'barocss-slides', version: 1, document: createStarterDeck() });
+  const storage = new MemoryStorage();
+  const attempt = slidesSaveAttempt({ operation: 'create', workspaceId: scope.workspaceId, title: 'Legacy',
+    snapshotText: legacy, idempotencyKey: 'old-v1-attempt' });
+  createServerPendingStore(scope, storage).write({ draftId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', documentRef: sourceRef,
+    base: { operation: 'create', workspaceId: scope.workspaceId }, status: 'pending', snapshotText: legacy, attempt });
+  const restored = createServerPendingStore(scope, storage).list()[0];
+  expect(restored.snapshotText).toBe(legacy);
+  expect(restored.attempt).toEqual(attempt);
+  expect(JSON.parse(restored.attempt!.snapshotText).version).toBe(1);
+});

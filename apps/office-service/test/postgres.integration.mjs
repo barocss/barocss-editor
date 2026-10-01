@@ -332,6 +332,36 @@ try {
   const documents = new DocumentStore(pool);
   const alicePrincipal = { issuer, subject: 'alice' };
   const bobPrincipal = { issuer, subject: 'bob' };
+  await check('Slides version upgrade preserves immutable receipts, authority and revision conflicts', async () => {
+    const text = version => JSON.stringify({ format: 'barocss-slides', version,
+      document: { stype: 'document', content: [] } });
+    const input = { workspaceId: a.id, product: 'slides', title: 'Slides compatibility',
+      fileFormat: 'barocss-slides', fileVersion: 1, snapshotText: text(1), idempotencyKey: 'slides-v1-create' };
+    const source = await documents.create(alicePrincipal, alpha, input);
+    const upgraded = await documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 1, snapshotText: text(2), idempotencyKey: 'slides-v2-upgrade' });
+    assert.equal(upgraded.document.fileVersion, 2);
+    assert.equal(upgraded.document.revision, 2);
+    assert.equal(upgraded.document.documentId, source.document.documentId);
+    assert.deepEqual(await documents.create(alicePrincipal, alpha, input), source);
+    assert.equal(source.document.fileVersion, 1);
+    assert.equal(source.snapshotText, text(1));
+    assert.deepEqual(await documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 1, snapshotText: text(2), idempotencyKey: 'slides-v2-upgrade' }), upgraded);
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 1, snapshotText: text(1), idempotencyKey: 'slides-stale-v1' }),
+      error => error instanceof DocumentError && error.reason === 'revision_conflict');
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 2, snapshotText: text(1), idempotencyKey: 'slides-no-downgrade' }),
+      error => error instanceof DocumentError && error.reason === 'invalid_document_format');
+    for (const change of [{ fileVersion: 2 }, { snapshotText: text(3), fileVersion: 3 },
+      { product: 'word', fileFormat: 'barocss-word', snapshotText: text(2), fileVersion: 2 }]) {
+      await assert.rejects(documents.create(alicePrincipal, alpha, { ...input, ...change }), DocumentError);
+    }
+    const native = { ...input, fileVersion: 2, snapshotText: text(2), idempotencyKey: 'slides-v2-create' };
+    assert.equal((await documents.create(alicePrincipal, alpha, native)).document.fileVersion, 2);
+    await assert.rejects(documents.create(bobPrincipal, alpha, native), TenantAccessDeniedError);
+  });
   const originalPage = 'old-page';
   const noteFile = (body, pageId = originalPage) => JSON.stringify({
     format: 'barocss-note', version: 1,

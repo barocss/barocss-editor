@@ -13,7 +13,7 @@ const digest = (text: string) => createHash('sha256').update(text).digest('hex')
 const head = (snapshotText: string, revision = 1, mode: ServerDocumentMode = 'snapshot'): ServerSlidesHead => ({
   documentId, tenantId, workspaceId, product: 'slides', title: '원본', metadataRevision: 1,
   mode, pageId: null, documentKey: `wonffice-${tenantId}-${documentId}`,
-  fileFormat: 'barocss-slides', fileVersion: 1, revision, snapshotHash: digest(snapshotText)
+  fileFormat: 'barocss-slides', fileVersion: JSON.parse(snapshotText).version, revision, snapshotHash: digest(snapshotText)
 });
 const reply = (data: unknown, status = 200) => Response.json(data, { status });
 const transport = (...responses: Array<Response | Error>) => {
@@ -33,7 +33,7 @@ describe('Slides server document receipts', () => {
     const attempt = slidesSaveAttempt({ operation: 'create', workspaceId, title: '원본',
       snapshotText: sourceText, idempotencyKey: 'create-1' });
     const requestHash = digest(JSON.stringify(['create', workspaceId, 'slides', '원본',
-      'barocss-slides', 1, null, sourceText]));
+      'barocss-slides', JSON.parse(sourceText).version, null, sourceText]));
     const receipt = { operation: 'create', idempotencyKey: 'create-1', requestHash,
       document: head(sourceText), snapshotText: sourceText };
     const { client, calls } = transport(reply(receipt, 201),
@@ -70,7 +70,7 @@ describe('Slides server document receipts', () => {
     const attempt = slidesSaveAttempt({ operation: 'create', workspaceId, title: '원본',
       snapshotText: sourceText, idempotencyKey: 'lost-create' });
     const requestHash = digest(JSON.stringify(['create', workspaceId, 'slides', '원본',
-      'barocss-slides', 1, null, sourceText]));
+      'barocss-slides', JSON.parse(sourceText).version, null, sourceText]));
     const saved = { operation: 'create', idempotencyKey: attempt.idempotencyKey, requestHash,
       document: head(sourceText), snapshotText: sourceText };
     const { client, calls } = transport(new Error('response lost'), reply({ status: 'not_found' }, 404),
@@ -174,4 +174,33 @@ describe('Slides server document receipts', () => {
     }
   });
 
+});
+
+
+it('binds v2 create transport and confirmation to its immutable wire version', async () => {
+  const text = serverSlidesFileText(createStarterDeck(), 'v2-fixed');
+  const attempt = slidesSaveAttempt({ operation: 'create', workspaceId, title: '원본', snapshotText: text, idempotencyKey: 'v2-create' });
+  const document = { ...head(text), fileVersion: 2 } as ServerSlidesHead;
+  const receipt = { operation: 'create', idempotencyKey: 'v2-create',
+    requestHash: digest(JSON.stringify(['create', workspaceId, 'slides', '원본', 'barocss-slides', 2, null, text])), document, snapshotText: text };
+  const { client, calls } = transport(reply(receipt, 201), reply({ document, snapshotText: text }));
+  await expect(client.confirm(attempt, await client.save(attempt))).resolves.toMatchObject({ snapshotText: text });
+  expect(JSON.parse(String(calls[0].init?.body)).fileVersion).toBe(2);
+  const wrong = { ...document, fileVersion: 1 };
+  await expect(transport(reply({ document: wrong, snapshotText: text })).client.open(documentId))
+    .rejects.toMatchObject({ code: 'invalid_server_response' });
+});
+
+
+it('retries a frozen v1 create with its original version, bytes and receipt hash', async () => {
+  const text = JSON.stringify({ format: 'barocss-slides', version: 1, document: createStarterDeck() });
+  const attempt = slidesSaveAttempt({ operation: 'create', workspaceId, title: '원본', snapshotText: text, idempotencyKey: 'legacy-frozen' });
+  const document = head(text);
+  const receipt = { operation: 'create', idempotencyKey: attempt.idempotencyKey,
+    requestHash: digest(JSON.stringify(['create', workspaceId, 'slides', '원본', 'barocss-slides', 1, null, text])), document, snapshotText: text };
+  const { client, calls } = transport(new Error('offline'), reply(receipt, 201), reply({ document, snapshotText: text }));
+  await expect(client.save(attempt)).rejects.toMatchObject({ code: 'network_error' });
+  await expect(client.confirm(attempt, await client.save(attempt))).resolves.toMatchObject({ snapshotText: text });
+  expect(calls[0].init?.body).toBe(calls[1].init?.body);
+  expect(JSON.parse(String(calls[1].init?.body))).toMatchObject({ fileVersion: 1, snapshotText: text });
 });

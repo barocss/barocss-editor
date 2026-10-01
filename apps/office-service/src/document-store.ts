@@ -91,12 +91,16 @@ function revision(value: unknown): asserts value is number {
 function canWrite(role: TenantRole) { return role !== 'viewer'; }
 
 /** The service accepts the product file envelope, never a browser-selected Yorkie key. */
+function supportedFileVersion(product: Product, version: unknown): boolean {
+  return version === 1 || (product === 'slides' && version === 2);
+}
+
 function parseSnapshot(text: unknown, product: Product): Record<string, unknown> {
   if (typeof text !== 'string') throw new DocumentError(422, 'invalid_snapshot');
   checkSnapshotSize(text);
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { throw new DocumentError(422, 'invalid_snapshot'); }
-  if (!record(parsed) || parsed.format !== formats[product] || parsed.version !== 1 ||
+  if (!record(parsed) || parsed.format !== formats[product] || !supportedFileVersion(product, parsed.version) ||
     !record(parsed.document) || parsed.document.stype !== roots[product] ||
     !Array.isArray(parsed.document.content)) throw new DocumentError(422, 'invalid_snapshot');
   // A saved file cannot carry session-owned node IDs. Limit traversal as well as byte size.
@@ -190,10 +194,11 @@ export class DocumentStore {
   async create(principal: VerifiedPrincipal, tenantId: string, input: CreateDocumentInput): Promise<DocumentReceipt> {
     checkUuid(tenantId); checkUuid(input.workspaceId); title(input.title); key(input.idempotencyKey);
     if (!Object.hasOwn(formats, input.product) || input.fileFormat !== formats[input.product] ||
-      input.fileVersion !== 1 || (input.product === 'note' ? input.importMode !== 'new-page-copy' : input.importMode !== undefined)) {
+      !supportedFileVersion(input.product, input.fileVersion) || (input.product === 'note' ? input.importMode !== 'new-page-copy' : input.importMode !== undefined)) {
       throw new DocumentError(422, 'invalid_document_format');
     }
-    parseSnapshot(input.snapshotText, input.product);
+    const parsed = parseSnapshot(input.snapshotText, input.product);
+    if (parsed.version !== input.fileVersion) throw new DocumentError(422, 'invalid_document_format');
     if (input.product === 'note' && 'error' in readNoteSnapshotFile(input.snapshotText)) {
       throw new DocumentError(422, 'invalid_snapshot');
     }
@@ -290,7 +295,8 @@ export class DocumentStore {
       if (current.mode !== 'snapshot') throw new DocumentError(409, 'mode_conflict');
       if (current.revision !== input.expectedRevision) throw new DocumentError(409, 'revision_conflict');
       const parsed = parseSnapshot(input.snapshotText, current.product);
-      if (parsed.format !== current.fileFormat || parsed.version !== current.fileVersion) {
+      const slidesUpgrade = current.product === 'slides' && current.fileVersion === 1 && parsed.version === 2;
+      if (parsed.format !== current.fileFormat || (parsed.version !== current.fileVersion && !slidesUpgrade)) {
         throw new DocumentError(422, 'invalid_document_format');
       }
       if (current.product === 'note') {
@@ -301,9 +307,9 @@ export class DocumentStore {
         }
       }
       await client.query(`UPDATE wonffice.document_snapshots
-        SET snapshot_text = $3, snapshot_hash = $4, revision = revision + 1, updated_at = now()
+        SET snapshot_text = $3, snapshot_hash = $4, file_version = $5, revision = revision + 1, updated_at = now()
         WHERE tenant_id = $1 AND document_id = $2`,
-      [tenantId, documentId, input.snapshotText, hash(input.snapshotText)]);
+      [tenantId, documentId, input.snapshotText, hash(input.snapshotText), parsed.version]);
       await client.query('UPDATE wonffice.documents SET updated_at = now() WHERE tenant_id = $1 AND id = $2',
         [tenantId, documentId]);
       const updated = await client.query<Row>(selectHead + fromHead + ' WHERE d.tenant_id = $1 AND d.id = $2',

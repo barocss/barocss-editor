@@ -86,6 +86,13 @@ async function seed(page: Page, title: string) {
   resources.content!.push({ stype: 'motionTrack', attributes: { id: 'server-native-track' }, content: [
     { stype: 'motionStep', attributes: { kind: 'build', effect: 'appear', target: 'server-native-jump' } }
   ] });
+  const rectangle = randomUUID(), ellipse = randomUUID(), line = randomUUID();
+  surfaces[0].content!.push(
+    { stype: 'rectangle', attributes: { objectId: rectangle, name: 'attached-target', x: 1500, y: 8500, width: 3000, height: 1500 } },
+    { stype: 'ellipse', attributes: { objectId: ellipse, name: 'attached-target', x: 9000, y: 9300, width: 3000, height: 1500 } },
+    { stype: 'connector', attributes: { objectId: line, name: 'attached-line', startObjectId: rectangle, endObjectId: ellipse, startSide: 'e', endSide: 'w', kind: 'elbow', startX: 4500, startY: 9250, endX: 9000, endY: 10050 } },
+    { stype: 'connector', attributes: { objectId: randomUUID(), name: 'attached-branch', startObjectId: rectangle, endObjectId: line, endT: 0.4, startSide: 's', kind: 'straight', startX: 3000, startY: 10000, endX: 7500, endY: 9500 } }
+  );
   document.metadata = { originalOwner: 'synthetic-A', loadedAt: 'original-native-loadedAt' };
   const text = deckFileText(document, '2026-10-01T00:00:00.000Z');
   await page.evaluate(({ name, title, text }) => new Promise<void>((resolve, reject) => {
@@ -100,7 +107,7 @@ async function seed(page: Page, title: string) {
       tx.onabort = () => reject(tx.error);
     };
   }), { name, title, text });
-  return { name, title, text, document };
+  return { name, title, text, document: JSON.parse(text).document as INode };
 }
 async function records(page: Page): Promise<Pending[]> {
   return page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:'))
@@ -186,9 +193,10 @@ test('real Slides native copy, fixed loss recovery, durable restart and sequenti
     expect(uncertain.documentCount).toBe(before.documentCount + 1);
     expect(uncertain.receiptCount).toBe(before.receiptCount + 1);
     const documentId = uncertain.receipt!.documentId;
-    expect(requests.writes[0]!.body).toMatchObject({ product: 'slides', fileFormat: 'barocss-slides', fileVersion: 1,
+    expect(requests.writes[0]!.body).toMatchObject({ product: 'slides', fileFormat: 'barocss-slides', fileVersion: JSON.parse(source.text).version,
       snapshotText: source.text, idempotencyKey: key });
     expect(requests.writes[0]!.body).not.toHaveProperty('importMode');
+    await expect(workspace(page).locator('.sl-stage .sl-connector')).toHaveCount(2);
     const fixed = requests.writes[0]!.body;
     expect(await rows(page)).toEqual(originalRows);
     await page.reload();
@@ -261,6 +269,7 @@ test('real Slides native copy, fixed loss recovery, durable restart and sequenti
     await workspace(page).getByRole('button', { name: `저장된 Slides 초안 복구 · ${latest.savedAt}`, exact: true }).click();
     await expect(workspace(page)).toContainText('latest-input-before-process-restart');
     expect((await records(page)).find(record => record.draftId === latest.draftId)?.snapshotText).toBe(latest.snapshotText);
+    await expect(workspace(page).locator('.sl-stage .sl-connector')).toHaveCount(2);
     const dbBefore = await inspect(documentId);
     await page.route(`${root}/documents/${documentId}/snapshot`, async route => {
       await privateControl({ action: 'db-stop' });
@@ -406,6 +415,59 @@ test('same physical profile preserves Slides source and A recovery across actual
       catch { cleanup = false; }
     }
     writeFileSync(evidenceFile, JSON.stringify({ status: passed && cleanup ? 'passed' : 'incomplete', evidence, cleanup }, null, 2), { mode: 0o600 });
+    expect(cleanup).toBe(true);
+  }
+});
+
+test('real Slides v1 head upgrades without changing document identity or its frozen receipt', async () => {
+  test.setTimeout(120_000);
+  const directory = dirname(process.env.OFFICE_AUTH_CONTROL_FILE!);
+  const profile = mkdtempSync(join(directory, 'slides-v1-'));
+  let browser: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined;
+  let passed = false;
+  const evidence: Record<string, unknown> = {};
+  try {
+    const status = await privateControl<RealStatus>({ action: 'status' });
+    const root = `${origin}/api/v1/tenants/${status.tenantId}`;
+    browser = await launchPrivateProfile(profile);
+    const page = await browser.context.newPage(), requests = track(page);
+    await login(page, 'alpha-editor');
+    const text = JSON.stringify({ format: 'barocss-slides', version: 1, document: createSampleDeck() });
+    const key = `legacy-${randomUUID()}`;
+    const created = await page.request.post(`${root}/documents`, { headers: { Authorization: requests.bearer },
+      data: { workspaceId: status.workspaceId, product: 'slides', title: 'Existing v1 Slides',
+        fileFormat: 'barocss-slides', fileVersion: 1, snapshotText: text, idempotencyKey: key } });
+    expect(created.status()).toBe(201);
+    const original = await created.json();
+    expect(original.document.fileVersion).toBe(1);
+    const documentId = original.document.documentId;
+    await login(page, 'alpha-editor', `${origin}/?tenant=${status.tenantId}&workspace=${status.workspaceId}&document=${documentId}&product=slides`);
+    await typeInput(page, 'explicit-v2-upgrade-input');
+    await save(page).click();
+    await expect(saved(page)).toHaveText('서버 저장 확인됨');
+    const updated = await page.request.get(`${root}/documents/${documentId}`, { headers: { Authorization: requests.bearer } });
+    const now = await updated.json();
+    expect(now.document).toMatchObject({ documentId, fileVersion: 2, revision: 2 });
+    expect(now.snapshotText).toContain('explicit-v2-upgrade-input');
+    const oldReceipt = await page.request.get(`${root}/receipts/create/${key}`, { headers: { Authorization: requests.bearer } });
+    expect(await oldReceipt.json()).toEqual(original);
+    const downgrade = await page.request.put(`${root}/documents/${documentId}/snapshot`, {
+      headers: { Authorization: requests.bearer }, data: { expectedRevision: 2, snapshotText: text, idempotencyKey: `down-${randomUUID()}` } });
+    expect(downgrade.status()).toBe(422);
+    await page.reload();
+    await expect(workspace(page)).toContainText('explicit-v2-upgrade-input');
+    const db = await canonical(page, root, requests.bearer, documentId, now.snapshotText);
+    expect(db.document!.revision).toBe(2);
+    Object.assign(evidence, { documentId, originalHash: hash(text), upgradedHash: hash(now.snapshotText),
+      originalVersion: 1, upgradedVersion: 2, revision: 2, oldReceiptUnchanged: true, downgradeRefused: true });
+    passed = true;
+  } finally {
+    let cleanup = true;
+    if (browser) {
+      try { await stopPrivateProfile(browser.context, browser.pid); rmSync(profile, { recursive: true, force: true }); }
+      catch { cleanup = false; }
+    }
+    writeFileSync(join(directory, 'slides-real-version-upgrade.json'), JSON.stringify({ status: passed && cleanup ? 'passed' : 'incomplete', evidence, cleanup }, null, 2), { mode: 0o600 });
     expect(cleanup).toBe(true);
   }
 });
