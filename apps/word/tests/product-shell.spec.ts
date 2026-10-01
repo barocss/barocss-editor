@@ -23,10 +23,11 @@ test('ribbon groups stay focused and switching preserves the insertion target', 
   const ribbon = page.getByRole('tablist', { name: '도구 모음 선택' });
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Hello');
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await expect(page.locator('[data-group="character"]')).toBeVisible();
   await expect(page.getByRole('group', { name: '변경 내용 추적', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('toolbar', { name: '기본 문서 도구' })).toBeVisible();
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await expect(page.getByRole('toolbar', { name: '문서 편집 도구' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '전체 도구 접기', exact: true })).toBeVisible();
   await ribbon.getByRole('tab', { name: '삽입', exact: true }).click();
   await expect(page.getByRole('button', { name: '수식 삽입', exact: true })).toBeEnabled();
   await expect(page.locator('[data-group="character"]')).toHaveCount(0);

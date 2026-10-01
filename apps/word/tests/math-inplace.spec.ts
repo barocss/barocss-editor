@@ -4,6 +4,7 @@ import { placeCaret } from './helpers';
 const documentJSON = (page: Page) => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
 async function open(page: Page) {
   await page.goto('/');
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
   await placeCaret(page, '.w-paragraph');
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
@@ -83,7 +84,7 @@ test('leaving the draft commits before paragraph input resumes', async ({ page }
 });
 
 test('Word fractions reopen in math-editor without changing the saved structure', async ({ page }) => {
-  await page.goto('/'); await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  await page.goto('/'); await page.getByRole('button', {name:'전체 도구 펼치기',exact:true}).click(); await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
   await placeCaret(page, '.w-paragraph');
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.getByRole('button', { name: '수식 삽입', exact: true }).click();

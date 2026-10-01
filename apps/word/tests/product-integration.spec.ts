@@ -30,8 +30,8 @@ test('reviewed report with a long table survives reopen and prints each row once
     ] }] });
   });
   await settled(page);
-  await expect(page.getByRole('toolbar', { name: '기본 문서 도구' })).toBeVisible();
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await expect(page.getByRole('toolbar', { name: '문서 편집 도구' })).toBeVisible();
   await page.getByRole('tab', { name: '검토', exact: true }).click();
   await page.getByRole('button', { name: '변경 내용 추적', exact: true }).click();
   const statusText = page.locator('#editor .w-paragraph').filter({ hasText: /^Status: draft/ });

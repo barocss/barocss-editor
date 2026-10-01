@@ -4,7 +4,7 @@ import { placeCaret } from './helpers';
 async function open(page: import('@playwright/test').Page) {
   await page.goto('/');
   await placeCaret(page, '.w-paragraph');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.getByRole('button', { name: '본문 수식', exact: true }).click();
   await page.locator('.w-math-draft .me-input').fill('abc');
@@ -123,7 +123,7 @@ test('equation editing never draws stale drawing handles after zoom', async ({ p
 test('drawing selection frame follows document zoom without changing its model', async ({ page }) => {
   await page.goto('/');
   await placeCaret(page, '.w-paragraph');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.locator('[data-control="insert-rectangle"]').click();
   const shape = page.locator('.w-canvas rect').first();

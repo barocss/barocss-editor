@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 import type { Editor } from '@barocss/editor-core';
-import { placeCaret } from './helpers';
+import { placeCaret, settled } from './helpers';
 import { verifyDownloadedTable } from './docx-download';
 
 const tab = (page: import('@playwright/test').Page, name: string) => page.getByRole('tab', { name, exact: true });
 
 test('ribbon style previews and keyboard commands change the document once', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('A visible heading');
   await page.getByRole('button', { name: '제목 1 적용', exact: true }).click();
@@ -52,7 +52,7 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await expect(status).toHaveText('저장됨');
   await expect.poll(() => page.url()).not.toBe(initial);
   const created = page.url();
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Table follows');
   await tab(page, '레이아웃').click();
@@ -96,7 +96,7 @@ test('layout actions open real settings and table insertion accepts dimensions',
 
 test('review tracking reports its state and menu toggles show the open pane', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await placeCaret(page, '.w-paragraph');
   await tab(page, '검토').click();
   const tracking = page.locator('[data-control=track-changes]');
@@ -113,21 +113,28 @@ test('review tracking reports its state and menu toggles show the open pane', as
 });
 
 
-test('starts compact and preserves formatting when detailed tools open and close', async ({ page }) => {
+test('starts document-first and preserves selected formatting when full tools open and close', async ({ page }) => {
   await page.goto('/');
-  const compact = page.getByRole('toolbar', { name: '기본 문서 도구' });
-  await expect(compact).toBeVisible();
+  const selected = page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true });
+  await expect(selected).toHaveCount(0);
   await expect(page.getByRole('tablist', { name: '도구 모음 선택' })).toHaveCount(0);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Compact document');
-  await page.locator('.w-toolbar-style').click();
+  await expect(page.locator('.w-paragraph')).toHaveText('Compact document');
+  await settled(page);
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowLeft' : 'Home');
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+ArrowRight' : 'Shift+End');
+  await test.info().attach('compact-selection-state.json', { body: JSON.stringify(await page.evaluate(() => ({ model: window.editor.selection, dom: getSelection()?.toString(), active: document.activeElement?.outerHTML, anchor: getSelection()?.anchorNode?.parentElement?.outerHTML, focus: getSelection()?.focusNode?.parentElement?.outerHTML }))), contentType: 'application/json' });
+  await expect.poll(() => page.evaluate(() => window.editor.selection?.collapsed)).toBe(false);
+  await expect(selected).toBeVisible();
+  await selected.locator('.w-toolbar-style').click();
   await page.getByRole('option', { name: 'Heading 1', exact: true }).click();
   await expect(page.locator('h1.w-heading')).toContainText('Compact document');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await expect(page.locator('[data-control=style-heading1]')).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: '간단히 보기', exact: true }).click();
-  await expect(compact).toBeVisible();
-  await compact.locator('[data-control=undo]').click();
+  await page.getByRole('button', { name: '전체 도구 접기', exact: true }).click();
+  await page.locator('#editor [contenteditable="true"]').first().focus();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
   await expect(page.locator('h1.w-heading')).toHaveCount(0);
   await expect(page.locator('.w-paragraph')).toContainText('Compact document');
 });
