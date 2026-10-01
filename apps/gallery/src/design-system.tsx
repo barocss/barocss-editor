@@ -25,6 +25,33 @@ import {
   PropertyToggle, RibbonGroup, RibbonToolbar, TextField, Toolbar, ToolbarToggle,
 } from '@barocss/office-ui';
 
+const sections = [
+  ['foundations', '01 기본 값'],
+  ['states', '02 컴포넌트 상태'],
+  ['buttons', '버튼 상세'],
+  ['fields', '입력·선택 상세'],
+  ['multiline', '다중행 입력'],
+  ['colors', '색상·메뉴 상세'],
+  ['modals', '다이얼로그·Drawer'],
+  ['feedback', '로딩·저장·복구'],
+  ['navigation', '탭·목록·빈 상태'],
+  ['layers', '트리·레이어'],
+  ['context', '툴팁·문맥 도구'],
+  ['properties', '복합 속성 패널'],
+  ['data-table', '데이터 표'],
+  ['overflow', '좁은 도구 모음'],
+  ['workspace', '작업 공간 배치'],
+  ['selection-tools', '객체 선택 도구'],
+  ['motion', '모션'],
+  ['search-select', '검색·태그'],
+  ['files', '파일·미디어'],
+  ['commands', '명령 검색'],
+  ['tasks', '작업 상태'],
+  ['panel-actions', '팝업 작업 영역'],
+  ['patterns', '03 작업 예시'],
+  ['rules', '04 사용 규칙'],
+];
+
 const tokens = [
   ['--ou-panel', '작업 표면'], ['--ou-ground', '배경'], ['--ou-line', '구분선'],
   ['--ou-ink', '주요 텍스트'], ['--ou-muted', '보조 텍스트'], ['--ou-accent', '강조'],
@@ -45,6 +72,7 @@ function Section({ id, number, title, description, children }: { id: string; num
 /** A working reference built from shipped components, with isolated sample state. */
 export function DesignSystem() {
   const [theme, setTheme] = useState('light');
+  const [activeSection, setActiveSection] = useState(() => window.location.hash.slice(1) || 'foundations');
   const [values, setValues] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState(true);
   const [checked, setChecked] = useState(true);
@@ -68,15 +96,20 @@ export function DesignSystem() {
     return () => { if (previous) document.documentElement.dataset.theme = previous; else delete document.documentElement.dataset.theme; };
   }, [theme]);
   useEffect(() => {
+    const updateSection = () => setActiveSection(window.location.hash.slice(1) || 'foundations');
+    window.addEventListener('hashchange', updateSection);
+    return () => window.removeEventListener('hashchange', updateSection);
+  }, []);
+  useEffect(() => {
     const target = document.getElementById(location.hash.slice(1));
     target?.scrollIntoView({ block: 'start' });
   }, []);
   const reset = () => { setBold(false); setAlign('left'); setWidth(240); setRadius(12); setOutline(true); setSize('16'); setMessage('작업 예시를 초기화했습니다.'); };
   return <div className="ds-shell">
-    <header className="ds-top"><a href="./" className="ds-brand">wonffice<span>Interface system</span></a><span className="ds-version">기준안 01</span>
+    <header className="ds-top"><a href="./" className="ds-brand">wonffice<span>Interface system</span></a><span className="ds-version">기준안 02</span>
       <div className="ds-top-actions"><a href="?catalogue">전체 컴포넌트</a><ChoiceSelect ariaLabel="시스템 테마" value={theme} options={[{ id: 'light', label: '밝은 테마' }, { id: 'dark', label: '어두운 테마' }]} onChange={setTheme} /></div>
     </header>
-    <div className="ds-layout"><aside className="ds-navigation"><p>DESIGN SYSTEM</p><nav aria-label="디자인 기준"><a href="#foundations">01 기본 값</a><a href="#states">02 컴포넌트 상태</a><a href="#buttons">버튼 상세</a><a href="#fields">입력·선택 상세</a><a href="#multiline">다중행 입력</a><a href="#colors">색상·메뉴 상세</a><a href="#modals">다이얼로그·Drawer</a><a href="#feedback">로딩·저장·복구</a><a href="#navigation">탭·목록·빈 상태</a><a href="#layers">트리·레이어</a><a href="#context">툴팁·문맥 도구</a><a href="#properties">복합 속성 패널</a><a href="#data-table">데이터 표</a><a href="#overflow">좁은 도구 모음</a><a href="#workspace">작업 공간 배치</a><a href="#selection-tools">객체 선택 도구</a><a href="#motion">모션</a><a href="#search-select">검색·태그</a><a href="#files">파일·미디어</a><a href="#commands">명령 검색</a><a href="#tasks">작업 상태</a><a href="#panel-actions">팝업 작업 영역</a><a href="#patterns">03 작업 예시</a><a href="#rules">04 사용 규칙</a></nav><div className="ds-navigation-note">실제 office-ui 컴포넌트<br/>로컬 샘플 · 문서 저장 없음</div></aside>
+    <div className="ds-layout"><aside className="ds-navigation"><p>DESIGN SYSTEM</p><nav aria-label="디자인 기준">{sections.map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeSection === id ? 'location' : undefined}>{label}</a>)}</nav><div className="ds-navigation-note">실제 office-ui 컴포넌트<br/>로컬 샘플 · 문서 저장 없음</div></aside>
     <main className="ds-main"><div className="ds-intro"><span>WONFFICE / OFFICE-UI</span><h1>인터페이스 기준</h1><p>같은 역할의 도구는 같은 모양과 동작을 갖습니다.<br/>실제 컴포넌트를 조작하며 상태와 작업 흐름을 확인합니다.</p></div>
       <Section id="foundations" number="01" title="기본 값" description="표시된 값은 현재 테마의 CSS 토큰에서 직접 읽습니다.">
         <div className="ds-swatches">{tokens.map(([token, label]) => <div key={token}><div className="ds-swatch" style={{ background: `var(${token})` }} /><strong>{label}</strong><code>{token}</code><span>{values[token]}</span></div>)}</div>

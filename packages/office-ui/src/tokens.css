@@ -66,33 +66,19 @@
 
   /* Surfaces. */
   --ou-panel: #ffffff;
-  --ou-ground: #f5f6f7;
-  --ou-line: #e0e2e5;
+  --ou-ground: #f4f5f7;
+  --ou-line: #d9dde3;
 
-  /*
-   * Ink.
-   *
-   * `--ou-muted` is **#6b6b6b and not #737373**, which is the colour a check picked out and a person
-   * would not have. The old value is 4.74:1 on white — over the 4.5 a reader needs — and 4.35:1 on
-   * `--ou-ground`, which is where most of it actually sits: a rail's unselected tabs, a panel's row
-   * labels, a chip's caption. It was chosen against the surface it is *least* often drawn on.
-   *
-   * Five of the site's rail tabs came back at 4.3:1 from a sweep that measured every control's text
-   * against the ground it is really painted on rather than against the token beside it. Half a step
-   * darker answers both — 5.33:1 on white, 4.89:1 on the panel — and is still plainly quieter than
-   * `--ou-ink`, which is the whole job of the token.
-   *
-   * The dark theme's is left alone: 7.11:1 on its panel, with room to spare.
-   */
-  --ou-ink: #171717;
-  --ou-muted: #6b6b6b;
-  --ou-faint: #a3a3a3;
+  /* One cool neutral family. Muted text remains readable on panel and ground. */
+  --ou-ink: #20252d;
+  --ou-muted: #596272;
+  --ou-faint: #7c8491;
 
-  /* The one colour that means "this one". */
-  --ou-accent: #2563eb;
+  /* Functional accent: actions, selection and keyboard focus. */
+  --ou-accent: #2459bd;
   --ou-search-match: #ffe58a;
   --ou-search-current: #ffc04d;
-  --ou-search-ink: #171717;
+  --ou-search-ink: #20252d;
   /**
    * **The ink *on* the accent — and it has to flip, because the accent does.**
    *
@@ -245,7 +231,7 @@
    * label inside is a strip of chrome inside the design, and a reader judging a page cannot unsee
    * it.
    */
-  --ou-studio: #e8e9ea;
+  --ou-studio: #e5e8ed;
   --ou-board: #ffffff;
   --ou-board-lift: 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08);
   /**
@@ -290,7 +276,7 @@
    * A token rather than a variant so that a *surface* decides: `PropertyPanel` sets it to
    * `transparent` for everything inside it, and a control in a ribbon is untouched.
    */
-  --ou-field-line: var(--ou-line);
+  --ou-field-line: #808b9a;
 
   /**
    * **30**, up from 28, and it follows the type rather than leading it: a 14px label in a 28px
@@ -305,7 +291,7 @@
    * the wrong control rather than a shared one. See `IconButton`.
    */
   --ou-icon-h: 18px;
-  --ou-radius: 4px;
+  --ou-radius: 6px;
   /**
    * **14, 13 and 12**, up from 13/12 and 12/11 before that — reported twice, the second time as
    * *글자 크기를 높여줘, 특히 속성 패널 쪽은 글자가 너무 작음.*
@@ -352,7 +338,7 @@
 [data-density='dense'] {
   --ou-control-h: 24px;
   --ou-icon-h: 16px;
-  --ou-radius: 3px;
+  --ou-radius: 4px;
   --ou-text: 12px;
   --ou-text-small: 11px;
   --ou-text-label: 10px;
@@ -385,16 +371,16 @@
   :root:not([data-theme='light']) {
     /* The scrollbars, the selects and the caret, which no `--ou-*` can reach. See the root block. */
     color-scheme: dark;
-    --ou-panel: #171717;
-    --ou-ground: #0a0a0a;
-    --ou-line: #404040;
-    --ou-field-line: var(--ou-line);
-    --ou-ink: #fafafa;
-    --ou-muted: #a3a3a3;
-    --ou-faint: #737373;
-    --ou-accent: #3b82f6;
+    --ou-panel: #20252d;
+    --ou-ground: #161a21;
+    --ou-line: #414957;
+    --ou-field-line: #758297;
+    --ou-ink: #eef1f5;
+    --ou-muted: #b2bbc8;
+    --ou-faint: #8993a3;
+    --ou-accent: #8bb2fa;
     /* The ink darkens because the accent lightened — see the root block for why it cannot be white. */
-    --ou-accent-ink: #171717;
+    --ou-accent-ink: #172439;
     --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 10%, var(--ou-panel));
     /* Lifted rather than deepened — see the other dark block. */
     --ou-warn: #FBBF24;
@@ -405,7 +391,7 @@
     --ou-lift-3: 0 12px 32px var(--ou-shadow);
     --ou-scrim: rgb(0 0 0 / 0.6);
     /* A studio in the dark is darker than the board, which is still the page's own white. */
-    --ou-studio: #1c1c1e;
+    --ou-studio: #161a21;
     --ou-board-lift: 0 0 0 1px rgb(0 0 0 / 0.6), 0 8px 24px rgb(0 0 0 / 0.45);
     --ou-board-ink: #8b9096;
   }
@@ -428,15 +414,15 @@
    * the twelve tokens.
    */
   color-scheme: dark;
-  --ou-panel: #171717;
-  --ou-ground: #0a0a0a;
-  --ou-line: #404040;
-  --ou-field-line: var(--ou-line);
-  --ou-ink: #fafafa;
-  --ou-muted: #a3a3a3;
-  --ou-faint: #737373;
-  --ou-accent: #3b82f6;
-  --ou-accent-ink: #171717;
+  --ou-panel: #20252d;
+  --ou-ground: #161a21;
+  --ou-line: #414957;
+  --ou-field-line: #758297;
+  --ou-ink: #eef1f5;
+  --ou-muted: #b2bbc8;
+  --ou-faint: #8993a3;
+  --ou-accent: #8bb2fa;
+  --ou-accent-ink: #172439;
   --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 10%, var(--ou-panel));
   /* Lifted rather than deepened: `#B45309` on `#171717` is a brown nobody reads as a warning. */
   --ou-warn: #FBBF24;
@@ -446,7 +432,7 @@
   --ou-lift-2: 0 4px 12px var(--ou-shadow);
   --ou-lift-3: 0 12px 32px var(--ou-shadow);
   --ou-scrim: rgb(0 0 0 / 0.6);
-  --ou-studio: #1c1c1e;
+  --ou-studio: #161a21;
   --ou-board-lift: 0 0 0 1px rgb(0 0 0 / 0.6), 0 8px 24px rgb(0 0 0 / 0.45);
   --ou-board-ink: #8b9096;
 }
@@ -478,13 +464,13 @@
 [data-theme='light'] {
   color-scheme: light;
   --ou-panel: #ffffff;
-  --ou-ground: #f5f6f7;
-  --ou-line: #e0e2e5;
-  --ou-field-line: var(--ou-line);
-  --ou-ink: #171717;
-  --ou-muted: #6b6b6b;
-  --ou-faint: #a3a3a3;
-  --ou-accent: #2563eb;
+  --ou-ground: #f4f5f7;
+  --ou-line: #d9dde3;
+  --ou-field-line: #808b9a;
+  --ou-ink: #20252d;
+  --ou-muted: #596272;
+  --ou-faint: #7c8491;
+  --ou-accent: #2459bd;
   --ou-accent-ink: #ffffff;
   --ou-accent-soft: color-mix(in srgb, var(--ou-accent) 10%, var(--ou-panel));
   --ou-warn: #B45309;
@@ -494,7 +480,7 @@
   --ou-lift-2: 0 4px 12px var(--ou-shadow);
   --ou-lift-3: 0 12px 32px var(--ou-shadow);
   --ou-scrim: rgb(0 0 0 / 0.25);
-  --ou-studio: #e8e9ea;
+  --ou-studio: #e5e8ed;
   --ou-board-lift: 0 0 0 1px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.08);
   --ou-board-ink: #5b6371;
 }
@@ -694,7 +680,7 @@
   --ou-command-height: 30px;
   --ou-command-text: 13px;
   --ou-command-inset: var(--ou-space-3);
-  --ou-command-radius: 5px;
+  --ou-command-radius: 6px;
   --ou-document-height: 44px;
   --ou-inspector-width: 280px;
 }
@@ -774,8 +760,8 @@
 .office-properties:is([data-property-density='comfortable'], [data-property-density='inspector']) {
   width: var(--ou-inspector-width);
   --ou-control-h: 30px;
-  --ou-text: 12px;
-  --ou-text-small: 11px;
+  --ou-text: 13px;
+  --ou-text-small: 12px;
   --ou-text-label: 12px;
   --ou-label-w: 64px;
   --ou-field-line: var(--ou-line);
@@ -857,7 +843,7 @@
 .office-document-bar [role='status'] { font-size: 11px; color: var(--ou-muted); white-space: nowrap; }
 .office-document-bar button { white-space: nowrap; }
 .office-command-surface button, .office-command-surface input, .office-command-surface select { font-variant-numeric: tabular-nums; }
-.office-properties { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px; line-height: 1.4; }
+.office-properties { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 13px; line-height: 1.4; }
 /* Field paint must never override checkboxes or file pickers. */
 .office-properties .office-field { background-color: var(--ou-ground); }
 .office-properties .office-field:focus { background-color: var(--ou-panel); }
@@ -973,7 +959,7 @@
 .office-choice > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .office-choice > span:last-child { flex-shrink: 0; }
 .office-choice-popup { min-width: var(--radix-select-trigger-width); max-width: min(360px, calc(100vw - 16px)); max-height: var(--radix-select-content-available-height); }
-.office-menu-popup { padding: 4px; border-radius: 8px; }
+.office-menu-popup { padding: 6px; border-radius: 8px; }
 .office-menu-indicator { display: inline-flex; width: 16px; flex: 0 0 16px; align-items: center; justify-content: center; color: var(--ou-accent); }
 .office-menu-option, .office-choice-option { min-height: 30px; padding: 5px 8px; border-radius: 4px; line-height: 20px; }
 .office-menu-option[data-highlighted], .office-choice-option[data-highlighted] { background: var(--ou-ground); }
@@ -985,7 +971,7 @@
 .office-button {
   box-sizing: border-box; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center;
   height: var(--ou-button-height, var(--ou-control-h)); gap: 6px; padding: 0 10px;
-  border: 1px solid var(--ou-line); border-radius: var(--ou-radius);
+  border: 1px solid var(--ou-field-line); border-radius: var(--ou-radius);
   background: var(--ou-panel); color: var(--ou-ink); font-family: inherit;
   font-size: var(--ou-text); font-weight: 500; line-height: 1; white-space: nowrap;
   cursor: pointer; user-select: none;
@@ -1014,6 +1000,7 @@
 .office-field { transition: border-color var(--ou-quick), background-color var(--ou-quick); }
 .office-field::placeholder { color: var(--ou-muted); opacity: 1; }
 .office-field[readonly] { color: var(--ou-muted); background-color: var(--ou-ground); cursor: text; }
+.office-field:not([aria-invalid="true"]):not(:focus):hover { border-color: var(--ou-muted); }
 .office-field:focus { border-color: var(--ou-accent); outline: none; }
 .office-field:focus-visible { box-shadow: 0 0 0 1px var(--ou-accent); }
 .office-field[aria-invalid='true'], .office-field[aria-invalid='true']:is(:hover, :focus) { border-color: var(--ou-danger); }
