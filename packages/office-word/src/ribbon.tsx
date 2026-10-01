@@ -358,7 +358,7 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
       <RibbonGroup id="quick-paragraph" label="문단">{controls('paragraph')}</RibbonGroup>
       <RibbonToggle expanded={expanded} onChange={setExpanded} panelId={panelId} />
     </RibbonToolbar>}
-    {documentPresentation && !expanded && scope && <ContextToolbar editor={editor} scope={scope} active={editor.isEditable && !objectTarget} controls={[]} label="선택한 Word 글 서식" onOpenChange={open => {
+    {documentPresentation && !expanded && scope && <ContextToolbar editor={editor} scope={scope} portalRoot={pane} active={editor.isEditable && !objectTarget} controls={[]} label="선택한 Word 글 서식" onOpenChange={open => {
       if (!open && selectionOpened.current) lifetime.generation += 1;
       selectionOpened.current = open;
     }} data-word-formatting>
@@ -373,7 +373,7 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
         </RibbonToolbar>;
       }}
     </ContextToolbar>}
-    {documentPresentation && !expanded && objectTarget && <FloatingSurface open={objectContext.open && !!objectAt} at={objectAt} portalRoot={scope?.current}
+    {documentPresentation && !expanded && objectTarget && <FloatingSurface open={objectContext.open && !!objectAt} at={objectAt} portalRoot={pane ?? scope?.current}
       aria-label={objectTarget.kind === 'table' ? '선택한 표 도구' : '선택한 그림 도구'} data-word-object-tools onDismiss={objectContext.dismiss} ownedElements={[ownedScope]}>
       <div ref={objectChrome}><RibbonToolbar compact label="선택 개체 도구" className="w-selection-tools"><WordObjectLayoutControls key={`${objectTarget.rootId}:${objectTarget.nodeId}`} editor={editor} target={objectTarget} container={pane} portalContainer={objectChrome} />
         <RibbonToggle expanded={expanded} onChange={setExpanded} panelId={panelId} />
