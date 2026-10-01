@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { ChoiceSelect, Icon, NumberField, RibbonAction, RibbonGroup, ToolbarToggle } from '@barocss/office-ui';
 import { WordObjectPropertiesDialog } from './object-properties-dialog';
 import { TWIPS_PER_CM, type WordObjectChange, type WordObjectTarget } from './object-layout';
 import { WordTableDimensionControls } from './table-dimension-controls';
 
-export function WordObjectLayoutControls({ editor, target, container }: { editor: Editor; target: WordObjectTarget; container?: HTMLElement | null }) {
+export function WordObjectLayoutControls({ editor, target, container, portalContainer }: { editor: Editor; target: WordObjectTarget; container?: HTMLElement | null; portalContainer?: RefObject<HTMLElement | null> }) {
   const [locked, setLocked] = useState(true);
   const [error, setError] = useState('');
   const [properties, setProperties] = useState(false);
@@ -36,10 +36,10 @@ export function WordObjectLayoutControls({ editor, target, container }: { editor
       <div className="w-ribbon-row">{size('width')}{target.kind === 'image' && size('height')}</div>
       <div className="w-ribbon-row">
         {target.kind === 'table' ? <>
-          <ChoiceSelect ariaLabel="표 정렬" value={String(attrs.alignment ?? 'left')} disabled={!editor.isEditable}
+          <ChoiceSelect portalContainer={portalContainer} ariaLabel="표 정렬" value={String(attrs.alignment ?? 'left')} disabled={!editor.isEditable}
             options={[{ id: 'left', label: '왼쪽 정렬' }, { id: 'center', label: '가운데 정렬' }, { id: 'right', label: '오른쪽 정렬' }]}
             onChange={alignment => void apply({ alignment: alignment as WordObjectChange['alignment'] })} />
-          <ChoiceSelect ariaLabel="표 자동 맞춤" value={attrs.widthType === 'pct' ? 'page' : attrs.layout === 'fixed' ? 'fixed' : 'content'} disabled={!editor.isEditable}
+          <ChoiceSelect portalContainer={portalContainer} ariaLabel="표 자동 맞춤" value={attrs.widthType === 'pct' ? 'page' : attrs.layout === 'fixed' ? 'fixed' : 'content'} disabled={!editor.isEditable}
             options={[{ id: 'content', label: '내용에 맞춤' }, { id: 'page', label: '본문 너비에 맞춤' }, { id: 'fixed', label: '고정 너비' }]}
             onChange={fit => {
               if (fit !== 'fixed') void apply({ fit: fit as 'content' | 'page' });
@@ -51,7 +51,7 @@ export function WordObjectLayoutControls({ editor, target, container }: { editor
             }} />
         </> : <>
           <ToolbarToggle id="image-lock-ratio" label="그림 비율 유지" state={locked ? 'on' : 'off'} onActivate={() => setLocked(value => !value)}><Icon name="type-url" /><span>비율 유지</span></ToolbarToggle>
-          <ChoiceSelect ariaLabel="그림 본문 배치" value={attrs.wrap === 'square' ? String(attrs.side ?? 'right') : String(attrs.wrap ?? 'inline')} disabled={!editor.isEditable}
+          <ChoiceSelect portalContainer={portalContainer} ariaLabel="그림 본문 배치" value={attrs.wrap === 'square' ? String(attrs.side ?? 'right') : String(attrs.wrap ?? 'inline')} disabled={!editor.isEditable}
             options={[{ id: 'inline', label: '글자처럼 배치' }, { id: 'left', label: '왼쪽에 배치' }, { id: 'right', label: '오른쪽에 배치' }, { id: 'topAndBottom', label: '위아래로 본문 배치' }]}
             onChange={placement => void apply({ placement: placement as WordObjectChange['placement'] })} />
         </>}
@@ -59,9 +59,9 @@ export function WordObjectLayoutControls({ editor, target, container }: { editor
       {error && <span role="alert">{error}</span>}
     </div>
   </RibbonGroup>
-  {target.kind === 'table' ? <WordTableDimensionControls key={`${target.nodeId}:${editor.selection?.startNodeId}`} editor={editor} target={target} container={container} /> :
+  {target.kind === 'table' ? <WordTableDimensionControls key={`${target.nodeId}:${editor.selection?.startNodeId}`} editor={editor} target={target} container={container} portalContainer={portalContainer} /> :
     <RibbonGroup id="image-crop" label="그림 자르기"><div className="w-object-layout-controls">
-      <ChoiceSelect ariaLabel="그림 자르기 비율" value={cropValue} disabled={!editor.isEditable}
+      <ChoiceSelect portalContainer={portalContainer} ariaLabel="그림 자르기 비율" value={cropValue} disabled={!editor.isEditable}
         options={[{ id: 'reset', label: '자르기 해제 · 원래 크기' }, { id: 'square', label: '정사각형 1:1' }, { id: 'landscape', label: '가로 16:9' }, { id: 'portrait', label: '세로 3:4' }, ...(cropValue === 'custom' ? [{ id: 'custom', label: '사용자 비율' }] : [])]}
         onChange={crop => { if (crop !== 'custom') void apply({ crop: crop as WordObjectChange['crop'], ...(typeof attrs.width !== 'number' && cm('width') ? { width: cm('width')! } : {}), ...(typeof attrs.height !== 'number' && cm('height') ? { height: cm('height')! } : {}) }); }} />
       <div className="w-ribbon-row">{(['X', 'Y'] as const).map(axis => <NumberField key={axis} ariaLabel={`자르기 ${axis === 'X' ? '가로' : '세로'} 위치`} prefix={axis === 'X' ? '가로' : '세로'} suffix="%"

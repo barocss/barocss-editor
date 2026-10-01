@@ -5,7 +5,7 @@ import { captureTocSession } from './structure-commands';
 import { selectedWordObject } from './object-layout';
 import { WordObjectLayoutControls } from './object-layout-controls';
 import { ControlRows } from '@barocss/office-editor-ui';
-import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 import { WordMathEditor } from './math-editor-dialog';
 import { useWordMathInplace } from './math-inplace';
 import { captureWordSelectionOwner, ownsWordSelection, createWordSelectionLifetime, trackWordSelectionLifetime } from './selection-owner';
@@ -111,8 +111,13 @@ export interface RibbonProps {
 export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom = false, pane = null, onViewAction, clipboardBusy, formatPainterActive, documentPresentation = false, expanded: controlledExpanded, onExpandedChange, scope }: RibbonProps) {
   const [localExpanded, setLocalExpanded] = useState(false);
   const expanded = controlledExpanded ?? localExpanded;
-  const setExpanded = (value: boolean) => { setLocalExpanded(value); onExpandedChange?.(value); };
+  const setExpanded = (value: boolean) => { if (documentPresentation && value !== expanded) lifetime.generation += 1; setLocalExpanded(value); onExpandedChange?.(value); };
   const lifetime = useMemo(() => createWordSelectionLifetime(editor), [editor]);
+  const previousExpanded = useRef(expanded);
+  useLayoutEffect(() => {
+    if (documentPresentation && previousExpanded.current !== expanded) lifetime.generation += 1;
+    previousExpanded.current = expanded;
+  }, [documentPresentation, expanded, lifetime]);
   useEffect(() => trackWordSelectionLifetime(lifetime), [lifetime]);
   useEffect(() => {
     const doc = scope?.current?.ownerDocument ?? document;
@@ -272,9 +277,10 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
     />
   );
 
-  const choice = (model: ChoiceControl, width: string) => (
+  const choice = (model: ChoiceControl, width: string, portalContainer?: RefObject<HTMLElement | null>) => (
     <ChoiceSelect
       key={model.id}
+      portalContainer={portalContainer}
       testClass={`w-toolbar-${model.id}`}
       ariaLabel={model.label}
       className={width}
@@ -335,7 +341,7 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
       disabled={!editor.canRun(id, payload)} onActivate={() => void editor.run(id, payload)} />;
   const launch = (view: string) => onViewAction ? () => onViewAction(view) : undefined;
 
-  const stylePicker = (<ChoiceSelect testClass="w-toolbar-style" ariaLabel="Paragraph style" options={[...WORD_STYLES.map(entry => ({ ...entry, label: documentStyles.find(style => style.id === (entry.level ? `Heading${entry.level}` : 'Body'))?.name ?? entry.label })), ...customStyles.map(entry => ({ id: entry.id, label: entry.name, disabled: !editor.canRun('applyParagraphStyle', { id: entry.id }) }))]}
+  const stylePicker = (portalContainer?: RefObject<HTMLElement | null>) => (<ChoiceSelect portalContainer={portalContainer} testClass="w-toolbar-style" ariaLabel="Paragraph style" options={[...WORD_STYLES.map(entry => ({ ...entry, label: documentStyles.find(style => style.id === (entry.level ? `Heading${entry.level}` : 'Body'))?.name ?? entry.label })), ...customStyles.map(entry => ({ id: entry.id, label: entry.name, disabled: !editor.canRun('applyParagraphStyle', { id: entry.id }) }))]}
                 value={style} disabled={summary.empty} onChange={id => {
                   const entry = WORD_STYLES.find(entry => entry.id === id);
                   if (entry) run(entry.command);
@@ -346,7 +352,7 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
     {mathInplace.surface}
     {!documentPresentation && !expanded && <RibbonToolbar compact className="w-toolbar w-quick-toolbar" label="기본 문서 도구">
       {controls('history')}
-      <RibbonGroup id="quick-style" label="스타일">{stylePicker}</RibbonGroup>
+      <RibbonGroup id="quick-style" label="스타일">{stylePicker()}</RibbonGroup>
       <RibbonGroup id="quick-font" label="글꼴">{choice(WORD_FONTS, 'w-quick-font')}{choice(WORD_FONT_SIZES, 'w-quick-size')}</RibbonGroup>
       <RibbonGroup id="quick-character" label="글자">{controls('character', false, ['bold', 'italic', 'underline'])}{palette(WORD_TEXT_COLOR)}{palette(WORD_TEXT_HIGHLIGHT)}</RibbonGroup>
       <RibbonGroup id="quick-paragraph" label="문단">{controls('paragraph')}</RibbonGroup>
@@ -356,11 +362,11 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
       if (!open && selectionOpened.current) lifetime.generation += 1;
       selectionOpened.current = open;
     }} data-word-formatting>
-      {selection => {
+      {(selection, chrome) => {
         selectionOwner.current = captureWordSelectionOwner(editor, selection, lifetime);
         return <RibbonToolbar key={`${lifetime.generation}:${JSON.stringify(selection)}`} compact label="선택 서식 도구" className="w-selection-tools w-quick-toolbar">
-          <RibbonGroup id="selection-style" label="스타일">{stylePicker}</RibbonGroup>
-          <RibbonGroup id="selection-font" label="글꼴">{choice(WORD_FONTS, 'w-quick-font')}{choice(WORD_FONT_SIZES, 'w-quick-size')}</RibbonGroup>
+          <RibbonGroup id="selection-style" label="스타일">{stylePicker(chrome)}</RibbonGroup>
+          <RibbonGroup id="selection-font" label="글꼴">{choice(WORD_FONTS, 'w-quick-font', chrome)}{choice(WORD_FONT_SIZES, 'w-quick-size', chrome)}</RibbonGroup>
           <RibbonGroup id="selection-character" label="글자">{controls('character', false, ['bold', 'italic', 'underline'])}{palette(WORD_TEXT_COLOR)}{palette(WORD_TEXT_HIGHLIGHT)}<ToolbarToggle id="selection-link" label="링크 편집" state="off" disabled={!onViewAction || !canAuthor(editor, 'link')} onActivate={() => { if (ownsWordSelection(editor, selectionOwner.current)) onViewAction?.('authoring.link'); }}><Icon name="type-url" /></ToolbarToggle></RibbonGroup>
           <RibbonGroup id="selection-paragraph" label="문단">{controls('paragraph')}{controls('list')}</RibbonGroup>
           <RibbonToggle expanded={expanded} onChange={setExpanded} panelId={panelId} />
@@ -369,7 +375,7 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
     </ContextToolbar>}
     {documentPresentation && !expanded && objectTarget && <FloatingSurface open={objectContext.open && !!objectAt} at={objectAt} portalRoot={scope?.current}
       aria-label={objectTarget.kind === 'table' ? '선택한 표 도구' : '선택한 그림 도구'} data-word-object-tools onDismiss={objectContext.dismiss} ownedElements={[ownedScope]}>
-      <div ref={objectChrome}><RibbonToolbar compact label="선택 개체 도구" className="w-selection-tools"><WordObjectLayoutControls key={`${objectTarget.rootId}:${objectTarget.nodeId}`} editor={editor} target={objectTarget} container={pane} />
+      <div ref={objectChrome}><RibbonToolbar compact label="선택 개체 도구" className="w-selection-tools"><WordObjectLayoutControls key={`${objectTarget.rootId}:${objectTarget.nodeId}`} editor={editor} target={objectTarget} container={pane} portalContainer={objectChrome} />
         <RibbonToggle expanded={expanded} onChange={setExpanded} panelId={panelId} />
       </RibbonToolbar></div>
     </FloatingSurface>}
@@ -432,7 +438,7 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
                   <span>{entry.level ? `제목 ${entry.level}` : '본문'}</span>
                 </ToolbarToggle>)}
               </div>
-              {stylePicker}
+              {stylePicker()}
             </div>
           </RibbonGroup>
           <RibbonGroup id="editing" label="편집">{viewAction('find', '찾기', 'document-search')}{viewAction('replace', '바꾸기', 'document-search')}</RibbonGroup>
