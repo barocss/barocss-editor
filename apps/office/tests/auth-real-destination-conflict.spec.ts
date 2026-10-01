@@ -18,7 +18,7 @@ test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 });
 test.skip(!process.env.OFFICE_AUTH_CONTROL_FILE || !process.env.OFFICE_AUTH_REAL_FILE,
   'Destination schedules require the private PostgreSQL control and synthetic OIDC fixture.');
 
-async function login(page: Page, url = origin) {
+async function login(page: Page, url = origin, alias: 'alpha-editor' | 'beta-viewer' = 'alpha-editor') {
   await page.goto(url);
   await expect.poll(async () => await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible() ||
     await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() || await page.locator('[data-server-note-workspace]').isVisible()).toBe(true);
@@ -30,8 +30,8 @@ async function login(page: Page, url = origin) {
       const fixture = JSON.parse(readFileSync(process.env.OFFICE_AUTH_REAL_FILE!, 'utf8')) as {
         users: Record<string, { username?: string; password: string }>;
       };
-      const account = fixture.users['alpha-editor']!;
-      await username.fill(account.username ?? 'alpha-editor');
+      const account = fixture.users[alias]!;
+      await username.fill(account.username ?? alias);
       await page.locator('#password').fill(account.password);
       await page.locator('#kc-login').click();
     }
@@ -39,8 +39,9 @@ async function login(page: Page, url = origin) {
   await expect.poll(async () => await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() ||
     await page.locator('[data-server-note-workspace]').isVisible()).toBe(true);
   if (!(await page.locator('[data-server-note-workspace]').isVisible())) {
-    await page.getByRole('button', { name: /Synthetic Alpha/ }).click();
-    await page.getByRole('button', { name: 'Alpha workspace' }).click();
+    const tenant = alias === 'alpha-editor' ? 'Alpha' : 'Beta';
+    await page.getByRole('button', { name: new RegExp(`Synthetic ${tenant}`) }).click();
+    await page.getByRole('button', { name: `${tenant} workspace` }).click();
     await page.getByRole('button', { name: '새 Note 만들기' }).click();
   }
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
@@ -120,6 +121,35 @@ async function canonical(page: Page, root: string, bearer: string, state: Inspec
   expect(hash(api.snapshotText)).toBe(state.document!.snapshotHash);
   expect(JSON.parse(api.snapshotText).document).toEqual(state.document!.canonicalTree);
 }
+// Physical origin storage is readable under another login. Product recovery remains account scoped.
+async function inspectResidualUnderB(page: Page, pageId: string, originalRows: unknown[],
+  requests: ReturnType<typeof track>) {
+  await expect(page.getByText(`로컬 원본 ${pageId}은 이 기기의 Note 저장소에 유지합니다.`, { exact: false })).toBeVisible();
+  const retained = await records(page);
+  const writesBefore = requests.creates.length, before = await inspect();
+  await page.getByRole('button', { name: '로그아웃', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Wonffice에 들어가기' })).toBeVisible();
+  await expect(page.getByText('로그아웃했습니다.', { exact: true })).toBeVisible();
+  await login(page, origin, 'beta-viewer');
+  const fixture = JSON.parse(readFileSync(process.env.OFFICE_AUTH_REAL_FILE!, 'utf8'));
+  const claims = JSON.parse(Buffer.from(requests.bearer.split('.')[1]!, 'base64url').toString('utf8'));
+  expect(claims.sub).toBe(fixture.users['beta-viewer'].id);
+  // This is an actual read of the whole original row while B is authenticated, not an A-only read.
+  expect(await rows(page)).toEqual(originalRows);
+  expect(await records(page)).toEqual(retained);
+  await expect(editor(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^초안 복구 / })).toHaveCount(0);
+  await expect(page.locator('[data-confirmed-local-copy]')).toHaveCount(0);
+  await expect(page.getByText(pageId, { exact: false })).toHaveCount(0);
+  expect(requests.creates.length).toBe(writesBefore);
+  const after = await inspect();
+  expect(after.documentCount).toBe(before.documentCount);
+  expect(after.receiptCount).toBe(before.receiptCount);
+  return { actualIdpAccountSwitch: 'alpha-editor-to-beta-viewer', indexedDbLocation: 'barocss-note/documents',
+    originalPageId: pageId, originalRowsHash: hash(JSON.stringify(originalRows)), originalRowsReadableUnderB: true,
+    rawPendingReadableUnderB: true, rawPendingUnchanged: true, productRecoveryHiddenUnderB: true,
+    noAutomaticSourceOpenOrCreate: true, originalResidualNoticeVisibleUnderA: true };
+}
 async function withPrivatePage(name: string, run: (page: Page, status: RealStatus, root: string, requests: ReturnType<typeof track>) => Promise<Record<string, unknown>>) {
   const directory = dirname(process.env.OFFICE_AUTH_CONTROL_FILE!);
   const profile = mkdtempSync(join(directory, `browser-destination-${name}-`));
@@ -189,7 +219,8 @@ test('existing server page identity is copied into new identities without overwr
     await expect(editor(page).locator('pre')).toContainText('const copy = true;');
     expect(requests.creates).toHaveLength(1);
     expect(requests.creates[0]).toEqual(createBody(status, title, source.text, key));
-    return { sourceHash: hash(source.text), existingId, existingPage, newId, newPage: copy.document!.pageId,
+    const residual = await inspectResidualUnderB(page, existingPage, originalRows, requests);
+    return { residual, sourceHash: hash(source.text), existingId, existingPage, newId, newPage: copy.document!.pageId,
       existingSnapshotHash: existing.document!.snapshotHash, copySnapshotHash: copy.document!.snapshotHash,
       documentCount: copy.documentCount, receiptCount: copy.receiptCount, fixedKey: key };
   });
@@ -247,7 +278,8 @@ test('real different-body receipt cannot confirm or rotate the fixed local-copy 
     expect(await conflict.json()).toMatchObject({ status: 'key_reuse' });
     await assertUnconfirmed();
     await canonical(page, root, requests.bearer, destination);
-    return { fixedKey: key, sourceHash: hash(source.text), fixedAttemptHash: hash(JSON.stringify(pending.record.attempt)),
+    const residual = await inspectResidualUnderB(page, pageId, originalRows, requests);
+    return { residual, fixedKey: key, sourceHash: hash(source.text), fixedAttemptHash: hash(JSON.stringify(pending.record.attempt)),
       occupiedDocumentId: documentId, occupiedSnapshotHash: destination.document!.snapshotHash,
       documentCount: destination.documentCount, receiptCount: destination.receiptCount, originalBodyPostStatus: 409,
       rawPendingPreservedAcrossReload: true, productCreatePosts: requests.creates.length };
