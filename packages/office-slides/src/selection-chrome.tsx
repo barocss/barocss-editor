@@ -30,7 +30,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
       if (globalChrome.current?.contains(event.target)) return;
       if (!host.contains(event.target)) { lifetime.generation += 1; setCanvasGesture(null); return; }
       if (objectChrome.current?.contains(event.target) || event.target.closest('[data-editor-context-toolbar]')) return;
-      const next = event.target.closest('.sl-notes') ? 'notes' : event.target.closest('.sl-stage') ? 'canvas' : null;
+      const next = event.target.closest('.sl-notes') ? 'notes' : event.target.closest('.sl-stage, .sl-overlay') ? 'canvas' : null;
       if (!next) return;
       changeSlidesSelectionContext(lifetime, current, next); setRegion(next);
       setCanvasGesture(next === 'canvas' ? { root: editor.dataStore.getNode(editor.getRootId()!), slide: current } : null);
