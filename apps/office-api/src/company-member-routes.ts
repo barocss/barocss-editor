@@ -7,10 +7,25 @@ import type { VerifiedPrincipal } from '@barocss/office-service/membership-store
 const uuid = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 const statusSchema = { type: 'object', required: ['status'], additionalProperties: false,
   properties: { status: { type: 'string' } } } as const;
+const identificationSchema = { anyOf: [{
+  type: 'object', additionalProperties: false,
+  required: ['state', 'displayLabel', 'memberCode', 'sourceCategory', 'revision', 'updatedAt'],
+  properties: { state: { type: 'string', const: 'identified' },
+    displayLabel: { type: 'string', minLength: 1, maxLength: 120 },
+    memberCode: { type: 'string', pattern: '^M-[0-9a-f]{32}$' },
+    sourceCategory: { type: 'string', const: 'company_roster' },
+    revision: { type: 'integer', minimum: 1 }, updatedAt: { type: 'string', format: 'date-time' } },
+}, {
+  type: 'object', additionalProperties: false,
+  required: ['state', 'displayLabel', 'memberCode', 'sourceCategory', 'revision', 'updatedAt'],
+  properties: { state: { type: 'string', const: 'unidentified' }, displayLabel: { type: 'null' },
+    memberCode: { type: 'null' }, sourceCategory: { type: 'null' },
+    revision: { type: 'null' }, updatedAt: { type: 'null' } },
+}] } as const;
 const memberSchema = { type: 'object', additionalProperties: false,
-  required: ['memberId', 'role', 'active', 'isSelf'], properties: {
+  required: ['memberId', 'role', 'active', 'isSelf', 'identification'], properties: {
     memberId: { type: 'string' }, role: { type: 'string', enum: ['owner', 'admin', 'editor', 'viewer'] },
-    active: { type: 'boolean' }, isSelf: { type: 'boolean' },
+    active: { type: 'boolean' }, isSelf: { type: 'boolean' }, identification: identificationSchema,
   } } as const;
 const changeSchema = { type: 'object', additionalProperties: false,
   required: ['memberId', 'role', 'active', 'changed'], properties: {

@@ -5,9 +5,36 @@ import { createApiServer } from '../src/server.js';
 
 const tenantId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const memberId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const unidentified = { state: 'unidentified' as const, displayLabel: null, memberCode: null,
+  sourceCategory: null, revision: null, updatedAt: null };
 const principal = { issuer: 'https://idp.example.test', subject: 'synthetic-owner' };
 
 describe('company member HTTP boundary', () => {
+  it('retains identified label/code/revision but never exposes private roster provenance', async () => {
+    const identification = { state: 'identified' as const, displayLabel: '<가상 동명이인>',
+      memberCode: 'M-' + 'a'.repeat(32), sourceCategory: 'company_roster' as const,
+      revision: 2, updatedAt: '2026-10-01T00:00:00.000Z' };
+    const app = createApiServer({ verifier: { verify: async () => principal },
+      memberships: { getTenantAccess: async () => { throw new Error('unused'); },
+        listTenantAccess: async () => { throw new Error('unused'); } },
+      companyMembers: {
+        listMembers: async () => ({ members: [{ memberId, role: 'viewer' as const, active: true,
+          isSelf: false, identification, issuer: 'private-issuer', subject: 'private-subject',
+          approvalRef: 'private-approval', sourceRef: 'private-source', actorRef: 'private-actor' }],
+          nextCursor: memberId }),
+        setRole: async () => { throw new Error('unused'); }, revoke: async () => { throw new Error('unused'); },
+      },
+    });
+    try {
+      const response = await app.inject({ url: `/v1/tenants/${tenantId}/members`,
+        headers: { authorization: 'Bearer valid' } });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ members: [{ memberId, role: 'viewer', active: true,
+        isSelf: false, identification }], nextCursor: memberId });
+      expect(response.body).not.toContain('private-');
+      expect(response.headers['cache-control']).toBe('no-store');
+    } finally { await app.close(); }
+  });
   it('requires OIDC, validates input and returns minimal member DTO', async () => {
     const app = createApiServer({
       verifier: { verify: async token => {
@@ -18,7 +45,7 @@ describe('company member HTTP boundary', () => {
         listTenantAccess: async () => { throw new Error('unused'); } },
       companyMembers: {
         listMembers: async () => ({ members: [{ memberId, role: 'viewer' as const,
-          active: true, isSelf: false }], nextCursor: null }),
+          active: true, isSelf: false, identification: unidentified }], nextCursor: null }),
         setRole: async () => ({ memberId, role: 'editor' as const, active: true, changed: true }),
         revoke: async () => ({ memberId, role: 'editor' as const, active: false, changed: true }),
       },
@@ -30,7 +57,7 @@ describe('company member HTTP boundary', () => {
       const headers = { authorization: 'Bearer valid' };
       const list = await app.inject({ url: path, headers });
       expect(list.statusCode).toBe(200);
-      expect(list.json()).toEqual({ members: [{ memberId, role: 'viewer', active: true, isSelf: false }],
+      expect(list.json()).toEqual({ members: [{ memberId, role: 'viewer', active: true, isSelf: false, identification: unidentified }],
         nextCursor: null });
       expect(list.headers['cache-control']).toBe('no-store');
       expect((await app.inject({ url: `${path}?other=1`, headers })).statusCode).toBe(400);
