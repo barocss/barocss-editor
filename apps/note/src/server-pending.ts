@@ -21,6 +21,8 @@ export interface PendingNoteRecord {
   snapshotText: string;
   attempt?: Readonly<NoteSaveAttempt>;
   savedAt: string;
+  source?: { kind: 'indexeddb-note'; name: string };
+  confirmedCopy?: { documentId: string; pageId: string; revision: number; snapshotHash: string };
 }
 
 const rootKey = 'wonffice.note.pending.v1:';
@@ -45,6 +47,20 @@ function validBase(value: unknown, scope: PendingNoteScope): value is PendingNot
       Number.isSafeInteger(base.expectedRevision) && (base.expectedRevision as number) > 0;
 }
 
+function validSource(value: unknown): value is NonNullable<PendingNoteRecord['source']> {
+  if (!value || typeof value !== 'object') return false;
+  const source = value as Record<string, unknown>;
+  return source.kind === 'indexeddb-note' && typeof source.name === 'string' && !!source.name;
+}
+
+function validCopy(value: unknown): value is NonNullable<PendingNoteRecord['confirmedCopy']> {
+  if (!value || typeof value !== 'object') return false;
+  const copy = value as Record<string, unknown>;
+  return typeof copy.documentId === 'string' && uuid.test(copy.documentId) &&
+    typeof copy.pageId === 'string' && uuid.test(copy.pageId) && copy.revision === 1 &&
+    typeof copy.snapshotHash === 'string' && /^[0-9a-f]{64}$/.test(copy.snapshotHash);
+}
+
 function readRecord(raw: string, scope: PendingNoteScope): PendingNoteRecord {
   let value: unknown;
   try { value = JSON.parse(raw); } catch { throw new Error('corrupt_pending_note_record'); }
@@ -58,6 +74,10 @@ function readRecord(raw: string, scope: PendingNoteScope): PendingNoteRecord {
     !validBase(record.base, scope) || !['draft', 'pending', 'confirmed'].includes(record.status as string) ||
     typeof record.snapshotText !== 'string' || 'error' in readNoteSnapshotFile(record.snapshotText) ||
     typeof record.savedAt !== 'string' || Number.isNaN(Date.parse(record.savedAt))) {
+    throw new Error('corrupt_pending_note_record');
+  }
+  if ((record.source !== undefined && (!validSource(record.source) || record.base.operation !== 'create')) ||
+    (record.confirmedCopy !== undefined && (!validCopy(record.confirmedCopy) || !record.source || record.status !== 'confirmed'))) {
     throw new Error('corrupt_pending_note_record');
   }
   let attempt: Readonly<NoteSaveAttempt> | undefined;
@@ -77,7 +97,9 @@ function readRecord(raw: string, scope: PendingNoteScope): PendingNoteRecord {
   }
   return { version: 1, draftId: record.draftId, scope: recordScope as unknown as PendingNoteRecord['scope'],
     base: record.base, status: record.status as PendingNoteRecord['status'], snapshotText: record.snapshotText,
-    ...(attempt ? { attempt } : {}), savedAt: record.savedAt };
+    ...(attempt ? { attempt } : {}), savedAt: record.savedAt,
+    ...(record.source ? { source: record.source as PendingNoteRecord['source'] } : {}),
+    ...(record.confirmedCopy ? { confirmedCopy: record.confirmedCopy as PendingNoteRecord['confirmedCopy'] } : {}) };
 }
 
 export function createServerPendingStore(scope: PendingNoteScope, suppliedStorage?: Storage) {
@@ -117,10 +139,16 @@ export function createServerPendingStore(scope: PendingNoteScope, suppliedStorag
           (input.attempt.documentId !== input.base.documentId || input.attempt.expectedRevision !== input.base.expectedRevision))))) {
       throw new Error('pending_note_attempt_mismatch');
     }
+    if ((input.source !== undefined && (!validSource(input.source) || input.base.operation !== 'create')) ||
+      (input.confirmedCopy !== undefined && (!validCopy(input.confirmedCopy) || !input.source || input.status !== 'confirmed'))) {
+      throw new Error('invalid_pending_note_copy');
+    }
     const record: PendingNoteRecord = {
       version: 1, draftId: input.draftId, scope: { ...scope, documentRef: input.documentRef },
       base: input.base, status: input.status, snapshotText: input.snapshotText,
-      ...(input.attempt ? { attempt: noteSaveAttempt(input.attempt) } : {}), savedAt: new Date().toISOString()
+      ...(input.attempt ? { attempt: noteSaveAttempt(input.attempt) } : {}), savedAt: new Date().toISOString(),
+      ...(input.source ? { source: { ...input.source } } : {}),
+      ...(input.confirmedCopy ? { confirmedCopy: { ...input.confirmedCopy } } : {})
     };
     const storage = getStorage();
     const key = recordKey(input.documentRef, input.draftId);
@@ -128,7 +156,7 @@ export function createServerPendingStore(scope: PendingNoteScope, suppliedStorag
     if (previousRaw !== null) {
       const previous = readRecord(previousRaw, scope);
       if (previous.status !== 'draft' &&
-        (previous.snapshotText !== record.snapshotText || !same(previous.attempt, record.attempt))) {
+        (previous.snapshotText !== record.snapshotText || !same(previous.attempt, record.attempt) || !same(previous.source, record.source))) {
         throw new Error('fixed_pending_note_cannot_be_replaced');
       }
     }

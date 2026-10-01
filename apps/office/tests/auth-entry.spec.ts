@@ -821,3 +821,109 @@ test('direct operator URL is intent only and cannot skip login', async ({ page }
   await expect(page.getByText('서비스 운영 권한을 확인하려면 로그인해 주세요.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Wonffice 전체 서비스 운영자' })).toHaveCount(0);
 });
+
+async function localNoteRows(page: Page) {
+  return page.evaluate(() => new Promise<unknown[]>((resolve, reject) => {
+    const request = indexedDB.open('barocss-note', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result, transaction = db.transaction('documents'), rows = transaction.objectStore('documents').getAll();
+      transaction.oncomplete = () => { db.close(); resolve(rows.result); };
+      transaction.onabort = () => reject(transaction.error);
+    };
+  }));
+}
+
+for (const loss of ['none', 'before-commit', 'after-commit'] as const) {
+  test(`local Note C-copy preserves structured source and exact retry (${loss})`, async ({ page }) => {
+    await mockLogin(page, { documentCount: 1 });
+    await page.goto('/');
+    const sourceId = '00000000-0000-4000-8000-000000000071';
+    const copyId = '00000000-0000-4000-8000-000000000072';
+    const copyPage = '00000000-0000-4000-8000-000000000073';
+    const original = { stype: 'note', attributes: { title: 'Local structured Note', pageId: sourceId }, content: [
+      { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Structured local body', marks: [{ stype: 'bold', range: [0, 10] }] },
+        { stype: 'pageReference', attributes: { pageId: sourceId, title: 'Self' } },
+        { stype: 'pageReference', attributes: { pageId, title: 'External' } }] },
+      { stype: 'codeBlock', attributes: { language: 'javascript' }, content: [{ stype: 'inline-text', text: 'const preserved = true;' }] },
+      { stype: 'bTable', content: [{ stype: 'bTableBody', content: [{ stype: 'bTableRow', content: [
+        { stype: 'bTableCell', content: [{ stype: 'inline-text', text: 'Local cell' }] }
+      ] }] }] }
+    ] };
+    const sourceText = JSON.stringify({ format: 'barocss-note', version: 1, savedAt: '2026-10-01T00:00:00Z', document: original });
+    await page.evaluate(({ sourceId, sourceText }) => new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('barocss-note', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('documents', { keyPath: 'name' });
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result, transaction = db.transaction('documents', 'readwrite');
+        transaction.objectStore('documents').put({ name: sourceId, title: 'Local structured Note', text: sourceText,
+          savedAt: 100, revision: 7, metadata: { favorite: true, parentId: 'retained-local-parent' } });
+        transaction.oncomplete = () => { db.close(); resolve(); };
+        transaction.onabort = () => reject(transaction.error);
+      };
+    }), { sourceId, sourceText });
+    const originalRows = await localNoteRows(page);
+    const expected = structuredClone(original);
+    expected.attributes.pageId = copyPage;
+    const self = expected.content[0]!.content![1] as { attributes: { pageId: string } };
+    self.attributes.pageId = copyPage;
+    const copiedText = JSON.stringify({ format: 'barocss-note', version: 1, savedAt: '2026-10-01T00:00:00Z', document: expected }, null, 2) + '\n';
+    const head = { ...documentHead, documentId: copyId, pageId: copyPage, title: original.attributes.title,
+      documentKey: `wonffice-${id}-${copyId}`, snapshotHash: createHash('sha256').update(copiedText).digest('hex') };
+    const requests: Record<string, unknown>[] = [];
+    let receipt: Record<string, unknown> | undefined;
+    await page.route(`**/api/v1/tenants/${id}/documents/${copyId}`, route => route.fulfill({
+      contentType: 'application/json', body: JSON.stringify({ document: head, snapshotText: copiedText })
+    }));
+    await page.route(`**/api/v1/tenants/${id}/receipts/create/*`, route => route.fulfill({
+      status: receipt ? 200 : 404, contentType: 'application/json', body: JSON.stringify(receipt ?? { status: 'receipt_not_found' })
+    }));
+    await page.route(`**/api/v1/tenants/${id}/documents`, route => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      requests.push(body);
+      if (!(loss === 'before-commit' && requests.length === 1)) {
+        receipt = { operation: 'create', idempotencyKey: body.idempotencyKey,
+          requestHash: createHash('sha256').update(JSON.stringify(['create', workspaceId, 'note', original.attributes.title,
+            'barocss-note', 1, 'new-page-copy', sourceText])).digest('hex'), document: head, snapshotText: copiedText };
+      }
+      if (loss !== 'none' && requests.length === 1) return route.abort('failed');
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(receipt) });
+    });
+    await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+    await page.getByRole('button', { name: /Alpha Company/ }).click();
+    await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+    await page.getByRole('button', { name: 'Alpha Note' }).click();
+    await expect(page.getByRole('button', { name: '서버 사본 준비 Local structured Note' })).toHaveCount(0);
+    await page.getByRole('button', { name: '로컬 노트 사본 가져오기', exact: true }).click();
+    await page.getByRole('button', { name: '이 기기의 로컬 노트 목록 확인' }).click();
+    await page.getByRole('button', { name: '서버 사본 준비 Local structured Note' }).click();
+    await expect(page.getByText('로컬 노트 사본 확인 필요', { exact: true })).toBeVisible();
+    expect(requests).toHaveLength(0);
+    await page.getByRole('button', { name: '저장 확인·재시도' }).click();
+    if (loss !== 'none') {
+      await expect(page.getByText('서버 사본 확인됨', { exact: true })).toHaveCount(0);
+      for (let reload = 0; reload < 2; reload++) {
+        await page.reload();
+        await expect(page.getByRole('button', { name: /초안 복구 Local structured Note/ })).toHaveCount(1);
+        await page.getByRole('button', { name: /초안 복구 Local structured Note/ }).click();
+      }
+      await page.getByRole('button', { name: '저장 확인·재시도' }).click();
+    }
+    await expect(page.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+    await expect(page.locator('[data-server-note-workspace] .on-doc')).toContainText('const preserved = true;');
+    await expect(page.locator('[data-server-note-workspace] .on-doc')).toContainText('Local cell');
+    expect(requests).toHaveLength(loss === 'before-commit' ? 2 : 1);
+    expect(requests[0]).toMatchObject({ workspaceId, title: original.attributes.title, snapshotText: sourceText, importMode: 'new-page-copy' });
+    if (requests.length === 2) expect(requests[1]).toEqual(requests[0]);
+    expect(await localNoteRows(page)).toEqual(originalRows);
+    const records = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+      .map(key => JSON.parse(localStorage.getItem(key)!)));
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ status: 'confirmed', snapshotText: sourceText,
+      source: { kind: 'indexeddb-note', name: sourceId }, confirmedCopy: { documentId: copyId, pageId: copyPage, revision: 1 } });
+    await expect(page.locator('[data-confirmed-local-copy]')).toContainText(copyId);
+    await page.reload();
+    await expect(page.locator('[data-confirmed-local-copy]')).toContainText(copyId);
+  });
+}
