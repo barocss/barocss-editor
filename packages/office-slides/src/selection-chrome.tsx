@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type RefObject } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import { Button, FloatingSurface } from '@barocss/office-ui';
@@ -15,6 +15,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
 }) {
   const revision = useEditorRevision(editor);
   const lifetime = useMemo(() => createSlidesSelectionLifetime(editor, current), [editor]);
+  const [, refreshLifetime] = useReducer((value: number) => value + 1, 0);
   const [region, setRegion] = useState<'canvas' | 'notes'>('canvas');
   const objectChrome = useRef<HTMLDivElement>(null);
   const globalChrome = useRef<HTMLDivElement>(null);
@@ -28,7 +29,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
     const regionChanged = (event: Event) => {
       if (!(event.target instanceof Element)) return;
       if (globalChrome.current?.contains(event.target)) return;
-      if (!host.contains(event.target)) { lifetime.generation += 1; setCanvasGesture(null); return; }
+      if (!host.contains(event.target)) { lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); return; }
       if (objectChrome.current?.contains(event.target) || event.target.closest('[data-editor-context-toolbar]')) return;
       const next = event.target.closest('.sl-notes') ? 'notes' : event.target.closest('.sl-stage, .sl-overlay') ? 'canvas' : null;
       if (!next) return;
@@ -36,9 +37,9 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
       setCanvasGesture(next === 'canvas' ? { root: editor.dataStore.getNode(editor.getRootId()!), slide: current } : null);
     };
     const interrupt = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && event.target instanceof Node && (host.contains(event.target) || globalChrome.current?.contains(event.target))) { lifetime.generation += 1; setCanvasGesture(null); }
+      if (event.key === 'Escape' && event.target instanceof Node && (host.contains(event.target) || globalChrome.current?.contains(event.target))) { lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); }
     };
-    const blur = () => { lifetime.generation += 1; setCanvasGesture(null); };
+    const blur = () => { lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); };
     host.ownerDocument.defaultView?.addEventListener('blur', blur);
     host.ownerDocument.addEventListener('pointerdown', regionChanged, true); host.ownerDocument.addEventListener('focusin', regionChanged, true);
     host.ownerDocument.addEventListener('keydown', interrupt, true);
@@ -76,7 +77,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
       }}
     </ContextToolbar>}
     {!expanded && !textRange && target && <FloatingSurface open={(visibility.open || canvasOwned) && !!at} at={at} portalRoot={scope.current}
-      aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={reason => { lifetime.generation += 1; setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope]}>
+      aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={reason => { lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope]}>
       <div ref={objectChrome} key={`${lifetime.generation}:${JSON.stringify(editor.selection)}`}>
         <Ribbon editor={editor} slides={slides} current={current} groupIds={groups} directControls portalContainer={objectChrome}
           canRunIntent={() => ownsSlidesSelection(owner)} />

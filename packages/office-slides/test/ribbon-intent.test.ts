@@ -6,6 +6,7 @@ import { createSampleDeck } from '../src/sample-deck';
 import { deckSlides } from '../src/deck';
 import { deckFileText } from '../src/deck-file';
 import { Ribbon } from '../src/ribbon';
+import { SlidesDocumentChrome } from '../src/selection-chrome';
 import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, trackSlidesSelectionLifetime } from '../src/selection-owner';
 
 let host: HTMLDivElement, root: Root, editor: ReturnType<typeof createSlidesEditor>, dispose: () => void;
@@ -61,4 +62,25 @@ it('preserves the owned slide menu while refusing a retired popup and allowing a
   const inserted = deckFileText(editor.exportDocument()); expect(inserted).not.toBe(before);
   await act(async () => { await editor.undo(); }); expect(deckFileText(editor.exportDocument())).toBe(before);
   await act(async () => { await editor.redo(); }); expect(deckFileText(editor.exportDocument())).toBe(inserted);
+});
+
+it('keeps a freshly reopened global menu mounted after Escape and a later parent render', async () => {
+  const slides = deckSlides({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) });
+  const scope = createRef<HTMLElement>(); scope.current = host;
+  const render = () => root.render(createElement(SlidesDocumentChrome, {
+    editor, slides, current: slides[0].sid, scope, expanded: false, onInspect: () => {}
+  }));
+  const trigger = () => host.querySelector<HTMLButtonElement>('[data-menu="tools-slide"]')!;
+  const before = deckFileText(editor.exportDocument());
+  act(render);
+  act(() => { trigger().focus(); trigger().click(); });
+  expect(trigger().getAttribute('aria-expanded')).toBe('true');
+  act(() => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  expect(trigger().getAttribute('aria-expanded')).toBe('false');
+  act(() => trigger().click());
+  const menu = host.querySelector('[role="menu"]'); expect(menu).not.toBeNull();
+  act(render);
+  expect(host.querySelector('[role="menu"]')).toBe(menu);
+  expect(trigger().getAttribute('aria-expanded')).toBe('true');
+  expect(deckFileText(editor.exportDocument())).toBe(before); expect(editor.canRun('undo')).toBe(false);
 });
