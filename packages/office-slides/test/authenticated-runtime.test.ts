@@ -21,6 +21,37 @@ describe('authenticated Slides runtime', () => {
     } finally { runtime.dispose(); container.remove(); }
   });
 
+  it('captures edited native text during the content event and retains it through reopen', async () => {
+    const document = createSampleDeck();
+    document.metadata = { loadedAt: 'original-native-date', author: 'synthetic-owner' };
+    const runtime = createSlidesRuntime(window.document.createElement('div'), { initialDocument: document, editable: true });
+    type NativeNode = { sid?: string; text?: string; marks?: unknown[]; content?: NativeNode[] };
+    const firstText = (node: NativeNode): NativeNode | undefined => typeof node.text === 'string'
+      ? node : node.content?.map(firstText).find(Boolean);
+    const editedText = 'authenticated-input ';
+    const insertFirstText = (node: NativeNode): boolean => {
+      if (typeof node.text === 'string') { node.text = editedText + node.text; node.marks ??= []; return true; }
+      return !!node.content?.some(insertFirstText);
+    };
+    const expected = native(document);
+    if (!insertFirstText(expected)) throw new Error('Missing native text fixture');
+    let captured: unknown;
+    const changed = () => { captured = runtime.exportNativeDocument(); };
+    runtime.editor.on('editor:content.change', changed);
+    try {
+      const run = firstText(runtime.editor.exportDocument() as NativeNode);
+      if (!run?.sid) throw new Error('Missing loaded text run');
+      const selection = { type: 'range' as const, startNodeId: run.sid, endNodeId: run.sid,
+        startOffset: 0, endOffset: 0, collapsed: true };
+      expect(await runtime.editor.executeCommand('insertText', { text: editedText, selection })).toBe(true);
+      expect(captured).toEqual(expected);
+      expect(runtime.exportNativeDocument()).toEqual(expected);
+      runtime.editor.off('editor:content.change', changed);
+      runtime.loadNativeDocument(captured);
+      expect(runtime.exportNativeDocument()).toEqual(expected);
+    } finally { runtime.editor.off('editor:content.change', changed); runtime.dispose(); }
+  });
+
   it('refuses unsupported nodes and mutation commands before replacing the model', async () => {
     const container = window.document.createElement('div');
     const runtime = createSlidesRuntime(container, { initialDocument: createSampleDeck(), editable: false });
@@ -31,6 +62,11 @@ describe('authenticated Slides runtime', () => {
         expect(runtime.exportNativeDocument()).toEqual(before);
       }
       expect(runtime.editor.isEditable).toBe(false);
+      expect(runtime.view.contentEditableElement.contentEditable).toBe('false');
+      runtime.editor.setEditable(true);
+      expect(runtime.view.contentEditableElement.contentEditable).toBe('true');
+      runtime.editor.setEditable(false);
+      expect(runtime.view.contentEditableElement.contentEditable).toBe('false');
       expect(runtime.editor.canExecuteCommand('insertSlide')).toBe(false);
       expect(await runtime.editor.executeCommand('insertSlide')).toBe(false);
       expect(runtime.exportNativeDocument()).toEqual(before);
