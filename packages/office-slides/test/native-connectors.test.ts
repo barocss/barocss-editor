@@ -67,6 +67,32 @@ const objectIds = (editor: ReturnType<typeof createSlidesEditor>): unknown[] => 
   .map(node => node.attributes?.objectId).filter(Boolean);
 
 describe('native connector refusal and identity stability', () => {
+  it('clears old connector selection before reopened content emits, but preserves it on refusal', async () => {
+    const fixture = await attachedFixture();
+    try {
+      fixture.editor.setNode({ nodeIds: [fixture.line] });
+      const selection = fixture.editor.selection;
+      const source = JSON.parse(deckFileText(fixture.editor.exportDocument())).document as Tree;
+      const invalid = structuredClone(source);
+      allNodes(invalid).find(node => node.stype === 'connector')!.attributes!.startObjectId = 'missing';
+      expect(() => fixture.editor.loadDocument(invalid, 'refused')).toThrow();
+      expect(fixture.editor.selection).toEqual(selection);
+      const session = fixture.editor.dataStore.getSessionId();
+      fixture.editor.dataStore.begin();
+      try {
+        expect(() => fixture.editor.loadDocument(source, 'during-transaction')).toThrow('active transaction');
+        expect(fixture.editor.selection).toEqual(selection);
+        expect(fixture.editor.dataStore.getSessionId()).toBe(session);
+      } finally { fixture.editor.dataStore.rollback(); }
+      const observed: unknown[] = [];
+      fixture.editor.on('editor:content.change', () => observed.push(fixture.editor.selection));
+      fixture.editor.loadDocument(source, session);
+      expect(observed).toEqual([null]);
+      expect(fixture.editor.selection).toBeNull();
+      expect(JSON.parse(deckFileText(fixture.editor.exportDocument())).document).toEqual(source);
+    } finally { fixture.editor.destroy(); }
+  });
+
   it('refuses missing, duplicate, foreign-scope and self targets before replacing a populated model', async () => {
     const fixture = await attachedFixture();
     const document = JSON.parse(deckFileText(fixture.editor.exportDocument(), 'fixed')).document as Tree;

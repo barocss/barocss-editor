@@ -205,6 +205,9 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
   editor.loadDocument = (document, sessionId) => {
     // Validate all durable references before changing session state or the current model.
     const native = normalizeSlidesNativeDocument(document);
+    if (editor.dataStore.isTransactionActive()) throw new Error('Cannot load a document during an active transaction');
+    const previousSession = editor.dataStore.getSessionId();
+    const previousSelection = editor.selection;
     if (sessionId) editor.dataStore.setSessionId(sessionId);
     const prepared = prepareSlidesNativeLoad(native, () => editor.dataStore.generateId());
     const originals = new Map<string, Record<string, unknown>>();
@@ -220,7 +223,15 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
       else if (original) delete node.metadata;
       setNode(node, validate);
     };
-    try { load(prepared, sessionId); }
+    try {
+      // Content listeners must never observe selection from the previous document.
+      editor.clearSelection();
+      load(prepared, sessionId);
+    } catch (error) {
+      editor.selectionManager.setSelection(previousSelection);
+      if (editor.dataStore.getSessionId() !== previousSession) editor.dataStore.setSessionId(previousSession);
+      throw error;
+    }
     finally { editor.dataStore.setNode = setNode; }
   };
 
