@@ -50,7 +50,6 @@ function loadNotes() {
 }
 
 export function Workspace() {
-  const [readingSession, setReadingSession] = useState<number>();
   const [panel, setPanel] = useState<'export' | 'page' | 'template' | null>(null);
   const [exchangeFormat, setExchangeFormat] = useState<'json' | NoteExchangeFormat>('json');
   const [notes, setNotes] = useState<StoredNote[]>([]);
@@ -84,9 +83,6 @@ export function Workspace() {
   const [reloadSession, setReloadSession] = useState(0);
   const sessionGeneration = useRef(0);
   const currentSession = useRef(session); currentSession.current = session;
-  const readingOwner = useRef({ generation: readingSession, active: session?.generation, id: selected });
-  readingOwner.current = { generation: readingSession, active: session?.generation, id: selected };
-  const currentPageIsReading = () => readingOwner.current.generation !== undefined && readingOwner.current.generation === readingOwner.current.active;
   const queue = useRef(Promise.resolve());
   const picker = useRef<HTMLInputElement>(null);
   const [referenceDestination, setReferenceDestination] = useState<ReferenceItem>();
@@ -256,14 +252,12 @@ export function Workspace() {
     setSelected(id);
   };
   const updateMeta = (id: string, patch: Partial<PageMeta>) => {
-    if (id === readingOwner.current.id && currentPageIsReading()) return;
     const current = metadata.current.get(id);
     if (!current) return;
     metadata.current.set(id, { ...current, ...patch });
     showNotes(); dirty(id); persist(id);
   };
   const trash = async () => {
-    if (currentPageIsReading()) return;
     if (!await flushNavigation()) return;
     updateMeta(selected, { trashedAt: Date.now() });
     setSelected(notes.find(note => !pageInTrash(note.id, metadata.current))?.id ?? '');
@@ -292,7 +286,6 @@ export function Workspace() {
   };
   const title = notes.find(note => note.id === selected)?.document.attributes.title ?? '';
   const rename = (title: string) => {
-    if (selectedTrashed || currentPageIsReading()) return;
     const current = documents.current.get(selected);
     if (!current) return;
     documents.current.set(selected, { ...current, attributes: { ...current.attributes, title } });
@@ -486,7 +479,7 @@ export function Workspace() {
           else if (id === 'find' || id === 'outline') openNavigation(id);
         }} />} actions={<><StatusIndicator data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
         <Button disabled={!ready || !selected} onClick={() => setPanel('export')}>내보내기</Button>
-        <Button tone="quiet" disabled={!ready || !selected || selectedTrashed || readingSession === session?.generation} onClick={() => setPanel('page')}>페이지 설정</Button>
+        <Button tone="quiet" disabled={!ready || !selected || selectedTrashed} onClick={() => setPanel('page')}>페이지 설정</Button>
         <input ref={picker} hidden disabled={!ready} type="file" accept=".json,.md,.markdown,.html,.htm,.csv" aria-label="노트 파일" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importFile(file); }} />
         </>} />
     <AdaptiveWorkspace className="nw-workspace" panelSides={['navigation']} locationKey={selected}>
@@ -539,7 +532,7 @@ export function Workspace() {
       {ready && !selected && <p className="nw-document">열 수 있는 노트가 없습니다. 새 노트를 만들거나 다른 노트 파일을 열어주세요.</p>}
       {ready && selected && <section className="nw-document" aria-label="노트 편집">
         {selectedTrashed ? <div className="nw-trash-banner" data-page-trashed><span>휴지통에 있는 페이지입니다. 복원하면 다시 편집할 수 있습니다.</span><Button onClick={restore}>페이지 복원</Button></div> : null}
-        <TextField className="nw-title" readOnly={selectedTrashed || readingSession === session?.generation} ariaLabel="노트 제목" placeholder="제목 없는 노트" value={title} onChange={rename} />
+        <TextField className="nw-title" readOnly={selectedTrashed} ariaLabel="노트 제목" placeholder="제목 없는 노트" value={title} onChange={rename} />
         {!selectedTrashed && backlinks.length > 0 && <details key={`backlinks-${selected}`} className="nw-backlinks" aria-label="이 페이지를 참조한 페이지">
           <summary>백링크 <span>{backlinks.length}</span></summary>
           <div>{backlinks.map(({ page, references }) => <button key={page.id} type="button" className="nw-backlink" aria-label={`${page.document.attributes.title || '제목 없는 노트'} 참조 페이지 열기`} onClick={() => void navigatePage(page.id, true, references[0]?.item)}>
@@ -547,21 +540,21 @@ export function Workspace() {
             <span className="nw-backlink-excerpt">{references[0]?.item ? `${references[0].item.title} · ` : ''}{references[0]?.excerpt || '페이지 참조'}</span>
           </button>)}</div>
         </details>}
-        {!selectedTrashed && <p className="nw-hint" style={{ visibility: readingSession === session?.generation ? 'hidden' : undefined }}>/ 로 블록을 추가하고, [[ 로 다른 페이지를 연결하세요.</p>}
-        {!selectedTrashed && session?.id === selected && <NoteEditor documentMode writeAllowed={!selectedTrashed} onModeChange={mode => setReadingSession(mode === 'reading' ? session.generation : undefined)} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
+        {!selectedTrashed && <p className="nw-hint">/ 로 블록을 추가하고, [[ 로 다른 페이지를 연결하세요.</p>}
+        {!selectedTrashed && session?.id === selected && <NoteEditor writeAllowed={!selectedTrashed} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
       </section>}
     </main>
     </AdaptiveWorkspace>
     <Dialog open={panel === 'page'} onOpenChange={open => !open && setPanel(null)} title="페이지 설정" description="페이지의 위치와 보관 상태를 관리합니다." footer={<Button onClick={() => setPanel(null)}>완료</Button>}>
-<fieldset className="nw-page-actions" style={{ border: 0, margin: 0, padding: 0 }} disabled={readingSession === session?.generation}>
+<div className="nw-page-actions">
           <Button tone="quiet" ariaLabel={metadata.current.get(selected)?.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'} onClick={() => updateMeta(selected, { favorite: !metadata.current.get(selected)?.favorite })}>{metadata.current.get(selected)?.favorite ? '즐겨찾는 페이지' : '즐겨찾기 추가'}</Button>
           <Button tone="quiet" onClick={() => { setPanel(null); add(pageTemplate(template), selected); }}>하위 페이지 만들기</Button>
           <label className="nw-move-label">상위 페이지<Choice ariaLabel="상위 페이지" value={metadata.current.get(selected)?.parentId ?? ''} onChange={value => move(value || null)}>
             <option value="">최상위</option>
             {notes.filter(note => canMovePage(selected, note.id, metadata.current) && !pageInTrash(note.id, metadata.current)).map(note => <option key={note.id} value={note.id}>{note.document.attributes.title || '제목 없는 노트'}</option>)}
           </Choice></label>
-          <Button tone="quiet" disabled={readingSession === session?.generation} onClick={() => { setPanel(null); trash(); }}>휴지통으로 이동</Button>
-        </fieldset>
+          <Button tone="quiet" onClick={() => { setPanel(null); trash(); }}>휴지통으로 이동</Button>
+        </div>
     </Dialog>
     <Dialog open={panel === 'export'} onOpenChange={open => !open && setPanel(null)} title="노트 내보내기" description="내려받을 파일 형식을 선택하세요." footer={<Button tone="accent" onClick={async () => { await download(); setPanel(null); }}>파일 내려받기</Button>}>
       <label className="nw-dialog-field">파일 형식<Choice ariaLabel="내보내기 형식" value={exchangeFormat} onChange={value => setExchangeFormat(value as 'json' | NoteExchangeFormat)}>

@@ -50,18 +50,13 @@ import { NoteDocumentNavigation, type NoteNavigationRequest } from './document-n
  * `office-ui`'s rule, kept here for the same reason: this draws a body and knows nothing about a
  * drawer, a row, a dataset or a page. Which is what makes it mountable in a CMS with none of those.
  */
-export type NoteMode = 'writing' | 'reading';
-
 export function NoteEditor({
   editor,
   rootId,
   className,
   onFile,
   toolbar = 'contextual',
-  documentMode = false,
-  mode: inheritedMode,
   writeAllowed,
-  onModeChange,
   registerBeforeSnapshot,
   navigationRequest,
   pageReferences
@@ -77,12 +72,8 @@ export function NoteEditor({
   className?: string;
   /** Contextual by default; always is available for embedded toolbars and the input lab. */
   toolbar?: 'contextual' | 'always';
-  /** Standalone document chrome; embedded bodies keep their existing presentation. */
-  documentMode?: boolean;
-  mode?: NoteMode;
-  /** Current host authority, independent of the reader's preference. */
+  /** Current host authority; permitted writers edit without a mode choice. */
   writeAllowed?: boolean;
-  onModeChange?: (mode: NoteMode) => void;
   pageReferences?: NotePageReferences;
   /** Register child-body delivery before a host exports or saves its document. Flush deepest first. */
   registerBeforeSnapshot?: (flush: () => Promise<boolean>) => () => void;
@@ -103,28 +94,23 @@ export function NoteEditor({
    * are not looking at.
    */
   const deliveries = useRef(new Set<() => Promise<boolean>>());
-  const [preference, setPreference] = useState<NoteMode>('writing');
-  const mode = inheritedMode ?? preference;
-  const mutable = mode === 'writing' && (writeAllowed ?? editor.isEditable);
+  const mutable = writeAllowed ?? editor.isEditable;
   const composing = useRef(new Set<EventTarget>());
-  const switching = useRef(false);
   const owner = useMemo(() => ({ editor, rootId, sessionId: editor.dataStore.getSessionId() }), [editor, rootId, editor.dataStore.getSessionId()]);
   const lifetime = useRef(owner);
   lifetime.current = owner;
-  const allowed = useRef(writeAllowed); allowed.current = writeAllowed;
-  const [modeProblem, setModeProblem] = useState('');
   useLayoutEffect(() => {
-    if (writeAllowed !== undefined) editor.setEditable(mode === 'writing' && writeAllowed);
-  }, [editor, mode, writeAllowed]);
+    if (writeAllowed !== undefined) editor.setEditable(writeAllowed);
+  }, [editor, writeAllowed]);
   useEffect(() => {
     lifetime.current = owner;
-    setPreference('writing'); setModeProblem(''); composing.current.clear();
+    composing.current.clear();
     return () => { lifetime.current = { ...owner, rootId: '' }; };
   }, [owner]);
   const flushDocument = useCallback(async () => {
     const capturedOwner = lifetime.current;
     const capturedRoot = editor.dataStore.getNode(rootId);
-    const current = () => lifetime.current === capturedOwner && editor.dataStore.getNode(rootId) === capturedRoot;
+    const current = () => lifetime.current === capturedOwner && editor.dataStore.getRootNodeId() === rootId && editor.dataStore.getNode(rootId) === capturedRoot;
     if (composing.current.size) return false;
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     for (const flush of [...deliveries.current].reverse()) {
@@ -134,22 +120,6 @@ export function NoteEditor({
     return current() && !composing.current.size;
   }, [owner]);
   useEffect(() => registerBeforeSnapshot?.(flushDocument), [registerBeforeSnapshot, flushDocument]);
-  const switchMode = async (next: NoteMode) => {
-    if (switching.current || next === mode || (next === 'writing' && !writeAllowed)) return;
-    if (composing.current.size) { setModeProblem('입력을 마친 뒤 모드를 다시 선택하세요.'); return; }
-    switching.current = true;
-    const capturedOwner = lifetime.current;
-    const sessionId = editor.dataStore.getSessionId();
-    const current = () => lifetime.current === capturedOwner && editor.getRootId() === rootId && editor.dataStore.getSessionId() === sessionId;
-    try {
-      if (!await flushDocument()) {
-        if (current()) setModeProblem('마지막 입력을 반영하지 못했습니다. 내용을 유지한 채 다시 시도하세요.');
-        return;
-      }
-      if (!current() || composing.current.size || (next === 'writing' && !allowed.current)) return;
-      setModeProblem(''); setPreference(next); onModeChange?.(next);
-    } finally { switching.current = false; }
-  };
   const registerBodyDelivery = useCallback((flush: () => Promise<boolean>) => {
     deliveries.current.add(flush);
     const navigation = pageReferences?.registerBeforeNavigate?.(flush);
@@ -268,7 +238,7 @@ export function NoteEditor({
 
   const navigationControl = (target: EventTarget) => target instanceof Element && !!target.closest('[data-document-navigation]');
   return (
-    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar} data-note-mode={mode} data-note-document={documentMode || undefined}
+    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar} data-note-editable={mutable}
       onCompositionStartCapture={event => { composing.current.add(event.target); }}
       onCompositionEndCapture={event => { composing.current.delete(event.target); }}
       onBeforeInputCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
@@ -293,11 +263,6 @@ export function NoteEditor({
         that was reported: *toolbar 에 툴팁이 안나오니깐 어떤 기능인지 모르겠어.* Nesting providers
         is allowed and the inner one wins, so a host that has its own loses nothing.
       */}
-      {documentMode && <div className="on-document-actions" aria-label="문서 모드">
-        <Button tone="quiet" aria-label="글쓰기 모드" aria-pressed={mode === 'writing'} disabled={!writeAllowed} onPointerDown={event => event.preventDefault()} onClick={() => void switchMode('writing')}>글쓰기</Button>
-        <Button tone="quiet" aria-label="읽기 모드" aria-pressed={mode === 'reading'} onPointerDown={event => event.preventDefault()} onClick={() => void switchMode('reading')}>읽기</Button>
-        {modeProblem && <span role="status">{modeProblem}</span>}
-      </div>}
       <TipProvider>
         {mutable && toolbar === 'always' && <NoteBar editor={editor} />}
         {/*
@@ -362,7 +327,7 @@ export function NoteEditor({
         <CodeBlockEditor editor={editor} scope={body} sid={picked} active={mutable && !mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
         <NoteDatabases editor={editor} scope={body} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
           <DatabaseItemBody key={`${nodeId}:${row}`} editor={editor} nodeId={nodeId} row={row} registerBeforeNavigate={registerBodyDelivery}
-            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" mode={mode} writeAllowed={writeAllowed ?? editor.isEditable} registerBeforeSnapshot={registerBodyDelivery} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
+            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" writeAllowed={writeAllowed ?? editor.isEditable} registerBeforeSnapshot={registerBodyDelivery} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
         {mutable && !mathFocused && !blockMenu && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}
           onFormattingChange={setFormatting}
           insertion={(close) => <NoteBar editor={editor} blocksOnly onInsert={close} />} /></TipProvider>}
