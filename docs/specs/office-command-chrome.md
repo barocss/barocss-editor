@@ -8,6 +8,14 @@ The default surface focuses on the document. Note keeps its existing contextual 
 
 Reuse the same content rendering for editing and reading at a matched viewport; separate editing handles, selection chrome and mutation tools from document content. A reading preference never grants edit authority. Keep the document model, history, pending input and saved state intact across view changes. The experience belongs to product composition and the existing office-editor-ui bindings; office-ui remains a pure visual/input layer.
 
+### Approved implementation sequence and regressions
+
+The owner approved implementation across Note, Word, Slides and Site, with Note validated first. The global surface contains only essential document/title/status/share actions that are actually supported. Text, image and table selection exposes relevant nearby tools; detailed properties remain available on demand. Preserve Note block/slash authoring, Word document formatting, Slides page navigation/insertion/presentation and Site structure navigation/preview. Reuse proven interactions through the existing office-editor-ui wrappers; the apps own their product-specific composition and office-ui retains pure visual/input responsibility.
+
+For the first Note slice, verify IME composition during a mode-switch request without losing or duplicating characters; selection retention while clicking toolbar inputs; keyboard entry, Escape and focus return; accessible labels/state and touch access. Check viewport-edge collision, scroll, zoom and mobile toolbar placement as explicitly requested in this approval. Preserve content/format/layout, undo and pending/saved input through write → selection/tool action → read → write. Share actual first-slice screenshots after these checks; a reference screenshot proves appearance only. After Note passes, record before/after views and preserved core actions for each remaining app. No feature deletion or identical-toolbar mandate.
+
+Reference images supplied by the owner were inspected locally: small global tool groups above an empty/body page; a reading view with document/zoom/export/share controls; a sheet retaining its formula row; Slides retaining insertion, presentation/zoom and page thumbnails; and a selected title bounding box with nearby Heading 1, color, bold/italic/underline, link, list, alignment and overflow controls. Treat these as UI-pattern references only, without copying attached document content into fixtures or sending it to external services. They do not prove keyboard, IME, touch or state-preservation behavior.
+
 ### Inspected baseline and first bounded Note validation
 
 Source inspection on accepted local develop a64e62bdc8800b352722de7f1cb7efdf06df6ed4; these are source findings, not new browser results:
