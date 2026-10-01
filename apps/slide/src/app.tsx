@@ -1723,7 +1723,8 @@ export function App({
       if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
 
       event.preventDefault();
-      void (event.shiftKey ? editor?.redo?.() : editor?.undo?.());
+      if (!editor?.isEditable) return;
+      void (event.shiftKey ? editor.redo() : editor.undo());
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
