@@ -279,11 +279,10 @@
   --ou-field-line: #808b9a;
 
   /**
-   * **30**, up from 28, and it follows the type rather than leading it: a 14px label in a 28px
-   * control leaves 7px above and below, which is a control that looks like the text is falling out
-   * of it. The pair is a ratio, not two numbers.
+   * Comfortable forms use 34px targets around 14px labels. Compact command surfaces and
+   * dense instruments retain their own smaller scale; they do not inherit form spacing.
    */
-  --ou-control-h: 30px;
+  --ou-control-h: 34px;
   /**
    * An icon button inside a **list row**.
    *
@@ -291,7 +290,7 @@
    * the wrong control rather than a shared one. See `IconButton`.
    */
   --ou-icon-h: 18px;
-  --ou-radius: 6px;
+  --ou-radius: 7px;
   /**
    * **14, 13 and 12**, up from 13/12 and 12/11 before that — reported twice, the second time as
    * *글자 크기를 높여줘, 특히 속성 패널 쪽은 글자가 너무 작음.*
@@ -959,9 +958,15 @@
 .office-choice > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .office-choice > span:last-child { flex-shrink: 0; }
 .office-choice-popup { min-width: var(--radix-select-trigger-width); max-width: min(360px, calc(100vw - 16px)); max-height: var(--radix-select-content-available-height); }
-.office-menu-popup { padding: 6px; border-radius: 8px; }
+.office-menu-popup { padding: 6px; border-radius: 10px; }
+.office-menu-popup, .office-choice-popup {
+  border-color: var(--ou-line);
+  box-shadow: 0 2px 4px var(--ou-shadow), 0 12px 28px var(--ou-shadow);
+}
+.office-choice-popup { border-radius: 10px; }
+.office-choice-viewport { padding: 6px; }
 .office-menu-indicator { display: inline-flex; width: 16px; flex: 0 0 16px; align-items: center; justify-content: center; color: var(--ou-accent); }
-.office-menu-option, .office-choice-option { min-height: 30px; padding: 5px 8px; border-radius: 4px; line-height: 20px; }
+.office-menu-option, .office-choice-option { min-height: 34px; padding: 7px 10px; border-radius: 5px; line-height: 20px; }
 .office-menu-option[data-highlighted], .office-choice-option[data-highlighted] { background: var(--ou-ground); }
 .office-choice-option[data-state='checked'] { color: var(--ou-accent); background: var(--ou-accent-soft); }
 .office-choice-option[data-state='checked'][data-highlighted] { background: color-mix(in srgb, var(--ou-accent) 18%, var(--ou-panel)); }
@@ -970,10 +975,12 @@
 /* Buttons own their paint. Field styling must not apply to any button tone. */
 .office-button {
   box-sizing: border-box; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center;
-  height: var(--ou-button-height, var(--ou-control-h)); gap: 6px; padding: 0 10px;
-  border: 1px solid var(--ou-field-line); border-radius: var(--ou-radius);
-  background: var(--ou-panel); color: var(--ou-ink); font-family: inherit;
-  font-size: var(--ou-text); font-weight: 500; line-height: 1; white-space: nowrap;
+  height: var(--ou-button-height, var(--ou-control-h)); gap: 7px; padding: 0 12px;
+  border: 1px solid var(--ou-line); border-radius: var(--ou-radius);
+  background: color-mix(in srgb, var(--ou-panel) 65%, var(--ou-ground));
+  color: var(--ou-ink); font-family: inherit;
+  font-size: var(--ou-text); font-weight: 600; line-height: 1; white-space: nowrap;
+  box-shadow: 0 1px 1px var(--ou-shadow);
   cursor: pointer; user-select: none;
   transition: background-color var(--ou-quick), border-color var(--ou-quick), color var(--ou-quick);
 }
@@ -982,22 +989,36 @@
 .office-button[data-button-kind='icon'] { width: var(--ou-button-height, var(--ou-control-h)); padding: 0; }
 .office-button[data-button-size='sm'] { --ou-button-height: 24px; }
 .office-button[data-button-size='sm'] > svg { width: 14px; height: 14px; flex-basis: 14px; }
-.office-button[data-button-tone='quiet'] { background: transparent; border-color: transparent; }
-.office-button:not(:disabled):hover { background: var(--ou-ground); }
-.office-button:not(:disabled):active { background: color-mix(in srgb, var(--ou-ink) 10%, var(--ou-panel)); }
+.office-button[data-button-tone='quiet'] { background: transparent; border-color: transparent; box-shadow: none; }
+.office-button:not(:disabled):hover { background: var(--ou-ground); border-color: var(--ou-muted); }
+.office-button:not(:disabled):active { background: color-mix(in srgb, var(--ou-ink) 10%, var(--ou-panel)); box-shadow: inset 0 1px 2px var(--ou-shadow); }
 .office-button[data-button-tone='accent'] { border-color: transparent; background: var(--ou-accent); color: var(--ou-accent-ink); }
-.office-button[data-button-tone='accent']:not(:disabled):hover { background: color-mix(in srgb, var(--ou-accent) 88%, var(--ou-ink)); }
+.office-button[data-button-tone='accent']:not(:disabled):hover { border-color: transparent; background: color-mix(in srgb, var(--ou-accent) 88%, var(--ou-ink)); }
 .office-button[data-button-tone='accent']:not(:disabled):active { background: color-mix(in srgb, var(--ou-accent) 80%, var(--ou-ink)); }
-.office-button[aria-pressed='true'], .office-button[aria-pressed='mixed'] { border-color: transparent; background: var(--ou-accent-soft); color: var(--ou-accent); }
+.office-button[aria-pressed='true'], .office-button[aria-pressed='mixed'] { box-shadow: none; border-color: color-mix(in srgb, var(--ou-accent) 30%, var(--ou-panel)); background: var(--ou-accent-soft); color: var(--ou-accent); }
 .office-button[aria-pressed='mixed'] { background-image: repeating-linear-gradient(135deg, transparent, transparent 3px, color-mix(in srgb, var(--ou-accent) 10%, transparent) 3px, color-mix(in srgb, var(--ou-accent) 10%, transparent) 6px); }
 .office-button:is([aria-pressed='true'], [aria-pressed='mixed']):not(:disabled):hover { background-color: color-mix(in srgb, var(--ou-accent) 18%, var(--ou-panel)); color: var(--ou-accent); }
 .office-button:is([aria-pressed='true'], [aria-pressed='mixed']):not(:disabled):active { background-color: color-mix(in srgb, var(--ou-accent) 24%, var(--ou-panel)); color: var(--ou-accent); }
 .office-button:focus-visible { outline: 2px solid var(--ou-accent); outline-offset: 2px; }
-.office-button:disabled { opacity: .45; cursor: default; }
+.office-button:disabled { opacity: .45; cursor: default; box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .office-button { transition: none; } }
 
 /* Field states are independent from action button states. */
-.office-field { transition: border-color var(--ou-quick), background-color var(--ou-quick); }
+.office-field {
+  background-color: var(--ou-panel);
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 2px var(--ou-shadow);
+  transition: border-color var(--ou-quick), background-color var(--ou-quick);
+}
+.office-properties .office-field { box-shadow: none; }
+.office-properties:is([data-property-density='comfortable'], [data-property-density='inspector']) [data-property-header] {
+  background: color-mix(in srgb, var(--ou-ground) 70%, var(--ou-panel));
+}
+.office-properties:is([data-property-density='comfortable'], [data-property-density='inspector']) [data-property-header] h2 {
+  font-size: 14px; font-weight: 650;
+}
+.office-properties .office-button { box-shadow: none; }
+.office-button[data-button-tone='quiet']:not(:disabled):hover { border-color: transparent; }
 .office-field::placeholder { color: var(--ou-muted); opacity: 1; }
 .office-field[readonly] { color: var(--ou-muted); background-color: var(--ou-ground); cursor: text; }
 .office-field:not([aria-invalid="true"]):not(:focus):hover { border-color: var(--ou-muted); }

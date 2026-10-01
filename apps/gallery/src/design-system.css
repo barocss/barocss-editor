@@ -1,4 +1,4 @@
-.ds-shell { min-height: 100vh; color: var(--ou-ink); background: var(--ou-ground); font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.ds-shell { min-height: 100vh; color: var(--ou-ink); background: var(--ou-ground); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .ds-shell * { box-sizing: border-box; }
 .ds-top { background: var(--ou-panel); min-height: 64px; padding: 12px 28px; display: flex; align-items: center; gap: 20px; border-bottom: 1px solid var(--ou-line); }
 .ds-brand { display: flex; align-items: baseline; gap: 16px; color: var(--ou-ink); font-size: 22px; letter-spacing: -.8px; font-weight: 750; text-decoration: none; }
@@ -16,14 +16,14 @@
 .ds-navigation nav a[aria-current="location"] { color: var(--ou-accent); background: var(--ou-accent-soft); font-weight: 600; }
 .ds-navigation nav a:focus-visible, .ds-top a:focus-visible { outline: 2px solid var(--ou-accent); outline-offset: 2px; }
 .ds-navigation-note { flex-shrink: 0; border-top: 1px solid var(--ou-line); margin: 16px 12px 0; padding-top: 12px; font-size: 12px; color: var(--ou-muted); line-height: 20px; }
-.ds-main { background: var(--ou-panel); padding: 48px clamp(24px, 4vw, 64px) 80px; max-width: 1320px; min-width: 0; }
+.ds-main { background: var(--ou-ground); padding: 48px clamp(24px, 4vw, 64px) 80px; max-width: 1320px; min-width: 0; }
 .ds-intro > span { color: var(--ou-muted); font-size: 11px; font-weight: 600; letter-spacing: .6px; }
 .ds-intro h1 { margin: 12px 0; font-size: 32px; line-height: 1.2; font-weight: 650; letter-spacing: -1px; }
 .ds-intro p { color: var(--ou-muted); font-size: 14px; line-height: 1.8; margin: 0; }
 .ds-section { margin-top: 48px; scroll-margin-top: 24px; }
 .ds-section > header { display: flex; gap: 14px; margin-bottom: 22px; padding-top: 24px; border-top: 1px solid var(--ou-line); }
 .ds-section > header > span { color: var(--ou-muted); font-size: 12px; padding-top: 3px; font-variant-numeric: tabular-nums; }
-.ds-section h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.3px; }
+.ds-section h2 { margin: 0; font-size: 23px; line-height: 1.25; font-weight: 650; letter-spacing: -.6px; }
 .ds-section header p { margin: 6px 0 0; color: var(--ou-muted); font-size: 13px; line-height: 1.7; }
 .ds-swatches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 16px; }
 .ds-swatches > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -35,7 +35,7 @@
 .ds-measures > div { display: flex; flex-direction: column; gap: 3px; }
 .ds-measures span { font-size: 12px; color: var(--ou-muted); }
 .ds-measures strong { font-size: 18px; font-weight: 550; font-variant-numeric: tabular-nums; }
-.ds-surface { border: 1px solid var(--ou-line); border-radius: 8px; background: var(--ou-panel); }
+.ds-surface { border: 1px solid var(--ou-line); border-radius: 12px; background: var(--ou-panel); box-shadow: 0 2px 4px var(--ou-shadow); }
 .ds-state-table { overflow-x: auto; }
 .ds-state-labels, .ds-state-row { display: grid; grid-template-columns: 84px repeat(4, minmax(100px, 1fr)); gap: 16px; align-items: start; min-width: 650px; padding: 18px 20px; }
 .ds-state-labels { background: var(--ou-ground); color: var(--ou-muted); font-size: 11px; border-radius: 8px 8px 0 0; padding-block: 12px; }
@@ -70,22 +70,24 @@
 @media (max-width: 680px) { .ds-top { flex-wrap: wrap; gap: 8px; padding: 16px; } .ds-brand span, .ds-version { display: none; } .ds-top-actions { gap: 12px; } .ds-layout { display: block; } .ds-navigation { display: none; } .ds-main { padding: 28px 16px; } .ds-swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ds-measures { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ds-rules { grid-template-columns: 1fr; } }
 
 .ds-button-examples { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
-.ds-button-cases > div { padding: 20px; }
+.ds-button-cases > div { padding: 22px 24px; }
 .ds-button-cases > div + div { border-top: 1px solid var(--ou-line); }
-.ds-button-cases strong { display: block; font-size: 12px; font-weight: 550; margin-bottom: 12px; }
+.ds-button-cases > div:nth-child(even) { background: color-mix(in srgb, var(--ou-ground) 45%, var(--ou-panel)); }
+.ds-button-cases { overflow: hidden; }
+.ds-button-cases strong { display: block; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
 .ds-button-cases > div > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ds-button-cases p, .ds-button-hint { margin: 12px 0 0; font-size: 12px; color: var(--ou-muted); line-height: 1.7; }
-.ds-button-examples > .office-properties { border: 1px solid var(--ou-line); border-radius: 8px; }
+.ds-button-examples > .office-properties { border: 1px solid var(--ou-line); border-radius: 12px; overflow: hidden; box-shadow: var(--ou-lift-1); }
 .ds-button-examples [data-property-group-body] { align-items: flex-start; }
 @media (max-width: 1000px) { .ds-button-examples { grid-template-columns: minmax(0, 1fr); } .ds-button-examples > .office-properties { width: 100%; } }
 
 .ds-field-examples { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
-.ds-field-cases > div { padding: 20px; }
+.ds-field-cases > div { padding: 22px 24px; }
 .ds-field-cases > div + div { border-top: 1px solid var(--ou-line); }
-.ds-field-cases strong { display: block; margin-bottom: 12px; font-size: 12px; font-weight: 550; }
+.ds-field-cases strong { display: block; margin-bottom: 14px; font-size: 14px; font-weight: 600; }
 .ds-field-cases p { font-size: 12px; line-height: 1.7; color: var(--ou-muted); }
 .ds-field-cases > p { padding: 12px 20px; border-top: 1px solid var(--ou-line); margin: 0; }
-.ds-field-examples > .office-properties { border: 1px solid var(--ou-line); border-radius: 8px; }
+.ds-field-examples > .office-properties { border: 1px solid var(--ou-line); border-radius: 12px; overflow: hidden; box-shadow: var(--ou-lift-1); }
 .ds-field-error { color: var(--ou-danger); font-size: 11px; line-height: 1.6; margin: 4px 0; }
 @media (max-width: 1000px) { .ds-field-examples { grid-template-columns: minmax(0, 1fr); } .ds-field-examples > .office-properties { width: 100%; } }
 
