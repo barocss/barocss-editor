@@ -73,3 +73,5 @@ export { usePropertyCommand } from './use-property-command';
 
 export { useEditorSettings } from './use-editor-settings';
 export { useEditorContextVisibility } from './editor-context';
+
+export { createParagraphProposalPreview, type ParagraphPreview, type ParagraphPreviewState } from './paragraph-proposal-preview';

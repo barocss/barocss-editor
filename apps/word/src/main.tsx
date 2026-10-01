@@ -8,11 +8,12 @@ import { createReferenceSample } from './reference-sample';
 import { createCaptionSample } from './caption-sample';
 import { createStyleManagementSample } from './style-management-sample';
 import { createFormatPainterSample } from './format-painter-sample';
+import { createParagraphProposalSample } from './paragraph-proposal-sample';
 import './style.css';
 
 export function mountWord(container: HTMLElement, onFurniture?: (id?: string) => void): WordRuntime {
   const demo = new URLSearchParams(location.search);
-  let initialDocument = demo.get('sample') === 'captions' ? createCaptionSample() : ['references', 'references-docx'].includes(demo.get('sample') ?? '') ? createReferenceSample() : demo.get('sample') === 'styles' ? createStyleManagementSample() : demo.get('sample') === 'format-painter' ? createFormatPainterSample()
+  let initialDocument = demo.get('sample') === 'paragraph-proposal' ? createParagraphProposalSample() : demo.get('sample') === 'captions' ? createCaptionSample() : ['references', 'references-docx'].includes(demo.get('sample') ?? '') ? createReferenceSample() : demo.get('sample') === 'styles' ? createStyleManagementSample() : demo.get('sample') === 'format-painter' ? createFormatPainterSample()
     : demo.get('sample') === 'merged-cell-rows' ? createStaggeredCellSample()
     : demo.get('sample') === 'merged-cell-columns' ? createMergedCellSample(false, true)
     : demo.get('sample') === 'merged-cell-lines' ? createMergedCellSample(true)

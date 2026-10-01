@@ -48,6 +48,7 @@ import {
   ZoomControl
 } from '@barocss/office-word/ui';
 import { matchesKey } from '@barocss/office-controls';
+import { ParagraphProposalPanel } from './paragraph-proposal-panel';
 import { InputLab } from './input-lab/panel';
 
 /**
@@ -87,6 +88,7 @@ export function App({ mount, server }: {
   mount: (host: HTMLElement, onFurniture?: (id?: string) => void) => WordRuntime;
   server?: WordServerHost;
 }) {
+  const proposalSample = !server && new URLSearchParams(location.search).get('sample') === 'paragraph-proposal';
   const library = useRef<DocumentLibraryHandle>(null);
   const [compact, setCompact] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
@@ -421,8 +423,8 @@ export function App({ mount, server }: {
           <EditorHeader product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
             menus={<MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />}
-            fallbackNavigation={server ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
-            actions={<><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
+            fallbackNavigation={server || proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
+            actions={<><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
           {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
@@ -529,6 +531,7 @@ export function App({ mount, server }: {
             onToggle={() => togglePanel('inspector')}
           /></ReadOnlyControls></WorkspaceSidePanel>
         ) : null}
+        {instance && proposalSample ? <ParagraphProposalPanel runtime={instance} /> : null}
         {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
       </AdaptiveWorkspace>
     </AppShell>
