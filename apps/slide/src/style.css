@@ -294,3 +294,6 @@ body {
 
 /* The authenticated entry styles its own sections, not native slide sheets. */
 .office-auth .sl-shell .sl-slide { max-width: none; margin: 0; }
+
+/* Observe owned reselection before the native range settles; expose no pending actions. */
+[data-slides-formatting][data-slides-selection-pending="true"] { display: none; }

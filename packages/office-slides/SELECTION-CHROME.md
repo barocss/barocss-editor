@@ -13,3 +13,5 @@ Viewer notes remain selectable and copyable; their editable DOM follows current 
 This slice does not change native schema, connector identities, resources, model history, painting or persistence contracts. The known #421 component-detach undo limitation remains. Actual desktop/authenticated evidence must identify the final candidate; synthetic composition tests do not prove physical Korean IME, collaboration or alpha readiness.
 
 The authenticated entry has generic section layout. The Slides app contains that rule only for native `.sl-slide` sheets: model inline width/height remain authoritative and the login section max-width/margin do not alter the stage or thumbnails. Other products and authentication controls are unchanged.
+
+Text selection lifecycle stays active for a permitted current editor while its native selection settles. An explicit owned pointer/selection gesture can reopen a dismissed same-target surface. Pending node/null selection exposes no text actions; the rendered text range must match the current native selection. Escape dismissal is not globally reset.

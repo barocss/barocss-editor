@@ -63,9 +63,10 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
         groupIds={expanded ? undefined : ['history', 'slide', 'insert']} portalContainer={globalChrome}
         canRunIntent={() => ownsSlidesSelection(owner)} captureIntent={captureIntent} />
     </div>
-    {!expanded && <ContextToolbar editor={editor} scope={scope} portalRoot={scope.current} active={editor.isEditable && !!textRange}
-      controls={[]} label="선택한 Slides 도구" data-slides-formatting>
+    {!expanded && <ContextToolbar editor={editor} scope={scope} portalRoot={scope.current} active={editor.isEditable}
+      controls={[]} label="선택한 Slides 도구" data-slides-formatting data-slides-selection-pending={!textRange}>
       {(selection, chrome) => {
+        if (!textRange || selection?.type !== 'range' || selection.collapsed || JSON.stringify(selection) !== JSON.stringify(editor.selection)) return null;
         const captured = captureSlidesSelectionOwner(lifetime, selection);
         return <div key={`${lifetime.generation}:${JSON.stringify(selection)}`}>
           <Ribbon editor={editor} slides={slides} current={current} groupIds={['character', 'paragraph', 'list']}
