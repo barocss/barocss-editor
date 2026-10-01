@@ -2,7 +2,7 @@
 
 Base: local develop `cb3f8cc7e3f0d3994b519535b3328522635b8f1a`.
 
-This schedule uses actual OIDC identities, the product Office/Note UI, the real API and a disposable PostgreSQL database. It checks snapshot persistence and conflict recovery. It does not establish Yorkie convergence, complete #357 acceptance or external alpha readiness.
+This schedule uses actual OIDC identities, the product Office/Note UI, the real API and a disposable PostgreSQL database. It checks snapshot persistence and conflict recovery. It does not establish Yorkie convergence or external alpha readiness. The final #357 proof map combines the unchanged recovery evidence with the destination schedules below.
 
 ## Protected environment
 
@@ -37,7 +37,22 @@ The run writes an incomplete record first. It marks the protected `recovery-evid
 8. Keep an old A editor tab alive while another tab in the same physical browser profile performs actual IdP logout/login as B. Deliver an already-committed A response while B is active. Neither A UI nor private latest draft may appear or retry under B; retained raw records remain identical. Return to A and deliberately recover the exact private latest draft.
 9. Use B's actual Beta company owner authority to create a Beta Note. Login as A, then test Beta direct GET/PUT/create and guessed UI URL. Expect403, no body exposure and unchanged document/receipt counts in both tenants.
 
-## Remaining acceptance and limits
+## Destination conflict closure
+
+The destination schedules use base local develop `89eb7bc93f0e029d9c4c56f18c55cca1776fc4e9`. Product Note/API/service logic is unchanged from recovery integration `d30a6be23ca62c62d0f5ee94dec58796166ea15e`; intervening changes are shared visual tokens and gallery/foundation checks. Run the focused cases with the same protected environment and a fresh control descriptor:
+
+```sh
+OFFICE_AUTH_REAL_FILE=/absolute/private/fixture.json \
+OFFICE_AUTH_CONTROL_FILE=/absolute/private/new-run/control.json \
+pnpm --filter @barocss/office-app test:e2e --config playwright.auth.real.config.ts --grep 'existing server page identity|real different-body receipt'
+```
+
+10. Create a synthetic server Note through the actual API. Seed a local row with that destination page identity and title. Deliberately prepare and save its C-copy. Assert new document/page identities, transformed self-reference and exact native structure, API/DB/UI agreement, whole original IndexedDB row equality, unchanged existing destination body/head, and exactly one additional document/receipt. Existing identity is not an overwrite target.
+11. Prepare the original C-copy through the UI, then consume its fixed create key with a different valid body through the actual API under the same verified account/tenant. Save must reject the real mismatching receipt and remain unconfirmed, with original body/key/source intact and no product create POST. Reload, recover deliberately and retry: retain exact persisted bytes across reload, preserve request/source fields on retry (only the attempt recording timestamp may refresh), create no extra document/receipt and do not rotate the key. Direct original-body POST must give409 `key_reuse`. Compare the occupied destination and receipt unchanged.
+
+Each case writes a protected `destination-*-evidence.json`; require terminal test exit0, no skipped case, browser OS process exit and private supervisor/PG teardown. Failed runs remain evidence of failure, not completion. This is a test-only closure of existing C-copy guards, not a new overwrite feature or product storage change.
+
+## Coverage limits
 
 These real schedules cover selected Note schema structures and snapshot workflows. They do not replace the full original #357 proof map. The late-response schedule uses two tabs in one physical profile; it does not replace the active account inside the same JavaScript realm. Its latest A draft is recovered without automatically submitting a stale base; conflict-save behavior is verified separately by the two-writer matrix. Device-local storage remains unencrypted and retained. A hidden row is not physical storage access control. No source cleanup or publication is authorized by this schedule.
 
