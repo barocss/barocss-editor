@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Editor } from '@barocss/editor-core';
-import { placeCaret, settled } from './helpers';
+import { placeCaret } from './helpers';
 import { verifyDownloadedTable } from './docx-download';
 
 const tab = (page: import('@playwright/test').Page, name: string) => page.getByRole('tab', { name, exact: true });
@@ -120,12 +120,11 @@ test('starts document-first and preserves selected formatting when full tools op
   await expect(page.getByRole('tablist', { name: '도구 모음 선택' })).toHaveCount(0);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Compact document');
-  await expect(page.locator('.w-paragraph')).toHaveText('Compact document');
-  await settled(page);
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowLeft' : 'Home');
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+ArrowRight' : 'Shift+End');
   await test.info().attach('compact-selection-state.json', { body: JSON.stringify(await page.evaluate(() => ({ model: window.editor.selection, dom: getSelection()?.toString(), active: document.activeElement?.outerHTML, anchor: getSelection()?.anchorNode?.parentElement?.outerHTML, focus: getSelection()?.focusNode?.parentElement?.outerHTML }))), contentType: 'application/json' });
   await expect.poll(() => page.evaluate(() => window.editor.selection?.collapsed)).toBe(false);
+  await expect(page.locator('.w-paragraph')).toHaveText('Compact document');
   await expect(selected).toBeVisible();
   await selected.locator('.w-toolbar-style').click();
   await page.getByRole('option', { name: 'Heading 1', exact: true }).click();
