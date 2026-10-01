@@ -425,7 +425,7 @@ export function App({ mount, server }: {
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
             menus={<MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />}
             fallbackNavigation={server || proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
-            actions={<><Button tone="quiet" pressed={ribbonExpanded} aria-label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'} onClick={() => setRibbonExpanded(value => !value)}>{ribbonExpanded ? '도구 접기' : '전체 도구'}</Button><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
+            actions={<><Button tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded} aria-label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'} onClick={() => setRibbonExpanded(value => !value)}>{ribbonExpanded ? '도구 접기' : '전체 도구'}</Button><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
           {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
