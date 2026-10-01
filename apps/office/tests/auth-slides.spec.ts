@@ -19,7 +19,7 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
   let lose = !!options.lostAck;
   const head = () => ({ tenantId, workspaceId, documentId, product: options.wrongProduct ? 'note' : 'slides', title: 'Server Slides',
     metadataRevision: 1, mode: options.mode ?? 'snapshot', revision, pageId: null, documentKey: `wonffice-${tenantId}-${documentId}`,
-    fileFormat: 'barocss-slides', fileVersion: 1, snapshotHash: hash(snapshotText) });
+    fileFormat: 'barocss-slides', fileVersion: JSON.parse(snapshotText).version, snapshotHash: hash(snapshotText) });
   const json = (value: unknown) => ({ contentType: 'application/json', body: JSON.stringify(value) });
   await page.route(`${issuer}/.well-known/openid-configuration`, route => route.fulfill({ ...json({ issuer,
     authorization_endpoint: `${issuer}/auth`, token_endpoint: `${issuer}/token`, end_session_endpoint: `${issuer}/logout` }), headers: { 'access-control-allow-origin': '*' } }));

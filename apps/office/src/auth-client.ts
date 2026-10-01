@@ -253,7 +253,7 @@ export async function openVerifiedSnapshot(tenantId: string, workspaceId: string
   if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
     head.product !== product || (product !== 'note' && product !== 'word' && product !== 'slides') ||
     (product === 'word' && (head.fileFormat !== 'barocss-word' || head.fileVersion !== 1 || head.pageId !== null)) ||
-    (product === 'slides' && (head.fileFormat !== 'barocss-slides' || head.fileVersion !== 1 || head.pageId !== null)) ||
+    (product === 'slides' && (head.fileFormat !== 'barocss-slides' || (head.fileVersion !== 1 && head.fileVersion !== 2) || head.pageId !== null)) ||
     typeof head.revision !== 'number' || typeof head.title !== 'string' || typeof head.fileFormat !== 'string' || typeof head.fileVersion !== 'number') {
     throw new AuthError('forbidden', '선택한 문서의 회사, 자료함 또는 제품이 일치하지 않습니다.');
   }

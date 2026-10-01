@@ -14,7 +14,7 @@ export interface ServerSlidesHead {
   pageId: null;
   documentKey: string;
   fileFormat: typeof DECK_FORMAT;
-  fileVersion: typeof DECK_FILE_VERSION;
+  fileVersion: 1 | typeof DECK_FILE_VERSION;
   revision: number;
   snapshotHash: string;
 }
@@ -63,7 +63,7 @@ function slidesHead(value: unknown, tenantId: string, workspaceId: string): Serv
     !Number.isSafeInteger(value.metadataRevision) || (value.metadataRevision as number) < 1 ||
     !['snapshot', 'initializing', 'collaborative'].includes(value.mode as string) ||
     value.pageId !== null || value.fileFormat !== DECK_FORMAT ||
-    value.fileVersion !== DECK_FILE_VERSION || !Number.isSafeInteger(value.revision) ||
+    (value.fileVersion !== 1 && value.fileVersion !== DECK_FILE_VERSION) || !Number.isSafeInteger(value.revision) ||
     (value.revision as number) < 1 || typeof value.snapshotHash !== 'string' ||
     !/^[0-9a-f]{64}$/.test(value.snapshotHash)) return protocolError();
   return value as unknown as ServerSlidesHead;
@@ -74,9 +74,15 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
+function attemptVersion(attempt: SlidesSaveAttempt): number {
+  const read = readServerSlidesFile(attempt.snapshotText);
+  if ('error' in read) return protocolError();
+  return read.version;
+}
+
 function requestParts(attempt: SlidesSaveAttempt): unknown[] {
   return attempt.operation === 'create'
-    ? ['create', attempt.workspaceId, 'slides', attempt.title, DECK_FORMAT, DECK_FILE_VERSION,
+    ? ['create', attempt.workspaceId, 'slides', attempt.title, DECK_FORMAT, attemptVersion(attempt),
       null, attempt.snapshotText]
     : ['update', attempt.documentId, attempt.expectedRevision, attempt.snapshotText];
 }
@@ -136,7 +142,7 @@ export function createServerSlidesClient({ authorizedFetch, tenantId, workspaceI
   const verifySnapshot = async (document: ServerSlidesHead, snapshotText: string): Promise<SlidesDocument> => {
     if (await sha256(snapshotText) !== document.snapshotHash) return protocolError();
     const read = readServerSlidesFile(snapshotText);
-    if ('error' in read) return protocolError();
+    if ('error' in read || read.version !== document.fileVersion) return protocolError();
     return read.document;
   };
 
@@ -161,7 +167,7 @@ export function createServerSlidesClient({ authorizedFetch, tenantId, workspaceI
     const result = attempt.operation === 'create'
       ? await send('/documents', 'POST', {
         workspaceId: attempt.workspaceId, product: 'slides', title: attempt.title,
-        fileFormat: DECK_FORMAT, fileVersion: DECK_FILE_VERSION,
+        fileFormat: DECK_FORMAT, fileVersion: attemptVersion(attempt),
         snapshotText: attempt.snapshotText, idempotencyKey: attempt.idempotencyKey
       })
       : await send(`/documents/${encodeURIComponent(attempt.documentId)}/snapshot`, 'PUT', {
@@ -187,6 +193,7 @@ export function createServerSlidesClient({ authorizedFetch, tenantId, workspaceI
     const reopened = await open(receipt.document.documentId);
     if (reopened.mode !== 'snapshot' || reopened.document.revision !== receipt.document.revision ||
       reopened.document.pageId !== receipt.document.pageId ||
+      reopened.document.fileVersion !== receipt.document.fileVersion ||
       reopened.document.title !== receipt.document.title ||
       reopened.document.metadataRevision !== receipt.document.metadataRevision ||
       reopened.document.documentKey !== receipt.document.documentKey ||

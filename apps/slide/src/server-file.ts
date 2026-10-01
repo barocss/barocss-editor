@@ -1,4 +1,4 @@
-import { readDeckFile, deckFileText, getSlidesSchemaDefinition, DECK_FORMAT, DECK_FILE_VERSION } from '@barocss/office-slides';
+import { readDeckFile, deckFileText, getSlidesSchemaDefinition, assertSlidesNativeReferences, DECK_FORMAT, DECK_FILE_VERSION } from '@barocss/office-slides';
 import { createSchema, validateTree } from '@barocss/schema';
 
 export { DECK_FORMAT, DECK_FILE_VERSION };
@@ -61,9 +61,8 @@ function supportedReferences(document: SlidesDocument): boolean {
     footerId: 'docFooter', componentId: 'component' };
   for (const node of nodes) {
     const attrs = node.attributes ?? {};
-    // The native codec strips every target sid. Attached connector IDs are
-    // session references, so loading them would silently detach the ends.
-    if (node.stype === 'connector' && (attrs.startNodeId !== undefined || attrs.endNodeId !== undefined)) return false;
+    // Wire references use document-owned object IDs, never live session endpoints.
+    if (node.stype === 'connector' && ((attrs.startNodeId !== undefined && attrs.startNodeId !== '') || (attrs.endNodeId !== undefined && attrs.endNodeId !== ''))) return false;
     for (const [key, stype] of Object.entries(referenceTypes)) {
       if (attrs[key] !== undefined && (typeof attrs[key] !== 'string' || !definitions.get(stype)?.has(attrs[key] as string))) return false;
     }
@@ -120,12 +119,12 @@ function supportedReferences(document: SlidesDocument): boolean {
   return true;
 }
 
-export function readServerSlidesFile(text: string): { document: SlidesDocument; version: 1 } | { error: string } {
+export function readServerSlidesFile(text: string): { document: SlidesDocument; version: 1 | typeof DECK_FILE_VERSION } | { error: string } {
   try {
     // Match office-service's existing snapshot byte and full JSON traversal limits.
     if (new TextEncoder().encode(text).byteLength > 524288) return { error: 'slides_snapshot_too_large' };
     const envelope: unknown = JSON.parse(text);
-    if (!record(envelope) || Object.keys(envelope).some(key => !['format', 'version', 'savedAt', 'document'].includes(key)) || envelope.format !== DECK_FORMAT || envelope.version !== DECK_FILE_VERSION ||
+    if (!record(envelope) || Object.keys(envelope).some(key => !['format', 'version', 'savedAt', 'document'].includes(key)) || envelope.format !== DECK_FORMAT || (envelope.version !== 1 && envelope.version !== DECK_FILE_VERSION) ||
       (envelope.savedAt !== undefined && typeof envelope.savedAt !== 'string') ||
       !supportedDocument(envelope.document)) return { error: 'invalid_slides_snapshot' };
     let visited = 0;
@@ -135,9 +134,10 @@ export function readServerSlidesFile(text: string): { document: SlidesDocument; 
       return !record(value) || Object.values(value).every(child => withinServiceLimits(child, depth + 1));
     };
     if (!withinServiceLimits(envelope.document, 0)) return { error: 'invalid_slides_snapshot' };
+    assertSlidesNativeReferences(envelope.document);
     const read = readDeckFile(text);
     if ('error' in read) return read;
-    return { document: envelope.document, version: 1 };
+    return { document: envelope.document, version: envelope.version as 1 | typeof DECK_FILE_VERSION };
   } catch { return { error: 'invalid_slides_snapshot' }; }
 }
 
