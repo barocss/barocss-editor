@@ -3,7 +3,6 @@ import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
 import { setAttrs, transaction } from '@barocss/model';
 import { laysOut, placeIsBound, sizeIsBound, turnIsBound } from '@barocss/office-canvas';
 import {
-  copyOf,
   copyForPaste,
   pastable,
   connectorFreezeSteps,
@@ -1047,9 +1046,9 @@ export class SlidesExtension implements Extension {
     const sid = this._slideAt(editor, slideId);
     if (!doc || !sid) return false;
 
-    // A tree with no sids in it, so the copy is a different node all the way
-    // down rather than a second thing claiming the original's identity.
-    const copy = copyOf(doc, sid);
+    // Use the same copy-local endpoint map as box and clipboard copies.
+    // A plain subtree copy would leave its lines attached to the original slide.
+    const [copy] = pastable(copyForPaste(doc, [sid]), () => editor.dataStore.generateId());
     if (!copy) return false;
 
     const at = this._childIndexOf(editor, sid);

@@ -391,16 +391,33 @@ export function copyForPaste(doc: DeckAccess, sids: string[]): DeckNode[] {
 export function pastable(boxes: DeckNode[], newSid: () => string): DeckNode[] {
   const trees = JSON.parse(JSON.stringify(boxes)) as Copied[];
   const madeFor = new Map<number, string>();
+  const copiedSlides = new Map<string, string>();
 
   const stamp = (node: Copied): void => {
     const sid = newSid();
     (node as { sid?: string }).sid = sid;
+    // A paste is a new target. Its persistent identity must never alias the
+    // source, while the already-localised SID endpoints resolve below.
+    if (typeof node.attributes?.objectId === 'string') {
+      node.attributes.objectId = crypto.randomUUID();
+    }
+    if (node.stype === 'surface' && typeof node.attributes?.id === 'string') {
+      const originalId = node.attributes.id;
+      const copiedId = crypto.randomUUID();
+      copiedSlides.set(originalId, copiedId);
+      node.attributes.id = copiedId;
+    }
     if (typeof node.__ref === 'number') madeFor.set(node.__ref, sid);
     for (const child of (node.content ?? []) as Copied[]) stamp(child);
   };
   for (const tree of trees) stamp(tree);
 
   const resolve = (node: Copied): void => {
+    const attrs = node.attributes;
+    if (attrs && !attrs.goToDeck && (attrs.goToKind === undefined || attrs.goToKind === 'page') &&
+      typeof attrs.goTo === 'string' && copiedSlides.has(attrs.goTo)) {
+      attrs.goTo = copiedSlides.get(attrs.goTo);
+    }
     for (const which of ['start', 'end'] as const) {
       const ref = node[`__${which}Ref` as '__startRef'];
       if (typeof ref === 'number' && madeFor.has(ref)) {
