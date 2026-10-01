@@ -16,6 +16,12 @@ For the first Note slice, verify IME composition during a mode-switch request wi
 
 Reference images supplied by the owner were inspected locally: small global tool groups above an empty/body page; a reading view with document/zoom/export/share controls; a sheet retaining its formula row; Slides retaining insertion, presentation/zoom and page thumbnails; and a selected title bounding box with nearby Heading 1, color, bold/italic/underline, link, list, alignment and overflow controls. Treat these as UI-pattern references only, without copying attached document content into fixtures or sending it to external services. They do not prove keyboard, IME, touch or state-preservation behavior.
 
+### Shared office-ui work within this rollout
+
+The owner also approved minimal office-ui primitive improvements where the first Note slice demonstrates a real deficiency. Reuse Toolbar/button groups, Menu/FloatingSurface, placement/anchor tracking, roving focus and ToolbarOverflow before introducing another component. Allowed shared changes concern nearby placement, edge collision/zoom/narrow-viewport behavior, compact selected/disabled controls, keyboard navigation and focus. Keep document selection meaning, command execution and product-specific tool lists in office-editor-ui and the products; no document model, AI or business workflow state enters office-ui.
+
+Source audit: FloatingSurface already flips/clamps via placeNear, remeasures on ResizeObserver/window resize, owns nested Escape handling and supports focused menus. Element-anchor tracking observes scroll/resize and visualViewport; Toolbar supports roving focus and existing overflow navigation. FloatingSurface placement itself uses innerWidth/innerHeight, while anchor clipping uses visualViewport. Treat the mobile/keyboard/zoom difference as a candidate to reproduce in Note, not a verified bug or permission to replace positioning. Any proven primitive fix must pass affected office-ui placement/focus/control tests, existing gallery states and consumer-app regressions on the same candidate, plus required preflight. Keep this in the same Note-first implementation plan; do not create a separate UI system or duplicate implementer.
+
 ### Inspected baseline and first bounded Note validation
 
 Source inspection on accepted local develop a64e62bdc8800b352722de7f1cb7efdf06df6ed4; these are source findings, not new browser results:
