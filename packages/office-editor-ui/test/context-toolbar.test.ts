@@ -273,3 +273,34 @@ it('hides a clipped range, restores it on layout change and retains Escape dismi
   await mutate('overflow-y:hidden'); await mutate('');
   expect(toolbar('clipped')).toBeNull();
 });
+
+
+it.each(['pointer', 'keyboard'])('reopens an escaped range after an explicit owned %s selection gesture', async gesture => {
+  const body = bodies[0];
+  await act(async () => root.render(createElement(ContextToolbar, {
+    editor: body.session.editor, controls, label: 'explicit-selection', scope: { current: body.scope }
+  })));
+  await select(body);
+  await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+  expect(toolbar('explicit-selection')).toBeNull();
+  const gestureEvent = () => gesture === 'pointer'
+    ? new MouseEvent('pointerdown', { button: 0, bubbles: true })
+    : new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true });
+  // An independent editor and an inner input must not reopen this toolbar.
+  await act(async () => bodies[1].text.parentElement!.dispatchEvent(gestureEvent()));
+  expect(toolbar('explicit-selection')).toBeNull();
+  body.text.parentElement!.setAttribute('data-editor-input-owner', 'math');
+  await act(async () => body.text.parentElement!.dispatchEvent(gestureEvent()));
+  expect(toolbar('explicit-selection')).toBeNull();
+  body.text.parentElement!.removeAttribute('data-editor-input-owner');
+  await select(body);
+  expect(toolbar('explicit-selection')).toBeNull();
+  await act(async () => {
+    body.text.parentElement!.dispatchEvent(gestureEvent());
+    if (gesture === 'pointer') document.dispatchEvent(new Event('pointerup', { bubbles: true }));
+  });
+  await select(body);
+  expect(toolbar('explicit-selection')).not.toBeNull();
+  await act(async () => body.session.editor.executeCommand('toggleBold'));
+  expect(body.session.editor.dataStore.getNode(body.sid)?.marks).toEqual(expect.arrayContaining([expect.objectContaining({ stype: 'bold' })]));
+});
