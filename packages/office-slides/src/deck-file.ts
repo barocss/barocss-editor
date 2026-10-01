@@ -1,38 +1,6 @@
-/**
- * A deck as a file: what is written, what is refused, and what is left out.
- *
- * ## Why this is the last thing Deck 4 needed
- *
- * Everything the timeline can express — a slide's steps, their order, the presses,
- * a film in the sequence, a title that arrives a letter at a time — lasted until
- * the page was reloaded. A deck that cannot leave the screen is a demo of a deck.
- *
- * ## Sids are left out, and that is the design being paid off
- *
- * A sid is `session:counter`, handed out at load in document order, so it means
- * nothing in another session and *collides* in the same one. So they are stripped
- * on the way out and the loader hands out its own.
- *
- * Which is only safe because nothing in a deck refers to a node by sid. A build
- * names its shape by a **name** the shape carries (`shape-3`), a slide names its
- * layout by `layoutId`, a layout its master by `masterId`, a slide its track by
- * `trackId` — every one of them an identifier the document owns rather than one
- * the session lends it. That was decided when the first build was written, for
- * exactly this reason, and this file is the first thing to depend on it.
- *
- * If a future node *does* point at a sid, this is where it breaks: the reference
- * survives and the target does not.
- *
- * ## An envelope, not a bare tree
- *
- * A file says what it is. `{ format, version, document }` costs three lines and
- * buys the two things a bare tree cannot do: a reader can refuse somebody else's
- * JSON with a sentence rather than a stack trace, and a version can be migrated
- * when the model moves. A `.json` full of `stype` and no name is a file nobody
- * can identify a year later.
- */
-
-import { documentFileFormat, forFile as stripSession } from '@barocss/shared';
+/** Slides v2 stores connector bindings by document-owned object identity. */
+import { documentFileFormat } from '@barocss/shared';
+import { normalizeSlidesNativeDocument, assertSlidesNativeReferences } from './native-identity';
 import { childrenOf, deckSlides, type DeckAccess } from './deck';
 
 
@@ -46,7 +14,7 @@ export const DECK_FORMAT = 'barocss-slides';
  * one — not when the schema grows an attribute, which is the whole point of
  * attributes being optional and read with defaults.
  */
-export const DECK_FILE_VERSION = 1;
+export const DECK_FILE_VERSION = 2;
 
 export interface DeckFile {
   format: typeof DECK_FORMAT;
@@ -68,7 +36,7 @@ export interface DeckFile {
  * 걷어내는 일은 이 엔진이 담는 모든 문서에 대해 참이고, Word 와 사이트가 저장을 갖게 되는 날
  * 세 번째로 다시 쓰였을 것이다. 이름은 여기 남겨 부르던 곳이 안 바뀌게 한다.
  */
-export const forFile = stripSession;
+export const forFile = normalizeSlidesNativeDocument;
 
 /**
  * **덱이 자기에 대해 말하는 넷** — 그리고 나머지는 전부 공용 층의 것이다.
@@ -86,14 +54,31 @@ const FORMAT = documentFileFormat({
 
 /** The envelope for a deck, ready to be written. */
 export const deckFile = (document: unknown, savedAt?: string): DeckFile =>
-  FORMAT.file(document, savedAt) as DeckFile;
+  FORMAT.file(normalizeSlidesNativeDocument(document), savedAt) as DeckFile;
 
 /** The text of the file. */
 export const deckFileText = (document: unknown, savedAt?: string): string =>
-  FORMAT.text(document, savedAt);
+  FORMAT.text(normalizeSlidesNativeDocument(document), savedAt);
 
 /** Reading a deck file, and saying which of the four things is wrong with it. */
-export const readDeckFile = (text: string): DeckFileRead => FORMAT.read(text) as DeckFileRead;
+export const readDeckFile = (text: string): DeckFileRead => {
+  const read = FORMAT.read(text) as DeckFileRead;
+  if ('error' in read) return read;
+  if (typeof JSON.parse(text).version !== 'number') return { error: '지원하지 않는 Slides 파일 버전입니다.' };
+  if (read.version !== 0 && read.version !== 1 && read.version !== DECK_FILE_VERSION) return { error: '지원하지 않는 Slides 파일 버전입니다.' };
+  try {
+    assertSlidesNativeReferences(read.document);
+    if (read.version < 2) {
+      const hasNewIdentity = (value: unknown): boolean => {
+        const node = value as { attributes?: Record<string, unknown>; content?: unknown[] };
+        return !!node.attributes && ['objectId', 'startObjectId', 'endObjectId'].some(key => Object.hasOwn(node.attributes!, key))
+          || !!node.content?.some(hasNewIdentity);
+      };
+      if (hasNewIdentity(read.document)) throw new Error('Slides v2 identities require file version 2.');
+    }
+    return read;
+  } catch (error) { return { error: error instanceof Error ? error.message : '잘못된 Slides 연결 대상입니다.' }; }
+};
 
 
 

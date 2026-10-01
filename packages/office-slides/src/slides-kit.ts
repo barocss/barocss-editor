@@ -16,6 +16,7 @@ import {
   createTableExtension
 } from '@barocss/extensions';
 import { Editor, type Extension, type ProductEditorOptions } from '@barocss/editor-core';
+import { installSlidesObjectIdentity, prepareSlidesNativeLoad, normalizeSlidesNativeDocument } from './native-identity';
 import { createSchema } from '@barocss/schema';
 import { getSlidesSchemaDefinition } from './slides-schema';
 import { createSlideCommands } from './slide-commands';
@@ -198,6 +199,30 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
     schema: rest.schema ?? createSchema('slides', getSlidesSchemaDefinition()),
     extensions: [...(kit ?? createSlidesExtensions()), ...extensions]
   } as ProductEditorOptions);
+
+  installSlidesObjectIdentity(editor);
+  const load = editor.loadDocument.bind(editor);
+  editor.loadDocument = (document, sessionId) => {
+    // Validate all durable references before changing session state or the current model.
+    const native = normalizeSlidesNativeDocument(document);
+    if (sessionId) editor.dataStore.setSessionId(sessionId);
+    const prepared = prepareSlidesNativeLoad(native, () => editor.dataStore.generateId());
+    const originals = new Map<string, Record<string, unknown>>();
+    const collect = (node: Record<string, unknown>) => {
+      originals.set(node.sid as string, node);
+      (node.content as Record<string, unknown>[] | undefined)?.forEach(collect);
+    };
+    collect(prepared as Record<string, unknown>);
+    const setNode = editor.dataStore.setNode.bind(editor.dataStore);
+    editor.dataStore.setNode = (node, validate) => {
+      const original = originals.get(node.sid!);
+      if (original && Object.hasOwn(original, 'metadata')) node.metadata = original.metadata as typeof node.metadata;
+      else if (original) delete node.metadata;
+      setNode(node, validate);
+    };
+    try { load(prepared, sessionId); }
+    finally { editor.dataStore.setNode = setNode; }
+  };
 
   const registry = (editor as any).keybindings;
   for (const binding of keybindings ?? []) registry?.register?.(binding);
