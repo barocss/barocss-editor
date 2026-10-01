@@ -14,7 +14,7 @@ type View =
   | { phase: 'empty' }
   | { phase: 'opened'; intent: EntryIntent; tenant: TenantAccess; role: TenantRole; workspaces?: WorkspaceAccess[]; workspaceCursor?: string | null }
   | { phase: 'library'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; documents: DocumentAccess[]; cursor: string | null }
-  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; context: VerifiedNoteContext }
+  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; context: VerifiedNoteContext; principal: Pick<Identity, 'issuer' | 'subject'> }
   | { phase: 'operator-opened' }
   | { phase: 'operator-denied' }
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
@@ -40,8 +40,8 @@ function asAuthError(error: unknown) {
   return error instanceof AuthError ? error : new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 시도해 주세요.');
 }
 
-export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNoteContext, onUnsafeChange: (unsafe: boolean) => void,
-  onDocumentNavigate: (documentId: string) => void) => ReactNode } = {}) {
+export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
+  onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode } = {}) {
   const [view, setView] = useState<View>({ phase: 'checking' });
   const selected = useRef<TenantAccess | null>(null);
   const chosenIntent = useRef<EntryIntent | null>(null);
@@ -58,6 +58,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
   const rememberedDocumentId = useRef<string | null>(null);
   const verifiedIdentity = useRef<Identity | null>(null);
   const [mountedNote, setMountedNote] = useState<Extract<View, { phase: 'note' }> | null>(null);
+  const [leaveBlocked, setLeaveBlocked] = useState(false);
   const forgetNote = () => {
     rememberedNote.current = null;
     noteAccount.current = null;
@@ -66,7 +67,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
     noteUnsafe.current = false;
     setMountedNote(null);
   };
-  const rememberNote = (next: Extract<View, { phase: 'note' }>, identity: Identity) => {
+  const rememberNote = (next: Omit<Extract<View, { phase: 'note' }>, 'principal'>, identity: Identity) => {
     const account = `${identity.issuer}\0${identity.subject}`;
     const guardedContext = { ...next.context, authorizedFetch: ((...args: Parameters<typeof fetch>) => {
       if (!noteAccess.current || noteAccount.current !== account) {
@@ -74,7 +75,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
       }
       return next.context.authorizedFetch(...args);
     }) as typeof fetch };
-    const retained = { ...next, context: guardedContext };
+    const retained = { ...next, principal: { issuer: identity.issuer, subject: identity.subject }, context: guardedContext };
     noteAccount.current = account;
     noteAccess.current = true;
     rememberedDocumentId.current = next.context.documentId ?? null;
@@ -82,7 +83,11 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
     setMountedNote(retained);
     setView(retained);
   };
-  const canLeaveNote = () => !noteUnsafe.current || window.confirm('저장되지 않은 노트가 있습니다. 이 화면을 떠나면 입력 내용이 사라집니다. 계속할까요?');
+  const canLeaveNote = () => {
+    if (noteUnsafe.current) { setLeaveBlocked(true); return false; }
+    setLeaveBlocked(false);
+    return true;
+  };
 
   useLayoutEffect(() => {
     if (view.phase !== 'checking') hideCurtain();
@@ -271,6 +276,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
   async function logout() {
     if (rememberedNote.current && !canLeaveNote()) return;
     noteUnsafe.current = false;
+    setLeaveBlocked(false);
     forgetNote();
     verifiedIdentity.current = null;
     ++generation.current;
@@ -339,6 +345,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
 
   return <main className="office-auth">
     <header className="office-auth-brand"><span>wonffice</span><small>서비스 로그인 후보 · 서버 권한 확인</small></header>
+    {mountedNote && leaveBlocked && <p role="alert">현재 입력을 복구 가능한 저장소에 보관하지 못했습니다. 저장 상태를 확인한 뒤 다시 시도하세요. 이 화면은 그대로 유지합니다.</p>}
     {view.phase === 'checking' && <section><h1 tabIndex={-1} ref={heading}>접근 권한 확인 중</h1><p>현재 계정과 회사 권한을 서버에서 확인하고 있습니다.</p></section>}
     {view.phase === 'entry' && <section><h1 tabIndex={-1} ref={heading}>Wonffice에 들어가기</h1><p>로그인 뒤 현재 계정의 권한을 확인합니다.</p>{view.message && <p role="status">{view.message}</p>}
       <div className="office-auth-actions"><button onClick={() => void login('user')}>일반 사용자로 들어가기</button><button onClick={() => void login('admin')}>회사 관리자로 들어가기</button><button onClick={() => void login('operator')}>Wonffice 전체 서비스 운영자로 들어가기</button></div>
@@ -377,7 +384,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
     </section>}
     {mountedNote && <section className="office-auth-note-host" hidden={view.phase !== 'note'} aria-hidden={view.phase !== 'note'} inert={view.phase !== 'note'}>
       {view.phase === 'note' && <div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>}
-      {noteRenderer ? noteRenderer(mountedNote.context, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
+      {noteRenderer ? noteRenderer(mountedNote.context, mountedNote.principal, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
         rememberedDocumentId.current = documentId;
         noteIntent.current = { tenantId: mountedNote.context.tenantId, workspaceId: mountedNote.context.workspaceId, documentId };
       }) : <p role="status">Note 편집 화면 연결을 기다리고 있습니다.</p>}

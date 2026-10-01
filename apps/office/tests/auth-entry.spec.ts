@@ -319,6 +319,173 @@ test('a direct Note URL enters the auth gate and verifies the protected document
   await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
 });
 
+test('a saved local recovery draft remains available after leaving and reopening the server Note', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' tab-one-recovery');
+  await expect(paragraph).toContainText('tab-one-recovery');
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
+    .filter(key => key.startsWith('wonffice.note.pending.v1:')).length)).toBe(1);
+
+  await page.getByRole('button', { name: '자료함으로 돌아가기' }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Company · 사용자' })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const recovery = page.getByRole('button', { name: /초안 복구 Alpha Note/ });
+  await expect(recovery).toHaveCount(1);
+  await recovery.click();
+  await expect(page.locator('[data-server-note-workspace] .on-doc > p').first()).toContainText('tab-one-recovery');
+});
+
+test('two tabs keep separate recovery records and require a deliberate draft choice', async ({ page, context }) => {
+  await mockLogin(page, { documentCount: 1 });
+  const second = await context.newPage();
+  await mockLogin(second, { documentCount: 1 });
+  const open = async (target: Page) => {
+    await target.goto('/');
+    await target.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+    await target.getByRole('button', { name: /Alpha Company/ }).click();
+    await target.getByRole('button', { name: 'Alpha Workspace' }).click();
+    await target.getByRole('button', { name: 'Alpha Note' }).click();
+  };
+  const edit = async (target: Page, text: string) => {
+    const paragraph = target.locator('[data-server-note-workspace] .on-doc > p').first();
+    await paragraph.click();
+    await target.keyboard.press('End');
+    await target.keyboard.insertText(text);
+    await expect(paragraph).toContainText(text);
+  };
+  await open(page);
+  await open(second);
+  await edit(page, ' first-tab');
+  await edit(second, ' second-tab');
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
+    .filter(key => key.startsWith('wonffice.note.pending.v1:')).length)).toBe(2);
+  const records = await page.evaluate(() => Object.keys(localStorage)
+    .filter(key => key.startsWith('wonffice.note.pending.v1:'))
+    .map(key => JSON.parse(localStorage.getItem(key)!) as { draftId: string; snapshotText: string }));
+  expect(new Set(records.map(record => record.draftId)).size).toBe(2);
+
+  await page.reload();
+  const choices = page.getByRole('button', { name: /초안 복구 Alpha Note/ });
+  await expect(choices).toHaveCount(2);
+  const selected = records[0]!;
+  await page.getByRole('button', { name: new RegExp(`초안 복구 Alpha Note ${selected.draftId.slice(0, 8)}`) }).click();
+  const selectedText = JSON.parse(selected.snapshotText).document.content[0].content[0].text as string;
+  await expect(page.locator('[data-server-note-workspace] .on-doc > p').first()).toContainText(selectedText);
+  await second.close();
+});
+
+test('recovery checks current document access before exposing a saved local draft', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' protected-recovery-body');
+  await page.reload();
+  await expect(page.getByRole('button', { name: /초안 복구 Alpha Note/ })).toHaveCount(1);
+  await page.unroute(`**/api/v1/tenants/${id}/documents/${documentId}`);
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => route.fulfill({
+    status: 403, contentType: 'application/json', body: '{"status":"forbidden"}'
+  }));
+  await page.getByRole('button', { name: /초안 복구 Alpha Note/ }).click();
+  await expect(page.getByText('현재 계정의 초안 접근 권한을 확인하지 못했습니다. 복구 레코드는 그대로 보존합니다.')).toBeVisible();
+  await expect(page.locator('[data-server-note-workspace] [data-note-editor]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /초안 복구/ })).toHaveCount(0);
+  const retained = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+    .map(key => localStorage.getItem(key)));
+  expect(retained).toHaveLength(1);
+  expect(retained[0]).toContain('protected-recovery-body');
+});
+
+test('a storage quota failure blocks navigation and names the current unprotected input', async ({ page }) => {
+  await page.addInitScript(() => {
+    const write = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith('wonffice.note.pending.v1:') && (window as typeof window & { __noteQuota?: boolean }).__noteQuota) throw new DOMException('quota', 'QuotaExceededError');
+      return write.call(this, key, value);
+    };
+  });
+  await mockLogin(page, { documentCount: 1 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' older-durable-input');
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:')).length)).toBe(1);
+  await page.evaluate(() => { (window as typeof window & { __noteQuota?: boolean }).__noteQuota = true; });
+  await page.keyboard.insertText(' current-input-is-unprotected');
+  await expect(page.getByText(/입력은 이 화면에만 있으므로 화면을 나갈 수 없습니다/)).toBeVisible();
+  await page.getByRole('button', { name: '자료함으로 돌아가기' }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Note' })).toBeVisible();
+  await expect(paragraph).toContainText('current-input-is-unprotected');
+  await expect(page.getByRole('alert').filter({ hasText: '복구 가능한 저장소에 보관하지 못했습니다' })).toBeVisible();
+});
+
+test('a lost save response survives repeated reloads and retries the exact original request', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  const requests: Array<{ expectedRevision: number; snapshotText: string; idempotencyKey: string }> = [];
+  await page.route(`**/api/v1/tenants/${id}/receipts/update/*`, route => route.fulfill({
+    status: 404, contentType: 'application/json', body: '{"status":"receipt_not_found"}'
+  }));
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}/snapshot`, async route => {
+    const body = route.request().postDataJSON() as typeof requests[number];
+    requests.push(body);
+    if (requests.length === 1) return route.abort('failed');
+    const head = { ...documentHead, revision: 2, snapshotHash: createHash('sha256').update(body.snapshotText).digest('hex') };
+    await page.unroute(`**/api/v1/tenants/${id}/documents/${documentId}`);
+    await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, read => read.fulfill({
+      contentType: 'application/json', body: JSON.stringify({ document: head, snapshotText: body.snapshotText })
+    }));
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+      operation: 'update', idempotencyKey: body.idempotencyKey,
+      requestHash: createHash('sha256').update(JSON.stringify(['update', documentId, body.expectedRevision, body.snapshotText])).digest('hex'),
+      document: head, snapshotText: body.snapshotText
+    }) });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await paragraph.click();
+  await page.keyboard.press('End');
+  await page.keyboard.insertText(' receipt-recovery');
+  await page.locator('[data-server-note-workspace]').getByRole('button', { name: '저장', exact: true }).click();
+  await expect(page.getByRole('button', { name: '저장 확인·재시도' })).toBeEnabled();
+  for (let reload = 0; reload < 2; reload++) {
+    await page.reload();
+    await expect(page.getByRole('button', { name: /초안 복구 Alpha Note/ })).toHaveCount(1);
+    await page.getByRole('button', { name: /초안 복구 Alpha Note/ }).click();
+    await expect(paragraph).toContainText('receipt-recovery');
+  }
+  await page.getByRole('button', { name: '저장 확인·재시도' }).click();
+  await expect(page.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  expect(requests).toHaveLength(2);
+  expect(requests[1]).toEqual(requests[0]);
+  const records = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+    .map(key => JSON.parse(localStorage.getItem(key)!) as { status: string }));
+  expect(records).toHaveLength(1);
+  expect(records[0]?.status).toBe('confirmed');
+});
+
 test('a mismatched protected Note head never mounts a body', async ({ page }) => {
   await mockLogin(page, { documentCount: 1, openWorkspace: '00000000-0000-4000-8000-000000000009' });
   await page.goto('/');
@@ -412,12 +579,12 @@ test('revoked Note access hides an actual unsaved edit and restores it only for 
   await expect(page.getByText('private draft')).toBeHidden();
   await expect(page.locator('[data-server-note-workspace]').getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
   expect(writes).toBe(0);
-  page.once('dialog', dialog => void dialog.dismiss());
   await page.getByRole('button', { name: '진입 선택' }).click();
-  await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Wonffice에 들어가기' })).toBeVisible();
   await page.unroute(`**/api/v1/tenants/${id}/access`);
   await page.route(`**/api/v1/tenants/${id}/access`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tenantId: id, role: 'editor' }) }));
-  await page.getByRole('button', { name: '초안 권한 다시 확인' }).click();
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await page.getByRole('button', { name: /초안 복구 Alpha Note/ }).click();
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
   await expect(paragraph).toContainText('private draft');
   expect(writes).toBe(0);

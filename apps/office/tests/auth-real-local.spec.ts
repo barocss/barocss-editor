@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { expect, test, type BrowserContext } from '@playwright/test';
 
-type AccountFile = { issuer: string; users: Record<string, { password: string }> };
+type AccountFile = { issuer: string; users: Record<string, { password: string; username?: string }> };
 const officeOrigin = process.env.OFFICE_AUTH_ORIGIN ?? 'http://127.0.0.1:5191';
 
 test.skip(!process.env.OFFICE_AUTH_REAL_FILE, 'Set OFFICE_AUTH_REAL_FILE to a protected local synthetic-account file.');
@@ -18,7 +18,7 @@ async function signIn(page: Awaited<ReturnType<BrowserContext['newPage']>>, name
   password: string, destination: string) {
   await page.goto(officeOrigin);
   await page.getByRole('button', { name: destination }).click();
-  await page.locator('#username').fill(name);
+  await page.locator('#username').fill(syntheticAccounts().users[name].username ?? name);
   await page.locator('#password').fill(password);
   await page.locator('#kc-login').click();
 }
@@ -125,7 +125,7 @@ test('account switch can select the other Keycloak user without restoring prior 
     await expect(page.getByRole('heading', { name: 'Wonffice에 들어가기' })).toBeVisible();
     await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
     await expect(page.locator('#username')).toBeVisible();
-    await page.locator('#username').fill('beta-viewer');
+    await page.locator('#username').fill(fixture.users['beta-viewer'].username ?? 'beta-viewer');
     await page.locator('#password').fill(fixture.users['beta-viewer'].password);
     await page.locator('#kc-login').click();
     await expect(page.getByRole('heading', { name: '회사를 선택하세요' })).toBeVisible();
@@ -168,15 +168,20 @@ test('two real accounts open one PostgreSQL Note while viewer cannot write', asy
     await reopened.locator('[data-server-note-workspace] [data-note-editor] .on-doc p').first().click();
     await reopened.keyboard.type(' unsaved');
     await expect(reopened.locator('[data-save-status]')).toContainText('저장되지 않음');
-    reopened.once('dialog', dialog => void dialog.dismiss());
-    await reopened.getByRole('button', { name: '자료함으로 돌아가기' }).click();
-    await expect(reopened.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('unsaved');
-    reopened.once('dialog', dialog => void dialog.dismiss());
-    await reopened.getByRole('button', { name: '로그아웃' }).click();
-    await expect(reopened.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('unsaved');
-    reopened.once('dialog', dialog => void dialog.accept());
     await reopened.getByRole('button', { name: '자료함으로 돌아가기' }).click();
     await expect(reopened.getByRole('heading', { name: 'Synthetic Alpha · 사용자' })).toBeVisible();
+    await reopened.getByRole('button', { name: 'Alpha workspace' }).click();
+    await reopened.getByRole('button', { name: '새 노트', exact: true }).click();
+    await reopened.getByRole('button', { name: /초안 복구/ }).click();
+    await expect(reopened.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('unsaved');
+    await reopened.getByRole('button', { name: '로그아웃' }).click();
+    await expect(reopened.getByRole('heading', { name: 'Wonffice에 들어가기' })).toBeVisible();
+    await signIn(reopened, 'alpha-editor', fixture.users['alpha-editor'].password, '일반 사용자로 들어가기');
+    await reopened.getByRole('button', { name: /Synthetic Alpha/ }).click();
+    await reopened.getByRole('button', { name: 'Alpha workspace' }).click();
+    await reopened.getByRole('button', { name: '새 노트', exact: true }).click();
+    await reopened.getByRole('button', { name: /초안 복구/ }).click();
+    await expect(reopened.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('unsaved');
 
     const viewer = await viewerContext.newPage();
     await signIn(viewer, 'beta-viewer', fixture.users['beta-viewer'].password, '일반 사용자로 들어가기');
