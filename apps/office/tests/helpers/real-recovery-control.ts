@@ -19,12 +19,12 @@ export interface RealStatus {
   betaWorkspaceId: string;
 }
 
-export interface Inspection<Product extends 'note' | 'word' = 'note'> extends RealStatus {
+export interface Inspection<Product extends 'note' | 'word' | 'slides' = 'note'> extends RealStatus {
   documentCount: number;
   receiptCount: number;
   document: {
     documentId: string;
-    pageId: Product extends 'word' ? null : string;
+    pageId: Product extends 'note' ? string : null;
     title: string;
     product: string;
     tenantId: string;
@@ -42,7 +42,7 @@ export interface Inspection<Product extends 'note' | 'word' = 'note'> extends Re
     idempotencyKey: string;
     requestHash: string;
     documentId: string;
-    document: { revision: number; pageId: Product extends 'word' ? null : string; snapshotHash: string; [key: string]: unknown };
+    document: { revision: number; pageId: Product extends 'note' ? string : null; snapshotHash: string; [key: string]: unknown };
     snapshotText: string | null;
   } | null;
 }

@@ -25,7 +25,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type WorkspaceAccess = { id: string; name: string };
 export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; mode: string; revision: number; fileFormat: string; fileVersion: number };
 export type VerifiedNoteContext = { tenantId: string; workspaceId: string; role: TenantRole; authorizedFetch: typeof fetch; documentId?: string; document?: DocumentAccess; snapshotText?: string };
-export type SnapshotProduct = 'note' | 'word';
+export type SnapshotProduct = 'note' | 'word' | 'slides';
 export type VerifiedSnapshotContext = VerifiedNoteContext & { product: SnapshotProduct };
 export type NoteIntent = { tenantId: string; workspaceId: string; documentId: string };
 export type SnapshotIntent = NoteIntent & { product: SnapshotProduct };
@@ -35,7 +35,7 @@ export function snapshotIntentFromSearch(search: string): SnapshotIntent | null 
   const product = params.get('product');
   if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'document', 'product'].includes(key)) ||
     ['tenant', 'workspace', 'document', 'product'].some(key => params.getAll(key).length !== 1) ||
-    (product !== 'note' && product !== 'word')) return null;
+    (product !== 'note' && product !== 'word' && product !== 'slides')) return null;
   const tenantId = params.get('tenant')!, workspaceId = params.get('workspace')!, documentId = params.get('document')!;
   return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId, product } : null;
 }
@@ -237,7 +237,7 @@ export async function listWorkspaces(tenantId: string, after?: string) {
 
 export async function listSnapshotDocuments(tenantId: string, workspaceId: string, product: SnapshotProduct, after?: string) {
   if (![tenantId, workspaceId, ...(after ? [after] : [])].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 자료함 주소입니다.');
-  if (product !== 'note' && product !== 'word') throw new AuthError('configuration', '지원하지 않는 제품입니다.');
+  if (product !== 'note' && product !== 'word' && product !== 'slides') throw new AuthError('configuration', '지원하지 않는 제품입니다.');
   const query = new URLSearchParams({ workspaceId, product });
   if (after) query.set('after', after);
   return pageOf<DocumentAccess>(await apiGet(`/tenants/${tenantId}/documents?${query}`), 'documents',
@@ -251,8 +251,9 @@ export async function openVerifiedSnapshot(tenantId: string, workspaceId: string
   const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`) as Record<string, unknown>;
   const head = data?.document as Record<string, unknown> | undefined;
   if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
-    head.product !== product || (product !== 'note' && product !== 'word') ||
+    head.product !== product || (product !== 'note' && product !== 'word' && product !== 'slides') ||
     (product === 'word' && (head.fileFormat !== 'barocss-word' || head.fileVersion !== 1 || head.pageId !== null)) ||
+    (product === 'slides' && (head.fileFormat !== 'barocss-slides' || head.fileVersion !== 1 || head.pageId !== null)) ||
     typeof head.revision !== 'number' || typeof head.title !== 'string' || typeof head.fileFormat !== 'string' || typeof head.fileVersion !== 'number') {
     throw new AuthError('forbidden', '선택한 문서의 회사, 자료함 또는 제품이 일치하지 않습니다.');
   }

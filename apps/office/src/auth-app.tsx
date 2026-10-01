@@ -20,6 +20,8 @@ type View =
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
   | { phase: 'error'; error: AuthError };
 
+const productName = (product: SnapshotProduct) => ({ note: 'Note', word: 'Word', slides: 'Slides' })[product];
+
 const curtainId = 'office-auth-curtain';
 function curtain() {
   let element = document.getElementById(curtainId);
@@ -396,12 +398,12 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         {view.intent === 'admin' && <button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button>}
         <button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
-    {view.phase === 'library' && <section><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · {view.product === 'note' ? 'Note' : 'Word'} 자료</h1>
-      <div className="office-auth-actions">{(['note', 'word'] as const).map(product => <button key={product} aria-pressed={view.product === product} onClick={() => void enterWorkspace(view.tenant, view.role, view.workspace, product)}>{product === 'note' ? 'Note 자료' : 'Word 자료'}</button>)}</div>
-      {view.documents.length === 0 && <p>이 자료함에는 저장된 {view.product === 'note' ? 'Note' : 'Word'} 문서가 없습니다.</p>}
+    {view.phase === 'library' && <section><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · {productName(view.product)} 자료</h1>
+      <div className="office-auth-actions">{(['note', 'word', 'slides'] as const).map(product => <button key={product} aria-pressed={view.product === product} onClick={() => void enterWorkspace(view.tenant, view.role, view.workspace, product)}>{`${productName(product)} 자료`}</button>)}</div>
+      {view.documents.length === 0 && <p>이 자료함에는 저장된 {productName(view.product)} 문서가 없습니다.</p>}
       <ul className="office-auth-tenants">{view.documents.map(item => <li key={item.documentId}><button onClick={() => void enterNote(view, item.documentId)}>{item.title}</button></li>)}</ul>
       {view.cursor && <button onClick={() => void moreDocuments(view)}>문서 더 보기</button>}
-      {view.role !== 'viewer' && <button onClick={() => void createSnapshot(view)}>새 {view.product === 'note' ? 'Note' : 'Word'} 만들기</button>}
+      {view.role !== 'viewer' && <button onClick={() => void createSnapshot(view)}>새 {productName(view.product)} 만들기</button>}
       <div className="office-auth-actions"><button onClick={() => void checkAccess('user', view.tenant)}>자료함 목록</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
     {mountedNote && <section className="office-auth-note-host" hidden={view.phase !== 'note'} aria-hidden={view.phase !== 'note'} inert={view.phase !== 'note'}>
@@ -409,7 +411,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       {(editorRenderer ?? (mountedNote.context.product === 'note' ? noteRenderer : undefined)) ? (editorRenderer ?? noteRenderer)!(mountedNote.context, mountedNote.principal, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
         rememberedDocumentId.current = documentId;
         noteIntent.current = { tenantId: mountedNote.context.tenantId, workspaceId: mountedNote.context.workspaceId, documentId, product: mountedNote.context.product };
-      }) : <p role="status">{mountedNote.context.product === 'note' ? 'Note' : 'Word'} 편집 화면 연결을 기다리고 있습니다.</p>}
+      }) : <p role="status">{productName(mountedNote.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}
     </section>}
     {view.phase === 'operator-opened' && <section><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
       <p>서버에서 현재 서비스 운영 권한을 확인했습니다.</p>

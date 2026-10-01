@@ -132,6 +132,9 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
   const view = new EditorViewDOM(editor, { container, registry: getGlobalRegistry(),
     env: { [WORD_ENV_KEY]: createDeckEnv(doc as never) } });
   view.registerLayoutPass(createConnectorPass({ doc }) as never);
+  const syncEditable = () => { view.contentEditableElement.contentEditable = String(editor.isEditable); };
+  syncEditable();
+  editor.on('editor:editable.change', syncEditable);
   view.render();
   const cells = installCellSelection(editor, container, doc as never);
   const listeners = new AbortController();
@@ -160,6 +163,7 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
   return { editor, view, loadNativeDocument, exportNativeDocument, dispose: () => {
     if (disposed) return;
     disposed = true;
+    editor.off('editor:editable.change', syncEditable);
     listeners.abort(); cells.destroy(); sourceShape.clear(); view.destroy(); editor.destroy();
     if (options.debug && diagnostics.editor === editor) { delete diagnostics.editor; delete diagnostics.editorView; }
   } };

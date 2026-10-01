@@ -154,7 +154,7 @@ async function control(command) {
     }
     case 'inspect': {
       if (command.tenant !== undefined && !['alpha', 'beta'].includes(command.tenant)) throw new Error('invalid_local_tenant');
-      if (command.product !== undefined && !['note', 'word'].includes(command.product)) throw new Error('invalid_local_product');
+      if (command.product !== undefined && !['note', 'word', 'slides'].includes(command.product)) throw new Error('invalid_local_product');
       const inspectedProduct = command.product ?? 'note';
       const inspectedTenant = command.tenant === 'beta' ? beta : alpha;
       const inspectedWorkspace = command.tenant === 'beta' ? betaWorkspace : alphaWorkspace;
