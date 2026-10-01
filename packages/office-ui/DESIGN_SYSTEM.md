@@ -1,8 +1,51 @@
 # Wonffice 인터페이스 기준
 
-기준안 01 · 2026-09-14
+기준안 02 · 2026-10-01
 
 이 문서는 `office-ui`의 시각 규칙과 사용 기준을 정의한다. 현재 구현의 기준선이며, 모든 제품의 모든 화면을 검증했다는 뜻은 아니다.
+
+## Shared visual foundations — #410
+
+Baseline: local `develop` `d30a6be23ca62c62d0f5ee94dec58796166ea15e`.
+The existing 1280×720 sample let its long sticky navigation continue below the
+viewport while its helper text stayed in the page flow. The navigation now has
+its own bounded scrolling area. All 24 links and the separate helper remain
+available. Native anchors retain keyboard navigation and expose the current
+hash through `aria-current="location"`.
+
+The shared palette uses one cool neutral family. Light panel/ground are
+`#ffffff` / `#f4f5f7`; dark panel/ground are `#20252d` / `#161a21`.
+Primary/muted ink are `#20252d` / `#596272` in light and
+`#eef1f5` / `#b2bbc8` in dark. The functional accent is `#2459bd` in light
+and `#8bb2fa` in dark, with separate readable accent ink.
+Quiet divider lines remain separate from field boundaries (`#808b9a` light,
+`#758297` dark). Standard buttons use the field boundary; property-panel
+fields retain their existing quiet/hover/focus contract.
+
+Control radii are 6px comfortable and 4px dense; command surfaces use 6px.
+Existing heights, hit areas, icons, event handlers and component APIs stay in
+place. Comfortable/inspector property text rises from 12px to 13px, secondary
+text from 11px to 12px. Dense typography retains its existing compact scale.
+Popup padding is 6px. Sections and descriptive text have clearer hierarchy;
+actual specimen surfaces remain panel-colored against quiet navigation.
+
+This is UI styling and sample navigation. It changes no document model,
+authentication, persistence, permissions or collaboration contract. Readonly,
+invalid, selected/mixed and disabled semantics remain on the real components.
+No external assets, fonts, framework or icon replacement were added.
+
+Measured Chromium paint contrast (light / dark): primary text 15.40 / 13.59,
+helper text 5.64 / 9.00, selected navigation 5.57 / 5.95, accent button text
+6.48 / 7.31, invalid explanation 6.57 / 7.93, field boundary 3.46 / 3.96,
+and keyboard focus 6.48 / 7.22. Measurements use actual computed colors,
+including color-mix and ancestor backgrounds. They cover the sampled controls,
+not every product surface. Reduced-motion popup/button checks retain dismissal.
+
+Verification commands, measured contrast, screenshot paths and exact candidate
+and integration commits are recorded in the #410 Execute evidence. Required
+preflight and affected desktop checks must pass before local integration.
+Composition-event tests cover handler boundaries; they do not certify native
+OS IME input. Sample actions are local demonstrations, never save results.
 
 ## 확인할 화면
 
