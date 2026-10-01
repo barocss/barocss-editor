@@ -34,14 +34,14 @@ export async function selectSentence(page: Page) {
   await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe(sentence);
   await expect(page.locator('[data-note-formatting]')).toBeVisible();
 }
-export async function persistedDocument(page: Page) {
+export async function persistedDocument(page: Page, title = documentTitle) {
   return page.evaluate(title => new Promise<unknown>((resolve, reject) => {
     const request = indexedDB.open('barocss-note', 1);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { const db = request.result, tx = db.transaction('documents'), rows = tx.objectStore('documents').getAll();
-      tx.oncomplete = () => { db.close(); const row = rows.result.find((row: { title: string }) => row.title === title); resolve(row ? JSON.parse(row.text).document : null); };
+      tx.oncomplete = () => { db.close(); const row = rows.result.find((row: { title: string }) => row.title === title); if (!row) { reject(new Error(`Saved native document not found: ${title}`)); return; } resolve(JSON.parse(row.text).document); };
       tx.onabort = () => reject(tx.error); };
-  }), documentTitle);
+  }), title);
 }
 export async function viewState(page: Page) {
   return page.evaluate(() => {
