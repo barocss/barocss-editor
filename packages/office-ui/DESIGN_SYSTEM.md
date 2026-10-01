@@ -1,8 +1,33 @@
 # Wonffice 인터페이스 기준
 
-기준안 02 · 2026-10-01
+기준안 03 · 2026-10-01
 
 이 문서는 `office-ui`의 시각 규칙과 사용 기준을 정의한다. 현재 구현의 기준선이며, 모든 제품의 모든 화면을 검증했다는 뜻은 아니다.
+
+## Representative modern controls — #415
+
+The first implemented checkpoint changes actual shared controls, not mockups.
+Comfortable form controls use 34px height, 7px corners and semibold action labels.
+Dense controls retain 24px height/4px corners; command surfaces, small icon buttons
+and dialog actions retain their existing dimensions. Secondary actions use a
+quiet tonal surface, a soft divider and shallow elevation. Primary actions retain
+the established accessible accent/ink palette. Selected and mixed controls have
+an accent boundary; mixed hatching remains distinct. Hover, press, keyboard focus
+and disabled states preserve their existing semantics without moving targets.
+
+Text and number fields retain a visible field boundary and gain an inset surface.
+Readonly and invalid states remain explicit. Menus use 34px rows, 6px internal
+spacing and a separate raised surface. Inspector headers have a distinct neutral
+background and stronger typography. The actual specimen panels sit above the
+work surface, with 23px section headings and 14px group labels.
+
+No API, input commit/cancel/composition behavior, popup lifecycle, document model,
+package boundary, font dependency or icon set changes. Reduced motion remains
+supported. Desktop touch, pointer and keyboard checks cover representative actions
+and selection; this is not a mobile layout review or full accessibility audit.
+Before broader component expansion, provide paired settled light/dark screenshots
+from the same real sections, candidate SHA and Library references to the owner.
+#410 below records the historical baseline, not current #415 completion evidence.
 
 ## Shared visual foundations — #410
 
@@ -261,7 +286,7 @@ const invalid = !name.trim();
 - `PropertyToggle`: 표시 상자는 16px, 입력 대상은 24px이다. 체크 표시는 `office-icons`를 사용한다. 선택·hover·키보드 포커스·비활성을 구분한다. `--ou-accent-ink`로 테마별 체크 대비를 유지한다.
 - 속성 입력칸은 `office-field`를 통해서만 배경과 테두리를 받는다. 패널의 모든 `input`에 배경을 지정하지 않는다. 이 규칙은 체크박스 선택 배경이 덮이는 문제를 방지한다.
 - 속성 입력칸은 옅은 배경을 사용한다. hover에는 구분선, focus에는 강조선을 표시한다. 오류선은 focus에서도 유지한다. Enter 적용과 Escape 취소는 유지한다.
-- `ChoiceSelect`와 `Menu`의 항목 높이는 최소 30px이다. 체크 표시의 16px 공간은 선택 여부와 무관하게 유지한다. 선택 메뉴의 현재 값은 체크와 강조 배경으로 표시한다.
+- `ChoiceSelect`와 `Menu`의 항목 높이는 최소 34px이다. 체크 표시의 16px 공간은 선택 여부와 무관하게 유지한다. 선택 메뉴의 현재 값은 체크와 강조 배경으로 표시한다.
 - 제품은 공통 컴포넌트를 가져오면 이 규칙을 받는다. 제품별로 체크박스나 메뉴 스타일을 복제하지 않는다.
 
 검증: 갤러리 5개와 실제 네 제품 비교 1개 브라우저 검사. 실제 Slides 객체의 표시·잠금 체크와 속성 패널도 확인한다. 작은 화면에서 선택 도구가 많을 때의 스크롤·메뉴 접근, 복잡한 색상 편집은 후속 검토 범위이다.
