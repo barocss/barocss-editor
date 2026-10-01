@@ -1,7 +1,7 @@
 import { ColumnsEditor, LatexEditor } from '@barocss/office-editor-ui';
 import { MultiBlockControl } from './multi-block-control';
 import { installNoteInputRules } from './input-rules-view';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import { reorderIndexAt } from '@barocss/office-canvas';
 import type { Editor } from '@barocss/editor-core';
@@ -56,6 +56,7 @@ export function NoteEditor({
   className,
   onFile,
   toolbar = 'contextual',
+  writeAllowed,
   registerBeforeSnapshot,
   navigationRequest,
   pageReferences
@@ -71,6 +72,8 @@ export function NoteEditor({
   className?: string;
   /** Contextual by default; always is available for embedded toolbars and the input lab. */
   toolbar?: 'contextual' | 'always';
+  /** Current host authority; permitted writers edit without a mode choice. */
+  writeAllowed?: boolean;
   pageReferences?: NotePageReferences;
   /** Register child-body delivery before a host exports or saves its document. Flush deepest first. */
   registerBeforeSnapshot?: (flush: () => Promise<boolean>) => () => void;
@@ -90,11 +93,38 @@ export function NoteEditor({
    * to *what is selected*, and the day they differ is the day a reader sets a file on a picture they
    * are not looking at.
    */
+  const deliveries = useRef(new Set<() => Promise<boolean>>());
+  const mutable = writeAllowed ?? editor.isEditable;
+  const composing = useRef(new Set<EventTarget>());
+  const owner = useMemo(() => ({ editor, rootId, documentRootId: editor.dataStore.getRootNodeId(), sessionId: editor.dataStore.getSessionId() }), [editor, rootId, editor.dataStore.getSessionId()]);
+  const lifetime = useRef(owner);
+  lifetime.current = owner;
+  useLayoutEffect(() => {
+    if (writeAllowed !== undefined) editor.setEditable(writeAllowed);
+  }, [editor, writeAllowed]);
+  useEffect(() => {
+    lifetime.current = owner;
+    composing.current.clear();
+    return () => { lifetime.current = { ...owner, rootId: '' }; };
+  }, [owner]);
+  const flushDocument = useCallback(async () => {
+    const capturedOwner = lifetime.current;
+    const capturedRoot = editor.dataStore.getNode(rootId);
+    const current = () => lifetime.current === capturedOwner && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && editor.dataStore.getNode(rootId) === capturedRoot;
+    if (composing.current.size) return false;
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    for (const flush of [...deliveries.current].reverse()) {
+      try { if (!current() || composing.current.size || !await flush()) return false; }
+      catch { return false; }
+    }
+    return current() && !composing.current.size;
+  }, [owner]);
+  useEffect(() => registerBeforeSnapshot?.(flushDocument), [registerBeforeSnapshot, flushDocument]);
   const registerBodyDelivery = useCallback((flush: () => Promise<boolean>) => {
+    deliveries.current.add(flush);
     const navigation = pageReferences?.registerBeforeNavigate?.(flush);
-    const snapshot = registerBeforeSnapshot?.(flush);
-    return () => { navigation?.(); snapshot?.(); };
-  }, [pageReferences?.registerBeforeNavigate, registerBeforeSnapshot]);
+    return () => { deliveries.current.delete(flush); navigation?.(); };
+  }, [pageReferences?.registerBeforeNavigate]);
   const [mathFocused, setMathFocused] = useState(false);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   /*
@@ -122,6 +152,7 @@ export function NoteEditor({
    */
   const [writing, setWriting] = useState<string | undefined>(undefined);
   const [formatting, setFormatting] = useState(false);
+  useEffect(() => { if (!mutable) setFormatting(false); }, [mutable]);
   const [hovered, setHovered] = useState<string>();
   const [blockMenu, setBlockMenu] = useState<{ sid: string; properties: boolean }>();
   const body = useRef<HTMLDivElement | null>(null);
@@ -161,6 +192,7 @@ export function NoteEditor({
    * `dragGesture` 를 쓰는 이유다.
    */
   const grab = (event: React.PointerEvent) => {
+    if (!mutable || !editor.isEditable) return;
     const sid = (event.currentTarget as HTMLElement).getAttribute('data-note-grip');
     if (event.shiftKey && sid) {
       event.preventDefault(); event.stopPropagation();
@@ -191,7 +223,7 @@ export function NoteEditor({
         setLanding(undefined);
         if (!moved.dragged) {
           blockAnchor.current = held.sid; setBlockSelection([held.sid]);
-          if (toolbar === 'contextual') setBlockMenu({ sid: held.sid, properties: false });
+          if (toolbar === 'contextual') { setFormatting(false); setBlockMenu({ sid: held.sid, properties: false }); }
           return;
         }
         const at = reorderIndexAt(held.items.filter(item => !held.ids.includes(item.sid)), { x: moved.x, y: moved.y }, 'column');
@@ -204,12 +236,22 @@ export function NoteEditor({
     });
   };
 
+  const navigationControl = (target: EventTarget) => target instanceof Element && !!target.closest('[data-document-navigation]');
   return (
-    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar}
+    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar} data-note-editable={mutable}
+      onCompositionStartCapture={event => { composing.current.add(event.target); }}
+      onCompositionEndCapture={event => { composing.current.delete(event.target); }}
+      onBeforeInputCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onPasteCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onDropCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onCutCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onKeyDownCapture={event => {
+        if (!mutable && !navigationControl(event.target) && (event.key === 'Backspace' || event.key === 'Delete' || ((event.metaKey || event.ctrlKey) && ['z', 'y', 'b', 'i', 'u'].includes(event.key.toLowerCase())))) { event.preventDefault(); event.stopPropagation(); }
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') { setPicked(undefined); setBlockMenu(undefined); setBlockSelection([]); }
         const target = event.target as Element;
-        if (blockSelection.length > 1 && !target.closest('input,textarea,[contenteditable="true"]') && !event.nativeEvent.isComposing) {
+        if (mutable && blockSelection.length > 1 && !target.closest('input,textarea,[contenteditable="true"]') && !event.nativeEvent.isComposing) {
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
             event.preventDefault(); event.stopPropagation(); void (event.shiftKey ? editor.redo() : editor.undo());
           }
@@ -222,18 +264,18 @@ export function NoteEditor({
         is allowed and the inner one wins, so a host that has its own loses nothing.
       */}
       <TipProvider>
-        {toolbar === 'always' && <NoteBar editor={editor} />}
+        {mutable && toolbar === 'always' && <NoteBar editor={editor} />}
         {/*
           And **what the held block is asked**, which appears only when one is held. A second row that
           was always there would be a row of nothing for the ninety per cent of a body that is words.
         */}
-        {picked && toolbar === 'always' ? (
+        {mutable && picked && toolbar === 'always' ? (
           <NoteBlockBar key={picked} editor={editor} sid={picked} cell={cell} onFile={onFile} />
         ) : null}
       </TipProvider>
       <div className="on-body-hold" ref={body} onPointerLeave={() => setHovered(undefined)}
         onPointerMove={event => {
-          if (mathFocused || toolbar !== 'contextual' || event.buttons || blockMenu) return;
+          if (!mutable || mathFocused || toolbar !== 'contextual' || event.buttons || blockMenu) return;
           const target = event.target instanceof Element ? event.target : null;
           const doc = target?.closest('.on-doc');
           if (!doc) return;
@@ -252,6 +294,7 @@ export function NoteEditor({
           editor={editor}
           rootId={rootId}
           chromeHost={body}
+          editable={mutable}
           picked={picked}
           onPicked={(sid, at) => {
             setHovered(undefined);
@@ -266,26 +309,26 @@ export function NoteEditor({
           잡힘을 먼저 보는 것은 그것이 더 좁은 답이기 때문이다: 표의 셀에 캐럿이 있으면서 표가
           잡혀 있을 수 있고, 그때 옮기려는 것은 표다.
         */}
-        {!mathFocused && blockMenu && toolbar === 'contextual' && <NoteBlockContext editor={editor} hold={body} sid={blockMenu.sid}
+        {mutable && !mathFocused && blockMenu && toolbar === 'contextual' && <NoteBlockContext editor={editor} hold={body} sid={blockMenu.sid}
           properties={blockMenu.properties} onProperties={() => setBlockMenu({ ...blockMenu, properties: true })}
           hidden={formatting} onDismiss={() => setBlockMenu(undefined)}>
           <NoteBlockBar key={blockMenu.sid} editor={editor} sid={blockMenu.sid} cell={cell} onFile={onFile} contextual />
         </NoteBlockContext>}
-        {!mathFocused && blockSelection.length > 1 && <FloatingSurface open at={body.current?.querySelector('[data-note-batch-selected]')?.getBoundingClientRect() ?? null}
+        {mutable && !mathFocused && blockSelection.length > 1 && <FloatingSurface open at={body.current?.querySelector('[data-note-batch-selected]')?.getBoundingClientRect() ?? null}
           portalRoot={body.current} aria-label="선택한 블록" onDismiss={() => setBlockSelection([])} ownedElements={[body]}>
           <MultiBlockControl editor={editor} selection={null} nodeIds={blockSelection} />
         </FloatingSurface>}
-        <NoteGrip sid={mathFocused ? undefined : hovered ?? picked ?? writing} rootId={rootId} hold={body} onGrab={grab}
-          onOpen={toolbar === 'contextual' ? sid => setBlockMenu({ sid, properties: false }) : undefined} />
-        {toolbar === 'contextual' && <TableContext editor={editor} scope={body} active={!mathFocused && !formatting && !blockMenu} />}
-        {toolbar === 'contextual' && <TableManipulation editor={editor} scope={body} tableId={picked} active={!mathFocused && !formatting && !blockMenu} />}
+        <NoteGrip sid={!mutable || mathFocused ? undefined : hovered ?? picked ?? writing} rootId={rootId} hold={body} onGrab={grab}
+          onOpen={toolbar === 'contextual' ? sid => { setFormatting(false); setBlockMenu({ sid, properties: false }); } : undefined} />
+        {mutable && toolbar === 'contextual' && <TableContext editor={editor} scope={body} active={!mathFocused && !formatting && !blockMenu} />}
+        {mutable && toolbar === 'contextual' && <TableManipulation editor={editor} scope={body} tableId={picked} active={!mathFocused && !formatting && !blockMenu} />}
         <LatexEditor editor={editor} scope={body} structured inPlace onEditingFocusChange={setMathFocused} registerBeforeLeave={registerBodyDelivery} />
-        <ColumnsEditor editor={editor} scope={body} />
-        <CodeBlockEditor editor={editor} scope={body} sid={picked} active={!mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
+        {mutable && <ColumnsEditor editor={editor} scope={body} />}
+        <CodeBlockEditor editor={editor} scope={body} sid={picked} active={mutable && !mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
         <NoteDatabases editor={editor} scope={body} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
           <DatabaseItemBody key={`${nodeId}:${row}`} editor={editor} nodeId={nodeId} row={row} registerBeforeNavigate={registerBodyDelivery}
-            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" registerBeforeSnapshot={registerBeforeSnapshot} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
-        {!mathFocused && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}
+            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" writeAllowed={writeAllowed ?? editor.isEditable} registerBeforeSnapshot={registerBodyDelivery} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
+        {mutable && !mathFocused && !blockMenu && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}
           onFormattingChange={setFormatting}
           insertion={(close) => <NoteBar editor={editor} blocksOnly onInsert={close} />} /></TipProvider>}
         {/*
@@ -308,7 +351,7 @@ export function NoteEditor({
         * same re-measure on scroll. What differed was eight lines, all of them the site's `mode`
         * guard.
         */}
-      <SlashMenu editor={editor} active={!mathFocused} />
+      <SlashMenu editor={editor} active={mutable && !mathFocused} />
       {pageReferences && <PageReferenceUI editor={editor} scope={body} references={pageReferences} />}
     </div>
   );
@@ -803,6 +846,7 @@ function NoteBody({
   editor,
   rootId,
   chromeHost,
+  editable,
   picked,
   onPicked,
   onWriting
@@ -810,6 +854,7 @@ function NoteBody({
   editor: Editor;
   rootId: string;
   chromeHost: React.RefObject<HTMLDivElement | null>;
+  editable: boolean;
   picked: string | undefined;
   onPicked: (sid: string | undefined, cell?: string) => void;
   /**
@@ -886,7 +931,22 @@ function NoteBody({
 
     view.current.setRootId(rootId);
     view.current.render(undefined, { sync: true });
+    view.current.contentEditableElement.contentEditable = editor.isEditable ? 'true' : 'false';
   }, [editor, rootId]);
+
+  useLayoutEffect(() => {
+    if (view.current) view.current.contentEditableElement.contentEditable = editable ? 'true' : 'false';
+  }, [editor, rootId, editable]);
+
+  useEffect(() => {
+    const element = host.current; if (!element) return;
+    const refuse = (event: Event) => {
+      if (!editor.isEditable) { event.preventDefault(); event.stopImmediatePropagation(); }
+    };
+    const events = ['beforeinput', 'paste', 'drop', 'cut'] as const;
+    events.forEach(name => element.addEventListener(name, refuse, true));
+    return () => events.forEach(name => element.removeEventListener(name, refuse, true));
+  }, [editor]);
 
   useEffect(
     () => () => {

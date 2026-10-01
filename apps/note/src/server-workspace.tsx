@@ -47,6 +47,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const pendingStore = useMemo(() => createServerPendingStore({ issuer, subject, tenantId, workspaceId } satisfies PendingNoteScope),
     [issuer, subject, tenantId, workspaceId]);
+  const workspace = useRef<HTMLDivElement>(null);
   const activeClient = useRef(client);
   activeClient.current = client;
   const navigate = useRef(onNavigate);
@@ -60,6 +61,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const [protection, setProtection] = useState<ProtectionState>();
   const [problem, setProblem] = useState<Problem>();
   const [conflictCopy, setConflictCopy] = useState<{ generation: string; snapshotText: string }>();
+  const [navigationRequest, setNavigationRequest] = useState<{ mode: 'find'; id: number; generation: string }>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<{ owner: object; generation: string; documentId: string | null; editable: boolean; value: NoteSession }>();
@@ -80,8 +82,41 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const canEdit = role !== 'viewer';
   const isDirty = !!currentOpen && currentOpen.version !== currentOpen.confirmedVersion;
 
-  const draftSnapshot = () => {
-    if (!currentOpen) return null;
+  const access = useRef({ client, session: currentSession, open: currentOpen, canEdit, busy, denied: currentProblem?.kind === 'denied' });
+  access.current = { client, session: currentSession, open: currentOpen, canEdit, busy, denied: currentProblem?.kind === 'denied' };
+  useEffect(() => {
+    const find = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f' || event.target !== document.body) return;
+      const current = access.current;
+      if (activeClient.current !== client || current.client !== client || !current.session || !current.open || current.denied) return;
+      const anchor = document.getSelection()?.anchorNode;
+      const content = workspace.current?.querySelector('[data-note-editor]');
+      if (!anchor || !content?.contains(anchor)) return;
+      event.preventDefault();
+      setNavigationRequest(previous => ({ mode: 'find', id: (previous?.id ?? 0) + 1, generation: current.open!.generation }));
+    };
+    document.addEventListener('keydown', find);
+    return () => document.removeEventListener('keydown', find);
+  }, [client]);
+  const savingRequest = useRef<{ client: object; session: NoteSession | undefined; request: symbol } | undefined>(undefined);
+  const snapshotDeliveries = useRef(new Set<() => Promise<boolean>>());
+  const registerBeforeSnapshot = useCallback((flush: () => Promise<boolean>) => {
+    snapshotDeliveries.current.add(flush);
+    return () => { snapshotDeliveries.current.delete(flush); };
+  }, []);
+  const flushSnapshot = async (requireWrite = false) => {
+    const captured = access.current;
+    const current = () => activeClient.current === captured.client && access.current.client === captured.client &&
+      access.current.session === captured.session && access.current.open?.generation === captured.open?.generation &&
+      !access.current.denied && (!requireWrite || (access.current.canEdit && !access.current.busy));
+    if (!current()) return false;
+    for (const flush of [...snapshotDeliveries.current].reverse()) {
+      if (!current() || !await flush()) return false;
+    }
+    return current();
+  };
+  const draftSnapshot = async () => {
+    if (!currentOpen || !await flushSnapshot()) return null;
     currentSession?.flush();
     const tree = currentSession && noteTreeOf({ getNode: id => currentSession.editor.dataStore.getNode(id) as never }, currentSession.rootId);
     return serializeNoteFile(tree ? { ...currentOpen.note, content: tree.content as unknown[] } : currentOpen.note);
@@ -214,9 +249,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   }, [client, currentOpen?.generation, currentOpen?.documentId, canEdit, currentProblem?.kind === 'denied',
     persistDraft, recordProtectionFailure, workspaceId]);
 
-  useEffect(() => { currentSession?.editor.setEditable(canEdit && !busy && !currentPending &&
-      !(currentDraft?.record.source && currentDraft.record.status !== 'confirmed')); },
-    [currentSession, canEdit, busy, currentPending, currentDraft]);
+
 
   const openDocument = async (documentId: string) => {
     if (busy || isDirty || currentPending) return;
@@ -335,13 +368,21 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   };
 
   const save = async () => {
-    if (!canEdit || !currentOpen || busy || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict') return;
-    currentSession?.flush();
-    const tree = currentSession && noteTreeOf({ getNode: id => currentSession.editor.dataStore.getNode(id) as never }, currentSession.rootId);
-    const draftNote = tree ? { ...currentOpen.note, content: tree.content as unknown[] } : currentOpen.note;
+    if (!canEdit || !currentOpen || busy || (savingRequest.current?.client === client && savingRequest.current.session === currentSession) || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict') return;
+    const request = { client, session: currentSession, generation: currentOpen.generation, request: Symbol('note-save') };
+    const ownsRequest = () => activeClient.current === client && access.current.client === client &&
+      access.current.session === request.session && access.current.open?.generation === request.generation &&
+      access.current.canEdit && !access.current.denied;
+    savingRequest.current = request;
+    try {
     const reusableDraft = currentDraft?.record.status !== 'confirmed' ? currentDraft : undefined;
     const knownAttempt = currentPending?.attempt ?? (reusableDraft?.record.status === 'pending' ? reusableDraft.record.attempt : undefined);
-    const fixed = { owner: client, version: currentOpen.version, attempt: knownAttempt ?? noteSaveAttempt(currentOpen.documentId === null
+    if (!knownAttempt && !await flushSnapshot(true)) { setProblem({ owner: client, kind: 'save', message: '마지막 입력을 마친 뒤 저장을 다시 시도하세요.' }); return; }
+    if (access.current.client !== client || access.current.session !== request.session || access.current.open?.generation !== currentOpen.generation || !access.current.canEdit || access.current.busy || access.current.denied) return;
+    if (!knownAttempt) currentSession?.flush();
+    const tree = currentSession && noteTreeOf({ getNode: id => currentSession.editor.dataStore.getNode(id) as never }, currentSession.rootId);
+    const draftNote = tree ? { ...currentOpen.note, content: tree.content as unknown[] } : currentOpen.note;
+    const fixed = { owner: client, version: knownAttempt ? (currentPending?.version ?? currentOpen.version) : versionRef.current, attempt: knownAttempt ?? noteSaveAttempt(currentOpen.documentId === null
       ? { operation: 'create', workspaceId, title: draftNote.attributes.title,
         snapshotText: serializeNoteFile(draftNote), idempotencyKey: reusableDraft?.record.draftId ?? crypto.randomUUID() }
       : { operation: 'update', documentId: currentOpen.documentId,
@@ -383,27 +424,30 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       } else receipt = await client.save(fixed.attempt);
       const confirmed = await client.confirm(fixed.attempt, receipt);
       if (activeClient.current !== client) return;
-      const latest = currentOpenRef.current;
-      if (latest && latest.note.attributes.title === fixedRead.document.attributes.title &&
-        JSON.stringify(latest.note.content) === JSON.stringify(fixedRead.document.content)) {
-        snapshotRef.current = serializeNoteFile(confirmed.note);
-      }
       try {
         const record = pendingStore.write({ draftId, documentRef, base, status: 'confirmed',
           snapshotText: fixed.attempt.snapshotText, attempt: fixed.attempt,
           ...(reusableDraft?.record.source ? { source: reusableDraft.record.source,
             confirmedCopy: { documentId: confirmed.document.documentId, pageId: confirmed.document.pageId,
               revision: confirmed.document.revision, snapshotHash: confirmed.document.snapshotHash } } : {}) });
-        const nextDraft = { owner: pendingStore, generation: currentOpen.generation, record };
-        draftRef.current = nextDraft;
-        setDraftState(nextDraft);
-        setRecoveryState(previous => previous?.owner === pendingStore
-          ? { owner: pendingStore, records: previous.records.filter(item => item.draftId !== record.draftId).concat(record) } : previous);
+        if (ownsRequest()) {
+          const nextDraft = { owner: pendingStore, generation: request.generation, record };
+          draftRef.current = nextDraft;
+          setDraftState(nextDraft);
+          setRecoveryState(previous => previous?.owner === pendingStore
+            ? { owner: pendingStore, records: previous.records.filter(item => item.draftId !== record.draftId).concat(record) } : previous);
+        }
       } catch { /* The verified receipt can be checked again from the durable pending record. */ }
+      if (!ownsRequest()) return;
+      const latest = currentOpenRef.current;
+      if (latest && latest.note.attributes.title === fixedRead.document.attributes.title &&
+        JSON.stringify(latest.note.content) === JSON.stringify(fixedRead.document.content)) {
+        snapshotRef.current = serializeNoteFile(confirmed.note);
+      }
       setHeads(previous => previous?.owner === client
         ? { owner: client, rows: [confirmed.document, ...previous.rows.filter(row => row.documentId !== confirmed.document.documentId)] }
         : previous);
-      setOpen(previous => previous?.owner === client &&
+      setOpen(previous => previous?.owner === client && previous.generation === request.generation &&
         (previous.documentId === null || previous.documentId === confirmed.document.documentId)
         ? (() => {
           const matchesFixed = previous.note.attributes.title === fixedRead.document.attributes.title &&
@@ -415,21 +459,24 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       setPending(undefined);
       navigate.current?.(confirmed.document.documentId);
     } catch (error) {
-      if (activeClient.current !== client) return;
+      if (!ownsRequest()) return;
       const next = saveProblem(error);
       setProblem({ owner: client, ...next });
       if (next.kind === 'conflict' || next.kind === 'denied') setPending(undefined);
-    } finally { if (activeClient.current === client) setBusy(false); }
+    } finally { if (activeClient.current === client && access.current.open?.generation === request.generation && savingRequest.current === request) setBusy(false); }
+    } finally { if (savingRequest.current === request) savingRequest.current = undefined; }
   };
 
   const copyConflictedDraft = async () => {
     if (currentProblem?.kind !== 'conflict' || !currentOpen) return;
-    const snapshotText = draftSnapshot();
+    const snapshotText = await draftSnapshot();
     if (!snapshotText) return;
     try {
       await navigator.clipboard.writeText(snapshotText);
+      if (activeClient.current !== client || access.current.session !== currentSession || access.current.open?.generation !== currentOpen.generation) return;
       setConflictCopy({ generation: currentOpen.generation, snapshotText });
     } catch {
+      if (activeClient.current !== client || access.current.session !== currentSession || access.current.open?.generation !== currentOpen.generation) return;
       setConflictCopy(undefined);
       setProblem({ owner: client, kind: 'conflict', message: '초안을 복사하지 못했습니다. 브라우저의 클립보드 권한을 확인하세요.' });
     }
@@ -439,7 +486,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     if (currentProblem?.kind !== 'conflict' || !currentOpen?.documentId || busy ||
       conflictCopy?.generation !== currentOpen.generation) return;
     const copied = readNoteSnapshotFile(conflictCopy.snapshotText);
-    const currentText = draftSnapshot();
+    const currentText = await draftSnapshot();
     const current = currentText ? readNoteSnapshotFile(currentText) : null;
     if ('error' in copied || !current || 'error' in current ||
       JSON.stringify(copied.document) !== JSON.stringify(current.document)) {
@@ -467,7 +514,12 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const availableRecovery = currentProblem?.kind === 'denied' ? [] : recoveryRecords.filter(record => record.status !== 'confirmed' &&
     record.draftId !== currentDraft?.record.draftId && (record.base.operation === 'create' ||
       currentHeads.some(head => record.base.operation === 'update' && head.documentId === record.base.documentId && head.mode === 'snapshot')));
-  return <div className="nw-shell" data-server-note-workspace>
+  return <div ref={workspace} className="nw-shell" data-server-note-workspace onKeyDown={event => {
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f' || !currentSession || !currentOpen || currentProblem?.kind === 'denied') return;
+    if (!(event.target instanceof Element) || event.target.closest('[data-note-editor], [data-document-navigation], [role="dialog"]')) return;
+    event.preventDefault();
+    setNavigationRequest(previous => ({ mode: 'find', id: (previous?.id ?? 0) + 1, generation: currentOpen.generation }));
+  }}>
     <EditorHeader product="Note" className="nw-header" title={currentOpen?.note.attributes.title || '서버 노트'} menus={null}
       actions={<><StatusIndicator data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
         {canEdit && <Button disabled={!currentOpen || busy || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict' || (!isDirty && !currentPending)}
@@ -522,7 +574,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         </StatusNotice>}
         {currentProblem?.kind !== 'denied' && currentOpen && <section className="nw-document" aria-label="노트 편집">
           <h1>{currentOpen.note.attributes.title}</h1>
-          {currentSession && <NoteEditor editor={currentSession.editor} rootId={currentSession.rootId} />}
+          {currentSession && <NoteEditor key={currentSession.session} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.generation === currentOpen.generation ? navigationRequest : undefined} writeAllowed={canEdit && !busy && !currentPending && !(currentDraft?.record.source && currentDraft.record.status !== 'confirmed')} editor={currentSession.editor} rootId={currentSession.rootId} />}
         </section>}
         {!currentOpen && !loading && !currentProblem && <p>노트를 선택하거나 새로 만드세요.</p>}
       </main>

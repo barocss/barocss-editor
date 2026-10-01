@@ -120,8 +120,35 @@ export function ContextToolbar({ editor, controls, scope, active = true, label =
 }) {
   const chrome = useRef<HTMLDivElement>(null);
   const context = useEditorTextSelection(editor, { scope, retainWithin: chrome, active });
-  const { open, dismiss } = useEditorContextVisibility(editor, context?.range ?? null,
+  const { open, dismiss, reopen } = useEditorContextVisibility(editor, context?.range ?? null,
     { scope, retainWithin: chrome, active, sameKey: sameRange });
+  const reopenSelection = useRef(reopen);
+  reopenSelection.current = reopen;
+  const root = editor.getRootId();
+  useEffect(() => {
+    const doc = scope?.current?.ownerDocument ?? document;
+    const ownedContent = (target: EventTarget | null) => {
+      if (!active || !editor.isEditable || editor.getRootId() !== root || !(target instanceof Element) ||
+          chrome.current?.contains(target) || target.closest('[data-editor-input-owner]') ||
+          !target.closest('[contenteditable="true"]') || (scope?.current && !scope.current.contains(target))) return false;
+      const sid = target.closest('[data-bc-sid]')?.getAttribute('data-bc-sid');
+      return !!sid && !!editor.dataStore.getNode(sid);
+    };
+    const pointer = (event: PointerEvent) => {
+      if (event.button === 0 && ownedContent(event.target)) reopenSelection.current();
+    };
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !ownedContent(event.target)) return;
+      if ((event.shiftKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) ||
+          ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a')) reopenSelection.current();
+    };
+    doc.addEventListener('pointerdown', pointer, true);
+    doc.addEventListener('keydown', keyboard, true);
+    return () => {
+      doc.removeEventListener('pointerdown', pointer, true);
+      doc.removeEventListener('keydown', keyboard, true);
+    };
+  }, [editor, root, scope, active]);
   const visible = open && !!context?.at;
   useEffect(() => { onOpenChange?.(visible); }, [visible, onOpenChange]);
   return <FloatingSurface open={visible} at={context?.at ?? null} aria-label={label}

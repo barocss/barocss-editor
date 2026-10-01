@@ -541,7 +541,7 @@ export function Workspace() {
           </button>)}</div>
         </details>}
         {!selectedTrashed && <p className="nw-hint">/ 로 블록을 추가하고, [[ 로 다른 페이지를 연결하세요.</p>}
-        {!selectedTrashed && session?.id === selected && <NoteEditor key={session.generation} editor={session.value.editor} rootId={session.value.rootId} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
+        {!selectedTrashed && session?.id === selected && <NoteEditor writeAllowed={!selectedTrashed} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
       </section>}
     </main>
     </AdaptiveWorkspace>
