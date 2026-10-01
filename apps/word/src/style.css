@@ -362,3 +362,8 @@ body {
 .w-document-header .w-document-library [data-word-save-status] { order: -1; margin: 0 6px 0 0; }
 
 .w-shell-body > .office-workspace-side-panel > * { flex: 1; min-width: 0; }
+
+/* Selection tools reuse Word controls without reserving an idle ribbon row. */
+.w-selection-tools { display:flex; flex-wrap:wrap; align-items:center; gap:4px; max-width:min(680px,calc(100vw - 32px)); }
+.w-selection-tools .w-ribbon-group { border:0; }
+.w-document-ribbon { border:0; }

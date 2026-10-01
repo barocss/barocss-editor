@@ -1,0 +1,11 @@
+# Word document and selection chrome
+
+The Word app keeps permitted writing continuous. Its idle header retains the document title, menus, command search, document actions, status and zoom. An explicit full-tool button expands the existing ribbon and ruler. There is no manual reading/writing preference.
+
+Ribbon document presentation is opt-in. Default consumers keep their existing compact and expanded ribbon. The Word app keeps the Ribbon and math editing hooks mounted while collapsed. Owned non-collapsed text selections show Word style, font, character, color, paragraph, list and link tools. Selected tables and pictures show their existing Word object controls. The full ribbon and menus retain the complete command set.
+
+Selection command ownership binds the exact editor, native root object, range, datastore version and monotonic selection/content/authority lifetime. Deferred font delivery checks that captured intent again. Changing a selection away and back does not revive a prior command. Keyed selection tool children retire portalled fields and palettes when their target lifetime changes. Shared contextual surfaces retain their existing Escape, explicit reselection, viewport and focus behavior.
+
+Current host and editor authority remain the mutation boundary. Viewer comments can open, select threads and close; comment add/edit/reply/resolve/delete controls are disabled and guarded. View navigation, search, outline, zoom and print remain available through existing host controls. Viewer selection does not activate formatting or object mutation tools.
+
+Native and focused mounted checks cover tool-only native equality, meaningful paragraph-style undo/redo, changed/revoked/replaced targets, A to B to A refusal, viewer thread navigation and live comment authority revocation. Final desktop/authenticated/API/PostgreSQL evidence must identify the exact integrated candidate. Physical Korean IME remains separate from synthetic event tests. This UI change does not prove omitted-marks exact restoration for the #420 preview-only proposal, four-product completion or alpha readiness.

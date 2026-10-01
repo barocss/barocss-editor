@@ -91,6 +91,7 @@ export function App({ mount, server }: {
   const proposalSample = !server && new URLSearchParams(location.search).get('sample') === 'paragraph-proposal';
   const library = useRef<DocumentLibraryHandle>(null);
   const [compact, setCompact] = useState(false);
+  const [ribbonExpanded, setRibbonExpanded] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
@@ -424,12 +425,13 @@ export function App({ mount, server }: {
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
             menus={<MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />}
             fallbackNavigation={server || proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
-            actions={<><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
+            actions={<><Button tone="quiet" pressed={ribbonExpanded} aria-label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'} onClick={() => setRibbonExpanded(value => !value)}>{ribbonExpanded ? '도구 접기' : '전체 도구'}</Button><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
           {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
         {instance ? (
           <ReadOnlyControls enabled={readOnly}><Ribbon
+            documentPresentation expanded={ribbonExpanded} onExpandedChange={setRibbonExpanded} scope={host}
             editor={instance.editor}
             view={instance.view}
             fonts={instance.fonts}
@@ -452,7 +454,7 @@ export function App({ mount, server }: {
         {editingFurniture && <div className="w-furniture-editing" role="status"><span>머리글·바닥글 편집 중</span><Button onClick={() => instance?.editFurniture()}>본문으로 돌아가기</Button></div>}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
-        {instance ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
+        {instance && ribbonExpanded ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
@@ -524,12 +526,12 @@ export function App({ mount, server }: {
         </AppMain>
 
         {instance ? (
-          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><ReadOnlyControls enabled={readOnly}><CommentsPane
+          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane readOnly={readOnly}
             editor={instance.editor}
             view={instance.view}
             open={compact || commenting}
             onToggle={() => togglePanel('inspector')}
-          /></ReadOnlyControls></WorkspaceSidePanel>
+          /></WorkspaceSidePanel>
         ) : null}
         {instance && proposalSample ? <ParagraphProposalPanel runtime={instance} /> : null}
         {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
