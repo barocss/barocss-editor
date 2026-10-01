@@ -18,6 +18,8 @@ type MemberListRow = {
   member_role: MemberRole | null;
   active: boolean | null;
   is_self: boolean | null;
+  display_label: string | null; member_code: string | null; source_category: 'company_roster' | null;
+  directory_revision: number | null; directory_updated_at: Date | null;
 };
 type MemberChangeRow = {
   status: 'applied' | 'no_change' | 'forbidden' | 'conflict';
@@ -45,13 +47,20 @@ export class CompanyMemberStore {
     if (after) assertUuid(after);
     const rows = await this.withPrincipal(principal, tenantId, async client => {
       const result = await client.query<MemberListRow>(
-        'SELECT * FROM wonffice.company_member_list($1::uuid, $2::uuid, $3::uuid)',
+        'SELECT * FROM wonffice.company_member_directory_list($1::uuid, $2::uuid, $3::uuid)',
         [tenantId, after ?? null, randomUUID()]);
       return result.rows;
     });
     if (!rows.length || rows[0].status === 'forbidden') throw new CompanyMemberAccessDeniedError();
     const members = rows.filter(row => row.member_id).slice(0, 50).map(row => ({
       memberId: row.member_id!, role: row.member_role!, active: row.active!, isSelf: row.is_self!,
+      identification: row.display_label && row.member_code && row.source_category &&
+        row.directory_revision && row.directory_updated_at ? {
+          state: 'identified' as const, displayLabel: row.display_label, memberCode: row.member_code,
+          sourceCategory: row.source_category, revision: row.directory_revision,
+          updatedAt: row.directory_updated_at.toISOString(),
+        } : { state: 'unidentified' as const, displayLabel: null, memberCode: null,
+          sourceCategory: null, revision: null, updatedAt: null },
     }));
     return { members, nextCursor: rows.filter(row => row.member_id).length > 50
       ? members[49].memberId : null };

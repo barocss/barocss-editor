@@ -39,7 +39,9 @@
     "test:company:postgres": "pnpm build && node test/company-member.postgres.integration.mjs",
     "migrate": "node dist/migrate-cli.js",
     "membership:admin": "node dist/membership-admin-cli.js",
-    "operator:admin": "node dist/platform-operator-admin-cli.js"
+    "operator:admin": "node dist/platform-operator-admin-cli.js",
+    "directory:admin": "node dist/member-directory-admin-cli.js",
+    "test:directory:postgres": "pnpm build && node test/member-directory.postgres.integration.mjs"
   },
   "dependencies": {
     "@barocss/office-note-file": "workspace:^",

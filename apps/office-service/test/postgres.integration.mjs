@@ -53,13 +53,13 @@ try {
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
       '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators',
       '0006_company_member_admin', '0007_document_collaboration_seed',
-      '0008_document_capabilities', '0009_full_note_collaboration_seed']);
+      '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('upgrade quarantines legacy confirmed raw roots without changing snapshot bytes', async () => {
     await admin.query('CREATE DATABASE office_upgrade OWNER wonffice_owner');
     const upgrade = await connect('wonffice_owner', 'office_upgrade'); clients.push(upgrade);
-    await migrate(upgrade, migrations.slice(0, -1));
+    await migrate(upgrade, migrations.filter(entry => entry.id < '0009'));
     const tenantId = randomUUID(), workspaceId = randomUUID(), documentId = randomUUID();
     const seedId = randomUUID(), original = '{"legacy":"raw snapshot"}';
     const digest = createHash('sha256').update(original).digest('hex');
@@ -81,7 +81,8 @@ try {
       VALUES ($1, $2, 'yorkie', 'old-project', 'old-build', $3,
         'old-attempt', 1, $4, 'confirmed', now(), 'old-checkpoint', $4)`,
     [tenantId, documentId, seedId, digest]);
-    assert.deepEqual(await migrate(upgrade), ['0009_full_note_collaboration_seed']);
+    assert.deepEqual(await migrate(upgrade, migrations.filter(entry => entry.id < '0010')),
+      ['0009_full_note_collaboration_seed']);
     const result = (await upgrade.query(`SELECT d.mode, s.snapshot_text, c.status,
       c.confirmed_provider_checkpoint, c.confirmed_provider_snapshot_hash
       FROM wonffice.documents d JOIN wonffice.document_snapshots s
@@ -91,6 +92,7 @@ try {
       WHERE d.tenant_id = $1 AND d.id = $2`, [tenantId, documentId])).rows[0];
     assert.deepEqual(result, { mode: 'initializing', snapshot_text: original, status: 'uncertain',
       confirmed_provider_checkpoint: null, confirmed_provider_snapshot_hash: null });
+    assert.deepEqual(await migrate(upgrade), ['0010_member_directory']);
   });
   await check('failed DDL and migration history roll back together', async () => {
     await assert.rejects(migrate(owner, [...migrations, {

@@ -42,7 +42,7 @@ try {
     '0001_tenant_workspaces', '0002_oidc_memberships', '0003_member_tenant_names',
     '0004_document_snapshots', '0005_platform_operators',
     '0006_company_member_admin', '0007_document_collaboration_seed',
-    '0008_document_capabilities',
+    '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory',
   ]);
   const issuer = 'http://127.0.0.1:18180/realms/wonffice';
   const alpha = randomUUID(), beta = randomUUID();
@@ -70,7 +70,7 @@ try {
       const page = await members.listMembers(accounts[actor].principal, alpha);
       assert.equal(page.members.length, 4);
       assert.ok(page.members.every(member => Object.keys(member).sort().join(',') ===
-        'active,isSelf,memberId,role'));
+        'active,identification,isSelf,memberId,role'));
       assert.ok(page.members.find(member => member.memberId === accounts[actor].id).isSelf);
       assert.ok(!page.members.some(member => member.memberId === accounts['beta-owner'].id));
     }
