@@ -1,11 +1,10 @@
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { createSampleDeck } from '../../../packages/office-slides/src/sample-deck';
 import type { INode } from '../../../packages/datastore/src/types';
 import { deckFileText } from '../../../packages/office-slides/src/deck-file';
-import { privateControl, launchPrivateProfile, stopPrivateProfile, type RealStatus, type Inspection } from './helpers/real-recovery-control';
+import { privateControl, type RealStatus, type Inspection } from './helpers/real-recovery-control';
 
 const origin = 'http://127.0.0.1:5191';
 const workspace = (page: Page) => page.locator('[data-server-slides-workspace]');
@@ -50,10 +49,6 @@ async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | '
   }
   await expect(workspace(page)).toBeVisible();
 }
-async function logout(page: Page) {
-  await page.getByRole('button', { name: '로그아웃', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Wonffice에 들어가기' })).toBeVisible();
-}
 function track(page: Page) {
   const state = { bearer: '', writes: [] as Array<{ operation: 'create' | 'update'; body: Record<string, unknown> }> };
   page.on('request', request => {
@@ -63,18 +58,6 @@ function track(page: Page) {
     if (request.method() === 'PUT' && /\/snapshot$/.test(path)) state.writes.push({ operation: 'update', body: request.postDataJSON() });
   });
   return state;
-}
-async function rows(page: Page) {
-  return page.evaluate(() => new Promise<unknown[]>((resolve, reject) => {
-    const request = indexedDB.open('barocss-slides-workspace', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('documents', { keyPath: 'name' });
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const db = request.result, tx = db.transaction('documents'), result = tx.objectStore('documents').getAll();
-      tx.oncomplete = () => { db.close(); resolve(result.result); };
-      tx.onabort = () => reject(tx.error);
-    };
-  }));
 }
 async function seed(page: Page, title: string) {
   const name = randomUUID(), document = createSampleDeck();
@@ -115,20 +98,6 @@ async function records(page: Page): Promise<Pending[]> {
   return page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:'))
     .map(key => JSON.parse(localStorage.getItem(key)!)));
 }
-async function typeInput(page: Page, text: string) {
-  const paragraph = paragraphs(page).filter({ hasText: 'One engine' }).first();
-  await expect(paragraph).toBeVisible();
-  const bounds = await paragraph.boundingBox();
-  expect(bounds).not.toBeNull();
-  await paragraph.dblclick({ position: { x: 8, y: Math.min(10, bounds!.height / 2) } });
-  await expect.poll(() => paragraph.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
-  await paragraph.click({ position: { x: 8, y: Math.min(10, bounds!.height / 2) } });
-  await page.keyboard.press('Home');
-  await page.keyboard.insertText(text);
-  await expect(paragraph).toContainText(text);
-  await expect.poll(async () => (await records(page)).some(record => record.snapshotText.includes(text))).toBe(true);
-  await expect(save(page)).toBeEnabled();
-}
 async function prepare(page: Page, title: string) {
   await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
   await workspace(page).getByRole('button', { name: `${title} · 새 서버 사본 준비`, exact: true }).click();
@@ -162,7 +131,7 @@ async function canonical(page: Page, root: string, bearer: string, documentId: s
   return db;
 }
 
-async function downloadNative(page: Page, info: any, name: string) {
+async function downloadNative(page: Page, info: TestInfo, name: string) {
   const [download] = await Promise.all([page.waitForEvent('download'), workspace(page).getByRole('button', { name: 'Slides 파일 내보내기', exact: true }).click()]);
   const path = info.outputPath(name); await download.saveAs(path);
   return JSON.parse(readFileSync(path, 'utf8')).document;

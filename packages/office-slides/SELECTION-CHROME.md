@@ -10,8 +10,12 @@ One editor, datastore and history still serve the canvas and rich notes. Selecti
 
 Viewer notes remain selectable and copyable; their editable DOM follows current editor authority and the add-note control is disabled and guarded. Global history shortcuts check live edit authority before direct undo/redo. Inspector viewer navigation and unit preferences keep the existing #422 behavior.
 
-This slice does not change native schema, connector identities, resources, model history, painting or persistence contracts. The known #421 component-detach undo limitation remains. Actual desktop/authenticated evidence must identify the final candidate; synthetic composition tests do not prove physical Korean IME, collaboration or alpha readiness.
+This slice preserves the native schema, existing connector identities, resources, model history, painting and persistence contracts. The known #421 component-detach undo limitation remains. Actual desktop/authenticated evidence must identify the final candidate; synthetic composition tests do not prove physical Korean IME, collaboration or alpha readiness.
 
 The authenticated entry has generic section layout. The Slides app contains that rule only for native `.sl-slide` sheets: model inline width/height remain authoritative and the login section max-width/margin do not alter the stage or thumbnails. Other products and authentication controls are unchanged.
 
 Text selection lifecycle stays active for a permitted current editor while its native selection settles. An explicit owned pointer/selection gesture can reopen a dismissed same-target surface. Pending node/null selection exposes no text actions; the rendered text range must match the current native selection. Escape dismissal is not globally reset.
+
+Native roundtrip checks also cover UI-created content. A new list item explicitly stores its empty attributes, matching the existing loader contract. Inserting a slide copies layout placeholders through the existing clipboard identity mapping, so the new slide owns distinct object IDs and copied connector endpoints. Layout definitions, existing identities, native validation and the file format remain intact. Each operation retains its existing undo transaction.
+
+The compact and expanded global Ribbon retain their MenuBar entries. Selected surfaces use direct controls independently of their popup destination. Menu/MenuBar can use an owned portal container; omitted destinations still use the body. Product ownership checks reject old popup choices after a canvas/notes transition.

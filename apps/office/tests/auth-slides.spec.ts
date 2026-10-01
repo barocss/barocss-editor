@@ -181,3 +181,76 @@ test('unsupported native file leaves current Slides model and source file unchan
   await expect(shell(page).locator('.sl-stage .w-paragraph').first()).toContainText('Retained current Slides');
   expect(JSON.parse(source).document.content[0].stype).toBe('unknownSlidesNode');
 });
+
+async function changeCurrentSlidesRole(page: Page, role: 'viewer' | 'editor') {
+  const json = (value: unknown) => ({ contentType: 'application/json', body: JSON.stringify(value) });
+  await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'slides-synthetic',
+    tenants: [{ tenantId, name: 'Slides Company', role }], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role })));
+  const rechecked = page.waitForResponse(response => response.url().endsWith('/api/v1/me'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await rechecked;
+  await expect(page.locator('#office-auth-curtain')).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toHaveCount(0);
+}
+
+test('dirty Slides draft survives current viewer demotion and writer promotion', async ({ page }) => {
+  const state = await setup(page); const confirmed = state.text();
+  await type(page, 'Protected Slides role-change draft');
+  const paragraph = shell(page).locator('.sl-stage .w-paragraph').first();
+  const visible = await paragraph.textContent();
+  const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:'))
+    .sort().map(key => localStorage.getItem(key)));
+  const protectedDraft = await pending();
+  await changeCurrentSlidesRole(page, 'viewer');
+  await expect(paragraph).toHaveText(visible!);
+  await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
+  await paragraph.click(); await page.keyboard.type('DENIED'); await page.keyboard.press('ControlOrMeta+z');
+  await expect(paragraph).toHaveText(visible!);
+  expect(await pending()).toEqual(protectedDraft); expect(state.text()).toBe(confirmed); expect(state.writes).toHaveLength(0);
+  await changeCurrentSlidesRole(page, 'editor');
+  await expect(save(page)).toBeVisible();
+  await expect(shell(page).locator('.sl-stage [contenteditable=true]')).toHaveCount(1);
+  await expect(paragraph).toHaveText(visible!);
+  await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  expect(state.text()).toContain('Protected Slides role-change draft'); expect(state.writes).toHaveLength(1);
+});
+
+test('delayed imported Slides file cannot replace the document after viewer demotion', async ({ page }) => {
+  const state = await setup(page); await type(page, 'Retain Slides before delayed import');
+  await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const paragraph = shell(page).locator('.sl-stage .w-paragraph').first(); const visible = await paragraph.textContent();
+  const source = createStarterDeck();
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, async route => { entered(); await held; await route.fallback(); }, { times: 1 });
+  await shell(page).getByLabel('Slides 원본 파일로 새 서버 사본 준비').setInputFiles({
+    name: 'delayed.slides.json', mimeType: 'application/json', buffer: Buffer.from(deckFileText(source, '')) });
+  await waiting;
+  const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:'))
+    .sort().map(key => localStorage.getItem(key)));
+  const protectedRecords = await pending();
+  await changeCurrentSlidesRole(page, 'viewer'); release();
+  await expect(shell(page).locator('[data-save-status]')).not.toHaveText('저장 중…');
+  await expect(paragraph).toHaveText(visible!); expect(await pending()).toEqual(protectedRecords);
+  expect(state.writes).toHaveLength(1); expect(state.text()).toContain('Retain Slides before delayed import');
+});
+
+test('fixed Slides save waits for restored writer authority after a held list response', async ({ page }) => {
+  const state = await setup(page); await type(page, 'Frozen Slides permission retry');
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, async route => { entered(); await held; await route.fallback(); }, { times: 1 });
+  await save(page).click(); await waiting;
+  const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:'))
+    .sort().map(key => JSON.parse(localStorage.getItem(key)!)).filter(record => record.status === 'pending'));
+  const fixed = await pending(); expect(fixed).toHaveLength(1);
+  await changeCurrentSlidesRole(page, 'viewer'); release();
+  await expect(shell(page).locator('[data-save-status]')).not.toHaveText('저장 중…');
+  expect(state.writes).toHaveLength(0); expect(await pending()).toEqual(fixed);
+  await changeCurrentSlidesRole(page, 'editor');
+  await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  expect(state.writes).toHaveLength(1); expect(state.writes[0].idempotencyKey).toBe(fixed[0].attempt.idempotencyKey);
+  expect(state.writes[0].snapshotText).toBe(fixed[0].attempt.snapshotText);
+});

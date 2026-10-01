@@ -17,6 +17,54 @@ import {
 import { slideTimeline } from '../src/timeline';
 import { deckSlides, type DeckAccess } from '../src/deck';
 
+it('keeps a command-created list and its rich text exactly through native reopen and undo/redo', async () => {
+  const editor = createSlidesEditor(), reopened = createSlidesEditor();
+  try {
+    editor.loadDocument(createSampleDeck(), 'list427');
+    const nodes: ReturnType<typeof editor.dataStore.getNode>[] = [];
+    const visit = (sid: string) => {
+      const node = editor.dataStore.getNode(sid); nodes.push(node);
+      for (const child of node?.content ?? []) {
+        expect(typeof child).toBe('string');
+        if (typeof child === 'string') visit(child);
+      }
+    };
+    visit(editor.getRootId()!);
+    const text = nodes.find(node => node?.stype === 'inline-text' && node.text === 'One engine, two products')!;
+    editor.setRange({ type: 'range', startNodeId: text.sid, endNodeId: text.sid, startOffset: 0, endOffset: 7 });
+    const native = (value: typeof editor) => JSON.parse(deckFileText(value.exportDocument(), 'fixed')).document;
+    const before = native(editor);
+    expect(await editor.executeCommand('toggleBulletList')).toBe(true);
+    const generated = native(editor);
+    const read = readDeckFile(deckFileText(editor.exportDocument(), 'fixed')) as { document: unknown };
+    reopened.loadDocument(read.document, 'list427-reopened');
+    expect(native(reopened)).toEqual(generated);
+    expect(reopened.canRun('undo')).toBe(false);
+    await editor.undo(); expect(native(editor)).toEqual(before);
+    await editor.redo(); expect(native(editor)).toEqual(generated);
+  } finally { editor.destroy(); reopened.destroy(); }
+});
+
+it('gives inserted layout placeholders distinct durable identities without changing their definition', async () => {
+  const editor = createSlidesEditor(), reopened = createSlidesEditor();
+  try {
+    editor.loadDocument(createSampleDeck(), 'layout427');
+    const slides = deckSlides({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) });
+    const source = slides.find(slide => slide.layoutId)!;
+    expect(source).toBeDefined();
+    const native = (value: typeof editor) => JSON.parse(deckFileText(value.exportDocument(), 'fixed')).document;
+    const before = native(editor);
+    expect(await editor.executeCommand('insertSlide', { after: source.sid })).toBe(true);
+    const inserted = native(editor);
+    expect(inserted.content.find((node: { stype: string }) => node.stype === 'resources'))
+      .toEqual(before.content.find((node: { stype: string }) => node.stype === 'resources'));
+    reopened.loadDocument(inserted, 'layout427-reopened');
+    expect(native(reopened)).toEqual(inserted);
+    await editor.undo(); expect(native(editor)).toEqual(before);
+    await editor.redo(); expect(native(editor)).toEqual(inserted);
+  } finally { editor.destroy(); reopened.destroy(); }
+});
+
 /**
  * A deck as a file.
  *

@@ -10,7 +10,6 @@ import {
   deckSlides,
   editableSurface,
   layoutPlaceholderSids,
-  layoutPlaceholders,
   noteFor,
   type DeckAccess,
   type DeckNode
@@ -981,7 +980,8 @@ export class SlidesExtension implements Extension {
     const previous = slides.find((slide) => slide.sid === after);
     const layoutId = payload?.layoutId ?? previous?.layoutId;
 
-    const placeholders = layoutPlaceholders(doc, layoutId);
+    const placeholders = pastable(copyForPaste(doc, layoutPlaceholderSids(doc, layoutId)),
+      () => editor.dataStore.generateId());
 
     /**
      * A slide with no layout still needs somewhere to type.
