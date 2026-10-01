@@ -46,3 +46,13 @@ export function ownsSlidesSelection(owner: ReturnType<typeof captureSlidesSelect
     return false;
   });
 }
+
+/** Native Slides tables reuse the rich-text bTable subtree. */
+export function selectedSlidesTable(editor: Editor) {
+  let node = editor.selection?.startNodeId ? editor.dataStore.getNode(editor.selection.startNodeId) : undefined;
+  const seen = new Set<string>();
+  while (node?.sid && !seen.has(node.sid)) {
+    if (node.stype === 'bTable' || node.stype === 'table') return node.sid;
+    seen.add(node.sid); node = node.parentId ? editor.dataStore.getNode(node.parentId) : undefined;
+  }
+}

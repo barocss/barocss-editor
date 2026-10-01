@@ -6,7 +6,7 @@ import { ContextToolbar, useEditorContextVisibility, useEditorRevision, useNodeR
 import type { Slide } from './deck';
 import { boxAt } from './selection';
 import { Ribbon } from './ribbon';
-import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, trackSlidesSelectionLifetime } from './selection-owner';
+import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, selectedSlidesTable, trackSlidesSelectionLifetime } from './selection-owner';
 
 /** Product chrome keeps the canvas and rich notes as two owners of one native editor. */
 export function SlidesDocumentChrome({ editor, slides, current, scope, expanded, onInspect }: {
@@ -18,6 +18,9 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
   const [region, setRegion] = useState<'canvas' | 'notes'>('canvas');
   const objectChrome = useRef<HTMLDivElement>(null);
   const globalChrome = useRef<HTMLDivElement>(null);
+  const [canvasGesture, setCanvasGesture] = useState<{ root: ReturnType<Editor['dataStore']['getNode']>; slide?: string } | null>(null);
+  const nativeRoot = editor.dataStore.getNode(editor.getRootId()!);
+  useLayoutEffect(() => { setCanvasGesture(null); }, [editor, nativeRoot, current, editor.isEditable]);
   useEffect(() => trackSlidesSelectionLifetime(lifetime), [lifetime]);
   useLayoutEffect(() => { changeSlidesSelectionContext(lifetime, current, region); }, [lifetime, current, region]);
   useEffect(() => {
@@ -25,31 +28,32 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
     const regionChanged = (event: Event) => {
       if (!(event.target instanceof Element)) return;
       if (globalChrome.current?.contains(event.target)) return;
-      if (!host.contains(event.target)) { lifetime.generation += 1; return; }
+      if (!host.contains(event.target)) { lifetime.generation += 1; setCanvasGesture(null); return; }
       if (objectChrome.current?.contains(event.target) || event.target.closest('[data-editor-context-toolbar]')) return;
       const next = event.target.closest('.sl-notes') ? 'notes' : event.target.closest('.sl-stage') ? 'canvas' : null;
       if (!next) return;
       changeSlidesSelectionContext(lifetime, current, next); setRegion(next);
+      setCanvasGesture(next === 'canvas' ? { root: editor.dataStore.getNode(editor.getRootId()!), slide: current } : null);
     };
     const interrupt = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') lifetime.generation += 1;
+      if (event.key === 'Escape') { lifetime.generation += 1; setCanvasGesture(null); }
     };
+    const blur = () => { lifetime.generation += 1; setCanvasGesture(null); };
+    host.ownerDocument.defaultView?.addEventListener('blur', blur);
     host.ownerDocument.addEventListener('pointerdown', regionChanged, true); host.ownerDocument.addEventListener('focusin', regionChanged, true);
     host.addEventListener('keydown', interrupt, true);
-    return () => { host.ownerDocument.removeEventListener('pointerdown', regionChanged, true); host.ownerDocument.removeEventListener('focusin', regionChanged, true); host.removeEventListener('keydown', interrupt, true); };
-  }, [scope, lifetime, current]);
+    return () => { host.ownerDocument.defaultView?.removeEventListener('blur', blur); host.ownerDocument.removeEventListener('pointerdown', regionChanged, true); host.ownerDocument.removeEventListener('focusin', regionChanged, true); host.removeEventListener('keydown', interrupt, true); };
+  }, [scope, lifetime, current, editor]);
   const owner = captureSlidesSelectionOwner(lifetime);
   const captureIntent = () => { const captured = captureSlidesSelectionOwner(lifetime); return () => ownsSlidesSelection(captured); };
   const ids = selectedNodeIds(editor.selection);
   const access = { rootId: editor.getRootId()!, getNode: (id: string) => editor.dataStore.getNode(id) };
   const scene = boxAt(access, ids[0] ?? editor.selection?.startNodeId);
-  const table = (() => {
-    let node = editor.selection?.startNodeId ? editor.dataStore.getNode(editor.selection.startNodeId) : undefined;
-    for (let i = 0; node && i < 64; i++) { if (node.stype === 'table') return node.sid; node = node.parentId ? editor.dataStore.getNode(node.parentId) : undefined; }
-  })();
+  const table = selectedSlidesTable(editor);
   const target = region === 'canvas' ? table ?? scene?.sid : undefined;
   const at = useNodeRect(editor, scope, target);
   const visibility = useEditorContextVisibility(editor, target ?? null, { scope, retainWithin: objectChrome, active: !expanded && editor.isEditable });
+  const canvasOwned = editor.isEditable && region === 'canvas' && canvasGesture?.root === nativeRoot && canvasGesture?.slide === current;
   const textRange = editor.selection?.type === 'range' && !editor.selection.collapsed && !table;
   const groups = ['character', 'paragraph', 'list', ...(table ? ['table'] : ['order', 'align', 'group'])];
   void revision;
@@ -70,8 +74,8 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
         </div>;
       }}
     </ContextToolbar>}
-    {!expanded && !textRange && target && <FloatingSurface open={visibility.open && !!at} at={at} portalRoot={scope.current}
-      aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={visibility.dismiss} ownedElements={[scope]}>
+    {!expanded && !textRange && target && <FloatingSurface open={(visibility.open || canvasOwned) && !!at} at={at} portalRoot={scope.current}
+      aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={reason => { setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope]}>
       <div ref={objectChrome} key={`${lifetime.generation}:${JSON.stringify(editor.selection)}`}>
         <Ribbon editor={editor} slides={slides} current={current} groupIds={groups} portalContainer={objectChrome}
           canRunIntent={() => ownsSlidesSelection(owner)} />

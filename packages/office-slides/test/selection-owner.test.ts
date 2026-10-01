@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { createSlidesEditor } from '../src/slides-kit';
 import { createSampleDeck } from '../src/sample-deck';
 import { deckFileText } from '../src/deck-file';
-import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, trackSlidesSelectionLifetime } from '../src/selection-owner';
+import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, selectedSlidesTable, trackSlidesSelectionLifetime } from '../src/selection-owner';
 let editor: ReturnType<typeof createSlidesEditor>;
 let lifetime: ReturnType<typeof createSlidesSelectionLifetime>, dispose: () => void;
 let slide: string, second: string, box: string;
@@ -55,4 +55,17 @@ it('retires captured object intent after movement and preserves full native undo
   await editor.undo(); expect(native()).toBe(before); expect(ownsSlidesSelection(owner)).toBe(false);
   await editor.redo(); expect(native()).toBe(moved);
   expect(ownsSlidesSelection(captureSlidesSelectionOwner(lifetime))).toBe(true);
+});
+
+it('finds the native bTable owning an actual cell selection without changing the deck', () => {
+  const all: NonNullable<ReturnType<typeof editor.dataStore.getNode>>[] = [];
+  const visit = (id: string) => { const node = editor.dataStore.getNode(id)!; all.push(node); for (const child of node.content ?? []) visit(String(child)); };
+  visit(editor.getRootId()!);
+  const table = all.find(node => node.stype === 'bTable')!;
+  const cell = all.find(node => node.stype === 'bTableCell')!;
+  const before = native();
+  editor.updateSelection({ type: 'range', startNodeId: cell.sid!, endNodeId: cell.sid!, startOffset: 0, endOffset: 0, collapsed: true });
+  expect(selectedSlidesTable(editor)).toBe(table.sid); expect(native()).toBe(before);
+  editor.updateSelection({ type: 'node', nodeIds: [box], startNodeId: box, endNodeId: box, startOffset: 0, endOffset: 0, collapsed: false });
+  expect(selectedSlidesTable(editor)).toBeUndefined(); expect(native()).toBe(before);
 });
