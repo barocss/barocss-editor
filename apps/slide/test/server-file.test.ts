@@ -11,6 +11,7 @@ function fixture(): INode {
   const resources = deck.content?.find((node): node is INode => typeof node !== 'string' && node.stype === 'resources');
   if (!slide || !resources) throw new Error('Missing deck fixture');
   slide.attributes = { ...slide.attributes, id: 'slide-a', trackId: 'track-a' };
+  slide.content?.push({ stype: 'connector', attributes: { startX: 0, startY: 0, endX: 1500, endY: 1500, stroke: '#123456' } });
   slide.content?.push({ stype: 'group', attributes: { name: 'group-a', x: 0, y: 0, width: 2000, height: 1000 }, content: [
     { stype: 'rectangle', attributes: { name: 'shape-a', x: 0, y: 0, width: 1000, height: 1000, goTo: 'slide-b' } },
     { stype: 'ellipse', attributes: { name: 'shape-b', x: 1000, y: 0, width: 1000, height: 1000 } }
@@ -113,6 +114,14 @@ describe('strict Slides native server files', () => {
     let metadata: unknown = 'deep';
     for (let depth = 0; depth < 102; depth++) metadata = { nested: metadata };
     expect(readServerSlidesFile(envelope({ ...fixture(), metadata }))).toHaveProperty('error');
+  });
+
+  it('refuses attached connector session references instead of silently detaching on reopen', () => {
+    const native = fixture();
+    const slide = native.content?.[1] as INode;
+    slide.content?.push({ stype: 'connector', attributes: { startNodeId: 'session:shape-a', endNodeId: 'session:shape-b' } });
+    expect(readServerSlidesFile(deckFileText(native))).toHaveProperty('error');
+    expect(() => serverSlidesFileText(native)).toThrow('invalid_slides_snapshot');
   });
 
 });

@@ -61,6 +61,9 @@ function supportedReferences(document: SlidesDocument): boolean {
     footerId: 'docFooter', componentId: 'component' };
   for (const node of nodes) {
     const attrs = node.attributes ?? {};
+    // The native codec strips every target sid. Attached connector IDs are
+    // session references, so loading them would silently detach the ends.
+    if (node.stype === 'connector' && (attrs.startNodeId !== undefined || attrs.endNodeId !== undefined)) return false;
     for (const [key, stype] of Object.entries(referenceTypes)) {
       if (attrs[key] !== undefined && (typeof attrs[key] !== 'string' || !definitions.get(stype)?.has(attrs[key] as string))) return false;
     }
