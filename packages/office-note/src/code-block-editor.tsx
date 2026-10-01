@@ -82,19 +82,19 @@ export function CodeBlockEditor({ editor, scope, sid, active = true }: {
     const update = () => { const picked = selection(); setCurrent(picked?.code); if (picked) setDismissed(false); };
     const inputTarget = (target: EventTarget | null) => target instanceof Element && !!target.closest('input,textarea,select,[contenteditable="false"]');
     const key = (event: KeyboardEvent) => {
-      if (event.isComposing || event.metaKey || event.ctrlKey || event.altKey || inputTarget(event.target)) return;
+      if (!editor.isEditable || event.isComposing || event.metaKey || event.ctrlKey || event.altKey || inputTarget(event.target)) return;
       if (event.key !== 'Enter' && event.key !== 'Tab') return;
       const picked = selection(); if (!picked) return;
       event.preventDefault(); event.stopPropagation();
       void editCodeText(editor, picked.range, event.key === 'Enter' ? 'newline' : event.shiftKey ? 'outdent' : 'indent');
     };
     const before = (event: InputEvent) => {
-      if (event.isComposing || !['insertParagraph', 'insertLineBreak'].includes(event.inputType) || inputTarget(event.target)) return;
+      if (!editor.isEditable || event.isComposing || !['insertParagraph', 'insertLineBreak'].includes(event.inputType) || inputTarget(event.target)) return;
       const picked = selection(); if (!picked) return;
       event.preventDefault(); event.stopPropagation(); void editCodeText(editor, picked.range, 'newline');
     };
     const paste = (event: ClipboardEvent) => {
-      if (inputTarget(event.target)) return;
+      if (!editor.isEditable || inputTarget(event.target)) return;
       const picked = selection(); if (!picked || !event.clipboardData) return;
       event.preventDefault(); event.stopPropagation();
       void editCodeText(editor, picked.range, 'paste', event.clipboardData.getData('text/plain'));

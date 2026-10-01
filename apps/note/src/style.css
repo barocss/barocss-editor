@@ -207,3 +207,9 @@ body {
 
 /* Navigation transfers focus here before the newly opened editor is ready. */
 .nw-main:focus { outline:none; }
+
+/* Standalone Note keeps the document, rather than an editor box, at the center. */
+.nw-document .on-note[data-note-document] { border: 0; border-radius: 0; box-shadow: none; background: transparent; overflow: visible; }
+.on-document-actions { position: sticky; top: 0; z-index: 5; background: var(--ou-panel); padding: 4px 0 4px 42px; display: flex; align-items: center; gap: var(--ou-space-1, 4px); margin-bottom: var(--ou-space-3, 12px); }
+.on-document-actions [aria-pressed="true"] { background: var(--ou-accent-soft); color: var(--ou-accent); }
+.on-document-actions [role="status"] { color: var(--ou-muted); font-size: 12px; }
