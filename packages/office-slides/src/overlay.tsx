@@ -2351,9 +2351,9 @@ export function SelectionOverlay({
        * Escape, and the Escape went nowhere.
        */
       const target = event.target as HTMLElement | null;
-      // Navigation tabs own their arrows even while a shape remains selected.
+      // Sidebar and inspector tabs own their arrows while a shape remains selected.
       // Let the tab's key handler run before a nudge can edit the shape.
-      if (target?.closest?.('.sl-sidebar [role="tab"]') &&
+      if (target?.closest?.('.sl-sidebar [role="tab"], .sl-properties [role="tab"]') &&
         (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Home' || event.key === 'End')) return;
       if (target?.closest?.('input, textarea, select, [data-timeline], [data-stack-editor]')) return;
       if (target?.closest?.('[data-layer-control]') && !event.metaKey && !event.ctrlKey) return;
