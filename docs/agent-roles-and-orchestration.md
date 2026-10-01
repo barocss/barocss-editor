@@ -1,5 +1,17 @@
 # Agent Roles and Orchestration
 
+## Current connected Works — owner decision, 2026-10-01
+
+The active barocss-editor operating model is **Planner → Execute**. Planner uses `gpt-6.1-sol` with `high` reasoning and directly owns GitHub Issues, Wiki, Discussions, priorities, new feature Issues, acceptance criteria and release planning. Execute uses `gpt-6.1-sol` with `medium` reasoning and owns one highest-priority ready Issue at a time: implementation, mandatory tests/preflight, local commit, serial local branch merge, integration verification, then the next ready Issue. Execute alone owns local integration; record its designated branch and exact base/candidate/integration SHAs. Preserve active branches and uncommitted work; report material blockers without repeated routine approval requests.
+
+The separate Review Work is excluded from current operations and archived with its history intact. Do not automatically call it or require its ACCEPT/response before proceeding. Verification, CI, security and existing branch protections remain mandatory.
+
+Until final version release, use local Git commits and branch merges; do not push or open per-Issue/checkpoint PRs. GitHub Issues, Wiki and Discussions remain planning and record surfaces. Close only on evidence that the Issue's own acceptance passes on the recorded local integration SHA; leave partial or unverified work open. Planner gathers release scope, acceptance and evidence in a release Issue, then follows the existing protected develop and develop-to-main release/deployment procedure when ready. This operating transition does not initiate a deployment.
+
+[AGENTS.md](../AGENTS.md) and current owner instructions govern this workflow. The specialized roles and remote-PR examples below are retained reference material, not a requirement for permanent Works, routine remote publishing, or Review handoffs.
+
+---
+
 Wonffice unattended execution follows [the Agent runtime specification](specs/wonffice-agent-runtime.md). The roles below are responsibilities, not a requirement to run one permanent agent per role. Initial execution uses one supervisor and one worker. This document does not mean that the runtime is implemented or enabled.
 
 This doc defines **role-based sub-agents** so that work can be split and run in sequence without a human giving every command. Each role has a clear **focus**, **inputs**, **outputs**, and **handoff** to the next role. Orchestration can be **manual** (“act as X Agent”) or **trigger-based** (e.g. issue labels, PR events) for automation.
