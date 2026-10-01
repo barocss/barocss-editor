@@ -36,13 +36,13 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
       setCanvasGesture(next === 'canvas' ? { root: editor.dataStore.getNode(editor.getRootId()!), slide: current } : null);
     };
     const interrupt = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { lifetime.generation += 1; setCanvasGesture(null); }
+      if (event.key === 'Escape' && event.target instanceof Node && (host.contains(event.target) || globalChrome.current?.contains(event.target))) { lifetime.generation += 1; setCanvasGesture(null); }
     };
     const blur = () => { lifetime.generation += 1; setCanvasGesture(null); };
     host.ownerDocument.defaultView?.addEventListener('blur', blur);
     host.ownerDocument.addEventListener('pointerdown', regionChanged, true); host.ownerDocument.addEventListener('focusin', regionChanged, true);
-    host.addEventListener('keydown', interrupt, true);
-    return () => { host.ownerDocument.defaultView?.removeEventListener('blur', blur); host.ownerDocument.removeEventListener('pointerdown', regionChanged, true); host.ownerDocument.removeEventListener('focusin', regionChanged, true); host.removeEventListener('keydown', interrupt, true); };
+    host.ownerDocument.addEventListener('keydown', interrupt, true);
+    return () => { host.ownerDocument.defaultView?.removeEventListener('blur', blur); host.ownerDocument.removeEventListener('pointerdown', regionChanged, true); host.ownerDocument.removeEventListener('focusin', regionChanged, true); host.ownerDocument.removeEventListener('keydown', interrupt, true); };
   }, [scope, lifetime, current, editor]);
   const owner = captureSlidesSelectionOwner(lifetime);
   const captureIntent = () => { const captured = captureSlidesSelectionOwner(lifetime); return () => ownsSlidesSelection(captured); };
@@ -75,7 +75,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
       }}
     </ContextToolbar>}
     {!expanded && !textRange && target && <FloatingSurface open={(visibility.open || canvasOwned) && !!at} at={at} portalRoot={scope.current}
-      aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={reason => { setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope]}>
+      aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={reason => { lifetime.generation += 1; setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope]}>
       <div ref={objectChrome} key={`${lifetime.generation}:${JSON.stringify(editor.selection)}`}>
         <Ribbon editor={editor} slides={slides} current={current} groupIds={groups} portalContainer={objectChrome}
           canRunIntent={() => ownsSlidesSelection(owner)} />
