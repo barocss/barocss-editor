@@ -2099,7 +2099,8 @@ export function App({
          * position, which is the whole difference between a slide and a page.
          */}
         <WorkspaceSidePanel side="inspector" width={280}>
-          <ReadOnlyControls enabled={readOnly}><Properties
+          <Properties
+            readOnly={readOnly}
             editor={editor}
             slides={slides}
             current={current}
@@ -2114,7 +2115,7 @@ export function App({
             onEditTheme={() => setDialog('theme')}
             /** The reader's own decks, for a button that points at one by name. */
             libraryDecks={libraryDecks}
-          /></ReadOnlyControls>
+          />
         </WorkspaceSidePanel>
       </AdaptiveWorkspace>
 

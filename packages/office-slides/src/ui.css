@@ -2620,3 +2620,11 @@
   width: min(36rem, calc(100vw - 2rem));
   --ou-label-w: 104px;
 }
+
+/* Slides composes inspector tabs and the reader's unit preference in one header. */
+.sl-properties-header { gap: 8px; padding: 4px 12px; }
+.sl-properties-tab-controls { flex: 1; min-width: 0; border: 0; padding: 0; margin: 0; }
+.sl-properties-header .office-ribbon-tabs[data-variant='panel'] { padding: 0; border-bottom: 0; }
+.sl-properties-header .sl-unit { flex-shrink: 0; }
+
+.sl-properties-body { border: 0; padding: 0; margin: 0; min-width: 0; }

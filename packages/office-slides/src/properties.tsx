@@ -164,6 +164,8 @@ const SLOT_NAMES: Record<string, string> = {
 /** What the properties panel is told. */
 export interface PropertiesProps {
   editor: Editor | null;
+  /** Viewing preferences and tabs remain available; document controls are disabled. */
+  readOnly?: boolean;
   slides: Slide[];
   current?: string;
   paintEdit?: number | null;
@@ -200,6 +202,7 @@ export interface PropertiesProps {
 
 export function Properties({
   editor,
+  readOnly = false,
   slides,
   current,
   /** Which fill's editor is open, so the overlay can draw its axis. */
@@ -742,7 +745,17 @@ export function Properties({
       title="속성"
       className="sl-properties"
       density="inspector"
-      action={
+      header={<div className="sl-properties-header office-panel-header">
+        <fieldset className="sl-properties-tab-controls" disabled={commands.busy}>
+          <PropertyTabs panelId={tabPanelId}
+            tabs={[
+              { id: 'style', label: '속성' },
+              { id: 'motion', label: '모션' }
+            ]}
+            active={tab}
+            onChange={(id) => setTab(id as 'style' | 'motion')}
+          />
+        </fieldset>
         <Choice
           ariaLabel="단위"
           testClass="sl-unit"
@@ -757,7 +770,7 @@ export function Properties({
             </option>
           ))}
         </Choice>
-      }
+      </div>}
     >
       {/*
         * Two tabs, because a shape has two kinds of answer and they are used at
@@ -765,21 +778,13 @@ export function Properties({
         * for *this shape only* — the pane is the slide's list, and this is what
         * the selected box does in it.
         */}
+      <fieldset className="sl-properties-body" disabled={readOnly} inert={readOnly}>
       {commands.busy && <StatusIndicator busy>속성을 적용하고 있습니다.</StatusIndicator>}
       {commands.failed && <StatusNotice tone="danger" title="속성을 적용하지 못했습니다"
         actions={<Button disabled={commands.busy} onClick={commands.retry}>다시 시도</Button>}>
         변경하려던 값은 다시 시도할 수 있습니다. 선택한 대상과 편집 상태를 확인하세요.
       </StatusNotice>}
       <fieldset key={propertyContext} className="sl-property-fields" disabled={commands.busy}>
-      <PropertyTabs panelId={tabPanelId}
-        tabs={[
-          { id: 'style', label: '속성' },
-          { id: 'motion', label: '모션' }
-        ]}
-        active={tab}
-        onChange={(id) => setTab(id as 'style' | 'motion')}
-      />
-
       <div id={tabPanelId} role="tabpanel" aria-labelledby={`${tabPanelId}-${tab}`}>
       {tab === 'motion' ? (
         box ? (
@@ -1532,6 +1537,7 @@ export function Properties({
         </PropertyGroup>
       )}
       </div>
+      </fieldset>
       </fieldset>
     </PropertyPanel>
   );

@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react';
-import { Choice, RibbonTabs, PanelHeader } from '@barocss/office-ui';
+import { Choice, RibbonTabs } from '@barocss/office-ui';
 import { Filmstrip, type FilmstripProps } from './filmstrip';
 import { LayerPanel } from './layer-panel';
 
@@ -17,7 +17,6 @@ export function SlideSidebar(props: FilmstripProps & {
   const panelId = useId();
   return (
     <aside className="sl-sidebar" aria-label="슬라이드 탐색">
-      <PanelHeader title="탐색" />
       <RibbonTabs label="탐색 방식" value={tab} onChange={onTabChange} panelId={panelId}
         variant="panel" options={[{ id: 'slides', label: '슬라이드' }, { id: 'layers', label: '레이어' }, { id: 'components', label: '컴포넌트' }]} />
       <div className="sl-sidebar-context">

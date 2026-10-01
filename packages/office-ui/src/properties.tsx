@@ -38,12 +38,15 @@ export function PropertyPanel({
    * whatever is selected, which it is not.
    */
   action,
-  density = 'inspector'
+  density = 'inspector',
+  header
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
   action?: React.ReactNode;
+  /** Opt-in product composition; the default title/action header stays unchanged. */
+  header?: React.ReactNode;
   /** Comfortable spacing and visible field borders for a full inspector. */
   density?: 'compact' | 'comfortable' | 'inspector';
 }) {
@@ -85,7 +88,7 @@ export function PropertyPanel({
  className
       )}
     >
-      <PanelHeader title={title} actions={action} property />
+      {header === undefined ? <PanelHeader title={title} actions={action} property /> : header}
       {/* No padding here: a section's rule has to reach both edges, so the
           padding belongs to the sections. */}
       <div className="flex flex-col">{children}</div>
