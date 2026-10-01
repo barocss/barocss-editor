@@ -6,9 +6,11 @@ const root = createRoot(document.getElementById('root')!);
 if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
   // Load the server editor only after Office has checked this account and document.
   const ServerNoteWorkspace = lazy(() => import('../../note/src/server-workspace').then(module => ({ default: module.ServerNoteWorkspace })));
-  void import('./auth-app').then(({ AuthApp }) => root.render(<AuthApp noteRenderer={(context, principal, onUnsafeChange, onDocumentNavigate) =>
-    <Suspense fallback={<p role="status">노트 화면을 불러오는 중입니다.</p>}>
-      <ServerNoteWorkspace
+  const ServerWordWorkspace = lazy(() => import('../../word/src/server-workspace').then(module => ({ default: module.ServerWordWorkspace })));
+  void import('./auth-app').then(({ AuthApp }) => root.render(<AuthApp editorRenderer={(context, principal, onUnsafeChange, onDocumentNavigate) => {
+    const Workspace = context.product === 'word' ? ServerWordWorkspace : ServerNoteWorkspace;
+    return <Suspense fallback={<p role="status">문서 화면을 불러오는 중입니다.</p>}>
+      <Workspace key={`${principal.issuer}\0${principal.subject}\0${context.tenantId}\0${context.workspaceId}\0${context.product}`}
         tenantId={context.tenantId}
         workspaceId={context.workspaceId}
         issuer={principal.issuer}
@@ -23,12 +25,12 @@ if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
           url.searchParams.set('tenant', context.tenantId);
           url.searchParams.set('workspace', context.workspaceId);
           url.searchParams.set('document', documentId);
-          url.searchParams.set('product', 'note');
+          url.searchParams.set('product', context.product);
           history.replaceState(null, '', url);
         }}
       />
-    </Suspense>
-  } />));
+    </Suspense>;
+  }} />));
 } else {
   void import('@barocss/office-workspace/ui').then(({ WorkspaceHome }) => root.render(<WorkspaceHome />));
 }

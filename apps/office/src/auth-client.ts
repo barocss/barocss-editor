@@ -25,19 +25,28 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type WorkspaceAccess = { id: string; name: string };
 export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; mode: string; revision: number; fileFormat: string; fileVersion: number };
 export type VerifiedNoteContext = { tenantId: string; workspaceId: string; role: TenantRole; authorizedFetch: typeof fetch; documentId?: string; document?: DocumentAccess; snapshotText?: string };
+export type SnapshotProduct = 'note' | 'word';
+export type VerifiedSnapshotContext = VerifiedNoteContext & { product: SnapshotProduct };
 export type NoteIntent = { tenantId: string; workspaceId: string; documentId: string };
+export type SnapshotIntent = NoteIntent & { product: SnapshotProduct };
 
-export function noteIntentFromSearch(search: string): NoteIntent | null {
+export function snapshotIntentFromSearch(search: string): SnapshotIntent | null {
   const params = new URLSearchParams(search);
+  const product = params.get('product');
   if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'document', 'product'].includes(key)) ||
     ['tenant', 'workspace', 'document', 'product'].some(key => params.getAll(key).length !== 1) ||
-    params.get('product') !== 'note') return null;
+    (product !== 'note' && product !== 'word')) return null;
   const tenantId = params.get('tenant')!, workspaceId = params.get('workspace')!, documentId = params.get('document')!;
-  return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId } : null;
+  return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId, product } : null;
 }
-export function noteIntentSearch(intent: NoteIntent) {
-  return new URLSearchParams({ tenant: intent.tenantId, workspace: intent.workspaceId, document: intent.documentId, product: 'note' }).toString();
+export function snapshotIntentSearch(intent: SnapshotIntent) {
+  return new URLSearchParams({ tenant: intent.tenantId, workspace: intent.workspaceId, document: intent.documentId, product: intent.product }).toString();
 }
+export function noteIntentFromSearch(search: string): NoteIntent | null {
+  const intent = snapshotIntentFromSearch(search);
+  return intent?.product === 'note' ? { tenantId: intent.tenantId, workspaceId: intent.workspaceId, documentId: intent.documentId } : null;
+}
+export function noteIntentSearch(intent: NoteIntent) { return snapshotIntentSearch({ ...intent, product: 'note' }); }
 
 export class AuthError extends Error {
   constructor(public readonly kind: 'cancelled' | 'login' | 'unauthorized' | 'forbidden' | 'unavailable' | 'configuration' | 'collaboration_unavailable', message: string) {
@@ -97,7 +106,7 @@ export async function beginLogin(intent: EntryIntent, forceAccountChoice = false
   const discovery = await discover();
   const state = randomValue();
   const verifier = randomValue();
-  const returnPath = intent === 'user' && noteIntentFromSearch(location.search) ? `/?${noteIntentSearch(noteIntentFromSearch(location.search)!)}` : undefined;
+  const returnPath = intent === 'user' && snapshotIntentFromSearch(location.search) ? `/?${snapshotIntentSearch(snapshotIntentFromSearch(location.search)!)}` : undefined;
   sessionStorage.setItem(pendingKey, JSON.stringify({ state, verifier, intent, returnPath } satisfies PendingLogin));
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set('response_type', 'code');
@@ -155,7 +164,7 @@ export async function finishLogin(): Promise<EntryIntent> {
     intent: pending.intent,
   };
   sessionStorage.setItem(resumeKey, pending.intent);
-  if (pending.returnPath?.startsWith('/?') && noteIntentFromSearch(new URL(pending.returnPath, location.origin).search)) {
+  if (pending.returnPath?.startsWith('/?') && snapshotIntentFromSearch(new URL(pending.returnPath, location.origin).search)) {
     history.replaceState(null, '', pending.returnPath);
   }
   return pending.intent;
@@ -226,22 +235,24 @@ export async function listWorkspaces(tenantId: string, after?: string) {
     item => typeof item.id === 'string' && uuid.test(item.id) && typeof item.name === 'string');
 }
 
-export async function listNoteDocuments(tenantId: string, workspaceId: string, after?: string) {
+export async function listSnapshotDocuments(tenantId: string, workspaceId: string, product: SnapshotProduct, after?: string) {
   if (![tenantId, workspaceId, ...(after ? [after] : [])].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 자료함 주소입니다.');
-  const query = new URLSearchParams({ workspaceId, product: 'note' });
+  if (product !== 'note' && product !== 'word') throw new AuthError('configuration', '지원하지 않는 제품입니다.');
+  const query = new URLSearchParams({ workspaceId, product });
   if (after) query.set('after', after);
   return pageOf<DocumentAccess>(await apiGet(`/tenants/${tenantId}/documents?${query}`), 'documents',
     item => typeof item.documentId === 'string' && uuid.test(item.documentId) && item.tenantId === tenantId &&
-      item.workspaceId === workspaceId && item.product === 'note' && typeof item.title === 'string' && typeof item.revision === 'number' &&
+      item.workspaceId === workspaceId && item.product === product && typeof item.title === 'string' && typeof item.revision === 'number' &&
       typeof item.mode === 'string' && typeof item.fileFormat === 'string' && typeof item.fileVersion === 'number');
 }
 
-export async function openVerifiedNote(tenantId: string, workspaceId: string, documentId: string, role: TenantRole): Promise<VerifiedNoteContext> {
+export async function openVerifiedSnapshot(tenantId: string, workspaceId: string, documentId: string, role: TenantRole, product: SnapshotProduct): Promise<VerifiedSnapshotContext> {
   if (![tenantId, workspaceId, documentId].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 문서 주소입니다.');
   const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`) as Record<string, unknown>;
   const head = data?.document as Record<string, unknown> | undefined;
   if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
-    head.product !== 'note' ||
+    head.product !== product || (product !== 'note' && product !== 'word') ||
+    (product === 'word' && (head.fileFormat !== 'barocss-word' || head.fileVersion !== 1 || head.pageId !== null)) ||
     typeof head.revision !== 'number' || typeof head.title !== 'string' || typeof head.fileFormat !== 'string' || typeof head.fileVersion !== 'number') {
     throw new AuthError('forbidden', '선택한 문서의 회사, 자료함 또는 제품이 일치하지 않습니다.');
   }
@@ -254,8 +265,15 @@ export async function openVerifiedNote(tenantId: string, workspaceId: string, do
   if (head.mode !== 'snapshot' || typeof data.snapshotText !== 'string') {
     throw new AuthError('unavailable', '문서 응답을 확인하지 못했습니다. 다시 시도해 주세요.');
   }
-  return { tenantId, workspaceId, documentId, role, document: head as unknown as DocumentAccess,
+  return { tenantId, workspaceId, documentId, role, product, document: head as unknown as DocumentAccess,
     snapshotText: data.snapshotText, authorizedFetch };
+}
+
+export function listNoteDocuments(tenantId: string, workspaceId: string, after?: string) {
+  return listSnapshotDocuments(tenantId, workspaceId, 'note', after);
+}
+export function openVerifiedNote(tenantId: string, workspaceId: string, documentId: string, role: TenantRole) {
+  return openVerifiedSnapshot(tenantId, workspaceId, documentId, role, 'note');
 }
 
 const roles = new Set<TenantRole>(['owner', 'admin', 'editor', 'viewer']);
