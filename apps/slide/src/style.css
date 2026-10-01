@@ -287,3 +287,7 @@ body {
 /* All navigation views occupy the same column. */
 .sl-workspace-navigation { display:flex; min-height:0; }
 .sl-shell[data-presenting='true'] .sl-body > .office-workspace-side-panel { display:none; }
+
+/* Keep detail controls mounted while returning space to the canvas. */
+.sl-inspector-slot:not([hidden]) { display: contents; }
+.sl-inspector-slot[hidden] { display: none; }
