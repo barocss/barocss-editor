@@ -10,7 +10,7 @@ const source = (page: Page) => page.evaluate(() => JSON.stringify((window as any
 async function open(page: Page) {
   await page.goto('/');
   await placeCaret(page, '.w-paragraph');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.getByRole('button', { name: '본문 수식', exact: true }).click();
   await page.locator('.w-math-draft .me-input').fill('12345');

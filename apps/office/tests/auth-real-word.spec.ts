@@ -282,6 +282,17 @@ test('real Word native copy, fixed loss recovery, durable restart and sequential
     expect((await inspect(documentId)).document).toEqual(restored.document);
     await privateControl({ action: 'beta-role', role: 'editor' });
     await other.reload();
+    // A reload ends navigation before the asynchronous server document opens.
+    // Establish B's actual stale source before A advances the revision.
+    await expect(workspace(other).locator('[contenteditable=true]').first()).toBeVisible();
+    await expect(saved(other)).toHaveText('서버 저장 확인됨');
+    const beforeWriterA = await inspect(documentId);
+    const exportedB = other.waitForEvent('download');
+    await workspace(other).getByRole('button', { name: 'Word 파일 내보내기', exact: true }).click();
+    const bFile = await exportedB;
+    const bNative = JSON.parse(readFileSync((await bFile.path())!, 'utf8'));
+    expect(bNative.document).toEqual(JSON.parse(beforeWriterA.document!.snapshotText).document);
+    await test.info().attach('stale-B-before-A.json', { body: JSON.stringify({ revision: beforeWriterA.document!.revision, document: bNative.document }), contentType: 'application/json' });
     await typeInput(page, ' writer-A-committed'); await save(page).click();
     await expect(saved(page)).toHaveText('서버 저장 확인됨');
     const afterA = await inspect(documentId);

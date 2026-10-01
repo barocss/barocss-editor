@@ -62,6 +62,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const [copied, setCopied] = useState<string>();
   const shell = useRef<HTMLDivElement>(null);
   const canEdit = role !== 'viewer' && problem?.kind !== 'denied';
+  const authority = useRef(canEdit); authority.current = canEdit;
   const dirty = !!current && (current.confirmed === null || stableWordSnapshotText(current.text) !== stableWordSnapshotText(current.confirmed));
   const signalProtection = useCallback((safe: boolean) => {
     protectedRef.current = safe; setProtectedInput(safe);
@@ -147,8 +148,9 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   }, [client, store, replace]);
   const mount = useCallback((host: HTMLElement, onFurniture?: (id?: string) => void) => {
     const one = currentRef.current!;
-    return mountWordRuntime(host, { initialDocument: one.initial, editable: role !== 'viewer' }, onFurniture);
-  }, [client, current?.generation, role]);
+    // Same-account role changes update the live runtime; they must not reload its initial snapshot.
+    return mountWordRuntime(host, { initialDocument: one.initial, editable: authority.current }, onFurniture);
+  }, [client, current?.generation]);
   const onRuntime = useCallback((value: WordRuntime) => {
     const generation = currentRef.current!.generation;
     const changed = () => { if (active.current === client && runtime.current?.generation === generation) capture(); };
@@ -171,13 +173,13 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     return () => { observer.disconnect(); window.removeEventListener('beforeunload', unload); window.removeEventListener('pagehide', hide); };
   }, [capture]);
   const prepare = async (text: string, name?: string, sourceTitle?: string) => {
-    if (!canEdit || !safeSwitch()) return;
+    if (!authority.current || !safeSwitch()) return;
     let initial: WordDocument;
     try { initial = documentOf(text); } catch (error) { setSourceError(error instanceof Error ? error.message : '파일을 읽지 못했습니다.'); return; }
     busyRef.current = true; setBusy(true);
     try {
       await client.list();
-      if (active.current !== client) return;
+      if (active.current !== client || !authority.current) return;
       const one: Open = { owner: client, generation: crypto.randomUUID(), documentRef: crypto.randomUUID(), documentId: null,
         head: null, initial, text, confirmed: null };
       const draftId = newPendingWordDraftId();
@@ -190,7 +192,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
   };
   const recover = async (record: PendingWordRecord) => {
-    if (!canEdit || !safeSwitch()) return;
+    if (!authority.current || !safeSwitch()) return;
     busyRef.current = true; setBusy(true);
     try {
       let head: ServerWordHead | null = null;
@@ -199,7 +201,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
         if (verified.mode !== 'snapshot') throw new ServerWordError(409, 'snapshot_mode_required');
         head = { ...verified.document, revision: record.base.expectedRevision };
       } else await client.list();
-      if (active.current !== client) return;
+      if (active.current !== client || !authority.current) return;
       const initial = documentOf(record.snapshotText);
       replace({ owner: client, generation: crypto.randomUUID(), documentRef: record.scope.documentRef,
         documentId: record.base.operation === 'update' ? record.base.documentId : null, head,
@@ -209,7 +211,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
   };
   const save = async () => {
-    if (!canEdit || busyRef.current || nestedRef.current || problemRef.current?.kind === 'conflict') return;
+    if (!authority.current || busyRef.current || nestedRef.current || problemRef.current?.kind === 'conflict') return;
     const text = capture(); const one = currentRef.current;
     if (!text || !one) return;
     let pinned: Fixed;
@@ -229,11 +231,11 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     try {
       // Recheck authority before receipt lookup or retry, including new-document requests.
       await client.list();
-      if (active.current !== client) return;
+      if (active.current !== client || !authority.current) return;
       let receipt;
       try { receipt = await client.receipt(pinned.attempt.operation, pinned.attempt.idempotencyKey); }
-      catch (error) { if (!(error instanceof ServerWordError) || error.status !== 404) throw error; if (active.current !== client) return; receipt = await client.save(pinned.attempt); }
-      if (active.current !== client) return;
+      catch (error) { if (!(error instanceof ServerWordError) || error.status !== 404) throw error; if (active.current !== client || !authority.current) return; receipt = await client.save(pinned.attempt); }
+      if (active.current !== client || !authority.current) return;
       const confirmed = await client.confirm(pinned.attempt, receipt);
       if (active.current !== client || currentRef.current?.generation !== one.generation) return;
       try {

@@ -24,6 +24,8 @@ const groups = async (page: Page) =>
 test.describe('a toolbar that answers to the selection', () => {
   test('does not offer the shape and table groups to a caret in prose', async ({ page }) => {
     await page.goto('/?sample');
+    // Full tools are now an explicit user choice; keep the contextual group checks.
+    await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
 
@@ -38,6 +40,8 @@ test.describe('a toolbar that answers to the selection', () => {
 
   test('offers the table group to a caret inside a table, and takes it back', async ({ page }) => {
     await page.goto('/?sample');
+    // Full tools are now an explicit user choice; keep the contextual group checks.
+    await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
     await settled(page);
 
     const cell = page.locator('.w-document table td, .w-document table th').first();
@@ -57,6 +61,8 @@ test.describe('a toolbar that answers to the selection', () => {
 
   test('offers the arrange group once there is a shape to arrange', async ({ page }) => {
     await page.goto('/?sample');
+    // Full tools are now an explicit user choice; keep the contextual group checks.
+    await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
     expect(await groups(page)).not.toContain('arrange');
@@ -84,6 +90,8 @@ test.describe('a toolbar that answers to the selection', () => {
 
   test('is shorter for it, which is the whole point', async ({ page }) => {
     await page.goto('/?sample');
+    // Full tools are now an explicit user choice; keep the contextual group checks.
+    await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
     await settled(page);
     await placeCaret(page, '.barocss-editor-content p:not(.w-frame p)', 3);
 

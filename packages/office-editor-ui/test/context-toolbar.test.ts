@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, createElement } from 'react';
+import { act, createElement, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import type { ModelSelection } from '@barocss/editor-core';
 import { openNoteTree, type NoteSession } from '@barocss/office-note';
@@ -166,6 +167,44 @@ describe('context controls belong to one editor selection', () => {
     expect(saved.current).toEqual(snapshot);
   });
 
+  it('keeps editor ownership when tools render outside a transformed document', async () => {
+    const [body, foreign] = bodies;
+    body.scope.style.transform = 'scale(1.25)';
+    const destination = document.createElement('div');
+    document.body.append(destination);
+    const before = body.session.editor.exportDocument(body.session.rootId);
+    const props = {
+      editor: body.session.editor, controls, label: 'unscaled-tools',
+      scope: { current: body.scope }, portalRoot: destination,
+      children: createElement('input', { 'aria-label': 'Selected text field' })
+    };
+    await act(async () => root.render(createElement(ContextToolbar, props)));
+    await select(body, 1, 5);
+    expect(toolbar('unscaled-tools')!.parentElement).toBe(destination);
+    await act(async () => toolbar('unscaled-tools')!.querySelector('input')!.focus());
+    expect(toolbar('unscaled-tools')).not.toBeNull();
+    expect(body.session.editor.exportDocument(body.session.rootId)).toEqual(before);
+    await select(foreign, 1, 5);
+    expect(toolbar('unscaled-tools')).toBeNull();
+  });
+
+  it('returns owned field focus to the document when Escape dismisses its tools', async () => {
+    const body = bodies[0];
+    await act(async () => root.render(createElement(ContextToolbar, {
+      editor: body.session.editor, controls, label: 'focus-return', scope: { current: body.scope },
+      children: createElement('input', { 'aria-label': 'Owned tool field' })
+    })));
+    await select(body, 1, 5);
+    const before = JSON.stringify(body.session.editor.exportDocument());
+    const input = toolbar('focus-return')!.querySelector('input')!;
+    await act(async () => input.focus());
+    await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(toolbar('focus-return')).toBeNull();
+    expect(document.activeElement).toBe(body.text.parentElement!.parentElement!);
+    expect(JSON.stringify(body.session.editor.exportDocument())).toBe(before);
+    expect(body.session.editor.selection).toMatchObject({ startOffset: 1, endOffset: 5 });
+  });
+
   it('dismisses on Escape and reopens after a new text selection', async () => {
     const changed = vi.fn();
     await act(async () => root.render(createElement(ContextToolbar, {
@@ -303,4 +342,60 @@ it.each(['pointer', 'keyboard'])('reopens an escaped range after an explicit own
   expect(toolbar('explicit-selection')).not.toBeNull();
   await act(async () => body.session.editor.executeCommand('toggleBold'));
   expect(body.session.editor.dataStore.getNode(body.sid)?.marks).toEqual(expect.arrayContaining([expect.objectContaining({ stype: 'bold' })]));
+});
+
+
+it('retains an explicitly owned popup field and rejects a foreign popup field', async () => {
+  const body = bodies[0];
+  const saved: { current: ModelSelection | null } = { current: null };
+  function Popup({ owner }: { owner?: RefObject<HTMLElement | null> }) {
+    const [open, setOpen] = useState(false);
+    return createElement('div', null,
+      createElement('button', { onClick: () => setOpen(true), 'data-open-popup': true }, 'Open owned choices'),
+      open ? createPortal(createElement('input', { 'aria-label': 'Owned popup choice' }), owner?.current ?? document.body) : null);
+  }
+  await act(async () => root.render(createElement(ContextToolbar, {
+    editor: body.session.editor, controls, label: 'popup-owner', scope: { current: body.scope },
+    children: (selection: ModelSelection | null, owner?: RefObject<HTMLElement | null>) => {
+      saved.current = selection;
+      return createElement(Popup, { owner });
+    }
+  })));
+  await select(body, 1, 5);
+  const snapshot = { ...saved.current };
+  await act(async () => toolbar('popup-owner')!.querySelector('[data-open-popup]')!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  const popup = document.querySelector<HTMLInputElement>('[aria-label="Owned popup choice"]')!;
+  await act(async () => {
+    popup.focus();
+    document.getSelection()!.removeAllRanges();
+    document.dispatchEvent(new Event('selectionchange'));
+  });
+  expect(toolbar('popup-owner')).not.toBeNull();
+  expect(body.scope.querySelector('[contenteditable]')!.contains(popup)).toBe(false);
+  expect(saved.current).toEqual(snapshot);
+  const foreign = document.createElement('input'); document.body.append(foreign);
+  await act(async () => foreign.focus());
+  expect(toolbar('popup-owner')).toBeNull();
+  foreign.remove();
+});
+
+it('keeps owned tools during focusout before the popup receives focus', async () => {
+  const body = bodies[0];
+  await act(async () => root.render(createElement(ContextToolbar, {
+    editor: body.session.editor, controls, label: 'focus-transfer', scope: { current: body.scope },
+    children: createElement('input', { 'aria-label': 'Tool popup field' })
+  })));
+  await select(body);
+  const popup = toolbar('focus-transfer')!.querySelector('input')!;
+  // Browsers temporarily report BODY during focusout, before relatedTarget gets focusin.
+  Object.defineProperty(document, 'activeElement', { configurable: true, get: () => document.body });
+  try {
+    await act(async () => body.text.parentElement!.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: popup })));
+    expect(toolbar('focus-transfer')).not.toBeNull();
+  } finally { delete (document as unknown as { activeElement?: Element }).activeElement; }
+  await act(async () => popup.focus());
+  expect(toolbar('focus-transfer')).not.toBeNull();
+  const outside = document.createElement('input'); document.body.append(outside);
+  await act(async () => outside.focus());
+  expect(toolbar('focus-transfer')).toBeNull(); outside.remove();
 });

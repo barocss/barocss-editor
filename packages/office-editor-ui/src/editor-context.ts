@@ -36,33 +36,55 @@ export function useEditorContextVisibility<K>(editor: Editor, key: K | null, {
     const doc = scope?.current?.ownerDocument ?? document;
     const win = doc.defaultView;
     let windowActive = true;
-    const measure = () => {
-      const element = doc.activeElement;
+    let alive = true;
+    const measureElement = (element: Element | null) => {
       if (!windowActive || !element || element.closest('[data-editor-input-owner]')) { setFocused(false); return; }
       if (retainWithin?.current?.contains(element)) { setFocused(true); return; }
       if (element.matches('input, textarea, select')) { setFocused(false); return; }
       setFocused(scope?.current ? scope.current.contains(element)
         : ownsEditorSelection(editor, doc.getSelection()) && element.contains(doc.getSelection()?.anchorNode ?? null));
     };
+    const measure = () => measureElement(doc.activeElement);
+    const focusout = (event: FocusEvent) => {
+      // activeElement is temporarily BODY during focusout. Prefer the known next owner.
+      if (event.relatedTarget instanceof Element) measureElement(event.relatedTarget);
+      else queueMicrotask(() => { if (alive) measure(); });
+    };
     const blur = () => { windowActive = false; setFocused(false); };
     const focus = () => { windowActive = true; measure(); };
     measure();
     doc.addEventListener('focusin', measure);
-    doc.addEventListener('focusout', measure);
+    doc.addEventListener('focusout', focusout);
     doc.addEventListener('selectionchange', measure);
     win?.addEventListener('blur', blur);
     win?.addEventListener('focus', focus);
     return () => {
+      alive = false;
       doc.removeEventListener('focusin', measure);
-      doc.removeEventListener('focusout', measure);
+      doc.removeEventListener('focusout', focusout);
       doc.removeEventListener('selectionchange', measure);
       win?.removeEventListener('blur', blur);
       win?.removeEventListener('focus', focus);
     };
   }, [editor, root, scope, retainWithin]);
-  const dismiss = () => {
-    if (current.current !== session || key === null) return;
-    session.dismissed = key; refresh();
+  const dismiss = (reason?: 'escape' | 'outside') => {
+    if (current.current !== session || key === null || editor.getRootId() !== root) return;
+    session.dismissed = key;
+    if (reason === 'escape' && editor.isEditable) {
+      const doc = scope?.current?.ownerDocument ?? document;
+      if (retainWithin?.current?.contains(doc.activeElement)) {
+        const anchor = doc.getSelection()?.anchorNode;
+        const element = anchor?.nodeType === 1 ? anchor as Element : anchor?.parentElement;
+        const selected = element?.closest<HTMLElement>('[contenteditable="true"]');
+        const target = selected && (!scope?.current || scope.current.contains(selected))
+          ? selected : scope?.current?.querySelector<HTMLElement>('[contenteditable="true"]');
+        if (target && !target.closest('[data-editor-input-owner]') &&
+            (scope?.current || ownsEditorSelection(editor, doc.getSelection()))) {
+          target.focus({ preventScroll: true });
+        }
+      }
+    }
+    refresh();
   };
   const reopen = () => {
     if (current.current !== session || session.dismissed === null) return;

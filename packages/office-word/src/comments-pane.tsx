@@ -30,11 +30,16 @@ export interface CommentsPaneProps {
   editor: Editor;
   /** 닻을 데코레이터로 그리는 곳. 주석은 문서의 것이고, 밑줄은 뷰의 것이다. */
   view: EditorViewDOM;
+  readOnly?: boolean;
   open: boolean;
   onToggle: () => void;
 }
 
-export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps) {
+export function CommentsPane({ editor, view, open, onToggle, readOnly = false }: CommentsPaneProps) {
+  const rootId = editor.getRootId();
+  const root = rootId ? editor.dataStore.getNode(rootId) : undefined;
+  const mutable = !readOnly && editor.isEditable;
+  const run = (command: string, payload: Record<string, unknown>) => { if (!readOnly && editor.isEditable && editor.getRootId() === rootId && editor.dataStore.getNode(rootId!) === root) void editor.run(command, payload); };
   const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -60,10 +65,12 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
       if (selection && selection.type === 'range' && !selection.collapsed) setAnchorTo(selection);
     };
     editor.on('editor:content.change', bump);
+    editor.on('editor:editable.change', bump);
     editor.on('editor:selection.model', remember);
     remember();
     return () => {
       editor.off('editor:content.change', bump);
+      editor.off('editor:editable.change', bump);
       editor.off('editor:selection.model', remember);
     };
   }, [editor]);
@@ -147,11 +154,11 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
   }, [view, anchorKey]);
 
   const add = useCallback(async () => {
-    if (!anchorTo) return;
+    if (!anchorTo || readOnly || !editor.isEditable || editor.getRootId() !== rootId || editor.dataStore.getNode(rootId!) !== root) return;
     await editor.run('insertComment', { selection: anchorTo, text: draft || 'Comment' });
     setDraft('');
     setAnchorTo(null);
-  }, [editor, draft, anchorTo]);
+  }, [editor, draft, anchorTo, readOnly, rootId, root]);
 
   /**
    * Closed, it is a strip to open it by.
@@ -183,10 +190,10 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
       aria-label="Comments"
     >
       <PanelHeader title="댓글" actions={<IconButton label="댓글 닫기" onClick={onToggle}><Icon name="close" size={16} /></IconButton>} />
-      <div className="w-comment-compose">
+      <fieldset disabled={!mutable} className="w-comment-compose">
         <TextField className="w-comment-draft" placeholder="New comment" ariaLabel="New comment" value={draft} onChange={setDraft} />
         <IconButton label="Add comment" title="Comment on the selected text" disabled={!anchorTo} onClick={() => void add()}><Icon name="comment-new" size={16} /></IconButton>
-      </div>
+      </fieldset>
 
       <ul className="mt-3 space-y-2">
         {threads.map((thread) => (
@@ -210,18 +217,18 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                     {entry.author} · {entry.date}
                   </span>
                   <button
-                    aria-label="Edit comment"
+                    aria-label="Edit comment" disabled={!mutable}
                     className="rounded p-0.5 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     onClick={(event) => {
                       event.stopPropagation();
-                      setEditing({ sid: entry.sid, text: entry.text });
+                      if (mutable && editor.isEditable) setEditing({ sid: entry.sid, text: entry.text });
                     }}
                   >
                     <Icon name="edit" size={12} />
                   </button>
                 </div>
 
-                {editing?.sid === entry.sid ? (
+                {mutable && editing?.sid === entry.sid ? (
                   <input
                     autoFocus
                     aria-label="Edit comment text"
@@ -237,7 +244,7 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                       // The text changes; the author and the date do not. They
                       // record who said it and when, and a comment that quietly
                       // reattributes itself is worse than one nobody can fix.
-                      void editor.run('editComment', { entrySid: entry.sid, text: editing.text });
+                      run('editComment', { entrySid: entry.sid, text: editing.text });
                       setEditing(null);
                     }}
                   />
@@ -260,7 +267,7 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                 they answer — which is what a thread is. */}
             <div className="mt-1 flex items-center gap-1">
               <input
-                aria-label="Reply"
+                aria-label="Reply" disabled={!mutable}
                 placeholder="Reply"
                 className="w-comment-reply h-6 flex-1 rounded border border-neutral-300 px-1 text-xs dark:border-neutral-700 dark:bg-neutral-800"
                 value={replies[thread.id] ?? ''}
@@ -272,17 +279,17 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
                   if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                   if (event.key !== 'Enter' || !(replies[thread.id] ?? '').trim()) return;
                   event.preventDefault();
-                  void editor.run('replyToComment', { id: thread.id, text: replies[thread.id] });
+                  run('replyToComment', { id: thread.id, text: replies[thread.id] });
                   setReplies((all) => ({ ...all, [thread.id]: '' }));
                 }}
               />
               <button
                 aria-label="Send reply"
                 className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-neutral-800"
-                disabled={!(replies[thread.id] ?? '').trim()}
+                disabled={!mutable || !(replies[thread.id] ?? '').trim()}
                 onClick={(event) => {
                   event.stopPropagation();
-                  void editor.run('replyToComment', { id: thread.id, text: replies[thread.id] });
+                  run('replyToComment', { id: thread.id, text: replies[thread.id] });
                   setReplies((all) => ({ ...all, [thread.id]: '' }));
                 }}
               >
@@ -292,18 +299,18 @@ export function CommentsPane({ editor, view, open, onToggle }: CommentsPaneProps
 
             <div className="mt-1 flex gap-1">
               <button
-                aria-label={thread.resolved ? 'Reopen comment' : 'Resolve comment'}
+                aria-label={thread.resolved ? 'Reopen comment' : 'Resolve comment'} disabled={!mutable}
                 className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 onClick={() =>
-                  void editor.run('resolveComment', { id: thread.id, resolved: !thread.resolved })
+                  run('resolveComment', { id: thread.id, resolved: !thread.resolved })
                 }
               >
                 <Icon name="resolve" size={14} />
               </button>
               <button
-                aria-label="Delete comment"
+                aria-label="Delete comment" disabled={!mutable}
                 className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                onClick={() => void editor.run('deleteComment', { id: thread.id })}
+                onClick={() => run('deleteComment', { id: thread.id })}
               >
                 <Icon name="delete" size={14} />
               </button>

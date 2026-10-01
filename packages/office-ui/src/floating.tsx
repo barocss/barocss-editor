@@ -147,6 +147,9 @@ export function FloatingSurface({
       if (keepsDraftTextAreaEscape(event)) return false;
       if (!topmost() || event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.key !== 'Escape') return false;
       if (dismissVisibleTooltip(event)) return true;
+      // Owned child pickers consume their first Escape before the enclosing surface.
+      const picker = event.target instanceof Element ? event.target.closest('[role="listbox"], [role="menu"], [role="dialog"]') : null;
+      if (picker && picker !== surface && surface.contains(picker)) return false;
       // Separately portalled pickers own Escape until they close. Keep their parent panel open.
       if (event.target instanceof Node && latest.current.ownedElements.some(owned => {
         const element = owned && 'current' in owned ? owned.current : owned;

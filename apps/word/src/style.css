@@ -339,7 +339,7 @@ body {
 .w-library-row small { display: block; margin-top: 4px; color: var(--ou-muted); }
 
 /* Product chrome: file identity above commands, formatting above the paper. */
-.w-shell > .w-chrome { padding: 0; background: var(--ou-panel); }
+.w-shell > .w-chrome { padding: 0; background: var(--ou-panel); color: var(--ou-ink); }
 .w-document-header .doc-title-bar { width: 100%; min-width: 0; padding: 0; align-items: center; flex-wrap: nowrap; }
 .w-document-header .doc-title-docTitle { height: 30px; padding: 0; line-height: 28px; font-size: 13px; font-weight: 600; min-width: 8ch; max-width: 100%; flex: 1 1 auto; }
 .w-document-header .w-document-library { margin-left: auto; padding: 0; border: 0; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
@@ -362,3 +362,8 @@ body {
 .w-document-header .w-document-library [data-word-save-status] { order: -1; margin: 0 6px 0 0; }
 
 .w-shell-body > .office-workspace-side-panel > * { flex: 1; min-width: 0; }
+
+/* Selection tools reuse Word controls without reserving an idle ribbon row. */
+.w-selection-tools { display:flex; flex-wrap:wrap; align-items:center; gap:4px; max-width:min(680px,calc(100vw - 32px)); }
+.w-selection-tools .w-ribbon-group { border:0; }
+.w-document-ribbon { border:0; }

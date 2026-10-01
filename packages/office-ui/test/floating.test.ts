@@ -196,6 +196,21 @@ describe('a shared floating surface', () => {
     act(() => button.click());
     expect(close).toHaveBeenCalledOnce();
   });
+  it('lets a picker inside the owned surface close before the toolbar', () => {
+    const dismiss = vi.fn(), innerEscape = vi.fn();
+    render({ onDismiss: dismiss, children: createElement('input') });
+    const picker = document.createElement('div'); picker.setAttribute('role', 'listbox');
+    const option = document.createElement('button'); picker.append(option); surface().append(picker);
+    picker.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); innerEscape(); picker.remove(); }
+    });
+    act(() => option.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(innerEscape).toHaveBeenCalledOnce();
+    expect(dismiss).not.toHaveBeenCalled();
+    act(() => surface().querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(dismiss).toHaveBeenCalledOnce();
+  });
+
   it.each(['listbox', 'menu', 'dialog'])('lets an explicitly owned portalled %s consume Escape before its parent', role => {
     const dismiss = vi.fn(), innerEscape = vi.fn();
     const picker = document.createElement('div'); picker.setAttribute('role', role);

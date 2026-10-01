@@ -1018,13 +1018,19 @@ export class EditorViewDOM implements IEditorViewDOM {
   handleDrop(event: DragEvent): void { this._fragmentDrag?.drop(event); }
 
   handleSelectionChange(): void {
-    // 1. Ignore if programmatic selection change
-    if ((this.selectionHandler as any)._isProgrammaticChange) {
+    // Ignore if focus is outside editor (fastest check).
+    if (document.activeElement !== this.contentEditableElement) {
       return;
     }
 
-    // 2. Ignore if focus is outside editor (fastest check)
-    if (document.activeElement !== this.contentEditableElement) {
+    // Caret restoration and a real user selection can share one event turn.
+    // Defer the received report until restoration ends instead of losing it.
+    if ((this.selectionHandler as any)._isProgrammaticChange) {
+      if (this._selectionChangeTimeout !== null) window.clearTimeout(this._selectionChangeTimeout);
+      this._selectionChangeTimeout = window.setTimeout(() => {
+        this._selectionChangeTimeout = null;
+        this.handleSelectionChange();
+      }, 0);
       return;
     }
 
@@ -1059,12 +1065,16 @@ export class EditorViewDOM implements IEditorViewDOM {
     const debounceDelay = isRapidChange ? 100 : 16; // During drag: 100ms, normal: 16ms (60fps)
 
     this._selectionChangeTimeout = window.setTimeout(() => {
-      this._processSelectionChange();
       this._selectionChangeTimeout = null;
+      this._processSelectionChange();
     }, debounceDelay);
   }
 
   private _processSelectionChange(): void {
+    if ((this.selectionHandler as any)._isProgrammaticChange) {
+      this.handleSelectionChange();
+      return;
+    }
     if (this.isEmbeddedInput(this.contentEditableElement.ownerDocument.activeElement)) return;
     try {
       /**
@@ -1454,6 +1464,10 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   // Lifecycle
   destroy(): void {
+    if (this._selectionChangeTimeout !== null) {
+      window.clearTimeout(this._selectionChangeTimeout);
+      this._selectionChangeTimeout = null;
+    }
     // Cleanup Decorator system
     this.decoratorManager.clear();
     this.decoratorManager.removeAllListeners();
