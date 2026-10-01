@@ -6,11 +6,13 @@ const root = createRoot(document.getElementById('root')!);
 if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
   // Load the server editor only after Office has checked this account and document.
   const ServerNoteWorkspace = lazy(() => import('../../note/src/server-workspace').then(module => ({ default: module.ServerNoteWorkspace })));
-  void import('./auth-app').then(({ AuthApp }) => root.render(<AuthApp noteRenderer={(context, onUnsafeChange, onDocumentNavigate) =>
+  void import('./auth-app').then(({ AuthApp }) => root.render(<AuthApp noteRenderer={(context, principal, onUnsafeChange, onDocumentNavigate) =>
     <Suspense fallback={<p role="status">노트 화면을 불러오는 중입니다.</p>}>
       <ServerNoteWorkspace
         tenantId={context.tenantId}
         workspaceId={context.workspaceId}
+        issuer={principal.issuer}
+        subject={principal.subject}
         initialDocumentId={context.documentId}
         authorizedFetch={context.authorizedFetch}
         role={context.role}
