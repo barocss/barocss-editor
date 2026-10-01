@@ -542,6 +542,7 @@ test('a new Note keeps its unsaved view through a successful access recheck', as
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
   await page.getByRole('button', { name: '새 Note 만들기' }).click();
+  await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
   await page.evaluate(() => {
     const marker = document.createElement('input');
     marker.setAttribute('aria-label', 'new note edit marker');

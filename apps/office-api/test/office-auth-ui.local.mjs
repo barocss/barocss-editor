@@ -123,7 +123,7 @@ const status = () => ({ databaseGeneration, databaseRunning: started,
   tenantId: alpha, workspaceId: alphaWorkspace, betaTenantId: beta, betaWorkspaceId: betaWorkspace });
 async function control(command) {
   if (closing || !command || typeof command !== 'object' || Array.isArray(command)) throw new Error('invalid_local_command');
-  const allowed = command.action === 'inspect' ? ['action', 'documentId', 'operation', 'idempotencyKey', 'actor', 'tenant']
+  const allowed = command.action === 'inspect' ? ['action', 'documentId', 'operation', 'idempotencyKey', 'actor', 'tenant', 'product']
     : command.action === 'beta-role' ? ['action', 'role'] : command.action === 'beta-active' ? ['action', 'active'] : ['action'];
   if (Object.keys(command).some(key => !allowed.includes(key))) throw new Error('invalid_local_command');
   switch (command.action) {
@@ -154,6 +154,8 @@ async function control(command) {
     }
     case 'inspect': {
       if (command.tenant !== undefined && !['alpha', 'beta'].includes(command.tenant)) throw new Error('invalid_local_tenant');
+      if (command.product !== undefined && !['note', 'word'].includes(command.product)) throw new Error('invalid_local_product');
+      const inspectedProduct = command.product ?? 'note';
       const inspectedTenant = command.tenant === 'beta' ? beta : alpha;
       const inspectedWorkspace = command.tenant === 'beta' ? betaWorkspace : alphaWorkspace;
       if (command.documentId !== undefined && (typeof command.documentId !== 'string' ||
@@ -162,16 +164,16 @@ async function control(command) {
       if (command.idempotencyKey !== undefined && (!['create', 'update'].includes(command.operation) ||
         typeof command.idempotencyKey !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(command.idempotencyKey))) throw new Error('invalid_local_receipt');
       const counts = await ownerQuery(`SELECT
-        (SELECT count(*)::integer FROM wonffice.documents WHERE tenant_id=$1 AND product='note') AS "documentCount",
-        (SELECT count(*)::integer FROM wonffice.document_receipts WHERE tenant_id=$1) AS "receiptCount"`, [inspectedTenant]);
+        (SELECT count(*)::integer FROM wonffice.documents WHERE tenant_id=$1 AND product=$2) AS "documentCount",
+        (SELECT count(*)::integer FROM wonffice.document_receipts WHERE tenant_id=$1) AS "receiptCount"`, [inspectedTenant, inspectedProduct]);
       const documents = command.documentId ? await ownerQuery(`SELECT d.id AS "documentId", d.page_id AS "pageId", d.title, d.product, d.tenant_id AS "tenantId", d.workspace_id AS "workspaceId", d.metadata_revision AS "metadataRevision", d.mode,
         s.revision, s.snapshot_hash AS "snapshotHash", s.snapshot_text AS "snapshotText"
         FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id
-        WHERE d.tenant_id=$1 AND d.workspace_id=$2 AND d.product='note' AND d.id=$3`, [inspectedTenant, inspectedWorkspace, command.documentId]) : null;
+        WHERE d.tenant_id=$1 AND d.workspace_id=$2 AND d.product=$4 AND d.id=$3`, [inspectedTenant, inspectedWorkspace, command.documentId, inspectedProduct]) : null;
       const receipts = command.idempotencyKey ? await ownerQuery(`SELECT operation, idempotency_key AS "idempotencyKey",
         request_hash AS "requestHash", document_id AS "documentId", result_head AS "document", result_snapshot_text AS "snapshotText"
-        FROM wonffice.document_receipts WHERE tenant_id=$1 AND identity_id=$2 AND operation=$3 AND idempotency_key=$4`,
-      [inspectedTenant, command.actor === 'beta-viewer' ? bob : alice, command.operation, command.idempotencyKey]) : null;
+        FROM wonffice.document_receipts WHERE tenant_id=$1 AND identity_id=$2 AND operation=$3 AND idempotency_key=$4 AND result_head->>'product'=$5`,
+      [inspectedTenant, command.actor === 'beta-viewer' ? bob : alice, command.operation, command.idempotencyKey, inspectedProduct]) : null;
       const document = documents?.rows[0] ?? null;
       if (document) {
         document.canonicalTree = JSON.parse(document.snapshotText).document;

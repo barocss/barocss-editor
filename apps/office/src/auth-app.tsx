@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import {
   AuthError, beginLogin, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
   isLogoutEvent, loadIdentity, providerLogout, consumeLogoutReturn, consumeResumeIntent,
-  listWorkspaces, listNoteDocuments, openVerifiedNote, noteIntentFromSearch, noteIntentSearch, authorizedFetch,
-  type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext,
+  listWorkspaces, listSnapshotDocuments, openVerifiedSnapshot, snapshotIntentFromSearch, snapshotIntentSearch, authorizedFetch,
+  type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext, type VerifiedSnapshotContext, type SnapshotProduct,
 } from './auth-client';
 import './auth-style.css';
 
@@ -13,8 +13,8 @@ type View =
   | { phase: 'choose'; identity: Identity; intent: EntryIntent }
   | { phase: 'empty' }
   | { phase: 'opened'; intent: EntryIntent; tenant: TenantAccess; role: TenantRole; workspaces?: WorkspaceAccess[]; workspaceCursor?: string | null }
-  | { phase: 'library'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; documents: DocumentAccess[]; cursor: string | null }
-  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; context: VerifiedNoteContext; principal: Pick<Identity, 'issuer' | 'subject'> }
+  | { phase: 'library'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; product: SnapshotProduct; documents: DocumentAccess[]; cursor: string | null }
+  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; context: VerifiedSnapshotContext; principal: Pick<Identity, 'issuer' | 'subject'> }
   | { phase: 'operator-opened' }
   | { phase: 'operator-denied' }
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
@@ -40,7 +40,8 @@ function asAuthError(error: unknown) {
   return error instanceof AuthError ? error : new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 시도해 주세요.');
 }
 
-export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
+export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (context: VerifiedSnapshotContext, principal: Pick<Identity, 'issuer' | 'subject'>,
+  onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode; noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
   onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode } = {}) {
   const [view, setView] = useState<View>({ phase: 'checking' });
   const selected = useRef<TenantAccess | null>(null);
@@ -48,7 +49,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
   const generation = useRef(0);
   const authCompleting = useRef(location.pathname === '/auth/callback');
   const heading = useRef<HTMLHeadingElement>(null);
-  const noteIntent = useRef(noteIntentFromSearch(location.search));
+  const noteIntent = useRef(snapshotIntentFromSearch(location.search));
   const currentView = useRef(view);
   currentView.current = view;
   const noteUnsafe = useRef(false);
@@ -70,8 +71,13 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
   const rememberNote = (next: Omit<Extract<View, { phase: 'note' }>, 'principal'>, identity: Identity) => {
     const account = `${identity.issuer}\0${identity.subject}`;
     const guardedContext = { ...next.context, authorizedFetch: ((...args: Parameters<typeof fetch>) => {
-      if (!noteAccess.current || noteAccount.current !== account) {
+      if (noteAccount.current !== account) {
         throw new AuthError('forbidden', '현재 계정의 문서 접근 권한이 없습니다.');
+      }
+      if (!noteAccess.current) {
+        const current = currentView.current;
+        const denied = current.phase === 'error' && ['forbidden', 'unauthorized'].includes(current.error.kind);
+        throw new AuthError(denied ? 'forbidden' : 'unavailable', '현재 문서 접근 권한을 확인하고 있습니다.');
       }
       return next.context.authorizedFetch(...args);
     }) as typeof fetch };
@@ -111,7 +117,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
         throw new AuthError('forbidden', '계정이 바뀌었습니다. 이전 계정의 초안은 이 계정에 표시하지 않습니다.');
       }
       chosenIntent.current = intent;
-      const direct = noteIntent.current ?? noteIntentFromSearch(location.search);
+      const direct = noteIntent.current ?? snapshotIntentFromSearch(location.search);
       if (intent === 'operator') {
         selected.current = null;
         try { await confirmOperator(); }
@@ -173,11 +179,11 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
             workspace = page.items.find(item => item.id === direct.workspaceId);
           }
           if (!workspace) throw new AuthError('forbidden', '선택한 자료함에 접근할 수 없습니다.');
-          const context = await openVerifiedNote(fresh.tenantId, workspace.id, direct.documentId, role);
+          const context = await openVerifiedSnapshot(fresh.tenantId, workspace.id, direct.documentId, role, direct.product);
           if (run !== generation.current) return;
-          history.replaceState(null, '', `${location.pathname.startsWith('/products/note') ? '/products/note/' : '/'}?${noteIntentSearch(direct)}`);
-          if (retainedNote && role !== 'viewer' && retainedNote.context.tenantId === context.tenantId &&
-            retainedNote.context.workspaceId === context.workspaceId && rememberedDocumentId.current === context.documentId) {
+          history.replaceState(null, '', `/?${snapshotIntentSearch(direct)}`);
+          if (retainedNote && (role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
+            retainedNote.context.workspaceId === context.workspaceId && retainedNote.context.product === context.product && rememberedDocumentId.current === context.documentId) {
             noteAccess.current = true;
             setView(retainedNote);
             hideCurtain();
@@ -293,13 +299,13 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
     await logout();
   }
 
-  async function enterWorkspace(tenant: TenantAccess, role: TenantRole, workspace: WorkspaceAccess) {
+  async function enterWorkspace(tenant: TenantAccess, role: TenantRole, workspace: WorkspaceAccess, product: SnapshotProduct = 'note') {
     const run = ++generation.current;
     showCurtain(); setView({ phase: 'checking' });
     try {
-      const page = await listNoteDocuments(tenant.tenantId, workspace.id);
+      const page = await listSnapshotDocuments(tenant.tenantId, workspace.id, product);
       if (run !== generation.current) return;
-      setView({ phase: 'library', tenant, role, workspace, documents: page.items, cursor: page.nextCursor });
+      setView({ phase: 'library', tenant, role, workspace, product, documents: page.items, cursor: page.nextCursor });
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
 
@@ -320,7 +326,7 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
     if (!current.cursor) return;
     const run = generation.current;
     try {
-      const page = await listNoteDocuments(current.tenant.tenantId, current.workspace.id, current.cursor);
+      const page = await listSnapshotDocuments(current.tenant.tenantId, current.workspace.id, current.product, current.cursor);
       if (run !== generation.current) return;
       if (page.nextCursor === current.cursor || page.items.some(item => current.documents.some(existing => existing.documentId === item.documentId))) {
         throw new AuthError('unavailable', '문서 목록을 끝까지 불러오지 못했습니다.');
@@ -329,17 +335,36 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
 
+  async function createSnapshot(current: Extract<View, { phase: 'library' }>) {
+    const run = ++generation.current;
+    showCurtain(); setView({ phase: 'checking' });
+    try {
+      const identity = await loadIdentity();
+      if (!identity.tenants.some(item => item.tenantId === current.tenant.tenantId)) throw new AuthError('forbidden', '이 회사에 접근할 수 없습니다.');
+      const role = await confirmTenant(current.tenant.tenantId);
+      if (role === 'viewer') throw new AuthError('forbidden', '문서를 만들 권한이 없습니다.');
+      await listSnapshotDocuments(current.tenant.tenantId, current.workspace.id, current.product);
+      if (run !== generation.current) return;
+      noteIntent.current = null;
+      history.replaceState(null, '', '/');
+      rememberNote({ phase: 'note', tenant: current.tenant, role,
+        context: { product: current.product, tenantId: current.tenant.tenantId, workspaceId: current.workspace.id, role, authorizedFetch } }, identity);
+    } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
+  }
+
   async function enterNote(current: Extract<View, { phase: 'library' }>, documentId: string) {
     const run = ++generation.current;
     showCurtain(); setView({ phase: 'checking' });
     try {
-      const context = await openVerifiedNote(current.tenant.tenantId, current.workspace.id, documentId, current.role);
-      if (run !== generation.current) return;
-      noteIntent.current = { tenantId: context.tenantId, workspaceId: context.workspaceId, documentId };
-      history.replaceState(null, '', `/?${noteIntentSearch(noteIntent.current)}`);
       const identity = await loadIdentity();
+      if (!identity.tenants.some(item => item.tenantId === current.tenant.tenantId)) throw new AuthError('forbidden', '이 회사에 접근할 수 없습니다.');
+      const role = await confirmTenant(current.tenant.tenantId);
+      const context = await openVerifiedSnapshot(current.tenant.tenantId, current.workspace.id, documentId, role, current.product);
       if (run !== generation.current) return;
-      rememberNote({ phase: 'note', tenant: current.tenant, role: current.role, context }, identity);
+      noteIntent.current = { tenantId: context.tenantId, workspaceId: context.workspaceId, documentId, product: context.product };
+      history.replaceState(null, '', `/?${snapshotIntentSearch(noteIntent.current)}`);
+      if (run !== generation.current) return;
+      rememberNote({ phase: 'note', tenant: current.tenant, role, context }, identity);
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
 
@@ -371,23 +396,20 @@ export function AuthApp({ noteRenderer }: { noteRenderer?: (context: VerifiedNot
         {view.intent === 'admin' && <button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button>}
         <button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
-    {view.phase === 'library' && <section><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · Note 자료</h1>
-      {view.documents.length === 0 && <p>이 자료함에는 저장된 Note 문서가 없습니다.</p>}
+    {view.phase === 'library' && <section><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · {view.product === 'note' ? 'Note' : 'Word'} 자료</h1>
+      <div className="office-auth-actions">{(['note', 'word'] as const).map(product => <button key={product} aria-pressed={view.product === product} onClick={() => void enterWorkspace(view.tenant, view.role, view.workspace, product)}>{product === 'note' ? 'Note 자료' : 'Word 자료'}</button>)}</div>
+      {view.documents.length === 0 && <p>이 자료함에는 저장된 {view.product === 'note' ? 'Note' : 'Word'} 문서가 없습니다.</p>}
       <ul className="office-auth-tenants">{view.documents.map(item => <li key={item.documentId}><button onClick={() => void enterNote(view, item.documentId)}>{item.title}</button></li>)}</ul>
       {view.cursor && <button onClick={() => void moreDocuments(view)}>문서 더 보기</button>}
-      {view.role !== 'viewer' && <button onClick={() => {
-        if (!verifiedIdentity.current) return;
-        rememberNote({ phase: 'note', tenant: view.tenant, role: view.role,
-          context: { tenantId: view.tenant.tenantId, workspaceId: view.workspace.id, role: view.role, authorizedFetch } }, verifiedIdentity.current);
-      }}>새 Note 만들기</button>}
+      {view.role !== 'viewer' && <button onClick={() => void createSnapshot(view)}>새 {view.product === 'note' ? 'Note' : 'Word'} 만들기</button>}
       <div className="office-auth-actions"><button onClick={() => void checkAccess('user', view.tenant)}>자료함 목록</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
     {mountedNote && <section className="office-auth-note-host" hidden={view.phase !== 'note'} aria-hidden={view.phase !== 'note'} inert={view.phase !== 'note'}>
       {view.phase === 'note' && <div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>}
-      {noteRenderer ? noteRenderer(mountedNote.context, mountedNote.principal, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
+      {(editorRenderer ?? (mountedNote.context.product === 'note' ? noteRenderer : undefined)) ? (editorRenderer ?? noteRenderer)!(mountedNote.context, mountedNote.principal, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
         rememberedDocumentId.current = documentId;
-        noteIntent.current = { tenantId: mountedNote.context.tenantId, workspaceId: mountedNote.context.workspaceId, documentId };
-      }) : <p role="status">Note 편집 화면 연결을 기다리고 있습니다.</p>}
+        noteIntent.current = { tenantId: mountedNote.context.tenantId, workspaceId: mountedNote.context.workspaceId, documentId, product: mountedNote.context.product };
+      }) : <p role="status">{mountedNote.context.product === 'note' ? 'Note' : 'Word'} 편집 화면 연결을 기다리고 있습니다.</p>}
     </section>}
     {view.phase === 'operator-opened' && <section><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
       <p>서버에서 현재 서비스 운영 권한을 확인했습니다.</p>

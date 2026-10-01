@@ -2,15 +2,16 @@ import { createRoot } from 'react-dom/client';
 import { ProductNavigation } from '@barocss/office-workspace/host';
 import { OfficeWorkspace, readProductDocument, workspaceIdentity, type Product } from '@barocss/office-workspace';
 import { Button, registerEditorNavigation } from '@barocss/office-ui';
-import { noteIntentFromSearch, noteIntentSearch } from './auth-client';
+import { snapshotIntentFromSearch, snapshotIntentSearch } from './auth-client';
 import '@barocss/office-workspace/style.css';
 
 export async function mountWorkspaceProduct(product: Product, start: () => Promise<unknown>) {
  try {
   if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
-   const intent = product === 'note' ? noteIntentFromSearch(location.search) : null;
+   const requestedIntent = snapshotIntentFromSearch(location.search);
+   const intent = requestedIntent?.product === product ? requestedIntent : null;
    if (intent) {
-    location.replace(`/?${noteIntentSearch(intent)}`);
+    location.replace(`/?${snapshotIntentSearch(intent)}`);
     return;
    }
    createRoot(document.getElementById('root')!).render(<main style={{ padding: 32 }}><h1 tabIndex={-1} ref={element => element?.focus()}>문서 접근 확인이 필요합니다</h1><p role="alert">회사, 자료함, 문서와 제품을 확인할 수 없습니다. 이 주소에서 문서 본문을 열 수 없습니다.</p><Button onClick={() => location.assign('/')}>진입 화면으로 돌아가기</Button></main>);

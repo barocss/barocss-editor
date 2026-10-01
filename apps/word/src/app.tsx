@@ -3,7 +3,8 @@ import { DocumentLibrary, type DocumentLibraryHandle } from './document-library'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
-import type { EditorViewDOM } from '@barocss/editor-view-dom';
+import type { WordRuntime } from './runtime';
+import type { ReactNode } from 'react';
 import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, MenuBar, onApple, useRevision } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
@@ -22,7 +23,6 @@ import {
   WORD_VIEW_KEYS,
   wordMenuEntry,
   wordMenuId,
-  type FontLoader
 } from '@barocss/office-word';
 import { useFormatPainter, captureTextSelection, clipboardAction, canUseClipboard, useClipboardActions, FileActions, type DocumentFileActions } from '@barocss/office-editor-ui';
 import {
@@ -72,12 +72,28 @@ const painterOptions = {
     </Button>,
 };
 
-export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: string) => void) => { editor: Editor; view: EditorViewDOM; fonts: FontLoader; editFurniture: (id?: string) => void } }) {
+function ReadOnlyControls({ enabled, children }: { enabled?: boolean; children: ReactNode }) {
+  return enabled ? <fieldset disabled inert style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{children}</fieldset> : <>{children}</>;
+}
+
+export interface WordServerHost {
+  headerActions?: ReactNode;
+  readOnly?: boolean;
+  onRuntime: (runtime: WordRuntime) => void;
+  onFileAction: (action: 'new' | 'open' | 'save') => void;
+}
+
+export function App({ mount, server }: {
+  mount: (host: HTMLElement, onFurniture?: (id?: string) => void) => WordRuntime;
+  server?: WordServerHost;
+}) {
   const library = useRef<DocumentLibraryHandle>(null);
   const [compact, setCompact] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
+  const serverRef = useRef(server);
+  serverRef.current = server;
   /**
    * 페이지가 스크롤되는 칸 — **조립하는 쪽이 알고 있는 것**.
    *
@@ -87,7 +103,8 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
    * 아니라 `closest` 로 찾는다: 자기 서브트리에서 위로 올라가는 것은 자기 것이다.
    */
   const [pane, setPane] = useState<HTMLElement | null>(null);
-  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM; fonts: FontLoader; editFurniture: (id?: string) => void } | null>(null);
+  const [instance, setInstance] = useState<WordRuntime | null>(null);
+  const readOnly = Boolean(server?.readOnly || instance?.editor.isEditable === false);
   const [editingFurniture, setEditingFurniture] = useState<string>();
   const [toc, setToc] = useState<TocSession>();
   const [figures, setFigures] = useState<TocSession>();
@@ -100,16 +117,15 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
-    // Guarded because StrictMode runs effects twice on purpose, and it was
-    // right to: without this the editor was built into the same element twice
-    // and the document appeared three times over.
-    //
-    // Not cleaned up on unmount either. The editor owns this subtree for the
-    // life of the page, and tearing it down and rebuilding it would throw away
-    // the layout, the caret and the history for a re-render the user cannot see.
     mounted.current = true;
     setPane(host.current.closest('.w-shell-document') as HTMLElement | null);
-    setInstance(mount(host.current, setEditingFurniture));
+    const runtime = mount(host.current, setEditingFurniture);
+    setInstance(runtime);
+    serverRef.current?.onRuntime(runtime);
+    return () => {
+      runtime.dispose();
+      mounted.current = false;
+    };
   }, [mount]);
 
   /**
@@ -151,7 +167,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
    * meet it. Read once: whether it is open is not something the page changes its
    * mind about.
    */
-  const [lab] = useState(() => new URLSearchParams(window.location.search).has('lab'));
+  const [lab] = useState(() => !server && new URLSearchParams(window.location.search).has('lab'));
 
   /** What the editor has to say about itself right now — see the `menus` memo. */
   const answers = useRevision(
@@ -179,7 +195,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             label: item.label,
             hint: item.hint,
             checked: item.view === 'outline' ? outlineShown : item.view === 'comments' ? commentsShown : undefined,
-            disabled: item.view === 'dialog.caption' ? !instance || !captureCaptionSession(instance.editor) : ['dialog.bookmark', 'dialog.reference'].includes(item.view ?? '') ? !instance || !captureBookmarkSession(instance.editor) : item.view === 'dialog.styles' ? !instance || !captureStyleSession(instance.editor) : ['dialog.toc', 'dialog.figures'].includes(item.view ?? '') ? !instance || !captureTocSession(instance.editor) : item.view === 'format-painter'
+            disabled: readOnly && !['print', 'find', 'outline', 'comments', 'zoom.in', 'zoom.out', 'zoom.reset'].includes(item.view ?? '') ? true : item.view === 'dialog.caption' ? !instance || !captureCaptionSession(instance.editor) : ['dialog.bookmark', 'dialog.reference'].includes(item.view ?? '') ? !instance || !captureBookmarkSession(instance.editor) : item.view === 'dialog.styles' ? !instance || !captureStyleSession(instance.editor) : ['dialog.toc', 'dialog.figures'].includes(item.view ?? '') ? !instance || !captureTocSession(instance.editor) : item.view === 'format-painter'
               ? !instance || (!painter.active && !captureWordFormat(instance.editor))
               : item.view && clipboardAction(item.view)
               ? clipboard.busy || !canUseClipboard(instance?.editor ?? null, clipboardAction(item.view)!)
@@ -197,7 +213,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
      * as nothing else re-rendered this component — a menu that is stale is a menu a reader stops
      * trusting.
      */
-    [instance, answers, outlineShown, commentsShown, clipboard.busy, painter.active]
+    [instance, answers, outlineShown, commentsShown, clipboard.busy, painter.active, readOnly]
   );
 
   /**
@@ -237,6 +253,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
 
   const runEntry = useCallback(
     (entry: { command?: string; view?: string; payload?: Record<string, unknown> }) => {
+      if (readOnly && !['print', 'find', 'outline', 'comments', 'zoom.in', 'zoom.out', 'zoom.reset'].includes(entry.view ?? '')) return;
       if (entry.view?.startsWith('furniture.') && instance) {
         const target = captureFurnitureTarget(instance.editor);
         if (target) setFurniture({ target, mode: entry.view.slice(10) as 'header' | 'footer' | 'number' });
@@ -249,11 +266,11 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
       if (kind && instance) { setAuthoring(captureAuthoring(instance.editor, kind)); return; }
       switch (entry.view) {
         case 'file.new':
-          return files.current?.create();
+          return server ? server.onFileAction('new') : files.current?.create();
         case 'file.open':
-          return files.current?.open();
+          return server ? server.onFileAction('open') : files.current?.open();
         case 'file.save':
-          return files.current?.save();
+          return server ? server.onFileAction('save') : files.current?.save();
         case 'print':
           return window.print();
         case 'dialog.bookmark':
@@ -308,7 +325,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
 
       if (entry.command) void instance?.editor?.executeCommand(entry.command, entry.payload as never);
     },
-    [instance, clipboard.run, painter.activate, togglePanel]
+    [instance, clipboard.run, painter.activate, togglePanel, server, readOnly]
   );
 
   const [commandSearchOpen, setCommandSearchOpen] = useState(false);
@@ -334,6 +351,9 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
     if (!instance || !target || !entry || instance.editor.getRootId() !== target.rootId) { setCommandError('문서가 변경되었습니다. 명령을 다시 선택하세요.'); return; }
     if (target.selection) instance.editor.updateSelection({ selection: target.selection, applySelectionToView: true });
     try {
+      if (readOnly || !instance.editor.isEditable) {
+        if (entry.command) { setCommandError('읽기 전용 문서에서는 편집 명령을 실행할 수 없습니다.'); return; }
+      }
       if (entry.command) {
         if (!instance.editor.canExecuteCommand(entry.command, entry.payload as never) || !await instance.editor.executeCommand(entry.command, entry.payload as never)) {
           setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
@@ -399,15 +419,15 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
       <AppChrome className="w-chrome">
         {instance && <>
           <EditorHeader product="Word" className="w-document-header"
-            title={<DocumentTitle editor={instance.editor} compact />}
+            title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
             menus={<MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />}
-            fallbackNavigation={<ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
-            actions={<><CommandSearchTrigger onClick={openCommandSearch} /><DocumentLibrary ref={library} editor={instance.editor} /></>}
+            fallbackNavigation={server ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
+            actions={<><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
-          <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>
+          {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
         {instance ? (
-          <Ribbon
+          <ReadOnlyControls enabled={readOnly}><Ribbon
             editor={instance.editor}
             view={instance.view}
             fonts={instance.fonts}
@@ -424,13 +444,13 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             onViewAction={view => runEntry({ view })}
             clipboardBusy={clipboard.busy}
             formatPainterActive={painter.active}
-          />
+          /></ReadOnlyControls>
         ) : null}
         {painter.feedback}
         {editingFurniture && <div className="w-furniture-editing" role="status"><span>머리글·바닥글 편집 중</span><Button onClick={() => instance?.editFurniture()}>본문으로 돌아가기</Button></div>}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
-        {instance ? <Ruler editor={instance.editor} zoom={zoom} pane={pane} /> : null}
+        {instance ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
@@ -451,6 +471,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
               view={instance.view}
               open={finding}
               initialField={findTarget}
+              readOnly={readOnly || !instance.editor.isEditable}
               onClose={() => setFinding(false)}
             />
           ) : null}
@@ -458,28 +479,28 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             테두리 및 음영. 대화상자이므로 문서 위가 아니라 문서 **밖**에 떠야 하고, `Dialog` 가
             포털로 그것을 한다 — 여기 두는 것은 편집기를 아는 자리이기 때문이다.
           */}
-          {bookmarkSession && instance && <BookmarkDialog editor={instance.editor} view={instance.view} {...bookmarkSession} onClose={() => setBookmarkSession(undefined)} />}
-          {styleSession && instance && <ParagraphStyleDialog editor={instance.editor} session={styleSession} onClose={() => setStyleSession(undefined)} />}
-          {toc && instance && <TocDialog editor={instance.editor} session={toc} onClose={() => setToc(undefined)} />}
-          {figures && instance && <TocDialog editor={instance.editor} session={figures} captions onClose={() => setFigures(undefined)} />}
-          {caption && instance && <CaptionDialog editor={instance.editor} session={caption} onClose={() => setCaption(undefined)} />}
-          {furniture && instance && <FurnitureDialog editor={instance.editor} {...furniture} onClose={() => setFurniture(undefined)} onEdit={instance.editFurniture} />}
-          {authoring && instance && <WordAuthoringDialog key={`${authoring.kind}-${authoring.rootId}`} editor={instance.editor} session={authoring}
+          {!readOnly && bookmarkSession && instance && <BookmarkDialog editor={instance.editor} view={instance.view} {...bookmarkSession} onClose={() => setBookmarkSession(undefined)} />}
+          {!readOnly && styleSession && instance && <ParagraphStyleDialog editor={instance.editor} session={styleSession} onClose={() => setStyleSession(undefined)} />}
+          {!readOnly && toc && instance && <TocDialog editor={instance.editor} session={toc} onClose={() => setToc(undefined)} />}
+          {!readOnly && figures && instance && <TocDialog editor={instance.editor} session={figures} captions onClose={() => setFigures(undefined)} />}
+          {!readOnly && caption && instance && <CaptionDialog editor={instance.editor} session={caption} onClose={() => setCaption(undefined)} />}
+          {!readOnly && furniture && instance && <FurnitureDialog editor={instance.editor} {...furniture} onClose={() => setFurniture(undefined)} onEdit={instance.editFurniture} />}
+          {!readOnly && authoring && instance && <WordAuthoringDialog key={`${authoring.kind}-${authoring.rootId}`} editor={instance.editor} session={authoring}
             onClose={kind => { setAuthoring(undefined); if (kind === 'comment') { if (compact) setActivePanel('inspector'); else setCommenting(true); } }} />}
-          <TableInsertDialog editor={instance?.editor ?? null} open={insertingTable} onClose={() => setInsertingTable(false)} />
+          <TableInsertDialog editor={instance?.editor ?? null} open={insertingTable && !readOnly} onClose={() => setInsertingTable(false)} />
           <BordersDialog
             editor={instance?.editor ?? null}
-            open={bordering}
+            open={bordering && !readOnly}
             onClose={() => setBordering(false)}
           />
           <SpacingDialog
             editor={instance?.editor ?? null}
-            open={spacing}
+            open={spacing && !readOnly}
             onClose={() => setSpacing(false)}
           />
           <PageSetupDialog
             editor={instance?.editor ?? null}
-            open={paging}
+            open={paging && !readOnly}
             onClose={() => setPaging(false)}
           />
           {/*
@@ -497,16 +518,16 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             hairline at every zoom and a handle will be the same size to grab. Inside the frame it
             would be scaled with the page, which is right for the document and wrong for a control.
           */}
-          {instance ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
+          {instance && !readOnly ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
         </AppMain>
 
         {instance ? (
-          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane
+          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><ReadOnlyControls enabled={readOnly}><CommentsPane
             editor={instance.editor}
             view={instance.view}
             open={compact || commenting}
             onToggle={() => togglePanel('inspector')}
-          /></WorkspaceSidePanel>
+          /></ReadOnlyControls></WorkspaceSidePanel>
         ) : null}
         {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
       </AdaptiveWorkspace>
