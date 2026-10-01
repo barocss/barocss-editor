@@ -1395,3 +1395,38 @@
 .office-textarea:disabled { opacity:.4; cursor:not-allowed; }
 .office-textarea-feedback { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-top:6px; font-size:var(--ou-text-sm); color:var(--ou-muted); }
 .office-textarea-feedback [role=alert] { color:var(--ou-danger); flex:1; min-width:120px; }
+
+/* Input surfaces stay flat; keyboard focus is separate from the field edge. */
+input.office-field,
+textarea.office-field {
+  background-color:var(--ou-ground);
+  box-shadow:none;
+}
+input.office-field:not(:disabled):not([readonly]):not([aria-invalid="true"]):hover,
+textarea.office-field:not(:disabled):not([readonly]):not([aria-invalid="true"]):hover {
+  border-color:var(--ou-field-line);
+  background-color:var(--ou-panel);
+}
+input.office-field:focus,
+textarea.office-field:focus {
+  border-color:var(--ou-field-line);
+  box-shadow:none;
+  outline:none;
+}
+input.office-field:focus-visible,
+textarea.office-field:focus-visible {
+  outline:2px solid var(--ou-accent);
+  outline-offset:2px;
+  box-shadow:none;
+}
+input.office-field[aria-invalid="true"],
+textarea.office-field[aria-invalid="true"],
+input.office-field[aria-invalid="true"]:focus,
+textarea.office-field[aria-invalid="true"]:focus {
+  border-color:var(--ou-danger);
+  box-shadow:none;
+}
+input.office-field[readonly],
+textarea.office-field[readonly] {
+  background-color:var(--ou-ground);
+}

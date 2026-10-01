@@ -15,7 +15,11 @@ the established accessible accent/ink palette. Selected and mixed controls have
 an accent boundary; mixed hatching remains distinct. Hover, press, keyboard focus
 and disabled states preserve their existing semantics without moving targets.
 
-Text and number fields retain a visible field boundary and gain an inset surface.
+Text, number and multiline fields use a flat filled surface and a single visible
+boundary. Keyboard focus uses a 2px accent outline separated from that boundary
+by 2px. Invalid fields retain their danger boundary and help text; keyboard
+focus remains separate. Explicit consumer padding and field dimensions stay
+unchanged across these states.
 Readonly and invalid states remain explicit. Menus use 34px rows, 6px internal
 spacing and a separate raised surface. Inspector headers have a distinct neutral
 background and stronger typography. The actual specimen panels sit above the
