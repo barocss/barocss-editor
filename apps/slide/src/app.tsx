@@ -1,9 +1,7 @@
 import { documentTitle } from '@barocss/office-text';
 import { EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Editor } from '@barocss/editor-core';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { selectedNodeIds } from '@barocss/editor-core';
-import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
 import { AuditPanel, SlideSidebar } from '@barocss/office-slides/ui';
 import { NotesPane, Presenter } from '@barocss/office-slides/ui';
@@ -29,6 +27,7 @@ import {
   isLibraryName,
   readDeckFile,
   slideById,
+  slidesMenuEntry,
   deckDesigns,
   jumpsOn,
   jumpTarget,
@@ -89,6 +88,17 @@ import { useDeck, useRevision, useSlidePersistence, SlideDocuments } from '@baro
 import { useEditorRevision } from '@barocss/office-editor-ui';
 import { useSlideMenuSearch, type SlideMenuFileAction, type SlideMenuViewAction } from './use-slide-menu-search';
 
+import type { SlidesRuntime } from './runtime';
+export interface SlidesServerHost {
+  headerActions?: ReactNode;
+  readOnly?: boolean;
+  onRuntime: (runtime: SlidesRuntime) => void;
+  onFileAction: (action: 'save' | 'new' | 'open' | 'library') => void;
+}
+function ReadOnlyControls({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  return enabled ? <fieldset disabled inert style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{children}</fieldset> : <>{children}</>;
+}
+
 /**
  * The deck app.
  *
@@ -100,9 +110,11 @@ import { useSlideMenuSearch, type SlideMenuFileAction, type SlideMenuViewAction 
  * once or not at all.
  */
 export function App({
-  mount
+  mount, server, localPersistence = !server
 }: {
-  mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM };
+  mount: (host: HTMLElement) => SlidesRuntime;
+  server?: SlidesServerHost;
+  localPersistence?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   /**
@@ -114,23 +126,31 @@ export function App({
    */
   const stage = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
-  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
+  const [instance, setInstance] = useState<SlidesRuntime | null>(null);
+  const serverRef = useRef(server);
+  serverRef.current = server;
+  const readOnly = Boolean(server?.readOnly || instance?.editor.isEditable === false);
+  const lifetime = useRef(0);
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
-    // Guarded because StrictMode runs effects twice on purpose. Not cleaned up
-    // on unmount either: the editor owns this subtree for the life of the page,
-    // and rebuilding it would throw away the caret and the history for a
-    // re-render nobody asked for.
     mounted.current = true;
-    setInstance(mount(host.current));
+    const runtime = mount(host.current);
+    const generation = ++lifetime.current;
+    setInstance(runtime);
+    serverRef.current?.onRuntime(runtime);
+    return () => {
+      if (lifetime.current === generation) lifetime.current++;
+      runtime.dispose();
+      mounted.current = false;
+    };
   }, [mount]);
 
   const editor = instance?.editor ?? null;
   const view = instance?.view ?? null;
   const printer = useMemo(() => editor ? createSlidePrint(editor) : null, [editor]);
   useEffect(() => printer?.attach(), [printer]);
-  const persistence = useSlidePersistence(editor);
+  const persistence = useSlidePersistence(editor, localPersistence && !server);
   const slides = useDeck(editor);
   const revision = useRevision(editor);
   /**
@@ -862,13 +882,16 @@ export function App({
    */
   const [libraryDecks, setLibraryDecks] = useState<string[]>([]);
   useEffect(() => {
+    if (server) { setLibraryDecks([]); return; }
+    let active = true;
     void libraryRows()
-      .then((rows) => setLibraryDecks(rows.map((row) => row.name)))
-      .catch(() => setLibraryDecks([]));
-  }, [dialog]);
+      .then((rows) => { if (active) setLibraryDecks(rows.map((row) => row.name)); })
+      .catch(() => { if (active) setLibraryDecks([]); });
+    return () => { active = false; };
+  }, [dialog, server]);
 
   useEffect(() => {
-    if (sidebarTab !== 'components' || components.length === 0) return;
+    if (server || sidebarTab !== 'components' || components.length === 0) return;
     let dropped = false;
 
     void (async () => {
@@ -905,7 +928,7 @@ export function App({
     };
     // On opening, and when the deck's own definitions change — a definition just re-imported is no
     // longer behind, and the badge has to stop saying so.
-  }, [sidebarTab, components, editor]);
+  }, [sidebarTab, components, editor, server]);
 
   /**
    * Whether the find bar is showing.
@@ -925,9 +948,13 @@ export function App({
   const [auditing, setAuditing] = useState(false);
 
   const onFileAction = useCallback((action: SlideMenuFileAction) => {
+    if (serverRef.current) return serverRef.current.onFileAction(action === 'create' ? 'new' : action);
     files.current?.[action]();
   }, []);
   const onViewAction = useCallback((action: SlideMenuViewAction) => {
+    if (serverRef.current && action === 'library') return serverRef.current.onFileAction('library');
+    if (serverRef.current && action === 'template') return;
+    if (readOnly && ['template', 'size', 'layout', 'theme'].includes(action)) return;
     switch (action) {
       case 'print':
         return setDialog('print');
@@ -955,15 +982,24 @@ export function App({
         setScrolling(true);
         return setPresenting(true);
     }
-  }, [current, moveBy, stretches]);
+  }, [current, moveBy, stretches, readOnly]);
 
   const {
-    menus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
     dismissCommandError, openCommandSearch, pickSearchCommand, onMenu, runEntry
   } = useSlideMenuSearch({
     editor, view, current, slideNumber: here?.number, answers, moveBy,
     auditing, mapping, focused, onFileAction, onViewAction
   });
+
+  const menus = useMemo(() => nativeMenus.map(menu => ({ ...menu, blocks: menu.blocks.map(block => ({
+    ...block, items: block.items.map(item => {
+      const entry = slidesMenuEntry(item.id);
+      const disabled = item.disabled || (Boolean(server) && entry?.view === 'template')
+        || (readOnly && ['template', 'size', 'layout', 'theme'].includes(entry?.view ?? ''));
+      return { ...item, disabled };
+    })
+  })) })), [nativeMenus, readOnly, server]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1578,6 +1614,10 @@ export function App({
        * reader's file being replaced by another.
        */
       if (jump?.deck) {
+        if (serverRef.current) { setAway('서버 문서에서는 다른 덱을 열 수 없습니다.'); return; }
+        const generation = lifetime.current;
+        const sourceRoot = rootId;
+        const active = () => generation === lifetime.current && !serverRef.current && editor?.getRootId() === sourceRoot;
         void (async () => {
           try {
             /**
@@ -1592,10 +1632,12 @@ export function App({
             const source = jump.deck as string;
             const kept = isLibraryName(source) ? await libraryDeck(source) : undefined;
             const text = kept ?? (await (await fetch(source)).text());
+            if (!active()) return;
             const read = readDeckFile(text);
             if ('error' in read) return setAway(read.error);
 
             if (!await persistence.beforeReplace()) { setAway('현재 자료를 저장하지 못했습니다. 다시 시도하세요.'); return; }
+            if (!active()) return;
             editor?.loadDocument?.(read.document, 'slides');
             // A fetched file has no local identity; a library jump now edits its destination row.
             setLibraryName(kept !== undefined ? source : undefined);
@@ -1613,7 +1655,7 @@ export function App({
           } catch {
             // Said, not swallowed: a button that silently does nothing in front of a room is the
             // fault this whole feature's check exists to prevent.
-            setAway('다른 덱을 열 수 없습니다.');
+            if (active()) setAway('다른 덱을 열 수 없습니다.');
           }
         })();
         return;
@@ -1742,10 +1784,10 @@ export function App({
           />
           <Button title="한 장만 보기 / 전체 보기" onClick={() => setFocused(on => !on)} data={{ 'focus-toggle': '' }}>{focused ? '캔버스 보기' : '한 장 보기'}</Button>
         </>}
-        actions={<><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} /><SlideDocuments persistence={persistence} onOpened={() => {
+        actions={<><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
-          }} />
-          <FileActions
+          }} />}
+          {!server && <FileActions
             beforeReplace={persistence.beforeReplace}
             ref={files}
             editor={editor}
@@ -1763,8 +1805,8 @@ export function App({
                */
               setLibraryName(undefined);
             }}
-          />
-
+          />}
+          {server?.headerActions}
 
           <Button tone="accent" title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>발표</Button>
         </>} />
@@ -1775,7 +1817,7 @@ export function App({
        * because they draw with the same components, not because they share a
        * list of controls.
        */}
-      {editor && !presenting && <Ribbon editor={editor} slides={slides} current={current} />}
+      {editor && !presenting && <ReadOnlyControls enabled={readOnly}><Ribbon editor={editor} slides={slides} current={current} /></ReadOnlyControls>}
 
       <AdaptiveWorkspace className="sl-body" enabled={!!editor && !presenting}>
         <WorkspaceSidePanel side="navigation" width={240}>
@@ -1790,8 +1832,8 @@ export function App({
               onTabChange={setSidebarTab}
               componentCount={components.length}
               onSelect={sid => { setCurrent(sid); leaveSelection(); }}
-              onRename={(sid, name) => void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
-              componentPanel={<ComponentPanel
+              onRename={(sid, name) => !readOnly && void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
+              componentPanel={<ReadOnlyControls enabled={readOnly}><ComponentPanel
                 editor={editor}
                 editing={editingComponent}
                 onOpen={openDefinition}
@@ -1800,7 +1842,7 @@ export function App({
                 onMake={makeComponent}
                 onPlace={placeComponent}
                 slideId={current}
-              />}
+              /></ReadOnlyControls>}
             />
 
           </div>
@@ -2011,7 +2053,7 @@ export function App({
            * every element in there and rewrites them on each render, so a handle
            * put in the tree would last until the next keystroke.
            */}
-          {!presenting && (
+          {!presenting && !readOnly && (
             <SelectionOverlay
               editor={editor}
               view={view}
@@ -2046,7 +2088,7 @@ export function App({
            * thing the app needed; this is that thing.
            */}
           {!presenting && (
-            <NotesPane editor={editor} slideSid={current} revision={revision} />
+            <ReadOnlyControls enabled={readOnly}><NotesPane editor={editor} slideSid={current} revision={revision} /></ReadOnlyControls>
           )}
 
         </AppMain>
@@ -2057,7 +2099,7 @@ export function App({
          * position, which is the whole difference between a slide and a page.
          */}
         <WorkspaceSidePanel side="inspector" width={280}>
-          <Properties
+          <ReadOnlyControls enabled={readOnly}><Properties
             editor={editor}
             slides={slides}
             current={current}
@@ -2072,7 +2114,7 @@ export function App({
             onEditTheme={() => setDialog('theme')}
             /** The reader's own decks, for a button that points at one by name. */
             libraryDecks={libraryDecks}
-          />
+          /></ReadOnlyControls>
         </WorkspaceSidePanel>
       </AdaptiveWorkspace>
 
@@ -2091,7 +2133,7 @@ export function App({
         * take room from *everything* rather than only from the slide.
         */}
       {!presenting && (
-        <TimelinePane
+        <ReadOnlyControls enabled={readOnly}><TimelinePane
           editor={editor}
           slideSid={current}
           /*
@@ -2140,7 +2182,7 @@ export function App({
           onOpen={setTimelineChoice}
           /** 필름의 길이를 물어볼 무대 — 조회가 아니라 건네받는다. */
           host={stage}
-        />
+        /></ReadOnlyControls>
       )}
 
       <SlidePrintDialog editor={editor} slides={slides} revision={revision}
@@ -2149,14 +2191,14 @@ export function App({
       <SlideSizeDialog
         editor={editor}
         slides={slides}
-        open={dialog === 'size'}
+        open={!readOnly && dialog === 'size'}
         onClose={() => setDialog(null)}
       />
       {/* The reader's own decks, by name — what a `goToDeck` points at. */}
       <LibraryDialog
         beforeReplace={persistence.beforeReplace}
         editor={editor}
-        open={dialog === 'library'}
+        open={!server && dialog === 'library'}
         onClose={() => setDialog(null)}
         name={libraryName}
         onName={setLibraryName}
@@ -2171,7 +2213,7 @@ export function App({
       <SlideLayoutDialog
         editor={editor}
         current={current}
-        open={dialog === 'layout'}
+        open={!readOnly && dialog === 'layout'}
         onClose={() => setDialog(null)}
         /* The way into a layout or the master: the same opening a component's definition uses. */
         onEdit={openDefinition}
@@ -2185,7 +2227,7 @@ export function App({
         */}
       <ThemeDialog
         editor={editor}
-        open={dialog === 'theme'}
+        open={!readOnly && dialog === 'theme'}
         onClose={() => setDialog(null)}
       />
       {/*
@@ -2198,7 +2240,7 @@ export function App({
       <TemplateDialog
         beforeReplace={persistence.beforeReplace}
         editor={editor}
-        open={dialog === 'template'}
+        open={!server && !readOnly && dialog === 'template'}
         onClose={() => setDialog(null)}
         onOpened={() => {
           // A new document is a new deck: the slide that was on screen is not in it, and

@@ -66,6 +66,15 @@ export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
    * narrower question.
    */
   const tick = useDocumentRevision(editor);
+  useEffect(() => {
+    if (!editor) return;
+    const syncEditable = () => {
+      if (view.current) view.current.contentEditableElement.contentEditable = String(editor.isEditable);
+    };
+    editor.on('editor:editable.change', syncEditable);
+    syncEditable();
+    return () => { editor.off('editor:editable.change', syncEditable); };
+  }, [editor]);
 
   /** Which note this slide has, if it has one. */
   const noteSid = useMemo(() => {
@@ -130,6 +139,7 @@ export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
      */
     const proxy = editor?.getDocumentProxy(noteSid) ?? node;
     const tree = JSON.parse(JSON.stringify(proxy));
+    view.current.contentEditableElement.contentEditable = String(editor.isEditable);
     view.current.render(tree, { sync: true });
   }, [editor, noteSid, tick, revision]);
 
