@@ -1,4 +1,4 @@
-import { documentLibrary, type LibraryRow, type LibrarySnapshot } from '@barocss/shared';
+import { createProjectRecord, readProjectRecord, documentLibrary, type ProjectDocument, type ProjectRecord, type ProjectSnapshot, type Pin, type LibraryRow, type LibrarySnapshot } from '@barocss/shared';
 import { createSchema, validateTree, type SchemaDefinition } from '@barocss/schema';
 import { isProduct, plainText, productCodec, productDraftStore, productKeys, products, productStore, referenceKey, setDocumentTitle, visitTree, type Product } from './products';
 
@@ -20,7 +20,7 @@ export interface WorkspaceDocument extends WorkspaceMeta {
   error?: string;
 }
 export interface BackupDocument { product: Product; row: LibraryRow; text: string; meta: WorkspaceMeta; }
-export interface WorkspaceBackup { format: 'wonffice-workspace'; version: 1; workspace: string; createdAt: string; documents: BackupDocument[]; }
+export interface WorkspaceBackup { format: 'wonffice-workspace'; version: 1; workspace: string; createdAt: string; documents: BackupDocument[]; projects?: ProjectRecord[]; }
 const defaults = (): WorkspaceMeta => ({ favorite: false, folder: '', trashedAt: null, openedAt: 0, references: [] });
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 function metadata(value: unknown): WorkspaceMeta {
@@ -50,8 +50,76 @@ export async function readProductDocument(product: Product, text: string) {
 export class OfficeWorkspace {
   readonly metaStore: ReturnType<typeof documentLibrary>;
   constructor(readonly id: string) { this.metaStore = documentLibrary({ db: `wonffice-workspace-${id}`, store: 'catalog' }); }
+
+  /** Project rows share the catalog; no product document is copied or replaced. */
+  async projects(): Promise<ProjectSnapshot[]> {
+    return (await this.metaStore.snapshots()).filter(s => s.row.name.startsWith('project:')).map(s => {
+      const record = readProjectRecord(JSON.parse(s.text));
+      if (s.row.name !== `project:${record.id}`) throw new Error('Project identity does not match its catalog row.');
+      return { record, revision: s.row.revision ?? 0 };
+    });
+  }
+  async project(id: string): Promise<ProjectSnapshot | null> {
+    const snapshot = await this.metaStore.read(`project:${id}`);
+    if (!snapshot) return null;
+    const record = readProjectRecord(JSON.parse(snapshot.text));
+    if (record.id !== id) throw new Error('Project identity does not match its catalog row.');
+    return { record, revision: snapshot.row.revision ?? 0 };
+  }
+  async createProject(title: string, goal: string): Promise<ProjectSnapshot> {
+    const record = createProjectRecord(title, goal);
+    const row = await this.metaStore.keep({ name: `project:${record.id}`, title: record.title }, JSON.stringify(record), { expectedRevision: null });
+    return { record, revision: row.revision ?? 0 };
+  }
+  async pin(document: ProjectDocument): Promise<Pin> {
+    if (!isProduct(document.product) || !document.id) throw new Error('Invalid source document.');
+    if ((await this.meta(referenceKey(document))).trashedAt !== null) throw new Error('The source is in the trash.');
+    const snapshot = await this.require(document.product, document.id);
+    await readProductDocument(document.product, snapshot.text);
+    if ((await this.meta(referenceKey(document))).trashedAt !== null) throw new Error('The source is in the trash.');
+    return { id: crypto.randomUUID(), document: { ...document }, revision: snapshot.row.revision ?? 0, text: snapshot.text, title: snapshot.row.title || products[document.product].label };
+  }
+  async saveProject(value: ProjectRecord, expectedRevision: number): Promise<ProjectSnapshot> {
+    const record = readProjectRecord(value), previous = await this.project(record.id);
+    if (!previous) throw new Error('The project no longer exists.');
+    const allPins = (p: ProjectRecord) => [...p.results.flatMap(r => r.inputs), ...p.comments.map(c => c.pin), ...p.works.flatMap(w => w.inputs)];
+    const existing = new Map(allPins(previous.record).map(p => [p.id, p]));
+    for (const result of record.results) {
+      if ((await this.meta(referenceKey(result.document))).trashedAt !== null) throw new Error('A linked document is in the trash.');
+      await this.require(result.document.product, result.document.id);
+    }
+    const previousComments = new Map(previous.record.comments.map(comment => [comment.id, comment]));
+    for (const comment of record.comments) {
+      const old = previousComments.get(comment.id);
+      if (old && (old.resultId !== comment.resultId || JSON.stringify(old.target) !== JSON.stringify(comment.target) || old.pin.id !== comment.pin.id)) throw new Error('Comment source anchors are immutable.');
+      if (!old) {
+        const result = record.results.find(result => result.id === comment.resultId)!;
+        if (referenceKey(result.document) !== referenceKey(comment.pin.document)) throw new Error('The comment source does not match its result.');
+        if (comment.target.kind === 'word-comment') {
+          const { document } = await readProductDocument('word', comment.pin.text);
+          let matches = 0;
+          visitTree(document, node => { if (node.stype === 'resources' && Array.isArray(node.content)) for (const child of node.content) {
+            if (object(child) && child.stype === 'commentThread' && object(child.attributes) && child.attributes.id === comment.target.id) matches++;
+          } });
+          if (matches !== 1) throw new Error('The pinned native comment thread is unavailable.');
+        }
+      }
+    }
+    const proposed = new Map<string, Pin>();
+    for (const pin of allPins(record)) {
+      const duplicate = proposed.get(pin.id), old = existing.get(pin.id);
+      if ((duplicate && JSON.stringify(duplicate) !== JSON.stringify(pin)) || (old && JSON.stringify(old) !== JSON.stringify(pin))) throw new Error('Pinned sources are immutable.');
+      proposed.set(pin.id, pin);
+      if (!old) {
+        const current = await this.pin(pin.document);
+        if (current.revision !== pin.revision || current.text !== pin.text || current.title !== pin.title) throw new Error('The source changed. Review the current version before saving.');
+      }
+    }
+    const row = await this.metaStore.keep({ name: `project:${record.id}`, title: record.title }, JSON.stringify(record), { expectedRevision });
+    return { record, revision: row.revision ?? 0 };
+  }
   async list(): Promise<WorkspaceDocument[]> {
-    const metas = new Map<string, WorkspaceMeta>((await this.metaStore.snapshots()).map(s => [s.row.name, metadata(JSON.parse(s.text))]));
+    const metas = new Map<string, WorkspaceMeta>((await this.metaStore.snapshots()).filter(s => !s.row.name.startsWith('project:')).map(s => [s.row.name, metadata(JSON.parse(s.text))]));
     const results = await Promise.all(productKeys.map(async product => {
       const snapshots = await productStore(product).snapshots();
       return snapshots.map(({ row, text }): WorkspaceDocument => {
@@ -90,6 +158,7 @@ export class OfficeWorkspace {
     return defaults();
   }
   async update(key: string, patch: Partial<WorkspaceMeta>): Promise<void> {
+    if (key.startsWith('project:')) throw new Error('Use the project revision guard to update a project.');
     const previous = await this.metaStore.read(key);
     const next = { ...await this.meta(key), ...patch };
     if (key.startsWith('note:') && (patch.trashedAt !== undefined || patch.favorite !== undefined)) {
@@ -172,7 +241,7 @@ export class OfficeWorkspace {
       documents.push({ product, ...snapshot, meta: await this.meta(referenceKey({ product, id: snapshot.row.name })) });
     for (const product of productKeys) for (const snapshot of await productDraftStore(product).snapshots())
       documents.push({ product, ...snapshot, row: { ...snapshot.row, name: `recovery:${snapshot.row.name}`, title: `${snapshot.row.title || products[product].label} 복구 초안` }, meta: defaults() });
-    return { format: 'wonffice-workspace', version: 1, workspace: this.id, createdAt: new Date().toISOString(), documents };
+    return { format: 'wonffice-workspace', version: 1, workspace: this.id, createdAt: new Date().toISOString(), documents, projects: (await this.projects()).map(p => p.record) };
   }
   async importFile(source: string): Promise<number> {
     const value = JSON.parse(source);
@@ -220,6 +289,15 @@ export class OfficeWorkspace {
       if (entry.product === 'note' && typeof rowMeta.parentId === 'string') rowMeta.parentId = ids.get(`note:${rowMeta.parentId}`) ?? null;
       return { product: entry.product, id, title, text: codec.text(document as never), rowMeta, meta };
     }));
+    // Validate immutable historical sources as native files before any restore write.
+    for (const record of backup.projects ?? []) for (const pin of [...record.results.flatMap(result => result.inputs), ...record.comments.map(comment => comment.pin), ...record.works.flatMap(work => work.inputs)]) await readProductDocument(pin.document.product, pin.text);
+    const projects = (backup.projects ?? []).map(record => {
+      const next = structuredClone(record);
+      next.id = crypto.randomUUID();
+      // Only live result links are remapped. Pins and durable native thread IDs remain historical evidence.
+      next.results = next.results.map(result => ({ ...result, document: { ...result.document, id: ids.get(referenceKey(result.document))! } }));
+      return readProjectRecord(next);
+    });
     let count = 0;
     try {
       for (const product of productKeys) {
@@ -228,6 +306,7 @@ export class OfficeWorkspace {
         count += group.length;
         await this.metaStore.keepMany(group.map(entry => ({ entry: { name: referenceKey({ product, id: entry.id }) }, text: JSON.stringify(entry.meta), expectedRevision: null })));
       }
+      await this.metaStore.keepMany(projects.map(record => ({ entry: { name: `project:${record.id}`, title: record.title }, text: JSON.stringify(record), expectedRevision: null })));
     } catch { throw new Error(`복원 중 저장하지 못했습니다. ${count}개 사본이 저장되었습니다. 기존 자료와 백업 파일은 유지됩니다.`); }
     return count;
   }
@@ -242,5 +321,15 @@ export function readWorkspaceBackup(value: unknown): WorkspaceBackup {
     if (seen.has(key)) throw new Error('백업에 같은 자료 ID가 두 번 있습니다.');
     seen.add(key);
   }
-  return { ...value, documents: value.documents.map(entry => ({ ...entry, meta: metadata(entry.meta) })) } as unknown as WorkspaceBackup;
+  const projects: ProjectRecord[] = [];
+  if (value.projects !== undefined) {
+    if (!Array.isArray(value.projects)) throw new Error('Invalid backup projects.');
+    const projectIds = new Set<string>();
+    for (const input of value.projects) {
+      const record = readProjectRecord(input);
+      if (projectIds.has(record.id) || record.results.some(result => !seen.has(referenceKey(result.document)))) throw new Error('Invalid backup project membership.');
+      projectIds.add(record.id); projects.push(record);
+    }
+  }
+  return { ...value, ...(value.projects !== undefined ? { projects } : {}), documents: value.documents.map(entry => ({ ...entry, meta: metadata(entry.meta) })) } as unknown as WorkspaceBackup;
 }
