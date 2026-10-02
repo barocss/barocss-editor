@@ -10,6 +10,8 @@ export interface ProductFeedbackHost {
   editable(): boolean;
   /** Capture before moving focus. Return null for an unsupported/ambiguous selection. */
   capture(): ProductFeedbackTarget | null;
+  /** Check the captured gesture after workspace storage/navigation awaits. */
+  ownsCapture?(target: ProductFeedbackTarget): boolean;
   /** Refuse a retired document, selection or permission. Must use native history. */
   comment(target: ProductFeedbackTarget, body: string): Promise<ProductFeedbackTarget>;
   locate(target: ProductFeedbackTarget): 'located' | 'missing' | 'ambiguous';
