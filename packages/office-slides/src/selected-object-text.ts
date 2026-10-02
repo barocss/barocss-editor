@@ -212,7 +212,10 @@ export function registerSelectedObjectTextCommands(editor: Editor): void {
       if (!validFormat(payload)) return false;
       const target = validTarget(editor, payload); if (!target || !payload) return false;
       const key = FORMATS[payload.mark][0];
-      return commit(editor, target, target.runs.map(run => applyMark(run.node.sid!, 0, run.node.text!.length, payload.mark, { [key]: payload.value })), payload.canApply);
+      // Font presets are native half-points. Only explicit CSS units stay strings;
+      // an unqualified string would be emitted as an invalid CSS font-size.
+      const value = payload.mark === 'fontSize' && /^\d+(?:\.\d+)?$/.test(payload.value) ? Number(payload.value) : payload.value;
+      return commit(editor, target, target.runs.map(run => applyMark(run.node.sid!, 0, run.node.text!.length, payload.mark, { [key]: value })), payload.canApply);
     }
   });
   editor.registerCommand({

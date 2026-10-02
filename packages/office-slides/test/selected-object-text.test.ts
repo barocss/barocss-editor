@@ -2,6 +2,7 @@ import { afterEach, expect, it } from 'vitest';
 import { createSchema } from '@barocss/schema';
 import type { Editor } from '@barocss/editor-core';
 import { applyMark, registerPreCommitGuard, transaction } from '@barocss/model';
+import { markCss } from '@barocss/office-text';
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { readSelectedObjectText, registerSelectedObjectTextCommands } from '../src/selected-object-text';
@@ -123,6 +124,23 @@ it.each([['fontFamily', 'Georgia', 'family'], ['fontSize', '42', 'size'], ['font
   expect(readSelectedObjectText(editor).summary.marks).not.toContain(mark);
   expect(await editor.undo()).toBe(true); expect(native(editor)).toEqual(after);
   expect(await editor.undo()).toBe(true); expect(native(editor)).toEqual(before);
+});
+
+it.each([
+  ['36', 36, '18pt'],
+  ['24px', '24px', '24px'],
+  ['18pt', '18pt', '18pt']
+] as const)('renders object font size %s using the existing native size units and restores exact Undo/Redo', async (value, size, css) => {
+  const editor = fixture();
+  editor.setNode({ nodeIds: [node(editor, 'textFrame').sid!] });
+  const before = native(editor);
+  expect(await editor.executeCommand('setSelectedObjectTextFormat', { mark: 'fontSize', value })).toBe(true);
+  const mark = node(editor, 'inline-text').marks!.find(mark => mark.stype === 'fontSize')!;
+  expect(mark.attrs).toEqual({ size });
+  expect(markCss('fontSize', mark.attrs, undefined).fontSize).toBe(css);
+  const after = native(editor);
+  expect(await editor.undo()).toBe(true); expect(native(editor)).toEqual(before);
+  expect(await editor.redo()).toBe(true); expect(native(editor)).toEqual(after);
 });
 
 it('formats only an instance native slot and leaves the definition and sibling instance untouched', async () => {
