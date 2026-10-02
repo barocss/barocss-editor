@@ -640,6 +640,9 @@ test('real selected-object tools and inline property binding persist exact nativ
     const renderedSize = workspace(writer).locator('.sl-stage .mark-fontSize').first();
     await expect.poll(() => renderedSize.evaluate(element => getComputedStyle(element).fontSize)).toBe('24px');
     expect(await renderedSize.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Georgia');
+    const renderedTitle = paragraphs(writer).filter({ hasText: 'One engine' }).first();
+    await expect.poll(() => renderedTitle.locator('.mark-underline').evaluateAll(elements => elements.map(element => getComputedStyle(element).fontSize))).toEqual(['24px']);
+    await expect.poll(() => renderedTitle.locator('.mark-strikethrough').evaluateAll(elements => elements.map(element => getComputedStyle(element).fontSize))).toEqual(['24px']);
     await writer.screenshot({ path: info.outputPath('authenticated-object-fonts.png') });
     expect(await exported(writer, 'selected-formatted.slides.json')).toEqual(expected);
     await selectTitle(writer);
