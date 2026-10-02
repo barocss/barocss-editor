@@ -1,24 +1,19 @@
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type RefObject, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
-import { Icon, Button, FloatingSurface, SecondaryPopup, Toolbar } from '@barocss/office-ui';
+import { Icon, Button, FloatingSurface, Toolbar } from '@barocss/office-ui';
 import { ContextToolbar, useEditorContextVisibility, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import type { Slide } from './deck';
 import { boxAt } from './selection';
 import { Ribbon } from './ribbon';
+import { SlidesInsertDropdown } from './insert-dropdown';
 import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, selectedSlidesTable, trackSlidesSelectionLifetime } from './selection-owner';
 
-function SelectionMore({ children }: { children: (owner: RefObject<HTMLElement | null>) => ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return <div data-slides-more-owner={open || undefined}><SecondaryPopup triggerLabel="추가 Slides 도구" label="추가 Slides 서식"
-    open={open} onOpenChange={setOpen} className="sl-insert-more" keepMounted>{children}</SecondaryPopup></div>;
-}
-
 /** Product chrome keeps the canvas and rich notes as two owners of one native editor. */
-export function SlidesDocumentChrome({ editor, slides, current, scope, expanded, onExpandedChange, detailAnchor, inspectorHost, onInspectorEscape, onInspect }: {
+export function SlidesDocumentChrome({ editor, slides, current, scope, inspectorHost, onInspectorEscape, onInspect }: {
   editor: Editor; slides: Slide[]; current?: string; scope: RefObject<HTMLElement | null>;
-  expanded: boolean; onExpandedChange?: (expanded: boolean) => void; detailAnchor?: RefObject<HTMLElement | null>; inspectorHost?: HTMLElement | null; onInspectorEscape?: () => void; onInspect: (origin?: HTMLElement) => void;
+  inspectorHost?: HTMLElement | null; onInspectorEscape?: () => void; onInspect: (origin?: HTMLElement) => void;
 }) {
   const revision = useEditorRevision(editor);
   const lifetime = useMemo(() => createSlidesSelectionLifetime(editor, current), [editor]);
@@ -46,7 +41,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
       setCanvasGesture(next === 'canvas' ? { root: editor.dataStore.getNode(editor.getRootId()!), slide: current } : null);
     };
     const interrupt = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && event.target instanceof Element && event.target.closest('[data-slides-more-owner], [data-palette-owner], [data-slides-detail], [data-slides-inspector-tools], [role=menu], [role=listbox]')) return;
+      if (event.key === 'Escape' && event.target instanceof Element && event.target.closest('[data-slides-more-owner], [data-palette-owner], [data-slides-inspector-tools], [role=menu], [role=listbox]')) return;
       if (event.key === 'Escape' && event.target instanceof Node && (host.contains(event.target) || globalChrome.current?.contains(event.target))) { lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); }
     };
     const blur = () => { lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); };
@@ -63,7 +58,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
   const table = selectedSlidesTable(editor);
   const target = region === 'canvas' ? table ?? scene?.sid : undefined;
   const at = useNodeRect(editor, scope, target);
-  const visibility = useEditorContextVisibility(editor, target ?? null, { scope, retainWithin: objectChrome, relatedChrome: inspectorScope, active: !expanded && editor.isEditable });
+  const visibility = useEditorContextVisibility(editor, target ?? null, { scope, retainWithin: objectChrome, relatedChrome: inspectorScope, active: editor.isEditable });
   const canvasOwned = editor.isEditable && region === 'canvas' && canvasGesture?.root === nativeRoot && canvasGesture?.slide === current;
   const textRange = editor.selection?.type === 'range' && !editor.selection.collapsed && !table;
   const groups = ['character', 'paragraph', 'list', ...(table ? ['table'] : ['order', 'align', 'group'])];
@@ -86,18 +81,11 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
         <Ribbon inline key={`${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
           directControls groupIds={['history', 'slide', 'insert']} controlIds={['undo','redo','slide-new','insert-textbox','insert-rectangle','insert-table','insert-image']}
           portalContainer={globalChrome} canRunIntent={() => ownsSlidesSelection(owner)} captureIntent={captureIntent} />
-        <SelectionMore key={`insert:${lifetime.generation}:${current}:${region}`}>{chrome => <Ribbon panel editor={editor} slides={slides} current={current}
-          groupIds={['slide','insert']} portalContainer={chrome} canRunIntent={() => ownsSlidesSelection(owner)} captureIntent={captureIntent} />}</SelectionMore>
-      </Toolbar>
-      <FloatingSurface open={expanded && editor.isEditable} keepMounted at={(detailAnchor?.current ?? globalChrome.current)?.getBoundingClientRect() ?? null}
-        portalRoot={globalChrome.current} variant="panel" prefer="below" align="end" focusOnOpen focusOrigin={detailAnchor ?? globalChrome}
-        aria-label="전체 Slides 도구" data-slides-detail className="sl-document-detail" ownedElements={detailAnchor ? [detailAnchor] : [globalChrome]}
-        onDismiss={reason => { onExpandedChange?.(false); if (reason === 'escape') detailAnchor?.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true }); }}>
-        <Ribbon key={`detail:${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current} portalContainer={globalChrome}
+        <SlidesInsertDropdown key={`insert:${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
           canRunIntent={() => ownsSlidesSelection(owner)} captureIntent={captureIntent} />
-      </FloatingSurface>
+      </Toolbar>
     </div>
-    {!expanded && <ContextToolbar compact editor={editor} scope={scope} relatedChrome={inspectorScope} onRelatedChromeEscape={onInspectorEscape} portalRoot={scope.current} active={editor.isEditable}
+    <ContextToolbar compact editor={editor} scope={scope} relatedChrome={inspectorScope} onRelatedChromeEscape={onInspectorEscape} portalRoot={scope.current} active={editor.isEditable}
       controls={[]} label="선택한 Slides 도구" data-slides-formatting data-slides-selection-pending={!textRange}>
       {(selection, chrome) => {
         if (!textRange || selection?.type !== 'range' || selection.collapsed || JSON.stringify(selection) !== JSON.stringify(editor.selection)) return null;
@@ -108,8 +96,8 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, expanded,
           <Button square tone="quiet" ariaLabel="선택 속성 열기" onMouseDown={event => event.preventDefault()} onClick={event => { if (ownsSlidesSelection(captured)) onInspect(event.currentTarget); }}><Icon name="more" /></Button>
         </div>;
       }}
-    </ContextToolbar>}
-    {!expanded && !textRange && target && <FloatingSurface compact open={(visibility.open || canvasOwned) && !!at} at={at} portalRoot={scope.current}
+    </ContextToolbar>
+    {!textRange && target && <FloatingSurface compact open={(visibility.open || canvasOwned) && !!at} at={at} portalRoot={scope.current}
       aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={(reason, event) => { if (reason === 'escape' && event?.target instanceof Node && inspectorScope.current?.contains(event.target)) { onInspectorEscape?.(); return; } lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope, inspectorScope]}>
       <div ref={objectChrome} key={`${lifetime.generation}:${JSON.stringify(editor.selection)}`}>
         <Toolbar variant="compact" label={table ? '선택한 Slides 표 도구' : '선택한 Slides 개체 도구'}>

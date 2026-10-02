@@ -36,7 +36,8 @@ import {
 import { WORD_FONTS, WORD_FONT_SIZES, WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT } from '@barocss/office-controls';
 import { ControlRows } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
-import { SLIDES_TOOLBAR, slidesToolbarPayload, type SlidesToolbarControl } from './toolbar-model';
+import { SLIDES_TOOLBAR, type SlidesToolbarControl } from './toolbar-model';
+import { slidesControlActions } from './toolbar-actions';
 import { keyLabel, shortcutOf } from './keymap';
 import { resolveDeckFormat } from './layout-format';
 import type { Slide } from './deck';
@@ -149,127 +150,7 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
     [slides, current]
   );
 
-  /**
-   * What a slide control does when it is pressed.
-   *
-   * The model says a control needs a slide; this is the only place that knows
-   * which one, and the two directions of `moveSlide` are the one case where the
-   * control's id is the whole difference. Numbers here are the reader's — slide
-   * one is number one — and the command translates them.
-   */
-  /**
-   * Choosing a picture, which is the one thing a button press cannot supply.
-   *
-   * Read as a data URL rather than kept as a blob URL: a blob URL dies with the
-   * page, so a deck saved with one would come back with a broken picture and no
-   * way to tell what it had been. The file travels *in* the document, which is
-   * also what makes copy between decks work without a server.
-   *
-   * Measured before it is placed, because a picture dropped into a box of the
-   * wrong shape is either stretched or cropped, and a reader who has just chosen
-   * a photograph expects neither. The natural size is scaled to fit a quarter of
-   * the slide, keeping its proportions.
-   */
-  const pickPicture = (
-    run: (payload: Record<string, unknown>) => void,
-    accept = 'image/*'
-  ) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = accept;
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        const src = String(reader.result ?? '');
-        if (!src) return;
-
-        /**
-         * A film is measured the same way a picture is, from the file itself.
-         *
-         * `videoWidth` is only known once the browser has read the metadata, so
-         * this waits for that event rather than the load — a film's first frame
-         * may be megabytes away and its dimensions are in the first kilobyte.
-         *
-         * A sound has no dimensions at all, so it takes a strip: full width of a
-         * quarter-slide and the height of the browser's own player.
-         */
-        if (file.type.startsWith('video/')) {
-          const video = document.createElement('video');
-          video.preload = 'metadata';
-          const place = () => {
-            const limit = { width: 19200 / 2, height: 10800 / 2 };
-            const natural = {
-              width: (video.videoWidth || 640) * 15,
-              height: (video.videoHeight || 360) * 15
-            };
-            const scale = Math.min(limit.width / natural.width, limit.height / natural.height, 1);
-            run({
-              src,
-              width: Math.round(natural.width * scale),
-              height: Math.round(natural.height * scale)
-            });
-          };
-          video.onloadedmetadata = place;
-          // A file the browser cannot decode still goes in, at the default box,
-          // rather than silently doing nothing to a reader who chose it.
-          video.onerror = () => run({ src });
-          video.src = src;
-          return;
-        }
-
-        if (file.type.startsWith('audio/')) {
-          run({ src, width: 9600, height: 810 });
-          return;
-        }
-
-        const image = new Image();
-        image.onload = () => {
-          // A quarter of a 16:9 slide, in twips, and never larger than that.
-          const limit = { width: 19200 / 2, height: 10800 / 2 };
-          const scale = Math.min(
-            limit.width / Math.max(1, image.naturalWidth * 15),
-            limit.height / Math.max(1, image.naturalHeight * 15),
-            1
-          );
-          run({
-            src,
-            alt: file.name,
-            width: Math.round(image.naturalWidth * 15 * scale),
-            height: Math.round(image.naturalHeight * 15 * scale)
-          });
-        };
-        // A file the browser cannot decode still goes in, at the default size,
-        // rather than silently doing nothing to a reader who chose it.
-        image.onerror = () => run({ src, alt: file.name });
-        image.src = src;
-      };
-      reader.readAsDataURL(file);
-    };
-    input.click();
-  };
-
-  const payloadFor = (control: SlidesToolbarControl) => slidesToolbarPayload(control, current, here?.number);
-
-  /**
-   * Whether a control can run.
-   *
-   * Asked of the editor rather than decided here, so the toolbar and the
-   * command agree by construction: `deleteSlide` refuses the last slide, and
-   * this draws that refusal rather than restating the rule and drifting from it.
-   */
-  const enabled = (control: SlidesToolbarControl): boolean => {
-    if (!editor.isEditable) return false;
-    if (control.needsSlide && !current) return false;
-    // A file-picking control is asking whether a *picture* could be placed, and
-    // the command cannot answer that without a file. Whether there is a slide is
-    // the whole of what it can be asked before one is chosen.
-    if (control.needsFile) return !!current;
-    const can = editor?.canExecuteCommand(control.command, payloadFor(control));
-    return can !== false;
-  };
+  const actions = slidesControlActions({ editor, current, number: here?.number, canRunIntent, captureIntent });
 
   const stateOf = (control: SlidesToolbarControl) => {
     if (control.slideFlag === 'hidden') return here?.hidden ? 'on' : 'off';
@@ -414,33 +295,8 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
               controls={controlIds ? group.controls.filter(control => !!control.id && controlIds.includes(control.id)) : group.controls}
               options={{
                 apple,
-                can: (control) => enabled(control),
-                state: (control) => stateOf(control) as never,
-                onRun: (control) => {
-                  if (!editor.isEditable || canRunIntent?.() === false) return;
-                  const ownsIntent = captureIntent?.() ?? canRunIntent;
-                  if (control.needsFile) {
-                    /*
-                     * What the picker will accept, from what the command makes: a video button that
-                     * offered every image is a button that produces a film with a picture in it.
-                     */
-                    const accept =
-                      control.command === 'insertVideo'
-                        ? 'video/*'
-                        : control.command === 'insertAudio'
-                          ? 'audio/*'
-                          : 'image/*';
-                    pickPicture(
-                      (payload) => {
-                        if (!editor.isEditable || ownsIntent?.() === false) return;
-                        void editor.executeCommand(control.command, { ...payloadFor(control), ...payload });
-                      },
-                      accept
-                    );
-                    return;
-                  }
-                  void editor?.executeCommand(control.command, payloadFor(control));
-                }
+                ...actions,
+                state: (control) => stateOf(control) as never
               }}
             >
               {(rows) => !directControls && !['history', 'insert'].includes(group.id) ? <MenuBar portalContainer={portalContainer} label={`${group.id} 도구`} menus={[{
