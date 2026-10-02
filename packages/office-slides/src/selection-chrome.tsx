@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@barocss/editor-core';
-import { selectedNodeIds } from '@barocss/editor-core';
+import { isCollapsedSelection, selectedNodeIds } from '@barocss/editor-core';
 import { Icon, Button, FloatingSurface, Toolbar } from '@barocss/office-ui';
 import { ContextToolbar, useEditorContextVisibility, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import type { Slide } from './deck';
+import { SlidesSelectionTools, type SlidesToolContext } from './selection-tools';
 import { boxAt } from './selection';
+import { readSelectedObjectText } from './selected-object-text';
 import { Ribbon } from './ribbon';
 import { SLIDES_PRIMARY_CONTROL_IDS, SlidesInsertDropdown } from './insert-dropdown';
 import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, selectedSlidesTable, trackSlidesSelectionLifetime } from './selection-owner';
@@ -61,7 +63,9 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, inspector
   const at = useNodeRect(editor, scope, target);
   const visibility = useEditorContextVisibility(editor, target ?? null, { scope, retainWithin: objectChrome, relatedChrome: inspectorScope, active: active && editor.isEditable });
   const canvasOwned = active && editor.isEditable && region === 'canvas' && canvasGesture?.root === nativeRoot && canvasGesture?.slide === current;
-  const textRange = editor.selection?.type === 'range' && !editor.selection.collapsed && !table;
+  const textRange = editor.selection?.type === 'range' && !isCollapsedSelection(editor.selection) && !table;
+  const caret = editor.selection?.type === 'range' && isCollapsedSelection(editor.selection) && !table;
+  const context: SlidesToolContext = table ? 'table' : caret ? 'caret' : readSelectedObjectText(editor, ids).available ? 'objectText' : ids.length > 1 ? 'multiple' : scene?.stype === 'textFrame' ? 'textFrame' : scene?.stype === 'picture' ? 'picture' : ['line','connector','path'].includes(scene?.stype ?? '') ? 'line' : ['rectangle','ellipse','frame','sticky'].includes(scene?.stype ?? '') ? 'shape' : 'object';
   const groups = ['character', 'paragraph', 'list', ...(table ? ['table'] : ['order', 'align', 'group'])];
   void revision;
   const inspectorOwner = useRef<HTMLDivElement>(null);
@@ -92,9 +96,8 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, inspector
         if (!textRange || selection?.type !== 'range' || selection.collapsed || JSON.stringify(selection) !== JSON.stringify(editor.selection)) return null;
         const captured = captureSlidesSelectionOwner(lifetime, selection);
         return <div className="sl-selection-tools" key={`${lifetime.generation}:${JSON.stringify(selection)}`}>
-          <Ribbon inline editor={editor} slides={slides} current={current} groupIds={['character']} controlIds={['bold','italic']} fontControls={['family','color']}
-            directControls portalContainer={chrome} canRunIntent={() => active && ownsSlidesSelection(captured)} />
-          <Button square tone="quiet" ariaLabel="선택 속성 열기" onMouseDown={event => event.preventDefault()} onClick={event => { if (ownsSlidesSelection(captured)) onInspect(event.currentTarget); }}><Icon name="more" /></Button>
+          <SlidesSelectionTools editor={editor} slides={slides} current={current} context="text" nodeIds={[]} owner={chrome} canRunIntent={() => active && ownsSlidesSelection(captured)} />
+          <Button square tone="quiet" ariaLabel="선택 속성 열기" onMouseDown={event => event.preventDefault()} onClick={event => { if (ownsSlidesSelection(captured)) onInspect(event.currentTarget); }}><Icon name="expand" /></Button>
         </div>;
       }}
     </ContextToolbar>
@@ -102,10 +105,8 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, inspector
       aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={(reason, event) => { if (reason === 'escape' && event?.target instanceof Node && inspectorScope.current?.contains(event.target)) { onInspectorEscape?.(); return; } lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope, inspectorScope, globalChrome]}>
       <div ref={objectChrome} key={`${lifetime.generation}:${JSON.stringify(editor.selection)}`}>
         <Toolbar variant="compact" label={table ? '선택한 Slides 표 도구' : '선택한 Slides 개체 도구'}>
-          <Ribbon inline editor={editor} slides={slides} current={current} groupIds={table ? ['table'] : ['group','order']}
-            controlIds={table ? ['row-below','column-right','cells-merge','cell-split'] : ['duplicate-boxes','delete-boxes','bring-forward','send-backward']}
-            directControls portalContainer={objectChrome} canRunIntent={() => active && ownsSlidesSelection(owner)} />
-          <Button square tone="quiet" ariaLabel="선택 속성 열기" onMouseDown={event => event.preventDefault()} onClick={event => { if (ownsSlidesSelection(owner)) onInspect(event.currentTarget); }}><Icon name="more" /></Button>
+          <SlidesSelectionTools editor={editor} slides={slides} current={current} context={context} nodeIds={ids.length ? ids : scene ? [scene.sid] : []} owner={objectChrome} canRunIntent={() => active && ownsSlidesSelection(owner)} />
+          <Button square tone="quiet" ariaLabel="선택 속성 열기" onMouseDown={event => event.preventDefault()} onClick={event => { if (ownsSlidesSelection(owner)) onInspect(event.currentTarget); }}><Icon name="expand" /></Button>
         </Toolbar>
       </div>
     </FloatingSurface>}

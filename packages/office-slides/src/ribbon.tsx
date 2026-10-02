@@ -41,6 +41,7 @@ import { slidesControlActions } from './toolbar-actions';
 import { keyLabel, shortcutOf } from './keymap';
 import { resolveDeckFormat } from './layout-format';
 import type { Slide } from './deck';
+import { readSelectedObjectText, type SelectedObjectTextMark } from './selected-object-text';
 
 /**
  * The deck's ribbon.
@@ -119,7 +120,13 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
    * so at the first render rather than looking like a document with no
    * formatting in it.
    */
-  const summary = useMemo(() => editor.getSelectionSummary(), [editor, tick]);
+  const objectText = useMemo(() => readSelectedObjectText(editor), [editor, tick]);
+  const summary = useMemo(() => objectText.available ? objectText.summary : editor.getSelectionSummary(), [editor, tick, objectText]);
+  const textPayload = (mark: string, value?: unknown) => ({ nodeIds: objectText.nodeIds, mark, ...(value !== undefined ? { value: String(value) } : {}), canApply: captureIntent?.() ?? canRunIntent });
+  const textControl = (control: SlidesToolbarControl): SlidesToolbarControl => {
+    const mark = ({ bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikethrough' } as Record<string, SelectedObjectTextMark>)[control.id ?? ''];
+    return objectText.available && mark ? { ...control, command: 'toggleSelectedObjectTextMark', payload: textPayload(mark) } : control;
+  };
 
   /**
    * What the layout says, for a control the selection does not answer.
@@ -173,7 +180,9 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
    * sets a size — the layout does, and the slide follows it.
    */
   const choice = (model: ChoiceControl, width: string) => {
-    const current = summary ? currentChoice(model, summary as never, () => inherited(model)) : null;
+    const current = summary ? currentChoice(model, summary as never, () => objectText.available ? undefined : inherited(model)) : null;
+    const command = objectText.available ? 'setSelectedObjectTextFormat' : model.command;
+    const payload = (value: unknown) => objectText.available ? textPayload(model.markType, value) : { [model.key]: value };
     /**
      * A size the presets do not offer is still the size — see `choiceOptions`.
      *
@@ -192,12 +201,12 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
       className={width}
       options={options}
       value={current}
-      disabled={!summary || (summary as never as { empty?: boolean }).empty === true}
+      disabled={!summary || (summary as never as { empty?: boolean }).empty === true || !editor.canExecuteCommand(command, payload(model.options[0]?.value))}
       onChange={(id) => {
         const chosen = model.options.find((option) => String(option.value) === id);
         if (!chosen) return;
         if (!editor.isEditable || canRunIntent?.() === false) return;
-        void editor?.executeCommand(model.command, { [model.key]: chosen.value });
+        void editor?.executeCommand(command, payload(chosen.value));
       }}
     />
     );
@@ -211,7 +220,11 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
    * control as permanently unavailable — the trap the picture button fell into
    * here.
    */
-  const palette = (model: PaletteControl) => (
+  const palette = (model: PaletteControl) => {
+    const command = objectText.available ? 'setSelectedObjectTextFormat' : model.command;
+    const clearCommand = objectText.available ? 'clearSelectedObjectTextFormat' : model.clearCommand;
+    const payload = (value?: unknown) => objectText.available ? textPayload(model.markType!, value) : value === undefined ? undefined : { [model.key]: value };
+    return (
     <ColorPalette
       key={model.id}
       id={model.id}
@@ -221,15 +234,14 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
       swatches={model.swatches}
       disabled={
         !summary ||
-        editor?.canExecuteCommand(model.command, {
-          [model.key]: model.swatches[0].value
-        }) === false
+        editor?.canExecuteCommand(command, payload(model.swatches[0].value)) === false
       }
       clearLabel={model.clearCommand ? '없음' : undefined}
-      onPick={(value) => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(model.command, { [model.key]: value }); }}
-      onClear={() => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(model.clearCommand!); }}
+      onPick={(value) => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(command, payload(value)); }}
+      onClear={() => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(clearCommand!, payload()); }}
     />
   );
+  };
 
   const contents = <>
       {(!groupIds || groupIds.includes('character')) && summary && !summary.empty && <RibbonGroup id="font" label="글꼴" layout="stack">
@@ -271,7 +283,7 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
           (!groupIds || groupIds.includes(group.id)) &&
           (!controlIds || group.controls.some(control => !!control.id && controlIds.includes(control.id))) &&
           (!['character', 'paragraph', 'list'].includes(group.id) || (summary && !summary.empty)) &&
-          (!group.when || group.controls.some((control) => editor.canRun(control.command, control.payload)))
+          (!group.when || group.controls.some((control) => { const target = textControl(control); return editor.canRun(target.command, target.payload); }))
       ).map((group) => (
           <RibbonGroup key={group.id} id={group.id} layout="columns" label={({ history: '실행 기록', slide: '슬라이드', character: '글자', paragraph: '문단', list: '목록', insert: '삽입', order: '순서', align: '정렬', table: '표', group: '객체' } as Record<string, string>)[group.id]}>
             {/*
@@ -292,7 +304,7 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
             */}
             <ControlRows
               editor={editor}
-              controls={controlIds ? group.controls.filter(control => !!control.id && controlIds.includes(control.id)) : group.controls}
+              controls={(controlIds ? group.controls.filter(control => !!control.id && controlIds.includes(control.id)) : group.controls).map(textControl)}
               options={{
                 apple,
                 ...actions,

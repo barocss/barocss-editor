@@ -5,7 +5,7 @@ import { Icon } from '@barocss/office-icons';
 import { Tip } from './tip';
 
 export function CommandSearchTrigger({ onClick, disabled, iconOnly = false }: { onClick: () => void; disabled?: boolean; iconOnly?: boolean }) {
-  const trigger = <Button square={iconOnly} data={{ 'command-icon': iconOnly || undefined }} tone="quiet" className="office-command-trigger" ariaLabel="명령 검색" disabled={disabled}
+  const trigger = <Button square={iconOnly} data={{ 'command-icon': iconOnly ? 'true' : undefined }} tone="quiet" className="office-command-trigger" ariaLabel="명령 검색" disabled={disabled}
     onPointerDown={event => event.preventDefault()} onClick={onClick}>
     <Icon name="document-search" size={iconOnly ? 16 : 14} />{!iconOnly && <span>명령 검색</span>}
   </Button>;

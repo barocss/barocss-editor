@@ -1,3 +1,4 @@
+import { registerSelectedObjectTextCommands } from './selected-object-text';
 import {
   ReorderExtension,
   FontColorExtension,
@@ -306,5 +307,6 @@ export function createSlidesEditor(options: SlidesEditorOptions = {}): Editor {
       : undefined;
   });
 
+  registerSelectedObjectTextCommands(editor);
   return editor;
 }

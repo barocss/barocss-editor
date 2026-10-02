@@ -20,12 +20,14 @@ const prepare = async (page: import('@playwright/test').Page) => {
 };
 const attrs = (page: import('@playwright/test').Page, sid: string) => page.evaluate(id => (window as any).editor.dataStore.getNode(id).attributes, sid);
 
-test('field-attached variable search resolves local scope, detaches, and follows native undo/redo', async ({ page }, info) => {
+for (const theme of ['light', 'dark']) test(`field-attached variable search resolves local scope, detaches, and follows native undo/redo in ${theme}`, async ({ page }, info) => {
   const sid = await prepare(page);
+  await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
   const panel = page.locator('.sl-properties');
   await expect(panel).not.toContainText('문서 변수 연결');
   const attach = panel.getByRole('button', { name: '너비 변수 연결', exact: true });
   const target = await attach.boundingBox(); expect(target!.height).toBeGreaterThanOrEqual(32); expect(target!.width).toBeGreaterThanOrEqual(32);
+  await page.screenshot({ path: info.outputPath(`property-unbound-${theme}.png`), animations: 'disabled' });
   await attach.click();
   const firstColumnPicker = panel.getByRole('dialog', { name: '너비 변수 선택', exact: true });
   const pickerBounds = await firstColumnPicker.boundingBox();

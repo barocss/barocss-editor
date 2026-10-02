@@ -1,0 +1,7 @@
+.sl-selection-choice { width:100px; min-width:0; }
+.sl-selection-number { width:66px; min-width:0; }
+.sl-selection-menu { width:220px; padding:4px; max-height:360px; overflow-y:auto; }
+.sl-selection-menu [role^='menuitem'] { display:flex; align-items:center; gap:8px; min-height:32px; padding:4px 8px; font-size:12px; }
+.sl-selection-menu-separator { height:1px; background:var(--ou-line); margin:4px; }
+[data-slides-formatting] .sl-toolbar-font-family { min-width:0; width:124px; }
+[data-slides-formatting] .sl-toolbar-font-size { min-width:0; width:72px; }
