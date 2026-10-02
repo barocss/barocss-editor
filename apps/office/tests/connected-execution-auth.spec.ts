@@ -61,7 +61,13 @@ async function login(page: Page, alias: 'alpha-editor' | 'beta-viewer', url = or
 }
 function track(page: Page) {
   const started = Date.now();
-  const state = { bearer: '', phase: 'entry', projectWrites: [] as Array<Record<string, unknown>>, timeline: [] as Array<Record<string, unknown>> };
+  const state = { bearer: '', phase: 'entry', elapsedMs: () => Date.now() - started,
+    pageErrors: [] as Array<{ atMs: number; phase: string; message: string }>,
+    projectWrites: [] as Array<Record<string, unknown>>, timeline: [] as Array<Record<string, unknown>> };
+  page.on('pageerror', error => state.pageErrors.push({ atMs: state.elapsedMs(), phase: state.phase,
+    message: error.message.replace(/https?:\/\/[^\s)'"<>]+/g, value => {
+      try { const url = new URL(value); return `${url.pathname}${url.hash}`; } catch { return '[URL omitted]'; }
+    }).slice(0, 4000) }));
   page.on('request', request => {
     if (request.headers().authorization) state.bearer = request.headers().authorization;
     const path = new URL(request.url()).pathname;
@@ -83,7 +89,7 @@ function track(page: Page) {
 async function notePhase(page: Page, state: ReturnType<typeof track>, phase: string) {
   state.phase = phase;
   const selected = await page.evaluate(() => getSelection()?.toString() ?? '');
-  state.timeline.push({ kind: 'ui', phase, saveStatus: await page.locator('[data-save-status]').allTextContents(),
+  state.timeline.push({ atMs: state.elapsedMs(), kind: 'ui', phase, saveStatus: await page.locator('[data-save-status]').allTextContents(),
     selectionLength: selected.length, selectionHash: hash(selected),
     nativeEditable: await paragraph(page).count() ? await paragraph(page).evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable')) : null });
 }
@@ -112,12 +118,17 @@ async function seedNative(page: Page, product: 'word' | 'slides', title: string)
   }), { product, name, title, text });
   return { name, text };
 }
-async function importThroughExistingLibrary(page: Page, product: 'word' | 'slides', title: string) {
+async function importThroughExistingLibrary(page: Page, product: 'word' | 'slides', title: string, state: ReturnType<typeof track>) {
   await page.getByRole('button', { name: '자료함', exact: true }).click();
   await page.getByRole('button', { name: `${product === 'word' ? 'Word' : 'Slides'} 자료`, exact: true }).click();
+  state.phase = `native-${product}-route`; const started = state.elapsedMs();
+  state.timeline.push({ atMs: started, kind: 'ui', phase: state.phase, state: 'opening' });
   await page.getByRole('button', { name: `새 ${product === 'word' ? 'Word' : 'Slides'} 만들기`, exact: true }).click();
   const shell = product === 'word' ? word(page) : slides(page);
-  await expect(shell).toBeVisible();
+  // The first product route includes cold lazy module loading. Use the declared
+  // navigation deadline and retain actual elapsed time, not an assumed cause.
+  try { await expect(shell).toBeVisible({ timeout: 30_000 }); }
+  finally { state.timeline.push({ atMs: state.elapsedMs(), kind: 'ui', phase: state.phase, elapsedMs: state.elapsedMs() - started }); }
   const seeded = await seedNative(page, product, title);
   if (product === 'slides') {
     const nav = shell.getByRole('complementary', { name: '서버 Slides 목록', exact: true });
@@ -189,13 +200,14 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
   const profileA = mkdtempSync(join(directory, 'execution-editor-')), profileB = mkdtempSync(join(directory, 'execution-viewer-'));
   let a: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined, b: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined;
   let passed = false, viewerRevoked = false;
+  let diagnosticPage: Page | undefined, diagnosticRequests: ReturnType<typeof track> | undefined;
   const evidence: Record<string, unknown> = { type: 'real-oidc-api-private-postgres-live-local-model', physicalOsIme: 'not exercised' };
   const timelines: Array<Array<Record<string, unknown>>> = [];
   writeFileSync(evidenceFile, JSON.stringify({ status: 'incomplete' }), { mode: 0o600 });
   try {
     const status = await privateControl<RealStatus>({ action: 'status' });
     const tenantRoot = `${origin}/api/v1/tenants/${status.tenantId}`;
-    a = await launchPrivateProfile(profileA); let page = await a.context.newPage(), requests = track(page); timelines.push(requests.timeline);
+    a = await launchPrivateProfile(profileA); let page = await a.context.newPage(), requests = track(page); timelines.push(requests.timeline); diagnosticPage = page; diagnosticRequests = requests;
     await login(page, 'alpha-editor');
     await page.getByRole('button', { name: '프로젝트 만들기', exact: true }).click();
     const creating = page.getByRole('dialog', { name: '프로젝트 만들기', exact: true });
@@ -218,9 +230,9 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
       expect(opened.document.snapshotHash).toBe(hash(opened.snapshotText)); expect(opened.document.snapshotHash).toBe(stored.document!.snapshotHash);
       expect(opened.document.revision).toBe(stored.document!.revision); return opened;
     };
-    const guide = await importThroughExistingLibrary(page, 'word', guideTitle); await page.goto(projectUrl);
+    const guide = await importThroughExistingLibrary(page, 'word', guideTitle, requests); await page.goto(projectUrl);
     await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
-    const training = await importThroughExistingLibrary(page, 'slides', trainingTitle); await page.goto(projectUrl);
+    const training = await importThroughExistingLibrary(page, 'slides', trainingTitle, requests); await page.goto(projectUrl);
     await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
     await linkResult(page, guideTitle); await linkResult(page, trainingTitle);
     const initialTraining = await readDocument(training.id, 'slides');
@@ -252,6 +264,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible();
     await page.getByRole('button', { name: '직접 편집', exact: true }).click();
     await page.getByRole('button', { name: '의견 1', exact: true }).click();
+    diagnosticPage = page; diagnosticRequests = requests;
     const preCall = await readDocument(guide.id, 'word'); expect(preCall.snapshotText).toBe(comment.pin.text);
     requests.phase = 'live-inference'; await notePhase(page, requests, requests.phase);
     const liveResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url() === executionApi, { timeout: 660_000 });
@@ -278,6 +291,28 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     }
     expect((await readDocument(guide.id, 'word')).snapshotText).toBe(preCall.snapshotText);
     expect((await readDocument(training.id, 'slides')).snapshotText).toBe(initialTraining.snapshotText);
+    // Pause/resume the actual completed proposal, not just an unconnected request.
+    // The original native editor remains mounted in its own tab.
+    const pausePage = await a.context.newPage(), pauseRequests = track(pausePage); timelines.push(pauseRequests.timeline);
+    diagnosticPage = pausePage; diagnosticRequests = pauseRequests; pauseRequests.phase = 'pause-live-proposal';
+    await login(pausePage, 'alpha-editor', projectUrl);
+    await expect(pausePage.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
+    const pausedWork = pausePage.locator('.ow-project-work'); await pausedWork.locator('summary').first().click();
+    await pausedWork.getByRole('button', { name: '일시 정지', exact: true }).click();
+    expect((await readProject()).project.record.works.find(one => one.id === workId)!.state).toBe('paused');
+    const pausedAttempt = await readExecution(); expect(pausedAttempt!.id).toBe(proposed.id);
+    expect(pausedAttempt!.proposal).toEqual(proposed.proposal); expect(pausedAttempt!.provenance).toEqual(proposed.provenance);
+    expect((await readDocument(guide.id, 'word')).snapshotText).toBe(preCall.snapshotText);
+    await pausePage.reload(); await expect(pausePage.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
+    await pausePage.locator('.ow-project-work summary').first().click(); pauseRequests.phase = 'resume-same-live-proposal';
+    await pausePage.getByRole('button', { name: '같은 작업 재개', exact: true }).click();
+    const resumedAttempt = await readExecution(); expect(resumedAttempt!.id).toBe(proposed.id); expect(resumedAttempt!.phase).toBe('proposal');
+    expect(resumedAttempt!.proposal).toEqual(proposed.proposal); expect(resumedAttempt!.provenance).toEqual(proposed.provenance);
+    expect((await readProject()).project.record.works).toHaveLength(1);
+    await pausePage.close(); await page.bringToFront(); diagnosticPage = page; diagnosticRequests = requests;
+    await executionPanel(page).getByRole('button', { name: '실행 기록 확인', exact: true }).click();
+    await expect(executionPanel(page).getByRole('status')).toHaveText('제안 검토');
+    expect(timelines.flat().filter(entry => entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(1);
     await expect(executionPanel(page).getByRole('button', { name: '이 변경 승인 및 저장', exact: true })).toBeEnabled();
     requests.phase = 'human-accept'; await executionPanel(page).getByRole('button', { name: '이 변경 승인 및 저장', exact: true }).click();
     await expect(executionPanel(page).getByRole('status')).toHaveText('원본 반영 확인', { timeout: 30_000 });
@@ -287,6 +322,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     // Link the training follow-up AFTER the guide was actually accepted and saved.
     // A second tab retains this mounted Word editor's genuine Undo/Redo history.
     const linkingPage = await a.context.newPage(), linkingRequests = track(linkingPage); timelines.push(linkingRequests.timeline);
+    diagnosticPage = linkingPage; diagnosticRequests = linkingRequests;
     linkingRequests.phase = 'deliberate-follow-up-after-guide-save';
     await login(linkingPage, 'alpha-editor', projectUrl);
     await expect(linkingPage.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
@@ -303,7 +339,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     expect(linkedExecution!.input).toEqual(proposed.input); expect(linkedExecution!.provenance).toEqual(proposed.provenance);
     expect(linkedExecution!.pendingOutputs).toContainEqual({ resultId: trainingRecord.id, reason: 'unsupported_target',
       inputs: [{ id: fixedPin.id, documentId: guide.id, revision: fixedPin.revision, snapshotHash: hash(expected), snapshotText: expected }] });
-    await linkingPage.close(); await page.bringToFront();
+    await linkingPage.close(); await page.bringToFront(); diagnosticPage = page; diagnosticRequests = requests;
     await executionPanel(page).getByRole('button', { name: '실행 기록 확인', exact: true }).click();
     const pending = executionPanel(page).locator('[aria-label="후속 결과물 상태"]');
     await expect(pending.getByText(`${trainingTitle} · 대기: 이 결과물의 자동 편집은 아직 지원하지 않습니다.`, { exact: true })).toBeVisible();
@@ -325,7 +361,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     const restarted = await privateControl<RealStatus>({ action: 'api-start' }); expect(restarted.apiPid).not.toBe(stopped.apiPid);
     expect(restarted.databaseIdentity).toBe(status.databaseIdentity); expect(restarted.databaseGeneration).toBe(status.databaseGeneration);
     a = await launchPrivateProfile(profileA); expect(a.pid).not.toBe(beforeBrowser);
-    page = await a.context.newPage(); requests = track(page); timelines.push(requests.timeline); await login(page, 'alpha-editor', url);
+    page = await a.context.newPage(); requests = track(page); timelines.push(requests.timeline); diagnosticPage = page; diagnosticRequests = requests; await login(page, 'alpha-editor', url);
     await expect(word(page)).toBeVisible(); expect((await readDocument(guide.id, 'word')).snapshotText).toBe(expected);
     const restored = await readExecution(); expect(restored!.id).toBe(proposed.id); expect(restored!.proposal).toEqual(proposed.proposal);
     expect(restored!.provenance).toEqual(proposed.provenance); expect(restored!.pendingOutputs).toEqual(linkedExecution!.pendingOutputs);
@@ -337,7 +373,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     expect(pinRead.status()).toBe(200); const historical = await pinRead.json() as { pin: Pin; sourceState: string };
     expect(historical.pin.text).toBe(fixedPin.text); expect(historical.sourceState).toBe('changed');
     expect((await readDocument(training.id, 'slides')).snapshotText).toBe(initialTraining.snapshotText);
-    b = await launchPrivateProfile(profileB); const viewer = await b.context.newPage(), viewerRequests = track(viewer); timelines.push(viewerRequests.timeline);
+    b = await launchPrivateProfile(profileB); const viewer = await b.context.newPage(), viewerRequests = track(viewer); timelines.push(viewerRequests.timeline); diagnosticPage = viewer; diagnosticRequests = viewerRequests;
     await login(viewer, 'beta-viewer', projectUrl);
     const denied = await viewer.request.post(executionApi, { headers: { Authorization: viewerRequests.bearer }, data: { expectedRevision: (await readProject()).project.revision } });
     expect(denied.status()).toBe(403);
@@ -351,8 +387,21 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     evidence.beforeHash = hash(preCall.snapshotText); evidence.appliedHash = hash(expected); evidence.trainingHash = hash(initialTraining.snapshotText);
     evidence.guidePinHash = hash(fixedPin.text); evidence.pendingOutputs = linkedExecution!.pendingOutputs;
     evidence.commentOnlyNoDispatch = true; evidence.exactNativeUndoRedo = true; evidence.browserApiRestart = true;
+    evidence.liveProposalPauseResumeSameAttempt = true;
     evidence.replayedAttemptIdentity = true; evidence.actualViewerDenied = true; evidence.revokedEvidenceDenied = true;
     passed = true;
+  } catch (error) {
+    if (diagnosticPage && !diagnosticPage.isClosed()) {
+      const url = new URL(diagnosticPage.url());
+      const bodyText = await diagnosticPage.locator('body').innerText({ timeout: 2000 }).catch(() => '[visible body unavailable]');
+      // No URL queries, token headers, account input values, or fixture credentials.
+      const diagnostic = { pathname: url.pathname, hash: url.hash, phase: diagnosticRequests?.phase,
+        elapsedMs: diagnosticRequests?.elapsedMs(), visibleBodyText: bodyText.slice(0, 20000),
+        pageErrors: diagnosticRequests?.pageErrors, timelines };
+      writeFileSync(join(directory, 'connected-execution-failure-ui.json'), JSON.stringify(diagnostic), { mode: 0o600 });
+      evidence.failureUi = 'connected-execution-failure-ui.json';
+    }
+    throw error;
   } finally {
     if (viewerRevoked) await privateControl({ action: 'beta-active', active: true });
     if (a) await stopPrivateProfile(a.context, a.pid); if (b) await stopPrivateProfile(b.context, b.pid);
