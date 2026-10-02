@@ -212,10 +212,10 @@ test('actual Slides writer and automatic viewer preserve complete native API/PG 
       node.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: drop }));
     });
     await expect(workspace(viewer)).not.toContainText('FORBIDDEN SLIDES');
-    await viewer.locator('.sl-topbar').getByRole('button', { name: '자세한 속성', exact: true }).click();
+    await viewer.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
     await expect(workspace(viewer).getByRole('complementary', { name: '속성', exact: true })).toBeVisible();
     await workspace(viewer).getByLabel('단위', { exact: true }).selectOption('in');
-    await viewer.locator('.sl-topbar').getByRole('button', { name: '자세한 속성', exact: true }).click();
+    await viewer.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
     await viewer.getByRole('button', { name: '발표', exact: true }).click(); await expect(viewer.locator('.sl-present-hint')).toBeVisible();
     await viewer.keyboard.press('Escape'); await expect(viewer.locator('.sl-present-hint')).toHaveCount(0);
     await viewer.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();

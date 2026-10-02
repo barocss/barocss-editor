@@ -299,7 +299,7 @@ body {
 [data-slides-formatting][data-slides-selection-pending="true"] { display: none; }
 
 /* Content-width clusters reserve space above the stage without a full-width band. */
-.sl-utilities { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; flex: 0 0 auto; background: var(--ou-ground); }
+.sl-utilities { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; flex: 0 0 auto; background: var(--sl-ground); }
 .sl-insertion-chrome { min-width: 0; }
 .sl-document-detail { width: min(880px, calc(100vw - 24px)); max-height: min(65vh, 560px); overflow: auto; }
 .sl-workspace-navigation[hidden] { display: none; }

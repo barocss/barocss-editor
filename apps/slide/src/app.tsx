@@ -11,6 +11,8 @@ import {
   AppMain,
   AppShell,
   Button,
+  Icon,
+  Tip,
   ZoomControl,
   type LengthUnit
 } from '@barocss/office-ui';
@@ -1788,7 +1790,30 @@ export function App({
         fallbackNavigation={server ? server.headerNavigation : <ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
         menus={<DocumentMenu key={`${editor?.getRootId()}:${current}:${answers}:${readOnly}`} label="덱 메뉴" menus={menus} onPick={onMenu} />}
-        actions={<><div ref={detailAnchor}><Button disabled={readOnly} aria-expanded={fullTools} onMouseDown={event => event.preventDefault()} onClick={() => setFullTools(value => !value)}>전체 도구</Button></div><Button aria-controls="slides-objects" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(value => !value)}>레이어 및 컴포넌트</Button><Button aria-controls="slides-details" aria-expanded={inspectorOpen} onMouseDown={event => event.preventDefault()} onClick={() => setInspectorOpen(value => !value)}>자세한 속성</Button><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments persistence={persistence} onOpened={() => {
+        actions={<>
+          <div ref={detailAnchor}>
+            <Tip label="편집 도구 · 글꼴, 문단, 삽입">
+              <Button square tone="quiet" ariaLabel="편집 도구" disabled={readOnly}
+                aria-expanded={fullTools} pressed={fullTools}
+                onMouseDown={event => event.preventDefault()} onClick={() => setFullTools(value => !value)}>
+                <Icon name="frame-grid" />
+              </Button>
+            </Tip>
+          </div>
+          <Tip label="레이어 · 개체 순서와 컴포넌트">
+            <Button square tone="quiet" ariaLabel="레이어" aria-controls="slides-objects"
+              aria-expanded={sidebarOpen} pressed={sidebarOpen} onClick={() => setSidebarOpen(value => !value)}>
+              <Icon name="outline" />
+            </Button>
+          </Tip>
+          <Tip label="속성 · 크기, 위치, 모양">
+            <Button square tone="quiet" ariaLabel="속성" aria-controls="slides-details"
+              aria-expanded={inspectorOpen} pressed={inspectorOpen}
+              onMouseDown={event => event.preventDefault()} onClick={() => setInspectorOpen(value => !value)}>
+              <Icon name="expand" />
+            </Button>
+          </Tip>
+          <CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
           }} />}
           {!server && <FileActions
