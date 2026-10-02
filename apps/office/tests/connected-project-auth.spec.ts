@@ -283,7 +283,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     evidence.humanSourceHash = hash(edited.snapshotText); evidence.trainingHash = hash(initialTraining.snapshotText); evidence.lostAckSamePayload = true;
     evidence.actualViewerDenied = true; evidence.revokedPinnedReadDenied = true; evidence.syntheticComposition = true; evidence.physicalOsIme = 'not exercised'; passed = true;
   } catch (error) {
-    const failedPage = a?.context.pages()[0];
+    const failedPage = a?.context.pages().at(-1);
     if (failedPage && new URL(failedPage.url()).origin === origin) {
       const url = new URL(failedPage.url());
       const diagnostic = { path: url.pathname, queryKeys: Array.from(url.searchParams.keys()), headings: await failedPage.getByRole('heading').allTextContents() };
