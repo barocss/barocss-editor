@@ -84,7 +84,7 @@ defineOperation('removeMark', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'setMarks', payload: { nodeId, marks: marksBefore, restoreAbsent: marksBefore === undefined } }
+    inverse: { type: 'setMarks', payload: { nodeId, marks: marksBefore, restoreAbsent: marksBefore === undefined, restoreExact: true } }
   };
 });
 

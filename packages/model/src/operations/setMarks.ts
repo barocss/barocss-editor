@@ -38,7 +38,7 @@ export const setMarks = defineOperationDSL(
 
 // Runtime operation implementation
 defineOperation('setMarks', async (operation: any, context: TransactionContext) => {
-  const { nodeId, marks, restoreAbsent } = operation.payload;
+  const { nodeId, marks, restoreAbsent, restoreExact } = operation.payload;
   const node = context.dataStore.getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
 
@@ -46,11 +46,12 @@ defineOperation('setMarks', async (operation: any, context: TransactionContext) 
     ? JSON.parse(JSON.stringify(node.marks))
     : undefined;
   
-  // Undo must preserve an omitted native marks field. Normal writes and array
-  // restoration still use the dedicated API and its existing normalization.
+  // An inverse restores captured native marks, including a whole-run mark that
+  // omitted its range. Normalizing that snapshot changes the original document.
+  // The authored DSL never sets restoreExact; its normalization stays unchanged.
   const result = restoreAbsent === true && marks === undefined
     ? context.dataStore.updateNode(nodeId, { marks: undefined }, false)
-    : context.dataStore.marks.setMarks(nodeId, marks);
+    : context.dataStore.marks.setMarks(nodeId, marks, { normalize: restoreExact !== true });
   
   if (!result || result.valid !== true) {
     const message = result?.errors?.[0] || 'Update marks failed';
@@ -62,7 +63,7 @@ defineOperation('setMarks', async (operation: any, context: TransactionContext) 
     data: context.dataStore.getNode(nodeId),
     inverse: {
       type: 'setMarks',
-      payload: { nodeId, marks: marksBefore, restoreAbsent: marksBefore === undefined }
+      payload: { nodeId, marks: marksBefore, restoreAbsent: marksBefore === undefined, restoreExact: true }
     }
   };
 });

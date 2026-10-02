@@ -152,7 +152,7 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
        */
       const undo = before.map((was) => ({
         type: 'setMarks',
-        payload: { nodeId: was.nodeId, marks: was.marks, restoreAbsent: was.marks === undefined }
+        payload: { nodeId: was.nodeId, marks: was.marks, restoreAbsent: was.marks === undefined, restoreExact: true }
       }));
       return {
         ok: true,
@@ -203,7 +203,7 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
        * appended; now that it replaces, the marks it cut have to come back, and
        * only the list can say what they were.
        */
-      inverse: { type: 'setMarks', payload: { nodeId, marks: had, restoreAbsent: had === undefined } }
+      inverse: { type: 'setMarks', payload: { nodeId, marks: had, restoreAbsent: had === undefined, restoreExact: true } }
     };
   } catch (e) {
     throw new Error(`Failed to apply mark: ${e instanceof Error ? e.message : 'Unknown error'}`);
