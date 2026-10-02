@@ -35,7 +35,7 @@ for (const [width, height] of [[1440, 900], [1280, 800]]) for (const theme of ['
       const drawn = await page.locator('[data-filmstrip-panel]').evaluate(panel => {
         const rect = (node: Element) => node.getBoundingClientRect().toJSON();
         const strip = panel.querySelector('.sl-filmstrip')!;
-        return { panel: rect(panel), main: rect(document.querySelector('.sl-main')!),
+        return { radius: getComputedStyle(panel).borderRadius, panel: rect(panel), main: rect(document.querySelector('.sl-main')!),
           strip: rect(strip), scrollWidth: strip.scrollWidth, clientWidth: strip.clientWidth,
           controls: Array.from(panel.querySelectorAll('.sl-slide-navigation-heading button')).map(button => {
             const box = rect(button), hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
@@ -48,9 +48,10 @@ for (const [width, height] of [[1440, 900], [1280, 800]]) for (const theme of ['
             outline: getComputedStyle(button).boxShadow, current: button.hasAttribute('data-current')
           })) };
       });
-      expect(drawn.panel.width).toBeGreaterThan(drawn.main.width * 0.95);
-      expect(drawn.panel.x).toBeGreaterThanOrEqual(drawn.main.x);
-      expect(drawn.panel.right).toBeLessThanOrEqual(drawn.main.right);
+      expect(drawn.panel.width).toBe(drawn.main.width);
+      expect(drawn.radius).toBe('0px');
+      expect(drawn.panel.x).toBe(drawn.main.x);
+      expect(drawn.panel.right).toBe(drawn.main.right);
       expect(drawn.panel.bottom).toBeLessThanOrEqual(height);
       expect(drawn.panel.height).toBeLessThanOrEqual(190);
       for (const control of drawn.controls) {

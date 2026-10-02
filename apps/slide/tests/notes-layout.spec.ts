@@ -29,6 +29,20 @@ for (const theme of ['light', 'dark']) test(`floating notes preserve geometry, e
   expect(await geometry(page)).toEqual(before);
   await openFilmstrip(page);
   expect(await geometry(page)).toEqual(before);
+  const surfaces = await page.locator('[data-slide-dock]').evaluate(dock => {
+    const measure = (node: Element) => ({ bounds: node.getBoundingClientRect().toJSON(), radius: getComputedStyle(node).borderRadius });
+    return { viewport: document.querySelector('.sl-main')!.getBoundingClientRect().toJSON(),
+      notes: measure(dock.querySelector('[data-notes-panel]')!), tray: measure(dock.querySelector('[data-filmstrip-panel]')!) };
+  });
+  for (const surface of [surfaces.notes, surfaces.tray]) {
+    expect(surface.bounds.left).toBe(surfaces.viewport.left);
+    expect(surface.bounds.right).toBe(surfaces.viewport.right);
+    expect(surface.radius).toBe('0px');
+  }
+  expect(surfaces.notes.bounds.bottom).toBe(surfaces.tray.bounds.top);
+  await info.attach('edge-panels.json', {body:JSON.stringify(surfaces), contentType:'application/json'});
+  await page.screenshot({path:info.outputPath(`edge-panels-${theme}.png`),animations:'disabled'});
+
   await page.locator('.sl-filmstrip button[data-slide]').nth(1).click();
   await expect(notes).toContainText('The point of this slide');
   expect(await geometry(page)).toEqual(before);

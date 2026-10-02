@@ -8,11 +8,11 @@
 
 .sl-slide-dock {
   position: absolute;
-  inset: auto 12px 12px;
+  inset: auto 0 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   pointer-events: none;
 }
 .sl-slide-dock > * { pointer-events: auto; }
@@ -21,21 +21,25 @@
   width: auto;
   align-self: stretch;
   max-width: none;
-  border-radius: 16px;
+  border-width: 1px 0 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .sl-notes-panel {
-  width: min(560px, 100%);
+  width: 100%;
+  box-sizing: border-box;
   height: 200px;
   max-height: 28vh;
   overflow: hidden;
-  border: 1px solid var(--ou-line);
-  border-radius: 14px;
+  border: solid var(--ou-line);
+  border-width: 1px 0 0;
+  border-radius: 0;
   background: var(--ou-panel);
-  box-shadow: var(--ou-lift-2);
+  box-shadow: none;
 }
 .sl-notes-panel[hidden] { display: none; }
-.sl-notes-panel:focus-visible { outline: 2px solid var(--ou-accent); outline-offset: 2px; }
+.sl-notes-panel:focus-visible { outline: 2px solid var(--ou-accent); outline-offset: -2px; }
 .sl-notes-panel .sl-notes {
   height: 100%;
   max-height: none;
@@ -51,6 +55,7 @@
 .sl-notes-panel .sl-notes-host { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 4px 0; }
 .sl-notes-panel .sl-notes-empty { flex: 1; flex-wrap: wrap; align-content: center; justify-content: center; }
 
+.sl-slide-navigation-folded { margin: 8px 12px 12px; }
 .sl-slide-navigation-folded[hidden] { display: none; }
 
 .sl-slide-navigation-heading {
