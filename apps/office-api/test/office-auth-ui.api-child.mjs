@@ -1,3 +1,4 @@
+import { ProjectStore } from '../../office-service/dist/project-store.js';
 import pg from 'pg';
 import { MembershipStore } from '../../office-service/dist/membership-store.js';
 import { DocumentStore } from '../../office-service/dist/document-store.js';
@@ -34,7 +35,7 @@ process.once('message', async ({ database, issuer, audience, port }) => {
     app = createApiServer({ verifier: createOidcVerifier(auth),
       memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
       documents: new DocumentStore(pool), operators: new PlatformOperatorStore(pool),
-      companyMembers: new CompanyMemberStore(pool) });
+      companyMembers: new CompanyMemberStore(pool), projects: new ProjectStore(pool) });
     await app.listen({ host: '127.0.0.1', port });
     process.send?.({ ready: true });
   } catch {

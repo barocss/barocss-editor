@@ -53,7 +53,7 @@ try {
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
       '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators',
       '0006_company_member_admin', '0007_document_collaboration_seed',
-      '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory']);
+      '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory', '0011_connected_projects']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('upgrade quarantines legacy confirmed raw roots without changing snapshot bytes', async () => {
@@ -92,7 +92,7 @@ try {
       WHERE d.tenant_id = $1 AND d.id = $2`, [tenantId, documentId])).rows[0];
     assert.deepEqual(result, { mode: 'initializing', snapshot_text: original, status: 'uncertain',
       confirmed_provider_checkpoint: null, confirmed_provider_snapshot_hash: null });
-    assert.deepEqual(await migrate(upgrade), ['0010_member_directory']);
+    assert.deepEqual(await migrate(upgrade), ['0010_member_directory', '0011_connected_projects']);
   });
   await check('failed DDL and migration history roll back together', async () => {
     await assert.rejects(migrate(owner, [...migrations, {

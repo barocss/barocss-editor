@@ -1,3 +1,5 @@
+import { registerProjectRoutes } from './project-routes.js';
+import type { ProjectStore } from '@barocss/office-service/project-store';
 import Fastify from 'fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { InvalidWorkspaceCursorError, TenantAccessDeniedError } from '@barocss/office-service/membership-store';
@@ -25,6 +27,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export interface ApiAuthDependencies {
   verifier: Pick<OidcVerifier, 'verify'> & Partial<Pick<OidcVerifier, 'verifySession'>>;
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
+  projects?: Pick<ProjectStore, 'list' | 'get' | 'create' | 'update' | 'getPin'>;
   workspaces?: Pick<MembershipStore, 'listWorkspaces'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
   collaboration?: Pick<CollaborationStore, 'requestTransition' | 'reconcile'>;
@@ -196,6 +199,7 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         }
       });
     }
+    if (auth.projects) registerProjectRoutes(app, { authenticate, projects: auth.projects });
     if (auth.operators) registerOperatorRoutes(app, { authenticate, operators: auth.operators });
     if (auth.companyMembers) registerCompanyMemberRoutes(app,
       { authenticate, companyMembers: auth.companyMembers });

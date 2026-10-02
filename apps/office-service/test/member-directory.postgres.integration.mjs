@@ -35,7 +35,7 @@ try {
   const owner = await connect('wonffice_owner'), app = await connect('wonffice_app');
   await migrate(owner, migrations.filter(entry => entry.id < '0010'));
   const previousHistory = (await owner.query('SELECT id,checksum FROM wonffice_meta.migrations ORDER BY id')).rows;
-  assert.deepEqual(await migrate(owner), ['0010_member_directory']);
+  assert.deepEqual(await migrate(owner), ['0010_member_directory', '0011_connected_projects']);
   assert.deepEqual((await owner.query("SELECT id,checksum FROM wonffice_meta.migrations WHERE id < '0010' ORDER BY id")).rows, previousHistory);
   assert.deepEqual(await migrate(owner), []);
   const alpha = randomUUID(), beta = randomUUID();

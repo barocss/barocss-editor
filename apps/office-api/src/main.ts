@@ -1,3 +1,4 @@
+import { ProjectStore } from '@barocss/office-service/project-store';
 import { readConfig } from './config.js';
 import { readAuthConfig } from './auth-config.js';
 import { createOidcVerifier } from './oidc.js';
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
     operators: new PlatformOperatorStore(pool),
     companyMembers: new CompanyMemberStore(pool),
     documents: new DocumentStore(pool),
+    projects: new ProjectStore(pool),
   } : undefined);
   if (pool) app.addHook('onClose', async () => { await pool.end(); });
   let stopping = false;

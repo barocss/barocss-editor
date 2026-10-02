@@ -27,6 +27,10 @@
     "./capability-store": {
       "types": "./src/capability-store.ts",
       "import": "./dist/capability-store.js"
+    },
+    "./project-store": {
+      "types": "./src/project-store.ts",
+      "import": "./dist/project-store.js"
     }
   },
   "files": ["dist"],
