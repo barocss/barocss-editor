@@ -1,3 +1,4 @@
+import { bindPropertyVariable } from './property-variable-helpers';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { openDeck } from './helpers';
@@ -264,9 +265,9 @@ test.describe('the deck’s own variables', () => {
      * The row is in the properties panel beside the card's own, and it offers only the variables
      * whose kind fits: a colour in a 둥근 정도 row would be a swatch with nothing to draw.
      */
-    const row = page.locator('.sl-properties').getByLabel('둥근 정도 문서 변수');
+    const row = page.locator('.sl-properties').getByRole('button', { name: '모서리 둥글기 변수 연결', exact: true });
     await expect(row).toHaveCount(1);
-    await row.selectOption('둥글기');
+    await bindPropertyVariable(page, '모서리 둥글기', '둥글기');
     await page.waitForTimeout(700);
 
     // Drawn: 600 twips is 40px at 1:1, scaled by the stage, so the assertion is that the corner is
@@ -297,7 +298,7 @@ test.describe('the deck’s own variables', () => {
      * never drawn. What each one takes away is a gesture, refused where it happens: the resize
      * handles, the move drag, the rotate grip. The two tests below are those.
      */
-    await expect(page.locator('.sl-properties').getByLabel('X 문서 변수')).toHaveCount(1);
+    await expect(page.locator('.sl-properties').getByRole('button', { name: 'X 변수 연결', exact: true })).toHaveCount(1);
   });
 
   /**
@@ -335,7 +336,7 @@ test.describe('the deck’s own variables', () => {
         return editor.dataStore.getNode(editor.selection?.nodeIds?.[0])?.attributes?.width;
       });
 
-    await page.locator('.sl-properties').getByLabel('너비 문서 변수').selectOption('카드폭');
+    await bindPropertyVariable(page, '너비', '카드폭');
     await page.waitForTimeout(700);
 
     // Written into the document, which is what keeps all 31 readers of the geometry working.
@@ -346,7 +347,7 @@ test.describe('the deck’s own variables', () => {
      * straight back by the next pass, which is a field that changes nothing — the fault the
      * placement's refused handles were measured for.
      */
-    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: '너비', exact: true })).toBeDisabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: '너비', exact: true, includeHidden: true })).toBeDisabled();
     await expect(page.locator('[data-handle="se"]')).toHaveCount(0);
     await expect(page.locator('.sl-properties')).toContainText('크기를 문서 변수가 정합니다');
 
@@ -429,7 +430,7 @@ test.describe('the deck’s own variables', () => {
       .not.toBeNull();
     const sid = await page.evaluate(() => (window as any).editor.selection.nodeIds[0] as string);
 
-    await page.locator('.sl-properties').getByLabel('X 문서 변수').selectOption('왼쪽');
+    await bindPropertyVariable(page, 'X', '왼쪽');
     await page.waitForTimeout(700);
 
     const placed = () =>
@@ -463,7 +464,7 @@ test.describe('the deck’s own variables', () => {
     expect(after.x).toBe(1200);
 
     // And the panel says why the two fields are greyed, rather than leaving a reader to discover it.
-    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: 'X', exact: true })).toBeDisabled();
+    await expect(page.locator('.sl-properties').getByRole('spinbutton', { name: 'X', exact: true, includeHidden: true })).toBeDisabled();
     await expect(page.locator('.sl-properties')).toContainText('자리를 문서 변수가 정합니다');
 
     // Its size is still the reader's: one binding takes one gesture away.

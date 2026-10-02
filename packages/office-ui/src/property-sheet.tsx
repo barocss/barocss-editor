@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { ColorField, type ThemeSwatch } from './color-field';
 import { TextField } from './controls';
 import {
@@ -99,7 +100,8 @@ export function PropertySheet<Row extends SheetRow>({
   swatches,
   heading,
   suffix,
-  render
+  render,
+  decorateControl
 }: {
   /** The groups to draw, in order — the product's declaration, already filtered. */
   groups: SheetGroup<Row>[];
@@ -192,6 +194,8 @@ export function PropertySheet<Row extends SheetRow>({
    * - **`undefined`** — this sheet draws it, which is how the five shared kinds stay shared.
    */
   render?: (row: Row) => React.ReactNode;
+  /** Add a field accessory without duplicating the shared input and conversion rules. */
+  decorateControl?: (row: Row, control: React.ReactNode) => React.ReactNode;
 }) {
   /**
    * One control, or nothing.
@@ -199,7 +203,7 @@ export function PropertySheet<Row extends SheetRow>({
    * `null` means the product asked for this row to be hidden; `undefined` means it drew nothing and
    * this sheet has no kind for it either, which is visible as an empty row rather than guessed at.
    */
-  const control = (
+  const baseControl = (
     row: Row | SheetRow,
     /**
      * That this is a **companion** — one of the controls sharing a row's single label.
@@ -411,6 +415,11 @@ export function PropertySheet<Row extends SheetRow>({
         }))
         .filter((group) => group.rows.length > 0)
     : groups;
+
+  const control = (row: Row | SheetRow, beside = false) => {
+    const field = baseControl(row, beside);
+    return field == null ? field : decorateControl ? <Fragment key={key(row)}>{decorateControl(row as Row, field)}</Fragment> : field;
+  };
 
   return (
     <>

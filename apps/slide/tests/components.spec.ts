@@ -1,3 +1,4 @@
+import { bindPropertyVariable } from './property-variable-helpers';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { openDeck, currentSlide, visibleBoxes, pickMenu } from './helpers';
@@ -591,7 +592,7 @@ test.describe('declaring what a card takes', () => {
     }, made);
     await page.waitForTimeout(400);
 
-    await page.locator('.sl-properties').getByLabel('글자 변수').selectOption('heading');
+    await bindPropertyVariable(page, '텍스트 내용', 'heading');
     await page.waitForTimeout(500);
     /*
      * The binding is the **definition's** declaration now, not an attribute on the part: three
@@ -1374,9 +1375,9 @@ test.describe('a variable that drives an attribute', () => {
      * A row per attribute the part declares — 둥근 정도 among them, which no binding could reach
      * before — and each row offers only the variables whose *kind* fits.
      */
-    const radius = panel.getByLabel('둥근 정도 변수');
+    const radius = panel.getByRole('button', { name: '모서리 둥글기 변수 연결', exact: true });
     await expect(radius).toHaveCount(1);
-    await radius.selectOption('round');
+    await bindPropertyVariable(page, '모서리 둥글기', 'round');
     await page.waitForTimeout(600);
 
     // The declaration is the card's.
