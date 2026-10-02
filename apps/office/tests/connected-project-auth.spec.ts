@@ -277,9 +277,11 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await trainingResult.getByRole('button', { name: `${guideTitle} · 버전 ${trainingPin.revision}`, exact: true }).click();
     const pinned = page.getByRole('dialog', { name: '사용한 원본 버전', exact: true }); await pinned.getByText('저장한 원본 데이터', { exact: true }).click();
     expect(await pinned.locator('details pre').textContent()).toBe(trainingPin.text); await page.keyboard.press('Escape');
-    await workDetails.getByRole('button', { name: '일시 정지', exact: true }).click(); current = await readProject(); expect(current.project.record.works[0].state).toBe('paused');
+    await workDetails.getByRole('button', { name: '일시 정지', exact: true }).click();
+    await expect(workDetails.getByRole('button', { name: '같은 작업 재개', exact: true })).toBeEnabled(); current = await readProject(); expect(current.project.record.works[0].state).toBe('paused');
     await page.reload(); await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
     await page.locator('.ow-project-work summary').click(); await page.getByRole('button', { name: '같은 작업 재개', exact: true }).click();
+    await expect(page.locator('.ow-project-work').getByRole('button', { name: '일시 정지', exact: true })).toBeEnabled();
     current = await readProject(); expect(current.project.record.works).toHaveLength(1); expect(current.project.record.works[0].id).toBe(workId); expect(current.project.record.works[0].state).toBe('unconnected');
     await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
     const p = paragraph(page); await p.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Human correction.'); await expect(p).toContainText('Human correction.');
