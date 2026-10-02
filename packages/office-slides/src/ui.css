@@ -2584,6 +2584,28 @@
 .sl-sidebar .sl-layers-list { padding: 8px; }
 .sl-shell[data-presenting='true'] .sl-sidebar { display: none; }
 
+/* The app reserves this flex row below the stage; navigation never covers a slide. */
+.sl-slide-navigation { flex:none; min-width:0; width:100%; display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px 12px 12px; box-sizing:border-box; }
+.sl-slide-navigation-panel { max-width:100%; width:max-content; min-width:0; border:1px solid var(--ou-line); border-radius:18px; background:var(--ou-panel); box-shadow:var(--ou-lift-2); overflow:hidden; }
+.sl-slide-navigation-panel[hidden] { display:none; }
+.sl-slide-navigation-tools { flex:none; }
+.sl-slide-navigation-choice.office-choice { min-width:64px; width:max-content; max-width:180px; }
+.sl-slide-navigation-tools .sl-count { flex:none; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:12px; color:var(--ou-muted); }
+.sl-slide-navigation-fold.office-button { width:32px; padding:0; }
+.sl-slide-navigation-separator { flex:none; width:1px; height:18px; margin:0 4px; background:var(--ou-line); }
+.sl-filmstrip[data-orientation='horizontal'] { width:auto; max-width:100%; border:0; padding:8px; overflow-x:auto; overflow-y:hidden; box-sizing:border-box; }
+.sl-filmstrip[data-orientation='horizontal'] ol { flex-direction:row; gap:8px; width:max-content; }
+.sl-filmstrip[data-orientation='horizontal'] li { flex:none; width:176px; }
+.sl-filmstrip[data-orientation='horizontal'] button { min-width:32px; min-height:32px; padding:8px; border-radius:10px; }
+.sl-filmstrip[data-orientation='horizontal'] .sl-filmstrip-rename { display:block; margin-bottom:4px; }
+.sl-filmstrip[data-orientation='horizontal'] .sl-filmstrip-rename input { height:32px; min-height:32px; }
+.sl-shell[data-presenting='true'] .sl-slide-navigation { display:none; }
+
+/* Only caller-owned inline controls lose Ribbon layout; the full detail Ribbon keeps it. */
+.sl-inline-ribbon, .sl-inline-ribbon .office-ribbon-group, .sl-inline-ribbon .office-ribbon-group[data-layout] > .office-ribbon-group-body, .sl-inline-ribbon .sl-font-row { display:contents; }
+.sl-inline-ribbon .office-ribbon-group-footer { display:none; }
+.sl-selection-tools { display:flex; flex-wrap:nowrap; align-items:center; gap:2px; }
+
 .sl-sidebar .sl-layer-kind { display: inline-flex; align-items: center; justify-content: center; width: 20px; color: var(--ou-muted, #666); }
 
 /* A camera translates the workspace; slide placement never changes slide-local coordinates. */

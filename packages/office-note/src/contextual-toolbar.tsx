@@ -88,9 +88,9 @@ export function NoteContextualToolbar({ editor, hold, sid, insertion, onFormatti
       onDismiss={() => setInserting(undefined)} ownedElements={[trigger, hold]}>
       {insertion(() => setInserting(undefined))}
     </FloatingSurface>
-    <ContextToolbar editor={editor} scope={hold} controls={noteControlsIn('mark').filter(item => !additionalFormattingCommands.has(item.command))} mark="note-control"
-      data-note-formatting onOpenChange={onFormattingChange}>
-      {selection => <><MultiBlockControl editor={editor} selection={selection} /><HeadingLevelControl editor={editor} selection={selection} /><SelectionLinkControl editor={editor} selection={selection} /><SelectionColorControl editor={editor} selection={selection} /><AdditionalFormattingControl editor={editor} selection={selection} /></>}
+    <ContextToolbar editor={editor} scope={hold} compact controls={noteControlsIn('mark').filter(item => !additionalFormattingCommands.has(item.command))} mark="note-control"
+      data-note-formatting onOpenChange={onFormattingChange} leading={selection => <HeadingLevelControl editor={editor} selection={selection} />}>
+      {selection => <><SelectionLinkControl editor={editor} selection={selection} /><SelectionColorControl editor={editor} selection={selection} /><AdditionalFormattingControl editor={editor} selection={selection}><MultiBlockControl editor={editor} selection={selection} appearance="menu" /></AdditionalFormattingControl></>}
     </ContextToolbar>
   </>;
 }

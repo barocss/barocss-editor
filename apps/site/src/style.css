@@ -865,3 +865,12 @@ body {
 
 .st-body[data-compact] > .st-boundary { display:none; }
 .st-body[data-compact] > .office-workspace-side-panel > :first-child { width:100% !important; }
+
+/* Compact tools leave the page in view and expand only on request. */
+.st-all-tools-popup { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow: auto; }
+.st-all-tools-popup .office-ribbon-toolbar { flex-wrap: wrap; border: 0; }
+.st-all-tools-popup [data-ribbon-group='page-navigation'] { margin-left: 0; }
+.st-navigation-slot, .st-detail-slot { flex-shrink: 0; min-height: 0; }
+.st-detail-slot { width: 280px; }
+.st-navigation-slot[hidden], .st-detail-slot[hidden] { display: none; }
+.st-body .office-workspace-panel-controls button { min-height: 32px; }

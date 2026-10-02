@@ -6,6 +6,12 @@ The third product. Written 2026-08-25, after the shared layer was split into
 exists — because `docs/SHARED-LAYER.md` says a third product's *disagreement* is what makes a
 boundary right, and a disagreement recorded after the fact is a rationalisation.
 
+## Current compact editing controls
+
+The shared compact header contains the actual document menu, save status and product actions. Pages/structure and detailed properties start closed. `All tools` opens the existing Site Ribbon; its commands and dialogs retain the same native target. Text and object selections expose a relevant primary row, with secondary commands in More or command search.
+
+Closing a same-owner secondary panel retains unfinished field drafts without a native write. Escape first cancels a committed field draft, then closes its containing layer. Changing the page, definition, editing mode or current authority retires the old target. Preview, nested Note bodies, data editing, save/reopen and export retain their existing paths. These standalone UI routes do not establish authenticated child-body authority or release readiness.
+
 ## What a site is, in this model
 
 The schema answered this before anyone asked. `office-schema.ts` has said, since it was written:

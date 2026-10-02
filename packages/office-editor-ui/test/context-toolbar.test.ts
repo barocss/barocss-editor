@@ -63,6 +63,12 @@ async function select(body: Body, start = 0, end = 4) {
 
 const toolbar = (label: string) => document.querySelector<HTMLElement>(`[role="toolbar"][aria-label="${label}"]`);
 
+const documentState = (body: Body) => ({
+  document: body.session.editor.exportDocument(),
+  undo: body.session.editor.canUndo(),
+  redo: body.session.editor.canRedo()
+});
+
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
@@ -91,6 +97,130 @@ afterEach(async () => {
 });
 
 describe('context controls belong to one editor selection', () => {
+  it.each(['caret', 'null'] as const)('retires surviving DOM text tools when the actual model becomes %s', async target => {
+    const body = bodies[0];
+    await act(async () => root.render(createElement(ContextToolbar, {
+      editor: body.session.editor, controls, label: 'native-target', scope: { current: body.scope }
+    })));
+    await select(body, 1, 5);
+    const before = documentState(body);
+    expect(toolbar('native-target')).not.toBeNull();
+    await act(async () => body.session.editor.updateSelection(target === 'null' ? null : {
+      type: 'range', startNodeId: body.sid, endNodeId: body.sid,
+      startOffset: 5, endOffset: 5, collapsed: true
+    }));
+    expect(document.getSelection()!.toString()).toBe('irst');
+    expect(toolbar('native-target')).toBeNull();
+    expect(documentState(body)).toEqual(before);
+  });
+
+  it('retires a field-owned captured range when the actual native target changes', async () => {
+    const body = bodies[0];
+    await act(async () => root.render(createElement(ContextToolbar, {
+      editor: body.session.editor, controls, label: 'changed-target', scope: { current: body.scope },
+      children: createElement('input', { 'aria-label': '주소 초안' })
+    })));
+    await select(body, 1, 5);
+    const before = documentState(body);
+    await act(async () => {
+      toolbar('changed-target')!.querySelector('input')!.focus();
+      document.getSelection()!.removeAllRanges();
+    });
+    expect(toolbar('changed-target')).not.toBeNull();
+    await act(async () => body.session.editor.updateSelection({
+      type: 'range', startNodeId: body.sid, endNodeId: body.sid,
+      startOffset: 6, endOffset: 9, collapsed: false
+    }));
+    expect(toolbar('changed-target')).toBeNull();
+    expect(documentState(body)).toEqual(before);
+  });
+
+  it('keeps dismissal across renderer endpoint replacement until an explicit owned gesture', async () => {
+    const body = bodies[0];
+    await act(async () => root.render(createElement(ContextToolbar, {
+      editor: body.session.editor, controls, label: 'replaced-dom', scope: { current: body.scope }
+    })));
+    await select(body, 1, 5);
+    const before = documentState(body);
+    const selection = { ...body.session.editor.selection! };
+    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(toolbar('replaced-dom')).toBeNull();
+    await act(async () => {
+      const replacement = document.createTextNode(body.text.data);
+      body.text.replaceWith(replacement);
+      body.text = replacement;
+      const range = document.createRange();
+      range.setStart(replacement, 1); range.setEnd(replacement, 5);
+      document.getSelection()!.removeAllRanges(); document.getSelection()!.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+    expect(body.session.editor.selection).toEqual(selection);
+    expect(toolbar('replaced-dom')).toBeNull();
+    await act(async () => body.text.parentElement!.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowRight', shiftKey: true, bubbles: true
+    })));
+    expect(toolbar('replaced-dom')).not.toBeNull();
+    expect(documentState(body)).toEqual(before);
+  });
+
+  it('waits for the native range after an early owned selection gesture', async () => {
+    const body = bodies[0];
+    await act(async () => root.render(createElement(ContextToolbar, {
+      editor: body.session.editor, controls, label: 'early-gesture', scope: { current: body.scope }
+    })));
+    await select(body, 0, 0);
+    const before = documentState(body);
+    await act(async () => {
+      body.text.parentElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));
+      const range = document.createRange(); range.setStart(body.text, 1); range.setEnd(body.text, 5);
+      document.getSelection()!.removeAllRanges(); document.getSelection()!.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+    expect(toolbar('early-gesture')).toBeNull();
+    await act(async () => body.session.editor.updateSelection({
+      type: 'range', startNodeId: body.sid, endNodeId: body.sid,
+      startOffset: 1, endOffset: 5, collapsed: false
+    }));
+    expect(toolbar('early-gesture')).not.toBeNull();
+    expect(documentState(body)).toEqual(before);
+  });
+
+  it('records owned Escape while the selected range is outside the viewport', async () => {
+    const body = bodies[0];
+    let selectedRect = new DOMRect(100, 100, 80, 20);
+    Object.defineProperty(Range.prototype, 'getBoundingClientRect', {
+      configurable: true, value: () => selectedRect
+    });
+    await act(async () => root.render(createElement(ContextToolbar, {
+      editor: body.session.editor, controls, label: 'offscreen-escape', scope: { current: body.scope }
+    })));
+    await select(body, 1, 5);
+    const before = documentState(body);
+    const nativeRange = { ...body.session.editor.selection! };
+    expect(toolbar('offscreen-escape')).not.toBeNull();
+    await act(async () => {
+      selectedRect = new DOMRect(100, window.innerHeight + 100, 80, 20);
+      window.dispatchEvent(new Event('scroll'));
+      await new Promise(resolve => setTimeout(resolve, 40));
+    });
+    expect(toolbar('offscreen-escape')).toBeNull();
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    await act(async () => body.text.parentElement!.dispatchEvent(escape));
+    expect(escape.defaultPrevented).toBe(true);
+    await act(async () => {
+      selectedRect = new DOMRect(100, 100, 80, 20);
+      window.dispatchEvent(new Event('resize'));
+      await new Promise(resolve => setTimeout(resolve, 40));
+    });
+    expect(body.session.editor.selection).toEqual(nativeRange);
+    expect(toolbar('offscreen-escape')).toBeNull();
+    await act(async () => body.text.parentElement!.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowRight', shiftKey: true, bubbles: true
+    })));
+    expect(toolbar('offscreen-escape')).not.toBeNull();
+    expect(documentState(body)).toEqual(before);
+  });
+
   it('captures the live backward range before the model updates, without changing it', async () => {
     const body = bodies[0];
     await select(body, 0, 0);

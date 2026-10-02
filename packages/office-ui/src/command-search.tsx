@@ -14,13 +14,15 @@ export interface SearchCommand {
   id: string; label: string; category: string; hint?: string; keywords?: string;
   disabled?: boolean; disabledReason?: string;
 }
-export function CommandSearch({ open, onOpenChange, commands, recentIds = [], onPick }: {
+export function CommandSearch({ open, onOpenChange, commands, recentIds = [], onPick, onPickIntent }: {
   open: boolean; onOpenChange: (open: boolean) => void; commands: SearchCommand[]; recentIds?: string[];
   onPick: (id: string) => void;
+  /** Capture an owned action before dismissal restores focus; undefined refuses it. */
+  onPickIntent?: (id: string) => (() => void) | undefined;
 }) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState<string>();
-  const pending = useRef<string | undefined>(undefined);
+  const pending = useRef<string | (() => void) | undefined>(undefined);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -31,9 +33,19 @@ export function CommandSearch({ open, onOpenChange, commands, recentIds = [], on
   const optionId = (key: string) => `${id}-${encodeURIComponent(key)}`;
   useEffect(() => { if (open) { setQuery(''); setActive(undefined); pending.current = undefined; requestAnimationFrame(() => input.current?.focus()); } }, [open]);
   useEffect(() => { if (open && current) list.current?.ownerDocument.getElementById(optionId(current.id))?.scrollIntoView?.({ block: 'nearest' }); }, [open, current?.id]);
-  const choose = (command: SearchCommand) => { if (!command.disabled) { pending.current = command.id; onOpenChange(false); } };
+  const choose = (command: SearchCommand) => {
+    if (command.disabled) return;
+    const intent = onPickIntent ? onPickIntent(command.id) : command.id;
+    if (!intent) return;
+    pending.current = intent;
+    onOpenChange(false);
+  };
   return <Dialog open={open} onOpenChange={value => { if (!value) pending.current = undefined; onOpenChange(value); }} title="명령 검색" description="실행할 작업을 찾으세요. 방향키로 이동하고 Enter로 실행합니다."
-    className="office-command-dialog" onClosed={() => { const key = pending.current; pending.current = undefined; if (key) onPick(key); }}>
+    className="office-command-dialog" onClosed={() => {
+      const picked = pending.current; pending.current = undefined;
+      if (typeof picked === 'function') picked();
+      else if (picked) onPick(picked);
+    }}>
     <input ref={input} className="office-field office-search-query" aria-label="명령 검색어" role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls={id} aria-activedescendant={current ? optionId(current.id) : undefined}
       value={query} placeholder="명령 이름 검색…" onChange={event => { setQuery(event.target.value); setActive(undefined); }}
       onKeyDown={event => {

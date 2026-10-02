@@ -1,7 +1,7 @@
 import { ToolbarOverflow } from './toolbar-overflow';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import { Tip, TipProvider } from './tip';
-import { createContext, useContext, useRef } from 'react';
+import { createContext, useContext, useRef, useCallback, type Ref, type HTMLAttributes } from 'react';
 import { cn } from './cn';
 import { STATE } from './controls';
 
@@ -58,8 +58,13 @@ export function Toolbar({
   className,
   label = 'Formatting',
   variant = 'ribbon',
-  overflow = false
-}: {
+  surface,
+  shape,
+  overflow = false,
+  elementRef,
+  ...attributes
+}: Omit<HTMLAttributes<HTMLDivElement>, 'dir'> & {
+  dir?: 'ltr' | 'rtl';
  children: React.ReactNode;
   /**
    * The product's own hook class.
@@ -71,17 +76,30 @@ export function Toolbar({
   className?: string;
   label?: string;
   /** Inline tools share controls but fit inside a document header. */
-  variant?: 'ribbon' | 'inline';
+  variant?: 'ribbon' | 'inline' | 'compact';
+  /** Compact content-width tools may lift above the workspace without a full-width band. */
+  surface?: 'floating';
+  shape?: 'pill';
   /** Keep a fixed navigation button when a single-line toolbar overflows. */
   overflow?: boolean;
+  elementRef?: Ref<HTMLDivElement>;
+  [name: `data-${string}`]: string | number | boolean | undefined;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const setHost = useCallback((node: HTMLDivElement | null) => {
+    host.current = node;
+    if (typeof elementRef === 'function') elementRef(node); else if (elementRef) elementRef.current = node;
+  }, [elementRef]);
   const content = (
     <TipProvider>
       <RadixToolbar.Root
-        ref={host}
+        {...attributes}
+        ref={setHost}
         aria-label={label}
         data-toolbar-variant={variant}
+        data-compact={variant === 'compact' || undefined}
+        data-toolbar-surface={variant === 'compact' ? surface : undefined}
+        data-toolbar-shape={variant === 'compact' ? shape : undefined}
         className={cn(
           'office-command-surface office-toolbar',
           className
@@ -91,7 +109,7 @@ export function Toolbar({
       </RadixToolbar.Root>
     </TipProvider>
   );
-  return overflow ? <ToolbarOverflow host={host} label={label}>{content}</ToolbarOverflow> : content;
+  return overflow && variant !== 'compact' ? <ToolbarOverflow host={host} label={label}>{content}</ToolbarOverflow> : content;
 }
 
 /**

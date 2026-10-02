@@ -12,13 +12,18 @@ export function SlideSidebar(props: FilmstripProps & {
   onTabChange: (tab: SlideSidebarTab) => void;
   componentCount: number;
   componentPanel: ReactNode;
+  objectsOnly?: boolean;
 }) {
-  const { tab, onTabChange } = props;
+  const { onTabChange, objectsOnly = false } = props;
+  const tab = objectsOnly && props.tab === 'slides' ? 'layers' : props.tab;
   const panelId = useId();
+  const options: { id: SlideSidebarTab; label: string }[] = objectsOnly
+    ? [{ id: 'layers', label: '레이어' }, { id: 'components', label: '컴포넌트' }]
+    : [{ id: 'slides', label: '슬라이드' }, { id: 'layers', label: '레이어' }, { id: 'components', label: '컴포넌트' }];
   return (
     <aside className="sl-sidebar" aria-label="슬라이드 탐색">
       <RibbonTabs label="탐색 방식" value={tab} onChange={onTabChange} panelId={panelId}
-        variant="panel" options={[{ id: 'slides', label: '슬라이드' }, { id: 'layers', label: '레이어' }, { id: 'components', label: '컴포넌트' }]} />
+        variant="panel" options={options} />
       <div className="sl-sidebar-context">
         {tab === 'slides' ? <span>전체 슬라이드 <strong>{props.slides.length}</strong></span> :
           tab === 'components' ? <span>전체 컴포넌트 <strong>{props.componentCount}</strong></span> :
@@ -29,11 +34,11 @@ export function SlideSidebar(props: FilmstripProps & {
           </Choice>}
       </div>
       <div className="sl-sidebar-content" id={panelId} role="tabpanel" aria-labelledby={`${panelId}-${tab}`}>
-        <div className="sl-sidebar-page" hidden={tab !== 'slides'}>
+        {!objectsOnly && <div className="sl-sidebar-page" hidden={tab !== 'slides'}>
           <Filmstrip {...props} thumbnailWidth={176} />
-        </div>
+        </div>}
         <div className="sl-sidebar-page" hidden={tab !== 'layers'}>
-          <LayerPanel editor={props.editor} slideSid={props.editingSlide ?? props.current} open embedded onToggle={() => onTabChange('slides')} />
+          <LayerPanel editor={props.editor} slideSid={props.editingSlide ?? props.current} open embedded onToggle={() => onTabChange(objectsOnly ? 'components' : 'slides')} />
         </div>
         <div className="sl-sidebar-page" hidden={tab !== 'components'}>
           {props.componentPanel}

@@ -297,3 +297,13 @@ body {
 
 /* Observe owned reselection before the native range settles; expose no pending actions. */
 [data-slides-formatting][data-slides-selection-pending="true"] { display: none; }
+
+/* Content-width clusters reserve space above the stage without a full-width band. */
+.sl-utilities { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; flex: 0 0 auto; background: var(--ou-ground); }
+.sl-insertion-chrome { min-width: 0; }
+.sl-document-detail { width: min(880px, calc(100vw - 24px)); max-height: min(65vh, 560px); overflow: auto; }
+.sl-workspace-navigation[hidden] { display: none; }
+
+[data-server-slides-workspace] { display:flex; flex-direction:column; height:100%; min-height:0; }
+[data-server-slides-workspace] > .sl-shell { height:auto; flex:1; min-height:0; }
+[data-server-slides-workspace] > aside, [data-server-slides-workspace] [data-secondary-popup] > aside { display:flex; flex-direction:column; gap:6px; padding:12px; }

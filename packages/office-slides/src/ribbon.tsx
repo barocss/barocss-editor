@@ -68,9 +68,13 @@ export interface RibbonProps {
   portalContainer?: RefObject<HTMLElement | null>;
   /** Selection surfaces show direct actions; permanent/full Ribbon retains menus. */
   directControls?: boolean;
+  /** Render actual commands inside a caller-owned compact toolbar. */
+  inline?: boolean;
+  controlIds?: readonly string[];
+  fontControls?: readonly ('family' | 'size' | 'color' | 'highlight')[];
 }
 
-export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer, directControls = false }: RibbonProps) {
+export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer, directControls = false, inline = false, controlIds, fontControls }: RibbonProps) {
   /**
    * Which way to draw a chord, asked once — and asked of `office-ui`.
    *
@@ -344,11 +348,10 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
     />
   );
 
-  return (
-    <RibbonToolbar compact className="sl-toolbar" label="슬라이드 서식">
+  const contents = <>
       {(!groupIds || groupIds.includes('character')) && summary && !summary.empty && <RibbonGroup id="font" label="글꼴" layout="stack">
-      <div className="sl-font-row">{choice(WORD_FONTS, 'min-w-36')}
-      {choice(WORD_FONT_SIZES, 'min-w-16')}</div>
+      <div className="sl-font-row">{(!fontControls || fontControls.includes('family')) && choice(WORD_FONTS, 'min-w-36')}
+      {(!fontControls || fontControls.includes('size')) && choice(WORD_FONT_SIZES, 'min-w-16')}</div>
       {/*
         * Word's palettes, because a colour means the same thing in both.
         *
@@ -364,8 +367,8 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
         * would be one of them wrong, and that is the rule for what belongs in one
         * place.
         */}
-      <div className="sl-font-row">{palette(WORD_TEXT_COLOR)}
-      {palette(WORD_TEXT_HIGHLIGHT)}</div>
+      <div className="sl-font-row">{(!fontControls || fontControls.includes('color')) && palette(WORD_TEXT_COLOR)}
+      {(!fontControls || fontControls.includes('highlight')) && palette(WORD_TEXT_HIGHLIGHT)}</div>
       </RibbonGroup>}
       {/*
         A **contextual** group is drawn only when there is something for it to act on.
@@ -383,6 +386,7 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
       {SLIDES_TOOLBAR.filter(
         (group) =>
           (!groupIds || groupIds.includes(group.id)) &&
+          (!controlIds || group.controls.some(control => !!control.id && controlIds.includes(control.id))) &&
           (!['character', 'paragraph', 'list'].includes(group.id) || (summary && !summary.empty)) &&
           (!group.when || group.controls.some((control) => editor.canRun(control.command, control.payload)))
       ).map((group) => (
@@ -405,7 +409,7 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
             */}
             <ControlRows
               editor={editor}
-              controls={group.controls}
+              controls={controlIds ? group.controls.filter(control => !!control.id && controlIds.includes(control.id)) : group.controls}
               options={{
                 apple,
                 can: (control) => enabled(control),
@@ -466,6 +470,6 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
             </ControlRows>
           </RibbonGroup>
       ))}
-    </RibbonToolbar>
-  );
+  </>;
+  return inline ? <div className="sl-inline-ribbon">{contents}</div> : <RibbonToolbar compact className="sl-toolbar" label="슬라이드 서식">{contents}</RibbonToolbar>;
 }

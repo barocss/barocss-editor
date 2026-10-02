@@ -1,0 +1,37 @@
+/* Pure gallery layout. Actual products own models, authority and persistence. */
+.compact-slide-specimen { border:1px solid var(--ou-line); border-radius:14px; background:var(--ou-ground); color:var(--ou-ink); }
+.compact-slide-stage { position:relative; height:520px; overflow:hidden; background:var(--ou-ground); border-top:1px solid var(--ou-line); }
+.compact-slide-insert,.compact-slide-utilities { position:absolute; top:14px; z-index:2; width:max-content; max-width:480px; }
+.compact-slide-insert { left:14px; }
+.compact-slide-utilities { right:14px; }
+.compact-slide-zoom.office-choice { min-width:88px; width:88px; }
+.compact-slide-page-position { position:absolute; inset:70px 32px 164px; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+.compact-slide-page { position:relative; width:min(416px,100%); aspect-ratio:16/9; padding:24px 32px; box-sizing:border-box; flex-shrink:0; background:var(--ou-panel); border:1px solid var(--ou-line); border-radius:3px; box-shadow:var(--ou-lift-1); transform-origin:center; overflow:hidden; }
+.compact-slide-page-kicker { font-size:9px; letter-spacing:.1em; color:var(--ou-muted); }
+.compact-slide-page h3 { font-size:25px; font-weight:600; letter-spacing:-.02em; margin:12px 0 8px; }
+.compact-slide-page p { font-size:12px; color:var(--ou-muted); margin:0; }
+.compact-slide-page-number { position:absolute; right:24px; bottom:16px; font-size:11px; color:var(--ou-muted); }
+.compact-slide-inserted { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; align-items:center; }
+.compact-slide-item-text { font-size:12px; }
+.compact-slide-item-rectangle,.compact-slide-item-image { display:grid; place-items:center; width:52px; height:32px; border:1px solid var(--ou-accent); border-radius:3px; background:var(--ou-accent-soft); color:var(--ou-accent); }
+.compact-slide-item-table { border-collapse:collapse; font-size:10px; }
+.compact-slide-item-table td { border:1px solid var(--ou-line); padding:5px 8px; }
+.compact-slide-navigation { position:absolute; left:0; bottom:14px; z-index:3; width:100%; display:flex; justify-content:center; pointer-events:none; }
+.compact-slide-navigation > .office-toolbar,.compact-slide-navigation > [data-radix-popper-content-wrapper] { pointer-events:auto; }
+.compact-slide-page-picker.office-choice { width:76px; min-width:76px; }
+.compact-slide-navigation-separator { width:1px; height:18px; margin:0 2px; background:var(--ou-line); }
+.compact-slide-filmstrip { position:absolute; left:50%; bottom:64px; transform:translateX(-50%); display:flex; gap:8px; padding:8px; max-width:calc(100% - 32px); overflow-x:auto; border:1px solid var(--ou-line); border-radius:18px; background:var(--ou-panel); box-shadow:var(--ou-lift-2); z-index:3; }
+.compact-slide-thumbnail { position:relative; flex:0 0 112px; width:112px; height:64px; padding:10px; border:1px solid var(--ou-line); border-radius:10px; text-align:left; color:var(--ou-ink); background:var(--ou-ground); }
+.compact-slide-thumbnail[data-current] { border-color:var(--ou-accent); background:var(--ou-accent-soft); }
+.compact-slide-thumbnail:focus-visible { outline:2px solid var(--ou-accent); outline-offset:-3px; }
+.compact-slide-thumbnail span { display:block; color:var(--ou-muted); font-size:9px; margin-bottom:6px; }
+.compact-slide-thumbnail strong { font-size:11px; font-weight:500; }
+.compact-slide-detail { display:flex; flex-direction:column; gap:8px; max-width:240px; }
+.compact-slide-detail strong { font-size:12px; }
+.compact-slide-detail span { font-size:11px; color:var(--ou-muted); }
+.compact-slide-caption { margin:0; padding:9px 14px; border-top:1px solid var(--ou-line); font-size:11px; color:var(--ou-muted); }
+.compact-slide-presentation { --ou-control-h:32px; }
+.compact-slide-presentation button { min-width:32px; min-height:32px; }
+.compact-slide-presentation-page { padding:20px; min-height:180px; margin-bottom:16px; border:1px solid var(--ou-line); border-radius:8px; background:var(--ou-ground); }
+.compact-slide-presentation-page h3 { margin:0 0 12px; font-size:24px; }
+.compact-slide-presentation-page p { font-size:13px; color:var(--ou-muted); }

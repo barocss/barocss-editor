@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, createElement } from 'react';
+import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { FloatingSurface, FloatingPanelHeader, type FloatingSurfaceProps } from '../src/floating';
 import { IconButton } from '../src/controls';
@@ -41,11 +41,82 @@ afterEach(() => {
 });
 
 describe('a shared floating surface', () => {
-  it('opens explicit menus with keyboard focus and skips disabled actions', () => {
+  it('keeps an uncommitted field draft and its DOM identity across an opted-in close and reopen', () => {
+    function Draft() {
+      const [value, setValue] = useState('Original');
+      return createElement('input', { 'aria-label': 'Link draft', value,
+        onInput: event => setValue(event.currentTarget.value) });
+    }
+    const kept = { keepMounted: true };
+    const at = anchor();
+    const children = createElement(Draft);
+    render({ ...kept, at, children });
+    const field = surface().querySelector('input')!;
+    act(() => { field.value = 'Unaccepted link'; field.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect(field.value).toBe('Unaccepted link');
+    render({ ...kept, at, children, open: false });
+    expect(surface()?.querySelector('input')).toBe(field);
+    render({ ...kept, at, children });
+    expect(surface().querySelector('input')).toBe(field);
+    expect(field.value).toBe('Unaccepted link');
+  });
+
+  it('hides and inerts retained fields without measuring, focusing or dismissing while closed', () => {
+    const dismiss = vi.fn(), keys = vi.fn();
+    const kept = { keepMounted: true };
+    const at = anchor();
+    const children = createElement(MenuAction, { children: 'Action' });
+    render({ ...kept, at, children, variant: 'menu', focusOnOpen: true, onDismiss: dismiss, onKeyDown: keys });
+    const retained = surface();
+    const observerCount = resized.length;
+    render({ ...kept, at, children, open: false, variant: 'menu', focusOnOpen: true, onDismiss: dismiss, onKeyDown: keys });
+    expect(surface()).toBe(retained);
+    expect(retained.hidden).toBe(true);
+    expect(retained.hasAttribute('inert')).toBe(true);
+    expect(retained.style.display).toBe('none');
+    expect(retained.dataset.floatingReady).toBeUndefined();
+    expect(disconnected).toHaveBeenCalled();
+    act(() => {
+      document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      retained.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      window.dispatchEvent(new Event('resize'));
+    });
+    expect(dismiss).not.toHaveBeenCalled();
+    expect(keys).not.toHaveBeenCalled();
+    expect(resized.length).toBe(observerCount);
+    const outside = document.createElement('button');
+    document.body.append(outside);
+    outside.focus();
+    render({ ...kept, at: anchor(), children, open: false, variant: 'menu', focusOnOpen: true, onDismiss: dismiss });
+    expect(document.activeElement).toBe(outside);
+    expect(resized.length).toBe(observerCount);
+    render({ ...kept, at, children, variant: 'menu', focusOnOpen: true, onDismiss: dismiss });
+    expect(surface()).toBe(retained);
+    expect(retained.hidden).toBe(false);
+    expect(retained.hasAttribute('inert')).toBe(false);
+    expect(document.activeElement).toBe(retained.querySelector('button'));
+  });
+
+  it('unmounts by default and does not retain a surface without a current anchor', () => {
+    const child = createElement('input', { defaultValue: 'Original' });
+    render({ children: child });
+    const old = surface().querySelector('input')!;
+    old.value = 'Unaccepted';
+    render({ open: false, children: child });
+    expect(surface()).toBeNull();
+    render({ children: child });
+    expect(surface().querySelector('input')).not.toBe(old);
+    expect(surface().querySelector('input')!.value).toBe('Original');
+    render({ ...{ keepMounted: true }, at: null, open: false, children: child });
+    expect(surface()).toBeNull();
+  });
+
+  it.each(['menuitem', 'menuitemcheckbox', 'menuitemradio'] as const)('opens %s menus with keyboard focus and skips disabled actions', role => {
     render({ variant: 'menu', focusOnOpen: true, children: [
-      createElement(MenuAction, { key: 'first' }, 'First'),
-      createElement(MenuAction, { key: 'disabled', disabled: true }, 'Unavailable'),
-      createElement(MenuAction, { key: 'last' }, 'Last')
+      createElement(MenuAction, { key: 'first', role }, 'First'),
+      createElement(MenuAction, { key: 'disabled', role, disabled: true }, 'Unavailable'),
+      createElement(MenuAction, { key: 'last', role }, 'Last')
     ] });
     const buttons = surface().querySelectorAll('button');
     expect(document.activeElement).toBe(buttons[0]);
@@ -224,6 +295,38 @@ describe('a shared floating surface', () => {
     act(() => surface().querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
     expect(dismiss).toHaveBeenCalledOnce();
     expect(dismiss.mock.calls[0][0]).toBe('escape');
+  });
+
+  it.each(['listbox', 'menu', 'dialog'])('lets a portalled %s inside an owned host close before its parent', role => {
+    const dismiss = vi.fn(), innerEscape = vi.fn();
+    const owner = document.createElement('div');
+    const picker = document.createElement('div'); picker.setAttribute('role', role);
+    const item = document.createElement('button'); picker.append(item); owner.append(picker); document.body.append(owner);
+    picker.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { event.preventDefault(); innerEscape(); picker.remove(); }
+    });
+    render({ variant: 'panel', onDismiss: dismiss, ownedElements: [{ current: owner }], children: createElement('input') });
+    act(() => item.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(innerEscape).toHaveBeenCalledOnce();
+    expect(dismiss).not.toHaveBeenCalled();
+    act(() => surface().querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(dismiss).toHaveBeenCalledOnce();
+    expect(dismiss.mock.calls[0][0]).toBe('escape');
+    owner.remove();
+  });
+
+  it.each(['menu', 'dialog'])('dismisses its own %s when its portal belongs to an owned host', role => {
+    const dismiss = vi.fn();
+    const owner = document.createElement('div');
+    document.body.append(owner);
+    render({ role, variant: 'menu', portalRoot: owner, ownedElements: [{ current: owner }], onDismiss: dismiss,
+      children: createElement('button', { role: 'menuitem' }, 'Formatting') });
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => surface().querySelector('button')!.dispatchEvent(escape));
+    expect(dismiss).toHaveBeenCalledOnce();
+    expect(dismiss.mock.calls[0][0]).toBe('escape');
+    expect(escape.defaultPrevented).toBe(true);
+    owner.remove();
   });
 
 });

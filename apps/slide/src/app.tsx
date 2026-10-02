@@ -1,14 +1,13 @@
 import { documentTitle } from '@barocss/office-text';
-import { EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
+import { EditorHeader, ProductMenu, DocumentMenu, SecondaryPopup, Toolbar, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { selectedNodeIds } from '@barocss/editor-core';
 import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
-import { AuditPanel, SlideSidebar } from '@barocss/office-slides/ui';
+import { AuditPanel, SlideSidebar, SlideNavigation } from '@barocss/office-slides/ui';
 import { NotesPane, Presenter, SlidesDocumentChrome } from '@barocss/office-slides/ui';
 import {
   AdaptiveWorkspace,
   WorkspaceSidePanel,
-  MenuBar,
   AppMain,
   AppShell,
   Button,
@@ -90,6 +89,8 @@ import { useSlideMenuSearch, type SlideMenuFileAction, type SlideMenuViewAction 
 import type { SlidesRuntime } from './runtime';
 export interface SlidesServerHost {
   headerActions?: ReactNode;
+  headerNavigation?: ReactNode;
+  navigation?: ReactNode;
   readOnly?: boolean;
   onRuntime: (runtime: SlidesRuntime) => void;
   onFileAction: (action: 'save' | 'new' | 'open' | 'library') => void;
@@ -126,7 +127,11 @@ export function App({
   const stage = useRef<HTMLDivElement>(null);
   const toolScope = useRef<HTMLElement | null>(null);
   const [fullTools, setFullTools] = useState(false);
+  const detailAnchor = useRef<HTMLDivElement>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [serverLibraryOpen, setServerLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [rulerShown, setRulerShown] = useState(false);
   const mounted = useRef(false);
   const [instance, setInstance] = useState<SlidesRuntime | null>(null);
   const serverRef = useRef(server);
@@ -863,7 +868,7 @@ export function App({
   );
 
   /** One left navigation column keeps the stage width stable across all three views. */
-  const [sidebarTab, setSidebarTab] = useState<'slides' | 'layers' | 'components'>('slides');
+  const [sidebarTab, setSidebarTab] = useState<'slides' | 'layers' | 'components'>('layers');
 
   /**
    * Which of this deck's **imported** definitions are behind the deck they came from.
@@ -951,11 +956,14 @@ export function App({
   const [auditing, setAuditing] = useState(false);
 
   const onFileAction = useCallback((action: SlideMenuFileAction) => {
-    if (serverRef.current) return serverRef.current.onFileAction(action === 'create' ? 'new' : action);
+    if (serverRef.current) {
+      if (action === 'open') { setServerLibraryOpen(true); return; }
+      return serverRef.current.onFileAction(action === 'create' ? 'new' : action);
+    }
     files.current?.[action]();
   }, []);
   const onViewAction = useCallback((action: SlideMenuViewAction) => {
-    if (serverRef.current && action === 'library') return serverRef.current.onFileAction('library');
+    if (serverRef.current && action === 'library') return setServerLibraryOpen(true);
     if (serverRef.current && action === 'template') return;
     if (readOnly && ['template', 'size', 'layout', 'theme'].includes(action)) return;
     switch (action) {
@@ -977,6 +985,8 @@ export function App({
         return setMapping((was) => !was);
       case 'focus':
         return setFocused((on) => !on);
+      case 'ruler':
+        return setRulerShown((shown) => !shown);
       case 'present':
         return setPresenting(true);
       case 'scroll':
@@ -989,7 +999,7 @@ export function App({
 
   const {
     menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
-    dismissCommandError, openCommandSearch, pickSearchCommand, onMenu, runEntry
+    dismissCommandError, openCommandSearch, pickSearchCommand, prepareSearchCommandPick, onMenu, runEntry
   } = useSlideMenuSearch({
     editor, view, current, slideNumber: here?.number, answers, moveBy,
     auditing, mapping, focused, onFileAction, onViewAction
@@ -999,10 +1009,10 @@ export function App({
     ...block, items: block.items.map(item => {
       const entry = slidesMenuEntry(item.id);
       const disabled = item.disabled || (Boolean(server) && entry?.view === 'template')
-        || (readOnly && ['template', 'size', 'layout', 'theme'].includes(entry?.view ?? ''));
-      return { ...item, disabled };
+        || (readOnly && ['template', 'dialog.size', 'dialog.layout', 'dialog.theme'].includes(entry?.view ?? ''));
+      return { ...item, disabled, ...(entry?.view === 'ruler' ? { checked: rulerShown } : {}) };
     })
-  })) })), [nativeMenus, readOnly, server]);
+  })) })), [nativeMenus, readOnly, server, rulerShown]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1737,10 +1747,10 @@ export function App({
   // the one shortcut a deck cannot do without.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       // Inside the document, the arrows belong to the caret.
-      if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
+      if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"], [data-slide-navigation], [data-slides-more-owner], [data-floating-surface]')) return;
       if (event.key !== 'PageDown' && event.key !== 'PageUp') return;
 
       const at = slides.findIndex((slide) => slide.sid === current);
@@ -1772,23 +1782,13 @@ export function App({
         ...(scrolling ? { scrolled: String(Math.round(scrolled)), 'scroll-span': String(scrollSpan) } : {})
       }}
     >
-      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} />
+      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} onPickIntent={prepareSearchCommandPick} />
       {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
-      <EditorHeader product="Slides" className="sl-topbar"
-        fallbackNavigation={<ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
+      <EditorHeader compact product="Slides" className="sl-topbar"
+        fallbackNavigation={server ? server.headerNavigation : <ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<MenuBar className="sl-menubar" label="덱 메뉴" menus={menus} onPick={onMenu} />}
-        view={<><span className="sl-count">{slides.length > 0 && here ? `${here.number} / ${slides.length}` : '—'}</span>
-          <ZoomControl
-            zoom={zoom ?? fitted}
-            ladder={SLIDES_ZOOM_LADDER}
-            onChange={(next) => setZoom(clampZoom(next))}
-            onFit={() => setZoom(undefined)}
-            fitLabel="화면에 맞춤"
-          />
-          <Button title="한 장만 보기 / 전체 보기" onClick={() => setFocused(on => !on)} data={{ 'focus-toggle': '' }}>{focused ? '캔버스 보기' : '한 장 보기'}</Button>
-        </>}
-        actions={<><Button aria-expanded={fullTools} onMouseDown={event => event.preventDefault()} onClick={() => setFullTools(value => !value)}>전체 도구</Button><Button aria-controls="slides-details" aria-expanded={inspectorOpen} onMouseDown={event => event.preventDefault()} onClick={() => setInspectorOpen(value => !value)}>자세한 속성</Button><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments persistence={persistence} onOpened={() => {
+        menus={<DocumentMenu key={`${editor?.getRootId()}:${current}:${answers}:${readOnly}`} label="덱 메뉴" menus={menus} onPick={onMenu} />}
+        actions={<><div ref={detailAnchor}><Button disabled={readOnly} aria-expanded={fullTools} onMouseDown={event => event.preventDefault()} onClick={() => setFullTools(value => !value)}>전체 도구</Button></div><Button aria-controls="slides-objects" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(value => !value)}>레이어 및 컴포넌트</Button><Button aria-controls="slides-details" aria-expanded={inspectorOpen} onMouseDown={event => event.preventDefault()} onClick={() => setInspectorOpen(value => !value)}>자세한 속성</Button><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
           }} />}
           {!server && <FileActions
@@ -1810,23 +1810,25 @@ export function App({
               setLibraryName(undefined);
             }}
           />}
+          {server?.navigation && <SecondaryPopup open={serverLibraryOpen} onOpenChange={setServerLibraryOpen} triggerLabel="서버 Slides 목록" label="서버 Slides 목록" keepMounted>{server.navigation}</SecondaryPopup>}
           {server?.headerActions}
-
-          <Button tone="accent" title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>발표</Button>
         </>} />
 
-      {/*
-       * The suite's toolbar, drawing the model `office-slides` declares with the
-       * components `office-word` draws its own with. The two products look alike
-       * because they draw with the same components, not because they share a
-       * list of controls.
-       */}
-      {editor && !presenting && <ReadOnlyControls enabled={readOnly}><SlidesDocumentChrome editor={editor} slides={slides} current={current} scope={toolScope} expanded={fullTools} onInspect={() => setInspectorOpen(true)} /></ReadOnlyControls>}
+      {!presenting && <div className="sl-utilities" data-slides-utilities>
+        {editor && <SlidesDocumentChrome editor={editor} slides={slides} current={current} scope={toolScope}
+          expanded={fullTools} onExpandedChange={setFullTools} detailAnchor={detailAnchor} onInspect={() => setInspectorOpen(true)} />}
+        <Toolbar variant="compact" surface="floating" label="Slides 보기 도구">
+          <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
+            onFit={() => setZoom(undefined)} fitLabel="화면에 맞춤" />
+          <Button title="한 장만 보기 / 전체 보기" onClick={() => setFocused(on => !on)} data={{ 'focus-toggle': '' }}>{focused ? '캔버스 보기' : '한 장 보기'}</Button>
+          <Button tone="accent" title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>발표</Button>
+        </Toolbar>
+      </div>}
 
       <AdaptiveWorkspace className="sl-body" enabled={!!editor && !presenting}>
-        <WorkspaceSidePanel side="navigation" width={240}>
-          <div className="sl-workspace-navigation">
-            <SlideSidebar
+        <WorkspaceSidePanel side="navigation" width={sidebarOpen ? 240 : 0}>
+          <div id="slides-objects" className="sl-workspace-navigation" hidden={!sidebarOpen} inert={!sidebarOpen}>
+            <SlideSidebar objectsOnly
               editor={editor}
               revision={revision}
               slides={slides}
@@ -2035,7 +2037,7 @@ export function App({
              * The rulers, in the reader's unit — and only while editing: a
              * projector is not a place to measure things.
              */
-            unit={presenting ? undefined : unit}
+            unit={!presenting && rulerShown ? unit : undefined}
             /** Pulling a guide out of a ruler; the app holds it in flight. */
             onGuideDraft={setDraftGuide}
             onGuidePlace={placeGuide}
@@ -2084,6 +2086,12 @@ export function App({
               host={stage}
             />
           )}
+
+          {editor && !presenting && <SlideNavigation editor={editor} slides={slides} current={current} revision={revision}
+            lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
+            readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
+            onSelect={sid => { setCurrent(sid); leaveSelection(); }}
+            onRename={(sid, name) => !readOnly && void editor.executeCommand('setSlideInfo', { slideId: sid, name })} />}
 
           {/*
            * The note, editable, and drawn by a second view over the same

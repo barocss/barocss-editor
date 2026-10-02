@@ -4,7 +4,13 @@ import { resolve } from 'node:path';
 
 const prefix = 'This paragraph takes its ';
 const prose = (page: Page) => page.locator('#editor .w-paragraph, #editor .w-heading, #editor .w-list-item').filter({ hasText: prefix }).first();
-const tools = (page: Page) => page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true });
+const tools = (page: Page) => page.getByRole('group', { name: '선택한 Word 글 서식', exact: true });
+async function openMore(page: Page, surface = tools(page), object = false) {
+  await surface.getByRole('button', { name: '추가 서식', exact: true }).click();
+  const more = page.getByLabel(object ? '추가 Word 개체 도구' : '추가 Word 서식', { exact: true });
+  await expect(more).toBeVisible();
+  return more;
+}
 const native = (page: Page) => page.evaluate(() => JSON.stringify(window.editor.exportDocument()));
 
 const savedText = (page: Page) => page.evaluate(() => new Promise<string[]>((resolve, reject) => {
@@ -36,7 +42,7 @@ async function reachableTools(page: Page, label = '선택한 Word 글 서식') {
   const geometry = await surface.evaluate(el => ({box:el.getBoundingClientRect().toJSON(), anchor:getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect().toJSON() : null}));
   await test.info().attach('owned-tool-geometry.json', {body:JSON.stringify(geometry),contentType:'application/json'});
   if (label !== '선택한 Word 글 서식') {
-    const boxes = await surface.locator('button, input').evaluateAll(elements => elements.map(el => ({ label: el.getAttribute('aria-label') ?? el.textContent, box: el.getBoundingClientRect().toJSON() })));
+    const boxes = await surface.locator('button:visible, input:visible').evaluateAll(elements => elements.map(el => ({ label: el.getAttribute('aria-label') ?? el.textContent, box: el.getBoundingClientRect().toJSON() })));
     await test.info().attach('object-control-bounds.json', { body: JSON.stringify({ surface: geometry.box, controls: boxes }), contentType: 'application/json' });
     for (const { box } of boxes) {
       expect(box.top).toBeGreaterThanOrEqual(geometry.box.top - 1);
@@ -140,8 +146,14 @@ for (const retirement of ['A-B-A', 'Escape']) test(`deferred font completion can
     loader.ensure = () => new Promise<void>(resolve => { release = resolve; });
     Object.assign(window, { releaseWordFont: () => { loader.ensure = original; release(); } });
   });
-  await tools(page).locator('.w-toolbar-font-family').click();
+  await (await openMore(page)).locator('.w-toolbar-font-family').click();
   await page.getByRole('option', { name: 'Arial', exact: true }).click();
+  await tools(page).getByRole('button', { name: '추가 서식', exact: true }).click();
+  await expect(page.getByLabel('추가 Word 서식', { exact: true })).not.toBeVisible();
+  await expect(page.getByLabel('추가 Word 서식', { exact: true })).toHaveAttribute('inert', '');
+  expect(await native(page)).toBe(before);
+  await tools(page).locator('.w-toolbar-style').focus();
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
   if (retirement === 'A-B-A') {
     await prose(page).click(); await page.keyboard.press('ArrowRight');
     await selectProse(page); await expect(tools(page)).toBeVisible();
@@ -169,7 +181,7 @@ test('selected style, link, colour and list tools edit their owned paragraph', a
   await tools(page).locator('[data-palette="font-color"]').getByRole('button', { name: 'Red', exact: true }).click();
   await expect(prose(page).locator('.mark-fontColor')).toHaveCSS('color', 'rgb(255, 0, 0)');
   await selectProse(page);
-  await tools(page).getByRole('button', { name: 'Bulleted list', exact: true }).click();
+  await (await openMore(page)).getByRole('button', { name: 'Bulleted list', exact: true }).click();
   await expect(prose(page)).toHaveAttribute('data-marker', /\S/);
   await selectProse(page);
   await tools(page).locator('.w-toolbar-style').click();
@@ -185,26 +197,42 @@ test('table and drawing owned tools retain the rich native document on open and 
   await reachableTools(page, '선택한 표 도구');
   expect(await native(page)).toBe(before);
   await page.screenshot({ path: info.outputPath('selected-table.png') });
-  await tableTools.getByRole('combobox', { name: '표 정렬', exact: true }).click();
+  const tableMore = await openMore(page, tableTools, true);
+  await tableMore.getByRole('combobox', { name: '표 정렬', exact: true }).click();
   await page.getByRole('option', { name: '가운데 정렬', exact: true }).click();
   await expect.poll(()=>page.locator('#editor table').first().evaluate(el=>window.editor.dataStore.getNode(el.getAttribute('data-bc-sid')!)?.attributes?.alignment)).toBe('center');
   const centered = await page.locator('#editor table').first().evaluate(el=>{const box=el.getBoundingClientRect(),parent=el.parentElement!.getBoundingClientRect();return Math.abs((box.left+box.right)/2-(parent.left+parent.right)/2)});
   expect(centered).toBeLessThanOrEqual(1);
-  await tableTools.getByRole('combobox', { name: '표 자동 맞춤', exact: true }).click();
+  await tableMore.getByRole('combobox', { name: '표 자동 맞춤', exact: true }).click();
   await page.getByRole('option', { name: '본문 너비에 맞춤', exact: true }).click();
   await info.attach('post-fit-state.json',{body:JSON.stringify(await page.evaluate(()=>({model:window.editor.selection,active:document.activeElement?.outerHTML,tools:!!document.querySelector('[data-word-object-tools]'),table:window.editor.dataStore.getNode(document.querySelector('#editor table')!.getAttribute('data-bc-sid')!)}))),contentType:'application/json'});
-  await expect(tableTools.getByRole('combobox', { name: '표 자동 맞춤', exact: true })).toContainText('본문 너비에 맞춤');
+  await expect(tableMore.getByRole('combobox', { name: '표 자동 맞춤', exact: true })).toContainText('본문 너비에 맞춤');
   const tableChanged = await native(page); expect(tableChanged).not.toBe(before);
+  const tableSelection = await page.evaluate(() => structuredClone(window.editor.selection));
+  const tableMoreTrigger = tableTools.getByRole('button', { name: '추가 서식', exact: true });
+  await page.keyboard.press('Escape');
+  await expect(tableMore).toBeHidden(); await expect(tableMore).toHaveAttribute('inert', '');
+  await expect(tableTools).toBeVisible(); await expect(tableMoreTrigger).toBeFocused();
+  expect(await page.evaluate(() => window.editor.selection)).toEqual(tableSelection);
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  expect(await native(page)).toBe(tableChanged);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0); await expect(tableTools).toBeVisible();
+  await expect(tableMoreTrigger).toBeFocused();
+  expect(await page.evaluate(() => window.editor.selection)).toEqual(tableSelection); expect(await native(page)).toBe(tableChanged);
   await page.keyboard.press('Escape'); await expect(tableTools).toHaveCount(0);
+  await expect(page.locator('#editor [contenteditable="true"]').first()).toBeFocused();
+  expect(await page.evaluate(() => window.editor.selection)).toEqual(tableSelection);
   expect(await native(page)).toBe(tableChanged);
   const image = page.locator('#editor .w-image').first();
   await image.click();
   const imageTools = page.getByLabel('선택한 그림 도구', { exact: true });
   await expect(imageTools).toBeVisible(); await reachableTools(page, '선택한 그림 도구');
   expect(await native(page)).toBe(tableChanged);
-  await imageTools.getByRole('combobox', { name: '그림 본문 배치', exact: true }).click();
+  const imageMore = await openMore(page, imageTools, true);
+  await imageMore.getByRole('combobox', { name: '그림 본문 배치', exact: true }).click();
   await page.getByRole('option', { name: '왼쪽에 배치', exact: true }).click();
-  await expect(imageTools.getByRole('combobox', { name: '그림 본문 배치', exact: true })).toContainText('왼쪽에 배치');
+  await expect(imageMore.getByRole('combobox', { name: '그림 본문 배치', exact: true })).toContainText('왼쪽에 배치');
   expect(await native(page)).not.toBe(tableChanged);
   await page.screenshot({ path: info.outputPath('selected-image.png') });
 });
@@ -215,12 +243,29 @@ for (const zoom of [80, 125]) test(`owned text and object controls stay reachabl
   await value.fill(String(zoom)); await value.press('Enter');
   await expect(page.locator('.w-zoom-frame')).toHaveAttribute('data-zoom', String((zoom / 100).toFixed(2)));
   await selectProse(page); await reachableTools(page);
+  const owned = await page.evaluate(() => structuredClone(window.editor.selection));
+  const colour = tools(page).getByRole('button', { name: 'Text colour', exact: true });
+  await colour.focus(); await colour.click();
+  const palette = page.getByRole('group', { name: 'Text colour', exact: true });
+  await expect(palette).toBeVisible();
+  await palette.evaluate(async element => { await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))); });
+  const paletteBox = (await palette.boundingBox())!;
+  expect(paletteBox.x).toBeGreaterThanOrEqual(0); expect(paletteBox.y).toBeGreaterThanOrEqual(0);
+  expect(paletteBox.x + paletteBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(paletteBox.y + paletteBox.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  for (const swatch of await palette.locator('button').all()) {
+    const box = (await swatch.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(32); expect(box.height).toBeGreaterThanOrEqual(32);
+    expect(await swatch.evaluate(element => { const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2); return !!hit && element.contains(hit); })).toBe(true);
+  }
+  await page.keyboard.press('Escape'); await expect(palette).not.toBeVisible(); await expect(tools(page)).toBeVisible();
+  expect(await page.evaluate(() => window.editor.selection)).toEqual(owned); expect(await native(page)).toBe(before);
   await tools(page).locator('.w-toolbar-style').click();
   await expect(page.getByRole('option',{name:'Heading 1',exact:true})).toBeInViewport();
   await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
   expect(await native(page)).toBe(before);
   await page.locator('#editor .w-cell').first().click(); await reachableTools(page,'선택한 표 도구');
-  await page.getByLabel('선택한 표 도구',{exact:true}).getByRole('combobox',{name:'표 정렬',exact:true}).click();
+  await (await openMore(page, page.getByLabel('선택한 표 도구',{exact:true}), true)).getByRole('combobox',{name:'표 정렬',exact:true}).click();
   await expect(page.getByRole('option',{name:'가운데 정렬',exact:true})).toBeInViewport();
   await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
   expect(await native(page)).toBe(before);
@@ -235,7 +280,16 @@ test('owned tool dismissal returns editing focus and synthetic composition commi
   await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe('Normal');
   await expect(tools(page)).toBeVisible();
   const before = await native(page);
-  await tools(page).getByRole('button', { name: 'Bold', exact: true }).focus();
+  const selected = await page.evaluate(() => structuredClone(window.editor.selection));
+  const boldControl = tools(page).getByRole('button', { name: 'Bold', exact: true });
+  await boldControl.focus();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await expect(tools(page)).toBeVisible();
+  await expect(boldControl).toBeFocused();
+  expect(await native(page)).toBe(before);
+  expect(await page.evaluate(() => window.editor.selection)).toEqual(selected);
   await page.keyboard.press('Escape');
   await expect(tools(page)).toHaveCount(0);
   await expect(page.locator('#editor [contenteditable="true"]').first()).toBeFocused();

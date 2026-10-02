@@ -271,3 +271,6 @@ export { TaskStatus, TaskStatusRegion, type TaskPhase } from './task-status';
 export { visibleRangeRect, observeRangeAnchor } from './range-anchor';
 
 export { ParagraphProposalReview, type ParagraphProposalReviewProps } from './paragraph-proposal-review';
+
+export { DocumentMenu } from './document-bar';
+export { SecondaryPopup, type SecondaryPopupProps } from './secondary-popup';

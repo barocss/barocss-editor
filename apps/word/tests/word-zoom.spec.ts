@@ -1,6 +1,17 @@
 import { test, expect, type Page } from '@playwright/test';
 import { settled } from './helpers';
 
+async function showRuler(page: Page) {
+  if (await page.locator('.w-ruler').count()) return;
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  const detail = page.getByLabel('전체 Word 도구', { exact: true });
+  await detail.getByRole('tab', { name: '보기', exact: true }).click();
+  await detail.getByRole('button', { name: '눈금자', exact: true }).click();
+  await expect(page.locator('.w-ruler')).toBeVisible();
+  await page.getByRole('button', { name: '전체 도구 접기', exact: true }).click();
+}
+
+
 /**
  * Zoom, which a page has to survive without moving a single break.
  *
@@ -89,7 +100,7 @@ test('the page is drawn smaller, and takes up the room it is drawn in', async ({
 
 test('the ruler stays against the page it measures', async ({ page }) => {
   await page.goto('/?sample');
-  await settled(page);
+  await settled(page); await showRuler(page);
   await page.waitForTimeout(700);
 
   const aligned = () =>

@@ -47,6 +47,13 @@ import {
   type Handle
 } from './manipulate';
 import { SLIDES_KEYS, keyLabel, matchesKey } from './keymap';
+
+// A menu or floating control owns its keys before the canvas mode does.
+function chromeOwnsKey(event: KeyboardEvent) {
+  return event.defaultPrevented || (event.target instanceof Element && Boolean(event.target.closest(
+    '[data-slides-more-owner], [data-slides-detail], [data-floating-surface], [data-slide-navigation], [role="menu"], [role="listbox"]'
+  )));
+}
 import { boxAt, fromSurface, isContainerType, isSceneType, slideAt } from './selection';
 import {
   addStop,
@@ -2246,7 +2253,7 @@ export function SelectionOverlay({
   useEffect(() => {
     if (!cropping) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setCropping(undefined);
+      if (event.key === 'Escape' && !chromeOwnsKey(event)) setCropping(undefined);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -2275,7 +2282,7 @@ export function SelectionOverlay({
   useEffect(() => {
     if (!editing) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || chromeOwnsKey(event)) return;
       setEditing(undefined);
       select([editing]);
     };
@@ -2320,7 +2327,8 @@ export function SelectionOverlay({
        * Escape comes out of a container before it clears the selection, one level
        * further in.
        */
-      if ((event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
+      if (event.defaultPrevented || ((!event.metaKey && !event.ctrlKey) && chromeOwnsKey(event)) ||
+        (event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
       // A compact workspace panel owns Escape before the canvas selection does.
       if (event.key === 'Escape' && (event.target as Element | null)?.closest?.(
         '.office-adaptive-workspace[data-compact] [data-workspace-panel], .office-adaptive-workspace[data-compact] [data-workspace-toggle]'

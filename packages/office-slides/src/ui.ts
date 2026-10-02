@@ -28,6 +28,7 @@ export { PresenterWindow, type PresenterWindowProps } from './presenter-window';
 /* 주변의 판들 — 무엇이 있고, 어디에 있고, 언제 움직이나. */
 export { Ribbon, type RibbonProps } from './ribbon';
 export { Filmstrip, type FilmstripProps } from './filmstrip';
+export { SlideNavigation, type SlideNavigationProps } from './slide-navigation';
 export { Thumbnail, type ThumbnailProps } from './thumbnail';
 export { LayerPanel, type LayerPanelProps } from './layer-panel';
 export { Properties, type PropertiesProps } from './properties';

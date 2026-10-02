@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, attr, visibleBoxes } from './helpers';
+import { openDeck, attr, visibleBoxes, pickMenu } from './helpers';
 
 /**
  * The guides a reader places.
@@ -76,6 +76,7 @@ const pullGuide = async (page: Page, axis: 'x' | 'y', fraction: number) => {
 test.describe('a guide a reader places', () => {
   test('is pulled out of the ruler and kept on the slide', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const slide = await page.evaluate(
       () =>
         document.querySelector('.sl-filmstrip button[data-current="true"]')?.getAttribute('data-slide') ?? ''
@@ -103,6 +104,7 @@ test.describe('a guide a reader places', () => {
 
   test('is pulled out of the side ruler as a horizontal one', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const drag = await pullGuide(page, 'y', 0.4);
     await drag.letGo();
 
@@ -114,6 +116,7 @@ test.describe('a guide a reader places', () => {
 
   test('pulls a shape onto itself, and says which line it was', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const boxes = await visibleBoxes(page);
     const box = boxes[0];
 
@@ -144,14 +147,17 @@ test.describe('a guide a reader places', () => {
      *
      * A first attempt nudged two pixels and back: below the threshold that makes
      * a press a drag, so nothing was written and the shape's `x` came back
-     * unchanged — which reads exactly like a snap that did not happen. Fourteen
-     * pixels at this zoom is about 400 twips, so the raw position lands the left
-     * edge just past the guide 400 to its left, well inside the snap's reach.
+     * unchanged — which reads exactly like a snap that did not happen. The stage's
+     * transform converts 400 twips into the current fitted pixels, so the raw position
+     * lands the left edge just past the guide, well inside the snap's reach.
      */
+    const dragBy = await page.locator('.sl-stage-scaled').evaluate((stage) =>
+      Math.ceil((400 / 15) * new DOMMatrixReadOnly(getComputedStyle(stage).transform).a) + 1
+    );
     await page.mouse.move(box.x, box.y);
     await page.mouse.down();
-    await page.mouse.move(box.x - 8, box.y, { steps: 4 });
-    await page.mouse.move(box.x - 14, box.y, { steps: 4 });
+    await page.mouse.move(box.x - Math.round(dragBy / 2), box.y, { steps: 4 });
+    await page.mouse.move(box.x - dragBy, box.y, { steps: 4 });
 
     // The line it was pulled onto is drawn while the drag is held.
     await expect(page.locator('.sl-guide')).not.toHaveCount(0);
@@ -163,6 +169,7 @@ test.describe('a guide a reader places', () => {
 
   test('is dragged along, and thrown away off the slide', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const slide = await page.evaluate(
       () =>
         document.querySelector('.sl-filmstrip button[data-current="true"]')?.getAttribute('data-slide') ?? ''
@@ -204,6 +211,9 @@ test.describe('a guide a reader places', () => {
 
   test('is the slide’s own, not the deck’s', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
+    await page.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();
+    await expect(page.locator('[data-filmstrip-panel]')).toBeVisible();
     const drag = await pullGuide(page, 'x', 0.3);
     await drag.letGo();
     await expect(guides(page)).toHaveCount(1);
@@ -221,6 +231,7 @@ test.describe('a guide a reader places', () => {
 
   test('is not drawn while presenting', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const drag = await pullGuide(page, 'x', 0.3);
     await drag.letGo();
     await expect(guides(page)).toHaveCount(1);
@@ -254,6 +265,7 @@ test.describe('placing a guide from the keyboard', () => {
 
   test('a chord puts one down the middle of what is selected', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const [box] = await visibleBoxes(page);
     await page.mouse.click(box.x, box.y);
     await expect
@@ -284,6 +296,7 @@ test.describe('placing a guide from the keyboard', () => {
 
   test('the other chord puts one across, and a third clears them', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     await page.keyboard.press('Alt+Comma');
     await page.waitForTimeout(400);
     expect((await guidesOf(page)).some((one) => one.axis === 'y')).toBe(true);
@@ -295,6 +308,7 @@ test.describe('placing a guide from the keyboard', () => {
 
   test('is on the slide’s own menu, where a reader finds the chord', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     /*
      * A corner of the **slide**, which the sample deck leaves bare — not a corner of the
      * stage, which is the grey around it and where a right-click finds no slide at all.
@@ -319,6 +333,7 @@ test.describe('placing a guide from the keyboard', () => {
 
   test('refuses to write the same guide twice', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     await page.keyboard.press('Alt+Period');
     await page.waitForTimeout(400);
     const once = await guidesOf(page);

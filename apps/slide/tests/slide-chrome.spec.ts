@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, currentSlide, pickMenu } from './helpers';
 
 /**
  * The chrome around the deck, and what it says about the deck.
@@ -150,6 +150,7 @@ test.describe('the rulers along a slide', () => {
 
   test('stay on the viewport while their origin follows the slide', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const check = async () => {
       await expect.poll(() => page.evaluate(() => {
         const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
@@ -196,6 +197,7 @@ test.describe('the rulers along a slide', () => {
    */
   test('measure the slide the deck actually has, not a 16:9 one', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     await page.evaluate(() =>
       (window as any).editor.executeCommand('setDeckSize', { width: 14400, height: 10800 })
     );
@@ -214,8 +216,23 @@ test.describe('the rulers along a slide', () => {
   /** And they follow the reader's unit, because the panel's numbers do. */
   test('are marked in millimetres when the panel is', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
+    await page.getByRole('button', { name: '자세한 속성', exact: true }).click();
+    await expect(page.locator('.sl-properties')).toBeVisible();
     await page.locator('.sl-properties').getByLabel('단위').selectOption('mm');
 
+    // Fit mode keeps labels readable by using wider millimetre intervals.
+    // The same 0/50/100 labels are reproduced on the unchanged baseline.
+    await expect.poll(() => page.evaluate(() =>
+      [...document.querySelectorAll('[data-ruler="x"] .sl-ruler-tick[data-major="true"] i')]
+        .slice(0, 3).map(tick => tick.textContent)
+    )).toEqual(['0', '50', '100']);
+
+    // At 125%, ten millimetres have enough screen room for the original labels.
+    const zoom = page.getByRole('textbox', { name: '확대/축소', exact: true });
+    await zoom.fill('125%');
+    await zoom.press('Enter');
+    await expect(page.locator('.sl-stage-scaled')).toHaveCSS('transform', 'matrix(1.25, 0, 0, 1.25, 0, 0)');
     await expect
       .poll(() =>
         page.evaluate(() =>
@@ -225,6 +242,12 @@ test.describe('the rulers along a slide', () => {
         )
       )
       .toEqual(['0', '10', '20']);
+    const spacing = await page.locator('[data-ruler="x"]').evaluate(ruler => {
+      const ticks = [...ruler.querySelectorAll('.sl-ruler-tick[data-major="true"]')];
+      return ticks[1].getBoundingClientRect().left - ticks[0].getBoundingClientRect().left;
+    });
+    // 10 mm × 96 CSS px/in ÷ 25.4 mm/in × 1.25 zoom.
+    expect(spacing).toBeCloseTo(47.24, 0);
   });
 
   /**
@@ -235,6 +258,7 @@ test.describe('the rulers along a slide', () => {
    */
   test('mark where the pointer is', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     const slide = (await box(page, '.sl-stage .sl-slide:not([style*="display: none"])'))!;
     const at = {
       x: Math.round(slide.left + slide.width / 3),
@@ -260,6 +284,7 @@ test.describe('the rulers along a slide', () => {
   /** Not while presenting: an audience is not measuring anything. */
   test('are gone in the show', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
     await expect(page.locator('[data-ruler="x"]')).toHaveCount(1);
 
     await page.locator('[data-present]').click();

@@ -1,7 +1,7 @@
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, ProductMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice } from '@barocss/office-ui';
 import { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from '@barocss/office-note';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Choice, Icon, TextField, MenuBar, Dialog, IconButton } from '@barocss/office-ui';
+import { Button, Choice, Icon, TextField, Dialog, IconButton } from '@barocss/office-ui';
 import { documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, type LibraryRow } from '@barocss/shared';
 import { NoteEditor } from '@barocss/office-note/view';
 import { noteLibrary, noteFileText, noteFileName, readNoteFile, openNoteTree, noteTreeOf, type NoteDocument, type NoteSession } from '@barocss/office-note';
@@ -456,14 +456,10 @@ export function Workspace() {
     if (!(event.target instanceof Element) || event.target.closest('[data-note-editor], [data-document-navigation], [role="dialog"]')) return;
     event.preventDefault(); openNavigation('find');
   }}>
-      <EditorHeader product="Note" className="nw-header" title={title || '제목 없는 노트'}
-        fallbackNavigation={<ProductMenu product="Note" blocks={[{ id: 'pages', items: [
-          { id: 'template', label: '새 페이지', disabled: !ready },
-          { id: 'open', label: '파일 열기', disabled: !ready },
-          { id: 'export', label: '내보내기', disabled: !ready || !selected }
-        ] }]} onPick={id => { if (id === 'open') picker.current?.click(); else setPanel(id as 'template' | 'export'); }} />}
-        menus={<MenuBar label="노트 메뉴" menus={[
+      <EditorHeader compact product="Note" className="nw-header" title={title || '제목 없는 노트'}
+        menus={<DocumentMenu label="노트 메뉴" menus={[
           { id: 'file', label: '파일', blocks: [{ id: 'file', items: [
+            { id: 'template', label: '새 페이지', disabled: !ready },
             { id: 'open', label: '파일 열기', disabled: !ready },
             { id: 'export', label: '내보내기', disabled: !ready || !selected }
           ] }] },
@@ -471,15 +467,15 @@ export function Workspace() {
             { id: 'find', label: '본문 찾기', disabled: !session || selectedTrashed }
           ] }] },
           { id: 'view', label: '보기', blocks: [{ id: 'view', items: [
-            { id: 'outline', label: '목차', disabled: !session || selectedTrashed }
+            { id: 'outline', label: '목차', disabled: !session || selectedTrashed },
+            { id: 'page', label: '페이지 설정', disabled: !ready || !selected || selectedTrashed }
           ] }] }
         ]} onPick={id => {
           if (id === 'open') picker.current?.click();
           else if (id === 'export') setPanel('export');
+          else if (id === 'template' || id === 'page') setPanel(id);
           else if (id === 'find' || id === 'outline') openNavigation(id);
         }} />} actions={<><StatusIndicator data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
-        <Button disabled={!ready || !selected} onClick={() => setPanel('export')}>내보내기</Button>
-        <Button tone="quiet" disabled={!ready || !selected || selectedTrashed} onClick={() => setPanel('page')}>페이지 설정</Button>
         <input ref={picker} hidden disabled={!ready} type="file" accept=".json,.md,.markdown,.html,.htm,.csv" aria-label="노트 파일" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importFile(file); }} />
         </>} />
     <AdaptiveWorkspace className="nw-workspace" panelSides={['navigation']} locationKey={selected}>

@@ -32,8 +32,31 @@ export function NoteDocumentNavigation({ editor, rootId, scope, request }: { edi
   const headings = useMemo(() => mode ? noteHeadings(doc) : [], [doc, revision, mode]);
   const selected = matches.length ? Math.min(current, matches.length - 1) : -1;
   const close = () => { setMode(undefined); previousFocus.current?.isConnected && previousFocus.current.focus({ preventScroll: true }); };
-  const open = (next: DocumentNavigationMode) => { previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setMode(next); setOpened(n => n + 1); };
+  const open = (next: DocumentNavigationMode) => {
+    const host = scope.current;
+    if (!host?.isConnected || host.closest('[hidden], [inert]')) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setMode(next); setOpened(n => n + 1);
+  };
   useEffect(() => { if (request) open(request.mode); }, [request?.id]);
+  useEffect(() => {
+    const host = scope.current;
+    if (!mode || !host) return;
+    // An authenticated host can retain the editor while hiding a revoked or checking session.
+    // Retire its navigation without returning focus into that unavailable document.
+    const retire = () => {
+      if (!host.isConnected || host.closest('[hidden], [inert]')) {
+        previousFocus.current = null;
+        setMode(undefined);
+      }
+    };
+    const observer = new MutationObserver(retire);
+    for (let element: HTMLElement | null = host; element; element = element.parentElement) {
+      observer.observe(element, { attributes: true, attributeFilter: ['hidden', 'inert'], childList: true });
+    }
+    retire();
+    return () => observer.disconnect();
+  }, [mode, scope]);
   useEffect(() => {
     const keys = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 'f') return;
@@ -109,7 +132,7 @@ export function NoteDocumentNavigation({ editor, rootId, scope, request }: { edi
     // Navigation does not replace the writer's selection or add an undo entry.
   };
   if (!mode) return null;
-  return <DocumentNavigation key={opened} mode={mode} at={at} query={query} current={selected} count={matches.length} caseSensitive={caseSensitive} headings={headings} activeHeading={activeHeading} onMode={setMode} onQuery={setQuery} onCaseSensitive={setCaseSensitive} onStep={direction => setCurrent(step(matches.length, selected, direction))} onHeading={heading} onClose={close} onDismiss={(reason, event) => {
+  return <DocumentNavigation key={opened} mode={mode} at={at} portalRoot={scope.current} query={query} current={selected} count={matches.length} caseSensitive={caseSensitive} headings={headings} activeHeading={activeHeading} onMode={setMode} onQuery={setQuery} onCaseSensitive={setCaseSensitive} onStep={direction => setCurrent(step(matches.length, selected, direction))} onHeading={heading} onClose={close} onDismiss={(reason, event) => {
     if (reason === 'escape') close();
     else if (event.target instanceof Element && !scope.current?.closest('[data-note-editor]')?.contains(event.target)) setMode(undefined);
   }} />;

@@ -67,6 +67,7 @@ async function setup(page: Page, blog = false) {
   await page.goto('/');
   if (blog) {
     await page.locator('[data-admin-open="blog"]').click();
+    await page.getByRole('button', { name: '모든 도구', exact: true }).click();
     await page.locator('[data-to-admin]').click();
   }
   await page.locator('[data-admin-tab="data"]').click();
@@ -147,7 +148,7 @@ for (const all of [false, true]) test(`${all ? 'site ZIP' : 'page HTML'} export 
   await expect.poll(() => page.evaluate(() => (window as any).bodyWriteStarted)).toBe(true);
   const downloads: Download[] = []; page.on('download', file => downloads.push(file));
   const wait = page.waitForEvent('download');
-  await page.locator('[data-menu="file"]').click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
   await page.locator(`[data-menu-item="file.publish.${all ? 1 : 0}"]`).click();
   expect(downloads).toHaveLength(0);
   await page.evaluate(() => (window as any).releaseBody());
