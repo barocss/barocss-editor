@@ -65,6 +65,8 @@ export interface WordRuntime {
   setReading: (value: boolean) => void;
   /** Wait for entered native commands; refuse an unfinished or changed input. */
   flushCommands: () => Promise<void>;
+  /** Freeze input readiness across an awaited external proposal approval. */
+  captureInputIntent: () => (() => boolean) | null;
 }
 
 export interface WordRuntimeOptions {
@@ -191,6 +193,12 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
   listen(container, 'beforeinput', () => { inputVersion += 1; }, true);
   listen(container, 'compositionstart', () => { composing = true; inputVersion += 1; }, true);
   listen(container, 'compositionend', () => { composing = false; inputVersion += 1; }, true);
+  const captureInputIntent = () => {
+    if (disposed || composing || pendingCommands.size || container.querySelector('.w-math-draft')) return null;
+    const version = inputVersion, epoch = dataStore.getDocumentEpoch();
+    return () => !disposed && !composing && !pendingCommands.size && inputVersion === version &&
+      dataStore.getDocumentEpoch() === epoch && !container.querySelector('.w-math-draft');
+  };
   const flushCommands = async () => {
     if (disposed || composing || container.querySelector('.w-math-draft')) throw new Error('Finish the current Word input before leaving.');
     const version = inputVersion, epoch = dataStore.getDocumentEpoch();
@@ -731,7 +739,7 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
     window.setEditingFurniture = setEditing;
   }
 
-  return { editor, view, fonts, editFurniture: setEditing, loadNativeDocument, exportNativeDocument, setReading, flushCommands, dispose: () => {
+  return { editor, view, fonts, editFurniture: setEditing, loadNativeDocument, exportNativeDocument, setReading, flushCommands, captureInputIntent, dispose: () => {
     if (disposed) return;
     disposed = true;
     listeners.abort();

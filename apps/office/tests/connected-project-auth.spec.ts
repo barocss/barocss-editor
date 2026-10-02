@@ -126,12 +126,13 @@ async function importThroughExistingLibrary(page: Page, product: 'word' | 'slide
   await expect(shell.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
   return { id: raw.document.documentId, source: seeded };
 }
-async function linkResult(page: Page, name: string) {
+async function linkResult(page: Page, name: string, product: 'word' | 'slides', documentId: string) {
   await page.getByRole('button', { name: '결과물 연결', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '결과물 연결', exact: true });
   await dialog.getByRole('textbox', { name: '결과물 이름', exact: true }).fill(name);
   await dialog.getByRole('button', { name: '연결할 원본', exact: true }).click();
-  await page.getByRole('option').filter({ hasText: name }).click();
+  const original = page.locator(`[role="option"][id$="-${product}%3A${documentId}"]`);
+  await expect(original).toContainText(name); await original.click();
   await dialog.getByRole('button', { name: '연결하기', exact: true }).click();
   await expect(dialog).toBeHidden();
 }
@@ -207,7 +208,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
     const training = await importThroughExistingLibrary(page, 'slides', trainingTitle); await page.goto(projectUrl);
     await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
-    await linkResult(page, guideTitle); await linkResult(page, trainingTitle);
+    await linkResult(page, guideTitle, 'word', guide.id); await linkResult(page, trainingTitle, 'slides', training.id);
     let current = await readProject(); expect(current.project.record.results).toHaveLength(2);
     expect(current.project.record.results.map(result => result.document.id).sort()).toEqual([guide.id, training.id].sort());
     const initialGuide = await readDocument(guide.id, 'word'), initialTraining = await readDocument(training.id, 'slides');
@@ -255,7 +256,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     expect(comment.pin.text).toBe(afterComment.snapshotText); expect(comment.pin.revision).toBe(afterComment.document.revision);
     expectOnlyRecordedOpinion(JSON.parse(initialGuide.snapshotText).document, JSON.parse(afterComment.snapshotText).document, comment.target.id);
     await feedback(page).getByRole('button', { name: '수정 작업 연결', exact: true }).click();
-    await expect(feedback(page).getByText('실행기 미연결 · 원본은 자동 변경되지 않습니다.', { exact: true })).toBeVisible();
+    await expect(feedback(page).getByText('요청 보관됨 · 아직 실행하지 않음', { exact: true })).toBeVisible();
     current = await readProject(); expect(current.project.record.works).toHaveLength(1); const workId = current.project.record.works[0].id;
     expect(current.project.record.works[0].commentId).toBe(comment.id); expect(current.project.record.works[0].state).toBe('unconnected');
     expect((await readDocument(guide.id, 'word')).snapshotText).toBe(afterComment.snapshotText);
@@ -267,7 +268,8 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await pinning.getByRole('button', { name: '후속 결과물', exact: true }).click();
     await page.getByRole('option', { name: trainingTitle, exact: true }).click();
     await pinning.getByRole('button', { name: '현재 참고 원본', exact: true }).click();
-    await page.getByRole('option', { name: guideTitle, exact: true }).click();
+    const guideSource = page.locator(`[role="option"][id$="-word%3A${guide.id}"]`);
+    await expect(guideSource).toHaveText(guideTitle); await guideSource.click();
     await pinning.getByRole('button', { name: '같은 요청에 연결', exact: true }).click();
     await expect(pinning).toBeHidden(); current = await readProject();
     const trainingRecord = current.project.record.results.find(result => result.document.id === training.id)!;

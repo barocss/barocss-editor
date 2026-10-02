@@ -1,6 +1,7 @@
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import type { ProductFeedbackHost, ProductFeedbackTarget } from '@barocss/shared';
 import { commentIdentityInUse, resolveCommentTarget } from './comments';
+import { previewConnectedWordRevision } from './connected-proposal';
 
 export interface WordFeedbackOptions {
   editor: Editor;
@@ -10,6 +11,8 @@ export interface WordFeedbackOptions {
   /** Read the actual owned DOM selection before focus enters the composer. */
   captureSelection: () => ModelSelection | null | undefined;
   reading?: (value: boolean) => void;
+  nativeDocument?: () => unknown;
+  captureInputIntent?: () => (() => boolean) | null;
 }
 export interface WordFeedbackHost extends ProductFeedbackHost { dispose(): void }
 
@@ -127,6 +130,16 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
       return 'located';
     },
     reading(value) { if (!disposed) options.reading?.(value); },
+    previewRevision(proposal, owns = () => true) {
+      if (!editable() || !options.nativeDocument) return null;
+      const inputCurrent = options.captureInputIntent?.();
+      if (options.captureInputIntent && !inputCurrent) return null;
+      const documentId = options.id(), rootId = editor.getRootId(), root = store.getNodes().get(rootId!),
+        epoch = store.getDocumentEpoch(), session = store.getSessionId();
+      return previewConnectedWordRevision({ editor, proposal, nativeDocument: options.nativeDocument,
+        current: () => owns() && (!inputCurrent || inputCurrent()) && editable() && options.id() === documentId && editor.getRootId() === rootId &&
+          store.getNodes().get(rootId!) === root && store.getDocumentEpoch() === epoch && store.getSessionId() === session });
+    },
     dispose() {
       disposed = true; captures.clear();
       editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);

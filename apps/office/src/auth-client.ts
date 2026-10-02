@@ -209,11 +209,16 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
   const token = activeSession;
   if (!token || token.expiresAt <= Date.now()) { clearSession(); throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.'); }
   const epoch = sessionEpoch;
+  // Only a deliberate, authenticated execution request waits for the bounded
+  // local inference. All ordinary reads, writes and approval retain 10 seconds.
+  const executionRequest = request.method === 'POST' &&
+    /^\/api\/v1\/tenants\/[0-9a-f-]{36}\/projects\/[0-9a-f-]{36}\/works\/[0-9a-f-]{36}\/execution$/i.test(url.pathname) && !url.search;
+  const timeoutMs = executionRequest ? 610000 : 10000;
   let response: Response;
   try {
     const headers = new Headers(request.headers);
     headers.set('Authorization', `Bearer ${token.accessToken}`);
-    response = await fetch(request, { headers, cache: 'no-store', signal: request.signal.aborted ? request.signal : AbortSignal.any([request.signal, AbortSignal.timeout(10000)]) });
+    response = await fetch(request, { headers, cache: 'no-store', signal: request.signal.aborted ? request.signal : AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]) });
   } catch {
     throw new AuthError('unavailable', '서버에 연결하지 못했습니다. 다시 확인해 주세요.');
   }
@@ -227,7 +232,14 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
 export function captureAuthorizedFetch(): typeof fetch {
   const token = activeSession, epoch = sessionEpoch;
   const current = () => { if (!token || activeSession !== token || sessionEpoch !== epoch) throw new AuthError('cancelled', '계정이 바뀌었습니다. 프로젝트를 다시 여세요.'); };
-  return async (input, init) => { current(); const response = await authorizedFetch(input, init); current(); return response; };
+  return async (input, init) => {
+    current(); const response = await authorizedFetch(input, init); current();
+    // Headers may arrive before a streamed JSON body. Keep the same login
+    // generation through decoding, before any retained product consumes it.
+    const decode = response.json.bind(response);
+    response.json = async () => { current(); const value: unknown = await decode(); current(); return value; };
+    return response;
+  };
 }
 
 async function apiGet(path: string, requestFetch: typeof fetch = authorizedFetch): Promise<unknown> {

@@ -150,7 +150,9 @@ export function App({ mount, server }: {
         productDocumentHost()?.product === 'word' ? productDocumentHost()!.id() : '',
       canComment: () => !serverRef.current || serverRef.current.canComment(),
       captureSelection: () => captureTextSelection(instance.editor, instance.view, { allowBlurred: true }),
-      reading: value => { instance.setReading(value); setReading(value); }
+      reading: value => { instance.setReading(value); setReading(value); },
+      nativeDocument: () => instance.exportNativeDocument(),
+      captureInputIntent: () => instance.captureInputIntent()
     });
     const unregister = registerProductFeedbackHost(feedback);
     return () => { unregister(); feedback.dispose(); };
