@@ -65,7 +65,7 @@ defineOperation('removeMark', async (operation: any, context: TransactionContext
    */
   const marksBefore = (() => {
     const node = context.dataStore.getNode(nodeId);
-    return Array.isArray((node as any)?.marks) ? JSON.parse(JSON.stringify((node as any).marks)) : [];
+    return Array.isArray((node as any)?.marks) ? JSON.parse(JSON.stringify((node as any).marks)) : undefined;
   })();
   
   const node = context.dataStore.getNode(nodeId);
@@ -84,7 +84,7 @@ defineOperation('removeMark', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'setMarks', payload: { nodeId, marks: marksBefore } }
+    inverse: { type: 'setMarks', payload: { nodeId, marks: marksBefore, restoreAbsent: marksBefore === undefined } }
   };
 });
 

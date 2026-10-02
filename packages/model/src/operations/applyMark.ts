@@ -92,7 +92,7 @@ export const applyMark = defineOperationDSL(
  */
 const marksBefore = (dataStore: any, nodeId: string) => {
   const node = dataStore.getNode(nodeId);
-  return Array.isArray(node?.marks) ? JSON.parse(JSON.stringify(node.marks)) : [];
+  return Array.isArray(node?.marks) ? JSON.parse(JSON.stringify(node.marks)) : undefined;
 };
 
 defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayload }, context: TransactionContext) => {
@@ -132,7 +132,7 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
        * nothing said. `range.applyMark` writes to the two endpoints and no
        * further, which is the same lightweight path this has always taken.
        */
-      const before: Array<{ nodeId: string; marks: unknown[] }> = [
+      const before: Array<{ nodeId: string; marks: unknown[] | undefined }> = [
         { nodeId: startNodeId, marks: marksBefore(context.dataStore, startNodeId) },
         ...(startNodeId === endNodeId
           ? []
@@ -152,7 +152,7 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
        */
       const undo = before.map((was) => ({
         type: 'setMarks',
-        payload: { nodeId: was.nodeId, marks: was.marks }
+        payload: { nodeId: was.nodeId, marks: was.marks, restoreAbsent: was.marks === undefined }
       }));
       return {
         ok: true,
@@ -203,7 +203,7 @@ defineOperation('applyMark', async (operation: { payload: ApplyMarkOperationPayl
        * appended; now that it replaces, the marks it cut have to come back, and
        * only the list can say what they were.
        */
-      inverse: { type: 'setMarks', payload: { nodeId, marks: had } }
+      inverse: { type: 'setMarks', payload: { nodeId, marks: had, restoreAbsent: had === undefined } }
     };
   } catch (e) {
     throw new Error(`Failed to apply mark: ${e instanceof Error ? e.message : 'Unknown error'}`);
