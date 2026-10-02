@@ -232,6 +232,7 @@ test('actual Slides writer and automatic viewer preserve complete native API/PG 
     const recheck = async () => { const response = viewer.waitForResponse(r => r.url().includes(`/documents/${id}`) && r.request().method() === 'GET'); await viewer.evaluate(() => window.dispatchEvent(new Event('focus'))); await response; };
     await privateControl({ action: 'beta-role', role: 'editor' }); await recheck();
     await expect(workspace(viewer).locator('[contenteditable=true]').first()).toBeVisible();
+    await workspace(viewer).getByRole('button', { name: '발표자 노트', exact: true }).click();
     const note = workspace(viewer).locator('.sl-notes-host .w-paragraph').filter({hasText:'The point of this slide is that nothing on it is new.'}).first();
     await note.click(); await viewer.keyboard.press('Meta+ArrowRight'); await viewer.keyboard.insertText(' LATEST RICH NOTE');
     await expect(note).toContainText('LATEST RICH NOTE');

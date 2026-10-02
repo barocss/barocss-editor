@@ -6,10 +6,10 @@ export function useFloatingPanelBounds(host: RefObject<HTMLElement | null>, enab
     if (!enabled) return;
     const body = host.current?.closest('.sl-shell')?.querySelector<HTMLElement>('.sl-body');
     const viewport = body?.querySelector<HTMLElement>('.sl-stage-viewport');
-    const tray = body?.querySelector<HTMLElement>('[data-filmstrip-panel]');
+    const tray = body?.querySelector<HTMLElement>('[data-slide-dock]');
     if (!body || !viewport) return;
     const measure = () => {
-      const bottom = tray && !tray.hidden ? tray.getBoundingClientRect().top : viewport.getBoundingClientRect().bottom;
+      const bottom = tray ? Math.min(tray.getBoundingClientRect().top, viewport.getBoundingClientRect().bottom) : viewport.getBoundingClientRect().bottom;
       body.style.setProperty('--sl-panel-bottom', `${Math.max(12, body.getBoundingClientRect().bottom - bottom + 12)}px`);
     };
     const observer = new ResizeObserver(measure);

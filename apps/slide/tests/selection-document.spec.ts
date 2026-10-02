@@ -74,9 +74,8 @@ for (const theme of ['light', 'dark']) test(`continuous ${theme} deck has reacha
   const initialPath = info.outputPath('native-before.slides.json'); await initialDownload.saveAs(initialPath);
   const initialPortable = JSON.parse(readFileSync(initialPath, 'utf8'));
 
-  const full = page.locator('.sl-topbar').getByRole('button', { name: '편집 도구', exact: true });
   const detail = page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true });
-  await expect(full).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.sl-topbar').getByRole('button', { name: '편집 도구', exact: true })).toHaveCount(0);
   await expect(detail).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('complementary', { name: '속성', exact: true })).toBeHidden();
   await expect(tools(page)).toHaveCount(0);
@@ -95,9 +94,10 @@ for (const theme of ['light', 'dark']) test(`continuous ${theme} deck has reacha
   await expect(right.getByLabel('단위', { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath(`${theme}-inspector.png`), animations: 'disabled' });
   await detail.press('Enter'); await expect(right).toBeHidden();
-  await full.click(); await expect(full).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('[data-slides-detail] .sl-toolbar')).toBeVisible();
-  await full.click(); await expect(full).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('button', { name: '추가 Slides 도구', exact: true }).click();
+  await expect(page.getByRole('menu', { name: '추가 Slides 도구', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu', { name: '추가 Slides 도구', exact: true })).toBeHidden();
   await pickMenu(page, 'view.present.0');
   await expect(page.locator('.sl-present-hint')).toBeVisible();
   await page.screenshot({ path: info.outputPath(`${theme}-presentation.png`), animations: 'disabled' });
@@ -255,6 +255,7 @@ test('fresh compact insertion still runs after a header menu is dismissed withou
 
 test('rich notes are an owned second view and font popup retirement cannot target a different slide', async ({ page }, info) => {
   await openRepresentative(page, info, true); await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();
+  await page.getByRole('button', { name: '발표자 노트', exact: true }).click();
   const notes = page.locator('.sl-notes-host'), paragraph = notes.getByText('The point of this slide is that nothing on it is new.', { exact: true }).first();
   await paragraph.click(); await page.keyboard.press('Meta+ArrowLeft');
   for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowRight');
@@ -295,7 +296,7 @@ test('rich notes are an owned second view and font popup retirement cannot targe
   expect((await native(page)).document).toBe(draft.document);
   await page.getByLabel('슬라이드 파일', { exact: true }).setInputFiles(path);
   await expect(page.getByRole('complementary', { name: '파일 작업 상태' })).toContainText('파일 열기 완료');
-  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click(); await expect(notes).toContainText('LATEST NOTE INPUT');
+  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click(); await page.getByRole('button',{name:'발표자 노트',exact:true}).click(); await expect(notes).toContainText('LATEST NOTE INPUT');
   const [reopened] = await Promise.all([page.waitForEvent('download'), pickMenu(page, 'file.document.2')]);
   const next = info.outputPath('reopened-notes.slides.json'); await reopened.saveAs(next);
   expect(JSON.parse(readFileSync(next, 'utf8')).document).toEqual(saved.document);
@@ -303,14 +304,14 @@ test('rich notes are an owned second view and font popup retirement cannot targe
 
 
 test('nested note table final input survives slide changes, meaningful undo and complete native reopen',async({page},info)=>{
- await openRepresentative(page,info,true);await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();const notes=page.locator('.sl-notes-host'),cell=notes.locator('.w-paragraph').filter({hasText:'Nested note cell'}).first();
+ await openRepresentative(page,info,true);await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();await page.getByRole('button',{name:'발표자 노트',exact:true}).click();const notes=page.locator('.sl-notes-host'),cell=notes.locator('.w-paragraph').filter({hasText:'Nested note cell'}).first();
  await cell.click();await page.keyboard.press('Meta+ArrowRight');await expect.poll(()=>page.evaluate(()=>(window as any).editor.selection?.type)).toBe('range');
  const before=await native(page);await page.keyboard.insertText(' LATEST NESTED INPUT');await expect(notes).toContainText('Nested note cell LATEST NESTED INPUT');
  const draft=await native(page),expected=JSON.parse(before.document);const visit=(node:INode)=>{if(node.text==='Nested note cell')node.text='Nested note cell LATEST NESTED INPUT';for(const child of node.content??[])if(typeof child!=='string')visit(child);};visit(expected);expect(JSON.parse(draft.document)).toEqual(expected);
  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(0).click();await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();expect((await native(page)).document).toBe(draft.document);
  await cell.click();await page.keyboard.press('Meta+z');expect((await native(page)).document).toBe(before.document);await page.keyboard.press('Meta+Shift+z');expect((await native(page)).document).toBe(draft.document);
  const[download]=await Promise.all([page.waitForEvent('download'),pickMenu(page,'file.document.2')]);const path=info.outputPath('nested-notes.slides.json');await download.saveAs(path);const saved=JSON.parse(readFileSync(path,'utf8')).document;
- await page.getByLabel('슬라이드 파일',{exact:true}).setInputFiles(path);await expect(page.getByRole('complementary',{name:'파일 작업 상태'})).toContainText('파일 열기 완료');await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();await expect(notes).toContainText('Nested note cell LATEST NESTED INPUT');
+ await page.getByLabel('슬라이드 파일',{exact:true}).setInputFiles(path);await expect(page.getByRole('complementary',{name:'파일 작업 상태'})).toContainText('파일 열기 완료');await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();await page.getByRole('button',{name:'발표자 노트',exact:true}).click();await expect(notes).toContainText('Nested note cell LATEST NESTED INPUT');
  const[reopened]=await Promise.all([page.waitForEvent('download'),pickMenu(page,'file.document.2')]);const next=info.outputPath('nested-notes-reopened.slides.json');await reopened.saveAs(next);expect(JSON.parse(readFileSync(next,'utf8')).document).toEqual(saved);
 });
 
