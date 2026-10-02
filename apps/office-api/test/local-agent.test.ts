@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
+import { createServer, request, type Server } from 'node:http';
+import { once } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { createLocalAgent, LocalAgentError, type LocalAgentInput } from '../src/local-agent.js';
+import { createLocalAgent, createLocalGenerationTransport, LocalAgentError, type LocalAgentInput } from '../src/local-agent.js';
 
 // Deterministic transport fixtures verify the adapter boundary, not live inference.
 const digest = '3a12a518a499223fc5be0a6b43589f5c2809275e59572c29a73e0506ff67a735';
@@ -20,7 +22,7 @@ function fixture(generate: () => Response | Promise<Response> = () => Response.j
     calls.push({ url: String(url), init });
     if (String(url).endsWith('/api/tags')) return Response.json({ models: [{ name: 'qwen3.6:27b-coding', digest }] });
     if (String(url).endsWith('/api/version')) return Response.json({ version: '0.34.4' });
-    if (String(url).endsWith('/api/show')) return Response.json({ model_info: { 'qwen35.context_length': 262144 } });
+    if (String(url).endsWith('/api/show')) return Response.json({ model_info: { 'qwen35.context_length': 262144 }, thinking: { values: [false, true], default: true } });
     return generate();
   }) as typeof fetch;
   return { calls, agent: createLocalAgent({ OFFICE_LOCAL_AGENT_ENABLED: 'true' }, transport)! };
@@ -35,7 +37,7 @@ describe('local Agent deterministic transport boundary', () => {
     expect(calls.map(c => c.url)).toEqual(['http://127.0.0.1:11434/api/tags', 'http://127.0.0.1:11434/api/version',
       'http://127.0.0.1:11434/api/show', 'http://127.0.0.1:11434/api/generate']);
     const body = JSON.parse(calls[3].init!.body as string);
-    expect(body.model).toBe('qwen3.6:27b-coding'); expect(body.stream).toBe(false);
+    expect(body.think).toBe(false); expect(body.model).toBe('qwen3.6:27b-coding'); expect(body.stream).toBe(false);
     expect(body.options).toEqual({ num_ctx: 32768, num_predict: 4096 }); expect(body.raw).toBe(true);
     expect(body.prompt).toContain(input().request); expect(body.prompt).toContain(native.replaceAll('"', '\\"'));
     expect(body.format.additionalProperties).toBe(false); expect(body.tools).toBeUndefined();
@@ -79,6 +81,20 @@ describe('local Agent deterministic transport boundary', () => {
       .rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'context_unavailable' });
     expect(calls.some(url => url.endsWith('/api/generate'))).toBe(false);
   });
+  it('refuses a model that does not explicitly support disabling thinking before dispatch', async () => {
+    for (const thinking of [undefined, { values: [true], default: true }]) {
+      const calls: string[] = [];
+      const transport = (async url => {
+        calls.push(String(url));
+        if (String(url).endsWith('/api/tags')) return Response.json({ models: [{ name: 'qwen3.6:27b-coding', digest }] });
+        if (String(url).endsWith('/api/version')) return Response.json({ version: '0.34.4' });
+        return Response.json({ model_info: { 'qwen35.context_length': 262144 }, thinking });
+      }) as typeof fetch;
+      await expect(createLocalAgent({ OFFICE_LOCAL_AGENT_ENABLED: 'true' }, transport)!.generate(input()))
+        .rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'thinking_unavailable' });
+      expect(calls.some(url => url.endsWith('/api/generate'))).toBe(false);
+    }
+  });
   it('validates proposal shape independently and rejects extra or oversized output', async () => {
     for (const response of [JSON.stringify({ ...proposal, apply: true }), JSON.stringify({ ...proposal, replacement: 'x'.repeat(16001) }),
       JSON.stringify({ ...proposal, assumptions: ['ok', 1] }), 'not json']) {
@@ -121,5 +137,69 @@ describe('local Agent deterministic transport boundary', () => {
       expect(calls.filter(c => c.url.endsWith('/api/generate'))).toHaveLength(1);
       expect(calls.every(c => c.init?.redirect === 'error')).toBe(true);
     }
+  });
+});
+
+// Real ephemeral loopback HTTP tests exercise transport timing, not model inference.
+async function closeServer(server: Server) {
+  server.closeAllConnections();
+  await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+}
+const generationUrl = 'http://127.0.0.1:11434/api/generate';
+const generationInit: RequestInit = { method: 'POST', redirect: 'error', body: '{}' };
+describe('local generation native HTTP transport', () => {
+  it('waits for delayed headers within its complete-response deadline on the fixed route', async () => {
+    let count = 0;
+    const server = createServer((_req, res) => { count++; setTimeout(() => res.end('delayed complete response'), 60); });
+    server.listen(0, '127.0.0.1'); await once(server, 'listening');
+    const port = (server.address() as { port: number }).port;
+    const transport = createLocalGenerationTransport((options, callback) => {
+      expect(options).toMatchObject({ hostname: '127.0.0.1', port: 11434, path: '/api/generate', method: 'POST' });
+      return request({ ...options, port }, callback);
+    }, 500);
+    try {
+      const started = Date.now();
+      const response = await transport(generationUrl, generationInit);
+      expect(await response.text()).toBe('delayed complete response');
+      expect(Date.now() - started).toBeGreaterThanOrEqual(50);
+      expect(count).toBe(1);
+    } finally { await closeServer(server); }
+  });
+  it('aborts delayed headers and stalled body at an absolute deadline without retry', async () => {
+    for (const headersFirst of [false, true]) {
+      let count = 0;
+      const server = createServer((_req, res) => { count++; if (headersFirst) { res.writeHead(200); res.write('partial'); } });
+      server.listen(0, '127.0.0.1'); await once(server, 'listening');
+      const port = (server.address() as { port: number }).port;
+      const transport = createLocalGenerationTransport((options, callback) => request({ ...options, port }, callback), 50);
+      try { await expect(transport(generationUrl, generationInit)).rejects.toThrow(); expect(count).toBe(1); }
+      finally { await closeServer(server); }
+    }
+  });
+  it('honors caller abort while waiting for the complete response', async () => {
+    let count = 0;
+    const server = createServer(() => { count++; });
+    server.listen(0, '127.0.0.1'); await once(server, 'listening');
+    const port = (server.address() as { port: number }).port;
+    const controller = new AbortController();
+    const transport = createLocalGenerationTransport((options, callback) => request({ ...options, port }, callback), 500);
+    try {
+      const pending = transport(generationUrl, { ...generationInit, signal: controller.signal });
+      setTimeout(() => controller.abort(), 40);
+      await expect(pending).rejects.toThrow(); expect(count).toBe(1);
+    } finally { await closeServer(server); }
+  });
+  it('caps bytes, never follows redirects and rejects other routes before dispatch', async () => {
+    let count = 0;
+    const server = createServer((_req, res) => { count++; if (count === 1) res.end('x'.repeat(65537));
+      else { res.writeHead(302, { location: '/other' }); res.end(); } });
+    server.listen(0, '127.0.0.1'); await once(server, 'listening');
+    const port = (server.address() as { port: number }).port;
+    const transport = createLocalGenerationTransport((options, callback) => request({ ...options, port }, callback), 500);
+    try {
+      await expect(transport(generationUrl, generationInit)).rejects.toThrow();
+      expect((await transport(generationUrl, generationInit)).status).toBe(302);
+      await expect(transport('http://external.invalid/api/generate', generationInit)).rejects.toThrow(); expect(count).toBe(2);
+    } finally { await closeServer(server); }
   });
 });

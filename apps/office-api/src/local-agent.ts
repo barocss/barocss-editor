@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { request, type ClientRequest, type IncomingMessage, type RequestOptions } from 'node:http';
 
 export interface LocalAgentInput {
   attemptId: string; tenantId: string; workspaceId: string; projectId: string; workId: string;
@@ -95,10 +96,60 @@ async function readBounded(response: Response, limit: number): Promise<string> {
   } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
 }
 
+// Production uses the native HTTP client so fetch's independent headers deadline cannot
+// end a long generation. One absolute deadline covers headers and the complete body.
+// The request/deadline injection is for bounded unit tests; callers cannot choose a URL.
+export function createLocalGenerationTransport(
+  requestHttp: (options: RequestOptions, callback: (response: IncomingMessage) => void) => ClientRequest = request,
+  deadlineMs = 600000,
+): typeof fetch {
+  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 600000) throw new Error('invalid_deadline');
+  return (async (url, init) => {
+    if (String(url) !== `${endpoint}/api/generate` || init?.method !== 'POST' || init.redirect !== 'error' ||
+      typeof init.body !== 'string') throw new Error('invalid_generation_route');
+    return await new Promise<Response>((resolve, reject) => {
+      let outgoing: ClientRequest | undefined;
+      let incoming: IncomingMessage | undefined;
+      let settled = false;
+      const fail = () => {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        outgoing?.destroy(); incoming?.destroy(); reject(new Error('generation_transport_failed'));
+      };
+      const timer = setTimeout(fail, deadlineMs);
+      try {
+        outgoing = requestHttp({ hostname: '127.0.0.1', port: 11434, path: '/api/generate', method: 'POST',
+          headers: { 'content-type': 'application/json' }, agent: false, maxHeaderSize: 8192,
+          signal: init.signal ?? undefined }, response => {
+          incoming = response;
+          if (settled) { response.destroy(); return; }
+          const chunks: Buffer[] = []; let bytes = 0;
+          response.on('data', (chunk: Buffer) => {
+            bytes += chunk.length;
+            if (bytes > 65536) { fail(); return; }
+            chunks.push(chunk);
+          });
+          response.on('error', fail); response.on('aborted', fail);
+          response.on('end', () => {
+            if (settled) return;
+            try {
+              const result = new Response(Buffer.concat(chunks), { status: response.statusCode ?? 502 });
+              settled = true; clearTimeout(timer); resolve(result);
+            } catch { fail(); }
+          });
+        });
+        outgoing.on('error', fail); outgoing.end(init.body);
+      } catch { fail(); }
+    });
+  }) as typeof fetch;
+}
+
 /** Opt-in uses one installed model on a fixed loopback provider. No downloads, tools, or retries. */
-export function createLocalAgent(env: NodeJS.ProcessEnv, transport: typeof fetch = fetch): LocalAgent | null {
+export function createLocalAgent(env: NodeJS.ProcessEnv, transport?: typeof fetch): LocalAgent | null {
   if (env.OFFICE_LOCAL_AGENT_ENABLED === undefined || env.OFFICE_LOCAL_AGENT_ENABLED === 'false') return null;
   if (env.OFFICE_LOCAL_AGENT_ENABLED !== 'true') throw new LocalAgentError('not_dispatched', 'invalid_configuration');
+  const metadataTransport = transport ?? fetch;
+  const generationTransport = transport ?? createLocalGenerationTransport();
   return {
     async generate(input) {
       const context = inputText(input);
@@ -110,19 +161,19 @@ export function createLocalAgent(env: NodeJS.ProcessEnv, transport: typeof fetch
       if (promptBytes > maximumPromptBytes) throw new LocalAgentError('not_dispatched', 'context_limit');
       let runtimeVersion: string;
       try {
-        const tagsResponse = await transport(`${endpoint}/api/tags`, { redirect: 'error', signal: AbortSignal.timeout(5000) });
+        const tagsResponse = await metadataTransport(`${endpoint}/api/tags`, { redirect: 'error', signal: AbortSignal.timeout(5000) });
         if (!tagsResponse.ok) throw new Error();
         const tags: unknown = JSON.parse(await readBounded(tagsResponse, 65536));
         if (!object(tags) || !Array.isArray(tags.models) || !tags.models.some(item =>
           object(item) && item.name === model && item.digest === modelDigest)) {
           throw new LocalAgentError('not_dispatched', 'model_unavailable');
         }
-        const versionResponse = await transport(`${endpoint}/api/version`, { redirect: 'error', signal: AbortSignal.timeout(5000) });
+        const versionResponse = await metadataTransport(`${endpoint}/api/version`, { redirect: 'error', signal: AbortSignal.timeout(5000) });
         if (!versionResponse.ok) throw new Error();
         const version: unknown = JSON.parse(await readBounded(versionResponse, 4096));
         if (!object(version) || typeof version.version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(version.version)) throw new Error();
         runtimeVersion = version.version;
-        const showResponse = await transport(`${endpoint}/api/show`, { method: 'POST', redirect: 'error',
+        const showResponse = await metadataTransport(`${endpoint}/api/show`, { method: 'POST', redirect: 'error',
           headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model }), signal: AbortSignal.timeout(5000) });
         if (!showResponse.ok) throw new Error();
         const show: unknown = JSON.parse(await readBounded(showResponse, 65536));
@@ -130,16 +181,19 @@ export function createLocalAgent(env: NodeJS.ProcessEnv, transport: typeof fetch
           (show.model_info['qwen35.context_length'] as number) < contextTokens) {
           throw new LocalAgentError('not_dispatched', 'context_unavailable');
         }
+        if (!object(show.thinking) || !Array.isArray(show.thinking.values) || !show.thinking.values.includes(false)) {
+          throw new LocalAgentError('not_dispatched', 'thinking_unavailable');
+        }
       } catch (error) {
         if (error instanceof LocalAgentError) throw error;
         throw new LocalAgentError('not_dispatched', 'provider_unavailable');
       }
       const startedAt = new Date().toISOString();
-      const body = JSON.stringify({ model, stream: false, raw: true, format: proposalSchema, prompt,
+      const body = JSON.stringify({ model, stream: false, raw: true, think: false, format: proposalSchema, prompt,
         options: { num_ctx: contextTokens, num_predict: outputTokenLimit } });
       let raw: string;
       try {
-        const response = await transport(`${endpoint}/api/generate`, { method: 'POST', redirect: 'error',
+        const response = await generationTransport(`${endpoint}/api/generate`, { method: 'POST', redirect: 'error',
           headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(600000) });
         if (!response.ok) throw new Error();
         raw = await readBounded(response, 65536);
@@ -153,7 +207,7 @@ export function createLocalAgent(env: NodeJS.ProcessEnv, transport: typeof fetch
         throw new LocalAgentError('invalid_output', 'invalid_token_counts');
       }
       const proposal = parseProposal(result.response);
-      const provenance: LocalAgentProvenance = { kind: 'live-local-model', adapterVersion: '2', model, modelDigest,
+      const provenance: LocalAgentProvenance = { kind: 'live-local-model', adapterVersion: '3', model, modelDigest,
         runtimeVersion, inputHash: hash(context), responseHash: hash(raw), proposalHash: hash(JSON.stringify(proposal)),
         contextTokens, outputTokenLimit, promptBytes,
         promptEvalCount: result.prompt_eval_count, evalCount: result.eval_count,
