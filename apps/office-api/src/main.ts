@@ -1,3 +1,5 @@
+import { ProjectExecutionStore } from '@barocss/office-service/project-execution';
+import { createLocalAgent } from './local-agent.js';
 import { ProjectStore } from '@barocss/office-service/project-store';
 import { readConfig } from './config.js';
 import { readAuthConfig } from './auth-config.js';
@@ -22,6 +24,7 @@ async function main(): Promise<void> {
     companyMembers: new CompanyMemberStore(pool),
     documents: new DocumentStore(pool),
     projects: new ProjectStore(pool),
+    projectExecutions: new ProjectExecutionStore(pool, createLocalAgent(process.env)),
   } : undefined);
   if (pool) app.addHook('onClose', async () => { await pool.end(); });
   let stopping = false;

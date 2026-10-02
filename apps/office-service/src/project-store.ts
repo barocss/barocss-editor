@@ -98,8 +98,12 @@ export function validateProjectAction(value: unknown): asserts value is ProjectA
   }
 }
 interface Row { id: string; workspace_id: string; revision: number; data: ProjectRecord }
-interface SourceRow { id: string; product: Product; title: string; mode: string; revision: number;
+export interface ProjectSourceRow { id: string; product: Product; title: string; mode: string; revision: number;
   snapshot_hash: string; snapshot_text: string }
+export interface ProjectExecutionContext {
+  client: PoolClient; project: Row; actor: ProjectView['actor']; authorityEpoch: string;
+  document(documentId: string): Promise<ProjectSourceRow>;
+}
 
 /** Every operation checks current membership inside the same RLS transaction. */
 export class ProjectStore {
@@ -128,7 +132,7 @@ export class ProjectStore {
     return found.rows[0];
   }
   private async document(client: PoolClient, tenantId: string, workspaceId: string, documentId: string) {
-    const found = await client.query<SourceRow>(`SELECT d.id,d.product,d.title,d.mode,s.revision,s.snapshot_hash,s.snapshot_text
+    const found = await client.query<ProjectSourceRow>(`SELECT d.id,d.product,d.title,d.mode,s.revision,s.snapshot_hash,s.snapshot_text
       FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id
       WHERE d.tenant_id=$1 AND d.workspace_id=$2 AND d.id=$3 FOR SHARE OF d,s`, [tenantId, workspaceId, documentId]);
     if (!found.rows[0]) throw new ProjectError(404, 'source_not_found');
@@ -212,6 +216,21 @@ export class ProjectStore {
     return this.membership.withAuthorizedTenant(principal, tenantId, async client => {
       const row = await this.require(client, tenantId, projectId); await this.sources(client, tenantId, row);
       return this.view(row, tenantId, await this.actor(client, principal));
+    });
+  }
+  /** Execution stays in the existing catalog's current membership/source transaction. */
+  async withExecutionContext<T>(principal: VerifiedPrincipal, tenantId: string, projectId: string, writable: boolean,
+    operation: (context: ProjectExecutionContext) => Promise<T>): Promise<T> {
+    id(tenantId); id(projectId);
+    return this.membership.withAuthorizedTenant(principal, tenantId, async (client, role) => {
+      if (writable && role === 'viewer') throw new ProjectError(403, 'forbidden');
+      const actor = await this.actor(client, principal, writable);
+      const epoch = await client.query<{ epoch: string }>('SELECT epoch FROM wonffice.project_execution_actor_epoch($1)', [tenantId]);
+      if (!epoch.rows[0]) throw new TenantAccessDeniedError();
+      const project = await this.require(client, tenantId, projectId, writable);
+      await this.sources(client, tenantId, project);
+      return operation({ client, project, actor, authorityEpoch: epoch.rows[0].epoch,
+        document: documentId => this.document(client, tenantId, project.workspace_id, documentId) });
     });
   }
   async getPin(principal: VerifiedPrincipal, tenantId: string, projectId: string, pinId: string) {

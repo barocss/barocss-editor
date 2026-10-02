@@ -1,4 +1,5 @@
 import { projectMigration } from './project-migration.js';
+import { projectExecutionMigration } from './project-execution-migration.js';
 import { memberDirectoryMigration } from './member-directory-migration.js';
 import { platformOperatorMigration } from './platform-operator-migration.js';
 import { companyMemberMigration } from './company-member-migration.js';
@@ -291,4 +292,4 @@ UPDATE wonffice.documents AS d SET mode = 'initializing', updated_at = now()
     AND s.codec_version IS NULL AND s.status = 'uncertain'
     AND d.mode = 'collaborative';
 `,
-}, memberDirectoryMigration, projectMigration];
+}, memberDirectoryMigration, projectMigration, projectExecutionMigration];
