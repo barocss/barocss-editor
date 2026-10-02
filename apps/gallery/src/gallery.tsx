@@ -1,3 +1,4 @@
+import { CompactSpecimens } from './compact-specimens';
 import { useState } from 'react';
 import {
   Button,
@@ -96,6 +97,9 @@ export function Gallery() {
       </header>
 
       <main className="ga-body">
+        <Section name="Compact editing" note="공유 구성 예시 — 실제 문서나 저장 결과가 아닙니다">
+          <CompactSpecimens />
+        </Section>
         <Section name="Toolbar" note="워드와 덱의 리본, 사이트의 도구 줄">
           <Toolbar label="갤러리">
             <ToolbarGroup id="marks">

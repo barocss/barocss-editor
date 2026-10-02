@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import type { Control } from '@barocss/office-controls';
-import { FloatingSurface, observeRangeAnchor, visibleRangeRect } from '@barocss/office-ui';
+import { FloatingSurface, Toolbar, observeRangeAnchor, visibleRangeRect } from '@barocss/office-ui';
 import { Controls } from './controls';
 import { useEditorRevision } from './revision';
 import { ownsEditorSelection, useEditorContextVisibility } from './editor-context';
@@ -13,6 +13,12 @@ const sameRange = (a: RangeIdentity | null, b: RangeIdentity | null) => !!a && !
 
 const sameRect = (a: DOMRect | null, b: DOMRect | null) => a?.x === b?.x && a?.y === b?.y &&
   a?.width === b?.width && a?.height === b?.height;
+
+const textRange = (selection: ModelSelection | null) => selection?.type === 'range' && !selection.collapsed &&
+  (selection.startNodeId !== selection.endNodeId || selection.startOffset !== selection.endOffset);
+const sameTextRange = (a: ModelSelection | null, b: ModelSelection | null) => !!a && !!b &&
+  a.type === 'range' && b.type === 'range' && a.startNodeId === b.startNodeId && a.endNodeId === b.endNodeId &&
+  a.startOffset === b.startOffset && a.endOffset === b.endOffset;
 
 /** Tracks an editor-owned range, retaining its snapshot while a toolbar field has focus. */
 export function useEditorTextSelection(editor: Editor, {
@@ -30,11 +36,13 @@ export function useEditorTextSelection(editor: Editor, {
     const doc = scope?.current?.ownerDocument ?? document;
     const win = doc.defaultView;
     const measure = () => {
-      if (!active || gesture.current.dragging || gesture.current.composing) return setContext(null);
+      const model = editor.selection;
+      if (!active || !textRange(model) || gesture.current.dragging || gesture.current.composing) return setContext(null);
       if (doc.activeElement?.closest('[data-editor-input-owner]')) return setContext(null);
       if (retainWithin?.current?.contains(doc.activeElement)) {
         const at = retained.current ? visibleRangeRect(retained.current) : null;
-        setContext(previous => previous && sameRect(previous.at, at) ? previous : previous ? { ...previous, at } : null);
+        setContext(previous => !previous || !sameTextRange(previous.selection, model) ? null
+          : sameRect(previous.at, at) ? previous : { ...previous, at });
         return;
       }
       if (doc.activeElement?.matches('input, textarea, select')) return setContext(null);
@@ -101,12 +109,13 @@ export function useEditorTextSelection(editor: Editor, {
     }
     return false;
   };
-  return context?.selection && (!attached(context.selection.startNodeId) || !attached(context.selection.endNodeId)) ? null : context;
+  return context?.selection && (!textRange(editor.selection) || !sameTextRange(context.selection, editor.selection) ||
+    !attached(context.selection.startNodeId) || !attached(context.selection.endNodeId)) ? null : context;
 }
 
 /** Shared selection lifecycle and command rendering; products supply their Control declarations. */
-export function ContextToolbar({ editor, controls, scope, portalRoot, active = true, label = '선택한 글 서식', mark,
-  children, onOpenChange, ...hooks
+export function ContextToolbar({ editor, controls, scope, portalRoot, active = true, compact = false, label = '선택한 글 서식', mark,
+  leading, children, onOpenChange, ...hooks
 }: {
   editor: Editor;
   controls: readonly Control[];
@@ -114,19 +123,28 @@ export function ContextToolbar({ editor, controls, scope, portalRoot, active = t
   /** Untransformed destination for viewport-positioned tools; ownership remains scoped. */
   portalRoot?: HTMLElement | null;
   active?: boolean;
+  /** Products choose a bounded primary command set; secondary tools remain in owned popups. */
+  compact?: boolean;
   label?: string;
   mark?: string;
+  /** Product-specific style entry before the shared primary commands. */
+  leading?: ReactNode | ((selection: ModelSelection | null) => ReactNode);
   children?: ReactNode | ((selection: ModelSelection | null, chrome: RefObject<HTMLElement | null>) => ReactNode);
   onOpenChange?: (open: boolean) => void;
   [hook: `data-${string}`]: string | number | boolean | undefined;
 }) {
   const chrome = useRef<HTMLDivElement>(null);
+  const root = editor.getRootId();
   const context = useEditorTextSelection(editor, { scope, retainWithin: chrome, active });
-  const { open, dismiss, reopen } = useEditorContextVisibility(editor, context?.range ?? null,
-    { scope, retainWithin: chrome, active, sameKey: sameRange });
+  // Offscreen/null anchors hide the surface, but must not erase its Escape target.
+  const target = useMemo(() => ({ selection: null as ModelSelection | null }), [editor, root]);
+  if (context?.selection) target.selection = context.selection;
+  const { open, dismiss, reopen } = useEditorContextVisibility(editor, target.selection,
+    { scope, retainWithin: chrome, active, sameKey: sameTextRange });
+  const dismissSelection = useRef(dismiss);
+  dismissSelection.current = dismiss;
   const reopenSelection = useRef(reopen);
   reopenSelection.current = reopen;
-  const root = editor.getRootId();
   useEffect(() => {
     const doc = scope?.current?.ownerDocument ?? document;
     const ownedContent = (target: EventTarget | null) => {
@@ -140,7 +158,18 @@ export function ContextToolbar({ editor, controls, scope, portalRoot, active = t
       if (event.button === 0 && ownedContent(event.target)) reopenSelection.current();
     };
     const keyboard = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !ownedContent(event.target)) return;
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+      const element = event.target;
+      if (event.key === 'Escape' && active && editor.isEditable && editor.getRootId() === root &&
+          element instanceof Element && !chrome.current?.contains(element) &&
+          !element.closest('[data-editor-input-owner]') && element.closest('[contenteditable="true"]') &&
+          (scope?.current ? scope.current.contains(element) : ownsEditorSelection(editor, doc.getSelection()))) {
+        event.preventDefault();
+        event.stopPropagation();
+        dismissSelection.current('escape');
+        return;
+      }
+      if (!ownedContent(element)) return;
       if ((event.shiftKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) ||
           ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a')) reopenSelection.current();
     };
@@ -153,16 +182,20 @@ export function ContextToolbar({ editor, controls, scope, portalRoot, active = t
   }, [editor, root, scope, active]);
   const visible = open && !!context?.at;
   useEffect(() => { onOpenChange?.(visible); }, [visible, onOpenChange]);
-  return <FloatingSurface open={visible} at={context?.at ?? null} aria-label={label}
+  const content = <>
+    {typeof leading === 'function' ? leading(context?.selection ?? null) : leading}
+    <Controls editor={editor} controls={controls} mark={mark} appearance="contextual"
+      onRun={control => {
+        if (context?.selection) editor.selectionManager.setSelection(context.selection);
+        void editor.executeCommand(control.command, control.payload);
+      }} />
+    {typeof children === 'function' ? children(context?.selection ?? null, chrome) : children}
+  </>;
+  return <FloatingSurface open={visible} compact={compact} role={compact ? 'group' : undefined} at={context?.at ?? null} aria-label={label}
+    className={compact ? 'office-compact-selection' : undefined}
     portalRoot={portalRoot ?? scope?.current} onDismiss={dismiss} ownedElements={scope ? [scope] : []}
     {...hooks}>
-    <div ref={chrome} className="flex min-w-0 flex-wrap items-center gap-0.5" data-editor-context-toolbar>
-      <Controls editor={editor} controls={controls} mark={mark} appearance="contextual"
-        onRun={control => {
-          if (context?.selection) editor.selectionManager.setSelection(context.selection);
-          void editor.executeCommand(control.command, control.payload);
-        }} />
-      {typeof children === 'function' ? children(context?.selection ?? null, chrome) : children}
-    </div>
+    {compact ? <Toolbar variant="compact" elementRef={chrome} label={`${label} 도구`} data-editor-context-toolbar>{content}</Toolbar>
+      : <div ref={chrome} className="flex min-w-0 flex-wrap items-center gap-0.5" data-editor-context-toolbar>{content}</div>}
   </FloatingSurface>;
 }

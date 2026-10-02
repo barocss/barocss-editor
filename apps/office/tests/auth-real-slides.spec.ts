@@ -116,18 +116,57 @@ async function records(page: Page): Promise<Pending[]> {
 async function typeInput(page: Page, text: string) {
   const paragraph = paragraphs(page).filter({ hasText: 'One engine' }).first();
   await expect(paragraph).toBeVisible();
-  const bounds = await paragraph.boundingBox();
-  expect(bounds).not.toBeNull();
-  await paragraph.dblclick({ position: { x: 8, y: Math.min(10, bounds!.height / 2) } });
+  const glyphPoint = () => paragraph.evaluate(node => {
+    const frame = node.closest('.sl-text-frame')!.getBoundingClientRect();
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    let text: Node | null;
+    while ((text = walker.nextNode())) {
+      for (let offset = 0; offset < (text.textContent?.length ?? 0); offset++) {
+        if (!/\S/.test(text.textContent![offset])) continue;
+        const range = document.createRange(); range.setStart(text, offset); range.setEnd(text, offset + 1);
+        const bounds = range.getBoundingClientRect(), x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
+        // Long text can paint outside its native frame. Enter at a visible glyph inside its actual hit box.
+        if (x > frame.left && x < frame.right && y > frame.top && y < frame.bottom) return { x, y };
+      }
+    }
+    throw new Error('Visible title glyph missing');
+  });
+  const point = await glyphPoint();
+  // The native Slides overlay receives the gesture and admits text editing.
+  // Point at the visible paragraph instead of demanding a hit on the element below it.
+  await page.mouse.dblclick(point.x, point.y);
   await expect.poll(() => paragraph.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
-  await paragraph.click({ position: { x: 8, y: Math.min(10, bounds!.height / 2) } });
-  await page.keyboard.press('Home');
+  const admission = await paragraph.evaluate(node => {
+    const selection = getSelection(), active = document.activeElement;
+    return { connected: node.isConnected, editable: node.closest('[contenteditable]')?.getAttribute('contenteditable'),
+      active: active ? { tag: active.tagName, class: active.className, containsParagraph: active.contains(node) } : null,
+      range: selection ? { type: selection.type, anchorConnected: selection.anchorNode?.isConnected,
+        focusConnected: selection.focusNode?.isConnected, anchorOffset: selection.anchorOffset, focusOffset: selection.focusOffset,
+        ownsAnchor: node.contains(selection.anchorNode), ownsFocus: node.contains(selection.focusNode) } : null };
+  });
+  await test.info().attach(`title-input-admission-${text.replace(/\W/g, '_')}.json`, {body:JSON.stringify(admission),contentType:'application/json'});
+  await expect.poll(() => paragraph.evaluate(node => node.contains(getSelection()?.focusNode ?? null))).toBe(true);
+  await page.keyboard.press('Meta+ArrowUp');
+  await expect.poll(() => paragraph.evaluate(node => {
+    const selection = getSelection();
+    if (!selection?.focusNode || !node.contains(selection.focusNode)) return false;
+    const prefix = document.createRange(); prefix.selectNodeContents(node); prefix.setEnd(selection.focusNode, selection.focusOffset);
+    return selection.isCollapsed && prefix.toString().length === 0;
+  })).toBe(true);
   await page.keyboard.insertText(text);
   await expect(paragraph).toContainText(text);
   await expect.poll(async () => (await records(page)).some(record => record.snapshotText.includes(text))).toBe(true);
   await expect(save(page)).toBeEnabled();
 }
+async function openServerLibrary(page: Page) {
+  const library = workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true });
+  if (await library.isVisible()) return;
+  const trigger = workspace(page).getByRole('button', { name: '서버 Slides 목록', exact: true });
+  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  await expect(workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true })).toBeVisible();
+}
 async function prepare(page: Page, title: string) {
+  await openServerLibrary(page);
   await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
   await workspace(page).getByRole('button', { name: `${title} · 새 서버 사본 준비`, exact: true }).click();
   await expect(save(page)).toBeEnabled();
@@ -203,6 +242,7 @@ test('real Slides native copy, fixed loss recovery, durable restart and sequenti
     // An unconfirmed create has no verified document URL. Re-enter the same
     // authenticated Slides workspace before selecting its retained pending copy.
     await login(page, 'alpha-editor', page.url());
+    await openServerLibrary(page);
     page.once('dialog', dialog => dialog.accept());
     await workspace(page).getByRole('button', { name: `저장된 Slides 초안 복구 · ${pending.savedAt}`, exact: true }).click();
     const createsBefore = requests.writes.length;
@@ -215,6 +255,7 @@ test('real Slides native copy, fixed loss recovery, durable restart and sequenti
     expect((await records(page)).find(record => record.attempt?.idempotencyKey === key)?.status).toBe('confirmed');
     // Navigating the presentation is personal state and must not create a shared write.
     const navigationWrites = requests.writes.length;
+    await page.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();
     await workspace(page).locator('.sl-filmstrip button[data-slide]').nth(1).click();
     await expect(workspace(page).locator('.sl-filmstrip button[data-slide]').nth(1)).toHaveAttribute('data-current', 'true');
     await workspace(page).locator('.sl-filmstrip button[data-slide]').first().click();
@@ -239,6 +280,7 @@ test('real Slides native copy, fixed loss recovery, durable restart and sequenti
       const recovery = (await records(page)).find(record => record.attempt?.idempotencyKey === updateKey)!;
       await page.reload();
       page.once('dialog', dialog => dialog.accept());
+      await openServerLibrary(page);
       await workspace(page).getByRole('button', { name: `저장된 Slides 초안 복구 · ${recovery.savedAt}`, exact: true }).click();
       const retryIndex = requests.writes.length;
       await save(page).click();
@@ -265,6 +307,7 @@ test('real Slides native copy, fixed loss recovery, durable restart and sequenti
     a = await launchPrivateProfile(profileA); expect(a.pid).not.toBe(oldPid);
     page = await a.context.newPage(); requests = track(page);
     await login(page, 'alpha-editor', documentUrl);
+    await openServerLibrary(page);
     page.once('dialog', dialog => dialog.accept());
     await workspace(page).getByRole('button', { name: `저장된 Slides 초안 복구 · ${latest.savedAt}`, exact: true }).click();
     await expect(workspace(page)).toContainText('latest-input-before-process-restart');
@@ -395,6 +438,7 @@ test('same physical profile preserves Slides source and A recovery across actual
     expect((await inspect(documentId)).document).toEqual(before.document);
     await logout(page);
     await login(page, 'alpha-editor', documentUrl);
+    await openServerLibrary(page);
     page.once('dialog', dialog => dialog.accept());
     await workspace(page).getByRole('button', { name: `저장된 Slides 초안 복구 · ${pendingA.savedAt}`, exact: true }).click();
     await expect(workspace(page)).toContainText('A-private-recovery-input');

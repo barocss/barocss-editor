@@ -289,7 +289,7 @@ export function NoteEditor({
           }
           setHovered(block?.getAttribute('data-bc-sid') ?? undefined);
         }}>
-        <NoteDocumentNavigation editor={editor} rootId={rootId} scope={body} request={navigationRequest} />
+        <NoteDocumentNavigation key={rootId} editor={editor} rootId={rootId} scope={body} request={navigationRequest} />
         <NoteBody
           editor={editor}
           rootId={rootId}

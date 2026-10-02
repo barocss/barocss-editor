@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import './style.css';
 import { NoteEditor } from '@barocss/office-note/view';
 import { readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
 import { noteTreeOf, openNoteTree, type NoteDocument, type NoteSession } from '@barocss/office-note';
-import { Button, EditorHeader, StatusIndicator, StatusNotice } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, StatusIndicator, StatusNotice } from '@barocss/office-ui';
 import { pageTemplate } from './workspace-library';
 import { ServerLocalNoteCopy } from './server-local-copy';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
@@ -20,6 +21,7 @@ export interface ServerNoteWorkspaceProps {
   role: 'owner' | 'admin' | 'editor' | 'viewer';
   onNavigate?: (documentId: string) => void;
   onLeave?: () => void;
+  headerNavigation?: ReactNode;
   onUnsafeChange?: (unsafe: boolean) => void;
 }
 
@@ -42,7 +44,7 @@ function saveProblem(error: unknown): Omit<Problem, 'owner'> {
 
 /** Office supplies an authorized fetch only after it has verified the protected workspace context. */
 export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, authorizedFetch,
-  issuer, subject, role, onNavigate, onLeave, onUnsafeChange }: ServerNoteWorkspaceProps) {
+  issuer, subject, role, onNavigate, onLeave, onUnsafeChange, headerNavigation }: ServerNoteWorkspaceProps) {
   const client = useMemo(() => createServerNoteClient({ tenantId, workspaceId, authorizedFetch }),
     [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const pendingStore = useMemo(() => createServerPendingStore({ issuer, subject, tenantId, workspaceId } satisfies PendingNoteScope),
@@ -61,7 +63,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const [protection, setProtection] = useState<ProtectionState>();
   const [problem, setProblem] = useState<Problem>();
   const [conflictCopy, setConflictCopy] = useState<{ generation: string; snapshotText: string }>();
-  const [navigationRequest, setNavigationRequest] = useState<{ mode: 'find'; id: number; generation: string }>();
+  const [navigationRequest, setNavigationRequest] = useState<{ mode: 'find' | 'outline'; id: number; generation: string }>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [session, setSession] = useState<{ owner: object; generation: string; documentId: string | null; editable: boolean; value: NoteSession }>();
@@ -514,18 +516,29 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const availableRecovery = currentProblem?.kind === 'denied' ? [] : recoveryRecords.filter(record => record.status !== 'confirmed' &&
     record.draftId !== currentDraft?.record.draftId && (record.base.operation === 'create' ||
       currentHeads.some(head => record.base.operation === 'update' && head.documentId === record.base.documentId && head.mode === 'snapshot')));
+  const openNavigation = (mode: 'find' | 'outline') => {
+    const current = access.current;
+    if (current.client !== client || activeClient.current !== client || !current.session || !current.open || current.denied) return;
+    setNavigationRequest(previous => ({ mode, id: (previous?.id ?? 0) + 1, generation: current.open!.generation }));
+  };
+  const navigationDisabled = !currentSession || !currentOpen || currentProblem?.kind === 'denied';
   return <div ref={workspace} className="nw-shell" data-server-note-workspace onKeyDown={event => {
     if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f' || !currentSession || !currentOpen || currentProblem?.kind === 'denied') return;
     if (!(event.target instanceof Element) || event.target.closest('[data-note-editor], [data-document-navigation], [role="dialog"]')) return;
     event.preventDefault();
     setNavigationRequest(previous => ({ mode: 'find', id: (previous?.id ?? 0) + 1, generation: currentOpen.generation }));
   }}>
-    <EditorHeader product="Note" className="nw-header" title={currentOpen?.note.attributes.title || '서버 노트'} menus={null}
+    <EditorHeader compact product="Note" className="nw-header" title={currentOpen?.note.attributes.title || '서버 노트'} fallbackNavigation={headerNavigation}
+      menus={<DocumentMenu label="서버 노트 메뉴" menus={[
+        { id: 'edit', label: '편집', blocks: [{ id: 'edit', items: [{ id: 'find', label: '찾기', disabled: navigationDisabled }] }] },
+        { id: 'view', label: '보기', blocks: [{ id: 'view', items: [{ id: 'outline', label: '목차', disabled: navigationDisabled }] }] }
+      ]} onPick={id => { if (id === 'find' || id === 'outline') openNavigation(id); }} />}
       actions={<><StatusIndicator data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
         {canEdit && <Button disabled={!currentOpen || busy || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict' || (!isDirty && !currentPending)}
           onClick={() => void save()}>{currentPending ? '저장 확인·재시도' : '저장'}</Button>}
         {onLeave && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={onLeave}>나가기</Button>}</>} />
-    <div className="nw-workspace">
+    <AdaptiveWorkspace className="nw-workspace" panelSides={['navigation']} locationKey={currentOpen?.documentId ?? undefined}>
+      <WorkspaceSidePanel side="navigation" width={240}>
       <aside className="nw-sidebar" aria-label="서버 노트 목록">
         {canEdit && <Button disabled={loading || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'} onClick={create}>새 노트</Button>}
         {canEdit && <ServerLocalNoteCopy key={`${issuer}\0${subject}\0${tenantId}\0${workspaceId}`}
@@ -549,13 +562,13 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
           })}
         </section>}
         <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={() => void load()}>목록 새로고침</Button>
-        <nav aria-label="서버 문서 목록">{currentHeads.map(row =>
-          <button type="button" key={row.documentId} aria-current={currentOpen?.documentId === row.documentId ? 'page' : undefined}
+        <nav aria-label="서버 문서 목록" className="nw-list">{currentHeads.map(row =>
+          <NavigationItem key={row.documentId} selected={currentOpen?.documentId === row.documentId} aria-current={currentOpen?.documentId === row.documentId ? 'page' : undefined}
             disabled={busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'}
-            onClick={() => void openDocument(row.documentId)}>{row.title}</button>)}</nav>
+            onClick={() => void openDocument(row.documentId)}>{row.title}</NavigationItem>)}</nav>
         {!loading && !currentHeads.length && <p>문서가 없습니다.</p>}
-      </aside>
-      <main className="nw-main" aria-label="서버 노트 편집">
+      </aside></WorkspaceSidePanel>
+      <main className="nw-main" data-workspace-main aria-label="서버 노트 편집">
         {recoveryError?.owner === pendingStore && <StatusNotice tone="danger" title="초안 목록을 확인하지 못했습니다">{recoveryError.message}</StatusNotice>}
         {currentProtection?.error && <StatusNotice tone="danger" title="현재 입력을 보관하지 못했습니다">{currentProtection.error}</StatusNotice>}
         {currentDraft?.record.source && <StatusNotice tone="warning" title={currentDraft.record.status === 'confirmed' ? '서버 사본 확인됨' : '로컬 노트 사본 확인 필요'}>
@@ -578,6 +591,6 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         </section>}
         {!currentOpen && !loading && !currentProblem && <p>노트를 선택하거나 새로 만드세요.</p>}
       </main>
-    </div>
+    </AdaptiveWorkspace>
   </div>;
 }

@@ -5,6 +5,7 @@ import {
   listWorkspaces, listSnapshotDocuments, openVerifiedSnapshot, snapshotIntentFromSearch, snapshotIntentSearch, authorizedFetch,
   type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext, type VerifiedSnapshotContext, type SnapshotProduct,
 } from './auth-client';
+import { Icon, IconButton, ProductLabel } from '@barocss/office-ui';
 import './auth-style.css';
 
 type View =
@@ -43,7 +44,7 @@ function asAuthError(error: unknown) {
 }
 
 export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (context: VerifiedSnapshotContext, principal: Pick<Identity, 'issuer' | 'subject'>,
-  onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode; noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
+  onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void, headerNavigation: ReactNode) => ReactNode; noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
   onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode } = {}) {
   const [view, setView] = useState<View>({ phase: 'checking' });
   const selected = useRef<TenantAccess | null>(null);
@@ -378,22 +379,28 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
 
-  return <main className="office-auth">
-    <header className="office-auth-brand"><span>wonffice</span><small>서비스 로그인 후보 · 서버 권한 확인</small></header>
+  const compactEditor = view.phase === 'note' && ['note', 'word', 'slides'].includes(view.context.product) && !!editorRenderer;
+  const headerNavigation = view.phase === 'note' ? <div className="office-editor-product">
+    <IconButton label="자료함으로 돌아가기" onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}><Icon name="back" /></IconButton>
+    <IconButton label="로그아웃" onClick={() => void logout()}><Icon name="logout" /></IconButton>
+    <ProductLabel name={view.context.product === 'slides' ? 'Slides' : view.context.product === 'word' ? 'Word' : 'Note'} />
+  </div> : null;
+  return <main className="office-auth" data-editor-open={compactEditor || undefined}>
+    {!compactEditor && <header className="office-auth-brand"><span>wonffice</span><small>서비스 로그인 후보 · 서버 권한 확인</small></header>}
     {mountedNote && leaveBlocked && <p role="alert">현재 입력을 복구 가능한 저장소에 보관하지 못했습니다. 저장 상태를 확인한 뒤 다시 시도하세요. 이 화면은 그대로 유지합니다.</p>}
-    {view.phase === 'checking' && <section><h1 tabIndex={-1} ref={heading}>접근 권한 확인 중</h1><p>현재 계정과 회사 권한을 서버에서 확인하고 있습니다.</p></section>}
-    {view.phase === 'entry' && <section><h1 tabIndex={-1} ref={heading}>Wonffice에 들어가기</h1><p>로그인 뒤 현재 계정의 권한을 확인합니다.</p>{view.message && <p role="status">{view.message}</p>}
+    {view.phase === 'checking' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>접근 권한 확인 중</h1><p>현재 계정과 회사 권한을 서버에서 확인하고 있습니다.</p></section>}
+    {view.phase === 'entry' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>Wonffice에 들어가기</h1><p>로그인 뒤 현재 계정의 권한을 확인합니다.</p>{view.message && <p role="status">{view.message}</p>}
       <div className="office-auth-actions"><button onClick={() => void login('user')}>일반 사용자로 들어가기</button><button onClick={() => void login('admin')}>회사 관리자로 들어가기</button><button onClick={() => void login('operator')}>Wonffice 전체 서비스 운영자로 들어가기</button></div>
       <p className="office-auth-note">진입 선택은 권한을 부여하지 않습니다. 회사 관리자와 서비스 운영자 권한은 각각 서버에서 확인합니다.</p>
     </section>}
-    {view.phase === 'empty' && <section><h1 tabIndex={-1} ref={heading}>접근할 수 있는 회사가 없습니다</h1><p>로그인은 완료됐지만 현재 계정에 활성 회사가 없습니다.</p>
+    {view.phase === 'empty' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>접근할 수 있는 회사가 없습니다</h1><p>로그인은 완료됐지만 현재 계정에 활성 회사가 없습니다.</p>
       <div className="office-auth-actions">{mountedNote && <button onClick={() => void checkAccess('user', mountedNote.tenant)}>권한 다시 확인</button>}<button onClick={() => void switchAccount()}>다른 계정으로 로그인</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
-    {view.phase === 'choose' && <section><h1 tabIndex={-1} ref={heading}>회사를 선택하세요</h1><p>{view.intent === 'admin' ? '관리자로 들어갈 회사의 현재 권한을 확인합니다.' : '사용할 회사의 현재 권한을 확인합니다.'}</p>
+    {view.phase === 'choose' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>회사를 선택하세요</h1><p>{view.intent === 'admin' ? '관리자로 들어갈 회사의 현재 권한을 확인합니다.' : '사용할 회사의 현재 권한을 확인합니다.'}</p>
       <ul className="office-auth-tenants">{view.identity.tenants.map(tenant => <li key={tenant.tenantId}><button onClick={() => void open(tenant, view.intent)}><strong>{tenant.name}</strong><span>{roleName(tenant.role)}</span></button></li>)}</ul>
       <div className="office-auth-actions"><button onClick={() => void switchAccount()}>다른 계정으로 로그인</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
-    {view.phase === 'opened' && <section><h1 tabIndex={-1} ref={heading}>{view.intent === 'admin' ? `${view.tenant.name} · 회사 관리자` : `${view.tenant.name} · 사용자`}</h1>
+    {view.phase === 'opened' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>{view.intent === 'admin' ? `${view.tenant.name} · 회사 관리자` : `${view.tenant.name} · 사용자`}</h1>
       <p>서버가 확인한 현재 역할: {roleName(view.role)}</p>
       {view.intent === 'admin' ? <p className="office-auth-note">관리 업무 화면은 아직 연결되지 않았습니다. 서비스 운영자 권한은 회사 관리자 권한과 별도로 정합니다.</p> :
         <>
@@ -406,7 +413,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         {view.intent === 'admin' && <button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button>}
         <button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
-    {view.phase === 'library' && <section><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · {productName(view.product)} 자료</h1>
+    {view.phase === 'library' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · {productName(view.product)} 자료</h1>
       <div className="office-auth-actions">{(['note', 'word', 'slides'] as const).map(product => <button key={product} aria-pressed={view.product === product} onClick={() => void enterWorkspace(view.tenant, view.role, view.workspace, product)}>{`${productName(product)} 자료`}</button>)}</div>
       {view.documents.length === 0 && <p>이 자료함에는 저장된 {productName(view.product)} 문서가 없습니다.</p>}
       <ul className="office-auth-tenants">{view.documents.map(item => <li key={item.documentId}><button onClick={() => void enterNote(view, item.documentId)}>{item.title}</button></li>)}</ul>
@@ -415,24 +422,24 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       <div className="office-auth-actions"><button onClick={() => void checkAccess('user', view.tenant)}>자료함 목록</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
     {mountedNote && <section className="office-auth-note-host" hidden={view.phase !== 'note'} aria-hidden={view.phase !== 'note'} inert={view.phase !== 'note'}>
-      {view.phase === 'note' && <div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>}
-      {(editorRenderer ?? (mountedNote.context.product === 'note' ? noteRenderer : undefined)) ? (editorRenderer ?? noteRenderer)!(mountedNote.context, mountedNote.principal, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
+      {view.phase === 'note' && !compactEditor && <div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>}
+      <div className="office-auth-editor">{(editorRenderer ?? (mountedNote.context.product === 'note' ? noteRenderer : undefined)) ? (editorRenderer ?? noteRenderer)!(mountedNote.context, mountedNote.principal, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
         rememberedDocumentId.current = documentId;
         noteIntent.current = { tenantId: mountedNote.context.tenantId, workspaceId: mountedNote.context.workspaceId, documentId, product: mountedNote.context.product };
-      }) : <p role="status">{productName(mountedNote.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}
+      }, headerNavigation) : <p role="status">{productName(mountedNote.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}</div>
     </section>}
-    {view.phase === 'operator-opened' && <section><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
+    {view.phase === 'operator-opened' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
       <p>서버에서 현재 서비스 운영 권한을 확인했습니다.</p>
       <p className="office-auth-note">운영 업무 화면은 아직 연결되지 않았습니다. 이 권한으로 회사 문서를 열 수 없습니다.</p>
       <div className="office-auth-actions"><button onClick={() => void checkAccess()}>권한 다시 확인</button><button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
-    {view.phase === 'operator-denied' && <section><h1 tabIndex={-1} ref={heading}>서비스 운영 권한이 없습니다</h1><p role="alert">현재 계정에는 Wonffice 전체 서비스 운영 권한이 없습니다. 이 선택만으로 운영 권한이 생기지 않습니다.</p>
+    {view.phase === 'operator-denied' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>서비스 운영 권한이 없습니다</h1><p role="alert">현재 계정에는 Wonffice 전체 서비스 운영 권한이 없습니다. 이 선택만으로 운영 권한이 생기지 않습니다.</p>
       <div className="office-auth-actions"><button onClick={() => void checkAccess('user', null)}>일반 사용자로 들어가기</button><button onClick={() => void checkAccess('admin', null)}>회사 관리자로 들어가기</button><button onClick={() => void switchAccount()}>계정 전환</button></div>
     </section>}
-    {view.phase === 'denied' && <section><h1 tabIndex={-1} ref={heading}>관리자 권한이 없습니다</h1><p role="alert">{view.tenant.name}의 현재 역할은 {roleName(view.role)}입니다. 이 선택만으로 관리자 권한이 생기지 않습니다.</p>
+    {view.phase === 'denied' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>관리자 권한이 없습니다</h1><p role="alert">{view.tenant.name}의 현재 역할은 {roleName(view.role)}입니다. 이 선택만으로 관리자 권한이 생기지 않습니다.</p>
       <div className="office-auth-actions"><button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button><button onClick={() => { selected.current = null; void checkAccess(); }}>다른 회사 선택</button><button onClick={() => void switchAccount()}>계정 전환</button></div>
     </section>}
-    {view.phase === 'error' && <section><h1 tabIndex={-1} ref={heading}>{view.error.kind === 'unauthorized' || view.error.kind === 'cancelled' || view.error.kind === 'login' ? '로그인이 필요합니다' : view.error.kind === 'forbidden' ? '접근 권한이 없습니다' : view.error.kind === 'collaboration_unavailable' ? '공동 편집을 열 수 없습니다' : '접근 권한을 확인하지 못했습니다'}</h1><p role="alert">{view.error.message}</p>
+    {view.phase === 'error' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>{view.error.kind === 'unauthorized' || view.error.kind === 'cancelled' || view.error.kind === 'login' ? '로그인이 필요합니다' : view.error.kind === 'forbidden' ? '접근 권한이 없습니다' : view.error.kind === 'collaboration_unavailable' ? '공동 편집을 열 수 없습니다' : '접근 권한을 확인하지 못했습니다'}</h1><p role="alert">{view.error.message}</p>
       <div className="office-auth-actions">{mountedNote && <button onClick={() => void checkAccess('user', mountedNote.tenant)}>초안 권한 다시 확인</button>}{(view.error.kind === 'unavailable' || view.error.kind === 'collaboration_unavailable') && currentIntent() && <button onClick={() => void checkAccess()}>다시 확인</button>}
         {view.error.kind === 'forbidden' && currentIntent() && <button onClick={() => { selected.current = null; void checkAccess(); }}>다른 회사 선택</button>}
         <button onClick={() => void login(chosenIntent.current ?? currentIntent() ?? 'user')}>다시 로그인</button><button onClick={() => {

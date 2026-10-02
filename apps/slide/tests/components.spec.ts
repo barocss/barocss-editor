@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide, visibleBoxes } from './helpers';
+import { openDeck, currentSlide, visibleBoxes, pickMenu } from './helpers';
 
 /**
  * A component's definition, opened and closed.
@@ -460,6 +460,10 @@ test.describe('working with a component', () => {
    */
   test('fits a definition to itself, and rules it by its own size', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
+    await expect(page.locator('[data-ruler="x"]')).toBeVisible();
+    await page.getByRole('button', { name: '레이어 및 컴포넌트', exact: true }).click();
+    await expect(page.locator('#slides-objects')).toBeVisible();
     await openPanel(page);
     await page.locator('.sl-components [data-component-id="metric-card"]').click();
     await page.waitForTimeout(600);

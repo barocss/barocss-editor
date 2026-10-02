@@ -1,11 +1,11 @@
-import { EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger } from '@barocss/office-ui';
+import { EditorHeader, DocumentMenu, ProductMenu, CommandSearch, CommandSearchTrigger } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import type { ReactNode } from 'react';
-import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, MenuBar, onApple, useRevision } from '@barocss/office-ui';
+import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, onApple, useRevision } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
   captureCaptionSession, type CaptionSession,
@@ -79,6 +79,8 @@ function ReadOnlyControls({ enabled, children }: { enabled?: boolean; children: 
 
 export interface WordServerHost {
   headerActions?: ReactNode;
+  headerNavigation?: ReactNode;
+  navigation?: ReactNode;
   readOnly?: boolean;
   onRuntime: (runtime: WordRuntime) => void;
   onFileAction: (action: 'new' | 'open' | 'save') => void;
@@ -92,8 +94,10 @@ export function App({ mount, server }: {
   const library = useRef<DocumentLibraryHandle>(null);
   const [compact, setCompact] = useState(false);
   const [ribbonExpanded, setRibbonExpanded] = useState(false);
+  const [rulerShown, setRulerShown] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
   const host = useRef<HTMLDivElement>(null);
+  const detailAnchor = useRef<HTMLSpanElement>(null);
   const mounted = useRef(false);
   const serverRef = useRef(server);
   serverRef.current = server;
@@ -421,21 +425,23 @@ export function App({ mount, server }: {
       {commandError && <div role="alert" className="w-command-error">{commandError}<Button tone="quiet" onClick={() => setCommandError('')}>닫기</Button></div>}
       <AppChrome className="w-chrome">
         {instance && <>
-          <EditorHeader product="Word" className="w-document-header"
+          <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />}
-            fallbackNavigation={server || proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
-            actions={<><Button tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded} aria-label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'} onClick={() => setRibbonExpanded(value => !value)}>{ribbonExpanded ? '도구 접기' : '전체 도구'}</Button><CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
+            menus={<DocumentMenu label="문서 메뉴" menus={menus} onPick={onMenu} />}
+            fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
+            actions={<>{!readOnly && <span ref={detailAnchor}><Button tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded} aria-label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'} onClick={() => setRibbonExpanded(value => !value)}>{ribbonExpanded ? '도구 접기' : '전체 도구'}</Button></span>}<CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} />}</>}
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
           {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
         {instance ? (
           <ReadOnlyControls enabled={readOnly}><Ribbon
-            documentPresentation expanded={ribbonExpanded} onExpandedChange={setRibbonExpanded} scope={host}
+            documentPresentation detailAnchor={detailAnchor} expanded={ribbonExpanded} onExpandedChange={setRibbonExpanded} scope={host}
             editor={instance.editor}
             view={instance.view}
             fonts={instance.fonts}
             panes={{
+              ruler: rulerShown,
+              onRuler: () => setRulerShown(value => !value),
               outline: outlineShown,
               comments: commentsShown,
               onOutline: () => togglePanel('navigation'),
@@ -454,12 +460,12 @@ export function App({ mount, server }: {
         {editingFurniture && <div className="w-furniture-editing" role="status"><span>머리글·바닥글 편집 중</span><Button onClick={() => instance?.editFurniture()}>본문으로 돌아가기</Button></div>}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
-        {instance && ribbonExpanded ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
+        {instance && rulerShown ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
-        {instance ? <WorkspaceSidePanel side="navigation" width={compact || outlining ? 240 : 40}><OutlinePane
+        {instance ? <WorkspaceSidePanel side="navigation" width={server?.navigation || compact || outlining ? 240 : 40}>{server?.navigation}<OutlinePane
             editor={instance.editor}
             open={compact || outlining}
             onToggle={() => togglePanel('navigation')}

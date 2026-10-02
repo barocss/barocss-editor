@@ -636,6 +636,7 @@ export function NumberField({
       <input
         ref={box}
         type="number"
+        data-office-field-draft=""
         min={min}
         max={max}
         step={step}
@@ -840,6 +841,7 @@ export function TextField({
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
       data-office-text-field=""
+      data-office-field-draft={!live ? '' : undefined}
       disabled={disabled}
       readOnly={readOnly}
       maxLength={maxLength}
@@ -985,9 +987,9 @@ export function FieldGroup({
   );
 }
 
-/** Capture-phase dismiss handlers leave draft cancellation to the field. */
-export function keepsDraftTextAreaEscape(event: KeyboardEvent): boolean {
-  return event.key === 'Escape' && event.target instanceof Element && event.target.matches('textarea[data-office-textarea-draft]');
+/** Committed fields cancel their draft before their containing layer can dismiss. */
+export function keepsDraftFieldEscape(event: KeyboardEvent): boolean {
+  return event.key === 'Escape' && event.target instanceof Element && event.target.matches('input[data-office-field-draft], textarea[data-office-textarea-draft]');
 }
 
 /** Live values use onChange. Draft values commit on blur or Ctrl/Command+Enter. */

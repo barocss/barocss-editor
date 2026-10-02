@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDeck, deckFileName, deckTitle } from '@barocss/office-slides';
 import { slideDocuments } from '../../../packages/office-slides/src/deck-autosave';
 import { Button } from '@barocss/office-ui';
@@ -15,6 +15,7 @@ export interface ServerSlidesWorkspaceProps {
   role: 'owner' | 'admin' | 'editor' | 'viewer';
   onNavigate?: (documentId: string) => void;
   onUnsafeChange?: (unsafe: boolean) => void;
+  headerNavigation?: ReactNode;
 }
 type Open = { owner: object; generation: string; documentRef: string; documentId: string | null;
   head: ServerSlidesHead | null; initial: SlidesDocument; text: string; confirmed: string | null };
@@ -34,7 +35,7 @@ function documentOf(text: string) {
 
 /** Full native Slides runtime, with authenticated snapshot authority and scoped recovery. */
 export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, initialDocumentId,
-  authorizedFetch, role, onNavigate, onUnsafeChange }: ServerSlidesWorkspaceProps) {
+  authorizedFetch, role, onNavigate, onUnsafeChange, headerNavigation }: ServerSlidesWorkspaceProps) {
   const client = useMemo(() => createServerSlidesClient({ tenantId, workspaceId, authorizedFetch }), [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const store = useMemo(() => createServerPendingStore({ tenantId, workspaceId, issuer, subject }), [tenantId, workspaceId, issuer, subject]);
   const active = useRef(client); active.current = client;
@@ -264,8 +265,7 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
   };
   const status = !protectedInput ? '복구 저장 실패' : nestedInput ? '수식 입력 완료 필요' : busy ? '저장 중…' : fixed.current ? '저장 확인 필요' : dirty ? '저장되지 않음' : current ? '서버 저장 확인됨' : '문서 선택';
   const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}<Button disabled={!current || nestedInput} onClick={exportNative}>Slides 파일 내보내기</Button></>;
-  return <div ref={shell} data-server-slides-workspace>
-    <aside aria-label="서버 Slides 목록">
+  const navigation = <aside aria-label="서버 Slides 목록">
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverSlidesFileText(createStarterDeck(), ''))}>새 Slides</Button>}
       {heads.map(head => <Button key={head.documentId} disabled={busy || !protectedInput || nestedInput} onClick={() => void openDocument(head.documentId)}>{head.title}</Button>)}
       {canEdit && <Button disabled={busy} onClick={() => void slideDocuments.rows().then(rows => { if (active.current === client) setSources(rows); }).catch(() => setSourceError('로컬 문서 목록을 읽지 못했습니다.'))}>이 기기의 로컬 문서 목록 확인</Button>}
@@ -275,12 +275,14 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
       {sourceError && <p role="alert">{sourceError}</p>}
       {canEdit && records.filter(record => record.status !== 'confirmed').map(record => <Button key={record.draftId} disabled={busy || !protectedInput || nestedInput} onClick={() => void recover(record)}>저장된 Slides 초안 복구 · {record.savedAt}</Button>)}
       {records.filter(record => record.source && record.status === 'confirmed').map(record => <p key={record.draftId} data-confirmed-local-copy>로컬 Slides {record.source!.name}의 서버 사본을 확인했습니다. 원본과 확인된 요청은 이 기기에 남아 있습니다. 서버 문서: {record.confirmedCopy?.documentId}.</p>)}
-    </aside>
+    </aside>;
+  return <div ref={shell} data-server-slides-workspace>
+    {!current && navigation}
     {problem && <p role="alert">{problem.message}</p>}
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Slides 자료를 확인하는 중입니다.</p>}
-    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} localPersistence={false} server={{ headerActions: actions,
+    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} localPersistence={false} server={{ headerActions: actions, headerNavigation, navigation,
       readOnly: !canEdit || busy || !!(draft.current?.source && draft.current.status !== 'confirmed'), onRuntime,
       onFileAction: action => { if (action === 'save') void save(); else if (action === 'new') void prepare(serverSlidesFileText(createStarterDeck(), '')); else shell.current?.querySelector('aside')?.scrollIntoView(); } }} />}
   </div>;

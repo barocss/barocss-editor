@@ -4,7 +4,7 @@ import { dismissOwnedFloatingLayer } from './floating';
 import * as RadixDialog from '@radix-ui/react-dialog';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { Button, keepsDraftTextAreaEscape } from './controls';
+import { Button, keepsDraftFieldEscape } from './controls';
 
 function useModalFocus(onClosed?: () => void) {
   const returnTo = useRef<HTMLElement | null>(null);
@@ -16,7 +16,7 @@ function useModalFocus(onClosed?: () => void) {
       if (onClosed) requestAnimationFrame(onClosed);
     },
     onEscapeKeyDown: (event: KeyboardEvent) => {
-      if (keepsDraftTextAreaEscape(event)) { event.preventDefault(); return; }
+      if (keepsDraftFieldEscape(event)) { event.preventDefault(); return; }
       if (event.isComposing || event.keyCode === 229) { event.preventDefault(); return; }
       dismissOwnedControlLayer(event) || dismissOwnedFloatingLayer(event);
     },

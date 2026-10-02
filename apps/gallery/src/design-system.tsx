@@ -1,3 +1,4 @@
+import { CompactSpecimens } from './compact-specimens';
 import { TextAreaSpecimens } from './textarea-specimens';
 import { PanelActionSpecimens } from './panel-action-specimens';
 import { TaskSpecimens } from './task-specimens';
@@ -26,6 +27,7 @@ import {
 } from '@barocss/office-ui';
 
 const sections = [
+  ['compact-editing', '공통 소형 편집 UI'],
   ['foundations', '01 기본 값'],
   ['states', '02 컴포넌트 상태'],
   ['buttons', '버튼 상세'],
@@ -111,6 +113,7 @@ export function DesignSystem() {
     </header>
     <div className="ds-layout"><aside className="ds-navigation"><p>DESIGN SYSTEM</p><nav aria-label="디자인 기준">{sections.map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeSection === id ? 'location' : undefined}>{label}</a>)}</nav><div className="ds-navigation-note">실제 office-ui 컴포넌트<br/>로컬 샘플 · 문서 저장 없음</div></aside>
     <main className="ds-main"><div className="ds-intro"><span>WONFFICE / OFFICE-UI</span><h1>인터페이스 기준</h1><p>같은 역할의 도구는 같은 모양과 동작을 갖습니다.<br/>실제 컴포넌트를 조작하며 상태와 작업 흐름을 확인합니다.</p></div>
+      <Section id="compact-editing" number="02.21" title="공통 소형 편집 UI" description="공유 UI의 실제 조작 예시입니다. 문서 편집·인증·서버 저장 결과를 증명하지 않습니다."><CompactSpecimens /></Section>
       <Section id="foundations" number="01" title="기본 값" description="표시된 값은 현재 테마의 CSS 토큰에서 직접 읽습니다.">
         <div className="ds-swatches">{tokens.map(([token, label]) => <div key={token}><div className="ds-swatch" style={{ background: `var(${token})` }} /><strong>{label}</strong><code>{token}</code><span>{values[token]}</span></div>)}</div>
         <div className="ds-measures">{sizes.map(([token, label]) => <div key={token}><span>{label}</span><strong>{values[token]}</strong><code>{token}</code></div>)}</div>

@@ -89,6 +89,11 @@ unselectable.
 
 ## What the chrome is, and what that costs
 
+The compact editor starts with the slide rulers hidden. The document menu's
+View → Show rulers (`눈금자 표시`) entry shows or hides both axes. This is local
+view state: it does not write the deck or its history. Showing rulers retains
+their existing units, pointer readout and guide placement behavior.
+
 A **ribbon, a filmstrip, a properties panel, a layer panel, a timeline pane, a
 notes pane, a components panel, an audit panel, a find bar and a deck map** —
 **30 components and 4 hooks** behind `@barocss/office-slides/ui`, which is why

@@ -45,6 +45,8 @@ export interface MenuBarMenu {
   id: string;
   /** What the trigger says — 파일, 편집, 보기. */
   label: string;
+  /** Accessible trigger/popup name when the visible product name is shorter. */
+  ariaLabel?: string;
   blocks: MenuBlock[];
 }
 
@@ -53,7 +55,8 @@ export function MenuBar({
   onPick,
   label,
   className,
-  portalContainer
+  portalContainer,
+  compact = false
 }: {
   menus: MenuBarMenu[];
   /** The entry a reader chose. Which command that is, is the product's business. */
@@ -63,6 +66,7 @@ export function MenuBar({
   className?: string;
   /** Resolve the current owned host when the menu opens; default remains body. */
   portalContainer?: RefObject<HTMLElement | null>;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState<string | undefined>(undefined);
   const host = useRef<HTMLDivElement>(null);
@@ -113,6 +117,7 @@ export function MenuBar({
           key={one.id}
           type="button"
           role="menuitem"
+          aria-label={one.ariaLabel}
           aria-haspopup="menu"
           aria-expanded={open === one.id}
           data-menu={one.id}
@@ -144,8 +149,9 @@ export function MenuBar({
         <Menu
           at={at(shown.id)}
           blocks={shown.blocks}
-          label={shown.label}
+          label={shown.ariaLabel ?? shown.label}
           portalContainer={portalContainer}
+          compact={compact}
           onPick={(id) => {
             setOpen(undefined);
             onPick(id);

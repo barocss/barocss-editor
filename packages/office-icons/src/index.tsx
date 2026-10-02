@@ -26,7 +26,7 @@
 import type { ReactElement } from 'react';
 import {
   Star,
-  Search, FileCog, ArrowDownUp, ArrowUpRight, FilePlus2, Printer,
+  Search, FileCog, ArrowDownUp, ArrowUpRight, FilePlus2, Printer, LogOut, Download, Play, ChevronLeft,
   AlignCenter,
   Network,
   Baseline,
@@ -466,6 +466,10 @@ const TYPES: Record<string, Drawn> = {
 };
 
 const ICONS: Record<string, LucideIcon> = {
+  export: Download,
+  present: Play,
+  'previous-page': ChevronLeft,
+  'next-page': ChevronRight,
   undo: Undo2,
   redo: Redo2,
   bold: Bold,
@@ -589,6 +593,7 @@ const ICONS: Record<string, LucideIcon> = {
    * `stack.tsx` records about `␡`, in the same chrome, a year apart.
    */
   back: ArrowLeft,
+  logout: LogOut,
   /**
    * The three widths a site builder draws at once.
    *

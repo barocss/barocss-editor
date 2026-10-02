@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import { cn } from './cn';
 import { Icon } from '@barocss/office-icons';
-import { Button, keepsDraftTextAreaEscape } from './controls';
+import { Button, keepsDraftFieldEscape } from './controls';
 import { useMovablePanel } from './movable-panel';
 
 /**
@@ -87,7 +87,7 @@ export function useDismiss<T extends HTMLElement = HTMLDivElement>(
       dismiss.current();
     };
     const onKeyDown = (event: KeyboardEvent): boolean => {
-      if (keepsDraftTextAreaEscape(event)) return false;
+      if (keepsDraftFieldEscape(event)) return false;
       if (layers.at(-1) !== layer || dismissedEvents.has(event) || (event.defaultPrevented && !owns(event.target)) || event.isComposing || event.keyCode === 229 || event.key !== 'Escape') return false;
       // Editor shortcuts can cancel Escape before this listener. The focused surface still owns it.
       dismissedEvents.add(event);

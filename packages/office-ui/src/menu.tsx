@@ -68,6 +68,8 @@ export interface MenuEntry {
 
 export interface MenuBlock {
   id: string;
+  /** Optional visible name for a group in a single document menu. */
+  label?: string;
   items: MenuEntry[];
 }
 
@@ -77,7 +79,8 @@ export function Menu({
   onPick,
   onClose,
   label,
-  portalContainer
+  portalContainer,
+  compact = false
 }: {
   /** Where the pointer was, in client coordinates. */
   at: { x: number; y: number };
@@ -87,6 +90,7 @@ export function Menu({
   label: string;
   /** Optional owned chrome host; omitted keeps the existing body portal. */
   portalContainer?: RefObject<HTMLElement | null>;
+  compact?: boolean;
 }) {
   const host = useDismiss<HTMLDivElement>(true, onClose);
   const [place, setPlace] = useState<{ left: number; top: number }>({ left: at.x, top: at.y });
@@ -142,6 +146,7 @@ export function Menu({
       role="menu"
       aria-label={label}
       data-context-menu
+      data-compact={compact || undefined}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return;
         if (event.key === 'Tab') { event.preventDefault(); onClose(); return; }
@@ -166,6 +171,7 @@ export function Menu({
       {blocks.map((block, index) => (
         <div key={block.id} data-menu-block={block.id}>
           {index > 0 && <hr className="my-1 border-[color:var(--ou-line)]" />}
+          {block.label && <div className="office-menu-heading">{block.label}</div>}
           {block.items.map((entry) => {
             const hot = flat[hotIndex]?.id === entry.id;
             return (

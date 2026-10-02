@@ -48,6 +48,8 @@ test.describe('a layout a reader can change', () => {
 
   test('is drawn at the shape of the slides that follow it', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
+    await expect(page.locator('[data-ruler="x"]')).toBeVisible();
     await openLayoutDialog(page);
     await page.locator('[data-design-edit="layout-body"]').click();
     await page.waitForTimeout(600);

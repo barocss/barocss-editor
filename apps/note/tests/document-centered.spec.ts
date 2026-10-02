@@ -66,7 +66,7 @@ test('context tools use the current document for heading, bold, link, color and 
   await page.getByRole('menuitemradio', { name: '글자색 파랑', exact: true }).click();
   await expect(block.locator('a span').last()).toHaveCSS('color', 'rgb(51, 126, 169)');
   await tools.getByRole('button', { name: '문단 및 제목 수준', exact: true }).click();
-  await page.getByRole('group', { name: '문단 유형', exact: true }).getByRole('button', { name: '제목 2', exact: true }).click();
+  await page.getByRole('menu', { name: '문단 유형', exact: true }).getByRole('menuitem', { name: '제목 2', exact: true }).click();
   await expect(page.locator('.on-doc > h2')).toHaveText(sentence);
   await page.keyboard.press('Escape'); await expect(page.locator('[data-note-formatting]')).toHaveCount(0);
   await page.keyboard.insertText('ESCAPE INPUT'); await expect(page.locator('.on-doc > h2')).toHaveText('ESCAPE INPUT');

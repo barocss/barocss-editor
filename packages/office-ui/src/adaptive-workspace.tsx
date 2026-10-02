@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type HTMLAttributes } from 'react';
 
 type Side = 'navigation' | 'inspector';
 const PanelContext = createContext<{ compact: boolean; active: Side | null; id: string } | null>(null);
@@ -62,15 +62,15 @@ export function AdaptiveWorkspace({ children, className = '', enabled = true, br
   </div></PanelContext.Provider>;
 }
 
-export function WorkspaceSidePanel({ side, width, children }: { side: Side; width: number; children: ReactNode }) {
+export function WorkspaceSidePanel({ side, width, children, className = '', ...attributes }: HTMLAttributes<HTMLDivElement> & { side: Side; width: number; children: ReactNode }) {
   const layout = useContext(PanelContext);
   const element = useRef<HTMLDivElement>(null);
   const open = !!layout?.compact && layout.active === side;
   useEffect(() => {
     if (open) element.current?.querySelector<HTMLElement>('button:not(:disabled),input:not(:disabled),[tabindex="0"]')?.focus({ preventScroll: true });
   }, [open]);
-  return <div ref={element} id={layout ? `${layout.id}-${side}` : undefined} data-workspace-panel={side}
-    className="office-workspace-side-panel" hidden={!!layout?.compact && !open} style={{ width }}>
+  return <div {...attributes} ref={element} id={layout ? `${layout.id}-${side}` : undefined} data-workspace-panel={side}
+    className={`office-workspace-side-panel ${className}`} hidden={attributes.hidden || (!!layout?.compact && !open)} style={{ ...attributes.style, width }}>
     {children}
   </div>;
 }

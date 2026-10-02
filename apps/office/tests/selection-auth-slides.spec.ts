@@ -61,6 +61,9 @@ function track(page: Page) {
 }
 async function seed(page: Page, title: string) {
   const name = randomUUID(), document = createSampleDeck();
+  const meta = document.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'docMeta')!;
+  const titleNode = meta.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'docTitle')!;
+  titleNode.content = [{ stype: 'inline-text', text: 'A long authenticated Slides document title — complete native ownership, selection and saved revision review' }];
   const surfaces = document.content!.filter((node): node is INode => typeof node !== 'string' && node.stype === 'surface');
   const resources = document.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'resources')!;
   surfaces[0].attributes = { ...surfaces[0].attributes, trackId: 'server-native-track' };
@@ -98,7 +101,15 @@ async function records(page: Page): Promise<Pending[]> {
   return page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:'))
     .map(key => JSON.parse(localStorage.getItem(key)!)));
 }
+async function openServerLibrary(page: Page) {
+  const library = workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true });
+  if (await library.isVisible()) return;
+  const trigger = workspace(page).getByRole('button', { name: '서버 Slides 목록', exact: true });
+  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  await expect(workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true })).toBeVisible();
+}
 async function prepare(page: Page, title: string) {
+  await openServerLibrary(page);
   await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
   await workspace(page).getByRole('button', { name: `${title} · 새 서버 사본 준비`, exact: true }).click();
   await expect(save(page)).toBeEnabled();
@@ -149,7 +160,7 @@ async function selectActualTitle(page: Page, readOnly = false) {
   await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe('One eng');
   // Authenticated workspaces deliberately expose no editor debug object. Wait for the rendered text target.
   await expect(workspace(page).locator('[data-slides-formatting] [data-group="align"]')).toHaveCount(0);
-  await expect(workspace(page).locator('[data-slides-formatting] [data-group="character"]')).toBeVisible();
+  await expect(workspace(page).locator('[data-slides-formatting] [data-group="character"]:visible')).toBeVisible();
 }
 
 test('actual Slides writer and automatic viewer preserve complete native API/PG bytes and rich draft through current authority', async ({ browser }, info) => {
@@ -207,6 +218,7 @@ test('actual Slides writer and automatic viewer preserve complete native API/PG 
     await viewer.locator('.sl-topbar').getByRole('button', { name: '자세한 속성', exact: true }).click();
     await viewer.getByRole('button', { name: '발표', exact: true }).click(); await expect(viewer.locator('.sl-present-hint')).toBeVisible();
     await viewer.keyboard.press('Escape'); await expect(viewer.locator('.sl-present-hint')).toHaveCount(0);
+    await viewer.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();
     await viewer.locator('.sl-filmstrip button').nth(1).click(); await expect(workspace(viewer)).toContainText('The point of this slide');
     for (const theme of ['light', 'dark']) {
       await viewer.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
@@ -249,13 +261,68 @@ test('actual Slides writer and automatic viewer preserve complete native API/PG 
 });
 
 
+async function measureCompactHost(page: Page, info: TestInfo, label: string) {
+  const samples = await workspace(page).evaluate(host => {
+    const header = host.querySelector<HTMLElement>('.sl-topbar')!, identity = host.querySelector<HTMLElement>('[data-document-identity]')!;
+    const controls = Array.from(header.querySelectorAll<HTMLElement>('button,input,[role="menuitem"],[role="combobox"]')).filter(node => node.getClientRects().length && !node.matches('.sr-only') && !node.closest('[hidden], [inert]'));
+    const sample = (node: HTMLElement) => { const box = node.getBoundingClientRect(); const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2); return { name: node.getAttribute('aria-label') ?? node.textContent, box: box.toJSON(), hit: !!hit && node.contains(hit) }; };
+    const surfaces = Array.from(host.querySelectorAll<HTMLElement>('.sl-insertion-chrome > [role="toolbar"], .sl-utilities > [role="toolbar"], .sl-slide-navigation-tools, [data-slides-formatting]'));
+    return { header: header.getBoundingClientRect().toJSON(), identity: identity.getBoundingClientRect().toJSON(), title: identity.textContent, compact: header.dataset.compact,
+      controls: controls.map(sample), surfaces: surfaces.map(node => ({ ...sample(node), radius: getComputedStyle(node).borderRadius, shape: node.getAttribute('data-toolbar-shape'), children: Array.from(node.querySelectorAll<HTMLElement>('button,input,[role="combobox"]')).filter(child => child.getClientRects().length && !child.closest('[hidden], [inert]')).map(sample) })) };
+  });
+  writeFileSync(info.outputPath(`${label}-compact-host.json`), JSON.stringify(samples,null,2));
+  expect(samples.compact).toBe('true'); expect(samples.header.height).toBe(48); expect(samples.identity.width).toBeGreaterThan(0);
+  expect(samples.identity.x).toBeGreaterThanOrEqual(samples.header.x); expect(samples.identity.right).toBeLessThanOrEqual(samples.header.right);
+  for (const control of samples.controls) { expect(control.box.width, control.name ?? 'header').toBeGreaterThanOrEqual(32); expect(control.box.height).toBeGreaterThanOrEqual(32); expect(control.hit,control.name ?? 'header').toBe(true); expect(control.box.right).toBeLessThanOrEqual(samples.header.right); }
+  expect(samples.surfaces).toHaveLength(4);
+  for (const surface of samples.surfaces) { expect(surface.box.width).toBeLessThanOrEqual(480); expect(surface.box.height).toBeGreaterThanOrEqual(40); expect(surface.box.height).toBeLessThanOrEqual(48); expect(surface.radius).toBe(surface.shape==='pill'?'999px':'20px');
+    for (const control of surface.children) { expect(control.box.width, control.name ?? 'tool').toBeGreaterThanOrEqual(32); expect(control.box.height).toBeGreaterThanOrEqual(32); expect(control.hit,control.name ?? 'tool').toBe(true); }
+  }
+}
+
 test('actual authenticated selection tools stay near their owned range in both themes',async({browser},info)=>{
  const context=await browser.newContext({viewport:{width:1440,height:900}}),page=await context.newPage();
  try {await login(page,'alpha-editor');const source=await seed(page,'Synthetic auth selection geometry');await prepare(page,source.title);await save(page).click();await expect(saved(page)).toHaveText('서버 저장 확인됨');
- for(const theme of ['light','dark']) {await page.evaluate(t=>{document.documentElement.dataset.theme=t;},theme);await selectActualTitle(page);const tools=workspace(page).locator('[data-slides-formatting]');await expect(tools).toBeVisible();await expect(tools).toBeInViewport({ratio:1});
+ for(const [width,height] of [[1440,900],[1280,800]]) for(const theme of ['light','dark']) {await page.setViewportSize({width,height});await page.evaluate(t=>{document.documentElement.dataset.theme=t;},theme);await selectActualTitle(page);const tools=workspace(page).locator('[data-slides-formatting]');await expect(tools).toBeVisible();await expect(tools).toBeInViewport({ratio:1});
+ await measureCompactHost(page, info, `${width}-${theme}`);
  const geometry=await tools.evaluate(node=>{const box=node.getBoundingClientRect().toJSON(),anchor=getSelection()!.getRangeAt(0).getBoundingClientRect().toJSON();const ancestry=[];let el:Element|null=node;while(el){const cs=getComputedStyle(el);ancestry.push({tag:el.tagName,className:el.className,rect:el.getBoundingClientRect().toJSON(),position:cs.position,transform:cs.transform,maxWidth:cs.maxWidth,margin:cs.margin,overflow:cs.overflow,height:cs.height});el=el.parentElement;}return{box,anchor,rangeRects:Array.from(getSelection()!.getRangeAt(0).getClientRects()).map(r=>r.toJSON()),style:node.getAttribute('style'),groups:Array.from(node.querySelectorAll('[data-group]')).map(el=>el.getAttribute('data-group')),ancestry};});
- writeFileSync(info.outputPath(`${theme}-geometry.json`),JSON.stringify(geometry,null,2));await page.screenshot({path:info.outputPath(`${theme}-geometry.png`),animations:'disabled'});
- expect(Math.min(Math.abs(geometry.box.bottom-geometry.anchor.top),Math.abs(geometry.box.top-geometry.anchor.bottom))).toBeLessThanOrEqual(20);await page.keyboard.press('Escape');}
+ writeFileSync(info.outputPath(`${width}-${theme}-geometry.json`),JSON.stringify(geometry,null,2));await page.screenshot({path:info.outputPath(`${width}-${theme}-geometry.png`),animations:'disabled'});
+ expect(Math.min(Math.abs(geometry.box.bottom-geometry.anchor.top),Math.abs(geometry.box.top-geometry.anchor.bottom))).toBeLessThanOrEqual(20);
+ const trigger=tools.getByRole('button',{name:'추가 Slides 도구',exact:true}); await trigger.click();
+ const more=workspace(page).locator('[data-secondary-popup]:visible').filter({has:page.locator('.sl-toolbar')});
+ await expect(more).toBeVisible(); await expect(more).toHaveCSS('opacity','1');
+ const contrast = await more.evaluate(panel => {
+   const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+   const context = canvas.getContext('2d')!;
+   const rgba = (color: string) => {
+     context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+     return Array.from(context.getImageData(0, 0, 1, 1).data);
+   };
+   const luminance = (color: number[]) => color.slice(0, 3).map(value => {
+     const channel = value / 255; return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+   }).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+   return Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),[role="combobox"]'))
+     .filter(node => node.getClientRects().length && !node.closest('[hidden],[inert]') && node.getAttribute('aria-disabled') !== 'true')
+     .map(node => {
+       let background = rgba(getComputedStyle(node).backgroundColor), owner = node.parentElement;
+       while (background[3] === 0 && owner) { background = rgba(getComputedStyle(owner).backgroundColor); owner = owner.parentElement; }
+       const foreground = rgba(getComputedStyle(node).color), a = luminance(background), b = luminance(foreground);
+       return { name: node.getAttribute('aria-label') ?? node.textContent, background, foreground,
+         ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+     });
+ });
+ await info.attach(`${width}-${theme}-more-contrast.json`, {body:JSON.stringify(contrast),contentType:'application/json'});
+ expect(contrast.length).toBeGreaterThan(0);
+ for (const sample of contrast) {expect(sample.background[3]).toBe(255);expect(sample.foreground[3]).toBe(255);expect(sample.ratio,sample.name ?? '').toBeGreaterThanOrEqual(4.5);}
+ await more.getByRole('combobox',{name:'Size',exact:true}).click(); await expect(page.getByRole('listbox')).toBeVisible();
+ await page.keyboard.press('Escape'); await expect(page.getByRole('listbox')).toHaveCount(0); await expect(more).toBeVisible();
+ await page.keyboard.press('Escape'); await expect(more).toBeHidden(); await expect(trigger).toBeFocused();
+ await page.keyboard.press('Escape'); await expect(tools).toHaveCount(0);
+ await page.getByRole('button',{name:'슬라이드 탐색 펼치기',exact:true}).click();
+ const gap=await page.evaluate(()=>({stage:document.querySelector('.sl-stage-viewport')!.getBoundingClientRect().bottom,panel:document.querySelector('[data-filmstrip-panel]')!.getBoundingClientRect().top})); expect(gap.panel).toBeGreaterThanOrEqual(gap.stage);
+ await page.getByRole('button',{name:'슬라이드 탐색 접기',exact:true}).click(); await expect(page.locator('[data-filmstrip-toggle]')).toBeFocused();
+ await expect(page.locator('[data-document-identity]')).toContainText('A long authenticated Slides document title');
+ expect(await downloadNative(page,info,`${width}-${theme}-tools-only.slides.json`)).toEqual(source.document);}
  expect(await downloadNative(page,info,'geometry-tools-only.slides.json')).toEqual(source.document);
  } finally {await context.close();}
 });

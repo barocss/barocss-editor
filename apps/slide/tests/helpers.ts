@@ -16,6 +16,12 @@ import type { Page } from '@playwright/test';
 /** The deck, loaded and drawn. */
 export async function openDeck(page: Page): Promise<void> {
   await page.goto('/');
+  // The first sample render can precede local session restoration. Wait for the
+  // real saved document before admitting a menu or canvas gesture.
+  await page.waitForFunction(() =>
+    !!new URLSearchParams(location.hash.slice(1)).get('slides') &&
+    document.querySelector('[data-slide-save-status]')?.textContent?.includes('저장됨')
+  );
   await page.waitForSelector('.sl-overlay');
   // The first render places the boxes; the overlay measures the slide after it.
   await page.waitForFunction(() => {
@@ -189,7 +195,14 @@ export async function pinZoom(page: Page, percent = 60): Promise<void> {
  * thing about it a product is free to change.
  */
 export async function pickMenu(page: Page, id: string) {
-  await page.locator(`.sl-menubar [data-menu="${id.split('.')[0]}"]`).click();
+  await page.getByRole('menuitem', { name: '덱 메뉴', exact: true }).click();
   await page.locator(`[data-menu-item="${id}"]`).click();
   await page.waitForTimeout(250);
+}
+
+/** Open the single real thumbnail strip before pointer navigation. */
+export async function openFilmstrip(page: Page) {
+  const toggle = page.locator('[data-filmstrip-toggle]');
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+  await page.locator('[data-filmstrip-panel]').waitFor({ state: 'visible' });
 }

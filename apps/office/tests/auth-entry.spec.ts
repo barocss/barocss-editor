@@ -928,3 +928,92 @@ for (const loss of ['none', 'before-commit', 'after-commit'] as const) {
     await expect(page.locator('[data-confirmed-local-copy]')).toContainText(copyId);
   });
 }
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`authenticated Note keeps product styles separate from shell actions in ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ colorScheme: theme });
+    await mockLogin(page, { documentCount: 1 });
+    await page.goto('/');
+    const entry = page.getByRole('button', { name: '일반 사용자로 들어가기' });
+    await expect(entry).toBeVisible();
+    expect((await entry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await entry.click();
+    await page.getByRole('button', { name: /Alpha Company/ }).click();
+    await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+    await page.getByRole('button', { name: 'Alpha Note' }).click();
+    const workspace = page.locator('[data-server-note-workspace]');
+    const paragraph = workspace.locator('.on-doc > p').first();
+    await expect(paragraph).toHaveText('Mock body');
+    const before = await workspace.locator('.on-doc').evaluate(element => ({
+      text: element.textContent,
+      ids: [...element.querySelectorAll('[data-bc-sid]')].map(node => node.getAttribute('data-bc-sid')),
+    }));
+    const layout = await workspace.evaluate(element => {
+      const main = element.querySelector('.nw-main')!;
+      return { shell: getComputedStyle(element).display, document: main.getBoundingClientRect().width,
+        background: getComputedStyle(main).backgroundColor, ink: getComputedStyle(main).color };
+    });
+    expect(layout.shell).toBe('flex');
+    expect(layout.document).toBeGreaterThan(680);
+    expect(layout.background).toBe(theme === 'dark' ? 'rgb(32, 37, 45)' : 'rgb(255, 255, 255)');
+    expect(layout.ink).toBe(theme === 'dark' ? 'rgb(238, 241, 245)' : 'rgb(32, 37, 45)');
+    const header = workspace.locator('.office-document-bar');
+    const headerBox = (await header.boundingBox())!;
+    expect(headerBox.y).toBe(0);
+    expect(headerBox.height).toBeLessThanOrEqual(56);
+    await expect(page.locator('.office-auth-brand')).toHaveCount(0);
+    const side = (await workspace.locator('[data-workspace-panel="navigation"]').boundingBox())!;
+    const main = (await workspace.locator('.nw-main').boundingBox())!;
+    expect(side.y).toBe(headerBox.height);
+    expect(main.y).toBe(headerBox.height);
+    expect(side.x + side.width).toBeLessThanOrEqual(main.x + 0.5);
+    expect(main.y + main.height).toBeLessThanOrEqual(900);
+    const back = header.getByRole('button', { name: '자료함으로 돌아가기' });
+    expect((await back.boundingBox())!.height).toBeGreaterThanOrEqual(32);
+    await paragraph.click();
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowLeft' : 'Home');
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+ArrowRight' : 'Shift+End');
+    await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe('Mock body');
+    const tools = page.locator('[data-note-formatting]');
+    await expect(tools).toBeVisible();
+    const surface = tools;
+    const bounds = (await surface.boundingBox())!;
+    expect(bounds.width).toBeLessThanOrEqual(480);
+    expect(bounds.height).toBeLessThanOrEqual(48);
+    const contrasts = await surface.evaluate(element => {
+      const rgb = (color: string) => color.match(/[\d.]+/g)!.slice(0, 3).map(Number);
+      const luminance = (color: string) => rgb(color).map(value => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index]!, 0);
+      const background = luminance(getComputedStyle(element).backgroundColor);
+      return [...element.querySelectorAll('button')].map(button => {
+        const foreground = luminance(getComputedStyle(button).color);
+        return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+      });
+    });
+    expect(contrasts).toHaveLength(6);
+    for (const contrast of contrasts) expect(contrast).toBeGreaterThanOrEqual(4.5);
+    for (const button of await tools.getByRole('button').all()) {
+      const box = (await button.boundingBox())!;
+      expect(box.width).toBeGreaterThanOrEqual(32);
+      expect(box.height).toBeGreaterThanOrEqual(32);
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 0.5);
+    }
+    await tools.getByRole('button', { name: '추가 서식', exact: true }).click();
+    await expect(page.getByRole('menu', { name: '추가 서식', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tools.getByRole('button', { name: '추가 서식', exact: true })).toBeFocused();
+    expect(await workspace.locator('.on-doc').evaluate(element => ({
+      text: element.textContent,
+      ids: [...element.querySelectorAll('[data-bc-sid]')].map(node => node.getAttribute('data-bc-sid')),
+    }))).toEqual(before);
+    await expect(workspace.getByRole('button', { name: /초안 복구/ })).toHaveCount(0);
+    await expect(page.locator('[data-save-status]')).not.toHaveText('저장 실패');
+    await back.click();
+    await expect(page.getByRole('heading', { name: 'Alpha Company · 사용자' })).toBeVisible();
+    await expect(workspace).toHaveCount(0);
+  });
+}

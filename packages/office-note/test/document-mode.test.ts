@@ -118,6 +118,47 @@ it('permits editing a viewer find query without changing the document', async ()
   expect(native()).toBe(initial);
 });
 
+it.each(['hidden', 'inert'])('retires navigation when its owner becomes %s without reviving on restoration', async attribute => {
+  await render(false, { navigationRequest: { mode: 'find', id: 1 } });
+  const initial = native();
+  expect(host.querySelector('[data-document-navigation]')).not.toBeNull();
+  await act(async () => { host.setAttribute(attribute, ''); });
+  expect(host.querySelector('[data-document-navigation]')).toBeNull();
+  await act(async () => { host.removeAttribute(attribute); });
+  await render(false, { navigationRequest: { mode: 'find', id: 1 } });
+  expect(host.querySelector('[data-document-navigation]')).toBeNull();
+  expect(native()).toBe(initial);
+  await render(false, { navigationRequest: { mode: 'find', id: 2 } });
+  expect(host.querySelector('[data-document-navigation]')).not.toBeNull();
+  expect(native()).toBe(initial);
+});
+
+it('retires navigation when its owning host is detached', async () => {
+  await render(false, { navigationRequest: { mode: 'find', id: 1 } });
+  const initial = native();
+  await act(async () => { host.remove(); });
+  expect(host.querySelector('[data-document-navigation]')).toBeNull();
+  await act(async () => { document.body.append(host); });
+  expect(host.querySelector('[data-document-navigation]')).toBeNull();
+  expect(native()).toBe(initial);
+});
+
+it('retires old-root navigation when the same editor opens another body', async () => {
+  session.close();
+  session = openNoteTree({ stype: 'note', content: [{ stype: 'callout', content: [
+    { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Second body' }] }
+  ] }] });
+  await render(false, { navigationRequest: { mode: 'find', id: 1 } });
+  const initial = native();
+  const child = session.editor.dataStore.getNode(session.rootId)!.content![0] as string;
+  await render(false, { rootId: child });
+  expect(host.querySelector('[data-document-navigation]')).toBeNull();
+  expect(native()).toBe(initial);
+  await render(false);
+  expect(host.querySelector('[data-document-navigation]')).toBeNull();
+  expect(native()).toBe(initial);
+});
+
 
 it('delivers an embedded body without replacing the enclosing document or its history', async () => {
   session.close();

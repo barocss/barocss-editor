@@ -3,7 +3,7 @@ import { test, expect, type Page, type TestInfo } from '@playwright/test';
 import { createSampleDeck } from '../../../packages/office-slides/src/sample-deck';
 import { deckFileText } from '../../../packages/office-slides/src/deck-file';
 import type { INode } from '../../../packages/datastore/src/types';
-import { openDeck, currentSlide, visibleBoxes, pickMenu } from './helpers';
+import { openDeck, currentSlide, visibleBoxes, pickMenu, openFilmstrip } from './helpers';
 
 test.use({ actionTimeout: 10000 });
 
@@ -96,7 +96,7 @@ for (const theme of ['light', 'dark']) test(`continuous ${theme} deck has reacha
   await page.screenshot({ path: info.outputPath(`${theme}-inspector.png`), animations: 'disabled' });
   await detail.press('Enter'); await expect(right).toBeHidden();
   await full.click(); await expect(full).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('.sl-toolbar')).toBeVisible();
+  await expect(page.locator('[data-slides-detail] .sl-toolbar')).toBeVisible();
   await full.click(); await expect(full).toHaveAttribute('aria-expanded', 'false');
   await pickMenu(page, 'view.present.0');
   await expect(page.locator('.sl-present-hint')).toBeVisible();
@@ -127,7 +127,7 @@ async function captureBothThemes(page: Page, info: TestInfo, name: string) {
 }
 
 async function independentObjects(page: Page) {
-  await page.locator('.sl-filmstrip button').nth(2).click();
+  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(2).click();
   const ids = await page.evaluate(() => {
     const editor = (window as any).editor, nodes: any[] = [];
     const walk = (sid: string) => { const node = editor.dataStore.getNode(sid); nodes.push(node); for (const child of node.content ?? []) walk(child); };
@@ -159,18 +159,40 @@ test('single and multiple object tools arrange the owned targets, retain native 
   const before = await native(page);
   const original = await page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes), ids);
   await captureBothThemes(page, info, 'multi-object');
-  await tools(page).getByRole('button', { name: '왼쪽 정렬', exact: true }).click();
+  const moreTrigger = tools(page).getByRole('button', { name: '추가 Slides 도구', exact: true });
+  await moreTrigger.click();
+  const morePanel = page.locator('[data-secondary-popup]:visible').filter({ has: page.locator('.sl-toolbar') });
+  await morePanel.getByRole('button', { name: '왼쪽 정렬', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  expect(await native(page)).toEqual(before);
+  const focusedTooltip = page.getByRole('tooltip');
+  await expect(focusedTooltip).toBeVisible();
+  await info.attach('object-more-inner-layer.json', { body: JSON.stringify({ tooltip: await focusedTooltip.textContent(), focus: await page.evaluate(() => document.activeElement?.getAttribute('aria-label')) }), contentType: 'application/json' });
+  await page.keyboard.press('Escape'); await expect(focusedTooltip).toHaveCount(0); await expect(morePanel).toBeVisible();
+  expect(await native(page)).toEqual(before);
+  await page.keyboard.press('Escape'); await expect(morePanel).toBeHidden(); await expect(moreTrigger).toBeFocused();
+  expect(await native(page)).toEqual(before);
+  await tools(page).getByRole('button', { name: '추가 Slides 도구', exact: true }).click();
+  await page.getByRole('button', { name: '왼쪽 정렬', exact: true }).click();
   await expect.poll(() => page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes.x), ids)).toEqual([1500, 1500]);
   await page.keyboard.press('Meta+z');
   await expect.poll(() => page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes), ids)).toEqual(original);
   expect((await native(page)).document).toBe(before.document);
   await page.keyboard.press('Meta+Shift+z');
   await expect.poll(() => page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes.x), ids)).toEqual([1500, 1500]);
+  const searchBefore = await native(page);
+  await page.getByRole('button', { name: '명령 검색', exact: true }).click();
+  await page.getByRole('combobox', { name: '명령 검색어', exact: true }).fill('복제');
+  await page.getByRole('option', { name: /^복제(?:\s|$)/ }).click();
+  await expect(page.getByRole('dialog', { name: '명령 검색', exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await native(page)).history.currentIndex).toBe(searchBefore.history.currentIndex + 1);
+  await page.keyboard.press('Meta+z');
+  expect((await native(page)).document).toBe(searchBefore.document);
 });
 
 test('table caret tools edit the current row and whole native undo preserves connectors and resources', async ({ page }, info) => {
   await openRepresentative(page, info);
-  await page.locator('.sl-filmstrip button').nth(3).click();
+  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(3).click();
   const cell = page.locator('.sl-stage td:visible').first(), box = (await cell.boundingBox())!;
   await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
   await expect.poll(() => page.evaluate(() => (window as any).editor.selection?.type)).toBe('range');
@@ -198,10 +220,10 @@ test('on-demand navigation, units and timeline retain target and native content'
   await page.locator('.sl-topbar').getByRole('button', { name: '자세한 속성', exact: true }).click();
   const left = page.getByRole('complementary', { name: '슬라이드 탐색', exact: true });
   const tabs = left.getByRole('tablist', { name: '탐색 방식' });
-  await tabs.getByRole('tab', { name: '슬라이드', exact: true }).focus();
-  await page.keyboard.press('ArrowRight'); await expect(tabs.getByRole('tab', { name: '레이어', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: '레이어 및 컴포넌트', exact: true }).click();
+  await tabs.getByRole('tab', { name: '레이어', exact: true }).focus();
   await page.keyboard.press('ArrowRight'); await expect(tabs.getByRole('tab', { name: '컴포넌트', exact: true })).toHaveAttribute('aria-selected', 'true');
-  await page.keyboard.press('Home'); await expect(tabs.getByRole('tab', { name: '슬라이드', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Home'); await expect(tabs.getByRole('tab', { name: '레이어', exact: true })).toHaveAttribute('aria-selected', 'true');
   const right = page.getByRole('complementary', { name: '속성', exact: true });
   const unit = right.getByLabel('단위', { exact: true });
   await unit.selectOption('in'); await expect(right.getByRole('spinbutton', { name: '너비', exact: true })).toHaveValue('1.94');
@@ -219,18 +241,18 @@ test('on-demand navigation, units and timeline retain target and native content'
 test('fresh compact insertion still runs after a header menu is dismissed without a native revision', async ({ page }, info) => {
   await openRepresentative(page, info);
   const before = await native(page), active = await currentSlide(page);
-  await page.locator('.sl-menubar [data-menu="file"]').click(); await page.keyboard.press('Escape');
+  await page.getByRole('menuitem', { name: '덱 메뉴', exact: true }).click(); await page.keyboard.press('Escape');
   expect(await native(page)).toEqual(before);
   const count = () => page.evaluate(id => (window as any).editor.dataStore.getNode(id).content.length, active);
   const original = await count();
-  await page.locator('.sl-toolbar').getByRole('button', { name: '사각형', exact: true }).click();
+  await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '사각형', exact: true }).click();
   await expect.poll(count).toBe(original + 1);
   await page.keyboard.press('Meta+z'); await expect.poll(count).toBe(original);
   expect((await native(page)).document).toBe(before.document);
 });
 
 test('rich notes are an owned second view and font popup retirement cannot target a different slide', async ({ page }, info) => {
-  await openRepresentative(page, info, true); await page.locator('.sl-filmstrip button').nth(1).click();
+  await openRepresentative(page, info, true); await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();
   const notes = page.locator('.sl-notes-host'), paragraph = notes.getByText('The point of this slide is that nothing on it is new.', { exact: true }).first();
   await paragraph.click(); await page.keyboard.press('Meta+ArrowLeft');
   for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowRight');
@@ -239,12 +261,12 @@ test('rich notes are an owned second view and font popup retirement cannot targe
   const before = await native(page);
   await tools(page).locator('.sl-toolbar-font-family').click();
   await expect(page.getByRole('listbox')).toBeVisible();
-  // Radix's modal list intercepts outside pointer events: the first real click dismisses it.
-  const otherSlide = (await page.locator('.sl-filmstrip button').nth(0).boundingBox())!;
-  await page.mouse.click(otherSlide.x + otherSlide.width / 2, otherSlide.y + otherSlide.height / 2);
+  // The anchored list can overlap a thumbnail. Use a visible point outside the list, then navigate.
+  const outside = (await page.locator('.sl-topbar [data-document-identity]').boundingBox())!;
+  await page.mouse.click(outside.x + outside.width / 2, outside.y + outside.height / 2);
   await expect(page.getByRole('listbox')).toHaveCount(0);
-  await page.locator('.sl-filmstrip button').nth(0).click();
-  await page.locator('.sl-filmstrip button').nth(1).click();
+  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(0).click();
+  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();
   expect(await native(page)).toEqual(before);
   await paragraph.click(); await page.keyboard.press('Meta+ArrowLeft');
   for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowRight');
@@ -267,11 +289,11 @@ test('rich notes are an owned second view and font popup retirement cannot targe
   const path = info.outputPath('latest-notes.slides.json'); await download.saveAs(path);
   const saved = JSON.parse(readFileSync(path, 'utf8'));
   expect(JSON.stringify(saved.document)).toContain('LATEST NOTE INPUT');
-  await page.locator('.sl-filmstrip button').nth(0).click(); await page.locator('.sl-filmstrip button').nth(1).click();
+  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(0).click(); await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();
   expect((await native(page)).document).toBe(draft.document);
   await page.getByLabel('슬라이드 파일', { exact: true }).setInputFiles(path);
   await expect(page.getByRole('complementary', { name: '파일 작업 상태' })).toContainText('파일 열기 완료');
-  await page.locator('.sl-filmstrip button').nth(1).click(); await expect(notes).toContainText('LATEST NOTE INPUT');
+  await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click(); await expect(notes).toContainText('LATEST NOTE INPUT');
   const [reopened] = await Promise.all([page.waitForEvent('download'), pickMenu(page, 'file.document.2')]);
   const next = info.outputPath('reopened-notes.slides.json'); await reopened.saveAs(next);
   expect(JSON.parse(readFileSync(next, 'utf8')).document).toEqual(saved.document);
@@ -279,14 +301,14 @@ test('rich notes are an owned second view and font popup retirement cannot targe
 
 
 test('nested note table final input survives slide changes, meaningful undo and complete native reopen',async({page},info)=>{
- await openRepresentative(page,info,true);await page.locator('.sl-filmstrip button').nth(1).click();const notes=page.locator('.sl-notes-host'),cell=notes.locator('.w-paragraph').filter({hasText:'Nested note cell'}).first();
+ await openRepresentative(page,info,true);await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();const notes=page.locator('.sl-notes-host'),cell=notes.locator('.w-paragraph').filter({hasText:'Nested note cell'}).first();
  await cell.click();await page.keyboard.press('Meta+ArrowRight');await expect.poll(()=>page.evaluate(()=>(window as any).editor.selection?.type)).toBe('range');
  const before=await native(page);await page.keyboard.insertText(' LATEST NESTED INPUT');await expect(notes).toContainText('Nested note cell LATEST NESTED INPUT');
  const draft=await native(page),expected=JSON.parse(before.document);const visit=(node:INode)=>{if(node.text==='Nested note cell')node.text='Nested note cell LATEST NESTED INPUT';for(const child of node.content??[])if(typeof child!=='string')visit(child);};visit(expected);expect(JSON.parse(draft.document)).toEqual(expected);
- await page.locator('.sl-filmstrip button').nth(0).click();await page.locator('.sl-filmstrip button').nth(1).click();expect((await native(page)).document).toBe(draft.document);
+ await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(0).click();await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();expect((await native(page)).document).toBe(draft.document);
  await cell.click();await page.keyboard.press('Meta+z');expect((await native(page)).document).toBe(before.document);await page.keyboard.press('Meta+Shift+z');expect((await native(page)).document).toBe(draft.document);
  const[download]=await Promise.all([page.waitForEvent('download'),pickMenu(page,'file.document.2')]);const path=info.outputPath('nested-notes.slides.json');await download.saveAs(path);const saved=JSON.parse(readFileSync(path,'utf8')).document;
- await page.getByLabel('슬라이드 파일',{exact:true}).setInputFiles(path);await expect(page.getByRole('complementary',{name:'파일 작업 상태'})).toContainText('파일 열기 완료');await page.locator('.sl-filmstrip button').nth(1).click();await expect(notes).toContainText('Nested note cell LATEST NESTED INPUT');
+ await page.getByLabel('슬라이드 파일',{exact:true}).setInputFiles(path);await expect(page.getByRole('complementary',{name:'파일 작업 상태'})).toContainText('파일 열기 완료');await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(1).click();await expect(notes).toContainText('Nested note cell LATEST NESTED INPUT');
  const[reopened]=await Promise.all([page.waitForEvent('download'),pickMenu(page,'file.document.2')]);const next=info.outputPath('nested-notes-reopened.slides.json');await reopened.saveAs(next);expect(JSON.parse(readFileSync(next,'utf8')).document).toEqual(saved);
 });
 
@@ -294,10 +316,10 @@ test('nested note table final input survives slide changes, meaningful undo and 
 test('owned text tools format characters, colour, paragraphs and lists and complete native export reopens',async({page},info)=>{
  await openRepresentative(page,info);await selectTitle(page);await reachableTools(page);
  await tools(page).getByRole('button',{name:'굵게',exact:true}).click();await expect(page.locator('.sl-stage .mark-bold')).toContainText('One eng');
- await tools(page).locator('[data-control="font-color"]').click();await page.locator('[data-palette="font-color"] [data-swatch="C00000"]').click();
+ await tools(page).locator('[data-control="font-color"]:visible').click();await page.locator('[data-palette="font-color"] [data-swatch="C00000"]').click();
  await expect.poll(()=>page.locator('.sl-stage .mark-fontColor').evaluateAll(nodes=>nodes.some(node=>node.textContent==='One eng'&&getComputedStyle(node).color==='rgb(192, 0, 0)'))).toBe(true);
- await tools(page).getByRole('button',{name:'오른쪽 맞춤',exact:true}).click();await expect(page.locator('.sl-stage .w-paragraph').filter({hasText:'One engine'}).first()).toHaveCSS('text-align','right');
- await tools(page).getByRole('button',{name:'글머리 기호',exact:true}).click();await expect(page.locator('.sl-stage .w-list-item').filter({hasText:'One engine'})).toBeVisible();
+ await tools(page).getByRole('button',{name:'추가 Slides 도구',exact:true}).click(); await page.getByRole('button',{name:'오른쪽 맞춤',exact:true}).click();await expect(page.locator('.sl-stage .w-paragraph').filter({hasText:'One engine'}).first()).toHaveCSS('text-align','right');
+ await tools(page).getByRole('button',{name:'추가 Slides 도구',exact:true}).click(); await page.getByRole('button',{name:'글머리 기호',exact:true}).click();await expect(page.locator('.sl-stage .w-list-item').filter({hasText:'One engine'})).toBeVisible();
  const formatted=JSON.parse((await native(page)).document);const candidates:INode[]=[];const collect=(node:INode)=>{if(node.stype==='list')candidates.push(node);for(const child of node.content??[])if(typeof child!=='string')collect(child);};collect(formatted);
  const ownedList=candidates.find(node=>JSON.stringify(node).includes('One engine'));expect(ownedList?.attributes?.type).toBe('bullet');expect((ownedList?.content![0] as INode).stype).toBe('listItem');expect(JSON.stringify(ownedList)).toContain('One engine, two products');
  const textNodes:INode[]=[];const words=(node:INode)=>{if(node.stype==='inline-text'&&node.text?.startsWith('One engine'))textNodes.push(node);for(const child of node.content??[])if(typeof child!=='string')words(child);};words(ownedList!);expect(textNodes).toHaveLength(1);expect(textNodes[0].marks).toEqual(expect.arrayContaining([{stype:'bold',range:[0,7]},{stype:'fontColor',attrs:{color:'C00000'},range:[0,7]}]));
@@ -311,7 +333,7 @@ test('supported canvas zoom and scroll keep owned text controls reachable withou
  await openRepresentative(page,info);const before=await native(page);
  for(const zoom of ['125%','80%']) {const input=page.getByRole('textbox',{name:'확대/축소',exact:true});await input.fill(zoom);await input.press('Enter');await expect(input).toHaveValue(zoom);const scale=Number(zoom.replace('%',''))/100;await expect(page.locator('.sl-stage-scaled')).toHaveCSS('transform',`matrix(${scale}, 0, 0, ${scale}, 0, 0)`);
  const title=page.locator('.sl-stage .w-paragraph').filter({hasText:'One engine'}).first();const glyph=await title.evaluate(node=>{const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);let t:Node|null;while((t=walker.nextNode()))if(t.textContent?.startsWith('One engine')){const range=document.createRange();range.setStart(t,0);range.setEnd(t,1);return range.getBoundingClientRect().toJSON();}throw new Error('title glyph missing');});
- writeFileSync(info.outputPath(`zoom-${zoom.replace('%','')}-gesture.json`),JSON.stringify({glyph,scale,frame:await page.locator('.sl-stage-frame').boundingBox(),overlay:await page.locator('.sl-overlay').boundingBox()},null,2));expect(glyph.x).toBeGreaterThanOrEqual(240);expect(glyph.x+glyph.width).toBeLessThanOrEqual(1440);await page.mouse.dblclick(glyph.x+glyph.width/2,glyph.y+glyph.height/2);await expect.poll(()=>page.evaluate(()=>(window as any).editor.selection?.type)).toBe('range');await page.keyboard.press('Meta+ArrowLeft');for(let i=0;i<7;i++)await page.keyboard.press('Shift+ArrowRight');await expect.poll(()=>page.evaluate(()=>getSelection()?.toString())).toBe('One eng');await expect.poll(()=>page.evaluate(()=>(window as any).editor.selection?.collapsed)).toBe(false);
+ writeFileSync(info.outputPath(`zoom-${zoom.replace('%','')}-gesture.json`),JSON.stringify({glyph,scale,frame:await page.locator('.sl-stage-frame').boundingBox(),overlay:await page.locator('.sl-overlay').boundingBox()},null,2));expect(glyph.x).toBeGreaterThanOrEqual((await page.locator('.sl-stage-viewport').boundingBox())!.x);expect(glyph.x+glyph.width).toBeLessThanOrEqual(1440);await page.mouse.dblclick(glyph.x+glyph.width/2,glyph.y+glyph.height/2);await expect.poll(()=>page.evaluate(()=>(window as any).editor.selection?.type)).toBe('range');await page.keyboard.press('Meta+ArrowLeft');for(let i=0;i<7;i++)await page.keyboard.press('Shift+ArrowRight');await expect.poll(()=>page.evaluate(()=>getSelection()?.toString())).toBe('One eng');await expect.poll(()=>page.evaluate(()=>(window as any).editor.selection?.collapsed)).toBe(false);
  writeFileSync(info.outputPath(`zoom-${zoom.replace('%','')}-tools.json`),JSON.stringify(await tools(page).evaluate(bar=>{const describe=(node:Element)=>{const css=getComputedStyle(node);return{tag:node.tagName,cls:node.className,rect:node.getBoundingClientRect().toJSON(),transform:css.transform,overflow:css.overflow,height:css.height,position:css.position,label:node.getAttribute('aria-label')};};return{bar:describe(bar),ancestors:Array.from((function*(node:Element|null){while(node){yield node;node=node.parentElement;}})(bar.parentElement)).map(describe),controls:Array.from(bar.querySelectorAll('button,input,[role=combobox]')).filter(node=>node.getBoundingClientRect().width>0).map(describe),model:(window as any).editor.selection,range:getSelection()?.getRangeAt(0).getBoundingClientRect().toJSON()};}),null,2));await page.screenshot({path:info.outputPath(`zoom-${zoom.replace('%','')}-before-bounds.png`),animations:'disabled'});await reachableTools(page);
  await page.mouse.move(glyph.x+glyph.width/2,glyph.y+glyph.height/2);await page.mouse.wheel(0,60);writeFileSync(info.outputPath(`zoom-${zoom.replace('%','')}-after-wheel.json`),JSON.stringify(await tools(page).evaluate(bar=>({bar:bar.getBoundingClientRect().toJSON(),controls:Array.from(bar.querySelectorAll('button,input,[role=combobox]')).filter(node=>node.getBoundingClientRect().width>0).map(node=>({label:node.getAttribute('aria-label'),rect:node.getBoundingClientRect().toJSON()})),range:getSelection()?.getRangeAt(0).getBoundingClientRect().toJSON()})),null,2));await page.screenshot({path:info.outputPath(`zoom-${zoom.replace('%','')}-after-wheel.png`),animations:'disabled'});await reachableTools(page);await page.screenshot({path:info.outputPath(`canvas-${zoom.replace('%','')}-selected.png`),animations:'disabled'});await page.keyboard.press('Escape');await expect(tools(page)).toHaveCount(0);}
  expect(await native(page)).toEqual(before);

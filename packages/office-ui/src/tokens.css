@@ -854,8 +854,9 @@
 /* One application header; only editing tools occupy the band below it. */
 .office-editor-header { flex: 0 0 auto; min-width: 0; background: var(--ou-panel); }
 .office-editor-header > .office-document-bar { min-height: var(--ou-header-height); gap: var(--ou-space-3); flex-wrap: nowrap; }
+.office-editor-identity { display: flex; align-items: center; flex: 1 1 auto; gap: 12px; min-width: 0; }
 .office-editor-product { flex: 0 0 auto; padding-right: 12px; border-right: 1px solid var(--ou-line); }
-.office-editor-title { height: 30px; line-height: 30px; flex: 1 1 180px; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.office-editor-title { height: 30px; line-height: 30px; flex: 0 1 240px; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .office-editor-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; min-width: 0; }
 .office-editor-actions [role='status'] { color: var(--ou-muted); font-size: 11px; }
 .office-editor-actions > [role='alert'] { max-width: 260px; white-space: normal; }
@@ -1430,3 +1431,45 @@ input.office-field[readonly],
 textarea.office-field[readonly] {
   background-color:var(--ou-ground);
 }
+
+/* A product supplies only its primary commands to this contextual row. */
+.office-compact-selection > [data-editor-context-toolbar] { flex-wrap: nowrap; }
+.office-compact-selection > [data-editor-context-toolbar] > * { flex-shrink: 0; }
+.office-compact-selection .office-button { min-height: 32px; }
+.office-compact-selection [data-button-kind="icon"] { min-width: 32px; }
+.office-editor-header[data-compact] .office-button,
+.office-editor-header[data-compact] .office-menubar > [role="menuitem"] { min-height: 32px; }
+.office-editor-header[data-compact] .office-button[data-button-kind="icon"] { min-width: 32px; }
+
+/* Opt-in compact composition. Adapters choose commands; secondary controls remain explicit. */
+.office-document-bar[data-compact], .office-editor-header[data-compact], .office-toolbar[data-toolbar-variant='compact'], .office-secondary-owner, [data-floating-surface][data-compact] { --ou-compact-target:32px; --ou-compact-row:40px; --ou-compact-header:48px; --ou-compact-gap:2px; --ou-compact-inset:12px; --ou-compact-surface-radius:20px; --ou-radius:10px; --ou-control-h:var(--ou-compact-target); --ou-faint:var(--ou-muted); }
+.office-document-bar[data-compact] { height:var(--ou-compact-header); min-height:var(--ou-compact-header); box-sizing:border-box; display:flex; flex-wrap:nowrap; gap:8px; padding:4px 12px; }
+.office-editor-header[data-compact] { height:var(--ou-compact-header); background:transparent; }
+.office-editor-header[data-compact] > .office-document-bar { background:transparent; border:0; }
+.office-editor-header[data-compact] .office-editor-identity { gap:8px; }
+.office-editor-header[data-compact] .office-editor-title { flex:0 1 auto; min-width:0; height:32px; line-height:32px; }
+.office-editor-header[data-compact] .office-editor-product { padding-right:0; border:0; }
+.office-editor-header[data-compact] :is(.office-editor-actions,.office-editor-view) { gap:var(--ou-compact-gap); }
+.office-editor-header[data-compact] :is(button,input,select) { min-height:var(--ou-compact-target); }
+.office-editor-header[data-compact] button { min-width:var(--ou-compact-target); }
+.office-toolbar[data-toolbar-variant='compact'] { position:relative; flex-wrap:nowrap; height:var(--ou-compact-row); min-height:var(--ou-compact-row); max-width:480px; width:max-content; padding:3px var(--ou-compact-inset); gap:var(--ou-compact-gap); box-sizing:border-box; border:0; border-radius:var(--ou-compact-surface-radius); }
+.office-toolbar[data-toolbar-variant='compact'][data-toolbar-surface='floating'] { border:1px solid var(--ou-line); background:var(--ou-panel); box-shadow:var(--ou-lift-2); }
+.office-toolbar[data-toolbar-variant='compact'][data-toolbar-shape='pill'] { border-radius:999px; padding-inline:var(--ou-compact-inset); }
+.office-toolbar[data-toolbar-variant='compact'] .office-toolbar-group { flex-wrap:nowrap; padding:0; gap:var(--ou-compact-gap); }
+.office-toolbar[data-toolbar-variant='compact'] :is(button,input,select) { min-width:var(--ou-compact-target); min-height:var(--ou-compact-target); flex-shrink:0; }
+.office-toolbar[data-toolbar-variant='compact'] :is(button,input,select,[role='combobox']) { border-radius:var(--ou-radius); }
+.office-toolbar[data-toolbar-variant='compact'] .office-choice:not(.office-toolbar [data-floating-surface] .office-choice) { border-color:transparent; background:transparent; box-shadow:none; }
+.office-toolbar[data-toolbar-variant='compact'] .office-choice:not(.office-toolbar [data-floating-surface] .office-choice):not(:disabled):is(:hover,[data-state='open']) { background:var(--ou-ground); }
+.office-toolbar[data-toolbar-variant='compact'] .office-choice:not(.office-toolbar [data-floating-surface] .office-choice):focus-visible { outline:2px solid var(--ou-accent); outline-offset:2px; }
+.office-toolbar[data-toolbar-variant='compact'] .office-toolbar-group-caption { display:none; }
+.office-toolbar[data-toolbar-variant='compact'] .office-toolbar-group-controls { flex-wrap:nowrap; gap:var(--ou-compact-gap); }
+.office-menu-heading { padding:6px 12px 2px; font-size:var(--ou-text-small); color:var(--ou-muted); font-weight:600; }
+.office-secondary-owner { display:inline-flex; flex-shrink:0; }
+.office-secondary-popup { max-width:calc(100vw - 16px); overflow:auto; border-radius:18px; }
+.office-menu-popup[data-compact] { padding:4px; border-radius:18px; }
+.office-menu-popup[data-compact] .office-menu-option { min-height:32px; padding:6px 10px; border-radius:10px; }
+
+.office-secondary-popup.office-command-surface { --ou-control-h:var(--ou-compact-target); }
+.office-secondary-owner button, .office-secondary-popup :is(button,input,select) { min-width:var(--ou-compact-target); min-height:var(--ou-compact-target); }
+
+[data-floating-surface][data-compact][data-floating-variant="toolbar"] { padding:0; border-radius:var(--ou-compact-surface-radius); }
