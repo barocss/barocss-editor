@@ -88,6 +88,16 @@ export function planTextRange(store: DataStore, schema: Schema, policy: EditingP
         left.text = start.text.slice(0, target.from) + input.content[0].text + end.text.slice(target.to);
         caretNode = left; caretOffset = target.from + input.content[0].text.length;
         content[0].content = [...prefix.content!, ...suffix.content!.slice(1)];
+      } else if (inline && start.sid === end.sid && target.from === 0 && target.to === start.text.length
+        && first.content?.length === 1 && input.content.length === 1
+        && typeof input.content[0].text === 'string' && input.content[0].stype === start.stype
+        && sameAttributes(schema, input.content[0], left)) {
+        // A complete compatible run replacement keeps its target identity. The caller
+        // supplies the validated marks; do not infer formatting from the new text.
+        const replacement = structuredClone(input.content[0]);
+        retained.set(replacement, start.sid!);
+        content[0].content = [replacement];
+        caretNode = replacement; caretOffset = replacement.text!.length;
       }
       joined = true; actions.push('join');
     } else content = [prefix, ...input.content, suffix];
