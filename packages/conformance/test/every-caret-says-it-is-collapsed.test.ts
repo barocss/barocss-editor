@@ -223,7 +223,7 @@ describe('캐럿 리터럴', () => {
       'packages/editor-view-react/src/input-handler.ts:583',
       'packages/editor-view-react/src/input-handler.ts:636',
       'packages/editor-view-react/src/input-handler.ts:827',
-      'packages/model/src/operations/insertText.ts:74'
+      'packages/model/src/operations/insertText.ts:79'
     ]);
   });
 

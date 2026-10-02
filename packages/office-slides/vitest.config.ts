@@ -6,7 +6,7 @@ export default defineConfig({
     // jsdom, not node: the kit installs extensions that touch the DOM
     // (drag/drop listeners), which is what a product editor actually does.
     environment: 'jsdom',
-    include: ['test/**/*.{test,spec}.{js,ts}', 'src/**/*.{test,spec}.{js,ts}'],
+    include: ['test/**/*.{test,spec}.{js,jsx,ts,tsx}', 'src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     exclude: ['node_modules', 'dist']
   }
 });
