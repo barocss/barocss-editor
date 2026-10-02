@@ -128,3 +128,44 @@ export function freeThreadId(doc: DocumentAccess): string {
     if (!taken.has(id)) return id;
   }
 }
+
+
+/** Every native occurrence matters when an external result names a thread. */
+function commentOccurrences(doc: DocumentAccess, id: string) {
+  const threads: DocumentNode[] = [], anchors: CommentAnchor[] = [];
+  let invalid = false;
+  const seen = new Set<string>();
+  const visit = (node: DocumentNode | undefined, resource: boolean, depth: number): void => {
+    if (!node || depth > 64 || (node.sid && seen.has(node.sid))) { invalid = true; return; }
+    if (node.sid) seen.add(node.sid);
+    if (node.stype === 'commentThread' && node.attributes?.id === id) threads.push(node);
+    for (const mark of node.marks ?? []) {
+      if (mark.stype !== 'commentRef' || mark.attrs?.id !== id) continue;
+      const [start, end] = mark.range ?? [];
+      if (resource || !node.sid || typeof node.text !== 'string' || typeof start !== 'number' || typeof end !== 'number' || !Number.isInteger(start) || !Number.isInteger(end) ||
+        start < 0 || end <= start || end > node.text.length) invalid = true;
+      else anchors.push({ sid: node.sid, start, end });
+    }
+    for (const child of childrenOf(doc, node)) visit(child, resource || node.stype === 'resources', depth + 1);
+  };
+  visit(doc.getNode(doc.rootId), false, 0);
+  return { threads, anchors, invalid };
+}
+
+export function commentIdentityInUse(doc: DocumentAccess, id: string): boolean {
+  const found = commentOccurrences(doc, id);
+  return found.invalid || found.threads.length > 0 || found.anchors.length > 0;
+}
+
+export type CommentTargetResolution =
+  | { status: 'located'; thread: CommentThread; anchor: CommentAnchor }
+  | { status: 'missing' | 'ambiguous' };
+
+/** Never substitute a matching quote or choose the first of several anchors. */
+export function resolveCommentTarget(doc: DocumentAccess, id: string): CommentTargetResolution {
+  const found = commentOccurrences(doc, id);
+  if (found.threads.length > 1 || found.anchors.length > 1) return { status: 'ambiguous' };
+  if (found.invalid || found.threads.length !== 1 || found.anchors.length !== 1) return { status: 'missing' };
+  const thread = commentThreads(doc).find(thread => thread.sid === found.threads[0].sid);
+  return thread ? { status: 'located', thread, anchor: found.anchors[0] } : { status: 'missing' };
+}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
+import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
 import type { ReactNode } from 'react';
 import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, onApple, useRevision } from '@barocss/office-ui';
 import {
@@ -13,7 +14,7 @@ import {
   captureTocSession, type TocSession,
   captureFurnitureTarget, type FurnitureTarget,
   authoringKind, canAuthor, captureAuthoring, type WordAuthoringSession,
-  createStarterDocument,
+  createStarterDocument, createWordFeedbackHost,
   readWordFile,
   wordFileName,
   wordFileText,
@@ -83,6 +84,8 @@ export interface WordServerHost {
   navigation?: ReactNode;
   readOnly?: boolean;
   onRuntime: (runtime: WordRuntime) => void;
+  feedbackDocumentId: () => string;
+  canComment: () => boolean;
   onFileAction: (action: 'new' | 'open' | 'save') => void;
 }
 
@@ -111,7 +114,10 @@ export function App({ mount, server }: {
    */
   const [pane, setPane] = useState<HTMLElement | null>(null);
   const [instance, setInstance] = useState<WordRuntime | null>(null);
-  const readOnly = Boolean(server?.readOnly || instance?.editor.isEditable === false);
+  const [reading, setReading] = useState(() => new URLSearchParams(location.search).get('mode') === 'read');
+  const readingRef = useRef(reading); readingRef.current = reading;
+  const authorityReadOnly = Boolean(server?.readOnly || instance?.editor.isEditable === false);
+  const readOnly = authorityReadOnly || reading;
   const [editingFurniture, setEditingFurniture] = useState<string>();
   const [toc, setToc] = useState<TocSession>();
   const [figures, setFigures] = useState<TocSession>();
@@ -127,6 +133,7 @@ export function App({ mount, server }: {
     mounted.current = true;
     setPane(host.current.closest('.w-shell-document') as HTMLElement | null);
     const runtime = mount(host.current, setEditingFurniture);
+    runtime.setReading(readingRef.current);
     setInstance(runtime);
     serverRef.current?.onRuntime(runtime);
     return () => {
@@ -134,6 +141,20 @@ export function App({ mount, server }: {
       mounted.current = false;
     };
   }, [mount]);
+
+  useEffect(() => {
+    if (!instance) return;
+    const feedback = createWordFeedbackHost({
+      editor: instance.editor,
+      id: () => serverRef.current ? serverRef.current.feedbackDocumentId() :
+        productDocumentHost()?.product === 'word' ? productDocumentHost()!.id() : '',
+      canComment: () => !serverRef.current || serverRef.current.canComment(),
+      captureSelection: () => captureTextSelection(instance.editor, instance.view, { allowBlurred: true }),
+      reading: value => { instance.setReading(value); setReading(value); }
+    });
+    const unregister = registerProductFeedbackHost(feedback);
+    return () => { unregister(); feedback.dispose(); };
+  }, [instance]);
 
   /**
    * Whether the search box is open.
@@ -420,7 +441,7 @@ export function App({ mount, server }: {
    * the document.
    */
   return (
-    <AppShell className="w-shell">
+    <AppShell className="w-shell" data={{ reading: String(reading) }}>
       <CommandSearch open={commandSearchOpen} onOpenChange={setCommandSearchOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickCommand(id)} />
       {commandError && <div role="alert" className="w-command-error">{commandError}<Button tone="quiet" onClick={() => setCommandError('')}>닫기</Button></div>}
       <AppChrome className="w-chrome">
@@ -433,7 +454,7 @@ export function App({ mount, server }: {
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
           {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
-        {instance ? (
+        {instance && !reading ? (
           <ReadOnlyControls enabled={readOnly}><Ribbon
             documentPresentation detailAnchor={detailAnchor} expanded={ribbonExpanded} onExpandedChange={setRibbonExpanded} scope={host}
             editor={instance.editor}
@@ -460,7 +481,7 @@ export function App({ mount, server }: {
         {editingFurniture && <div className="w-furniture-editing" role="status"><span>머리글·바닥글 편집 중</span><Button onClick={() => instance?.editFurniture()}>본문으로 돌아가기</Button></div>}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
-        {instance && rulerShown ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
+        {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
@@ -532,7 +553,7 @@ export function App({ mount, server }: {
         </AppMain>
 
         {instance ? (
-          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane readOnly={readOnly}
+          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane readOnly={authorityReadOnly}
             editor={instance.editor}
             view={instance.view}
             open={compact || commenting}

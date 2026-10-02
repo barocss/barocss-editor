@@ -16,7 +16,16 @@ import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
-import { commentThreads, freeThreadId } from './comments';
+import { commentThreads, freeThreadId, commentIdentityInUse } from './comments';
+
+export interface InsertWordCommentPayload {
+  selection?: ModelSelection;
+  text?: string;
+  /** A caller-owned durable identity; legacy menus may still allocate comment-N. */
+  id?: string;
+  /** Supplements the native and host authority checks through the complete commit. */
+  canApply?: () => boolean;
+}
 
 export interface CommentAuthor {
   name: string;
@@ -44,12 +53,12 @@ export class WordCommentExtension implements Extension {
   onCreate(editor: Editor): void {
     editor.registerCommand({
       name: 'insertComment',
-      execute: async (ed: Editor, payload?: { selection?: ModelSelection; text?: string }) =>
-        await this._insert(ed, payload?.selection ?? ed.selection, payload?.text ?? ''),
+      execute: async (ed: Editor, payload?: InsertWordCommentPayload) =>
+        await this._insert(ed, payload?.selection ?? ed.selection, payload?.text ?? '', payload),
       // A comment is about something, so there has to be something selected.
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => {
+      canExecute: (ed: Editor, payload?: InsertWordCommentPayload) => {
         const selection = payload?.selection ?? ed.selection;
-        return !!selection && selection.type === 'range' && !selection.collapsed;
+        return ed.isEditable && payload?.canApply?.() !== false && !!selection && selection.type === 'range' && !selection.collapsed;
       }
     });
 
@@ -137,66 +146,73 @@ export class WordCommentExtension implements Extension {
   private async _insert(
     editor: Editor,
     selection: ModelSelection | null | undefined,
-    text: string
+    text: string,
+    payload?: InsertWordCommentPayload
   ): Promise<boolean> {
-    if (!selection || selection.type !== 'range' || selection.collapsed) return false;
+    if (!editor.isEditable || payload?.canApply?.() === false || !selection || selection.type !== 'range' || selection.collapsed) return false;
+    if (payload?.id !== undefined && (typeof payload.id !== 'string' || !payload.id.trim() || payload.id.length > 200)) return false;
 
+    const canApply = payload?.canApply;
     const doc = this._doc(editor);
     const resources = childOfType(doc, doc.getNode(doc.rootId), 'resources');
     if (!resources?.sid) return false;
 
-    const id = freeThreadId(doc);
-    const result = await transaction(
-      editor,
-      [
-        {
-          type: 'applyMark',
-          payload: {
-            range: {
-              startNodeId: selection.startNodeId,
-              startOffset: selection.startOffset,
-              endNodeId: selection.endNodeId,
-              endOffset: selection.endOffset
-            },
-            markType: 'commentRef',
-            attrs: { id }
-          }
-        },
-        {
-          type: 'addChild',
-          payload: {
-            parentId: resources.sid,
-            child: {
-              stype: 'commentThread',
-              attributes: { id, resolved: false },
-              content: [entryNode(this._author, text)]
+    const id = payload?.id ?? freeThreadId(doc);
+    if (commentIdentityInUse(doc, id)) return false;
+    const store = editor.dataStore, rootId = editor.getRootId(), epoch = store.getDocumentEpoch(), session = store.getSessionId();
+    const root = rootId ? store.getNodes().get(rootId) : undefined;
+    const beforeSelection = JSON.stringify(editor.selection), version = store.getVersion();
+    const captured = structuredClone(selection);
+    let retired = false;
+    const retire = () => { retired = true; };
+    const selectionChanged = () => { if (JSON.stringify(editor.selection) !== beforeSelection) retired = true; };
+    editor.on('editor:content.change', retire); editor.on('editor:editable.change', retire);
+    editor.on('editor:selection.model', selectionChanged); editor.on('editor:selection.change', selectionChanged);
+    const validateIntent = () => {
+      if (retired || !editor.isEditable || canApply?.() === false || editor.getRootId() !== rootId ||
+        store.getDocumentEpoch() !== epoch || store.getSessionId() !== session || store.getNodes().get(rootId!) !== root ||
+        store.getVersion() !== version || JSON.stringify(editor.selection) !== beforeSelection ||
+        commentIdentityInUse({ rootId: rootId!, getNode: sid => store.getNodes().get(sid) }, id))
+        return 'The comment target is no longer current';
+    };
+    try {
+      const result = await transaction(
+        editor,
+        [
+          {
+            type: 'applyMark',
+            payload: {
+              range: {
+                startNodeId: selection.startNodeId,
+                startOffset: selection.startOffset,
+                endNodeId: selection.endNodeId,
+                endOffset: selection.endOffset
+              },
+              markType: 'commentRef',
+              attrs: { id }
             }
-          }
-        }
-      ] as never
-    ).commit();
+          },
+          {
+            type: 'addChild',
+            payload: {
+              parentId: resources.sid,
+              child: {
+                stype: 'commentThread',
+                attributes: { id, resolved: false },
+                content: [entryNode(this._author, text)]
+              }
+            }
+          },
+          { type: 'setSelection', payload: { anchor: { nodeId: captured.startNodeId, offset: captured.startOffset },
+            head: { nodeId: captured.endNodeId, offset: captured.endOffset } } }
+        ] as never, { validateIntent, applySelectionToView: false }
+      ).commit();
 
-    /**
-     * The reader stays where they were.
-     *
-     * Adding the thread is an `addChild`, and an `addChild` says where the
-     * caret goes afterwards — into the node it just made. That is right for
-     * inserting a paragraph and wrong here: the new node is a comment in the
-     * margin, and commenting on a sentence is not a reason to take the caret
-     * out of the sentence.
-     *
-     * It was invisible while the DOM was the arbiter of what an edit did. The
-     * browser's own selection never moved, so the next keystroke went where the
-     * reader was looking however stale the model's copy was — and a test helper
-     * waiting for "a selection" was answered by the stale one. Both stop being
-     * survivable the moment the model is trusted to finish its own edits.
-     *
-     * The range is still valid: applying a mark does not split the run, it
-     * records a range on it.
-     */
-    if (result.success) editor?.updateSelection({ ...selection });
-
-    return result.success;
+      return result.success;
+    } finally {
+      editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);
+      editor.off('editor:selection.model', selectionChanged); editor.off('editor:selection.change', selectionChanged);
+    }
   }
 
   private async _reply(editor: Editor, id: string | undefined, text: string): Promise<boolean> {

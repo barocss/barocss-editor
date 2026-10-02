@@ -839,3 +839,6 @@ export { captureBookmarkSession, wordBookmarks, bookmarkSelection, type Bookmark
 export { captureCaptionSession, WORD_CAPTION_LABELS, type CaptionSession, type CaptionSettings } from './caption-commands';
 
 export { wordSearchCommands, type WordSearchCommand } from './command-search-model';
+
+export { createWordFeedbackHost, type WordFeedbackHost, type WordFeedbackOptions } from './feedback-host';
+export { resolveCommentTarget, type CommentTargetResolution } from './comments';

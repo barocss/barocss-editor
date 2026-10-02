@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-word';
 import { Button } from '@barocss/office-ui';
+import { registerProductDocumentHost } from '@barocss/shared';
 import { App } from './app';
 import './style.css';
 import { wordStore } from './autosave';
@@ -53,6 +54,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const savePending = useRef<Promise<void> | undefined>(undefined);
   const [protectedInput, setProtectedInput] = useState(true);
   const protectedRef = useRef(true);
   const [nestedInput, setNestedInput] = useState(false);
@@ -211,7 +213,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     } catch (error) { if (active.current === client) setProblem(error instanceof ServerWordError ? failure(error) : { kind: 'load', message: '이 초안을 열 수 없습니다. 원본은 유지됩니다.' }); }
     finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
   };
-  const save = async () => {
+  const saveCurrent = async () => {
     if (!authority.current || busyRef.current || nestedRef.current || problemRef.current?.kind === 'conflict') return;
     const text = capture(); const one = currentRef.current;
     if (!text || !one) return;
@@ -257,6 +259,46 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     } catch (error) { if (active.current === client) setProblem(failure(error)); }
     finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
   };
+  const save = () => {
+    if (savePending.current) return savePending.current;
+    const pending = saveCurrent().finally(() => { if (savePending.current === pending) savePending.current = undefined; });
+    savePending.current = pending;
+    return pending;
+  };
+  const beforeNavigate = useRef<() => Promise<boolean>>(async () => false);
+  beforeNavigate.current = async () => {
+    const one = currentRef.current, live = runtime.current;
+    if (!one?.documentId || !live || live.generation !== one.generation || active.current !== client || nestedRef.current || !protectedRef.current) return false;
+    const rootId = live.value.editor.getRootId();
+    const epoch = live.value.editor.dataStore.getDocumentEpoch();
+    const currentOwner = () => active.current === client && currentRef.current?.generation === one.generation &&
+      currentRef.current.documentId === one.documentId && runtime.current === live && live.value.editor.getRootId() === rootId &&
+      live.value.editor.dataStore.getDocumentEpoch() === epoch;
+    try {
+      await live.value.flushCommands();
+      if (!currentOwner() || nestedRef.current || !protectedRef.current) return false;
+      if (savePending.current) await savePending.current;
+      if (!currentOwner() || busyRef.current || problemRef.current?.kind === 'conflict' || problemRef.current?.kind === 'denied') return false;
+      const text = capture(), latest = currentRef.current;
+      if (!text || !latest) return false;
+      if (fixed.current || latest.confirmed === null || stableWordSnapshotText(text) !== stableWordSnapshotText(latest.confirmed)) {
+        if (!authority.current) return false;
+        await save();
+      }
+      await live.value.flushCommands();
+      if (!currentOwner() || busyRef.current || nestedRef.current || !protectedRef.current || fixed.current || problemRef.current) return false;
+      const confirmed = currentRef.current!.confirmed;
+      return confirmed !== null && stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), '')) === stableWordSnapshotText(confirmed);
+    } catch { return false; }
+  };
+  useEffect(() => {
+    if (!current) return;
+    const generation = current.generation;
+    return registerProductDocumentHost({ product: 'word',
+      id: () => active.current === client && currentRef.current?.generation === generation ? currentRef.current.documentId ?? '' : '',
+      beforeNavigate: () => active.current === client && currentRef.current?.generation === generation ? beforeNavigate.current() : Promise.resolve(false)
+    });
+  }, [client, current?.generation]);
   const exportNative = () => {
     if (shell.current?.querySelector('.w-math-draft')) return;
     const text = capture(); if (!text) return;
@@ -283,6 +325,9 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Word 자료를 확인하는 중입니다.</p>}
     {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ headerActions: actions, headerNavigation, navigation,
+      feedbackDocumentId: () => active.current === client && currentRef.current?.generation === current.generation ? currentRef.current.documentId ?? '' : '',
+      canComment: () => active.current === client && currentRef.current?.generation === current.generation && authority.current &&
+        !busyRef.current && !nestedRef.current && problemRef.current?.kind !== 'conflict' && protectedRef.current,
       readOnly: !canEdit || busy || !!(draft.current?.source && draft.current.status !== 'confirmed'), onRuntime,
       onFileAction: action => { if (action === 'save') void save(); else if (action === 'new') void prepare(serverWordFileText(createStarterDocument(), '')); else shell.current?.querySelector('aside')?.scrollIntoView(); } }} />}
   </div>;

@@ -61,6 +61,10 @@ export interface WordRuntime {
   dispose: () => void;
   loadNativeDocument: (document: unknown) => void;
   exportNativeDocument: () => unknown;
+  /** Presentation mode does not change document write authority. */
+  setReading: (value: boolean) => void;
+  /** Wait for entered native commands; refuse an unfinished or changed input. */
+  flushCommands: () => Promise<void>;
 }
 
 export interface WordRuntimeOptions {
@@ -175,6 +179,29 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
     dataStore,
     author: options.author ?? { name: '사용자', date: () => new Date().toISOString().slice(0, 10) }
   });
+  const pendingCommands = new Set<Promise<boolean>>();
+  const execute = editor.executeCommand.bind(editor);
+  editor.executeCommand = (command, payload) => {
+    const pending = execute(command, payload);
+    pendingCommands.add(pending);
+    void pending.then(() => pendingCommands.delete(pending), () => pendingCommands.delete(pending));
+    return pending;
+  };
+  let inputVersion = 0, composing = false;
+  listen(container, 'beforeinput', () => { inputVersion += 1; }, true);
+  listen(container, 'compositionstart', () => { composing = true; inputVersion += 1; }, true);
+  listen(container, 'compositionend', () => { composing = false; inputVersion += 1; }, true);
+  const flushCommands = async () => {
+    if (disposed || composing || container.querySelector('.w-math-draft')) throw new Error('Finish the current Word input before leaving.');
+    const version = inputVersion, epoch = dataStore.getDocumentEpoch();
+    do {
+      await Promise.all([...pendingCommands]);
+      const lock = await dataStore.acquireLock('word-snapshot-input');
+      dataStore.releaseLock(lock);
+      if (disposed || composing || inputVersion !== version || dataStore.getDocumentEpoch() !== epoch)
+        throw new Error('The Word input changed while preparing its snapshot.');
+    } while (pendingCommands.size);
+  };
   // The loader owns session IDs, but it must not add timestamps to native data.
   const sourceShape = new Map<string, NativeSourceShape>();
   let loadingNative: unknown;
@@ -252,12 +279,20 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
     // like a change.
     env: { [WORD_ENV_KEY]: createWordEnv(doc, undefined, undefined, new Date('2026-08-05T09:00:00Z')) }
   });
-  const syncEditable = () => { view.contentEditableElement.contentEditable = String(editor.isEditable); };
+  let reading = false;
+  let resize: (() => void) | undefined;
+  const syncEditable = () => { view.contentEditableElement.contentEditable = String(editor.isEditable && !reading); };
+  const setReading = (value: boolean) => {
+    if (disposed) return;
+    if (composing || container.querySelector('.w-math-draft')) throw new Error('Finish the current Word input before changing reading mode.');
+    reading = value; syncEditable();
+    resize?.(); resize = reading ? undefined : installWordTableResize(editor, container);
+  };
   syncEditable();
   editor.on('editor:editable.change', syncEditable);
   cleanups.push(() => editor.off('editor:editable.change', syncEditable));
   const refuseMutation = (event: Event) => {
-    if (editor.isEditable) return;
+    if (editor.isEditable && !reading) return;
     event.preventDefault();
     event.stopImmediatePropagation();
   };
@@ -265,7 +300,7 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
   for (const type of ['beforeinput', 'input', 'paste', 'cut', 'drop', 'compositionstart', 'compositionupdate', 'compositionend'] as const)
     listen(container, type, refuseMutation, true);
   listen(container, 'keydown', event => {
-    if (editor.isEditable) return;
+    if (editor.isEditable && !reading) return;
     const navigation = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Tab', 'Escape'];
     const readerShortcut = (event.ctrlKey || event.metaKey) && !event.altKey
       && ['c', 'a', 'f', '+', '=', '-', '0'].includes(event.key.toLowerCase());
@@ -492,7 +527,7 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
    * there has to be a moment where the real one takes their place.
    */
   const setEditing = (id: string | undefined, restoreBody = true) => {
-    if (disposed || editing === id || (id && !editor.isEditable)) return;
+    if (disposed || editing === id || (id && (!editor.isEditable || reading))) return;
     if (id && !editing) {
       bodySelection = editor.selection ? { ...editor.selection } : undefined;
       editingRoot = editor.getRootId();
@@ -687,7 +722,8 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
    * lives in its app.
    */
   const cells = installCellSelection(editor, container, doc as never);
-  cleanups.push(() => cells.destroy(), installWordTableResize(editor, container));
+  resize = installWordTableResize(editor, container);
+  cleanups.push(() => cells.destroy(), () => resize?.());
 
   if (options.debug) {
     window.editor = editor;
@@ -695,7 +731,7 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
     window.setEditingFurniture = setEditing;
   }
 
-  return { editor, view, fonts, editFurniture: setEditing, loadNativeDocument, exportNativeDocument, dispose: () => {
+  return { editor, view, fonts, editFurniture: setEditing, loadNativeDocument, exportNativeDocument, setReading, flushCommands, dispose: () => {
     if (disposed) return;
     disposed = true;
     listeners.abort();
