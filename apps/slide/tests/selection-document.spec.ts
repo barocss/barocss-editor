@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { test, expect, type Page, type TestInfo } from '@playwright/test';
+import type { Editor } from '@barocss/editor-core';
 import { createSampleDeck } from '../../../packages/office-slides/src/sample-deck';
 import { deckFileText } from '../../../packages/office-slides/src/deck-file';
 import type { INode } from '../../../packages/datastore/src/types';
@@ -251,6 +252,58 @@ test('fresh compact insertion still runs after a header menu is dismissed withou
   await expect.poll(count).toBe(original + 1);
   await page.keyboard.press('Meta+z'); await expect.poll(count).toBe(original);
   expect((await native(page)).document).toBe(before.document);
+});
+
+test('document menu survives identical selection reports and retires actual owner changes', async ({ page }, info) => {
+  await openRepresentative(page, info);
+  const [initialDownload] = await Promise.all([
+    page.waitForEvent('download'), pickMenu(page, 'file.document.2')
+  ]);
+  const initialPath = info.outputPath('menu-before.slides.json');
+  await initialDownload.saveAs(initialPath);
+  const initialPortable = JSON.parse(readFileSync(initialPath, 'utf8'));
+  await selectTitle(page);
+  const trigger = page.getByRole('menuitem', { name: '문서 메뉴', exact: true });
+  const menu = page.getByRole('menu', { name: '문서 메뉴', exact: true });
+  const before = await native(page);
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await page.evaluate(() => {
+    const editor = (window as unknown as Window & { editor: Editor }).editor;
+    editor.updateSelection({ selection: structuredClone(editor.selection), applySelectionToView: false });
+  });
+  await expect(menu).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    menu.locator('[data-menu-item="file.document.2"]').click()
+  ]);
+  const path = info.outputPath('identical-selection.slides.json');
+  await download.saveAs(path);
+  expect(JSON.parse(readFileSync(path, 'utf8')).document).toEqual(initialPortable.document);
+  expect(await native(page)).toEqual(before);
+
+  for (const change of ['selection', 'authority', 'content', 'root'] as const) {
+    await trigger.click();
+    await expect(menu).toBeVisible();
+    await page.evaluate(async kind => {
+      const editor = (window as unknown as Window & { editor: Editor }).editor;
+      if (kind === 'selection') {
+        const original = structuredClone(editor.selection);
+        editor.updateSelection(null); editor.updateSelection(original);
+      } else if (kind === 'authority') {
+        editor.setEditable(false); editor.setEditable(true);
+      } else if (kind === 'content') {
+        const slide = [...editor.dataStore.getNodes().values()].find(node => node.stype === 'surface');
+        if (!slide?.sid) throw new Error('Native slide is missing');
+        if (!await editor.run('setSlideInfo', { slideId: slide.sid, name: 'Changed while the menu was open' })) throw new Error('Native slide rename was refused');
+      } else {
+        const session = editor.dataStore.getSessionId();
+        if (typeof session !== 'string') throw new Error('Native slide session must be a string');
+        editor.loadDocument(editor.exportDocument(), session);
+      }
+    }, change);
+    await expect(menu).toHaveCount(0);
+  }
 });
 
 test('rich notes are an owned second view and font popup retirement cannot target a different slide', async ({ page }, info) => {

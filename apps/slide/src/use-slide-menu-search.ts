@@ -34,6 +34,7 @@ interface SlideMenuSearchInputs {
 
 interface SlideMenuSearch {
   menus: MenuBarMenu[];
+  menuLifetimeKey: string;
   searchCommands: SearchCommand[];
   commandOpen: boolean;
   setCommandOpen: Dispatch<SetStateAction<boolean>>;
@@ -52,7 +53,8 @@ export function useSlideMenuSearch({
   onFileAction, onViewAction
 }: SlideMenuSearchInputs): SlideMenuSearch {
   // A popup owns the native editor generation, not only its reusable document ID.
-  const lifetime = useMemo(() => ({ editor, view, current, generation: 0 }),
+  const lifetimeNumber = useRef(0);
+  const lifetime = useMemo(() => ({ editor, view, current, id: ++lifetimeNumber.current, generation: 0 }),
     [editor, view, current, onFileAction, onViewAction]);
   const activeLifetime = useRef<typeof lifetime | null>(lifetime);
   activeLifetime.current = lifetime;
@@ -243,7 +245,7 @@ export function useSlideMenuSearch({
   };
 
   return {
-    menus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    menus, menuLifetimeKey: `${lifetime.id}:${lifetime.generation}`, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
     dismissCommandError: () => setCommandError(''), openCommandSearch, pickSearchCommand, prepareSearchCommandPick,
     onMenu, runEntry
   };

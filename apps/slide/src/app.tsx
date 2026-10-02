@@ -1049,7 +1049,7 @@ export function App({
   }, [current, moveBy, stretches, readOnly, focused]);
 
   const {
-    menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    menus: nativeMenus, menuLifetimeKey, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
     dismissCommandError, openCommandSearch, pickSearchCommand, prepareSearchCommandPick, onMenu, runEntry
   } = useSlideMenuSearch({
     editor, view, current, slideNumber: here?.number, answers, moveBy,
@@ -1838,7 +1838,7 @@ export function App({
       <EditorHeader compact product="Slides" className="sl-topbar"
         fallbackNavigation={server ? server.headerNavigation : <ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<DocumentMenu key={`${editor?.getRootId()}:${current}:${answers}:${readOnly}`} label="문서 메뉴" icon={<Icon name="type-page" />} menus={menus} onPick={onMenu} />}
+        menus={<DocumentMenu key={menuLifetimeKey} label="문서 메뉴" icon={<Icon name="type-page" />} menus={menus} onPick={onMenu} />}
         actions={<>
           <Tip label="레이어 · 개체 순서와 컴포넌트">
             <Button square tone="quiet" ariaLabel="레이어" aria-controls="slides-objects"
