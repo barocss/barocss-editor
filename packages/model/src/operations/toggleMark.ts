@@ -84,7 +84,7 @@ export const toggleMark = defineOperationDSL(
  */
 const marksBefore = (dataStore: any, nodeId: string) => {
   const node = dataStore.getNode(nodeId);
-  return Array.isArray(node?.marks) ? JSON.parse(JSON.stringify(node.marks)) : [];
+  return Array.isArray(node?.marks) ? JSON.parse(JSON.stringify(node.marks)) : undefined;
 };
 
 defineOperation('toggleMark', async (operation: any, context: TransactionContext) => {
@@ -126,7 +126,9 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
       // Exactly what the run carried before, not "toggle it again".
       // A mark spanning several nodes has no single operation that restores
       // them all, so it says nothing rather than restoring only the first.
-      ...(before ? { inverse: { type: 'setMarks', payload: { nodeId: startNodeId, marks: before } } } : {})
+      ...(startNodeId === endNodeId
+        ? { inverse: { type: 'setMarks', payload: { nodeId: startNodeId, marks: before, restoreAbsent: before === undefined } } }
+        : {})
     };
   }
 
@@ -152,7 +154,7 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'setMarks', payload: { nodeId, marks: beforeSingle } }
+    inverse: { type: 'setMarks', payload: { nodeId, marks: beforeSingle, restoreAbsent: beforeSingle === undefined } }
   };
 });
 
