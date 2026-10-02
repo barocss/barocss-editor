@@ -894,6 +894,25 @@
 .w-quick-toolbar .w-quick-size { width: 60px; min-width: 0; }
 .w-quick-toolbar .office-toolbar-expand { margin-left: auto; }
 
+/* Selection tools reuse Word controls without reserving an idle ribbon row. */
+.w-selection-tools { display:flex; flex-wrap:nowrap; align-items:center; gap:var(--ou-compact-gap, 2px); width:max-content; }
+.w-selection-tools .w-ribbon-group { border:0; }
+.w-document-ribbon { border:0; }
+
+/* Secondary controls keep their component state in an owned temporary surface. */
+.w-selection-tools .w-toolbar-style { width:120px; }
+.w-selection-more { flex:none; }
+.w-selection-secondary { width:min(440px,calc(100vw - 32px)); padding:12px; }
+/* Keep the product gap when a host loads the shared toolbar rules afterward. */
+.w-selection-secondary .w-secondary-tools { display:flex; flex-wrap:wrap; gap:8px; }
+.w-selection-secondary .office-ribbon-group { border:0; }
+.w-object-primary-size { width:144px; }
+.w-object-primary-size input { min-height:32px; }
+.w-document-detail { width:min(800px,calc(100vw - 32px)); padding:8px; }
+.w-document-detail .w-toolbar-ribbon { flex-wrap:wrap; }
+.w-selection-tools.office-toolbar .office-button { min-width:32px; min-height:32px; }
+.w-selection-tools .w-toolbar-style { min-height:32px; }
+
 .w-command-error { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 16px; background:var(--ou-panel, #ffffff); color:var(--ou-danger, #dc2626); border-bottom:1px solid var(--ou-line, #d4d4d4); font-size:13px; }
 
 

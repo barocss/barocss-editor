@@ -365,27 +365,10 @@ body {
 
 .w-shell-body > .office-workspace-side-panel > * { flex: 1; min-width: 0; }
 
-/* Selection tools reuse Word controls without reserving an idle ribbon row. */
-.w-selection-tools { display:flex; flex-wrap:nowrap; align-items:center; gap:var(--ou-compact-gap); width:max-content; }
-.w-selection-tools .w-ribbon-group { border:0; }
-.w-document-ribbon { border:0; }
-
-/* Secondary controls keep their component state in an owned temporary surface. */
-.w-selection-tools .w-toolbar-style { width:120px; }
-.w-selection-more { flex:none; }
-.w-selection-secondary { width:min(440px,calc(100vw - 32px)); padding:12px; }
-.w-secondary-tools { display:flex; flex-wrap:wrap; gap:8px; }
-.w-selection-secondary .office-ribbon-group { border:0; }
-.w-object-primary-size { width:144px; }
-.w-object-primary-size input { min-height:32px; }
-.w-document-detail { width:min(800px,calc(100vw - 32px)); padding:8px; }
-.w-document-detail .w-toolbar-ribbon { flex-wrap:wrap; }
 [data-server-word-workspace] { display:flex; flex-direction:column; height:100%; min-height:0; }
 [data-server-word-workspace] > .w-shell { height:auto; flex:1; min-height:0; }
 [data-server-word-workspace] aside { display:flex; flex-direction:column; gap:6px; padding:12px; }
 
-.w-selection-tools.office-toolbar .office-button { min-width:32px; min-height:32px; }
-.w-selection-tools .w-toolbar-style { min-height:32px; }
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] { flex-direction:column; }
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > aside { flex:none; }
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > .w-outline { flex:1; min-height:0; }
