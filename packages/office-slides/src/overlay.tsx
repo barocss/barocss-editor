@@ -467,7 +467,7 @@ export function SelectionOverlay({
    * dragged while the rail was clicked stayed translated by a drag nobody
    * finished, eight hundred pixels from where the document said it was.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     setInside(undefined);
     setDrag(null);
     settleRef.current();
@@ -2660,6 +2660,7 @@ export function SelectionOverlay({
     <div
       ref={layer}
       className="sl-overlay"
+      data-slide-overlay={slideSid}
       data-editing={editing ? 'true' : undefined}
       data-cropping={cropping ?? undefined}
       style={{

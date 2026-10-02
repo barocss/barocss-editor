@@ -5,7 +5,7 @@ import { Filmstrip, type FilmstripProps } from './filmstrip';
 import './slide-navigation.css';
 
 export interface SlideNavigationProps extends FilmstripProps {
-  viewMode?: 'single' | 'multi';
+  viewMode?: 'single' | 'multi' | 'map';
   onViewModeChange?: (mode: 'single' | 'multi') => void;
   /** Definitions are surfaces in their own right, not slide one. */
   definitionLabel?: string;
@@ -22,7 +22,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
-  const multi = props.viewMode === 'multi';
+  const multi = props.viewMode === 'multi' || props.viewMode === 'map';
   const expanded = open && !multi;
   const modeFocus = useRef<'single' | 'multi' | null>(null);
   useEffect(() => {

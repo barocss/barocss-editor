@@ -90,3 +90,31 @@ it('changing the current slide and removing a slide retire its rename field with
   render({ slides: props.slides.filter(slide => slide.sid !== removed) });
   expect(input()).toBeNull(); expect(props.onRename).not.toHaveBeenCalled();
 });
+
+
+it.each(['multi', 'map'] as const)('%s suspends notes and the retained tray without changing the native deck', viewMode => {
+  const onViewModeChange = vi.fn();
+  const renderNotes = vi.fn(() => createElement('textarea', { 'aria-label': 'Retained notes' }));
+  render({ viewMode: 'single', onViewModeChange, renderNotes });
+  const native = deckFileText(editor.exportDocument()), history = editor.getHistoryStats();
+  clickFold();
+  act(() => host.querySelector<HTMLButtonElement>('[data-filmstrip-panel] [data-notes-toggle]')!.click());
+  const notes = host.querySelector<HTMLElement>('[data-notes-panel]')!;
+  const field = notes.querySelector('textarea');
+  expect(notes.hidden).toBe(false); expect(panel().hidden).toBe(false);
+  render({ viewMode });
+  expect(notes.hidden).toBe(true); expect(notes.hasAttribute('inert')).toBe(true);
+  expect(panel().hidden).toBe(true); expect(panel().hasAttribute('inert')).toBe(true);
+  expect(host.querySelector<HTMLElement>('.sl-slide-navigation-tools')!.hidden).toBe(true);
+  expect(notes.querySelector('textarea')).toBe(field);
+  expect(renderNotes).toHaveBeenLastCalledWith(expect.any(Function), false);
+  const switches = host.querySelectorAll<HTMLButtonElement>('.sl-slide-view-toolbar [data-slide-view]');
+  expect(switches).toHaveLength(2);
+  expect(switches[0].getAttribute('aria-pressed')).toBe('false');
+  expect(switches[1].getAttribute('aria-pressed')).toBe(String(viewMode === 'multi'));
+  act(() => switches[0].click()); expect(onViewModeChange).toHaveBeenLastCalledWith('single');
+  render({ viewMode: 'single' });
+  expect(notes.hidden).toBe(false); expect(panel().hidden).toBe(false);
+  expect(notes.querySelector('textarea')).toBe(field);
+  expect(deckFileText(editor.exportDocument())).toBe(native); expect(editor.getHistoryStats()).toEqual(history);
+});

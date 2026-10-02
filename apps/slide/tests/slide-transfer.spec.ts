@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openDeck, pickMenu } from './helpers';
+import { openDeck, pickMenu, currentSlide } from './helpers';
 
 async function fixture(page: import('@playwright/test').Page) {
   await openDeck(page);
@@ -24,7 +24,7 @@ test('drags a text object into another slide, then undoes and restores its saved
   await page.mouse.move(f.to.x, f.to.y, { steps: 12 });
   await expect(page.locator('[data-slide-transfer]')).toHaveAttribute('data-slide-transfer', f.second!);
   await page.mouse.up();
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(f.second);
   const targetBox = page.locator(`.sl-stage .sl-slide[data-bc-sid="${f.second}"] [data-bc-sid="${f.sid}"]`);
   await expect(targetBox).toContainText(text);
   const landed = await targetBox.boundingBox();
@@ -32,7 +32,7 @@ test('drags a text object into another slide, then undoes and restores its saved
   expect(landed!.y + landed!.height / 2).toBeCloseTo(f.to.y, 0);
   await page.evaluate(() => (window as any).editor.undo());
   await expect(f.box).toBeAttached();
-  await expect(page.locator('.sl-count')).toHaveText('1 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(f.first);
   await page.evaluate(() => (window as any).editor.redo());
   await expect(targetBox).toBeAttached();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
@@ -100,7 +100,8 @@ async function selectAcrossSlides(page: import('@playwright/test').Page) {
 
 test('selects objects across slides and edits a shared property through the inspector', async ({ page }) => {
   const f = await selectAcrossSlides(page);
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(f.second);
+  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
   await expect(page.locator('.sl-properties')).toContainText('2개 선택');
   await expect(page.locator('[data-cross-slide-selected]')).toHaveAttribute('data-cross-slide-selected', f.sid!);
   const opacity = page.getByRole('spinbutton', { name: '불투명도', exact: true });

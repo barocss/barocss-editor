@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { boxCounts, currentSlide, openDeck } from './helpers';
+import { boxCounts, currentSlide, openDeck, pickMenu } from './helpers';
 
 const trigger = (page: Page) => page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true })
   .getByRole('button', { name: '추가 Slides 도구', exact: true });
@@ -79,7 +79,7 @@ test('dropdown inserts a native shape and real keyboard undo/redo preserves the 
   await expect.poll(async () => (await native(page)).document).toEqual(inserted);
 });
 
-for (const change of ['none', 'slide', 'authority', 'view'] as const) {
+for (const change of ['none', 'slide', 'authority', 'view', 'map'] as const) {
   test(`asynchronous image insertion keeps its captured owner after ${change}`, async ({ page }) => {
     await openDeck(page); const initial = await native(page), counts = await boxCounts(page), slide = await currentSlide(page);
     // Pause only file I/O. The actual menu, native chooser and image placement still run.
@@ -99,6 +99,9 @@ for (const change of ['none', 'slide', 'authority', 'view'] as const) {
     } else if (change === 'view') {
       await page.getByRole('button',{name:'멀티 슬라이드 보기',exact:true}).click();
       await page.getByRole('button',{name:'슬라이드 보기',exact:true}).click();
+    } else if (change === 'map') {
+      await pickMenu(page, 'view.panes.1');
+      await page.locator('[data-map-close]').click();
     } else if (change === 'authority') await page.evaluate(() => (window as any).editor.setEditable(false));
     const beforeRead = await native(page);
     await page.evaluate(() => (window as any).resumeInsertRead());

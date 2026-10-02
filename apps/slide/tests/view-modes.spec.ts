@@ -17,12 +17,14 @@ for (const theme of ['light', 'dark']) test(`single/multi icons preserve the dec
   await expect(mode(page,true)).toBeFocused();
   expect(await viewTools.boundingBox()).toEqual(viewToolsBefore);
   await expect(mode(page,true)).toHaveAttribute('aria-pressed','true');
-  await expect(page.getByRole('region',{name:'덱 지도',exact:true})).toBeVisible();
+  await expect(page.locator('.sl-stage')).toHaveAttribute('data-freeboard','true');
+  await expect(page.locator('.sl-map')).toHaveCount(0);
   await expect(page.locator('[data-filmstrip-panel]')).toBeHidden();
   await expect(page.locator('[data-notes-panel]')).toBeHidden();
-  await expect(page.locator('.sl-stage')).toBeHidden();
-  await expect(page.locator('.sl-stage-owner')).toHaveAttribute('inert','');
-  await expect(page.locator('.sl-overlay')).toHaveCount(0);
+  await expect(page.locator('.sl-stage')).toBeVisible();
+  await expect(page.locator('.sl-stage-owner')).not.toHaveAttribute('inert','');
+  await expect(page.locator('.sl-overlay')).toBeVisible();
+  await expect(page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true})).toBeVisible();
   expect(await geometry(page)).toEqual(bounds);
   expect(await state(page)).toEqual(before); expect(await currentSlide(page)).toBe(current);
   const button=await mode(page,true).boundingBox(), main=await page.locator('.sl-main').boundingBox();
@@ -41,8 +43,8 @@ for (const theme of ['light', 'dark']) test(`single/multi icons preserve the dec
   expect(await geometry(page)).toEqual(bounds); expect(await state(page)).toEqual(before);
   await page.getByRole('button',{name:'발표자 노트 닫기',exact:true}).click();
   await page.getByRole('button',{name:'슬라이드 탐색 접기',exact:true}).click();
-  await mode(page,true).click(); await expect(page.locator('.sl-map')).toBeVisible();
-  await page.locator('[data-map-close]').click(); await expect(mode(page,false)).toHaveAttribute('aria-pressed','true');
+  await mode(page,true).click(); await expect(page.locator('.sl-stage')).toHaveAttribute('data-freeboard','true');
+  await mode(page,false).click(); await expect(mode(page,false)).toHaveAttribute('aria-pressed','true');
   expect(await state(page)).toEqual(before);
 });
 
@@ -51,7 +53,7 @@ test('view controls keep map navigation, canvas and icon presentation available'
   await expect(page.locator('[data-focus-toggle]')).toHaveCount(0);
   const present=page.getByRole('button',{name:'처음부터 발표',exact:true});
   await expect(present.locator('svg')).toHaveCount(1); expect(await present.textContent()).toBe('');
-  await mode(page,true).click();
+  await pickMenu(page,'view.panes.1');
   const target=page.locator('[data-map-page]').nth(1); const sid=await target.getAttribute('data-map-page');
   await target.click(); await expect(page.locator('.sl-map')).toHaveCount(0);
   expect(await currentSlide(page)).toBe(sid);
@@ -68,7 +70,7 @@ test('view controls keep map navigation, canvas and icon presentation available'
   await page.mouse.click(box.x+box.width/2,box.y+box.height/2);
   await expect(page.locator('[data-slides-formatting]')).toBeVisible();
   const before=await state(page), selection=await page.evaluate(()=>(window as any).editor.selection);
-  await mode(page,true).click();
+  await pickMenu(page,'view.panes.1');
   await expect(page.locator('[data-slides-formatting]')).toHaveCount(0);
   await expect(page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true})).toHaveCount(0);
   expect(await state(page)).toEqual(before);
