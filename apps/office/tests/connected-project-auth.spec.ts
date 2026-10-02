@@ -306,7 +306,12 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await expect(viewerPage.getByRole('button', { name: '결과물 연결', exact: true })).toBeDisabled();
     const denied = await viewerPage.request.patch(projectApi, { headers: { Authorization: viewerRequests.bearer }, data: {
       expectedRevision: (await readProject()).project.revision, idempotencyKey: randomUUID(), action: { type: 'metadata', title: 'Denied' } } }); expect(denied.status()).toBe(403);
-    expect((await viewerPage.request.get(`${origin}/api/v1/tenants/${status.betaTenantId}/projects/${projectId}`, { headers: { Authorization: viewerRequests.bearer } })).status()).toBe(403);
+    // Beta is a member of both companies. Its permitted Beta namespace must not disclose an Alpha project.
+    const hiddenProject = await viewerPage.request.get(`${origin}/api/v1/tenants/${status.betaTenantId}/projects/${projectId}`, { headers: { Authorization: viewerRequests.bearer } });
+    expect(hiddenProject.status()).toBe(404); expect(await hiddenProject.json()).toEqual({ status: 'not_found' });
+    // Alpha has no Beta membership; access must stop at current tenant authorization.
+    const foreignTenant = await page.request.get(`${origin}/api/v1/tenants/${status.betaTenantId}/projects/${projectId}`, { headers: { Authorization: requests.bearer } });
+    expect(foreignTenant.status()).toBe(403); expect(await foreignTenant.json()).toEqual({ status: 'forbidden' });
     await privateControl({ action: 'beta-role', role: 'editor' }); roleChanged = true; await viewerPage.reload();
     await expect(viewerPage.getByRole('button', { name: '결과물 연결', exact: true })).toBeEnabled();
     await viewerPage.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(viewerPage)).toBeVisible(); await viewerPage.getByRole('button', { name: '직접 편집', exact: true }).click();
