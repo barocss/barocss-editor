@@ -22,7 +22,43 @@ export interface SlidesRuntimeOptions {
 
 type NativeSourceShape = { metadata: unknown; hasMetadata: boolean; hasAttributes: boolean; loadedAt: unknown; emptyContent: boolean };
 
-const nativeTree = normalizeSlidesNativeDocument;
+const optionalNativeFields = ['content', 'text', 'marks', 'metadata'] as const;
+/** Native snapshots contain portable values; unsupported input must not be silently coerced. */
+const assertPortableNative = (value: unknown): void => {
+  const active = new Set<object>();
+  const visit = (item: unknown): void => {
+    if (item === null || typeof item === 'string' || typeof item === 'boolean') return;
+    if (typeof item === 'number' && Number.isFinite(item)) return;
+    if (!item || typeof item !== 'object' || active.has(item)) throw new Error('Slides native data contains an unsupported value.');
+    const prototype = Object.getPrototypeOf(item);
+    if (!Array.isArray(item) && prototype !== Object.prototype && prototype !== null)
+      throw new Error('Slides native data contains an unsupported object.');
+    if (Object.getOwnPropertySymbols(item).length) throw new Error('Slides native data contains an unsupported key.');
+    active.add(item);
+    try {
+      if (Array.isArray(item)) {
+        if (Object.getOwnPropertyNames(item).some(key => key !== 'length' &&
+          (!Number.isSafeInteger(Number(key)) || Number(key) < 0 || Number(key) >= item.length || String(Number(key)) !== key)))
+          throw new Error('Slides native data contains an unsupported array property.');
+        for (let index = 0; index < item.length; index++) {
+          if (!Object.hasOwn(item, index)) throw new Error('Slides native data contains a sparse array.');
+          const descriptor = Object.getOwnPropertyDescriptor(item, index)!;
+          if (!Object.hasOwn(descriptor, 'value')) throw new Error('Slides native data contains an unsupported accessor.');
+          visit(descriptor.value);
+        }
+      } else for (const key of Object.getOwnPropertyNames(item)) {
+        const descriptor = Object.getOwnPropertyDescriptor(item, key)!;
+        if (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) throw new Error('Slides native data contains an unsupported accessor.');
+        visit(descriptor.value);
+      }
+    } finally { active.delete(item); }
+  };
+  visit(value);
+};
+const nativeTree = (value: unknown): unknown => {
+  assertPortableNative(value);
+  return normalizeSlidesNativeDocument(value);
+};
 const canonical = (value: unknown): string => {
   const ordered = (item: unknown): unknown => {
     if (Array.isArray(item)) return item.map(ordered);
@@ -52,6 +88,9 @@ const reconcile = (tree: unknown, shapes: Map<string, NativeSourceShape>): unkno
     if (shape && !shape.hasAttributes && copy.attributes && typeof copy.attributes === 'object'
       && Object.keys(copy.attributes).length === 0) delete copy.attributes;
     if (shape?.emptyContent && copy.content === undefined) copy.content = [];
+    // The loader/exporter materializes absent optional fields as own undefined keys.
+    // Construct the portable node fields here; defined edits and explicit empties survive.
+    for (const field of optionalNativeFields) if (copy[field] === undefined) delete copy[field];
     if (Array.isArray(copy.content)) copy.content = copy.content.map(restore);
     return copy;
   };
