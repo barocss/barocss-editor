@@ -216,7 +216,7 @@ test('actual Slides writer and automatic viewer preserve complete native API/PG 
     await expect(workspace(viewer).getByRole('complementary', { name: '속성', exact: true })).toBeVisible();
     await workspace(viewer).getByLabel('단위', { exact: true }).selectOption('in');
     await viewer.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
-    await viewer.getByRole('button', { name: '발표', exact: true }).click(); await expect(viewer.locator('.sl-present-hint')).toBeVisible();
+    await viewer.getByRole('button', { name: '처음부터 발표', exact: true }).click(); await expect(viewer.locator('.sl-present-hint')).toBeVisible();
     await viewer.keyboard.press('Escape'); await expect(viewer.locator('.sl-present-hint')).toHaveCount(0);
     await viewer.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();
     await viewer.locator('.sl-filmstrip button').nth(1).click(); await expect(workspace(viewer)).toContainText('The point of this slide');
@@ -331,4 +331,66 @@ test('actual authenticated selection tools stay near their owned range in both t
  expect(await downloadNative(page,info,`${width}-${theme}-tools-only.slides.json`)).toEqual(source.document);}
  expect(await downloadNative(page,info,'geometry-tools-only.slides.json')).toEqual(source.document);
  } finally {await context.close();}
+});
+
+test('actual first-note input is immediate, durable, and denied safely after current role revocation', async ({browser},info)=>{
+  test.setTimeout(180000);
+  const a=await browser.newContext({viewport:{width:1440,height:900}}),b=await browser.newContext({viewport:{width:1440,height:900}});
+  const writer=await a.newPage(),reader=await b.newPage();const sent=track(writer),readerSent=track(reader);
+  const notes=(page:Page)=>workspace(page).locator('[data-notes-panel]');
+  const toggle=(page:Page)=>workspace(page).getByRole('button',{name:'발표자 노트',exact:true});
+  const input=(page:Page)=>notes(page).getByRole('textbox',{name:'발표자 노트 입력',exact:true});
+  try {
+    await login(writer,'alpha-editor');const source=await seed(writer,'Synthetic immediate notes');await prepare(writer,source.title);
+    await save(writer).click();await expect(saved(writer)).toHaveText('서버 저장 확인됨');
+    const url=writer.url(),id=new URL(url).searchParams.get('document')!;
+    const status=await privateControl<RealStatus>({action:'status'}),root=`${origin}/api/v1/tenants/${status.tenantId}`;
+    const initial=await canonical(writer,root,sent.bearer,id,source.text);
+    await toggle(writer).click();await expect(input(writer)).toBeFocused();
+    await expect(workspace(writer).getByRole('button',{name:'노트 추가',exact:true})).toHaveCount(0);
+    expect(await downloadNative(writer,info,'empty-notes-open.slides.json')).toEqual(source.document);
+    await input(writer).fill('First authenticated note\nSecond native paragraph');
+    await expect(notes(writer).locator('.sl-notes-host')).toContainText('Second native paragraph');
+    const updated=await downloadNative(writer,info,'first-input.slides.json');
+    const actualSlide=updated.content.find((node:INode)=>node.stype==='surface');
+    expect(actualSlide.attributes.noteId).toEqual(expect.any(String));
+    const expected=structuredClone(source.document);
+    const expectedSlide=expected.content!.find((node):node is INode=>typeof node!=='string'&&node.stype==='surface')!;
+    expectedSlide.attributes={...expectedSlide.attributes,noteId:actualSlide.attributes.noteId};
+    const resources=expected.content!.find((node):node is INode=>typeof node!=='string'&&node.stype==='resources')!;
+    resources.content!.push({stype:'surfaceNote',attributes:{id:actualSlide.attributes.noteId},content:[
+      {stype:'paragraph',attributes:{},content:[{stype:'inline-text',attributes:{},text:'First authenticated note'}]},
+      {stype:'paragraph',attributes:{},content:[{stype:'inline-text',attributes:{},text:'Second native paragraph'}]}
+    ]});
+    expect(updated).toEqual(expected);
+    await save(writer).click();await expect(saved(writer)).toHaveText('서버 저장 확인됨');
+    const confirmed=await canonical(writer,root,sent.bearer,id);expect(JSON.parse(confirmed.document!.snapshotText).document).toEqual(expected);
+    expect(confirmed.document!.revision).toBeGreaterThan(initial.document!.revision);
+    await writer.reload();await expect(workspace(writer)).toBeVisible();await toggle(writer).click();
+    await expect(notes(writer).locator('.sl-notes-host')).toContainText('Second native paragraph');
+    expect(await downloadNative(writer,info,'first-input-reopened.slides.json')).toEqual(expected);
+
+    await login(reader,'beta-viewer',url);await toggle(reader).click();
+    await expect(notes(reader).locator('.sl-notes-host')).toContainText('First authenticated note');
+    await expect(workspace(reader).locator('[contenteditable=true]')).toHaveCount(0);expect(readerSent.writes).toHaveLength(0);
+    await privateControl({action:'beta-role',role:'editor'});
+    const recheck=reader.waitForResponse(response=>response.url().includes(`/documents/${id}`)&&response.request().method()==='GET');
+    await reader.evaluate(()=>window.dispatchEvent(new Event('focus')));await recheck;
+    await expect(workspace(reader).locator('[contenteditable=true]').first()).toBeVisible();
+    await workspace(reader).getByRole('button',{name:'슬라이드 탐색 펼치기',exact:true}).click();
+    await workspace(reader).locator('.sl-filmstrip button[data-slide]').nth(4).click();await toggle(reader).click();await expect(input(reader)).toBeFocused();
+    // Keep first input in composition while the real permission refresh retires its owner.
+    await input(reader).dispatchEvent('compositionstart',{data:''});
+    await input(reader).fill('Keep this refused first-note draft');
+    await privateControl({action:'beta-role',role:'viewer'});
+    const revoked=reader.waitForResponse(response=>response.url().includes(`/documents/${id}`)&&response.request().method()==='GET');
+    await reader.evaluate(()=>window.dispatchEvent(new Event('focus')));await revoked;
+    await expect(workspace(reader).locator('[contenteditable=true]')).toHaveCount(0);
+    if(!await notes(reader).isVisible())await toggle(reader).click();
+    await expect(input(reader)).toHaveValue('Keep this refused first-note draft');await expect(input(reader)).toHaveAttribute('readonly','');
+    await input(reader).dispatchEvent('compositionend',{data:'Keep this refused first-note draft'});
+    expect(await downloadNative(reader,info,'denied-first-input.slides.json')).toEqual(expected);expect(readerSent.writes).toHaveLength(0);
+    const after=await inspect(id);expect(after.document!.snapshotText).toBe(confirmed.document!.snapshotText);expect(after.document!.revision).toBe(confirmed.document!.revision);
+    await info.attach('first-note-authority.json',{body:JSON.stringify({realPG:true,revision:confirmed.document!.revision,hash:hash(confirmed.document!.snapshotText),deniedWrites:readerSent.writes.length}),contentType:'application/json'});
+  } finally {await privateControl({action:'beta-active',active:true});await privateControl({action:'beta-role',role:'viewer'});await a.close();await b.close();}
 });

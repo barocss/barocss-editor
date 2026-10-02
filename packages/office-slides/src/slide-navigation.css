@@ -148,3 +148,16 @@
 }
 
 [data-slide-navigation] .sl-filmstrip-rename input { width: 100%; background: var(--ou-panel); }
+
+/* The empty-note input is a transient draft. Native rich text takes over after commit. */
+.sl-notes-draft { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sl-notes-draft textarea { flex: 1; min-height: 0; width: 100%; box-sizing: border-box; resize: none; padding: 8px 0;
+  border: 0; border-radius: 0; outline: none; background: transparent; color: var(--ou-ink); font: inherit; line-height: 1.6; }
+.sl-notes-draft textarea::placeholder { color: var(--ou-muted); }
+.sl-notes-draft-error { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ou-ink); }
+
+.sl-slide-view-modes { display: flex; gap: 2px; padding: 2px; flex: none; border-radius: 7px; background: var(--ou-ground); }
+.sl-slide-navigation-folded { position: relative; align-self: stretch; display: flex; justify-content: center; }
+[data-slide-navigation] .sl-slide-navigation-folded > .sl-slide-view-toolbar { position: absolute; right: 0; bottom: 0; }
+.sl-slide-navigation-tools[hidden] { display: none; }
+.sl-slide-navigation-folded:has(.sl-slide-navigation-tools[hidden]) { height: 40px; }

@@ -169,7 +169,7 @@ test.describe('a button on a slide', () => {
  */
 test.describe('the deck’s map', () => {
   const openMap = async (page: Page) => {
-    await pickMenu(page, 'view.panes.1');
+    await page.getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
     await expect(page.locator('.sl-map')).toHaveCount(1);
     await page.waitForTimeout(500);
   };
@@ -289,7 +289,7 @@ test.describe('the deck’s map', () => {
 test.describe('moving a jump in the map', () => {
   test('drops an arrow’s end on another page, and the button follows', async ({ page }) => {
     await openDeck(page);
-    await pickMenu(page, 'view.panes.1');
+    await page.getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
     await expect(page.locator('.sl-map')).toHaveCount(1);
     await page.waitForTimeout(500);
 
@@ -347,7 +347,7 @@ test.describe('moving a jump in the map', () => {
 
   test('changes nothing when the end is dropped on no page', async ({ page }) => {
     await openDeck(page);
-    await pickMenu(page, 'view.panes.1');
+    await page.getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
     await page.waitForTimeout(500);
 
     const before = await page.evaluate(() => {
@@ -390,7 +390,7 @@ test.describe('moving a jump in the map', () => {
  */
 test.describe('a deck that moves by its links', () => {
   const setLinksOnly = async (page: Page) => {
-    await pickMenu(page, 'view.panes.1');
+    await page.getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
     await page.waitForTimeout(400);
     await page.locator('.sl-map').getByLabel('덱 이동 방식').selectOption('links');
     await page.waitForTimeout(500);
