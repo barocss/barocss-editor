@@ -25,7 +25,7 @@ for (const theme of ['light', 'dark']) test(`floating notes preserve geometry, e
   const toggle = page.getByRole('button', { name: '발표자 노트', exact: true });
   const notes = page.locator('[data-notes-panel]');
   await expect(notes).toBeHidden();
-  await toggle.click(); await expect(notes).toBeVisible(); await expect(notes).toBeFocused();
+  await toggle.click(); await expect(notes).toBeVisible(); await expect(notes.getByRole('textbox', {name:'발표자 노트 입력',exact:true})).toBeFocused();
   expect(await geometry(page)).toEqual(before);
   await openFilmstrip(page);
   expect(await geometry(page)).toEqual(before);
@@ -63,9 +63,9 @@ for (const theme of ['light', 'dark']) test(`floating notes preserve geometry, e
   await expect(notes).toBeHidden(); await expect(toggle).toBeFocused();
   expect(await geometry(page)).toEqual(before);
   await toggle.click(); await page.locator('.sl-filmstrip button[data-slide]').nth(4).click();
-  await expect(notes).toContainText('이 슬라이드에는 노트가 없습니다.');
+  await expect(notes.getByRole('textbox', {name:'발표자 노트 입력',exact:true})).toBeVisible();
   expect(await geometry(page)).toEqual(before);
-  await page.getByRole('button',{name:'노트 추가',exact:true}).click();
+  await notes.getByRole('textbox', {name:'발표자 노트 입력',exact:true}).fill('New presenter note');
   await expect(notes.locator('.sl-notes-host')).toBeVisible();
   expect(await geometry(page)).toEqual(before);
   await page.screenshot({path:info.outputPath(`floating-notes-${theme}.png`),animations:'disabled'});

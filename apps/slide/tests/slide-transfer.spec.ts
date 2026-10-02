@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickMenu } from './helpers';
 
 async function fixture(page: import('@playwright/test').Page) {
   await openDeck(page);
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   await expect(page.locator('[data-board-label]')).toHaveCount(6);
   const first = await page.locator('[data-board-label]').nth(0).getAttribute('data-board-label');
   const second = await page.locator('[data-board-label]').nth(1).getAttribute('data-board-label');
@@ -38,7 +38,7 @@ test('drags a text object into another slide, then undoes and restores its saved
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   const second = await page.locator('[data-board-label]').nth(1).getAttribute('data-board-label');
   await expect(page.locator(`.sl-stage .sl-slide[data-bc-sid="${second}"]`)).toContainText(text);
 });
@@ -79,7 +79,7 @@ test('Alt-drag copies to another slide and preserves the source through undo and
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   for (const index of [0, 1]) {
     const slide = await page.locator('[data-board-label]').nth(index).getAttribute('data-board-label');
     await expect(page.locator(`.sl-stage .sl-slide[data-bc-sid="${slide}"]`)).toContainText(text);
@@ -114,7 +114,7 @@ test('selects objects across slides and edits a shared property through the insp
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   for (const index of [0, 1]) {
     const slide = await page.locator('[data-board-label]').nth(index).getAttribute('data-board-label');
     const sid = await page.locator(`.sl-stage .sl-slide[data-bc-sid="${slide}"] .sl-text-frame`).first().getAttribute('data-bc-sid');

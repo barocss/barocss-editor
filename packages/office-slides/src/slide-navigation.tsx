@@ -1,14 +1,16 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, ChoiceSelect, Icon, IconButton, Toolbar } from '@barocss/office-ui';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 import { Filmstrip, type FilmstripProps } from './filmstrip';
 import './slide-navigation.css';
 
 export interface SlideNavigationProps extends FilmstripProps {
+  viewMode?: 'single' | 'multi';
+  onViewModeChange?: (mode: 'single' | 'multi') => void;
   /** Definitions are surfaces in their own right, not slide one. */
   definitionLabel?: string;
   /** A single retained rich-text view; opening it must never resize the stage. */
-  renderNotes?: (close: () => void) => ReactNode;
+  renderNotes?: (close: () => void, open: boolean) => ReactNode;
 }
 
 /** A single native filmstrip, with UI-only folding below the stage. */
@@ -20,12 +22,28 @@ export function SlideNavigation(props: SlideNavigationProps) {
   const panelId = useId();
   const [open, setOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const multi = props.viewMode === 'multi';
+  const expanded = open && !multi;
+  const modeFocus = useRef<'single' | 'multi' | null>(null);
+  useEffect(() => {
+    if (!modeFocus.current) return;
+    const button = [...(owner.current?.querySelectorAll<HTMLButtonElement>(`[data-slide-view="${modeFocus.current}"]`) ?? [])]
+      .find(node => !node.closest('[hidden], [inert]'));
+    button?.focus({ preventScroll: true }); modeFocus.current = null;
+  }, [props.viewMode, expanded]);
+  const viewButtons = (['single', 'multi'] as const).map(mode => <Button key={mode} square tone="quiet"
+      ariaLabel={mode === 'single' ? '슬라이드 보기' : '멀티 슬라이드 보기'} title={mode === 'single' ? '슬라이드 보기' : '멀티 슬라이드 보기'}
+      pressed={props.viewMode === mode} data={{ 'slide-view': mode }}
+      onClick={() => { modeFocus.current = mode; props.onViewModeChange?.(mode); }}>
+      <Icon name={mode === 'single' ? 'insert-rectangle' : 'frame-grid'} />
+    </Button>);
+  const viewControls = props.onViewModeChange && <div className="sl-slide-view-modes" role="group" aria-label="슬라이드 보기 전환">{viewButtons}</div>;
   const notes = useRef<HTMLDivElement>(null);
   const notesOrigin = useRef<HTMLButtonElement | null>(null);
   const notesId = useId();
   const returnFocus = useRef(false);
   const renameVisible = useRef(false);
-  renameVisible.current = open;
+  renameVisible.current = expanded;
   const rootId = editor?.getRootId();
   const nativeRoot = rootId ? editor?.dataStore.getNode(rootId) : undefined;
   const editable = editor?.isEditable;
@@ -46,7 +64,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
       if (notesOpen) closeNotes(); else setNotesOpen(true);
     }}><Icon name="note-footnote" /></Button> : null;
   useLayoutEffect(() => {
-    if (open) {
+    if (expanded) {
       const current = panel.current?.querySelector<HTMLButtonElement>('[data-current="true"]') ?? panel.current?.querySelector<HTMLButtonElement>('[data-slide]');
       current?.focus({ preventScroll: true });
     }
@@ -54,7 +72,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
       returnFocus.current = false;
       owner.current?.querySelector<HTMLButtonElement>('[data-filmstrip-toggle]')?.focus({ preventScroll: true });
     }
-  }, [open]);
+  }, [expanded]);
   const at = slides.findIndex(slide => slide.sid === current);
   const choose = (sid: string) => {
     const now = latest.current;
@@ -106,15 +124,15 @@ export function SlideNavigation(props: SlideNavigationProps) {
       editor.off('editor:command.after', committed);
     }
   };
-  return <div ref={owner} className="sl-slide-navigation" data-slide-navigation data-expanded={open}>
+  return <div ref={owner} className="sl-slide-navigation" data-slide-navigation data-expanded={expanded} data-view-mode={props.viewMode}>
     <div className="sl-slide-dock" data-slide-dock>
     {props.renderNotes && <div ref={notes} id={notesId} className="sl-notes-panel" data-notes-panel
-      hidden={!notesOpen} inert={!notesOpen} tabIndex={-1} onKeyDownCapture={event => {
+      hidden={!notesOpen || multi} inert={!notesOpen || multi} tabIndex={-1} onKeyDownCapture={event => {
         if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
           (event.target instanceof Element && event.target.closest('[role="menu"],[role="listbox"],[data-floating-surface]'))) return;
         event.preventDefault(); event.stopPropagation(); closeNotes();
-      }}>{props.renderNotes(closeNotes)}</div>}
-    <div ref={panel} id={panelId} className="sl-slide-navigation-panel" data-filmstrip-panel hidden={!open} inert={!open}
+      }}>{props.renderNotes(closeNotes, notesOpen && !multi)}</div>}
+    <div ref={panel} id={panelId} className="sl-slide-navigation-panel" data-filmstrip-panel hidden={!expanded} inert={!expanded}
       onKeyDown={event => {
         if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
           (event.target instanceof Element && event.target.closest('input, [role="listbox"], [role="menu"]'))) return;
@@ -125,17 +143,18 @@ export function SlideNavigation(props: SlideNavigationProps) {
           onClick={addSlide}><Icon name="add" /></IconButton>
         {notesToggle}
         <span className="sl-slide-navigation-title">슬라이드 <span>{slides.length}</span></span>
+        {viewControls}
         <Button aria-label="슬라이드 탐색 접기" tone="quiet" className="sl-slide-navigation-fold"
           onMouseDown={event => event.preventDefault()}
           onPointerDownCapture={() => { renameVisible.current = false; }}
           onClick={close}><Icon name="disclosed" /></Button>
       </div>
-      <Filmstrip {...props} orientation="horizontal" thumbnailWidth={props.thumbnailWidth ?? 160} active={open}
+      <Filmstrip {...props} orientation="horizontal" thumbnailWidth={props.thumbnailWidth ?? 160} active={expanded}
         canRename={() => renameVisible.current && !panel.current?.closest('[hidden], [inert]')}
         onSelect={choose} />
     </div>
-    <div className="sl-slide-navigation-folded" hidden={open} inert={open}>
-    <Toolbar variant="compact" surface="floating" shape="pill" label="슬라이드 페이지 도구" className="sl-slide-navigation-tools">
+    <div className="sl-slide-navigation-folded" hidden={expanded} inert={expanded}>
+    <Toolbar hidden={multi} inert={multi} variant="compact" surface="floating" shape="pill" label="슬라이드 페이지 도구" className="sl-slide-navigation-tools">
       <IconButton label="이전 슬라이드" disabled={at <= 0} preserveFocus onClick={() => { if (at > 0) choose(slides[at - 1].sid); }}><Icon name="previous-page" /></IconButton>
       <ChoiceSelect className="sl-slide-navigation-choice" portalContainer={owner} ariaLabel="현재 슬라이드" value={current ?? null}
         disabled={slides.length === 0 || at < 0} onChange={choose}
@@ -154,6 +173,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
           else { renameVisible.current = true; setOpen(true); }
         }}><Icon name="outline" /></Button>
     </Toolbar>
+    {props.onViewModeChange && <Toolbar role="group" variant="compact" surface="floating" shape="pill" label="슬라이드 보기 전환" className="sl-slide-view-toolbar">{viewButtons}</Toolbar>}
     </div>
     </div>
   </div>;

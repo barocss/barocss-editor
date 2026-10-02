@@ -1,6 +1,6 @@
 import { Editor, Extension, selectedNodeIds } from '@barocss/editor-core';
 import { CANVAS_GEOMETRY_ATTRS, CANVAS_STYLE_ATTRS } from '@barocss/schema';
-import { setAttrs, transaction } from '@barocss/model';
+import { setAttrs, transaction, type TransactionOperation } from '@barocss/model';
 import { laysOut, placeIsBound, sizeIsBound, turnIsBound } from '@barocss/office-canvas';
 import {
   copyForPaste,
@@ -760,12 +760,20 @@ export class SlidesExtension implements Extension {
      */
     register(
       'addSlideNote',
-      (payload) => this._addNote(editor, payload?.slideId),
+      (payload) => this._addNote(editor, payload?.slideId, payload?.initialText, payload?.canApply),
       (payload) => {
         const doc = this._access(editor);
         const slide = this._slideAt(editor, payload?.slideId);
-        return !!doc && !!slide && !noteFor(doc, slide);
+        return !!doc && !!slide && !noteFor(doc, slide) &&
+          (payload?.initialText === undefined || typeof payload.initialText === 'string') &&
+          (payload?.canApply === undefined || typeof payload.canApply === 'function');
       }
+    );
+
+    register(
+      'updateSlideNoteDraft',
+      (payload) => this._updateNoteDraft(editor, payload),
+      (payload) => !!this._plainNoteDraft(editor, payload)
     );
 
     /**
@@ -2622,7 +2630,8 @@ export class SlidesExtension implements Extension {
     return result.success;
   }
 
-  private async _addNote(editor: Editor, slideId?: string): Promise<boolean> {
+  private async _addNote(editor: Editor, slideId?: string, initialText?: string, canApply?: () => boolean): Promise<boolean> {
+    if ((initialText !== undefined && typeof initialText !== 'string') || (canApply !== undefined && typeof canApply !== 'function')) return false;
     const doc = this._access(editor);
     const slide = this._slideAt(editor, slideId);
     if (!doc || !slide || noteFor(doc, slide)) return false;
@@ -2631,7 +2640,15 @@ export class SlidesExtension implements Extension {
     if (!resources) return false;
 
     const surface = doc.getNode(slide);
+    const validateIntent = this._noteIntent(editor, [slide, resources], canApply);
+    const resourceNode = doc.getNode(resources)!;
+    // addChild's removal inverse leaves an empty array. Preserve an absent native
+    // content field with setNode's exact inverse, in this same first-input entry.
+    const prepareResources: TransactionOperation[] = resourceNode.content === undefined
+      ? [{ type: 'setNode', payload: { node: { ...resourceNode, content: [] } } }]
+      : [];
     const result = await transaction(editor, [
+      ...prepareResources,
       {
         type: 'addChild',
         payload: {
@@ -2646,13 +2663,7 @@ export class SlidesExtension implements Extension {
              * an empty `inline-text`; a paragraph with no run gets none, so a
              * new note was 0 pixels high — there and impossible to click into.
              */
-            content: [
-              {
-                stype: 'paragraph',
-                attributes: {},
-                content: [{ stype: 'inline-text', text: '' }]
-              }
-            ]
+            content: this._noteLines(initialText ?? '').map(text => this._noteParagraph(text))
           }
         }
       },
@@ -2660,9 +2671,82 @@ export class SlidesExtension implements Extension {
         type: 'setAttrs',
         payload: { nodeId: slide, attrs: { ...(surface?.attributes ?? {}), noteId: slide } }
       }
-    ] as never).commit();
+    ] as never, { validateIntent, ...(initialText === undefined ? {} : { applySelectionToView: false }) }).commit();
 
     return result.success;
+  }
+
+  private _noteLines(text: string): string[] { return text.split(/\r\n|\r|\n/); }
+
+  private _noteParagraph(text: string) {
+    return { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', attributes: {}, text }] };
+  }
+
+  /** Compare committed identities, not the transaction's own pending note/binding writes. */
+  private _noteIntent(editor: Editor, nodeIds: string[], canApply?: () => boolean): () => string | void {
+    const store = editor.dataStore;
+    const rootId = editor.getRootId();
+    const epoch = store.getDocumentEpoch();
+    const session = store.getSessionId();
+    const nodes = [rootId, ...nodeIds].map(id => ({ id, node: id ? store.getNodes().get(id) : undefined }));
+    return () => {
+      if (!editor.isEditable || editor.getRootId() !== rootId || store.getRootNodeId() !== rootId ||
+        store.getDocumentEpoch() !== epoch || store.getSessionId() !== session ||
+        nodes.some(({ id, node }) => !id || !node || store.getNodes().get(id) !== node) || canApply?.() === false) {
+        return 'The presenter note draft no longer belongs to the current slide';
+      }
+    };
+  }
+
+  /** Only the plain subtree just created by the first-input path can receive buffered draft text. */
+  private _plainNoteDraft(editor: Editor, payload?: {
+    slideId?: string; noteId?: string; expectedText?: string; text?: string; canApply?: () => boolean
+  }) {
+    if (typeof payload?.expectedText !== 'string' || typeof payload.text !== 'string' ||
+      (payload.canApply !== undefined && typeof payload.canApply !== 'function')) return;
+    const doc = this._access(editor);
+    const slide = this._slideAt(editor, payload.slideId);
+    if (!doc || !slide || !payload.noteId || noteFor(doc, slide) !== payload.noteId) return;
+    const note = editor.dataStore.getNode(payload.noteId);
+    if (note?.parentId !== this._resourcesOf(doc) || note?.attributes?.id !== slide ||
+      deckSlides(doc).some(other => other.sid !== slide && noteFor(doc, other.sid) === payload.noteId)) return;
+    const empty = (value: unknown) => value === undefined || (typeof value === 'object' && value !== null && Object.keys(value).length === 0);
+    if (!note || note.stype !== 'surfaceNote' || Object.keys(note.attributes ?? {}).some(key => key !== 'id') ||
+      !empty(note.metadata) || !empty(note.marks) || !Array.isArray(note.content) || note.content.length === 0) return;
+    const paragraphs: { paragraphId: string; runId: string; text: string }[] = [];
+    for (const paragraphId of note.content) {
+      if (typeof paragraphId !== 'string') return;
+      const paragraph = editor.dataStore.getNode(paragraphId);
+      if (!paragraph || paragraph.stype !== 'paragraph' || paragraph.parentId !== payload.noteId || !empty(paragraph.attributes) ||
+        !empty(paragraph.marks) || !empty(paragraph.metadata) || paragraph.content?.length !== 1) return;
+      const runId = paragraph.content[0];
+      if (typeof runId !== 'string') return;
+      const run = editor.dataStore.getNode(runId);
+      if (!run || run.stype !== 'inline-text' || run.parentId !== paragraphId || typeof run.text !== 'string' ||
+        !empty(run.attributes) || !empty(run.marks) || !empty(run.metadata) || !empty(run.content)) return;
+      paragraphs.push({ paragraphId, runId, text: run.text });
+    }
+    if (paragraphs.map(paragraph => paragraph.text).join('\n') !== this._noteLines(payload.expectedText).join('\n')) return;
+    return { slide, noteId: payload.noteId, paragraphs };
+  }
+
+  private async _updateNoteDraft(editor: Editor, payload?: {
+    slideId?: string; noteId?: string; expectedText?: string; text?: string; canApply?: () => boolean
+  }): Promise<boolean> {
+    const draft = this._plainNoteDraft(editor, payload);
+    if (!draft || !payload) return false;
+    const lines = this._noteLines(payload.text!);
+    const operations: TransactionOperation[] = [];
+    for (let index = 0; index < Math.max(lines.length, draft.paragraphs.length); index++) {
+      const paragraph = draft.paragraphs[index];
+      const text = lines[index];
+      if (paragraph && text !== undefined && text !== paragraph.text) operations.push({ type: 'setText', payload: { nodeId: paragraph.runId, text } });
+      else if (paragraph && text === undefined) operations.push({ type: 'removeChild', payload: { parentId: draft.noteId, childId: paragraph.paragraphId } });
+      else if (!paragraph && text !== undefined) operations.push({ type: 'addChild', payload: { parentId: draft.noteId, child: this._noteParagraph(text) } });
+    }
+    const validateIntent = this._noteIntent(editor, [draft.slide, draft.noteId, ...draft.paragraphs.flatMap(paragraph => [paragraph.paragraphId, paragraph.runId])], payload.canApply);
+    if (operations.length === 0) return validateIntent() === undefined;
+    return (await transaction(editor, operations, { validateIntent, applySelectionToView: false }).commit()).success;
   }
 
   /** Where definitions live, which a note is one of. */

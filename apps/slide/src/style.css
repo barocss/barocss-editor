@@ -306,3 +306,10 @@ body {
 [data-server-slides-workspace] { display:flex; flex-direction:column; height:100%; min-height:0; }
 [data-server-slides-workspace] > .sl-shell { height:auto; flex:1; min-height:0; }
 [data-server-slides-workspace] > aside, [data-server-slides-workspace] [data-secondary-popup] > aside { display:flex; flex-direction:column; gap:6px; padding:12px; }
+
+/* Keep the native stage mounted and measured while the deck map owns its region. */
+.sl-stage-owner { display: contents; }
+.sl-stage-region { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.sl-stage-region > .sl-map { position: absolute; inset: 0; z-index: 20; }
+.sl-insertion-chrome[hidden] { display: none; }
+.sl-utilities > .office-toolbar { margin-left: auto; }

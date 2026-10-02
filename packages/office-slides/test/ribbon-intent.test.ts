@@ -79,6 +79,12 @@ it('keeps a freshly reopened global menu mounted after Escape and a later parent
   expect(trigger().getAttribute('aria-pressed')).toBe('false');
   act(() => trigger().click());
   const menu = host.querySelector('[role="menu"]'); expect(menu).not.toBeNull();
+  for (const id of ['slide-new', 'insert-textbox', 'insert-rectangle', 'insert-table', 'insert-image']) {
+    expect(host.querySelector(`.sl-insertion-chrome [data-control="${id}"]`)).not.toBeNull();
+    expect(menu!.querySelector(`[data-control="${id}"]`)).toBeNull();
+  }
+  expect(menu!.querySelector('[data-control="insert-ellipse"]')).not.toBeNull();
+  expect(menu!.querySelector('[data-control="slide-duplicate"]')).not.toBeNull();
   act(render);
   expect(host.querySelector('[role="menu"]')).toBe(menu);
   expect(trigger().getAttribute('aria-pressed')).toBe('true');

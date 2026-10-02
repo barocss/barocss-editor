@@ -1016,6 +1016,7 @@ export function App({
       case 'map':
         return setMapping((was) => !was);
       case 'focus':
+        setMapping(false);
         return setFocused((on) => !on);
       case 'ruler':
         return setRulerShown((shown) => !shown);
@@ -1038,7 +1039,7 @@ export function App({
   });
 
   const menus = useMemo(() => nativeMenus.map(menu => ({ ...menu, blocks: menu.blocks.map(block => ({
-    ...block, items: block.items.map(item => {
+    ...block, items: block.items.filter(item => slidesMenuEntry(item.id)?.view !== 'map').map(item => {
       const entry = slidesMenuEntry(item.id);
       const disabled = item.disabled || (Boolean(server) && entry?.view === 'template')
         || (readOnly && ['template', 'dialog.size', 'dialog.layout', 'dialog.theme'].includes(entry?.view ?? ''));
@@ -1861,13 +1862,12 @@ export function App({
         </>} />
 
       {!presenting && <div className="sl-utilities" data-slides-utilities>
-        {editor && <SlidesDocumentChrome editor={editor} slides={slides} current={current} scope={toolScope}
+        {editor && <SlidesDocumentChrome active={!mapping} editor={editor} slides={slides} current={current} scope={toolScope}
           inspectorHost={inspectorTools} onInspectorEscape={() => closePanel('inspector')} onInspect={origin => { inspectorOrigin.current = origin ?? null; focusInspector.current = true; setInspectorOpen(true); if (inspectorOpen) { focusInspector.current = false; inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true }); } }} />}
         <Toolbar variant="compact" surface="floating" label="Slides 보기 도구">
           <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
             onFit={() => setZoom(undefined)} fitLabel="화면에 맞춤" />
-          <Button title="한 장만 보기 / 전체 보기" onClick={() => setFocused(on => !on)} data={{ 'focus-toggle': '' }}>{focused ? '캔버스 보기' : '한 장 보기'}</Button>
-          <Button tone="accent" title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>발표</Button>
+          <Tip label="처음부터 발표"><Button square tone="accent" ariaLabel="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}><Icon name="present" /></Button></Tip>
         </Toolbar>
       </div>}
 
@@ -2009,6 +2009,7 @@ export function App({
             *
             * Not while presenting: an audience is looking at a page, not at the deck's plumbing.
             */}
+          <div className="sl-stage-region">
           {mapping && !presenting && (
             <DeckMapView
               editor={editor}
@@ -2041,6 +2042,8 @@ export function App({
             />
           )}
 
+          <div className="sl-stage-owner" inert={mapping && !presenting} aria-hidden={mapping && !presenting ? true : undefined}
+            style={{ visibility: mapping && !presenting ? 'hidden' : undefined }}>
           <Stage
             host={host}
             /** 무대의 요소를 앱이 받아 형제들에게 건넨다 — `stage` 위의 설명. */
@@ -2111,7 +2114,7 @@ export function App({
            * every element in there and rewrites them on each render, so a handle
            * put in the tree would last until the next keystroke.
            */}
-          {!presenting && !readOnly && (
+          {!presenting && !readOnly && !mapping && (
             <SelectionOverlay
               editor={editor}
               view={view}
@@ -2139,10 +2142,15 @@ export function App({
             />
           )}
 
+          </div>
+          </div>
+
           {editor && !presenting && <SlideNavigation editor={editor} slides={slides} current={current} revision={revision}
+            viewMode={mapping ? 'multi' : focused ? 'single' : undefined}
+            onViewModeChange={mode => { setMapping(mode === 'multi'); if (mode === 'single') setFocused(true); }}
             lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
             readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
-            renderNotes={close => <NotesPane editor={editor} slideSid={current} revision={revision} onClose={close} />}
+            renderNotes={(close, open) => <NotesPane active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}
             onSelect={sid => { setCurrent(sid); leaveSelection(); }}
             onRename={(sid, name) => !readOnly && void editor.executeCommand('setSlideInfo', { slideId: sid, name })} />}
 

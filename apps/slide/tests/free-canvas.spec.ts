@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, pickMenu, currentSlide } from './helpers';
 
 async function openCanvas(page: import('@playwright/test').Page) {
   await openDeck(page);
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   await expect(page.locator('.sl-stage')).toHaveAttribute('data-freeboard', 'true');
   await expect(page.locator('[data-board-label]')).toHaveCount(6);
 }
@@ -62,7 +62,7 @@ test('moves a slide without changing slide order or local object coordinates and
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   const restoredSid = await page.locator('[data-board-label]').first().getAttribute('data-board-label');
   expect(await page.evaluate(sid => (window as any).editor.dataStore.getNode(sid).attributes.canvasX, restoredSid)).toBe(attrs.canvasX);
   expect(await page.evaluate(sid => (window as any).editor.dataStore.getNode(sid).attributes.canvasY, restoredSid)).toBe(attrs.canvasY);
