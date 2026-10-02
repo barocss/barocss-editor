@@ -513,6 +513,12 @@ export interface StageProps {
   activeSlide?: string;
   onActivateSlide?: (sid: string) => void;
   onMoveSlide?: (sid: string, x: number, y: number) => void;
+  /** Whether board positions can change. Camera movement remains available to readers. */
+  editable?: boolean;
+  /** Change when the document or its editing authority changes, even if the Stage stays mounted. */
+  lifetimeKey?: object | string | number;
+  /** Owns this Stage and its sibling selection overlay, but not floating controls. */
+  interactionRoot?: React.RefObject<HTMLElement | null>;
 
   arrival?: TransitionFrom;
   builds?: {
@@ -640,7 +646,7 @@ export function Stage({
   host,
   /** `.sl-stage` 를 밖으로 — 형제가 이 상자를 재고 여기에 듣는다. */
   frame: frameRef,
-  focus, boards, activeSlide, onActivateSlide, onMoveSlide,
+  focus, boards, activeSlide, onActivateSlide, onMoveSlide, editable = true, lifetimeKey, interactionRoot,
   /** How the focused slide arrives, when the deck says it arrives with something. */
   arrival,
   /** What is not on the slide yet, and what this press has just brought on. */
@@ -707,6 +713,60 @@ export function Stage({
   const freeBoard = !!boards?.length && !focus && !fill;
   const [camera, setCamera] = useState({ x: 32, y: 56 });
   const [boardDraft, setBoardDraft] = useState<{ sid: string; x: number; y: number } | null>(null);
+  const gestureEpoch = useRef(0);
+  const mounted = useRef(false);
+  const current = useRef({ editable, lifetimeKey, boards, onMoveSlide });
+  current.current = { editable, lifetimeKey, boards, onMoveSlide };
+  const panning = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const [spacebar, setSpacebar] = useState(false);
+  const isLive = useCallback(() => {
+    const pane = frame.current;
+    if (!mounted.current || !pane?.isConnected) return false;
+    for (let element: HTMLElement | null = pane; element; element = element.parentElement) {
+      if (element.hidden || element.hasAttribute('inert') || element.getAttribute('aria-hidden') === 'true') return false;
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+    }
+    return true;
+  }, [frame]);
+  const ownsTarget = useCallback((target: EventTarget | null) => {
+    const pane = frame.current;
+    if (!(target instanceof Element) || !pane || !isLive()) return false;
+    if (target.closest('input, textarea, select, [role="dialog"], [role="menu"], [role="listbox"]')) return false;
+    if (pane.contains(target)) return true;
+    const owner = interactionRoot?.current;
+    const overlay = target.closest('.sl-overlay');
+    return !!owner && owner.contains(pane) && !!overlay && owner.contains(overlay);
+  }, [frame, interactionRoot, isLive]);
+  const ownsPointer = useCallback((event: { target: EventTarget | null; defaultPrevented: boolean; clientX: number; clientY: number }) => {
+    if (event.defaultPrevented || !ownsTarget(event.target)) return false;
+    const pane = frame.current!.getBoundingClientRect();
+    return event.clientX >= pane.left && event.clientX <= pane.right && event.clientY >= pane.top && event.clientY <= pane.bottom;
+  }, [frame, ownsTarget]);
+  const cancelGestures = useCallback(() => {
+    gestureEpoch.current++;
+    panning.current = null;
+    setBoardDraft(null);
+    setSpacebar(false);
+  }, []);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; gestureEpoch.current++; };
+  }, []);
+  useLayoutEffect(() => {
+    cancelGestures();
+  }, [editable, lifetimeKey, freeBoard, cancelGestures]);
+  useLayoutEffect(() => {
+    const observer = new MutationObserver(records => {
+      // A hide/show pair must cancel the old gesture even when both happen in one turn.
+      if (records.some(record => ['hidden', 'inert', 'aria-hidden'].includes(record.attributeName ?? '')) || !isLive()) cancelGestures();
+    });
+    for (let element: HTMLElement | null = frame.current; element; element = element.parentElement) {
+      observer.observe(element, { attributes: true, attributeFilter: ['hidden', 'inert', 'aria-hidden', 'style', 'class'] });
+    }
+    window.addEventListener('blur', cancelGestures);
+    return () => { observer.disconnect(); window.removeEventListener('blur', cancelGestures); };
+  }, [frame, isLive, cancelGestures]);
   const zoomAnchor = useRef<{ x: number; y: number } | null>(null);
   const previousScale = useRef(1);
   const boardBounds = useMemo(() => {
@@ -733,8 +793,8 @@ export function Stage({
   useEffect(() => {
     if (!freeBoard) return;
     const wheel = (event: WheelEvent) => {
-      const pane = frame.current?.getBoundingClientRect();
-      if (!pane || event.clientX < pane.left || event.clientX > pane.right || event.clientY < pane.top || event.clientY > pane.bottom) return;
+      if (!ownsPointer(event)) return;
+      const pane = frame.current!.getBoundingClientRect();
       event.preventDefault();
       if (event.ctrlKey || event.metaKey) {
         zoomAnchor.current = { x: event.clientX - pane.left, y: event.clientY - pane.top };
@@ -743,7 +803,7 @@ export function Stage({
     };
     window.addEventListener('wheel', wheel, { passive: false });
     return () => window.removeEventListener('wheel', wheel);
-  }, [freeBoard, scale, onZoom]);
+  }, [freeBoard, scale, onZoom, frame, ownsPointer]);
 
   /**
    * Where the pointer is on the slide, in the model's own unit.
@@ -1549,12 +1609,10 @@ export function Stage({
     };
   }, [focus, playing]);
 
-  const panning = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
-  const [spacebar, setSpacebar] = useState(false);
-
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if (event.code !== 'Space') return;
+      if (event.code !== 'Space' || event.defaultPrevented || !isLive()) return;
+      if (event.target !== document.body && event.target !== window && !ownsTarget(event.target)) return;
       const target = event.target as HTMLElement | null;
       // Space is a character in the text and a button press on a button.
       if (target?.closest?.('input, textarea, [contenteditable="true"], button')) return;
@@ -1570,32 +1628,35 @@ export function Stage({
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
     };
-  }, []);
+  }, [isLive, ownsTarget]);
 
   useEffect(() => {
     if (!freeBoard) return;
     const down = (event: PointerEvent) => {
-      const pane = frame.current?.getBoundingClientRect();
-      if (!pane || event.clientX < pane.left || event.clientX > pane.right || event.clientY < pane.top || event.clientY > pane.bottom) return;
+      if (!ownsPointer(event)) return;
       if (zoom === undefined) onZoom?.(scale);
       if (!spacebar && event.button !== 1) return;
       event.preventDefault();
       event.stopPropagation();
       const origin = { ...camera };
+      const epoch = gestureEpoch.current;
       void dragGesture(event, {
         start: pointer => ({ x: pointer.clientX, y: pointer.clientY }),
-        move: (held, moved) => setCamera({ x: origin.x + moved.x - held.x, y: origin.y + moved.y - held.y }),
-        done: () => undefined
+        move: (held, moved) => {
+          if (epoch === gestureEpoch.current && isLive()) setCamera({ x: origin.x + moved.x - held.x, y: origin.y + moved.y - held.y });
+        },
+        done: () => undefined,
+        abort: () => undefined
       }, { primaryOnly: false });
     };
     window.addEventListener('pointerdown', down, true);
     return () => window.removeEventListener('pointerdown', down, true);
-  }, [freeBoard, spacebar, camera, zoom, onZoom, scale]);
+  }, [freeBoard, spacebar, camera, zoom, onZoom, scale, ownsPointer, isLive]);
 
   const onPanDown = useCallback(
     (event: React.PointerEvent) => {
       // Space-drag, or the middle button, which is the other thing readers try.
-      if (!spacebar && event.button !== 1) return;
+      if (freeBoard || (!spacebar && event.button !== 1) || !ownsPointer(event)) return;
       const pane = frame.current;
       if (!pane) return;
 
@@ -1605,24 +1666,20 @@ export function Stage({
       panning.current = {
         x: event.clientX,
         y: event.clientY,
-        left: freeBoard ? -camera.x : pane.scrollLeft,
-        top: freeBoard ? -camera.y : pane.scrollTop
+        left: pane.scrollLeft,
+        top: pane.scrollTop
       };
     },
-    [spacebar, freeBoard, camera]
+    [spacebar, freeBoard, frame, ownsPointer]
   );
 
   const onPanMove = useCallback((event: React.PointerEvent) => {
     const held = panning.current;
     const pane = frame.current;
-    if (!held || !pane) return;
-    if (freeBoard) {
-      setCamera({ x: -held.left + event.clientX - held.x, y: -held.top + event.clientY - held.y });
-      return;
-    }
+    if (!held || !pane || !isLive()) return;
     pane.scrollLeft = held.left - (event.clientX - held.x);
     pane.scrollTop = held.top - (event.clientY - held.y);
-  }, [freeBoard]);
+  }, [frame, isLive]);
 
   const onPanUp = useCallback((event: React.PointerEvent) => {
     if (!panning.current) return;
@@ -1738,7 +1795,7 @@ export function Stage({
       )}
 
       {freeBoard && <>
-        <div className="sl-canvas-help">제목 드래그 · 배치 이동　|　Space + 드래그 · 화면 이동</div>
+        <div className="sl-canvas-help">{editable && onMoveSlide ? <>제목 드래그 · 배치 이동　|　</> : null}Space + 드래그 · 화면 이동</div>
         <style>{boards!.map(one => {
           const at = boardDraft?.sid === one.sid ? boardDraft : one;
           return `.sl-stage[data-freeboard="true"] .sl-slide[data-bc-sid="${one.sid}"] { position:absolute !important; left:${at.x}px; top:${at.y}px; }`;
@@ -1747,17 +1804,33 @@ export function Stage({
           {boards!.map(one => {
             const at = boardDraft?.sid === one.sid ? boardDraft : one;
             return <Button key={one.sid} data={{ 'board-label': one.sid, active: activeSlide === one.sid ? 'true' : undefined }}
-              title="제목을 끌어 슬라이드 배치 이동"
+              title={editable && onMoveSlide ? "제목을 끌어 슬라이드 배치 이동" : "슬라이드 선택"}
               onClick={() => onActivateSlide?.(one.sid)}
               style={{ left: at.x * scale, top: at.y * scale - 30, maxWidth: one.width * scale }}
               onPointerDown={event => {
+                if (event.button !== 0 || !ownsPointer(event)) return;
                 onActivateSlide?.(one.sid);
+                if (!editable || !onMoveSlide) return;
                 onZoom?.(scale);
+                const epoch = ++gestureEpoch.current;
+                const valid = () => {
+                  const latest = current.current;
+                  const board = latest.boards?.find(item => item.sid === one.sid);
+                  return epoch === gestureEpoch.current && isLive() && latest.editable && latest.lifetimeKey === lifetimeKey
+                    && !!board && board.x === one.x && board.y === one.y;
+                };
+                const clear = () => { if (mounted.current && epoch === gestureEpoch.current) setBoardDraft(null); };
                 void dragGesture(event, {
                   start: pointer => ({ x: pointer.clientX, y: pointer.clientY }),
-                  move: (held, moved) => setBoardDraft({ sid: one.sid, x: one.x + (moved.x - held.x) / scale, y: one.y + (moved.y - held.y) / scale }),
-                  done: (held, moved) => { setBoardDraft(null); onMoveSlide?.(one.sid, one.x + (moved.x - held.x) / scale, one.y + (moved.y - held.y) / scale); },
-                  abort: () => setBoardDraft(null)
+                  move: (held, moved) => {
+                    if (!valid()) { clear(); return; }
+                    setBoardDraft({ sid: one.sid, x: one.x + (moved.x - held.x) / scale, y: one.y + (moved.y - held.y) / scale });
+                  },
+                  done: (held, moved) => {
+                    clear();
+                    if (moved.dragged && valid()) current.current.onMoveSlide?.(one.sid, one.x + (moved.x - held.x) / scale, one.y + (moved.y - held.y) / scale);
+                  },
+                  abort: clear
                 });
               }}>{one.label}</Button>;
           })}
