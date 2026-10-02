@@ -29,10 +29,13 @@ export async function productCodec(product: Product): Promise<ProductCodec> {
   }
 }
 
-export interface DocumentAddress { workspace: string; product: Product; id: string; }
+export interface DocumentAddress { workspace: string; product: Product; id: string; project?: string; mode?: 'read' | 'edit'; }
 export function documentURL(address: DocumentAddress): string {
   const { workspace, product, id } = address;
-  return `/products/${product}/index.html?workspace=${encodeURIComponent(workspace)}#${product === 'note' ? '' : `${product}=`}${encodeURIComponent(id)}`;
+  const search = new URLSearchParams({ workspace });
+  if (address.project) search.set('project', address.project);
+  if (address.mode) search.set('mode', address.mode);
+  return `/products/${product}/index.html?${search}#${product === 'note' ? '' : `${product}=`}${encodeURIComponent(id)}`;
 }
 export function referenceKey(address: Pick<DocumentAddress, 'product' | 'id'>): string {
   return `${address.product}:${address.id}`;

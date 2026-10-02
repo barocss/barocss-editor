@@ -38,10 +38,19 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
   const { editor } = options, store = editor.dataStore;
   let disposed = false, generation = 0;
   let selectionBytes = JSON.stringify(editor.selection);
-  const retire = () => { generation += 1; };
+  const sameRange = (left: ModelSelection | null | undefined, right: ModelSelection) => !!left && left.type === 'range' && right.type === 'range' &&
+    left.startNodeId === right.startNodeId && left.endNodeId === right.endNodeId && left.startOffset === right.startOffset && left.endOffset === right.endOffset;
+  let settling: { range: ModelSelection; before: string; changed: boolean; invalid: boolean } | undefined;
+  const retire = () => { generation += 1; if (settling) settling.invalid = true; };
   const selectionChanged = () => {
     const current = JSON.stringify(editor.selection);
-    if (current !== selectionBytes) { selectionBytes = current; retire(); }
+    if (current !== selectionBytes) {
+      if (settling) {
+        if (settling.changed || selectionBytes !== settling.before || !sameRange(editor.selection, settling.range)) settling.invalid = true;
+        settling.changed = true;
+      }
+      selectionBytes = current; generation += 1;
+    }
   };
   editor.on('editor:content.change', retire); editor.on('editor:editable.change', retire);
   editor.on('editor:selection.model', selectionChanged); editor.on('editor:selection.change', selectionChanged);
@@ -54,10 +63,21 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
   return {
     product: 'word', id: options.id, editable,
     capture() {
-      if (!editable()) return null;
+      if (!editable() || settling) return null;
       const selection = options.captureSelection(), actual = textTarget(editor, selection);
       if (!selection || !actual) return null;
       const documentId = options.id(), rootId = editor.getRootId(), root = store.getNodes().get(rootId!), epoch = store.getDocumentEpoch(), session = store.getSessionId();
+      const beforeVersion = store.getVersion();
+      // The DOM owns this gesture. Settle its model range before taking the
+      // intent snapshot; a later identical selectionchange must not retire it.
+      // Do not restore focus or recapture after an asynchronous operation.
+      const synchronization = { range: selection, before: JSON.stringify(editor.selection), changed: false, invalid: false };
+      settling = synchronization;
+      try { editor.updateSelection({ selection, applySelectionToView: false }); } finally { settling = undefined; }
+      const settled = editor.selection;
+      if (synchronization.invalid || store.getVersion() !== beforeVersion || !editable() || options.id() !== documentId || editor.getRootId() !== rootId ||
+        store.getNodes().get(rootId!) !== root || store.getDocumentEpoch() !== epoch || store.getSessionId() !== session ||
+        !sameRange(settled, selection)) return null;
       const version = store.getVersion(), revision = generation, beforeSelection = JSON.stringify(editor.selection);
       const captured = structuredClone(selection);
       const bytes = JSON.stringify(actual.node);

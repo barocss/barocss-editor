@@ -60,6 +60,46 @@ import { wordFileText, readWordFile } from '../src/word-file';
 function feedback(editor: ReturnType<typeof createWordEditor>, canComment = () => true) {
   return createWordFeedbackHost({ editor, id: () => 'canonical-document', canComment, captureSelection: () => editor.selection });
 }
+it('holds the owned DOM range while its debounced model selection catches up, but retires a later real selection change', async () => {
+  const { editor, run } = fixture();
+  const dom = { ...editor.selection!, startOffset: 3, endOffset: 7 };
+  const host = createWordFeedbackHost({ editor, id: () => 'canonical-document', canComment: () => true, captureSelection: () => dom });
+  const target = host.capture()!;
+  expect(target.quote).toBe('설치 안');
+  editor.updateSelection({ selection: dom, applySelectionToView: false });
+  expect(host.ownsCapture!(target)).toBe(true);
+  const before = native(editor);
+  await host.comment(target, 'Only this actual selected range');
+  expect(threads(editor)).toHaveLength(1);
+  const located = resolveCommentTarget({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }, target.id);
+  expect(located.status).toBe('located');
+  if (located.status !== 'located') throw new Error('Native comment anchor is missing');
+  expect(located.anchor).toMatchObject({ sid: run, start: 3, end: 7 });
+  expect(editor.dataStore.getNode(run)?.text).toBe('고객 설치 안내 문장');
+  expect(await editor.undo()).toBe(true); expect(native(editor)).toEqual(before);
+  const second = host.capture()!;
+  editor.updateSelection({ ...dom, endOffset: 8 });
+  editor.updateSelection(dom);
+  expect(host.ownsCapture!(second)).toBe(false);
+  await expect(host.comment(second, 'Do not reattach')).rejects.toThrow();
+  host.dispose();
+});
+it.each(['authority', 'selection'] as const)('refuses %s changes and returns during capture selection hooks', kind => {
+  const { editor } = fixture(), original = structuredClone(editor.selection!);
+  const dom = { ...original, startOffset: 3, endOffset: 7 };
+  const host = createWordFeedbackHost({ editor, id: () => 'canonical-document', canComment: () => true, captureSelection: () => dom });
+  let entered = false;
+  editor.use({ name: 'capture-reentry', onBeforeSelectionChange: () => {
+    if (entered) return;
+    entered = true;
+    if (kind === 'authority') { editor.setEditable(false); editor.setEditable(true); }
+    else { editor.updateSelection(null); editor.updateSelection(original); }
+  } });
+  const before = native(editor);
+  expect(host.capture()).toBeNull();
+  expect(native(editor)).toEqual(before); expect(threads(editor)).toHaveLength(0);
+  host.dispose();
+});
 it('captures the actual quote, creates one stable native thread, and retries without adding a second history entry', async () => {
   const { editor } = fixture(), host = feedback(editor), target = host.capture()!;
   expect(target).toEqual({ kind: 'word-comment', id: expect.stringMatching(/^[0-9a-f-]{36}$/), quote: '고객 설치 안' });

@@ -20,12 +20,23 @@ describe('connected project work', () => {
     const requested = requestProjectWork(commentOnly, comment.id, '교육자료에도 반영해주세요.');
     const work = requested.works[0]!;
     expect(work.state).toBe('unconnected'); expect(work.reason).toContain('not been applied');
-    expect(work.inputs).toEqual([pin]); expect(work.outputs).toEqual([]);
+    expect(work.inputs).toEqual([pin]); expect(work.outputs).toEqual(['result']);
     expect(requestProjectWork(requested, comment.id, work.request)).toEqual(requested);
     const paused = setProjectWorkPaused(requested, work.id, true), resumed = setProjectWorkPaused(paused, work.id, false);
     expect(paused.works[0]?.state).toBe('paused'); expect(resumed.works[0]?.id).toBe(work.id);
     expect(resumed.works[0]?.state).toBe('unconnected'); expect(resumed.comments[0]?.workId).toBe(work.id);
     expect(readProjectRecord(JSON.parse(JSON.stringify(resumed)))).toEqual(resumed);
+  });
+  it('keeps historical opinions and work when a result is unlinked', () => {
+    const recorded = createProjectComment(fixture(), input);
+    const requested = requestProjectWork(recorded, recorded.comments[0]!.id, '교육자료 갱신');
+    const historical = { ...requested, results: [] };
+    expect(readProjectRecord(historical).comments).toEqual(requested.comments);
+    expect(readProjectRecord(historical).works).toEqual(requested.works);
+    expect(() => createProjectComment(historical, input)).toThrow('current result');
+    const paused = setProjectWorkPaused(historical, requested.works[0]!.id, true);
+    expect(paused.works[0]?.inputs[0]?.text).toBe(pin.text);
+    expect(paused.works[0]?.id).toBe(requested.works[0]?.id);
   });
   it('allows one original in different projects and rejects duplicate membership within one', () => {
     const project = fixture(); expect(readProjectRecord(fixture()).results[0]?.document.id).toBe('original');

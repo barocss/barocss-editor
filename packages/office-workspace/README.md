@@ -22,6 +22,8 @@ The published package provides ES modules and TypeScript declarations. Use a bun
 | `@barocss/office-workspace/ui` | React UI components |
 | `@barocss/office-workspace/style.css` | Stylesheet |
 | `@barocss/office-workspace/host` | Product-host navigation |
+| `@barocss/office-workspace/project` | Goal, results, work and immutable input evidence UI |
+| `@barocss/office-workspace/feedback` | Optional original-document feedback UI |
 
 Import only these public paths. Source paths such as `@barocss/office-workspace/src/...` are not part of the published API.
 
@@ -54,7 +56,7 @@ Office React controls use Tailwind 4 utility classes. Configure the host to scan
 
 Product hosts register a `beforeNavigate` callback through `registerProductDocumentHost` from `@barocss/shared`. Flush embedded editors before durable storage. Return `false` if saving fails so the current editor stays open.
 
-`WorkspaceHome` is exported from `/ui`; `ProductNavigation` is exported from `/host`. The root module provides the local catalogue and file/navigation contracts. Backups restore to new IDs and remap included document references.
+`WorkspaceHome` is exported from `/ui`; `ProductNavigation` is exported from `/host`. The root module provides the local catalogue and file/navigation contracts. Backups restore to new IDs and remap live result links. Historical input bytes, captured source IDs and native comment targets remain unchanged.
 
 ## Integration notes
 

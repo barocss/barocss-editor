@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Dialog, EmptyState, FileItem, FilePick, Icon, SearchSelect, StatusIndicator, StatusNotice, TextField } from '@barocss/office-ui';
 import { OfficeWorkspace, workspaceIdentity, type WorkspaceDocument } from './workspace';
 import { documentURL, productKeys, products, type Product } from './products';
+import { ProjectHome } from './project-ui';
+import { localProjectRepository } from './project-local';
+import './project-ui.css';
 
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -9,6 +12,18 @@ function download(text: string, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function WorkspaceHome() {
+  const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
+  const repository = useMemo(() => localProjectRepository(workspace), [workspace]);
+  const [library, setLibrary] = useState(new URLSearchParams(location.search).get('view') === 'library');
+  useEffect(() => { const url = new URL(location.href); url.searchParams.set('workspace', workspace.id); history.replaceState(null, '', url); }, [workspace]);
+  if (library) return <DocumentLibrary onProjects={() => { const url = new URL(location.href); url.searchParams.delete('view'); history.replaceState(null, '', url); setLibrary(false); }} />;
+  return <ProjectHome repository={repository} onLibrary={() => { const url = new URL(location.href); url.searchParams.set('view', 'library'); history.replaceState(null, '', url); setLibrary(true); }} onOpen={async (project, row) => {
+    if ((await workspace.meta(`${row.product}:${row.id}`)).trashedAt !== null) throw new Error('휴지통에서 복원한 뒤 열 수 있습니다.');
+    await workspace.update(`${row.product}:${row.id}`, { openedAt: Date.now() });
+    location.assign(documentURL({ workspace: workspace.id, product: row.product, id: row.id, project, mode: 'read' }));
+  }} />;
+}
+export function DocumentLibrary({ onProjects }: { onProjects?: () => void } = {}) {
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const [rows, setRows] = useState<WorkspaceDocument[]>([]), [ready, setReady] = useState(false);
   const [query, setQuery] = useState(''), [view, setView] = useState<'all' | 'recent' | 'favorites' | 'trash'>('all');
@@ -44,6 +59,7 @@ export function WorkspaceHome() {
   return <div className="ow-home">
     <aside className="ow-sidebar">
       <a className="ow-brand" href="/">wonffice<span>하나의 작업 공간</span></a>
+      {onProjects && <Button onClick={onProjects}>프로젝트</Button>}
       <nav aria-label="자료함">
         {([['all', '전체 자료'], ['recent', '최근 자료'], ['favorites', '즐겨찾기'], ['trash', '휴지통']] as const).map(([key, label]) =>
           <Button key={key} pressed={view === key && !folder} onClick={() => { setView(key); setFolder(''); }}>{label}</Button>)}

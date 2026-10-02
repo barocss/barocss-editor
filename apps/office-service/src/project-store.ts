@@ -324,6 +324,7 @@ export class ProjectStore {
             output.request = action.requestId;
             const work = data.works.find(w => w.id === action.requestId)!;
             if (!work.outputs.includes(output.id)) work.outputs.push(output.id);
+            work.inputs.push(structuredClone(pin));
           }
           label = 'Input version pinned'; break;
         }

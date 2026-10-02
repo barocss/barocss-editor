@@ -77,7 +77,7 @@ export class OfficeWorkspace {
     const snapshot = await this.require(document.product, document.id);
     await readProductDocument(document.product, snapshot.text);
     if ((await this.meta(referenceKey(document))).trashedAt !== null) throw new Error('The source is in the trash.');
-    return { id: crypto.randomUUID(), document: { ...document }, revision: snapshot.row.revision ?? 0, text: snapshot.text, title: snapshot.row.title || products[document.product].label };
+    return { id: crypto.randomUUID(), document: { product: document.product, id: document.id }, revision: snapshot.row.revision ?? 0, text: snapshot.text, title: snapshot.row.title || products[document.product].label };
   }
   async saveProject(value: ProjectRecord, expectedRevision: number): Promise<ProjectSnapshot> {
     const record = readProjectRecord(value), previous = await this.project(record.id);
@@ -93,7 +93,8 @@ export class OfficeWorkspace {
       const old = previousComments.get(comment.id);
       if (old && (old.resultId !== comment.resultId || JSON.stringify(old.target) !== JSON.stringify(comment.target) || old.pin.id !== comment.pin.id)) throw new Error('Comment source anchors are immutable.');
       if (!old) {
-        const result = record.results.find(result => result.id === comment.resultId)!;
+        const result = record.results.find(result => result.id === comment.resultId);
+        if (!result) throw new Error('The comment result is no longer linked.');
         if (referenceKey(result.document) !== referenceKey(comment.pin.document)) throw new Error('The comment source does not match its result.');
         if (comment.target.kind === 'word-comment') {
           const { document } = await readProductDocument('word', comment.pin.text);

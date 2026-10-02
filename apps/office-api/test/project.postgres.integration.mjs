@@ -111,6 +111,9 @@ try {
     await change({type:'request',commentId:opinion.id,request:'Update the guide and training.'},'request-again');
     assert.equal(current.project.record.works.length,1); assert.equal(current.project.record.works[0].id,work.id);
     await change({type:'pin-input',resultId:trainingResult.id,source,requestId:work.id},'training-input');
+    assert.equal(current.project.record.works[0].inputs.length,2);
+    assert.deepEqual(current.project.record.works[0].inputs[1],current.project.record.results.find(r=>r.id===trainingResult.id).inputs[0]);
+    assert.equal(current.project.record.works[0].inputs[1].text,guideText);
     assert.deepEqual(current.project.record.works[0].outputs,[guideResult.id,trainingResult.id]); assert.equal(current.project.record.results.find(r=>r.id===trainingResult.id).request,work.id);
     await change({type:'pause',workId:work.id,paused:true},'pause');
     const reopened=await new ProjectStore(pool).get(editor,tenantId,current.project.record.id);

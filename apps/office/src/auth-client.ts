@@ -28,19 +28,29 @@ export type VerifiedNoteContext = { tenantId: string; workspaceId: string; role:
 export type SnapshotProduct = 'note' | 'word' | 'slides';
 export type VerifiedSnapshotContext = VerifiedNoteContext & { product: SnapshotProduct };
 export type NoteIntent = { tenantId: string; workspaceId: string; documentId: string };
-export type SnapshotIntent = NoteIntent & { product: SnapshotProduct };
+export type SnapshotIntent = NoteIntent & { product: SnapshotProduct; projectId?: string; mode?: 'read' | 'edit' };
 
 export function snapshotIntentFromSearch(search: string): SnapshotIntent | null {
   const params = new URLSearchParams(search);
   const product = params.get('product');
-  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'document', 'product'].includes(key)) ||
+  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'document', 'product', 'project', 'mode'].includes(key)) ||
     ['tenant', 'workspace', 'document', 'product'].some(key => params.getAll(key).length !== 1) ||
     (product !== 'note' && product !== 'word' && product !== 'slides')) return null;
   const tenantId = params.get('tenant')!, workspaceId = params.get('workspace')!, documentId = params.get('document')!;
-  return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId, product } : null;
+  const projectId = params.get('project'), mode = params.get('mode');
+  if (params.getAll('project').length > 1 || params.getAll('mode').length > 1 || (projectId !== null && !uuid.test(projectId)) || (mode !== null && mode !== 'read' && mode !== 'edit')) return null;
+  return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId, product, ...(projectId ? { projectId } : {}), ...(mode ? { mode } : {}) } : null;
 }
+export function projectLocation(search: string) {
+  const params = new URLSearchParams(search), tenant = params.get('tenant'), workspace = params.get('workspace'), project = params.get('project');
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'project'].includes(key)) || !tenant || !workspace || !project || ![tenant, workspace, project].every(value => uuid.test(value)) || ['tenant', 'workspace', 'project'].some(key => params.getAll(key).length !== 1)) return null;
+  return { tenant, workspace, project };
+}
+
+
 export function snapshotIntentSearch(intent: SnapshotIntent) {
-  return new URLSearchParams({ tenant: intent.tenantId, workspace: intent.workspaceId, document: intent.documentId, product: intent.product }).toString();
+  return new URLSearchParams({ tenant: intent.tenantId, workspace: intent.workspaceId, document: intent.documentId, product: intent.product, ...(intent.projectId ? { project: intent.projectId } : {}), ...(intent.mode ? { mode: intent.mode } : {}) }).toString();
 }
 export function noteIntentFromSearch(search: string): NoteIntent | null {
   const intent = snapshotIntentFromSearch(search);
@@ -106,7 +116,8 @@ export async function beginLogin(intent: EntryIntent, forceAccountChoice = false
   const discovery = await discover();
   const state = randomValue();
   const verifier = randomValue();
-  const returnPath = intent === 'user' && snapshotIntentFromSearch(location.search) ? `/?${snapshotIntentSearch(snapshotIntentFromSearch(location.search)!)}` : undefined;
+  const snapshot = snapshotIntentFromSearch(location.search), project = projectLocation(location.search);
+  const returnPath = intent === 'user' && (snapshot || project) ? `/?${snapshot ? snapshotIntentSearch(snapshot) : new URLSearchParams(project!)}` : undefined;
   sessionStorage.setItem(pendingKey, JSON.stringify({ state, verifier, intent, returnPath } satisfies PendingLogin));
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set('response_type', 'code');
@@ -164,7 +175,7 @@ export async function finishLogin(): Promise<EntryIntent> {
     intent: pending.intent,
   };
   sessionStorage.setItem(resumeKey, pending.intent);
-  if (pending.returnPath?.startsWith('/?') && snapshotIntentFromSearch(new URL(pending.returnPath, location.origin).search)) {
+  if (pending.returnPath?.startsWith('/?') && (snapshotIntentFromSearch(new URL(pending.returnPath, location.origin).search) || projectLocation(new URL(pending.returnPath, location.origin).search))) {
     history.replaceState(null, '', pending.returnPath);
   }
   return pending.intent;
@@ -212,8 +223,15 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
   return response;
 };
 
-async function apiGet(path: string): Promise<unknown> {
-  const response = await authorizedFetch(`/api/v1${path}`);
+/** Bind retained product work to this exact login generation, including account ABA. */
+export function captureAuthorizedFetch(): typeof fetch {
+  const token = activeSession, epoch = sessionEpoch;
+  const current = () => { if (!token || activeSession !== token || sessionEpoch !== epoch) throw new AuthError('cancelled', '계정이 바뀌었습니다. 프로젝트를 다시 여세요.'); };
+  return async (input, init) => { current(); const response = await authorizedFetch(input, init); current(); return response; };
+}
+
+async function apiGet(path: string, requestFetch: typeof fetch = authorizedFetch): Promise<unknown> {
+  const response = await requestFetch(`/api/v1${path}`);
   if (!response.ok) throw new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 확인해 주세요.');
   return response.json();
 }
@@ -235,12 +253,12 @@ export async function listWorkspaces(tenantId: string, after?: string) {
     item => typeof item.id === 'string' && uuid.test(item.id) && typeof item.name === 'string');
 }
 
-export async function listSnapshotDocuments(tenantId: string, workspaceId: string, product: SnapshotProduct, after?: string) {
+export async function listSnapshotDocuments(tenantId: string, workspaceId: string, product: SnapshotProduct, after?: string, requestFetch: typeof fetch = authorizedFetch) {
   if (![tenantId, workspaceId, ...(after ? [after] : [])].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 자료함 주소입니다.');
   if (product !== 'note' && product !== 'word' && product !== 'slides') throw new AuthError('configuration', '지원하지 않는 제품입니다.');
   const query = new URLSearchParams({ workspaceId, product });
   if (after) query.set('after', after);
-  return pageOf<DocumentAccess>(await apiGet(`/tenants/${tenantId}/documents?${query}`), 'documents',
+  return pageOf<DocumentAccess>(await apiGet(`/tenants/${tenantId}/documents?${query}`, requestFetch), 'documents',
     item => typeof item.documentId === 'string' && uuid.test(item.documentId) && item.tenantId === tenantId &&
       item.workspaceId === workspaceId && item.product === product && typeof item.title === 'string' && typeof item.revision === 'number' &&
       typeof item.mode === 'string' && typeof item.fileFormat === 'string' && typeof item.fileVersion === 'number');

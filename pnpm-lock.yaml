@@ -399,6 +399,9 @@ importers:
       '@barocss/office-workspace':
         specifier: workspace:*
         version: link:../../packages/office-workspace
+      '@barocss/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       react:
         specifier: ^19.2.8
         version: 19.2.8

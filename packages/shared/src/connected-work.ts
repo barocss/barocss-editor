@@ -10,6 +10,7 @@ export interface ProjectComment {
 }
 export interface ProjectWork {
   id: string; commentId: string; request: string; state: 'unconnected' | 'paused'; inputs: Pin[];
+  /** Associated result IDs. Applied changes are never implied by this association. */
   outputs: string[]; reason: string; createdAt: string;
 }
 export interface ProjectRecord {
@@ -46,7 +47,7 @@ export function readProjectRecord(value: unknown): ProjectRecord {
   }
   const commentIds = new Set<string>();
   for (const c of value.comments) {
-    if (!object(c) || !keys(c, 'id resultId target pin actor body createdAt workId status') || !identity(c.id) || !identity(c.resultId) || !resultIds.has(c.resultId) || !object(c.target) || !keys(c.target, 'kind id quote') ||
+    if (!object(c) || !keys(c, 'id resultId target pin actor body createdAt workId status') || !identity(c.id) || !identity(c.resultId) || !object(c.target) || !keys(c.target, 'kind id quote') ||
       !['document', 'word-comment'].includes(String(c.target.kind)) || !identity(c.target.id) || !string(c.target.quote) ||
       !validPin(c.pin) || !object(c.actor) || !keys(c.actor, 'kind id label') || !['local', 'human'].includes(String(c.actor.kind)) || !identity(c.actor.id) || !identity(c.actor.label) ||
       !identity(c.body) || !date(c.createdAt) || !['open', 'resolved'].includes(String(c.status)) || (c.workId !== undefined && !identity(c.workId)) || commentIds.has(c.id)) invalid();
@@ -58,7 +59,7 @@ export function readProjectRecord(value: unknown): ProjectRecord {
   for (const w of value.works) {
     if (!object(w) || !keys(w, 'id commentId request state inputs outputs reason createdAt') || !identity(w.id) || !identity(w.commentId) || !commentIds.has(w.commentId) || !identity(w.request) ||
       !['unconnected', 'paused'].includes(String(w.state)) || !pins(w.inputs) || !Array.isArray(w.outputs) ||
-      !w.outputs.every(id => identity(id) && resultIds.has(id)) || !unique(w.outputs) || !string(w.reason) || !date(w.createdAt) ||
+      !w.outputs.every(identity) || !unique(w.outputs) || !string(w.reason) || !date(w.createdAt) ||
       workIds.has(w.id) || workComments.has(w.commentId)) invalid();
     const comment = value.comments.find(c => c.id === w.commentId);
     if (comment?.workId !== w.id) invalid();
@@ -85,6 +86,8 @@ function activity(record: ProjectRecord, at: string, label: string) { record.act
 export function createProjectComment(record: ProjectRecord, input: ProjectCommentInput, at = now()): ProjectRecord {
   const next = readProjectRecord(record);
   if (next.archived) throw new Error('Archived projects cannot accept comments.');
+  const result = next.results.find(one => one.id === input.resultId);
+  if (!result || result.document.product !== input.pin.document.product || result.document.id !== input.pin.document.id) throw new Error('A current result and matching original source are required.');
   next.comments.push({ ...structuredClone(input), id: crypto.randomUUID(), body: input.body.trim(), createdAt: at, status: 'open' });
   activity(next, at, 'Comment added');
   return readProjectRecord(next);
@@ -98,8 +101,9 @@ export function requestProjectWork(record: ProjectRecord, commentId: string, req
     if (existing.request === request.trim() && existing.state === 'unconnected') return next;
     existing.request = request.trim(); existing.state = 'unconnected'; existing.reason = unconnectedReason;
   } else {
+    if (!next.results.some(one => one.id === comment.resultId)) throw new Error('The result is no longer linked.');
     const id = crypto.randomUUID(); comment.workId = id;
-    next.works.push({ id, commentId, request: request.trim(), state: 'unconnected', inputs: [structuredClone(comment.pin)], outputs: [], reason: unconnectedReason, createdAt: at });
+    next.works.push({ id, commentId, request: request.trim(), state: 'unconnected', inputs: [structuredClone(comment.pin)], outputs: [comment.resultId], reason: unconnectedReason, createdAt: at });
   }
   activity(next, at, 'Revision requested');
   return readProjectRecord(next);

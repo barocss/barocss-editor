@@ -6,7 +6,9 @@
     ".": "./src/index.ts",
     "./ui": "./src/ui.tsx",
     "./style.css": "./src/style.css",
-    "./host": "./src/host-ui.tsx"
+    "./host": "./src/host-ui.tsx",
+    "./project": "./src/project-ui.tsx",
+    "./feedback": "./src/project-feedback.tsx"
   },
   "scripts": {
     "test:run": "vitest run",
@@ -60,6 +62,16 @@
         "types": "./dist/host.d.ts",
         "import": "./dist/host.js",
         "default": "./dist/host.js"
+      },
+      "./project": {
+        "types": "./dist/project.d.ts",
+        "import": "./dist/project.js",
+        "default": "./dist/project.js"
+      },
+      "./feedback": {
+        "types": "./dist/feedback.d.ts",
+        "import": "./dist/feedback.js",
+        "default": "./dist/feedback.js"
       }
     },
     "files": [

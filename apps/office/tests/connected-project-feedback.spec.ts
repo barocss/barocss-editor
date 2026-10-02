@@ -157,7 +157,12 @@ test('selected native opinion, exact undo/redo, explicit same-thread work and pi
   await page.getByRole('option', { name: '고객 설치 안내', exact: true }).click();
   await follow.getByRole('button', { name: '같은 요청에 연결', exact: true }).click();
   await expect(follow).toHaveCount(0);
+  await expect(row.getByRole('group', { name: '수정 요청의 기준 원본', exact: true }).getByRole('button')).toHaveCount(1);
+  await expect(row.getByRole('group', { name: '후속 결과의 참고 원본', exact: true })).toContainText('팀 교육자료');
+  await expect(page.locator('.ow-project-activities')).toContainText('후속 결과물 연결');
+  await expect(page.locator('.ow-project-activities')).not.toContainText('Follow-up result linked');
   const linked = await state(page), education = linked.record.results.find(one => one.name === '팀 교육자료')!;
+  expect(linked.record.activities.at(-1)?.label).toBe('Follow-up result linked');
   expect(education.request).toBe(work.id);
   expect(linked.record.works).toHaveLength(1); expect(linked.record.works[0]!.id).toBe(work.id);
   expect(linked.record.works[0]!.outputs).toEqual(expect.arrayContaining([comment.resultId, education.id]));
@@ -351,6 +356,7 @@ test('project home retires old pinned reads and stops refresh continuation after
     const guide = original.record.results.find(one => one.name === '고객 설치 안내')!;
     const pin = await workspace.pin(guide.document);
     const projectA = await workspace.saveProject({ ...original.record,
+      activities: [...original.record.activities, { id: crypto.randomUUID(), at: new Date().toISOString(), label: '직접 기록한 활동: 원문 유지' }],
       results: original.record.results.map(one => one.id === guide.id ? { ...one, inputs: [...one.inputs, pin] } : one)
     }, original.revision);
     const projectB = await workspace.createProject('다른 소유자의 프로젝트', '이전 화면의 자료를 표시하지 않는다.');
@@ -390,6 +396,12 @@ test('project home retires old pinned reads and stops refresh continuation after
   }, { modules, react, client, sourceRoot });
   const mounted = page.locator('[data-project-home-fixture]');
   await expect(mounted.getByRole('heading', { name: '고객 안내 검토', exact: true })).toBeVisible();
+  const recordedActivity = mounted.getByRole('listitem').filter({ hasText: '직접 기록한 활동: 원문 유지' });
+  await expect(recordedActivity).toHaveCount(1);
+  await expect(recordedActivity).toBeVisible();
+  await expect.poll(() => recordedActivity.evaluate(element => Array.from(element.childNodes)
+    .filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim()))
+    .toBe('직접 기록한 활동: 원문 유지');
   await mounted.locator('.ow-project-result summary').click();
   await mounted.getByRole('button', { name: fixture.pinTitle, exact: true }).click();
   await expect(mounted).toHaveAttribute('data-pin-pending', 'true');
