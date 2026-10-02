@@ -152,18 +152,19 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
        */
       const marksBefore = Array.isArray((startNode as any).marks)
         ? JSON.parse(JSON.stringify((startNode as any).marks))
-        : [];
+        : undefined;
 
       const rangeWithType = { ...range, type: 'range' as const };
       const deleted = context.dataStore.range.replaceText(rangeWithType, newText);
 
       // Exactly the marks the run is to end up with, when the caller knows —
-      // which is the inverse putting back what it took. See where it is captured.
-      if (Array.isArray(marksAfter)) {
+      // which is the inverse putting back what it took. An explicit inverse flag
+      // preserves absent marks without changing ordinary replacement semantics.
+      if (Array.isArray(marksAfter) || (payload.restoreAbsent === true && marksAfter === undefined)) {
         const current = context.dataStore.getNode(startNodeId);
         if (current) {
           context.dataStore.setNode(
-            { ...current, marks: JSON.parse(JSON.stringify(marksAfter)) } as any,
+            { ...current, marks: marksAfter === undefined ? undefined : JSON.parse(JSON.stringify(marksAfter)) } as any,
             false
           );
         }
@@ -195,7 +196,8 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
               endOffset: range.startOffset + newText.length
             },
             newText: originalText,
-            marksAfter: marksBefore
+            marksAfter: marksBefore,
+            restoreAbsent: marksBefore === undefined
           }
         }
       };
@@ -227,7 +229,7 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
      */
     const marksHere = Array.isArray((node as any).marks)
       ? JSON.parse(JSON.stringify((node as any).marks))
-      : [];
+      : undefined;
     
     const deleted = context.dataStore.range.replaceText({
       type: 'range',
@@ -239,11 +241,11 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
 
     // Exactly the marks the run is to end up with, when the caller knows — the inverse putting back
     // what it took, the same as the range form.
-    if (Array.isArray(marksAfter)) {
+    if (Array.isArray(marksAfter) || (payload.restoreAbsent === true && marksAfter === undefined)) {
       const current = context.dataStore.getNode(nodeId);
       if (current) {
         context.dataStore.setNode(
-          { ...current, marks: JSON.parse(JSON.stringify(marksAfter)) } as any,
+          { ...current, marks: marksAfter === undefined ? undefined : JSON.parse(JSON.stringify(marksAfter)) } as any,
           false
         );
       }
@@ -261,7 +263,8 @@ defineOperation('replaceText', async (operation: any, context: TransactionContex
           start,
           end: start + newText.length,
           newText: prevText,
-          marksAfter: marksHere
+          marksAfter: marksHere,
+          restoreAbsent: marksHere === undefined
         }
       }
     };
