@@ -282,6 +282,15 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     evidence.projectId = projectId; evidence.workId = workId; evidence.commentCount = 1; evidence.sourcePinHash = hash(trainingPin.text);
     evidence.humanSourceHash = hash(edited.snapshotText); evidence.trainingHash = hash(initialTraining.snapshotText); evidence.lostAckSamePayload = true;
     evidence.actualViewerDenied = true; evidence.revokedPinnedReadDenied = true; evidence.syntheticComposition = true; evidence.physicalOsIme = 'not exercised'; passed = true;
+  } catch (error) {
+    const failedPage = a?.context.pages()[0];
+    if (failedPage && new URL(failedPage.url()).origin === origin) {
+      const url = new URL(failedPage.url());
+      const diagnostic = { path: url.pathname, queryKeys: Array.from(url.searchParams.keys()), headings: await failedPage.getByRole('heading').allTextContents() };
+      writeFileSync(join(directory, 'failure-ui.json'), JSON.stringify(diagnostic), { mode: 0o600 });
+      await failedPage.screenshot({ path: test.info().outputPath('failure-project-ui.png') });
+    }
+    throw error;
   } finally {
     if (roleChanged) { await privateControl({ action: 'beta-active', active: true }); await privateControl({ action: 'beta-role', role: 'viewer' }); }
     if (a) await stopPrivateProfile(a.context, a.pid); if (b) await stopPrivateProfile(b.context, b.pid);
