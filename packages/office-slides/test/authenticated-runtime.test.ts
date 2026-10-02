@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSampleDeck, deckFileText } from '../src';
+import { isSlidesObject } from '../src/native-identity';
 import { assertSlidesNativeDocument, createSlidesRuntime } from '../../../apps/slide/src/runtime';
 
 const native = (value: unknown) => JSON.parse(deckFileText(value, '')).document;
@@ -50,6 +51,49 @@ describe('authenticated Slides runtime', () => {
       runtime.loadNativeDocument(captured);
       expect(runtime.exportNativeDocument()).toEqual(expected);
     } finally { runtime.editor.off('editor:content.change', changed); runtime.dispose(); }
+  });
+
+  it('imports the same raw sample independently without changing caller fields or sharing object identities', () => {
+    const document = createSampleDeck();
+    const original = structuredClone(document);
+    type NativeNode = { stype: string; attributes?: Record<string, unknown>; content?: NativeNode[] };
+    const objectIds = (tree: NativeNode): string[] => {
+      const ids: string[] = [];
+      const walk = (node: NativeNode) => {
+        if (isSlidesObject(node.stype)) {
+          expect(typeof node.attributes?.objectId).toBe('string');
+          expect(String(node.attributes?.objectId).length).toBeGreaterThan(0);
+          ids.push(node.attributes!.objectId as string);
+        }
+        node.content?.forEach(walk);
+      };
+      walk(tree); return ids;
+    };
+    const assertUnnormalized = (value: unknown): void => {
+      const node = value as NativeNode;
+      expect(Object.hasOwn(node.attributes ?? {}, 'objectId')).toBe(false);
+      node.content?.forEach(assertUnnormalized);
+    };
+    assertUnnormalized(document);
+    const first = createSlidesRuntime(window.document.createElement('div'), { initialDocument: document, editable: true });
+    const second = createSlidesRuntime(window.document.createElement('div'), { initialDocument: document, editable: true });
+    try {
+      expect(document).toStrictEqual(original); assertUnnormalized(document);
+      const firstNative = first.exportNativeDocument() as NativeNode;
+      const secondNative = second.exportNativeDocument() as NativeNode;
+      const firstIds = objectIds(firstNative), secondIds = objectIds(secondNative);
+      expect(firstIds.length).toBeGreaterThan(0);
+      expect(secondIds.length).toBe(firstIds.length);
+      expect(new Set(firstIds).size).toBe(firstIds.length);
+      expect(new Set(secondIds).size).toBe(secondIds.length);
+      expect(secondIds.some(id => firstIds.includes(id))).toBe(false);
+      first.loadNativeDocument(firstNative); second.loadNativeDocument(secondNative);
+      expect(first.exportNativeDocument()).toEqual(firstNative);
+      expect(second.exportNativeDocument()).toEqual(secondNative);
+      expect(objectIds(first.exportNativeDocument() as NativeNode)).toEqual(firstIds);
+      expect(objectIds(second.exportNativeDocument() as NativeNode)).toEqual(secondIds);
+      expect(document).toStrictEqual(original); assertUnnormalized(document);
+    } finally { first.dispose(); second.dispose(); }
   });
 
   it('preserves absent versus explicit empty fields and nested resource metadata during load events', () => {
