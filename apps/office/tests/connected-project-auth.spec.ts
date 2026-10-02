@@ -172,7 +172,8 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
   let passed = false, roleChanged = false;
   let diagnosticTrack: ReturnType<typeof track> | undefined;
   writeFileSync(evidenceFile, JSON.stringify({ status: 'incomplete' }), { mode: 0o600 });
-  const evidence: Record<string, unknown> = {};
+  const documentChecks: Array<Record<string, unknown>> = [];
+  const evidence: Record<string, unknown> = { documentChecks };
   try {
     const status = await privateControl<RealStatus>({ action: 'status' });
     const tenantRoot = `${origin}/api/v1/tenants/${status.tenantId}`;
@@ -196,6 +197,8 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
       const response = await page.request.get(`${tenantRoot}/documents/${id}`, { headers: { Authorization: requests.bearer } }); expect(response.status()).toBe(200);
       const opened = await response.json() as OpenDocument;
       const stored = await privateControl<Inspection<'word' | 'slides'>>({ action: 'inspect', product, documentId: id });
+      documentChecks.push({ phase: requests.phase, product, documentId: id, apiRevision: opened.document.revision, storedRevision: stored.document?.revision,
+        apiDeclaredHash: opened.document.snapshotHash, apiTextHash: hash(opened.snapshotText), storedHash: stored.document?.snapshotHash });
       expect(opened.snapshotText).toBe(stored.document!.snapshotText); expect(hash(opened.snapshotText)).toBe(stored.document!.snapshotHash);
       expect(opened.document.revision).toBe(stored.document!.revision); return opened;
     };
@@ -285,19 +288,21 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await expect(page.locator('.ow-project-work').getByRole('button', { name: '일시 정지', exact: true })).toBeEnabled();
     current = await readProject(); expect(current.project.record.works).toHaveLength(1); expect(current.project.record.works[0].id).toBe(workId); expect(current.project.record.works[0].state).toBe('unconnected');
     await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
-    const p = paragraph(page); await expect.poll(() => p.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
+    requests.phase = 'human-edit'; const p = paragraph(page); await expect.poll(() => p.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
     await p.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Human correction.'); await expect(p).toContainText('Human correction.');
     await page.keyboard.press('Meta+z'); await expect(p).not.toContainText('Human correction.'); await page.keyboard.press('Meta+Shift+z'); await expect(p).toContainText('Human correction.');
-    await page.getByRole('button', { name: '프로젝트로 돌아가기', exact: true }).click();
+    requests.phase = 'human-return'; await page.getByRole('button', { name: '프로젝트로 돌아가기', exact: true }).click();
+    await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
     const edited = await readDocument(guide.id, 'word'); expect(edited.snapshotText).toContain('Human correction.');
     expect((await readDocument(training.id, 'slides')).snapshotText).toBe(initialTraining.snapshotText);
     const pinResponse = await page.request.get(`${projectApi}/pins/${trainingPin.id}`, { headers: { Authorization: requests.bearer } }); expect(pinResponse.status()).toBe(200);
     const historical = await pinResponse.json() as { pin: Pin; sourceState: string }; expect(historical.pin.text).toBe(trainingPin.text); expect(historical.sourceState).toBe('changed');
     await page.getByRole('button', { name: trainingTitle, exact: true }).click(); await expect(slides(page)).toBeVisible(); await page.getByRole('button', { name: '프로젝트로 돌아가기', exact: true }).click();
     await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
+    expect((await readDocument(training.id, 'slides')).snapshotText).toBe(initialTraining.snapshotText);
     await page.getByRole('heading', { name: projectTitle, exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('authenticated-project-home.png') });
-    b = await launchPrivateProfile(profileB); const viewerPage = await b.context.newPage(), viewerRequests = track(viewerPage); await login(viewerPage, 'beta-viewer', projectUrl);
+    b = await launchPrivateProfile(profileB); const viewerPage = await b.context.newPage(), viewerRequests = track(viewerPage); evidence.viewerTimeline = viewerRequests.timeline; await login(viewerPage, 'beta-viewer', projectUrl);
     await expect(viewerPage.getByRole('button', { name: '결과물 연결', exact: true })).toBeDisabled();
     const denied = await viewerPage.request.patch(projectApi, { headers: { Authorization: viewerRequests.bearer }, data: {
       expectedRevision: (await readProject()).project.revision, idempotencyKey: randomUUID(), action: { type: 'metadata', title: 'Denied' } } }); expect(denied.status()).toBe(403);
