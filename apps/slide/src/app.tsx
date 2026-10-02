@@ -129,8 +129,6 @@ export function App({
    */
   const stage = useRef<HTMLDivElement>(null);
   const toolScope = useRef<HTMLElement | null>(null);
-  const [fullTools, setFullTools] = useState(false);
-  const detailAnchor = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [serverLibraryOpen, setServerLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -1823,15 +1821,6 @@ export function App({
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
         menus={<DocumentMenu key={`${editor?.getRootId()}:${current}:${answers}:${readOnly}`} label="덱 메뉴" menus={menus} onPick={onMenu} />}
         actions={<>
-          <div ref={detailAnchor}>
-            <Tip label="편집 도구 · 글꼴, 문단, 삽입">
-              <Button square tone="quiet" ariaLabel="편집 도구" disabled={readOnly}
-                aria-expanded={fullTools} pressed={fullTools}
-                onMouseDown={event => event.preventDefault()} onClick={() => setFullTools(value => !value)}>
-                <Icon name="frame-grid" />
-              </Button>
-            </Tip>
-          </div>
           <Tip label="레이어 · 개체 순서와 컴포넌트">
             <Button square tone="quiet" ariaLabel="레이어" aria-controls="slides-objects"
               aria-expanded={sidebarOpen} pressed={sidebarOpen} onMouseDown={event => event.preventDefault()} onClick={() => setSidebarOpen(value => !value)}>
@@ -1873,7 +1862,7 @@ export function App({
 
       {!presenting && <div className="sl-utilities" data-slides-utilities>
         {editor && <SlidesDocumentChrome editor={editor} slides={slides} current={current} scope={toolScope}
-          expanded={fullTools} onExpandedChange={setFullTools} detailAnchor={detailAnchor} inspectorHost={inspectorTools} onInspectorEscape={() => closePanel('inspector')} onInspect={origin => { inspectorOrigin.current = origin ?? null; focusInspector.current = true; setInspectorOpen(true); if (inspectorOpen) { focusInspector.current = false; inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true }); } }} />}
+          inspectorHost={inspectorTools} onInspectorEscape={() => closePanel('inspector')} onInspect={origin => { inspectorOrigin.current = origin ?? null; focusInspector.current = true; setInspectorOpen(true); if (inspectorOpen) { focusInspector.current = false; inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true }); } }} />}
         <Toolbar variant="compact" surface="floating" label="Slides 보기 도구">
           <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
             onFit={() => setZoom(undefined)} fitLabel="화면에 맞춤" />
@@ -2153,18 +2142,10 @@ export function App({
           {editor && !presenting && <SlideNavigation editor={editor} slides={slides} current={current} revision={revision}
             lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
             readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
+            renderNotes={close => <NotesPane editor={editor} slideSid={current} revision={revision} onClose={close} />}
             onSelect={sid => { setCurrent(sid); leaveSelection(); }}
             onRename={(sid, name) => !readOnly && void editor.executeCommand('setSlideInfo', { slideId: sid, name })} />}
 
-          {/*
-           * The note, editable, and drawn by a second view over the same
-           * document — see `notes.tsx` for why that rather than a textarea. It
-           * used to be read-only prose with a comment saying this was the next
-           * thing the app needed; this is that thing.
-           */}
-          {!presenting && (
-            <NotesPane editor={editor} slideSid={current} revision={revision} />
-          )}
 
         </AppMain>
 

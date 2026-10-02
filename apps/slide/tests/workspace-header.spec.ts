@@ -65,7 +65,6 @@ test('header icons explain and toggle their panels without editing the deck', as
   const before = await native();
   const header = page.locator('.sl-topbar');
   const actions = [
-    { label: '편집 도구', tip: '편집 도구 · 글꼴, 문단, 삽입', panel: '[data-slides-detail]' },
     { label: '레이어', tip: '레이어 · 개체 순서와 컴포넌트', panel: '#slides-objects' },
     { label: '속성', tip: '속성 · 크기, 위치, 모양', panel: '#slides-details' }
   ];

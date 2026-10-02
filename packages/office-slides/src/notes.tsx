@@ -3,7 +3,7 @@ import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY } from '@barocss/office-text';
-import { Button } from '@barocss/office-ui';
+import { Button, Icon, IconButton } from '@barocss/office-ui';
 import { useDocumentRevision } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import { SLIDES_ENV_KEY } from './render-context';
@@ -54,9 +54,10 @@ export interface NotesPaneProps {
   slideSid?: string;
   /** Bumped by the app when the deck changes, so the note is re-resolved. */
   revision: number;
+  onClose?: () => void;
 }
 
-export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
+export function NotesPane({ editor, slideSid, revision, onClose }: NotesPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
   /**
@@ -155,10 +156,12 @@ export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
 
   return (
     <section className="sl-notes" aria-label="발표자 노트">
-      <h2 className="sl-notes-title">발표자 노트</h2>
+      <div className="sl-notes-heading"><h2 className="sl-notes-title">발표자 노트</h2>
+        {onClose && <IconButton label="발표자 노트 닫기" onClick={onClose}><Icon name="close" /></IconButton>}
+      </div>
       {missing ? (
         <p className="sl-notes-empty">
-          이 슬라이드에는 노트가 없습니다. 아래를 눌러 추가하세요.
+          이 슬라이드에는 노트가 없습니다.
           <Button
             disabled={!editor?.isEditable}
             onClick={() => { if (editor?.isEditable) void editor.executeCommand('addSlideNote', { slideId: slideSid }); }}

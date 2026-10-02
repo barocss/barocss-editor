@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, ChoiceSelect, Icon, IconButton, Toolbar } from '@barocss/office-ui';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 import { Filmstrip, type FilmstripProps } from './filmstrip';
@@ -7,6 +7,8 @@ import './slide-navigation.css';
 export interface SlideNavigationProps extends FilmstripProps {
   /** Definitions are surfaces in their own right, not slide one. */
   definitionLabel?: string;
+  /** A single retained rich-text view; opening it must never resize the stage. */
+  renderNotes?: (close: () => void) => ReactNode;
 }
 
 /** A single native filmstrip, with UI-only folding below the stage. */
@@ -17,6 +19,10 @@ export function SlideNavigation(props: SlideNavigationProps) {
   const panel = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const [open, setOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notes = useRef<HTMLDivElement>(null);
+  const notesOrigin = useRef<HTMLButtonElement | null>(null);
+  const notesId = useId();
   const returnFocus = useRef(false);
   const renameVisible = useRef(false);
   renameVisible.current = open;
@@ -26,7 +32,19 @@ export function SlideNavigation(props: SlideNavigationProps) {
   const context = useMemo(() => ({}), [editor, rootId, lifetimeKey, current, readOnly, editable]);
   const latest = useRef({ editor, nativeRoot, lifetimeKey, current, slides, readOnly, open, context, onSelect: props.onSelect });
   latest.current = { editor, nativeRoot, lifetimeKey, current, slides, readOnly, open, context, onSelect: props.onSelect };
-  useLayoutEffect(() => { renameVisible.current = false; setOpen(false); }, [editor, nativeRoot, lifetimeKey, readOnly, editable]);
+  useLayoutEffect(() => { renameVisible.current = false; setOpen(false); setNotesOpen(false); }, [editor, nativeRoot, lifetimeKey, readOnly, editable]);
+  useLayoutEffect(() => { if (notesOpen) notes.current?.focus({ preventScroll: true }); }, [notesOpen]);
+  const closeNotes = () => {
+    setNotesOpen(false);
+    const trigger = owner.current?.querySelector<HTMLButtonElement>(open ? '[data-filmstrip-panel] [data-notes-toggle]' : '.sl-slide-navigation-folded [data-notes-toggle]');
+    (trigger ?? notesOrigin.current)?.focus({ preventScroll: true });
+  };
+  const notesToggle = props.renderNotes ? <Button square tone="quiet" ariaLabel="발표자 노트" pressed={notesOpen}
+    aria-expanded={notesOpen} aria-controls={notesId} data={{ 'notes-toggle': '' }}
+    onMouseDown={event => event.preventDefault()} onClick={event => {
+      notesOrigin.current = event.currentTarget;
+      if (notesOpen) closeNotes(); else setNotesOpen(true);
+    }}><Icon name="note-footnote" /></Button> : null;
   useLayoutEffect(() => {
     if (open) {
       const current = panel.current?.querySelector<HTMLButtonElement>('[data-current="true"]') ?? panel.current?.querySelector<HTMLButtonElement>('[data-slide]');
@@ -89,6 +107,13 @@ export function SlideNavigation(props: SlideNavigationProps) {
     }
   };
   return <div ref={owner} className="sl-slide-navigation" data-slide-navigation data-expanded={open}>
+    <div className="sl-slide-dock" data-slide-dock>
+    {props.renderNotes && <div ref={notes} id={notesId} className="sl-notes-panel" data-notes-panel
+      hidden={!notesOpen} inert={!notesOpen} tabIndex={-1} onKeyDownCapture={event => {
+        if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
+          (event.target instanceof Element && event.target.closest('[role="menu"],[role="listbox"],[data-floating-surface]'))) return;
+        event.preventDefault(); event.stopPropagation(); closeNotes();
+      }}>{props.renderNotes(closeNotes)}</div>}
     <div ref={panel} id={panelId} className="sl-slide-navigation-panel" data-filmstrip-panel hidden={!open} inert={!open}
       onKeyDown={event => {
         if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
@@ -98,6 +123,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
       <div className="sl-slide-navigation-heading">
         <IconButton label="새 슬라이드" preserveFocus disabled={readOnly || !editable || at < 0 || !editor?.canExecuteCommand('insertSlide', { after: current })}
           onClick={addSlide}><Icon name="add" /></IconButton>
+        {notesToggle}
         <span className="sl-slide-navigation-title">슬라이드 <span>{slides.length}</span></span>
         <Button aria-label="슬라이드 탐색 접기" tone="quiet" className="sl-slide-navigation-fold"
           onMouseDown={event => event.preventDefault()}
@@ -117,6 +143,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
           ...slides.map(slide => ({ id: slide.sid, label: String(slide.number) }))]} />
       <span className="sl-count" aria-label="전체 슬라이드 수">/ {slides.length}</span>
       <IconButton label="다음 슬라이드" disabled={at < 0 || at >= slides.length - 1} preserveFocus onClick={() => { if (at >= 0 && at < slides.length - 1) choose(slides[at + 1].sid); }}><Icon name="next-page" /></IconButton>
+      {notesToggle}
       <span className="sl-slide-navigation-separator" aria-hidden="true" />
       <Button aria-label={open ? '슬라이드 탐색 접기' : '슬라이드 탐색 펼치기'} tone="quiet" className="sl-slide-navigation-fold"
         data={{ 'filmstrip-toggle': 'true' }} aria-controls={panelId} aria-expanded={open}
@@ -127,6 +154,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
           else { renameVisible.current = true; setOpen(true); }
         }}><Icon name="outline" /></Button>
     </Toolbar>
+    </div>
     </div>
   </div>;
 }
