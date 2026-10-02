@@ -2679,7 +2679,7 @@ export class SlidesExtension implements Extension {
   private _noteLines(text: string): string[] { return text.split(/\r\n|\r|\n/); }
 
   private _noteParagraph(text: string) {
-    return { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', text }] };
+    return { stype: 'paragraph', attributes: {}, content: [{ stype: 'inline-text', attributes: {}, text }] };
   }
 
   /** Compare committed identities, not the transaction's own pending note/binding writes. */

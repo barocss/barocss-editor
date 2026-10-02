@@ -5,6 +5,7 @@ import { registerPreCommitGuard, registerPreExecutionGuard, transaction } from '
 import { createSlidesEditor } from '../src/slides-kit';
 import { getSlidesSchemaDefinition } from '../src/slides-schema';
 import { deckSlides, noteFor } from '../src/deck';
+import { deckFileText, readDeckFile } from '../src/deck-file';
 
 const editors: Editor[] = [];
 afterEach(() => { editors.splice(0).forEach(editor => editor.destroy()); });
@@ -165,4 +166,28 @@ it('refuses first input from a previous loaded document even when the UI callbac
   editor.loadDocument(document); const before = state(editor);
   editor.dataStore.releaseLock(lock);
   expect(await pending).toBe(false); expect(state(editor)).toEqual(before);
+});
+
+
+it('keeps first-input and buffered new paragraphs exact through native JSON save/load/save', async () => {
+  const editor = fixture(); const reopened = fixture();
+  expect(await editor.run('addSlideNote', { slideId: slideId(editor), initialText: '첫 줄\nSecond line' })).toBe(true);
+  const firstFile = deckFileText(editor.exportDocument(), 'fixed');
+  const firstRead = readDeckFile(firstFile);
+  expect(firstRead).not.toHaveProperty('error');
+  if ('error' in firstRead) throw new Error(firstRead.error);
+  reopened.loadDocument(firstRead.document);
+  expect(JSON.parse(deckFileText(reopened.exportDocument(), 'fixed'))).toEqual(JSON.parse(firstFile));
+  expect(lines(reopened)).toEqual(['첫 줄', 'Second line']);
+
+  expect(await editor.run('updateSlideNoteDraft', {
+    slideId: slideId(editor), noteId: note(editor), expectedText: '첫 줄\nSecond line', text: '첫 줄\nSecond line\n\nMore'
+  })).toBe(true);
+  const bufferedFile = deckFileText(editor.exportDocument(), 'fixed');
+  const bufferedRead = readDeckFile(bufferedFile);
+  expect(bufferedRead).not.toHaveProperty('error');
+  if ('error' in bufferedRead) throw new Error(bufferedRead.error);
+  reopened.loadDocument(bufferedRead.document);
+  expect(JSON.parse(deckFileText(reopened.exportDocument(), 'fixed'))).toEqual(JSON.parse(bufferedFile));
+  expect(lines(reopened)).toEqual(['첫 줄', 'Second line', '', 'More']);
 });
