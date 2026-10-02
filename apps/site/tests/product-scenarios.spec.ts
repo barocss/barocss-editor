@@ -5,8 +5,13 @@ const saved = (page: Page) => expect(page.locator('[data-site-save-status]')).to
 const desktop = (page: Page) => page.locator('[data-frame="desktop"]');
 
 async function fileAction(page: Page, name: string) {
-  await page.locator('[data-menu="file"]').click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
   await page.getByRole('menuitem', { name, exact: true }).click();
+}
+
+async function backToAdmin(page: Page) {
+  await page.getByRole('button', { name: '모든 도구', exact: true }).click();
+  await page.getByRole('button', { name: '관리로', exact: true }).click();
 }
 
 async function enterText(page: Page, block: Locator) {
@@ -48,7 +53,7 @@ test('[SITE-AUTHORED-MULTIPAGE-OUTPUT-UI-001] saves final native body input and 
   expect(siteFile.text).toContain('SITE HOME FINAL!');
   await expect(paragraph).toHaveText('SITE HOME FINAL!');
 
-  await page.locator('[data-to-admin]').click();
+  await backToAdmin(page);
   await page.locator('[data-admin-add="page"]').click();
   await page.getByRole('button', { name: '빈 페이지', exact: true }).click();
   await expect(page.locator('[data-admin-page]')).toHaveCount(2);
@@ -86,21 +91,21 @@ test('[SITE-AUTHORED-MULTIPAGE-OUTPUT-UI-001] saves final native body input and 
   await expect(desktop(page).locator('.w-paragraph').first()).toHaveText('SITE HOME FINAL!');
 
   const htmlWait = page.waitForEvent('download');
-  await page.locator('[data-menu="file"]').click();
-  await page.locator('[data-menu-item="file.publish.0"]').click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '이 페이지 내보내기', exact: true }).click();
   const htmlDownload = await htmlWait;
   expect(htmlDownload.suggestedFilename()).toBe('index.html');
   const html = await retainDownload(htmlDownload, info);
   expect(html.text.match(/SITE HOME FINAL!/g)).toHaveLength(1);
   expect(html.text).not.toContain('SITE SECOND FINAL!');
 
-  await page.locator('[data-to-admin]').click();
+  await backToAdmin(page);
   await page.locator(`[data-admin-open="${secondId}"]`).click();
   await expect(desktop(page).locator('.st-page')).toHaveAttribute('data-path', '/jepum');
   await expect(desktop(page).locator('h1')).toHaveText(secondText);
   const zipWait = page.waitForEvent('download');
-  await page.locator('[data-menu="file"]').click();
-  await page.locator('[data-menu-item="file.publish.1"]').click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '사이트 전체 내보내기', exact: true }).click();
   const zipDownload = await zipWait;
   expect(zipDownload.suggestedFilename()).toMatch(/\.zip$/);
   const zip = await retainDownload(zipDownload, info);

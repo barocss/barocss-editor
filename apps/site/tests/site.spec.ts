@@ -9487,8 +9487,8 @@ test.describe('the menubar', () => {
     await ready(page);
 
     const wait = page.waitForEvent('download');
-    await bar(page).locator('[data-menu="file"]').click();
-    await page.locator('[data-menu-item="file.publish.0"]').click();
+    await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitem', { name: '이 페이지 내보내기', exact: true }).click();
     const file = await wait;
 
     // The address becomes the filename the way a host would serve it.
@@ -9509,8 +9509,8 @@ test.describe('the menubar', () => {
      * Both need a tree, and a zip is the only shape a browser will take one in.
      */
     const wait = page.waitForEvent('download');
-    await bar(page).locator('[data-menu="file"]').click();
-    await page.locator('[data-menu-item="file.publish.1"]').click();
+    await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitem', { name: '사이트 전체 내보내기', exact: true }).click();
     const file = await wait;
 
     // Named after the site's own home page, so two publishes are not two `download.zip`.
