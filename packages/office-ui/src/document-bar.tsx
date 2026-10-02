@@ -16,17 +16,18 @@ export function ProductMenu({ product, blocks, onPick, id = 'product', label = `
 }
 
 /** A single named entry keeps existing command groups and shortcuts discoverable. */
-export function DocumentMenu({ menus, onPick, label = '문서 메뉴', triggerLabel, portalContainer }: {
+export function DocumentMenu({ menus, onPick, label = '문서 메뉴', triggerLabel, icon, portalContainer }: {
   menus: MenuBarMenu[];
   onPick: (id: string) => void;
   label?: string;
   triggerLabel?: string;
+  icon?: ReactNode;
   portalContainer?: RefObject<HTMLElement | null>;
 }) {
   const blocks = menus.flatMap(menu => menu.blocks.map((block, index) => ({
     ...block, id: `${menu.id}:${block.id}`, label: index === 0 ? menu.label : block.label
   })));
-  return <MenuBar compact label={label} className="office-document-menu" menus={[{ id: 'document', label: triggerLabel ?? label, ariaLabel: label, blocks }]} onPick={onPick} portalContainer={portalContainer} />;
+  return <MenuBar compact label={label} className="office-document-menu" menus={[{ id: 'document', label: triggerLabel ?? label, ariaLabel: label, icon, blocks }]} onPick={onPick} portalContainer={portalContainer} />;
 }
 
 /** Document identity and file commands. Product code owns the actions and save state. */

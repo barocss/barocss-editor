@@ -195,7 +195,7 @@ export async function pinZoom(page: Page, percent = 60): Promise<void> {
  * thing about it a product is free to change.
  */
 export async function pickMenu(page: Page, id: string) {
-  await page.getByRole('menuitem', { name: '덱 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
   await page.locator(`[data-menu-item="${id}"]`).click();
   await page.waitForTimeout(250);
 }

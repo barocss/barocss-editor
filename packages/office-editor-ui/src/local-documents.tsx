@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { DocumentSession, ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
-import { Button, Dialog, StatusNotice } from '@barocss/office-ui';
+import { Button, Dialog, StatusNotice, Tip } from '@barocss/office-ui';
+import { Icon } from '@barocss/office-icons';
 import { DocumentSaveStatus } from './document-save-status';
 
 export function useLocalDocuments(options: DocumentSessionOptions | null) {
@@ -18,8 +19,8 @@ export function useLocalDocuments(options: DocumentSessionOptions | null) {
 }
 
 /** Local storage and recovery controls shared by product shells. */
-export function LocalDocuments({ persistence, title, prefix, onOpened }: {
-  persistence: ReturnType<typeof useLocalDocuments>; title: string; prefix: string; onOpened: () => void;
+export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly = false }: {
+  persistence: ReturnType<typeof useLocalDocuments>; title: string; prefix: string; onOpened: () => void; iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<LibraryRow[]>([]), [drafts, setDrafts] = useState<LibraryRow[]>([]);
@@ -75,7 +76,7 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
     자동 저장이 중지돼 있습니다. 화면에서 필요한 내용을 복사하세요. 보관함 백업에는 이 화면이 포함되지 않습니다.
   </StatusNotice>;
   return <>
-    <DocumentSaveStatus status={persistence.status} className="office-save-status" {...{ [`data-${prefix}-save-status`]: true }} />
+    <Tip label={iconOnly ? persistence.status : undefined}><DocumentSaveStatus status={persistence.status} tabIndex={iconOnly ? 0 : undefined} className="office-save-status" data-icon-only={iconOnly || undefined} {...{ [`data-${prefix}-save-status`]: true }} /></Tip>
     {recoveryRequired && !open && recoveryButton}
     {recoveryRequired && !open && confirmRecovery && recoveryConfirmation}
     {failure && !recoveryRequired && <Button disabled={busy} onClick={() => void perform(async () => {
@@ -87,7 +88,7 @@ export function LocalDocuments({ persistence, title, prefix, onOpened }: {
         } else await session.flush();
       })}>{persistence.status === '복원 실패' ? '복원 다시 시도' : '저장 다시 시도'}</Button>}
     {persistence.status === '충돌한 초안 보관됨' && <Button disabled={busy} onClick={openLibrary}>복구 초안 보기</Button>}
-    <Button ref={recent} onClick={openLibrary} disabled={busy}>{busy && !open ? '처리 중…' : '최근 자료'}</Button>
+    <Tip label={iconOnly ? (busy && !open ? '최근 자료 불러오는 중' : '최근 자료') : undefined}><Button ref={recent} square={iconOnly} tone={iconOnly ? 'quiet' : 'plain'} ariaLabel={iconOnly ? '최근 자료' : undefined} aria-busy={busy || undefined} onClick={openLibrary} disabled={busy}>{iconOnly ? <Icon name="recent-documents" /> : busy && !open ? '처리 중…' : '최근 자료'}</Button></Tip>
     {problem && !open && <span role="alert">{problem}</span>}
     <Dialog open={open} onClosed={restoreFocus} onOpenChange={value => { if (!busy) { setOpen(value); if (!value) setProblem(''); } }} title={title}
       description="이 브라우저에 자동 저장한 자료입니다. 다른 탭과 충돌한 작업은 복구 초안으로 보관합니다.">

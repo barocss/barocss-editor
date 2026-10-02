@@ -25,7 +25,7 @@
   */
 import type { ReactElement } from 'react';
 import {
-  Star,
+  Star, History,
   Search, FileCog, ArrowDownUp, ArrowUpRight, FilePlus2, Printer, LogOut, Download, Play, ChevronLeft,
   AlignCenter,
   Network,
@@ -627,6 +627,7 @@ const ICONS: Record<string, LucideIcon> = {
   expand: PanelRightOpen,
   'dialog-launch': ArrowUpRight,
   'document-search': Search,
+  'recent-documents': History,
   'page-setup': FileCog,
   'page-header': PanelTop,
   'page-footer': PanelBottom,

@@ -2,12 +2,14 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Dialog } from './dialog';
 import { Button } from './controls';
 import { Icon } from '@barocss/office-icons';
+import { Tip } from './tip';
 
-export function CommandSearchTrigger({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
-  return <Button tone="quiet" className="office-command-trigger" ariaLabel="명령 검색" disabled={disabled}
+export function CommandSearchTrigger({ onClick, disabled, iconOnly = false }: { onClick: () => void; disabled?: boolean; iconOnly?: boolean }) {
+  const trigger = <Button square={iconOnly} data={{ 'command-icon': iconOnly || undefined }} tone="quiet" className="office-command-trigger" ariaLabel="명령 검색" disabled={disabled}
     onPointerDown={event => event.preventDefault()} onClick={onClick}>
-    <Icon name="document-search" size={14} /><span>명령 검색</span>
+    <Icon name="document-search" size={iconOnly ? 16 : 14} />{!iconOnly && <span>명령 검색</span>}
   </Button>;
+  return iconOnly ? <Tip label="명령 검색">{trigger}</Tip> : trigger;
 }
 
 export interface SearchCommand {

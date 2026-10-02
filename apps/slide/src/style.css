@@ -186,6 +186,34 @@ body {
   gap: 6px;
 }
 
+/* Icon-only header controls retain the same status and document actions. */
+.sl-topbar [data-menu-icon],
+.sl-topbar .office-save-status[data-icon-only] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+.sl-topbar .office-save-status[data-icon-only] > span:last-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.sl-topbar .office-save-status[data-icon-only]:focus-visible {
+  border-radius: var(--ou-radius);
+  outline: 2px solid var(--ou-accent);
+  outline-offset: 2px;
+}
+
 /*
  * ── The menubar ────────────────────────────────────────────────────────────
  *

@@ -21,9 +21,10 @@ export function useSlidePersistence(editor: Editor | null, enabled = true): {
   return { session, status, beforeReplace };
 }
 
-export function SlideDocuments({ persistence, onOpened }: {
+export function SlideDocuments({ persistence, onOpened, iconOnly = false }: {
   persistence: ReturnType<typeof useSlidePersistence>;
   onOpened: () => void;
+  iconOnly?: boolean;
 }) {
-  return <LocalDocuments persistence={persistence} title="최근 발표 자료" prefix="slide" onOpened={onOpened} />;
+  return <LocalDocuments persistence={persistence} title="최근 발표 자료" prefix="slide" onOpened={onOpened} iconOnly={iconOnly} />;
 }
