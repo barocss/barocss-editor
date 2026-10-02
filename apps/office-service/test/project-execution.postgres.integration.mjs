@@ -156,10 +156,37 @@ try {
       if(change==='authority')await owner.query(`INSERT INTO wonffice.membership_events(id,tenant_id,identity_id,approval_ref,action,role)
         VALUES($1,$2,$3,$4,'revoke','editor'),($5,$2,$3,$6,'grant','editor')`,[randomUUID(),tenantId,actorId,randomUUID(),randomUUID(),randomUUID()]);
       hold.resolve();const result=(await pending).execution;assert.equal(result.phase,'blocked');assert.deepEqual(result.proposal,proposal);
-      await assert.rejects(store.authorizeAcceptance(...s.args(),result.id,{}),e=>e.reason==='execution_not_applicable');
+      await assert.rejects(store.authorizeAcceptance(...s.args(),result.id,{}),e=>e.reason===(change==='pause'?'work_paused':'execution_not_applicable'));
       const expected=change==='source'?s.snapshotText.replace('Untouched sibling','Human changed sibling'):s.snapshotText;
       assert.equal((await documents.open(actor,tenantId,s.documentId)).snapshotText,expected);
     }
+  });
+  await check('pause and resume permit explicit same-attempt acceptance and acknowledgement only with unchanged semantic context', async()=>{
+    for(const duringProvider of [false,true]){
+      const s=await seed(),entered=deferred(),hold=deferred();let dispatches=0;
+      const store=new ProjectExecutionStore(pool,{generate:async input=>{dispatches++;entered.resolve();if(duringProvider)await hold.promise;return response(input);}});
+      const pending=store.execute(...s.args(),{expectedRevision:s.current().project.revision});await entered.promise;
+      let result;
+      if(duringProvider){await s.update({type:'pause',workId:s.workId,paused:true});hold.resolve();result=(await pending).execution;
+        assert.equal(result.phase,'blocked');assert.equal(result.reason,'work_paused');}
+      else {result=(await pending).execution;await s.update({type:'pause',workId:s.workId,paused:true});}
+      await assert.rejects(store.authorizeAcceptance(...s.args(),result.id,{}),e=>e.reason==='work_paused');
+      await s.update({type:'pause',workId:s.workId,paused:false});
+      const accepted=(await store.authorizeAcceptance(...s.args(),result.id,{})).execution;
+      assert.equal(accepted.phase,'accepted');assert.equal(accepted.id,result.id);assert.deepEqual(accepted.input,result.input);assert.deepEqual(accepted.provenance,result.provenance);
+      await documents.updateSnapshot(actor,tenantId,s.documentId,{expectedRevision:1,snapshotText:accepted.expectedSnapshotText,idempotencyKey:randomUUID()});
+      await s.update({type:'pause',workId:s.workId,paused:true});
+      await assert.rejects(store.acknowledge(...s.args(),result.id,{revision:2,snapshotHash:accepted.expectedSnapshotHash}),e=>e.reason==='work_paused');
+      await s.update({type:'pause',workId:s.workId,paused:false});
+      const applied=(await store.acknowledge(...s.args(),result.id,{revision:2,snapshotHash:accepted.expectedSnapshotHash})).execution;
+      assert.equal(applied.phase,'applied');assert.equal(applied.id,result.id);assert.equal(dispatches,1);
+      assert.equal((await documents.open(actor,tenantId,s.documentId)).snapshotText,accepted.expectedSnapshotText);
+    }
+    const s=await seed(),store=new ProjectExecutionStore(pool,adapter);
+    const result=(await store.execute(...s.args(),{expectedRevision:s.current().project.revision})).execution;
+    await s.update({type:'pause',workId:s.workId,paused:true});await s.update({type:'metadata',goal:'Changed project basis'});await s.update({type:'pause',workId:s.workId,paused:false});
+    await assert.rejects(store.authorizeAcceptance(...s.args(),result.id,{}),e=>e.reason==='project_conflict');
+    assert.equal((await documents.open(actor,tenantId,s.documentId)).snapshotText,s.snapshotText);
   });
   await check('revocation while provider is pending retains bounded outcome but denies the revoked caller', async () => {
     const s=await seed(),entered=deferred(),hold=deferred();

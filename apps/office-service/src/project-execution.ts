@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { TenantAccessDeniedError, type VerifiedPrincipal } from './membership-store.js';
-import { ProjectError, ProjectStore, type ProjectExecutionContext, type ProjectTarget } from './project-store.js';
+import { ProjectError, ProjectStore, type ProjectExecutionContext, type ProjectRecord, type ProjectTarget } from './project-store.js';
 import { captureExecutionTarget, expectedExecutionSnapshot, type ExecutionTarget } from './project-execution-native.js';
 import { withTenant } from './tenant-store.js';
 
@@ -31,7 +31,7 @@ export interface ProjectExecutionView {
   pendingOutputs: Array<{ resultId: string; reason: 'unsupported_target'; inputs: ExecutionPin[] }>;
 }
 interface Attempt extends Omit<ProjectExecutionView, 'phase'> {
-  phase: ExecutionPhase | 'started'; projectRevision: number; authorityEpoch: string; target: ProjectTarget;
+  phase: ExecutionPhase | 'started'; projectRevision: number; projectContextHash?: string; authorityEpoch: string; target: ProjectTarget;
 }
 interface AttemptRow { data: Attempt }
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
@@ -46,6 +46,16 @@ function shape(value: unknown, keys: string[]): asserts value is Record<string, 
 }
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && !!value.trim()
   && value.length <= max && ![...value].some(char => char.charCodeAt(0) < 32 && !'\t\n\r'.includes(char));
+
+/** Sort JSON object keys for PostgreSQL JSONB, preserving every relevant value and array order. */
+function projectContextHash(record: ProjectRecord, workId: string): string {
+  const stable = (value: unknown): unknown => Array.isArray(value) ? value.map(stable)
+    : object(value) ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
+  const relevant = Object.fromEntries(Object.entries(record).filter(([key]) => !['activities', 'drafts'].includes(key)));
+  relevant.works = record.works.map(work => work.id === workId
+    ? Object.fromEntries(Object.entries(work).filter(([key]) => !['state', 'reason'].includes(key))) : work);
+  return hash(JSON.stringify(stable(relevant)));
+}
 
 /** Even an injected adapter is an untrusted producer. Its output cannot choose a native edit. */
 export function validateExecutionResponse(input: LocalExecutionInput, value: unknown): { proposal: ExecutionProposal; provenance: ExecutionProvenance } {
@@ -127,10 +137,16 @@ export class ProjectExecutionStore {
     if (!inputs.some(pin => pin.id === comment.pin.id) || inputs.length > 20) throw new ProjectError(409, 'source_conflict');
     return { work, comment, result, source, inputs };
   }
+  private sameProjectContext(context: ProjectExecutionContext, attempt: Attempt) {
+    // Older attempts have no evidence for a semantic renewal: retain their strict revision gate.
+    return attempt.projectContextHash === undefined ? context.project.revision === attempt.projectRevision
+      : projectContextHash(context.project.data, attempt.workId) === attempt.projectContextHash;
+  }
   private async current(context: ProjectExecutionContext, attempt: Attempt) {
     if (context.actor.id !== attempt.actorId || context.authorityEpoch !== attempt.authorityEpoch)
       throw new ProjectError(409, 'authority_changed');
-    if (context.project.revision !== attempt.projectRevision) throw new ProjectError(409, 'project_conflict');
+    if (this.work(context, attempt.workId).work.state === 'paused') throw new ProjectError(409, 'work_paused');
+    if (!this.sameProjectContext(context, attempt)) throw new ProjectError(409, 'project_conflict');
     const input = await this.inputs(context, attempt.tenantId, attempt.workId);
     if (input.work.request !== attempt.input.request || input.result.id !== attempt.resultId
       || input.source.revision !== attempt.input.revision || input.source.snapshot_hash !== attempt.input.snapshotHash
@@ -199,7 +215,8 @@ export class ProjectExecutionStore {
       const attempt: Attempt = { id: randomUUID(), tenantId, workspaceId: context.project.workspace_id, projectId, workId,
         resultId: captured.result.id, documentId: captured.source.id, actorId: context.actor.id,
         phase: unsupported ? 'unsupported' : 'started', reason: unsupported ? 'unsupported_target' : null,
-        projectRevision: context.project.revision, authorityEpoch: context.authorityEpoch, target: captured.comment.target,
+        projectRevision: context.project.revision, projectContextHash: projectContextHash(context.project.data, workId),
+        authorityEpoch: context.authorityEpoch, target: captured.comment.target,
         input: { request: captured.work.request, revision: captured.source.revision, snapshotHash: captured.source.snapshot_hash,
           snapshotText: captured.source.snapshot_text, target, inputs: captured.inputs },
         pendingOutputs: await this.pendingOutputs(context, tenantId, workId, captured.result.id) };
@@ -252,7 +269,9 @@ export class ProjectExecutionStore {
     return this.projects.withExecutionContext(principal, tenantId, projectId, true, async context => {
       const attempt = await this.find(context, tenantId, workId, attemptId);
       if (!attempt) throw new ProjectError(404, 'not_found');
-      if (!['proposal', 'accepted'].includes(attempt.phase) || !attempt.proposal) throw new ProjectError(409, 'execution_not_applicable');
+      const resumable = attempt.phase === 'blocked' && ['work_paused', 'project_conflict'].includes(attempt.reason ?? '');
+      if ((!['proposal', 'accepted'].includes(attempt.phase) && !resumable) || !attempt.proposal)
+        throw new ProjectError(409, 'execution_not_applicable');
       await this.current(context, attempt);
       const expected = expectedExecutionSnapshot(attempt.input.snapshotText, attempt.target, attempt.proposal.replacement);
       if (expected !== attempt.expectedSnapshotText || hash(expected) !== attempt.expectedSnapshotHash) throw new Error('execution_snapshot_mismatch');
@@ -269,7 +288,8 @@ export class ProjectExecutionStore {
       if (!['accepted', 'applied'].includes(attempt.phase)) throw new ProjectError(409, 'execution_not_accepted');
       if (context.actor.id !== attempt.actorId || context.authorityEpoch !== attempt.authorityEpoch) throw new ProjectError(409, 'authority_changed');
       const { work, result } = this.work(context, workId);
-      if (context.project.data.archived || work.state === 'paused' || context.project.revision !== attempt.projectRevision
+      if (work.state === 'paused') throw new ProjectError(409, 'work_paused');
+      if (context.project.data.archived || !this.sameProjectContext(context, attempt)
         || work.request !== attempt.input.request || result.id !== attempt.resultId) throw new ProjectError(409, 'project_conflict');
       const current = await context.document(attempt.documentId);
       if (current.mode !== 'snapshot' || current.revision !== attempt.input.revision + 1 || current.revision !== body.revision
