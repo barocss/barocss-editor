@@ -13,12 +13,14 @@ const input = (): LocalAgentInput => ({ attemptId: id, tenantId: id, workspaceId
   target: { nodeId: 'comment-1', text: 'Original', from: 0, to: 8 }, inputs: [] });
 const proposal = { replacement: 'First close the running app.', reason: 'The requested running-app step was absent.', assumptions: ['Fictional beta installer.'] };
 function fixture(generate: () => Response | Promise<Response> = () => Response.json({ model: 'qwen3.6:27b-coding',
-  done: true, done_reason: 'stop', response: JSON.stringify(proposal), thinking: 'Do not expose this.', total_duration: 123 })) {
+  done: true, done_reason: 'stop', response: JSON.stringify(proposal), thinking: 'Do not expose this.', total_duration: 123,
+  prompt_eval_count: 1000, eval_count: 30 })) {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const transport = (async (url, init) => {
     calls.push({ url: String(url), init });
     if (String(url).endsWith('/api/tags')) return Response.json({ models: [{ name: 'qwen3.6:27b-coding', digest }] });
     if (String(url).endsWith('/api/version')) return Response.json({ version: '0.34.4' });
+    if (String(url).endsWith('/api/show')) return Response.json({ model_info: { 'qwen35.context_length': 262144 } });
     return generate();
   }) as typeof fetch;
   return { calls, agent: createLocalAgent({ OFFICE_LOCAL_AGENT_ENABLED: 'true' }, transport)! };
@@ -30,14 +32,24 @@ describe('local Agent deterministic transport boundary', () => {
     expect(() => createLocalAgent({ OFFICE_LOCAL_AGENT_ENABLED: 'yes' })).toThrow(LocalAgentError);
     const { agent, calls } = fixture();
     const result = await agent.generate(input());
-    expect(calls.map(c => c.url)).toEqual(['http://127.0.0.1:11434/api/tags', 'http://127.0.0.1:11434/api/version', 'http://127.0.0.1:11434/api/generate']);
-    const body = JSON.parse(calls[2].init!.body as string);
+    expect(calls.map(c => c.url)).toEqual(['http://127.0.0.1:11434/api/tags', 'http://127.0.0.1:11434/api/version',
+      'http://127.0.0.1:11434/api/show', 'http://127.0.0.1:11434/api/generate']);
+    const body = JSON.parse(calls[3].init!.body as string);
     expect(body.model).toBe('qwen3.6:27b-coding'); expect(body.stream).toBe(false);
+    expect(body.options).toEqual({ num_ctx: 32768, num_predict: 4096 }); expect(body.raw).toBe(true);
     expect(body.prompt).toContain(input().request); expect(body.prompt).toContain(native.replaceAll('"', '\\"'));
     expect(body.format.additionalProperties).toBe(false); expect(body.tools).toBeUndefined();
     expect(result.proposal).toEqual(proposal);
-    expect(result.provenance).toMatchObject({ kind: 'live-local-model', modelDigest: digest, runtimeVersion: '0.34.4', totalDurationNs: 123 });
+    expect(result.provenance).toMatchObject({ kind: 'live-local-model', modelDigest: digest, runtimeVersion: '0.34.4', totalDurationNs: 123,
+      contextTokens: 32768, outputTokenLimit: 4096, promptBytes: Buffer.byteLength(body.prompt), promptEvalCount: 1000 });
     expect(JSON.stringify(result)).not.toContain('Do not expose this.');
+  });
+  it('rejects full prompt plus schema overhead above the byte budget before any provider request', async () => {
+    const { agent, calls } = fixture();
+    const value = input(); value.snapshotText = native + ' '.repeat(24500); value.snapshotHash = hash(value.snapshotText);
+    expect(Buffer.byteLength(JSON.stringify(value))).toBeLessThan(262144);
+    await expect(agent.generate(value)).rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'context_limit' });
+    expect(calls).toEqual([]);
   });
   it('rejects extra fields, mismatched source bytes and excessive context before transport', async () => {
     const { agent, calls } = fixture();
@@ -55,11 +67,24 @@ describe('local Agent deterministic transport boundary', () => {
       .rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'model_unavailable' });
     expect(count).toBe(1);
   });
+  it('refuses metadata that cannot support the configured context before inference', async () => {
+    const calls: string[] = [];
+    const transport = (async url => {
+      calls.push(String(url));
+      if (String(url).endsWith('/api/tags')) return Response.json({ models: [{ name: 'qwen3.6:27b-coding', digest }] });
+      if (String(url).endsWith('/api/version')) return Response.json({ version: '0.34.4' });
+      return Response.json({ model_info: { 'qwen35.context_length': 4096 } });
+    }) as typeof fetch;
+    await expect(createLocalAgent({ OFFICE_LOCAL_AGENT_ENABLED: 'true' }, transport)!.generate(input()))
+      .rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'context_unavailable' });
+    expect(calls.some(url => url.endsWith('/api/generate'))).toBe(false);
+  });
   it('validates proposal shape independently and rejects extra or oversized output', async () => {
     for (const response of [JSON.stringify({ ...proposal, apply: true }), JSON.stringify({ ...proposal, replacement: 'x'.repeat(16001) }),
       JSON.stringify({ ...proposal, assumptions: ['ok', 1] }), 'not json']) {
-      const { agent } = fixture(() => Response.json({ model: 'qwen3.6:27b-coding', done: true, done_reason: 'stop', response }));
-      await expect(agent.generate(input())).rejects.toMatchObject({ outcome: 'invalid_output' });
+      const { agent } = fixture(() => Response.json({ model: 'qwen3.6:27b-coding', done: true, done_reason: 'stop', response,
+        prompt_eval_count: 1000, eval_count: 30 }));
+      await expect(agent.generate(input())).rejects.toMatchObject({ outcome: 'invalid_output', reason: 'invalid_proposal' });
     }
   });
   it('rejects truncated or mismatched completed responses without claiming a proposal', async () => {
@@ -71,7 +96,7 @@ describe('local Agent deterministic transport boundary', () => {
     }
   });
   it('binds provenance hashes to exact request bytes and parsed declared output', async () => {
-    const response = JSON.stringify({ model: 'qwen3.6:27b-coding', done: true, done_reason: 'stop', response: JSON.stringify(proposal) });
+    const response = JSON.stringify({ model: 'qwen3.6:27b-coding', done: true, done_reason: 'stop', response: JSON.stringify(proposal), prompt_eval_count: 1000, eval_count: 30 });
     const { agent } = fixture(() => new Response(response));
     const value = input();
     const { provenance } = await agent.generate(value);
@@ -79,6 +104,13 @@ describe('local Agent deterministic transport boundary', () => {
     expect(provenance.responseHash).toBe(hash(response));
     expect(provenance.proposalHash).toBe(hash(JSON.stringify(proposal)));
     expect(Date.parse(provenance.completedAt)).toBeGreaterThanOrEqual(Date.parse(provenance.startedAt));
+  });
+  it('rejects missing, excessive or invalid reported token counts before accepting a proposal', async () => {
+    for (const counts of [{}, { prompt_eval_count: 24577, eval_count: 30 }, { prompt_eval_count: 1000, eval_count: 4097 },
+      { prompt_eval_count: 1.5, eval_count: 30 }, { prompt_eval_count: 0, eval_count: 30 }]) {
+      const { agent } = fixture(() => Response.json({ model: 'qwen3.6:27b-coding', done: true, done_reason: 'stop', response: JSON.stringify(proposal), ...counts }));
+      await expect(agent.generate(input())).rejects.toMatchObject({ outcome: 'invalid_output', reason: 'invalid_token_counts' });
+    }
   });
   it('retains unknown outcome on transport loss, redirect, incomplete generation and oversized body without retry', async () => {
     for (const generate of [() => { throw new Error('private-provider-detail'); }, () => new Response('', { status: 302, headers: { location: 'https://external.invalid' } }),
