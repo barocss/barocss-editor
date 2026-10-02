@@ -12,7 +12,7 @@ export interface LocalAgentProvenance {
   kind: 'live-local-model'; adapterVersion: string; model: string; modelDigest: string;
   runtimeVersion: string; inputHash: string; responseHash: string; proposalHash: string;
   contextTokens: number; outputTokenLimit: number; promptBytes: number;
-  startedAt: string; completedAt: string; totalDurationNs?: number; promptEvalCount?: number; evalCount?: number;
+  startedAt: string; completedAt: string; totalDurationNs?: number; promptEvalCount: number; evalCount: number;
 }
 export interface LocalAgent {
   generate(input: LocalAgentInput): Promise<{ proposal: LocalAgentProposal; provenance: LocalAgentProvenance }>;
@@ -156,11 +156,10 @@ export function createLocalAgent(env: NodeJS.ProcessEnv, transport: typeof fetch
       const provenance: LocalAgentProvenance = { kind: 'live-local-model', adapterVersion: '2', model, modelDigest,
         runtimeVersion, inputHash: hash(context), responseHash: hash(raw), proposalHash: hash(JSON.stringify(proposal)),
         contextTokens, outputTokenLimit, promptBytes,
+        promptEvalCount: result.prompt_eval_count, evalCount: result.eval_count,
         startedAt, completedAt: new Date().toISOString() };
-      for (const [source, destination] of [['total_duration', 'totalDurationNs'], ['prompt_eval_count', 'promptEvalCount'],
-        ['eval_count', 'evalCount']] as const) {
-        const value = result[source];
-        if (Number.isSafeInteger(value) && (value as number) >= 0) provenance[destination] = value as number;
+      if (Number.isSafeInteger(result.total_duration) && (result.total_duration as number) >= 0) {
+        provenance.totalDurationNs = result.total_duration as number;
       }
       return { proposal, provenance };
     },
