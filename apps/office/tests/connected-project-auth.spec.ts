@@ -269,10 +269,13 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await privateControl({ action: 'beta-role', role: 'editor' }); roleChanged = true; await viewerPage.reload();
     await expect(viewerPage.getByRole('button', { name: '결과물 연결', exact: true })).toBeEnabled();
     await viewerPage.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(viewerPage)).toBeVisible(); await viewerPage.getByRole('button', { name: '직접 편집', exact: true }).click();
-    await selectGuide(viewerPage); const oldButton = await viewerPage.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).elementHandle(); expect(oldButton).not.toBeNull();
+    await selectGuide(viewerPage); await viewerPage.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await feedback(viewerPage).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true }).fill('권한 회수 후 제출하면 안 되는 초안');
+    const oldButton = await feedback(viewerPage).getByRole('button', { name: '댓글만 남기기', exact: true }).elementHandle(); expect(oldButton).not.toBeNull();
     await privateControl({ action: 'beta-role', role: 'viewer' }); await viewerPage.evaluate(() => window.dispatchEvent(new Event('focus')));
     await expect(viewerPage.getByRole('button', { name: '프로젝트 의견 남기기', exact: true })).toBeDisabled();
     const beforeRevoked = await readProject(); await oldButton!.evaluate(button => (button as HTMLButtonElement).click()); expect((await readProject()).project).toEqual(beforeRevoked.project);
+    expect((await readDocument(guide.id, 'word')).snapshotText).toBe(edited.snapshotText);
     await privateControl({ action: 'beta-active', active: false }); await viewerPage.evaluate(() => window.dispatchEvent(new Event('focus')));
     await expect.poll(async () => (await viewerPage.request.get(`${projectApi}/pins/${trainingPin.id}`, { headers: { Authorization: viewerRequests.bearer } })).status()).toBe(403);
     expect((await readDocument(guide.id, 'word')).snapshotText).toBe(edited.snapshotText);
