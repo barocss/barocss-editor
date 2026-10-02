@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Schema } from '@barocss/schema';
 import { BoldExtension, ItalicExtension, UnderlineExtension, StrikeThroughExtension, LinkExtension } from '@barocss/extensions';
-import { applyMark, insertText, registerPreCommitGuard, transaction } from '@barocss/model';
+import { applyMark, insertText, deleteTextRange, replaceText, registerPreCommitGuard, transaction } from '@barocss/model';
 import { Editor } from '../src/editor';
 import type { ModelSelection } from '../src/types';
 
@@ -350,4 +350,116 @@ it('replays an existing applyMark endpoint batch while retaining each original m
   expect(await editor.redo()).toBe(true);
   expect(documentOf(editor)).toEqual(expected);
   expectPosition(editor, 1, 0);
+});
+
+
+describe.each(['node', 'range'] as const)('%s text replacement native history', form => {
+  const operation = (text: string) => form === 'node'
+    ? replaceText('target-run', 1, 4, text)
+    : replaceText('target-run', 1, 'target-run', 4, text);
+
+  it.each(['absent', 'empty', 'nonempty'] as const)('restores %s marks, full native content and selection through replay and branching', async input => {
+    const { editor, before } = fixture(input);
+    const selection = structuredClone(editor.selection);
+    const expected = structuredClone(before);
+    node(expected, 'target-run').text = 'AXYE';
+    if (input === 'absent') node(expected, 'target-run').marks = []; // Ordinary text writes explicitly clear marks.
+    if (input === 'nonempty') node(expected, 'target-run').marks![0].range = [0, 4];
+    expect((await transaction(editor, [operation('XY')]).commit()).success).toBe(true);
+    expect(documentOf(editor)).toEqual(expected);
+    expectPosition(editor, 1, 0);
+    const typedSelection = structuredClone(editor.selection);
+    for (let replay = 0; replay < 3; replay++) {
+      expect(await editor.undo()).toBe(true);
+      expect(documentOf(editor)).toEqual(before);
+      expect(JSON.stringify(documentOf(editor))).toBe(JSON.stringify(before));
+      expect(editor.selection).toEqual(selection);
+      expectPosition(editor, 1, -1);
+      expect(await editor.redo()).toBe(true);
+      expect(documentOf(editor)).toEqual(expected);
+      expect(editor.selection).toEqual(typedSelection);
+      expectPosition(editor, 1, 0);
+    }
+    expect(await editor.undo()).toBe(true);
+    const branched = structuredClone(before);
+    node(branched, 'target-run').text = 'A123E';
+    if (input === 'absent') node(branched, 'target-run').marks = [];
+    expect((await transaction(editor, [operation('123')]).commit()).success).toBe(true);
+    expect(documentOf(editor)).toEqual(branched);
+    expectPosition(editor, 1, 0);
+    const branchState = state(editor);
+    expect(await editor.redo()).toBe(false);
+    expect(state(editor)).toEqual(branchState);
+    expect(await editor.undo()).toBe(true);
+    expect(documentOf(editor)).toEqual(before);
+    expect(await editor.redo()).toBe(true);
+    expect(documentOf(editor)).toEqual(branched);
+  });
+
+  it('refuses a text inverse atomically and applies one valid retry', async () => {
+    const { editor, before } = fixture();
+    expect((await transaction(editor, [operation('XY')]).commit()).success).toBe(true);
+    const edited = state(editor);
+    const dispose = registerPreCommitGuard(editor, () => 'Current host refuses replay');
+    expect(await editor.undo()).toBe(false);
+    expect(state(editor)).toEqual(edited);
+    dispose();
+    expect(await editor.undo()).toBe(true);
+    expect(documentOf(editor)).toEqual(before);
+    expectPosition(editor, 1, -1);
+    expect(await editor.redo()).toBe(true);
+    expect(documentOf(editor)).toEqual(edited.document);
+  });
+});
+
+
+describe.each(['replace', 'insert'] as const)('%s typing bursts', kind => {
+it.each(['absent', 'empty', 'nonempty'] as const)('coalesces actual text input and restores %s marks with one Undo', async input => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+  const { editor, before } = fixture(input);
+  editor.updateSelection(range('target-run', 2, 2));
+  const selection = structuredClone(editor.selection);
+  for (let index = 0; index < 3; index++) {
+    vi.setSystemTime(new Date(1767225600000 + index * 50));
+    expect((await transaction(editor, [kind === 'replace' ? replaceText('target-run', 2 + index, 'target-run', 2 + index, 'xyz'[index]!) : insertText('target-run', 2 + index, 'xyz'[index]!)]).commit()).success).toBe(true);
+  }
+  const expected = structuredClone(before);
+  node(expected, 'target-run').text = 'ABxyzCDE';
+  if (input === 'absent') node(expected, 'target-run').marks = [];
+  if (input === 'nonempty') node(expected, 'target-run').marks![0].range = [0, 8];
+  expect(documentOf(editor)).toEqual(expected);
+  expectPosition(editor, 1, 0);
+  expect(await editor.undo()).toBe(true);
+  expect(documentOf(editor)).toEqual(before);
+  expect(JSON.stringify(documentOf(editor))).toBe(JSON.stringify(before));
+  expect(editor.selection).toEqual(selection);
+  expectPosition(editor, 1, -1);
+  expect(await editor.redo()).toBe(true);
+  expect(documentOf(editor)).toEqual(expected);
+  expectPosition(editor, 1, 0);
+});
+
+});
+
+describe.each(['insert', 'delete'] as const)('%s text native history', action => {
+  it.each(['absent', 'empty', 'nonempty'] as const)('restores %s marks through the actual typing inverse', async input => {
+    const { editor, before } = fixture(input);
+    const expected = structuredClone(before);
+    node(expected, 'target-run').text = action === 'insert' ? 'ABXYCDE' : 'ADE';
+    if (input === 'absent') node(expected, 'target-run').marks = [];
+    if (input === 'nonempty') node(expected, 'target-run').marks![0].range = [0, action === 'insert' ? 7 : 3];
+    const operation = action === 'insert' ? insertText('target-run', 2, 'XY') : deleteTextRange('target-run', 1, 3);
+    expect((await transaction(editor, [operation]).commit()).success).toBe(true);
+    expect(documentOf(editor)).toEqual(expected);
+    for (let replay = 0; replay < 3; replay++) {
+      expect(await editor.undo()).toBe(true);
+      expect(documentOf(editor)).toEqual(before);
+      expect(JSON.stringify(documentOf(editor))).toBe(JSON.stringify(before));
+      expectPosition(editor, 1, -1);
+      expect(await editor.redo()).toBe(true);
+      expect(documentOf(editor)).toEqual(expected);
+      expectPosition(editor, 1, 0);
+    }
+  });
 });
