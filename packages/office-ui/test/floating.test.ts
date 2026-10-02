@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { FloatingSurface, FloatingPanelHeader, type FloatingSurfaceProps } from '../src/floating';
 import { IconButton } from '../src/controls';
 import { MenuAction } from '../src/menu-action';
+import { Dialog } from '../src/dialog';
 
 let root: Root;
 let width: number;
@@ -215,6 +216,56 @@ describe('a shared floating surface', () => {
     act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
     expect(inner).toHaveBeenCalledOnce();
     expect(outer).not.toHaveBeenCalled();
+  });
+
+  it('lets a separately portalled modal close and restore focus before its floating launcher', async () => {
+    const dismiss = vi.fn();
+    function Settings() {
+      const [open, setOpen] = useState(false);
+      return createElement('div', null,
+        createElement(FloatingSurface, { open: true, at: anchor(), variant: 'panel', onDismiss: dismiss,
+          children: createElement('button', { onClick: () => setOpen(true) }, 'Page settings') }),
+        createElement(Dialog, { open, onOpenChange: setOpen, title: 'Page settings',
+          children: createElement('input', { 'aria-label': 'Margin', defaultValue: '25.4' }) })
+      );
+    }
+    await act(async () => root.render(createElement(Settings)));
+    const launcher = surface().querySelector('button')!;
+    launcher.focus();
+    await act(async () => launcher.click());
+    const modal = document.querySelector<HTMLElement>('[data-office-dialog][role="dialog"]')!;
+    expect(modal).not.toBeNull();
+    expect(surface().contains(modal)).toBe(false);
+    expect(modal.contains(document.activeElement)).toBe(true);
+    await act(async () => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    });
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(dismiss).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(document.activeElement).toBe(launcher));
+    expect(surface().querySelector('button')).toBe(launcher);
+    act(() => launcher.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(dismiss).toHaveBeenCalledOnce();
+    expect(dismiss.mock.calls[0][0]).toBe('escape');
+  });
+
+  it.each(['dialog', 'alertdialog'])('still dismisses the active floating child inside a modal %s', role => {
+    const dismiss = vi.fn(), modalEscape = vi.fn();
+    const modal = document.createElement('section');
+    modal.setAttribute('role', role);
+    modal.setAttribute('aria-modal', 'true');
+    modal.addEventListener('keydown', modalEscape);
+    document.body.append(modal);
+    render({ portalRoot: modal, onDismiss: dismiss, children: createElement('button', null, 'Child action') });
+    const child = surface().querySelector('button')!;
+    child.focus();
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => child.dispatchEvent(escape));
+    expect(dismiss).toHaveBeenCalledOnce();
+    expect(dismiss.mock.calls[0][0]).toBe('escape');
+    expect(modalEscape).not.toHaveBeenCalled();
+    expect(escape.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(child);
   });
 
   it('supplies tooltip context and keeps mixed state distinct from active and focus preservation optional', () => {

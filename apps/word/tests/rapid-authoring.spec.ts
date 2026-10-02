@@ -31,7 +31,9 @@ test('rapid text selection applies formatting and anchors a comment to exactly t
   await page.keyboard.type('Review this sentence');
   await page.keyboard.press('Shift+Home');
   await page.keyboard.press('ControlOrMeta+b');
-  await expect(page.locator('[data-control=bold]')).toHaveAttribute('aria-pressed', 'true');
+  const selectedFormatting = page.getByRole('toolbar', { name: '선택한 Word 글 서식 도구', exact: true });
+  await expect(selectedFormatting).toBeVisible();
+  await expect(selectedFormatting.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.mark-bold')).toHaveText('Review this sentence');
   await expect(page.locator('.mark-bold')).toHaveCSS('font-weight', '700');
   await page.keyboard.press('ControlOrMeta+Alt+m');

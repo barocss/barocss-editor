@@ -40,7 +40,8 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Previous document');
   await expect(status).toHaveText('저장됨');
-  await page.locator('.w-menubar [data-menu=file]').click();
+  await page.getByRole('menubar', { name: '문서 메뉴', exact: true })
+    .getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
   const confirmation = page.waitForEvent('dialog');
   const create = page.getByRole('menuitem', { name: '새 문서', exact: true }).click();
   const prompt = await confirmation;
@@ -52,17 +53,21 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await expect(status).toHaveText('저장됨');
   await expect.poll(() => page.url()).not.toBe(initial);
   const created = page.url();
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Table follows');
+  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await tab(page, '레이아웃').click();
   await page.getByRole('button', { name: '용지·여백', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '페이지 설정', exact: true })).toBeVisible();
+  const pageSetup = page.getByRole('dialog', { name: '페이지 설정', exact: true });
+  await expect(pageSetup).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(pageSetup).toHaveCount(0);
   await tab(page, '홈').click();
   await page.getByRole('button', { name: '문단 상세 설정', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '문단 간격', exact: true })).toBeVisible();
+  const paragraphSpacing = page.getByRole('dialog', { name: '문단 간격', exact: true });
+  await expect(paragraphSpacing).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(paragraphSpacing).toHaveCount(0);
   await tab(page, '삽입').click();
   await page.getByRole('button', { name: '표 삽입', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '표 삽입', exact: true });
@@ -73,6 +78,7 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await expect(page.locator('.w-document table')).toHaveCount(1);
   await expect(page.locator('.w-document table tr')).toHaveCount(2);
   await expect(page.locator('.w-document table td, .w-document table th')).toHaveCount(8);
+  await expect(page.getByRole('button', { name: '전체 도구 펼치기', exact: true })).toBeVisible();
   await placeCaret(page, '.w-cell', 0);
   await page.keyboard.type('CELL A1');
   await placeCaret(page, '.w-cell', 1);

@@ -156,6 +156,10 @@ export function FloatingSurface({
     const key = (event: KeyboardEvent): boolean => {
       if (keepsDraftFieldEscape(event)) return false;
       if (!topmost() || event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.key !== 'Escape') return false;
+      // A modal opened from this panel may live in a separate portal. Its own
+      // Escape and focus restoration must run before the background panel.
+      const modal = event.target instanceof Element ? event.target.closest('[data-office-dialog], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]') : null;
+      if (modal && !inside(event)) return false;
       if (dismissVisibleTooltip(event)) return true;
       // Owned child pickers consume their first Escape before the enclosing surface.
       const picker = event.target instanceof Element ? event.target.closest('[role="listbox"], [role="menu"], [role="dialog"]') : null;
