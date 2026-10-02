@@ -224,6 +224,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await expect(feedback(page)).toBeVisible(); expect((await readProject()).project.record.comments).toHaveLength(0);
     await input.dispatchEvent('compositionend'); await input.fill(opinion);
     await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).click();
+    await expect(feedback(page)).toBeHidden();
     await page.getByRole('button', { name: '의견 0', exact: true }).click(); await expect(input).toHaveValue(opinion);
     let dropped = false, originalPayload: unknown;
     await page.route(projectApi, async route => {
@@ -284,7 +285,8 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await expect(page.locator('.ow-project-work').getByRole('button', { name: '일시 정지', exact: true })).toBeEnabled();
     current = await readProject(); expect(current.project.record.works).toHaveLength(1); expect(current.project.record.works[0].id).toBe(workId); expect(current.project.record.works[0].state).toBe('unconnected');
     await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
-    const p = paragraph(page); await p.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Human correction.'); await expect(p).toContainText('Human correction.');
+    const p = paragraph(page); await expect.poll(() => p.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
+    await p.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Human correction.'); await expect(p).toContainText('Human correction.');
     await page.keyboard.press('Meta+z'); await expect(p).not.toContainText('Human correction.'); await page.keyboard.press('Meta+Shift+z'); await expect(p).toContainText('Human correction.');
     await page.getByRole('button', { name: '프로젝트로 돌아가기', exact: true }).click();
     const edited = await readDocument(guide.id, 'word'); expect(edited.snapshotText).toContain('Human correction.');
@@ -293,6 +295,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     const historical = await pinResponse.json() as { pin: Pin; sourceState: string }; expect(historical.pin.text).toBe(trainingPin.text); expect(historical.sourceState).toBe('changed');
     await page.getByRole('button', { name: trainingTitle, exact: true }).click(); await expect(slides(page)).toBeVisible(); await page.getByRole('button', { name: '프로젝트로 돌아가기', exact: true }).click();
     await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
+    await page.getByRole('heading', { name: projectTitle, exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: test.info().outputPath('authenticated-project-home.png') });
     b = await launchPrivateProfile(profileB); const viewerPage = await b.context.newPage(), viewerRequests = track(viewerPage); await login(viewerPage, 'beta-viewer', projectUrl);
     await expect(viewerPage.getByRole('button', { name: '결과물 연결', exact: true })).toBeDisabled();
