@@ -2614,8 +2614,9 @@
 .sl-stage[data-freeboard='true'] .sl-stage-scaled { width: 1px; }
 .sl-stage[data-freeboard='true'] .sl-host .w-document { position: relative; display: block; width: 1px; height: 1px; }
 .sl-board-labels { position: absolute; left: 0; top: 0; z-index: 4; }
-.sl-board-labels button { position: absolute; display: block; height: 26px; width: max-content; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; color: var(--ou-muted); background: var(--ou-panel); font: inherit; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; touch-action: none; }
-.sl-board-labels button[data-active='true'] { color: var(--ou-accent); border-color: var(--ou-accent); }
+.sl-board-labels button { position: absolute; display: block; height: 26px; width: max-content; padding: 0; border: 0; border-radius: 0; color: var(--ou-muted); background: transparent; box-shadow: none; font: inherit; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; touch-action: none; }
+.sl-board-labels .office-button:hover, .sl-board-labels .office-button:active { background: transparent; box-shadow: none; }
+.sl-board-labels button[data-active='true'] { color: var(--ou-accent); font-weight: 600; }
 .sl-board-labels button:active { cursor: grabbing; }
 
 .sl-stage[data-freeboard='true'] .sl-host { overflow: visible !important; }

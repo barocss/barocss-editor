@@ -11,6 +11,11 @@ let owner: HTMLDivElement;
 let overlay: HTMLDivElement;
 let panel: HTMLDivElement;
 let props: StageProps;
+let frames: Map<number, FrameRequestCallback>;
+const flushFrame = () => {
+  const callbacks = [...frames.values()]; frames.clear();
+  act(() => { callbacks.forEach(callback => callback(0)); });
+};
 const pointer = (target: EventTarget, type: string, x: number, y: number, button = 0) => {
   const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button });
   act(() => { target.dispatchEvent(event); });
@@ -31,6 +36,9 @@ const render = (changes: Partial<StageProps> = {}) => {
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  frames = new Map(); let frameId = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id); });
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(bounds);
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1000);
@@ -96,8 +104,36 @@ describe('freeboard camera ownership', () => {
   it('zooms only from the owned canvas', () => {
     wheel(panel, true);
     expect(props.onZoom).not.toHaveBeenCalled();
+    wheel(overlay, true); flushFrame();
+    expect(props.onZoom).toHaveBeenCalledWith(0.5 * Math.exp(-30 * 0.004));
+  });
+
+  it('accumulates rapid wheel input into one zoom per animation frame', () => {
+    wheel(overlay, true); wheel(overlay, true); wheel(overlay, true);
+    expect(props.onZoom).not.toHaveBeenCalled();
+    expect(frames.size).toBe(1);
+    flushFrame();
+    expect(props.onZoom).toHaveBeenCalledTimes(1);
+    expect(props.onZoom).toHaveBeenCalledWith(0.5 * Math.exp(-90 * 0.004));
+  });
+
+  it('retires a queued zoom when its document owner changes or hides', async () => {
     wheel(overlay, true);
-    expect(props.onZoom).toHaveBeenCalledWith(0.5 * Math.exp(-30 * 0.002));
+    render({ lifetimeKey: 'replacement-document' }); flushFrame();
+    expect(props.onZoom).not.toHaveBeenCalled();
+    wheel(overlay, true);
+    act(() => { owner.hidden = true; });
+    await act(async () => { await Promise.resolve(); });
+    flushFrame();
+    expect(props.onZoom).not.toHaveBeenCalled();
+  });
+
+  it('keeps a later fit or control zoom instead of replaying queued wheel input', () => {
+    wheel(overlay, true);
+    render({ zoom: 0.8 }); flushFrame();
+    expect(props.onZoom).not.toHaveBeenCalled();
+    wheel(overlay, true); flushFrame();
+    expect(props.onZoom).toHaveBeenCalledWith(0.8 * Math.exp(-30 * 0.004));
   });
 
   it('middle-button and Space drags pan the canvas, but not floating controls', () => {

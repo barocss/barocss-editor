@@ -715,8 +715,12 @@ export function Stage({
   const [boardDraft, setBoardDraft] = useState<{ sid: string; x: number; y: number } | null>(null);
   const gestureEpoch = useRef(0);
   const mounted = useRef(false);
-  const current = useRef({ editable, lifetimeKey, boards, onMoveSlide });
-  current.current = { editable, lifetimeKey, boards, onMoveSlide };
+  const current = useRef({ editable, lifetimeKey, boards, onMoveSlide, onZoom, scale, zoom });
+  current.current = { editable, lifetimeKey, boards, onMoveSlide, onZoom, scale, zoom };
+  const zoomFrame = useRef<number | null>(null);
+  const queuedZoom = useRef<{ value: number; anchor: { x: number; y: number } } | null>(null);
+  const wheelScale = useRef(scale);
+  useLayoutEffect(() => { if (!queuedZoom.current) wheelScale.current = scale; }, [scale]);
   const panning = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
   const [spacebar, setSpacebar] = useState(false);
   const isLive = useCallback(() => {
@@ -745,13 +749,21 @@ export function Stage({
   }, [frame, ownsTarget]);
   const cancelGestures = useCallback(() => {
     gestureEpoch.current++;
+    if (zoomFrame.current !== null) cancelAnimationFrame(zoomFrame.current);
+    zoomFrame.current = null;
+    queuedZoom.current = null;
+    wheelScale.current = current.current.scale;
     panning.current = null;
     setBoardDraft(null);
     setSpacebar(false);
   }, []);
   useLayoutEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; gestureEpoch.current++; };
+    return () => {
+      mounted.current = false; gestureEpoch.current++;
+      if (zoomFrame.current !== null) cancelAnimationFrame(zoomFrame.current);
+      zoomFrame.current = null; queuedZoom.current = null;
+    };
   }, []);
   useLayoutEffect(() => {
     cancelGestures();
@@ -797,13 +809,29 @@ export function Stage({
       const pane = frame.current!.getBoundingClientRect();
       event.preventDefault();
       if (event.ctrlKey || event.metaKey) {
-        zoomAnchor.current = { x: event.clientX - pane.left, y: event.clientY - pane.top };
-        onZoom?.(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, scale * Math.exp(-event.deltaY * 0.002))));
+        // Keep every wheel delta, but commit at most once per display frame.
+        // The native slide subtree stays mounted; only its camera transform changes.
+        wheelScale.current = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, wheelScale.current * Math.exp(-event.deltaY * 0.004)));
+        queuedZoom.current = { value: wheelScale.current, anchor: { x: event.clientX - pane.left, y: event.clientY - pane.top } };
+        if (zoomFrame.current === null) {
+          const epoch = gestureEpoch.current;
+          const startingZoom = current.current.zoom;
+          zoomFrame.current = requestAnimationFrame(() => {
+            zoomFrame.current = null;
+            const next = queuedZoom.current; queuedZoom.current = null;
+            if (!next || epoch !== gestureEpoch.current || current.current.zoom !== startingZoom || !isLive()) {
+              wheelScale.current = current.current.scale;
+              return;
+            }
+            zoomAnchor.current = next.anchor;
+            current.current.onZoom?.(next.value);
+          });
+        }
       } else setCamera(was => ({ x: was.x - event.deltaX, y: was.y - event.deltaY }));
     };
     window.addEventListener('wheel', wheel, { passive: false });
     return () => window.removeEventListener('wheel', wheel);
-  }, [freeBoard, scale, onZoom, frame, ownsPointer]);
+  }, [freeBoard, frame, ownsPointer, isLive]);
 
   /**
    * Where the pointer is on the slide, in the model's own unit.
@@ -964,7 +992,8 @@ export function Stage({
     zoom: scale,
     onZoom: (next) => onZoom?.(next),
     min: ZOOM_MIN,
-    max: ZOOM_MAX
+    max: ZOOM_MAX,
+    step: 1.2
   });
 
   /**

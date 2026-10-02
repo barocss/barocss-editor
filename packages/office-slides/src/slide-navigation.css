@@ -161,3 +161,8 @@
 [data-slide-navigation] .sl-slide-navigation-folded > .sl-slide-view-toolbar { position: absolute; right: 0; bottom: 0; }
 .sl-slide-navigation-tools[hidden] { display: none; }
 .sl-slide-navigation-folded:has(.sl-slide-navigation-tools[hidden]) { height: 40px; }
+
+/* Compact view toggles retain keyboard focus and labels in a smaller visual cluster. */
+[data-slide-navigation] .office-toolbar.sl-slide-view-toolbar[data-toolbar-shape='pill'] { --ou-compact-inset: 2px; --ou-compact-gap: 0; --ou-compact-row: 36px; padding: 1px 2px; gap: 0; }
+[data-slide-navigation] .office-toolbar [data-slide-view], [data-slide-navigation] .sl-slide-view-modes [data-slide-view] { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+[data-slide-navigation] [data-slide-view] svg { width: 14px; height: 14px; }

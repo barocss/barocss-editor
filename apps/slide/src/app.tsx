@@ -1034,6 +1034,7 @@ export function App({
         return setMapping((was) => !was);
       case 'focus':
         setMapping(false);
+        setZoom(undefined);
         return setFocused((on) => !on);
       case 'ruler':
         return setRulerShown((shown) => !shown);
@@ -1045,7 +1046,7 @@ export function App({
         setScrolling(true);
         return setPresenting(true);
     }
-  }, [current, moveBy, stretches, readOnly]);
+  }, [current, moveBy, stretches, readOnly, focused]);
 
   const {
     menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
@@ -2167,7 +2168,7 @@ export function App({
 
           {editor && !presenting && <SlideNavigation editor={editor} slides={slides} current={current} revision={revision}
             viewMode={mapping ? 'map' : focused ? 'single' : 'multi'}
-            onViewModeChange={mode => { setMapping(false); setFocused(mode === 'single'); }}
+            onViewModeChange={mode => { if (mapping || focused !== (mode === 'single')) setZoom(undefined); setMapping(false); setFocused(mode === 'single'); }}
             lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
             readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
             renderNotes={(close, open) => <NotesPane active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}
