@@ -16,8 +16,10 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it('returns to recent documents when the recovery opener disappears after its status changes', async () => {
+for (const iconOnly of [false, true]) it(`returns to ${iconOnly ? 'icon' : 'text'} recent documents when the recovery opener disappears after its status changes`, async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  // jsdom lacks the browser observer used when the focused icon opens its tooltip.
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   const host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -28,7 +30,7 @@ it('returns to recent documents when the recovery opener disappears after its st
   const render = async (status: Persistence['status']) => {
     await act(async () => root!.render(createElement(LocalDocuments, {
       persistence: { session, status, beforeReplace: async () => true },
-      title: '저장한 자료', prefix: 'test', onOpened: vi.fn(),
+      title: '저장한 자료', prefix: 'test', onOpened: vi.fn(), iconOnly,
     })));
   };
   await render('충돌한 초안 보관됨');
@@ -44,7 +46,7 @@ it('returns to recent documents when the recovery opener disappears after its st
   // Recovery changes the session status and removes this conditional opener.
   await render('저장됨');
   expect(opener.isConnected).toBe(false);
-  const recent = button('최근 자료');
+  const recent = iconOnly ? document.querySelector<HTMLButtonElement>('button[aria-label="최근 자료"]')! : button('최근 자료');
   expect(recent.disabled).toBe(false);
   await act(async () => { dialog.querySelector<HTMLButtonElement>('button[aria-label="닫기"]')!.click(); });
   await act(async () => { await tick(); });

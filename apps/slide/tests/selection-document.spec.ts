@@ -175,7 +175,7 @@ test('single and multiple object tools arrange the owned targets, retain native 
   await page.keyboard.press('Escape'); await expect(morePanel).toBeHidden(); await expect(moreTrigger).toBeFocused();
   expect(await native(page)).toEqual(before);
   await tools(page).getByRole('button', { name: '선택 속성 열기', exact: true }).click();
-  await page.getByRole('button', { name: '왼쪽 정렬', exact: true }).click();
+  await page.getByRole('complementary', { name: '속성', exact: true }).getByRole('button', { name: '왼쪽 정렬', exact: true }).click();
   await expect.poll(() => page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes.x), ids)).toEqual([1500, 1500]);
   await page.keyboard.press('Meta+z');
   await expect.poll(() => page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes), ids)).toEqual(original);
@@ -243,7 +243,7 @@ test('on-demand navigation, units and timeline retain target and native content'
 test('fresh compact insertion still runs after a header menu is dismissed without a native revision', async ({ page }, info) => {
   await openRepresentative(page, info);
   const before = await native(page), active = await currentSlide(page);
-  await page.getByRole('menuitem', { name: '덱 메뉴', exact: true }).click(); await page.keyboard.press('Escape');
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click(); await page.keyboard.press('Escape');
   expect(await native(page)).toEqual(before);
   const count = () => page.evaluate(id => (window as any).editor.dataStore.getNode(id).content.length, active);
   const original = await count();

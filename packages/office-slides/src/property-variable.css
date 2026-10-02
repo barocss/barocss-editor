@@ -1,0 +1,25 @@
+.sl-variable-field { position: relative; display: inline-flex; gap: 3px; align-items: center; min-width: 0; flex: 1; }
+.sl-variable-value { min-width: 0; flex: 1; display: flex; }
+.sl-variable-value > * { min-width: 0; flex: 1; }
+.sl-variable-attach { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border: 0; border-radius: 4px; color: var(--ou-muted); background: transparent; }
+.sl-variable-attach:hover, .sl-variable-attach[aria-expanded=true] { background: var(--ou-accent-soft); color: var(--ou-accent); }
+.sl-variable-token { display: flex; align-items: center; gap: 4px; min-width: 0; height: 32px; padding: 0 6px; background: var(--ou-accent-soft); color: var(--ou-accent); border: 1px solid var(--ou-line); border-radius: 4px; font-size: 11px; }
+.sl-variable-token span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-variable-token small { margin-left: auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .75; }
+.sl-variable-picker { position: fixed; z-index: 30; box-sizing: border-box; overflow: auto; display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--ou-line); border-radius: 6px; background: var(--ou-panel); box-shadow: 0 8px 24px #0002; }
+.sl-variable-options { display: flex; flex-direction: column; max-height: 190px; overflow: auto; }
+.sl-variable-options button { display: flex; align-items: center; gap: 5px; text-align: left; min-height: 32px; padding: 4px 6px; border: 0; border-radius: 3px; background: transparent; color: var(--ou-ink); font-size: 11px; }
+.sl-variable-options button:hover, .sl-variable-options button[aria-pressed=true] { background: var(--ou-accent-soft); }
+.sl-variable-options small { margin-left: auto; color: var(--ou-muted); }
+.sl-variable-field button:focus-visible { outline: 2px solid var(--ou-accent); outline-offset: 1px; }
+.sl-properties [data-property-group] { gap:4px; padding:10px 8px; }
+.sl-properties [data-property-group-header] { min-height:20px; margin-bottom:2px; }
+.sl-properties [data-property-group-header] h3 { font-size:11px; letter-spacing:0; color:var(--ou-ink); }
+.sl-properties [data-property-group-body] { gap:4px; }
+
+.sl-variable-value .office-field { min-height:32px; }
+.sl-property-text-preview { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--ou-muted); font-size:11px; }
+
+.sl-variable-field[data-variable-field="채우기 값"] { flex:0 1 96px; }
+.sl-variable-field[data-variable-field="채우기 값"] .sl-variable-value > button { min-width:32px; min-height:32px; }
+

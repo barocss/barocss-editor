@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject, type ReactNode } from 'react';
 import { cn } from './cn';
+import { Tip } from './tip';
 import { Menu, type MenuBlock } from './menu';
 
 /**
@@ -47,6 +48,8 @@ export interface MenuBarMenu {
   label: string;
   /** Accessible trigger/popup name when the visible product name is shorter. */
   ariaLabel?: string;
+  /** Optional icon trigger; its accessible name remains ariaLabel or label. */
+  icon?: ReactNode;
   blocks: MenuBlock[];
 }
 
@@ -113,11 +116,11 @@ export function MenuBar({
       className={cn('office-command-surface office-menubar', className)}
     >
       {menus.map((one) => (
-        <button
-          key={one.id}
+        <Tip key={one.id} label={one.icon ? one.ariaLabel ?? one.label : undefined}><button
           type="button"
           role="menuitem"
-          aria-label={one.ariaLabel}
+          aria-label={one.ariaLabel ?? (one.icon ? one.label : undefined)}
+          data-menu-icon={one.icon ? true : undefined}
           aria-haspopup="menu"
           aria-expanded={open === one.id}
           data-menu={one.id}
@@ -141,8 +144,8 @@ export function MenuBar({
             open === one.id && 'bg-[color:var(--ou-ground)]'
           )}
         >
-          {one.label}
-        </button>
+          {one.icon ?? one.label}
+        </button></Tip>
       ))}
 
       {shown && (

@@ -29,6 +29,7 @@ import { panelRowShown } from '@barocss/office-controls';
 import { useEditorRevision, usePropertyCommand } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import { slidesPanelGroups, type SlidesPanelRow } from './panel-model';
+import { PropertyVariableField, propertyBinding } from './property-variable';
 
 /**
  * The attributes a **length** — a number in the reader's chosen unit, rather than a bare count.
@@ -40,7 +41,6 @@ const LENGTHS = new Set(['x', 'y', 'width', 'height', 'gap', 'padding', 'strokeW
 import { ComboGallery, PathGallery, PresetGallery } from './preset-gallery';
 import { EffectList, PaintList } from './paint-panel';
 import {
-  UNBINDABLE,
   componentOf,
   componentsOf,
   definitionAt,
@@ -50,10 +50,10 @@ import {
   laysOut,
   placeIsBound,
   sizeIsBound,
-  varBindsOf,
   varRef,
-  type DocumentVar,
-  type VarBind
+  surfaceVars,
+  surfaceOf,
+  varInScope,
 } from '@barocss/office-canvas';
 import { NO_CROP, isCropped } from './crop';
 import { agreedAttr, boxAt, boxesInside } from './selection';
@@ -447,7 +447,7 @@ export function Properties({
   const lockState = effective<boolean>('locked', false);
   const opacityState = effective<number>('opacity', 1);
   const rotationState = effective<number>('rotation', 0);
-  const locked = shared('locked') === true;
+  const locked = targets.some(sid => editor?.dataStore.getNode(sid)?.attributes?.locked === true);
 
   /** One declared group, drawn by the suite's panel — see `DeckSheet`. */
   const sheet = (group: string) => (
@@ -461,6 +461,7 @@ export function Properties({
       declares={declares}
       varSwatches={varSwatches}
       uncrop={uncrop}
+      decorateControl={(row, control) => variableField(row.attr, row.ariaLabel, control)}
     />
   );
 
@@ -514,9 +515,35 @@ export function Properties({
     return jump.toSid ? `page:${jump.toSid}` : '';
   }, [editor, box, tick]);
 
-  const propertyContext = `${editor?.getRootId()}:${current}:${targets.join(',')}:${unit}`;
+  const propertyRoot = editor?.getRootId();
+  const propertyRootNode = propertyRoot ? editor?.dataStore.getNode(propertyRoot) : undefined;
+  const propertySelection = JSON.stringify(editor?.selection);
+  const propertyContext = `${propertyRoot}:${current}:${targets.join(',')}:${unit}`;
   const commands = usePropertyCommand(editor, propertyContext);
   const { run } = commands;
+
+  const variableField = (attr: string, label: string, control: React.ReactNode) => {
+    const binding = propertyBinding(editor, targets, attr);
+    if (binding?.resolved !== null && binding?.resolved !== undefined && binding.resolved.trim() && Number.isFinite(Number(binding.resolved))) {
+      const value = Number(binding.resolved);
+      binding.resolvedLabel = LENGTHS.has(attr) ? `${Math.round(toDisplay(value, unit) * 100) / 100} ${unit}`
+        : attr === 'opacity' ? `${Math.round(value * 100)}%`
+        : attr === 'rotation' ? `${value}°` : binding.resolved;
+    }
+    return <PropertyVariableField key={`${propertyContext}:${attr}`} label={label}
+      binding={binding} disabled={locked || readOnly || commands.busy}
+      onBind={(name, component) => {
+        // An open picker cannot write through a selection or authority change before React retires it.
+        if (!editor?.isEditable || readOnly || editor.getRootId() !== propertyRoot
+          || editor.dataStore.getNode(propertyRoot!) !== propertyRootNode
+          || JSON.stringify(editor.selection) !== propertySelection
+          || targets.some(sid => editor.dataStore.getNode(sid)?.attributes?.locked === true)) return;
+        if (component) run('setComponentBind', { componentId: component.id, part: component.part, attr, var: name });
+        else run('setVarBind', { nodeIds: targets, attr, var: name });
+      }}>
+      {control}
+    </PropertyVariableField>;
+  };
 
   const setGeometry = (key: string, value: number) => {
     run('setBoxGeometry', {
@@ -637,10 +664,15 @@ export function Properties({
     if (!store || !rootId) return [];
 
     const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
-    return documentVars(doc as never)
-      .filter((one) => one.kind === 'color' && one.value)
-      .map((one) => ({ value: varRef(one.name), colour: one.value, label: one.label }));
-  }, [editor, tick]);
+    const at = targets.length ? targets : current ? [current] : [];
+    const names = new Set([...documentVars(doc), ...at.flatMap(sid => surfaceVars(doc, surfaceOf(doc, sid)))].map(one => one.name));
+    return [...names].flatMap(name => {
+      const scoped = at.length ? at.map(sid => varInScope(doc, sid, name)) : [varInScope(doc, undefined, name)];
+      const first = scoped[0];
+      if (!first || first.kind !== 'color' || !first.value || scoped.some(one => one?.kind !== 'color' || one.value !== first.value)) return [];
+      return [{ value: varRef(name), colour: first.value, label: first.label }];
+    });
+  }, [editor, tick, targets, current]);
 
   /**
    * The shape's paints and effects, read as lists.
@@ -822,7 +854,7 @@ export function Properties({
             onReset={declares('rotation') || declares('opacity') ? () => setGeometryRaw({
               ...(declares('rotation') ? { rotation: 0 } : {}), ...(declares('opacity') ? { opacity: 1 } : {})
             }) : undefined}
-            resetDisabled={targets.some(sid => editor?.dataStore.getNode(sid)?.attributes?.locked === true) || (rotationState === 0 && opacityState === 1)}
+            resetDisabled={locked || targets.some(sid => ['rotation', 'opacity'].some(attr => { const binding = propertyBinding(editor, [sid], attr); return !!binding?.name; })) || (rotationState === 0 && opacityState === 1)}
           >
             {locked && (
               <PropertyEmpty>
@@ -866,40 +898,40 @@ export function Properties({
                 * reader can type into that changes nothing is the fault this pair was
                 * fixed for — the drag had it too, and now means the order instead.
                 */}
-              <PropertyNumber
+              {variableField('x', 'X', <PropertyNumber
                 ariaLabel="X"
                 value={number('x')}
                 suffix="X"
                 step={stepFor(unit)}
                 disabled={locked || arranged || placedByVar}
                 onCommit={(value) => setGeometry('x', value)}
-              />
-              <PropertyNumber
+              />)}
+              {variableField('y', 'Y', <PropertyNumber
                 ariaLabel="Y"
                 value={number('y')}
                 suffix="Y"
                 step={stepFor(unit)}
                 disabled={locked || arranged || placedByVar}
                 onCommit={(value) => setGeometry('y', value)}
-              />
+              />)}
             </PropertyRow>
             <PropertyRow label="크기">
-              <PropertyNumber
+              {variableField('width', '너비', <PropertyNumber
                 ariaLabel="너비"
                 value={number('width')}
                 suffix="W"
                 step={stepFor(unit)}
                 disabled={locked || placed || sizedByVar}
                 onCommit={(value) => setGeometry('width', value)}
-              />
-              <PropertyNumber
+              />)}
+              {variableField('height', '높이', <PropertyNumber
                 ariaLabel="높이"
                 value={number('height')}
                 suffix="H"
                 step={stepFor(unit)}
                 disabled={locked || placed || sizedByVar}
                 onCommit={(value) => setGeometry('height', value)}
-              />
+              />)}
             </PropertyRow>
             {/*
               * What this box asks of the frame that arranges it.
@@ -921,7 +953,7 @@ export function Properties({
                   * reader asking which of the two the row is about. 가득 is what it does to the
                   * frame's room; the colour is what goes in it.
                   */}
-                <PropertyToggle
+                {variableField('layoutStretch', '프레임 가득 채우기', <PropertyToggle
                   ariaLabel="프레임 가득 채우기"
                   label="가득"
                   value={plainBool('layoutStretch')}
@@ -932,8 +964,8 @@ export function Properties({
                       stretch: on
                     })
                   }
-                />
-                <PropertyNumber
+                />)}
+                {variableField('layoutGrow', '남은 공간 늘리기', <PropertyNumber
                   ariaLabel="남은 공간 늘리기"
                   // A share, not a length: 0 keeps its own size, 1 takes what is left, and two
                   // children at 1 halve it — `flex-grow`'s meaning, which is the one readers of
@@ -948,7 +980,7 @@ export function Properties({
                       grow: Math.max(0, value)
                     })
                   }
-                />
+                />)}
               </PropertyRow>
             )}
             {/*
@@ -1077,7 +1109,7 @@ export function Properties({
             )}
             {declares('rotation') && (
               <PropertyRow label="회전">
-                <PropertyNumber
+                {variableField('rotation', '회전', <PropertyNumber
                   ariaLabel="회전"
                   // Degrees, which is what the model keeps — no conversion, and
                   // no rounding for a reader to notice.
@@ -1085,12 +1117,12 @@ export function Properties({
                   suffix="°"
                   disabled={locked}
                   onCommit={(value) => setGeometryRaw({ rotation: value })}
-                />
+                />)}
               </PropertyRow>
             )}
             {declares('opacity') && (
               <PropertyRow label="불투명도">
-                <PropertyNumber
+                {variableField('opacity', '불투명도', <PropertyNumber
                   ariaLabel="불투명도"
                   // Per cent, because that is what a reader of any other tool
                   // types. The model keeps 0–1.
@@ -1101,18 +1133,18 @@ export function Properties({
                   onCommit={(value) =>
                     setGeometryRaw({ opacity: Math.min(1, Math.max(0, value / 100)) })
                   }
-                />
+                />)}
               </PropertyRow>
             )}
             <PropertyRow label="상태">
               {declares('visible') && (
-                <PropertyToggle
+                variableField('visible', '표시', <PropertyToggle
                   ariaLabel="표시"
                   label="표시"
                   value={visible}
                   disabled={locked}
                   onChange={(value) => setGeometryRaw({ visible: value })}
-                />
+                />)
               )}
               {declares('locked') && (
                 <PropertyToggle
@@ -1174,19 +1206,6 @@ export function Properties({
             */}
           {box?.sid && <PartGroup run={run} editor={editor} sid={box.sid as string} locked={locked} tick={tick} />}
 
-          {/*
-            * And what an **ordinary shape** takes from the document's variables.
-            *
-            * The same rows as a card's part, about the document instead of the card — because a
-            * reference (`fill: 'var:주의'`) only fits where the schema says a string goes, and a
-            * number, a state and a shape's words needed a declaration (§10h-2). Drawn only when the
-            * document has variables of its own: a group of empty selects on every shape is chrome
-            * for a feature the deck is not using.
-            */}
-          {box?.sid && targets.length > 0 && (
-            <BindGroup run={run} editor={editor} sids={targets} locked={locked} tick={tick} />
-          )}
-
           {sheet('연결선')}
 
           {sheet('채우기와 선')}
@@ -1204,6 +1223,12 @@ export function Properties({
             * that is the text frame, and a cell on a slide the day one declares
             * the same attribute.
             */}
+          {['textFrame', 'sticky'].includes(box.stype) && (
+            <PropertyGroup label="텍스트 내용">
+              <PropertyRow label="내용">{variableField('text', '텍스트 내용',
+                <span className="sl-property-text-preview">{box.sid ? textPreview(editor, box.sid) || '슬라이드에서 직접 편집' : '슬라이드에서 직접 편집'}</span>)}</PropertyRow>
+            </PropertyGroup>
+          )}
           {sheet('텍스트')}
 
           {/*
@@ -1237,6 +1262,7 @@ export function Properties({
             */}
           {declares('fills') && (
             <PaintList
+              fieldAccessory={declares('fill') ? control => variableField('fill', '채우기 값', control) : undefined}
               label="채우기"
               note={paintNote}
               paints={paints}
@@ -1684,400 +1710,39 @@ function ComponentGroup({
   );
 }
 
-/**
- * What one **piece** of a definition takes from the card's variables, and whether it is the slot.
- *
- * ## Why the rows are the part's own attributes
- *
- * It was three rows — 글자, 색, 표시 — because there were three attributes on the part
- * (`bindText`, `bindFill`, `bindVisible`), which is exactly three things a variable could drive: a
- * `number` could only ever be text, and a card's corner radius was unreachable. The bindings are
- * the **definition's** declarations now (canvas-model §10g-2), so what a piece can take is *what it
- * declares* — and this panel already knows how to ask that.
- *
- * Offered here, refused in the command: a content model cannot see across to another node's
- * attributes, so "can this piece take that attribute" is checked where the schema is in hand.
- *
- * ## Which variables each row offers
- *
- * The ones whose **kind fits**. A colour attribute offered a boolean would be a control that can
- * only produce a value nothing draws — and the kinds are the schema's own, which is what makes this
- * a filter rather than an opinion.
- */
-/**
- * What an ordinary shape takes from the **document's** variables.
- *
- * ## Why this exists beside the colour picker
- *
- * A colour can already be a reference typed into the attribute (`fill: 'var:주의'`) and the picker
- * offers those — but a **number**, a **state** and a shape's **words** cannot: measured with a
- * transaction, a reference commits into a string attribute and is refused in a number or a boolean,
- * which is the validator doing its job (§10h). So those need a declaration, and this is where a
- * reader makes one.
- *
- * ## Why the rows are the same as a card part's
- *
- * Because it is the same question one scope out: *what drives this attribute*. A reader who has
- * bound a card's badge to a state should meet the same control on a rectangle, and the only
- * difference is which list of variables is offered — the card's, or the document's.
- *
- * Geometry is not offered, and that is the measured half: a bound size would be **drawn** where the
- * resolution says and **answered** where the document says, and the overlay, the guides and the
- * snapping all read the answer — so the handles would sit where the shape is not. `UNBINDABLE` is
- * that list, in the model, so the panel and the command cannot disagree about it.
- */
-function BindGroup({
-  run,
-  editor,
-  sids,
-  locked,
-  tick
-}: {
+/** Component identity and slots stay separate; eligible bindings live beside the actual fields. */
+function PartGroup({ run, editor, sid, locked }: {
   run: (name: string, payload: Record<string, unknown>) => void;
-  editor: Editor | null;
-  /** Every selected shape: one binding, written to all of them, or refused for all of them. */
-  sids: string[];
-  locked: boolean;
-  tick: number;
+  editor: Editor | null; sid: string; locked: boolean; tick: number;
 }) {
-  const { vars, binds, stype, declares, inCard } = useMemo(() => {
-    const store = editor?.dataStore;
-    const rootId = editor?.getRootId?.();
-    const nothing = {
-      vars: [] as DocumentVar[],
-      binds: [] as VarBind[],
-      stype: undefined as string | undefined,
-      declares: [] as string[],
-      inCard: false
-    };
-    if (!store || !rootId || sids.length === 0) return nothing;
-
-    const doc = { rootId, getNode: (one: string) => store.getNode(one) };
-    const node = store.getNode(sids[0]);
-    const schema = store.getActiveSchema?.();
-    const declared = schema?.getNodeType?.(node?.stype ?? '')?.attrs ?? {};
-
-    return {
-      vars: documentVars(doc as never) as DocumentVar[],
-      /*
-       * The first shape's bindings, and the rows are written to all of them. A selection that
-       * disagrees shows the first one's answer, which is what every other multi-select row here does
-       * — and editing one writes it to the whole selection, which is what a reader means by
-       * selecting three things.
-       */
-      binds: varBindsOf(node as never) as VarBind[],
-      stype: node?.stype as string | undefined,
-      declares: BINDABLE_ROWS.filter(
-        (name) => name in declared && !OFF_LIMITS.has(name) && !UNBINDABLE.has(name)
-      ) as string[],
-      // Inside a definition the *card's* rows are the ones that make sense, and they are drawn by
-      // `PartGroup` right above. Two groups offering two lists for one attribute is a panel asking
-      // the reader to know which is which.
-      inCard: !!definitionAt(doc as never, sids[0])
-    };
-  }, [editor, sids, tick]);
-
-  // Nothing to bind to, or a place where the card's own bindings are the answer.
-  if (vars.length === 0 || inCard) return null;
-
-  const bind = (attr: string, name: string | null) =>
-    run('setVarBind', { nodeIds: sids, attr, var: name });
-
-  const bound = (attr: string) => binds.find((one) => one.attr === attr)?.var ?? '';
-
-  /** The variables whose kind fits an attribute — the same rule the card's rows follow. */
-  const fitting = (attr: string) => {
-    const kinds =
-      attr === 'text'
-        ? ['text', 'number', 'choice']
-        : COLOUR_ATTRS.has(attr)
-          ? ['color', 'text']
-          : BOOLEAN_ATTRS.has(attr)
-            ? ['boolean']
-            : ['number', 'text'];
-    return [
-      { id: '', label: '없음' },
-      ...vars
-        .filter((one) => kinds.includes(one.kind))
-        .map((one) => ({ id: one.name, label: one.label || one.name }))
-    ];
-  };
-
-  const rows = [
-    ...(stype === 'textFrame' || stype === 'sticky' ? ['text'] : []),
-    ...declares.filter((name) => name !== 'text')
-  ];
-
-  return (
-    <PropertyGroup label="문서 변수 연결">
-      {rows.map((attr) => (
-        <PropertyRow key={attr} label={LABELS[attr] ?? attr}>
-          {/* Named rather than marked in the markup: `PropertyChoice` is a shared control and
-              takes no `data` — a test finds this row by the label, like every other row here. */}
-          <PropertyChoice
-            ariaLabel={`${LABELS[attr] ?? attr} 문서 변수`}
-            value={bound(attr)}
-            options={fitting(attr)}
-            disabled={locked}
-            onChange={(name) => bind(attr, name || null)}
-          />
-        </PropertyRow>
-      ))}
-    </PropertyGroup>
-  );
+  const store = editor?.dataStore;
+  const rootId = editor?.getRootId();
+  if (!store || !rootId) return null;
+  const doc = { rootId, getNode: (one: string) => store.getNode(one) };
+  if (!definitionAt(doc, sid)) return null;
+  const node = store.getNode(sid);
+  const part = node?.attributes?.partId;
+  return <PropertyGroup label={`컴포넌트 부품${part ? ` · ${part}` : ''}`}>
+    {!part && <PropertyEmpty>이 조각에는 이름이 없습니다. 이름이 있는 부품에 변수를 연결할 수 있습니다.</PropertyEmpty>}
+    {node?.stype === 'frame' && <PropertyRow label="슬롯">
+      <PropertyToggle ariaLabel="슬롯" label="여기에 담기" value={typeof node.attributes?.slot === 'string' && !!node.attributes.slot}
+        disabled={locked} onChange={on => run('setComponentSlot', { nodeId: sid, slot: on ? part ?? 'slot' : null })} />
+    </PropertyRow>}
+  </PropertyGroup>;
 }
 
-function PartGroup({
-  run,
-  editor,
-  sid,
-  locked,
-  tick
-}: {
-  run: (name: string, payload: Record<string, unknown>) => void;
-  editor: Editor | null;
-  sid: string;
-  locked: boolean;
-  tick: number;
-}) {
-  const { vars, binds, part, stype, attrs, definition, declares } = useMemo(() => {
-    const store = editor?.dataStore;
-    const rootId = editor?.getRootId?.();
-    const nothing = {
-      vars: [] as ReturnType<typeof componentsOf>[number]['vars'],
-      binds: [] as ReturnType<typeof componentsOf>[number]['binds'],
-      part: undefined as string | undefined,
-      stype: undefined as string | undefined,
-      attrs: {} as Record<string, unknown>,
-      definition: undefined as string | undefined,
-      declares: [] as string[]
-    };
-    if (!store || !rootId) return nothing;
-
-    const doc = { rootId, getNode: (one: string) => store.getNode(one) };
-    const owner = definitionAt(doc as never, sid);
-    const found = owner ? componentsOf(doc as never).find((one) => one.sid === owner) : undefined;
-    if (!found) return nothing;
-
-    const node = store.getNode(sid);
-    const schema = store.getActiveSchema?.();
-    const declared = schema?.getNodeType?.(node?.stype ?? '')?.attrs ?? {};
-
-    return {
-      vars: found.vars,
-      binds: found.binds,
-      /*
-       * A piece is named by its own durable `partId`, which is what a binding matches — and which a
-       * nested piece may have too, so a row inside a card's frame is bindable like any other.
-       */
-      part: typeof node?.attributes?.partId === 'string' ? node.attributes.partId : undefined,
-      stype: node?.stype as string | undefined,
-      attrs: (node?.attributes ?? {}) as Record<string, unknown>,
-      definition: found.id,
-      /**
-       * The attributes worth offering: what the part declares, less the ones a binding would be
-       * nonsense on.
-       *
-       * Its **place** is the arrangement's or the reader's drag, its identity is not a value, and
-       * its bindings are these rows — so those are out. Everything else a part declares is fair,
-       * which is the whole point of the change: a card's corner radius, a frame's gap, a badge's
-       * opacity.
-       */
-      declares: BINDABLE_ROWS.filter(
-        (name) => name in declared && !OFF_LIMITS.has(name)
-      ) as string[]
-    };
-  }, [editor, sid, tick]);
-
-  // Not inside a definition, or a piece with no durable name: nothing here can be said about it.
-  if (!definition) return null;
-
-  const bind = (attr: string, name: string | null) =>
-    run('setComponentBind', {
-      componentId: definition,
-      part,
-      attr,
-      var: name
-    });
-
-  /** What a row shows now: the variable bound to that attribute, if any. */
-  const bound = (attr: string) =>
-    binds.find((one) => one.part === part && one.attr === attr)?.var ?? '';
-
-  /** The variables whose kind fits an attribute of this shape. */
-  const fitting = (attr: string) => {
-    const kinds =
-      attr === 'text'
-        ? ['text', 'number', 'choice']
-        : COLOUR_ATTRS.has(attr)
-          ? ['color', 'text']
-          : BOOLEAN_ATTRS.has(attr)
-            ? ['boolean']
-            : ['number', 'text'];
-    return [
-      { id: '', label: '없음' },
-      ...vars.filter((one) => kinds.includes(one.kind)).map((one) => ({ id: one.name, label: one.label || one.name }))
-    ];
+function textPreview(editor: Editor | null, sid: string): string {
+  const store = editor?.dataStore;
+  const visit = (id: string, depth: number): string => {
+    if (!store || depth > 32) return '';
+    const node = store.getNode(id);
+    if (!node) return '';
+    const text = (node as unknown as { text?: unknown }).text;
+    if (typeof text === 'string') return text;
+    return (node.content ?? []).map(child => typeof child === 'string' ? visit(child, depth + 1) : '').join('');
   };
-
-  /**
-   * The rows, in the order a reader thinks about a card: its words, then how it looks, then whether
-   * it is there. Only what this piece actually declares, plus `text` for the ones that hold words.
-   */
-  const rows = [
-    ...(stype === 'textFrame' || stype === 'sticky' ? ['text'] : []),
-    ...declares.filter((name) => name !== 'text')
-  ];
-
-  return (
-    <PropertyGroup label={`컴포넌트 부품${part ? ` · ${part}` : ''}`}>
-      {!part && (
-        <PropertyEmpty>
-          이 조각에는 이름이 없습니다. 컴포넌트의 부품에만 변수를 연결할 수 있습니다.
-        </PropertyEmpty>
-      )}
-
-      {part && vars.length === 0 && (
-        <PropertyEmpty>
-          이 컴포넌트에는 아직 변수가 없습니다. 왼쪽 컴포넌트 목록에서 만들 수 있습니다.
-        </PropertyEmpty>
-      )}
-
-      {part &&
-        vars.length > 0 &&
-        rows.map((attr) => (
-          <PropertyRow key={attr} label={LABELS[attr] ?? attr}>
-            <PropertyChoice
-              ariaLabel={`${LABELS[attr] ?? attr} 변수`}
-              value={bound(attr)}
-              options={fitting(attr)}
-              disabled={locked}
-              onChange={(name) => bind(attr, name || null)}
-            />
-          </PropertyRow>
-        ))}
-
-      {stype === 'frame' && (
-        <PropertyRow label="슬롯">
-          {/*
-            * Not a binding, and never was: it says where a reader's own things go. It was in the
-            * same command as the bindings only because both were attributes on a part.
-            */}
-          <PropertyToggle
-            ariaLabel="슬롯"
-            label="여기에 담기"
-            value={typeof attrs.slot === 'string' && attrs.slot.length > 0}
-            disabled={locked}
-            onChange={(on) =>
-              run('setComponentSlot', {
-                nodeId: sid,
-                slot: on ? part ?? 'slot' : null
-              })
-            }
-          />
-        </PropertyRow>
-      )}
-    </PropertyGroup>
-  );
+  return visit(sid, 0);
 }
-
-/**
- * The attributes a **binding row** may be about, in the order a reader thinks about a shape: its
- * words, then how it looks, then how it is arranged.
- *
- * A list rather than "everything the shape declares", and the full browser suite is what asked for
- * it: the wider rule put a row for `flipX` in the panel, labelled `flipX` because the product has no
- * word for it — a panel of raw attribute names, which is the thing this repository would call wrong
- * anywhere else. It also broke a test by accident, because `getByLabel('X')` matches
- * "flipX 문서 변수".
- *
- * So the rule is: **a row exists where the product has a word for the attribute.** Anything a reader
- * cannot be told the name of is not something to offer them, and adding one is adding it to `LABELS`
- * — one place, and the panel and the tests agree by construction.
- */
-const BINDABLE_ROWS = [
-  'text',
-  /*
-   * Where it is and which way it faces. Refused at first with a sentence about *behaviour* — "a box
-   * that snaps back when you drag it" — and allowed once the behaviour was fixed: the drag is refused
-   * before it previews, the rotate grip goes, and the panel says why (§10h-2).
-   */
-  'x',
-  'y',
-  'rotation',
-  /*
-   * A **size**, which is geometry and reaches the shape by a different road: the pass that settles
-   * derived geometry writes it into the document, because the geometry is read by `boxOf` in 31
-   * places and a size that was only *drawn* would be answered differently by every one of them
-   * (§10h-2). A position is not offered — see `UNBINDABLE` — because a box that snaps back when you
-   * drag it is a worse thing to meet than a size you cannot type.
-   */
-  'width',
-  'height',
-  'fill',
-  'stroke',
-  'strokeWidth',
-  'cornerRadius',
-  'opacity',
-  'visible',
-  'gap',
-  'padding',
-  'layoutStretch',
-  'layoutGrow'
-] as const;
-
-/**
- * What a binding would be nonsense on.
- *
- * A piece's **place** is the arrangement's or the reader's drag (§5), its durable names are identity
- * rather than values, and its own bindings are the rows above — so none of those is a thing a
- * variable can drive.
- */
-const OFF_LIMITS = new Set([
-  /*
-   * What is left here is **identity and reference**: a durable name, a role, a link, a lock. A
-   * variable driving one of those would be a document naming things by a value that can change under
-   * it, which is the one thing every durable id in this model exists to prevent.
-   *
-   * `x` and `y` were here, for a reason that has since been answered: a place is written into the
-   * document by the pass that settles derived geometry, and the gestures it takes away are refused
-   * before they happen (§10h-2).
-   */
-  'partId',
-  'slot',
-  'name',
-  'role',
-  'locked',
-  'componentId',
-  'goTo',
-  'goToKind',
-  'goToDeck'
-]);
-
-/** The attributes a colour variable belongs in, and the ones a boolean does. */
-const COLOUR_ATTRS = new Set(['fill', 'stroke', 'shadowColor']);
-const BOOLEAN_ATTRS = new Set(['visible', 'clipsContent', 'layoutStretch', 'flipH', 'flipV']);
-
-/** The reader's word for an attribute, where the schema's name is not one. */
-const LABELS: Record<string, string> = {
-  text: '글자',
-  // The two the position row shows as suffixes; a binding row needs a word for each.
-  x: 'X',
-  y: 'Y',
-  fill: '색',
-  stroke: '선 색',
-  strokeWidth: '선 굵기',
-  visible: '표시',
-  opacity: '투명도',
-  cornerRadius: '둥근 정도',
-  rotation: '회전',
-  width: '너비',
-  height: '높이',
-  gap: '간격',
-  padding: '안쪽 여백',
-  layoutStretch: '가득',
-  layoutGrow: '늘리기'
-};
 
 function labelFor(stype: string, role?: string): string {
   if (role === 'title') return '제목 상자';
@@ -2464,7 +2129,8 @@ function DeckSheet({
   locked,
   declares,
   varSwatches,
-  uncrop
+  uncrop,
+  decorateControl
 }: {
   run: (name: string, payload: Record<string, unknown>) => void;
   group: string;
@@ -2476,6 +2142,7 @@ function DeckSheet({
   declares: (attr: string) => boolean;
   varSwatches: Parameters<typeof ColorField>[0]['varSwatches'];
   uncrop: () => void;
+  decorateControl: (row: SlidesPanelRow, control: React.ReactNode) => React.ReactNode;
 }) {
   const [folded, setFolded] = useState(false);
   const attrs = (box?.attributes ?? {}) as Record<string, unknown>;
@@ -2633,6 +2300,7 @@ function DeckSheet({
       onWrite={(row, next) => write(row, next)}
       swatches={varSwatches}
       render={(row) => own(row)}
+      decorateControl={decorateControl}
     />
   );
 }

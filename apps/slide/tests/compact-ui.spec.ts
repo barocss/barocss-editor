@@ -199,7 +199,7 @@ test('canvas PageDown and PageUp retain deliberate slide navigation without a na
 
 test('visible document Open menu activates the clipped native file input by keyboard', async ({page}) => {
   await openDeck(page); const before=await native(page);
-  await page.getByRole('menuitem',{name:'덱 메뉴',exact:true}).click();
+  await page.getByRole('menuitem',{name:'문서 메뉴',exact:true}).click();
   const open=page.locator('[data-menu-item="file.document.1"]');
   await expect(open).toBeVisible(); await open.focus();
   const box=(await open.boundingBox())!; expect(box.width).toBeGreaterThanOrEqual(32); expect(box.height).toBeGreaterThanOrEqual(32);

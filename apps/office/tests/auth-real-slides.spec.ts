@@ -76,8 +76,15 @@ async function rows(page: Page) {
     };
   }));
 }
-async function seed(page: Page, title: string) {
+async function seed(page: Page, title: string, withWidthVariables = false) {
   const name = randomUUID(), document = createSampleDeck();
+  if (withWidthVariables) {
+    const variables = document.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'variables')!;
+    variables.content!.push(
+      { stype: 'variable', attributes: { name: 'Title width', label: 'Title width', kind: 'number', value: '14400' } },
+      { stype: 'variable', attributes: { name: 'Alternate width', label: 'Alternate width', kind: 'number', value: '12000' } }
+    );
+  }
   const surfaces = document.content!.filter((node): node is INode => typeof node !== 'string' && node.stype === 'surface');
   const resources = document.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'resources')!;
   surfaces[0].attributes = { ...surfaces[0].attributes, trackId: 'server-native-track' };
@@ -572,5 +579,138 @@ test('real Canvas editing persists the same native deck and preserves current vi
   } finally {
     await privateControl({ action: 'beta-active', active: true });
     await otherContext.close();
+  }
+});
+
+test('real selected-object tools and inline property binding persist exact native bytes and retire a revoked picker', async ({ browser: _browser }, info) => {
+  test.setTimeout(180_000);
+  const status = await privateControl<RealStatus>({ action: 'status' });
+  const root = `${origin}/api/v1/tenants/${status.tenantId}`;
+  const directory = dirname(process.env.OFFICE_AUTH_CONTROL_FILE!);
+  const profileA = mkdtempSync(join(directory, 'selected-writer-'));
+  const profileB = mkdtempSync(join(directory, 'selected-reader-'));
+  let a: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined;
+  let b: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined;
+  let passed = false;
+  const evidence: Record<string, unknown> = { databaseIdentity: status.databaseIdentity };
+  const children = (node: INode): INode[] => node.content!.filter((child): child is INode => typeof child !== 'string');
+  const titleOf = (document: INode) => children(children(document).find(node => node.stype === 'surface')!).find(node => node.stype === 'textFrame' && node.attributes?.role === 'title')!;
+  const exported = async (page: Page, name: string): Promise<INode> => {
+    const [download] = await Promise.all([page.waitForEvent('download'), workspace(page).getByRole('button', { name: 'Slides 파일 내보내기', exact: true }).click()]);
+    const path = info.outputPath(name); await download.saveAs(path);
+    return JSON.parse(readFileSync(path, 'utf8')).document as INode;
+  };
+  const selectTitle = async (page: Page) => {
+    const paragraph = paragraphs(page).filter({ hasText: 'One engine' }).first();
+    const frame = paragraph.locator('xpath=ancestor::*[contains(@class, "sl-text-frame")]').first();
+    const bounds = (await frame.boundingBox())!;
+    await page.mouse.click(bounds.x + 8, bounds.y + 8);
+  };
+  const hideLibrary = async (page: Page) => {
+    const trigger = workspace(page).getByRole('button', { name: '서버 Slides 목록', exact: true });
+    if (await trigger.getAttribute('aria-expanded') === 'true') await trigger.click();
+  };
+  try {
+    a = await launchPrivateProfile(profileA); b = await launchPrivateProfile(profileB);
+    const writer = await a.context.newPage(), requests = track(writer);
+    await login(writer, 'alpha-editor');
+    const source = await seed(writer, 'Authenticated compact selection tools', true), originalRows = await rows(writer);
+    const pending = await prepare(writer, source.title);
+    await save(writer).click(); await expect(saved(writer)).toHaveText('서버 저장 확인됨');
+    const created = await inspect(undefined, pending.attempt!.idempotencyKey, 'create');
+    const documentId = created.receipt!.documentId, url = writer.url();
+    await canonical(writer, root, requests.bearer, documentId, source.text);
+    expect(await exported(writer, 'selected-initial.slides.json')).toEqual(source.document);
+    await hideLibrary(writer); await selectTitle(writer);
+    const tools = workspace(writer).locator('[data-slides-formatting]:visible');
+    for (const label of ['굵게', '기울임', '밑줄', '취소선']) await expect(tools.getByRole('button', { name: label, exact: true })).toBeEnabled();
+    await expect(tools.getByRole('button', { name: '굵게', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const geometry = (await tools.boundingBox())!;
+    expect(geometry.width).toBeLessThanOrEqual(480); expect(geometry.height).toBeLessThanOrEqual(48);
+    const expected = structuredClone(source.document), title = titleOf(expected), paragraph = children(title)[0], run = children(paragraph)[0];
+    for (const label of ['굵게', '기울임', '밑줄', '취소선']) await tools.getByRole('button', { name: label, exact: true }).click();
+    paragraph.attributes = { ...paragraph.attributes, bold: false };
+    run.marks = ['italic', 'underline', 'strikethrough'].map(stype => ({ stype, range: [0, run.text!.length] }));
+    await tools.getByRole('combobox', { name: 'Font', exact: true }).click();
+    await writer.getByRole('option', { name: 'Georgia', exact: true }).click();
+    run.marks.push({ stype: 'fontFamily', range: [0, run.text!.length], attrs: { family: 'Georgia' } });
+    await tools.getByRole('combobox', { name: 'Size', exact: true }).click();
+    await writer.getByRole('option', { name: '18', exact: true }).click();
+    run.marks.push({ stype: 'fontSize', range: [0, run.text!.length], attrs: { size: 36 } });
+    const renderedSize = workspace(writer).locator('.sl-stage .mark-fontSize').first();
+    await expect.poll(() => renderedSize.evaluate(element => getComputedStyle(element).fontSize)).toBe('24px');
+    expect(await renderedSize.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Georgia');
+    const renderedTitle = paragraphs(writer).filter({ hasText: 'One engine' }).first();
+    await expect.poll(() => renderedTitle.locator('.mark-underline').evaluateAll(elements => elements.map(element => getComputedStyle(element).fontSize))).toEqual(['24px']);
+    await expect.poll(() => renderedTitle.locator('.mark-strikethrough').evaluateAll(elements => elements.map(element => getComputedStyle(element).fontSize))).toEqual(['24px']);
+    await writer.screenshot({ path: info.outputPath('authenticated-object-fonts.png') });
+    expect(await exported(writer, 'selected-formatted.slides.json')).toEqual(expected);
+    await selectTitle(writer);
+    await tools.getByRole('button', { name: '선택 속성 열기', exact: true }).click();
+    const panel = workspace(writer).locator('.sl-properties');
+    await panel.getByRole('button', { name: '너비 변수 연결', exact: true }).click();
+    const picker = panel.getByRole('dialog', { name: '너비 변수 선택', exact: true });
+    await picker.getByRole('textbox', { name: '너비 변수 검색', exact: true }).fill('Title width');
+    await picker.getByRole('button', { name: 'Title width 14400', exact: true }).click();
+    await expect(picker).toHaveCount(0);
+    title.attributes = { ...title.attributes, width: 14400, varBinds: [{ attr: 'width', var: 'Title width' }] };
+    await writer.screenshot({ path: info.outputPath('authenticated-inline-variable.png') });
+    expect(await exported(writer, 'selected-bound.slides.json')).toEqual(expected);
+    await save(writer).click(); await expect(saved(writer)).toHaveText('서버 저장 확인됨');
+    const wire = requests.writes.at(-1)!.body.snapshotText as string;
+    expect(JSON.parse(wire).document).toEqual(expected);
+    const confirmed = await canonical(writer, root, requests.bearer, documentId, wire);
+    expect(await rows(writer)).toEqual(originalRows);
+    await writer.reload(); await expect(workspace(writer)).toBeVisible();
+    expect(await exported(writer, 'selected-reopened.slides.json')).toEqual(expected);
+    await canonical(writer, root, requests.bearer, documentId, wire);
+
+    const reader = await b.context.newPage(), readerRequests = track(reader);
+    await login(reader, 'beta-viewer', url); await hideLibrary(reader);
+    await selectTitle(reader); await reader.keyboard.type('viewer-forbidden-object-edit');
+    await expect(workspace(reader).locator('[contenteditable=true]')).toHaveCount(0);
+    await expect(workspace(reader).locator('[data-slides-formatting]')).toHaveCount(0);
+    await expect(save(reader)).toHaveCount(0);
+    expect(await exported(reader, 'selected-viewer.slides.json')).toEqual(expected);
+    const deniedKey = `selected-viewer-${randomUUID()}`;
+    const denied = await reader.request.put(`${root}/documents/${documentId}/snapshot`, { headers: { Authorization: readerRequests.bearer },
+      data: { expectedRevision: confirmed.document!.revision, snapshotText: wire, idempotencyKey: deniedKey } });
+    expect(denied.status()).toBe(403);
+    expect((await inspect(documentId, deniedKey, 'update', 'beta-viewer')).receipt).toBeNull();
+
+    await privateControl({ action: 'beta-role', role: 'editor' });
+    await reader.reload(); await expect(save(reader)).toBeVisible(); await hideLibrary(reader); await selectTitle(reader);
+    await workspace(reader).locator('[data-slides-formatting]:visible').getByRole('button', { name: '선택 속성 열기', exact: true }).click();
+    const readerPanel = workspace(reader).locator('.sl-properties');
+    await readerPanel.getByRole('button', { name: '너비 변수 연결', exact: true }).click();
+    const pendingPicker = readerPanel.getByRole('dialog', { name: '너비 변수 선택', exact: true });
+    await expect(pendingPicker.getByRole('button', { name: 'Alternate width 12000', exact: true })).toBeVisible();
+    const staleOption = await pendingPicker.getByRole('button', { name: 'Alternate width 12000', exact: true }).elementHandle();
+    const beforeRevocation = await inspect(documentId), writesBefore = readerRequests.writes.length, draftsBefore = await records(reader);
+    await privateControl({ action: 'beta-role', role: 'viewer' });
+    await reader.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(save(reader)).toHaveCount(0); await expect(pendingPicker).toHaveCount(0);
+    await staleOption!.evaluate(element => (element as HTMLButtonElement).click());
+    expect(await records(reader)).toEqual(draftsBefore);
+    expect(readerRequests.writes).toHaveLength(writesBefore);
+    expect(await exported(reader, 'selected-revoked.slides.json')).toEqual(expected);
+    const revokedKey = `selected-revoked-${randomUUID()}`;
+    const revoked = await reader.request.put(`${root}/documents/${documentId}/snapshot`, { headers: { Authorization: readerRequests.bearer },
+      data: { expectedRevision: confirmed.document!.revision, snapshotText: wire, idempotencyKey: revokedKey } });
+    expect(revoked.status()).toBe(403);
+    expect((await inspect(documentId, revokedKey, 'update', 'beta-viewer')).receipt).toBeNull();
+    expect((await inspect(documentId)).document).toEqual(beforeRevocation.document);
+    await staleOption!.dispose();
+    Object.assign(evidence, { documentId, sourceHash: hash(source.text), savedWireHash: hash(wire), revision: confirmed.document!.revision,
+      initialViewerDenied: true, revokedPendingPickerDenied: true });
+    await writer.screenshot({ path: info.outputPath('authenticated-selection-tools.png') });
+    passed = true;
+  } finally {
+    const restored = await Promise.allSettled([privateControl({ action: 'beta-active', active: true }), privateControl({ action: 'beta-role', role: 'viewer' })]);
+    const closed = await Promise.allSettled([a, b].flatMap(profile => profile ? [stopPrivateProfile(profile.context, profile.pid)] : []));
+    const cleanup = restored.concat(closed).every(result => result.status === 'fulfilled');
+    if (cleanup) for (const path of [profileA, profileB]) rmSync(path, { recursive: true, force: true });
+    writeFileSync(join(directory, 'selected-object-evidence.json'), JSON.stringify({ status: passed && cleanup ? 'passed' : 'incomplete', cleanup, evidence }, null, 2), { mode: 0o600 });
+    expect(cleanup).toBe(true);
   }
 });
