@@ -34,7 +34,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
   const viewButtons = (['single', 'multi'] as const).map(mode => <Button key={mode} square tone="quiet"
       ariaLabel={mode === 'single' ? '슬라이드 보기' : '멀티 슬라이드 보기'} title={mode === 'single' ? '슬라이드 보기' : '멀티 슬라이드 보기'}
       pressed={props.viewMode === mode} data={{ 'slide-view': mode }}
-      onClick={() => { modeFocus.current = mode; props.onViewModeChange?.(mode); }}>
+      onClick={() => { if (props.viewMode === mode) return; modeFocus.current = mode; props.onViewModeChange?.(mode); }}>
       <Icon name={mode === 'single' ? 'insert-rectangle' : 'frame-grid'} />
     </Button>);
   const viewControls = props.onViewModeChange && <div className="sl-slide-view-modes" role="group" aria-label="슬라이드 보기 전환">{viewButtons}</div>;

@@ -77,3 +77,10 @@ test('view controls keep map navigation, canvas and icon presentation available'
   expect(await state(page)).toEqual(before);
   expect(await page.evaluate(()=>(window as any).editor.selection)).toEqual(selection);
  });
+
+ test('reselecting the current view does not steal the next thumbnail focus',async({page})=>{
+  await openDeck(page);
+  await mode(page,false).click();
+  await openFilmstrip(page);
+  await expect(page.locator('.sl-filmstrip button[data-current="true"]')).toBeFocused();
+ });
