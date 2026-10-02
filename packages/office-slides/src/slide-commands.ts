@@ -351,9 +351,10 @@ export class SlidesExtension implements Extension {
       'setBoxStyle',
       (payload) =>
         this._setBoxAttrsAll(editor, this._boxesNamed(payload), (nodeId) =>
-          this._styleOf(editor, { ...payload, nodeId })
+          this._styleOf(editor, { ...payload, nodeId }), { canApply: payload?.canApply }
         ),
       (payload) =>
+        (payload?.canApply === undefined || typeof payload.canApply === 'function' && payload.canApply() !== false) &&
         this._boxesNamed(payload).some(
           (nodeId) =>
             this._canEditBox(editor, nodeId) &&
@@ -2807,7 +2808,7 @@ export class SlidesExtension implements Extension {
     editor: Editor,
     nodeIds: string[],
     attrsFor: (nodeId: string) => Record<string, unknown>,
-    options?: { evenIfLocked?: boolean }
+    options?: { evenIfLocked?: boolean; canApply?: () => boolean }
   ): Promise<boolean> {
     const doc = this._access(editor);
     if (!doc) return false;
@@ -2839,8 +2840,39 @@ export class SlidesExtension implements Extension {
     }
 
     if (ops.length === 0) return false;
-    const result = await transaction(editor, ops as never).commit();
-    return result.success;
+    if (!options?.canApply) {
+      const result = await transaction(editor, ops as never).commit();
+      return result.success;
+    }
+
+    // A contextual field owns a captured intent, not merely the ID it named
+    // before the native lock or host policy awaited. Ordinary explicit-target
+    // callers keep the existing path above; this guard supplements host guards.
+    const canApply = options.canApply, store = editor.dataStore;
+    const rootId = editor.getRootId(), epoch = store.getDocumentEpoch(), session = store.getSessionId();
+    const nodes = [rootId, ...nodeIds].map(id => ({ id, node: id ? store.getNodes().get(id) : undefined }));
+    const selection = JSON.stringify(editor.selection);
+    let retired = false;
+    const retire = () => { retired = true; };
+    const selectionChanged = () => { if (JSON.stringify(editor.selection) !== selection) retired = true; };
+    editor.on('editor:editable.change', retire);
+    editor.on('editor:selection.model', selectionChanged);
+    editor.on('editor:selection.change', selectionChanged);
+    const validateIntent = () => {
+      if (retired || !editor.isEditable || editor.getRootId() !== rootId || store.getRootNodeId() !== rootId ||
+        store.getDocumentEpoch() !== epoch || store.getSessionId() !== session || JSON.stringify(editor.selection) !== selection ||
+        nodes.some(({ id, node }) => !id || !node || store.getNodes().get(id) !== node) || canApply() === false ||
+        nodeIds.some(id => !this._canEditBox(editor, id))) {
+        return 'The selected box style intent is no longer current';
+      }
+    };
+    try {
+      return (await transaction(editor, ops as never, { validateIntent, applySelectionToView: false }).commit()).success;
+    } finally {
+      editor.off('editor:editable.change', retire);
+      editor.off('editor:selection.model', selectionChanged);
+      editor.off('editor:selection.change', selectionChanged);
+    }
   }
 
   private async _setBoxAttrs(
