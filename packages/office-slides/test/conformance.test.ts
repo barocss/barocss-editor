@@ -16,6 +16,8 @@ import { slidesToolbarCommands, slidesToolbarIcons } from '../src/toolbar-model'
 import { slidesKeyCommands } from '../src/keymap';
 import { slidesPanelAttrs, slidesPanelCommands } from '../src/panel-model';
 import { slidesMenuCommands } from '../src/menu-model';
+import { nativeIdentityReaderClaims, withNativeConnectorRead } from './helpers/native-identity-probe';
+import { probeNotesInput } from './helpers/notes-input-probe';
 
 /**
  * What Slides promises, held to.
@@ -190,6 +192,12 @@ describe('Slides draws what its schema declares', () => {
       await editor.executeCommand(command, payload);
       moved.set(command, JSON.stringify(editor.exportDocument?.(rootId) ?? '') !== before);
     }
+    // This input is not a toolbar declaration. Observe the actual mounted input
+    // reaching its native commands, including text buffered during initial creation.
+    for (const result of await probeNotesInput()) {
+      reachable.push(result.command);
+      moved.set(result.command, result.changed);
+    }
   });
 
   it('draws what it declares, expects only what it says it expects', () => {
@@ -232,7 +240,7 @@ describe('Slides draws what its schema declares', () => {
        * come from the same schema the check walks, so the probe value matches the
        * type the attribute declares.
        */
-      attributeRead: withTableThemeRead(registry, attributeReadFrom(
+      attributeRead: withNativeConnectorRead(registry, withTableThemeRead(registry, attributeReadFrom(
         registry as never,
         (type: string) => (schema.nodes.get(type) as { attrs?: Record<string, never> } | undefined)?.attrs,
         {},
@@ -269,7 +277,7 @@ describe('Slides draws what its schema declares', () => {
               return undefined;
           }
         }
-      )),
+      ))),
       /**
        * Every icon the deck's controls ask for, and whether the suite draws it.
        *
@@ -319,6 +327,15 @@ describe('Slides draws what its schema declares', () => {
         Object.keys(markCss(mark, { color: '#f00', size: 22, href: '#x' }, undefined)).length > 0 ||
         Object.keys(markAttributes(mark, { lang: 'ko' })).length > 0,
       exempt: {
+        ...nativeIdentityReaderClaims(),
+        'connector.startObjectId': {
+          reason: 'The user moves an attachment handle: overlay.tsx changes its target through setConnector(startNodeId). The raw startObjectId is derived by native-identity.ts on export. conformance-readers.test.ts verifies the real command, serialized target and exact Undo/Redo',
+          covers: ['every-property-can-be-edited']
+        },
+        'connector.endObjectId': {
+          reason: 'The user moves an attachment handle: overlay.tsx changes its target through setConnector(endNodeId). The raw endObjectId is derived by native-identity.ts on export. conformance-readers.test.ts verifies the real command, serialized target and exact Undo/Redo',
+          covers: ['every-property-can-be-edited']
+        },
         'bTable.theme': {
           reason: 'authored by Note’s contextual table editor through the shared setTableTheme command; this product preserves and renders imported or embedded table themes without exposing that Note control',
           covers: ['every-property-can-be-edited']
@@ -549,7 +566,6 @@ describe('Slides draws what its schema declares', () => {
         // reached is written down here and fails if it stops being true.
         setDeckSize: 'the slide-size dialog',
         setSlideLayout: 'the layout dialog',
-        addSlideNote: 'the button in the notes pane, shown when a slide has no note',
         insertConnectedShape:
           'the canvas — a line pulled out of a shape’s magnet and let go in empty space, which makes the next shape and joins it. The gesture a flow chart is made of, and it has no button because a button could not say *where*',
         /*
