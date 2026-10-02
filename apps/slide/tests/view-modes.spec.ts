@@ -31,6 +31,7 @@ for (const theme of ['light', 'dark']) test(`single/multi icons preserve the dec
   const cluster=page.getByRole('group',{name:'슬라이드 보기 전환',exact:true});
   const clusterBounds=(await cluster.boundingBox())!;
   expect(button!.width).toBeGreaterThanOrEqual(32); expect(button!.height).toBeGreaterThanOrEqual(32);
+  expect(button!.width).toBeLessThanOrEqual(32); expect(button!.height).toBeLessThanOrEqual(32);
   expect(main!.x+main!.width-clusterBounds.x-clusterBounds.width).toBe(12);
   expect(await cluster.evaluate(el=>parseFloat(getComputedStyle(el).borderRadius))).toBeGreaterThanOrEqual(clusterBounds.height/2);
   await page.screenshot({path:info.outputPath(`multi-${theme}.png`),animations:'disabled'});
