@@ -7,7 +7,7 @@ import { ContextToolbar, useEditorContextVisibility, useEditorRevision, useNodeR
 import type { Slide } from './deck';
 import { boxAt } from './selection';
 import { Ribbon } from './ribbon';
-import { SlidesInsertDropdown } from './insert-dropdown';
+import { SLIDES_PRIMARY_CONTROL_IDS, SlidesInsertDropdown } from './insert-dropdown';
 import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, selectedSlidesTable, trackSlidesSelectionLifetime } from './selection-owner';
 
 /** Product chrome keeps the canvas and rich notes as two owners of one native editor. */
@@ -79,7 +79,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, inspector
     <div ref={globalChrome} className="sl-insertion-chrome">
       <Toolbar variant="compact" surface="floating" label="Slides 삽입 도구">
         <Ribbon inline key={`${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
-          directControls groupIds={['history', 'slide', 'insert']} controlIds={['undo','redo','slide-new','insert-textbox','insert-rectangle','insert-table','insert-image']}
+          directControls groupIds={['history', 'slide', 'insert']} controlIds={SLIDES_PRIMARY_CONTROL_IDS}
           portalContainer={globalChrome} canRunIntent={() => ownsSlidesSelection(owner)} captureIntent={captureIntent} />
         <SlidesInsertDropdown key={`insert:${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
           canRunIntent={() => ownsSlidesSelection(owner)} captureIntent={captureIntent} />

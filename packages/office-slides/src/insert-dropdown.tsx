@@ -7,7 +7,13 @@ import { slidesControlActions, type SlidesControlContext } from './toolbar-actio
 import { SLIDES_TOOLBAR } from './toolbar-model';
 import './insert-dropdown.css';
 
-const groups = ['insert', 'slide'].map(id => SLIDES_TOOLBAR.find(group => group.id === id)!);
+/** Controls already visible beside More; keep the two surfaces complementary. */
+export const SLIDES_PRIMARY_CONTROL_IDS = ['undo', 'redo', 'slide-new', 'insert-textbox', 'insert-rectangle', 'insert-table', 'insert-image'];
+
+const groups = ['insert', 'slide'].map(id => {
+  const group = SLIDES_TOOLBAR.find(group => group.id === id)!;
+  return { ...group, controls: group.controls.filter(control => control.id === undefined || !SLIDES_PRIMARY_CONTROL_IDS.includes(control.id)) };
+});
 
 /** The existing native command model, in one named, keyboard-walkable menu. */
 export function SlidesInsertDropdown({ editor, slides, current, canRunIntent, captureIntent }: SlidesControlContext & {
