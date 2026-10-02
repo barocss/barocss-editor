@@ -7,7 +7,7 @@ import pg from 'pg';
 import { migrate } from '../dist/migrate.js';
 import { migrations } from '../dist/migrations.js';
 import { DocumentStore } from '../dist/document-store.js';
-import { ProjectStore, ProjectError } from '../dist/project-store.js';
+import { ProjectStore } from '../dist/project-store.js';
 import { ProjectExecutionStore } from '../dist/project-execution.js';
 import { TenantAccessDeniedError } from '../dist/membership-store.js';
 
@@ -107,6 +107,31 @@ try {
     assert.equal(applied.execution.phase,'applied');assert.equal(applied.execution.appliedRevision,2);
     assert.deepEqual(await execution.acknowledge(...first.args(),firstView.id,{revision:2,snapshotHash:digest(bytes)}),applied);
     assert.deepEqual(await projects.get(...first.args().slice(0,3)),before);
+  });
+  await check('training linked after saved guide observes exact new pin without changing the captured attempt', async () => {
+    const before=(await owner.query('SELECT data FROM wonffice.project_executions WHERE id=$1',[firstView.id])).rows[0].data;
+    const trainingText=JSON.stringify({format:'barocss-slides',version:1,document:{stype:'document',content:[]}});
+    const training=await documents.create(actor,tenantId,{workspaceId,product:'slides',title:'Training',fileFormat:'barocss-slides',fileVersion:1,
+      snapshotText:trainingText,idempotencyKey:randomUUID()});
+    await first.update({type:'link-result',name:'Training',document:{product:'slides',id:training.document.documentId}});
+    const result=first.current().project.record.results.find(result=>result.document.id===training.document.documentId);
+    await first.update({type:'pin-input',resultId:result.id,requestId:first.workId,
+      source:{documentId:first.documentId,revision:2,snapshotHash:firstView.expectedSnapshotHash}});
+    const pin=first.current().project.record.results.find(item=>item.id===result.id).inputs[0];
+    const observed=(await new ProjectExecutionStore(pool).get(...first.args())).execution;
+    assert.equal(observed.phase,'applied');assert.equal(observed.id,firstView.id);
+    assert.deepEqual(observed.input,before.input);assert.deepEqual(observed.provenance,before.provenance);
+    assert.deepEqual(observed.pendingOutputs,[{resultId:result.id,reason:'unsupported_target',inputs:[{id:pin.id,documentId:first.documentId,
+      revision:2,snapshotHash:firstView.expectedSnapshotHash,snapshotText:firstView.expectedSnapshotText}]}]);
+    assert.deepEqual((await owner.query('SELECT data FROM wonffice.project_executions WHERE id=$1',[firstView.id])).rows[0].data,before);
+    assert.equal((await documents.open(actor,tenantId,training.document.documentId)).snapshotText,trainingText);
+    await documents.updateSnapshot(actor,tenantId,first.documentId,{expectedRevision:2,
+      snapshotText:firstView.expectedSnapshotText.replace('Untouched sibling','Newer human sibling'),idempotencyKey:randomUUID()});
+    assert.deepEqual((await new ProjectExecutionStore(pool).get(...first.args())).execution,observed);
+    await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at=now() WHERE tenant_id=$1 AND identity_id=$2',[tenantId,viewerId]);
+    await assert.rejects(execution.get(viewer,tenantId,first.projectId,first.workId),TenantAccessDeniedError);
+    await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at=NULL WHERE tenant_id=$1 AND identity_id=$2',[tenantId,viewerId]);
+    assert.deepEqual((await execution.get(viewer,tenantId,first.projectId,first.workId)).execution,observed);
   });
   let retainedStarted;
   await check('concurrent duplicate and process restart observe unknown and never reinvoke dispatched provider', async () => {

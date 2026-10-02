@@ -28,7 +28,7 @@ export interface ProjectExecutionView {
   input: Pick<LocalExecutionInput, 'request' | 'revision' | 'snapshotHash' | 'snapshotText' | 'target' | 'inputs'>;
   proposal?: ExecutionProposal; provenance?: ExecutionProvenance;
   expectedSnapshotText?: string; expectedSnapshotHash?: string; appliedRevision?: number;
-  pendingOutputs: Array<{ resultId: string; reason: 'unsupported_target' }>;
+  pendingOutputs: Array<{ resultId: string; reason: 'unsupported_target'; inputs: ExecutionPin[] }>;
 }
 interface Attempt extends Omit<ProjectExecutionView, 'phase'> {
   phase: ExecutionPhase | 'started'; projectRevision: number; authorityEpoch: string; target: ProjectTarget;
@@ -148,12 +148,36 @@ export class ProjectExecutionStore {
       WHERE tenant_id=$1 AND project_id=$2 AND id=$3`, [attempt.tenantId, attempt.projectId, attempt.id, JSON.stringify(attempt)]);
     return { execution: this.view(attempt) };
   }
+  /** Current follow-ups are observations, never additions to the captured model request. */
+  private async pendingOutputs(context: ProjectExecutionContext, tenantId: string, workId: string, primaryResultId: string) {
+    const { work } = this.work(context, workId);
+    const outputs: ProjectExecutionView['pendingOutputs'] = [];
+    for (const result of context.project.data.results) {
+      if (result.id === primaryResultId || result.request !== workId || !work.outputs.includes(result.id)) continue;
+      const inputs: ExecutionPin[] = [];
+      for (const pin of result.inputs) {
+        // Historical bytes remain evidence, but never grant current access to the original.
+        await context.document(pin.document.id);
+        const stored = await context.client.query<{ document_id: string; snapshot_revision: number; snapshot_hash: string; snapshot_text: string }>(
+          `SELECT document_id,snapshot_revision,snapshot_hash,snapshot_text FROM wonffice.project_pins
+            WHERE tenant_id=$1 AND project_id=$2 AND id=$3`, [tenantId, context.project.id, pin.id]);
+        const row = stored.rows[0];
+        if (!row || row.document_id !== pin.document.id || row.snapshot_revision !== pin.revision
+          || row.snapshot_text !== pin.text || row.snapshot_hash !== hash(pin.text)) throw new ProjectError(409, 'source_conflict');
+        inputs.push({ id: pin.id, documentId: row.document_id, revision: row.snapshot_revision,
+          snapshotHash: row.snapshot_hash, snapshotText: row.snapshot_text });
+      }
+      outputs.push({ resultId: result.id, reason: 'unsupported_target', inputs });
+    }
+    return outputs;
+  }
   async get(principal: VerifiedPrincipal, tenantId: string, projectId: string, workId: string) {
     id(workId);
     return this.projects.withExecutionContext(principal, tenantId, projectId, false, async context => {
       this.work(context, workId);
       const attempt = await this.find(context, tenantId, workId);
-      return { execution: attempt ? this.view(attempt) : null };
+      return { execution: attempt ? { ...this.view(attempt),
+        pendingOutputs: await this.pendingOutputs(context, tenantId, workId, attempt.resultId) } : null };
     });
   }
   async execute(principal: VerifiedPrincipal, tenantId: string, projectId: string, workId: string, body: unknown) {
@@ -178,7 +202,7 @@ export class ProjectExecutionStore {
         projectRevision: context.project.revision, authorityEpoch: context.authorityEpoch, target: captured.comment.target,
         input: { request: captured.work.request, revision: captured.source.revision, snapshotHash: captured.source.snapshot_hash,
           snapshotText: captured.source.snapshot_text, target, inputs: captured.inputs },
-        pendingOutputs: captured.work.outputs.filter(output => output !== captured.result.id).map(resultId => ({ resultId, reason: 'unsupported_target' })) };
+        pendingOutputs: await this.pendingOutputs(context, tenantId, workId, captured.result.id) };
       await context.client.query(`INSERT INTO wonffice.project_executions
         (tenant_id,project_id,work_id,result_id,document_id,id,actor_id,claim_hash,data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [tenantId, projectId, workId, attempt.resultId, attempt.documentId, attempt.id, attempt.actorId, claim, JSON.stringify(attempt)]);
