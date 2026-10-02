@@ -18,6 +18,8 @@ afterEach(async () => {
 
 for (const iconOnly of [false, true]) it(`returns to ${iconOnly ? 'icon' : 'text'} recent documents when the recovery opener disappears after its status changes`, async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  // jsdom lacks the browser observer used when the focused icon opens its tooltip.
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   const host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
