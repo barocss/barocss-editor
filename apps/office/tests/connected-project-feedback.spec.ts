@@ -332,3 +332,83 @@ test('same-mounted repository and project ABA retires an awaited native submissi
   expect(after.b.comments).toEqual([]); expect(after.b.works).toEqual([]); expect(after.b.drafts[key]).toBe(draftB);
   expect(bodyText((await state(page, true)).native)).toEqual(bodyText(before.native));
 });
+
+// Local component ownership coverage, not an authenticated account-switch test.
+test('project home retires old pinned reads and stops refresh continuation after unmount', async ({ page }) => {
+  await openGuide(page);
+  const before = await state(page, true);
+  const entry = await (await page.request.get('/src/main.tsx')).text();
+  const react = entry.match(/"([^"\n]*\/react\.js\?[^"\n]+)"/)?.[1];
+  const client = entry.match(/"([^"\n]*\/react-dom_client\.js\?[^"\n]+)"/)?.[1];
+  expect(react).toBeTruthy(); expect(client).toBeTruthy();
+  const fixture = await page.evaluate(async ({ modules, react, client, sourceRoot }) => {
+    const React = (await import(react!)).default as typeof import('react');
+    const { createRoot } = (await import(client!)).default as typeof import('react-dom/client');
+    const { OfficeWorkspace, workspaceIdentity } = await import(modules.workspace) as typeof import('@barocss/office-workspace');
+    const { localProjectRepository } = await import(`/@fs${sourceRoot}/packages/office-workspace/src/project-local.ts`);
+    const { ProjectHome } = await import(`/@fs${sourceRoot}/packages/office-workspace/src/project-ui.tsx`);
+    const workspace = new OfficeWorkspace(workspaceIdentity()), original = (await workspace.projects())[0]!;
+    const guide = original.record.results.find(one => one.name === '고객 설치 안내')!;
+    const pin = await workspace.pin(guide.document);
+    const projectA = await workspace.saveProject({ ...original.record,
+      results: original.record.results.map(one => one.id === guide.id ? { ...one, inputs: [...one.inputs, pin] } : one)
+    }, original.revision);
+    const projectB = await workspace.createProject('다른 소유자의 프로젝트', '이전 화면의 자료를 표시하지 않는다.');
+    const repositoryA = localProjectRepository(workspace), repositoryB = localProjectRepository(workspace);
+    const mount = document.createElement('section'); mount.dataset.projectHomeFixture = 'true'; document.body.append(mount);
+    const originalReadPin = repositoryA.readPin.bind(repositoryA);
+    repositoryA.readPin = async (project: string, id: string) => {
+      const value = await originalReadPin(project, id); mount.dataset.pinPending = 'true';
+      await new Promise<void>(resolve => document.addEventListener('release-home-pin', () => resolve(), { once: true }));
+      mount.dataset.pinResolved = 'true'; return value;
+    };
+    const repositoryC = localProjectRepository(workspace);
+    const list = repositoryC.list.bind(repositoryC), documents = repositoryC.documents.bind(repositoryC), read = repositoryC.read.bind(repositoryC);
+    let documentCalls = 0, readCalls = 0;
+    mount.dataset.documentCalls = '0'; mount.dataset.readCalls = '0';
+    repositoryC.list = async () => {
+      const value = await list(); mount.dataset.listPending = 'true';
+      await new Promise<void>(resolve => document.addEventListener('release-home-list', () => resolve(), { once: true }));
+      mount.dataset.listResolved = 'true'; return value;
+    };
+    repositoryC.documents = () => { mount.dataset.documentCalls = String(++documentCalls); return documents(); };
+    repositoryC.read = (id: string) => { mount.dataset.readCalls = String(++readCalls); return read(id); };
+    const root = createRoot(mount);
+    function Harness({ owner }: { owner: 'A' | 'B' | 'C' | 'unmounted' }) {
+      React.useEffect(() => { mount.dataset.owner = owner; }, [owner]);
+      return owner === 'unmounted' ? null : React.createElement(ProjectHome, {
+        repository: owner === 'A' ? repositoryA : owner === 'B' ? repositoryB : repositoryC,
+        onOpen: async () => {}, onLibrary: () => {}
+      });
+    }
+    const render = (owner: 'A' | 'B' | 'C' | 'unmounted') => {
+      const url = new URL(location.href); url.searchParams.set('project', owner === 'B' ? projectB.record.id : projectA.record.id);
+      history.replaceState(null, '', url); root.render(React.createElement(Harness, { owner }));
+    };
+    document.addEventListener('home-fixture-owner', event => render((event as CustomEvent<'A' | 'B' | 'C' | 'unmounted'>).detail));
+    render('A'); return { pinTitle: `${pin.title} · 버전 ${pin.revision}` };
+  }, { modules, react, client, sourceRoot });
+  const mounted = page.locator('[data-project-home-fixture]');
+  await expect(mounted.getByRole('heading', { name: '고객 안내 검토', exact: true })).toBeVisible();
+  await mounted.locator('.ow-project-result summary').click();
+  await mounted.getByRole('button', { name: fixture.pinTitle, exact: true }).click();
+  await expect(mounted).toHaveAttribute('data-pin-pending', 'true');
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent('home-fixture-owner', { detail: 'B' })));
+  await expect(mounted.getByRole('heading', { name: '다른 소유자의 프로젝트', exact: true })).toBeVisible();
+  await page.evaluate(() => document.dispatchEvent(new Event('release-home-pin')));
+  await expect(mounted).toHaveAttribute('data-pin-resolved', 'true');
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  // Keep both independent failure signals when running this case against the old implementation.
+  await expect.soft(page.getByRole('dialog', { name: '사용한 원본 버전', exact: true })).toHaveCount(0);
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent('home-fixture-owner', { detail: 'C' })));
+  await expect(mounted).toHaveAttribute('data-list-pending', 'true');
+  await page.evaluate(() => document.dispatchEvent(new CustomEvent('home-fixture-owner', { detail: 'unmounted' })));
+  await expect(mounted).toHaveAttribute('data-owner', 'unmounted');
+  await expect(mounted.locator('.ow-project-home')).toHaveCount(0);
+  await page.evaluate(() => document.dispatchEvent(new Event('release-home-list')));
+  await expect(mounted).toHaveAttribute('data-list-resolved', 'true');
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await expect.soft(mounted).toHaveAttribute('data-document-calls', '0');
+  await expect.soft(mounted).toHaveAttribute('data-read-calls', '0');
+  const after = await state(page, true); expect(after.native).toEqual(before.native); expect(after.text).toBe(before.text);
+});
