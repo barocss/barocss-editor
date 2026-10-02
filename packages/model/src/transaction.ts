@@ -186,6 +186,13 @@ export function registerPreExecutionGuard(editor: Editor, guard: PreExecutionGua
   };
 }
 
+/** UI intent checks must not introduce a yield between a synchronous durable guard and commit. */
+function validateIntent(options: TransactionOptions | undefined): void {
+  const result = options?.validateIntent?.();
+  if (result !== undefined && typeof result !== 'string') throw new Error('Transaction intent check must be synchronous');
+  if (result) throw new Error(result);
+}
+
 export class TransactionManager {
   private _dataStore: DataStore;
   private _currentTransaction: Transaction | null = null;
@@ -281,6 +288,7 @@ export class TransactionManager {
     try {
       // 1. Acquire global lock
       lockId = await this._dataStore.acquireLock('transaction-execution');
+      validateIntent(options);
 
       let replaySelection: ModelSelection | null | undefined;
       if (replayDirection) {
@@ -337,6 +345,8 @@ export class TransactionManager {
           return outcome;
         }
       }
+
+      validateIntent(options);
 
       // 3. Start DataStore overlay transaction
       // A guarded transaction mutates only a detached draft. All editor,
@@ -448,6 +458,7 @@ export class TransactionManager {
         }
       }
 
+      validateIntent(options);
       if (guard) {
         // getNode reads the uncommitted overlay. Clone each returned node so a
         // host policy cannot mutate the candidate while inspecting it.
@@ -464,7 +475,8 @@ export class TransactionManager {
         });
         // A synchronous guard must commit in the same turn as its durable
         // executed-intent write, without another public read interleaving.
-        const reason = isGuardPromise(answer) ? await answer : answer;
+        const waiting = isGuardPromise(answer);
+        const reason = waiting ? await answer : answer;
         if (reason) {
           outcome = {
             success: false,
@@ -476,6 +488,7 @@ export class TransactionManager {
           };
           return outcome;
         }
+        if (waiting) validateIntent(options);
       }
 
       const atomicOperations = guard ? transactionStore.getCollectedOperations() : [];
