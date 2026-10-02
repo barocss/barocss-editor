@@ -70,11 +70,13 @@ export interface RibbonProps {
   directControls?: boolean;
   /** Render actual commands inside a caller-owned compact toolbar. */
   inline?: boolean;
+  /** Vertical secondary commands do not use the horizontal overflow navigator. */
+  panel?: boolean;
   controlIds?: readonly string[];
   fontControls?: readonly ('family' | 'size' | 'color' | 'highlight')[];
 }
 
-export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer, directControls = false, inline = false, controlIds, fontControls }: RibbonProps) {
+export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer, directControls = false, inline = false, panel = false, controlIds, fontControls }: RibbonProps) {
   /**
    * Which way to draw a chord, asked once — and asked of `office-ui`.
    *
@@ -471,5 +473,5 @@ export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captur
           </RibbonGroup>
       ))}
   </>;
-  return inline ? <div className="sl-inline-ribbon">{contents}</div> : <RibbonToolbar compact className="sl-toolbar" label="슬라이드 서식">{contents}</RibbonToolbar>;
+  return inline ? <div className="sl-inline-ribbon">{contents}</div> : <RibbonToolbar compact={!panel} className="sl-toolbar" label="슬라이드 서식">{contents}</RibbonToolbar>;
 }

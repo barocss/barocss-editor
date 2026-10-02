@@ -48,7 +48,7 @@ export function PropertyPanel({
   /** Opt-in product composition; the default title/action header stays unchanged. */
   header?: React.ReactNode;
   /** Comfortable spacing and visible field borders for a full inspector. */
-  density?: 'compact' | 'comfortable' | 'inspector';
+  density?: 'compact' | 'comfortable' | 'inspector' | 'floating';
 }) {
   return (
     <aside

@@ -62,14 +62,14 @@ export function AdaptiveWorkspace({ children, className = '', enabled = true, br
   </div></PanelContext.Provider>;
 }
 
-export function WorkspaceSidePanel({ side, width, children, className = '', ...attributes }: HTMLAttributes<HTMLDivElement> & { side: Side; width: number; children: ReactNode }) {
+export function WorkspaceSidePanel({ side, width, floating = false, children, className = '', ...attributes }: HTMLAttributes<HTMLDivElement> & { side: Side; width: number; floating?: boolean; children: ReactNode }) {
   const layout = useContext(PanelContext);
   const element = useRef<HTMLDivElement>(null);
   const open = !!layout?.compact && layout.active === side;
   useEffect(() => {
     if (open) element.current?.querySelector<HTMLElement>('button:not(:disabled),input:not(:disabled),[tabindex="0"]')?.focus({ preventScroll: true });
   }, [open]);
-  return <div {...attributes} ref={element} id={layout ? `${layout.id}-${side}` : undefined} data-workspace-panel={side}
+  return <div {...attributes} ref={element} id={attributes.id ?? (layout ? `${layout.id}-${side}` : undefined)} data-floating-panel={floating || undefined} data-workspace-panel={side}
     className={`office-workspace-side-panel ${className}`} hidden={attributes.hidden || (!!layout?.compact && !open)} style={{ ...attributes.style, width }}>
     {children}
   </div>;

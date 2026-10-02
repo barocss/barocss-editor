@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button, ChoiceSelect, Dialog, DocumentMenu, EditorHeader, Icon, IconButton,
-  SecondaryPopup, Toolbar } from '@barocss/office-ui';
+  SecondaryPopup, Toolbar, WorkspaceSidePanel, PropertyPanel, PropertyGroup, PropertyRow, NumberField } from '@barocss/office-ui';
 import './compact-slide-specimen.css';
 
 type Access = 'writer' | 'viewer' | 'busy' | 'recovery';
@@ -24,6 +24,8 @@ export function CompactSlideSpecimen({ access, onCommand }: {
   const [page, setPage] = useState(0);
   const [zoom, setZoom] = useState('100');
   const [strip, setStrip] = useState(false);
+  const [layers, setLayers] = useState(false), [details, setDetails] = useState(false);
+  const [padding, setPadding] = useState(24);
   const [presenting, setPresenting] = useState(false);
   const [items, setItems] = useState<InsertKind[][]>([[], [], []]);
   const writable = access === 'writer';
@@ -58,9 +60,10 @@ export function CompactSlideSpecimen({ access, onCommand }: {
       menus={<DocumentMenu label="슬라이드 문서 메뉴 예시" triggerLabel="문서" menus={menus} onPick={id => {
         if (id === 'slide:present') showPresentation(); else onCommand(id);
       }} />}
-      actions={<span role={access === 'recovery' ? 'alert' : 'status'} data-slide-example-status>
+      actions={<><IconButton label="레이어 패널 예시" pressed={layers} onClick={() => setLayers(value => !value)}><Icon name="outline" /></IconButton>
+        <IconButton label="속성 패널 예시" pressed={details} onClick={() => setDetails(value => !value)}><Icon name="expand" /></IconButton><span role={access === 'recovery' ? 'alert' : 'status'} data-slide-example-status>
         {access === 'busy' ? '처리 중 UI 예시' : access === 'recovery' ? '복구 필요 UI 예시' : access === 'viewer' ? '읽기 전용 UI 예시' : '서버에 저장하지 않는 UI 예시'}
-      </span>} />
+      </span></>} />
     <div className="compact-slide-stage" data-slide-example-stage>
       <div className="compact-slide-insert" data-slide-example-insert>
         <Toolbar variant="compact" surface="floating" label="슬라이드 삽입 도구 예시">
@@ -85,6 +88,12 @@ export function CompactSlideSpecimen({ access, onCommand }: {
             options={['75', '100', '125'].map(value => ({ id: value, label: `${value}%` }))} />
         </Toolbar>
       </div>
+      <WorkspaceSidePanel floating side="navigation" width={200} hidden={!layers} inert={!layers} className="compact-slide-side-panel">
+        <PropertyPanel title="레이어 예시" density="floating"><PropertyGroup label="현재 슬라이드"><Button tone="quiet" onClick={() => onCommand('slide:layer:title')}>제목</Button><Button tone="quiet" onClick={() => onCommand('slide:layer:subtitle')}>본문</Button></PropertyGroup></PropertyPanel>
+      </WorkspaceSidePanel>
+      <WorkspaceSidePanel floating side="inspector" width={240} hidden={!details} inert={!details} className="compact-slide-side-panel">
+        <PropertyPanel title="속성 예시" density="floating"><PropertyGroup label="레이아웃"><PropertyRow label="안쪽 여백"><NumberField ariaLabel="안쪽 여백 예시" value={padding} onCommit={setPadding} disabled={!writable} min={0} max={64} suffix="px" /></PropertyRow></PropertyGroup></PropertyPanel>
+      </WorkspaceSidePanel>
       <div className="compact-slide-page-position">
         <article className="compact-slide-page" data-slide-example-page style={{ transform: `scale(${Number(zoom) / 100})` }} aria-label={`${page + 1}번 슬라이드 예시`}>
           <span className="compact-slide-page-kicker">LOCAL UI SAMPLE</span>

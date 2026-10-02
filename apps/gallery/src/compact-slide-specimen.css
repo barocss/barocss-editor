@@ -35,3 +35,7 @@
 .compact-slide-presentation-page { padding:20px; min-height:180px; margin-bottom:16px; border:1px solid var(--ou-line); border-radius:8px; background:var(--ou-ground); }
 .compact-slide-presentation-page h3 { margin:0 0 12px; font-size:24px; }
 .compact-slide-presentation-page p { font-size:13px; color:var(--ou-muted); }
+
+.compact-slide-side-panel[data-floating-panel] { top:72px; bottom:74px; }
+
+.compact-slide-utilities { z-index:var(--ou-z-popover); }

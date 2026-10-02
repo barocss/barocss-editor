@@ -97,6 +97,28 @@ afterEach(async () => {
 });
 
 describe('context controls belong to one editor selection', () => {
+  it('retains a range in its separate inspector but retires it on a native target change', async () => {
+    const body = bodies[0], inspector = document.createElement('aside'), field = document.createElement('input');
+    inspector.append(field); document.body.append(inspector);
+    const close = vi.fn();
+    await act(async () => root.render(createElement(ContextToolbar, {
+      editor: body.session.editor, controls, label: 'related-inspector', scope: { current: body.scope },
+      relatedChrome: { current: inspector }, onRelatedChromeEscape: close
+    })));
+    await select(body, 1, 5);
+    const before = documentState(body);
+    await act(async () => { field.focus(); document.getSelection()!.removeAllRanges(); });
+    expect(toolbar('related-inspector')).not.toBeNull();
+    await act(async () => field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(close).toHaveBeenCalledOnce();
+    expect(toolbar('related-inspector')).not.toBeNull();
+    expect(documentState(body)).toEqual(before);
+    await act(async () => body.session.editor.updateSelection({ type: 'range', startNodeId: body.sid, endNodeId: body.sid,
+      startOffset: 6, endOffset: 9, collapsed: false }));
+    expect(toolbar('related-inspector')).toBeNull();
+    expect(documentState(body)).toEqual(before);
+  });
+
   it.each(['caret', 'null'] as const)('retires surviving DOM text tools when the actual model becomes %s', async target => {
     const body = bodies[0];
     await act(async () => root.render(createElement(ContextToolbar, {

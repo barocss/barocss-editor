@@ -51,7 +51,7 @@ import { SLIDES_KEYS, keyLabel, matchesKey } from './keymap';
 // A menu or floating control owns its keys before the canvas mode does.
 function chromeOwnsKey(event: KeyboardEvent) {
   return event.defaultPrevented || (event.target instanceof Element && Boolean(event.target.closest(
-    '[data-slides-more-owner], [data-slides-detail], [data-floating-surface], [data-slide-navigation], [role="menu"], [role="listbox"]'
+    '[data-slides-more-owner], [data-slides-detail], [data-floating-surface], [data-floating-panel], [data-slide-navigation], [role="menu"], [role="listbox"]'
   )));
 }
 import { boxAt, fromSurface, isContainerType, isSceneType, slideAt } from './selection';

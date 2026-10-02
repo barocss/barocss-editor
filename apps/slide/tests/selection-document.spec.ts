@@ -128,6 +128,8 @@ async function captureBothThemes(page: Page, info: TestInfo, name: string) {
 
 async function independentObjects(page: Page) {
   await openFilmstrip(page); await page.locator('.sl-filmstrip button').nth(2).click();
+  // Fold the overlay tray before selecting the objects beneath it.
+  await page.getByRole('button', { name: '슬라이드 탐색 접기', exact: true }).click();
   const ids = await page.evaluate(() => {
     const editor = (window as any).editor, nodes: any[] = [];
     const walk = (sid: string) => { const node = editor.dataStore.getNode(sid); nodes.push(node); for (const child of node.content ?? []) walk(child); };
@@ -159,9 +161,9 @@ test('single and multiple object tools arrange the owned targets, retain native 
   const before = await native(page);
   const original = await page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes), ids);
   await captureBothThemes(page, info, 'multi-object');
-  const moreTrigger = tools(page).getByRole('button', { name: '추가 Slides 도구', exact: true });
+  const moreTrigger = tools(page).getByRole('button', { name: '선택 속성 열기', exact: true });
   await moreTrigger.click();
-  const morePanel = page.locator('[data-secondary-popup]:visible').filter({ has: page.locator('.sl-toolbar') });
+  const morePanel = page.locator('#slides-details');
   await morePanel.getByRole('button', { name: '왼쪽 정렬', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
   expect(await native(page)).toEqual(before);
@@ -172,7 +174,7 @@ test('single and multiple object tools arrange the owned targets, retain native 
   expect(await native(page)).toEqual(before);
   await page.keyboard.press('Escape'); await expect(morePanel).toBeHidden(); await expect(moreTrigger).toBeFocused();
   expect(await native(page)).toEqual(before);
-  await tools(page).getByRole('button', { name: '추가 Slides 도구', exact: true }).click();
+  await tools(page).getByRole('button', { name: '선택 속성 열기', exact: true }).click();
   await page.getByRole('button', { name: '왼쪽 정렬', exact: true }).click();
   await expect.poll(() => page.evaluate(targets => targets.map(id => (window as any).editor.dataStore.getNode(id).attributes.x), ids)).toEqual([1500, 1500]);
   await page.keyboard.press('Meta+z');
@@ -318,8 +320,8 @@ test('owned text tools format characters, colour, paragraphs and lists and compl
  await tools(page).getByRole('button',{name:'굵게',exact:true}).click();await expect(page.locator('.sl-stage .mark-bold')).toContainText('One eng');
  await tools(page).locator('[data-control="font-color"]:visible').click();await page.locator('[data-palette="font-color"] [data-swatch="C00000"]').click();
  await expect.poll(()=>page.locator('.sl-stage .mark-fontColor').evaluateAll(nodes=>nodes.some(node=>node.textContent==='One eng'&&getComputedStyle(node).color==='rgb(192, 0, 0)'))).toBe(true);
- await tools(page).getByRole('button',{name:'추가 Slides 도구',exact:true}).click(); await page.getByRole('button',{name:'오른쪽 맞춤',exact:true}).click();await expect(page.locator('.sl-stage .w-paragraph').filter({hasText:'One engine'}).first()).toHaveCSS('text-align','right');
- await tools(page).getByRole('button',{name:'추가 Slides 도구',exact:true}).click(); await page.getByRole('button',{name:'글머리 기호',exact:true}).click();await expect(page.locator('.sl-stage .w-list-item').filter({hasText:'One engine'})).toBeVisible();
+ await tools(page).getByRole('button',{name:'선택 속성 열기',exact:true}).click(); await page.getByRole('button',{name:'오른쪽 맞춤',exact:true}).click();await expect(page.locator('.sl-stage .w-paragraph').filter({hasText:'One engine'}).first()).toHaveCSS('text-align','right');
+ await tools(page).getByRole('button',{name:'선택 속성 열기',exact:true}).click(); await page.getByRole('button',{name:'글머리 기호',exact:true}).click();await expect(page.locator('.sl-stage .w-list-item').filter({hasText:'One engine'})).toBeVisible();
  const formatted=JSON.parse((await native(page)).document);const candidates:INode[]=[];const collect=(node:INode)=>{if(node.stype==='list')candidates.push(node);for(const child of node.content??[])if(typeof child!=='string')collect(child);};collect(formatted);
  const ownedList=candidates.find(node=>JSON.stringify(node).includes('One engine'));expect(ownedList?.attributes?.type).toBe('bullet');expect((ownedList?.content![0] as INode).stype).toBe('listItem');expect(JSON.stringify(ownedList)).toContain('One engine, two products');
  const textNodes:INode[]=[];const words=(node:INode)=>{if(node.stype==='inline-text'&&node.text?.startsWith('One engine'))textNodes.push(node);for(const child of node.content??[])if(typeof child!=='string')words(child);};words(ownedList!);expect(textNodes).toHaveLength(1);expect(textNodes[0].marks).toEqual(expect.arrayContaining([{stype:'bold',range:[0,7]},{stype:'fontColor',attrs:{color:'C00000'},range:[0,7]}]));

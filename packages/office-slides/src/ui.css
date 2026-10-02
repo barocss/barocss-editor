@@ -2650,3 +2650,23 @@
 .sl-properties-header .sl-unit { flex-shrink: 0; }
 
 .sl-properties-body { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* Secondary commands read vertically in the floating inspector. */
+.sl-inspector-commands .office-ribbon-toolbar, .sl-insert-more .office-ribbon-toolbar { display:flex; flex-direction:column; align-items:stretch; gap:8px; height:auto; padding:0; border:0; background:transparent; overflow:visible; }
+.sl-inspector-commands .office-ribbon-group, .sl-insert-more .office-ribbon-group { width:100%; padding:0; border:0; }
+.sl-inspector-commands .office-ribbon-group-footer, .sl-insert-more .office-ribbon-group-footer { order:-1; justify-content:flex-start; min-height:20px; margin:0 0 4px; font-size:11px; }
+.sl-inspector-commands .office-ribbon-group-body, .sl-insert-more .office-ribbon-group-body { min-height:0; flex-wrap:wrap; justify-content:flex-start; }
+.sl-inspector-commands .office-ribbon-group[data-layout='columns'] > .office-ribbon-group-body { display:flex; flex-wrap:wrap; }
+.sl-inspector-commands .office-ribbon-group[data-layout='stack'] > .office-ribbon-group-body { align-items:stretch; }
+.sl-inspector-tools:not(:empty) { padding:12px; border-bottom:1px solid var(--ou-line); --ou-control-h:32px; }
+.sl-inspector-tools[hidden] { display:none; }
+.sl-inspector-commands .sl-font-row { display:flex; height:auto; }
+.sl-insert-more { width:280px; max-width:calc(100vw - 32px); }
+.sl-insert-more .office-toolbar { width:100%; }
+.sl-insert-more .office-ribbon-group-body { gap:4px; }
+.sl-insert-more .office-ribbon-group-footer { display:none; }
+.sl-properties-header.office-panel-header { min-height:44px; padding:6px 8px; gap:6px; border-bottom:1px solid var(--ou-line); }
+.sl-properties-header .office-ribbon-tabs[data-variant='panel'] > button { height:32px; flex:1; }
+.sl-properties-header .sl-unit { width:64px; height:32px; }
+.sl-workspace-navigation .sl-sidebar { flex:1; width:100%; border:0; }
+.sl-workspace-navigation .sl-sidebar-context { min-height:36px; padding:6px 12px; }

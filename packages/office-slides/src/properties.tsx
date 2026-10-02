@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState, type Ref } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
@@ -163,6 +163,7 @@ const SLOT_NAMES: Record<string, string> = {
 
 /** What the properties panel is told. */
 export interface PropertiesProps {
+  inspectorToolsRef?: Ref<HTMLDivElement>;
   editor: Editor | null;
   /** Viewing preferences and tabs remain available; document controls are disabled. */
   readOnly?: boolean;
@@ -201,6 +202,7 @@ export interface PropertiesProps {
 }
 
 export function Properties({
+  inspectorToolsRef,
   editor,
   readOnly = false,
   slides,
@@ -744,7 +746,7 @@ export function Properties({
     <PropertyPanel
       title="속성"
       className="sl-properties"
-      density="inspector"
+      density="floating"
       header={<div className="sl-properties-header office-panel-header">
         <fieldset className="sl-properties-tab-controls" disabled={commands.busy}>
           <PropertyTabs panelId={tabPanelId}
@@ -779,6 +781,7 @@ export function Properties({
         * the selected box does in it.
         */}
       <fieldset className="sl-properties-body" disabled={readOnly} inert={readOnly}>
+      <div ref={inspectorToolsRef} className="sl-inspector-tools" data-slides-inspector-tools hidden={tab !== 'style'} />
       {commands.busy && <StatusIndicator busy>속성을 적용하고 있습니다.</StatusIndicator>}
       {commands.failed && <StatusNotice tone="danger" title="속성을 적용하지 못했습니다"
         actions={<Button disabled={commands.busy} onClick={commands.retry}>다시 시도</Button>}>
