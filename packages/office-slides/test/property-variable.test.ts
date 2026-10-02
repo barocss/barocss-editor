@@ -18,6 +18,12 @@ const render = async (readOnly = false) => {
   await act(async () => root.render(createElement(Properties, { editor, slides, current: slideId, unit: 'px', onUnit() {}, readOnly })));
 };
 const button = (label: string) => host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+/** Fixture shape attributes must exist; missing nodes must not satisfy an absent-binding assertion. */
+const attributes = (sid: string) => {
+  const node = editor.dataStore.getNode(sid);
+  if (!node?.attributes) throw new Error(`Missing fixture attributes: ${sid}`);
+  return node.attributes;
+};
 const pick = async (label: string, name: string) => {
   await act(async () => button(`${label} 변수 연결`).click());
   const option = [...host.querySelectorAll<HTMLButtonElement>('.sl-variable-options button')].find(one => one.textContent?.startsWith(name))!;
@@ -43,19 +49,19 @@ it('attaches, switches and detaches beside width; native undo and redo retain ex
   expect(host.textContent).not.toContain('문서 변수 연결');
   expect(button('너비 변수 연결').parentElement?.querySelector('input[aria-label="너비"]')).not.toBeNull();
   await pick('너비', '폭');
-  expect(editor.dataStore.getNode(box)!.attributes.varBinds).toContainEqual({ attr: 'width', var: '폭' });
+  expect(attributes(box).varBinds).toContainEqual({ attr: 'width', var: '폭' });
   expect(button('너비 변수 폭').textContent).toContain('200 px');
   expect(host.querySelector('input[aria-label="너비"]')?.matches(':disabled')).toBe(true);
   expect(button('너비 변수 연결').matches(':disabled')).toBe(false);
   await pick('너비', '다른 폭');
-  expect(editor.dataStore.getNode(box)!.attributes.varBinds).toContainEqual({ attr: 'width', var: '다른 폭' });
+  expect(attributes(box).varBinds).toContainEqual({ attr: 'width', var: '다른 폭' });
   await pick('너비', '연결 해제');
-  expect(editor.dataStore.getNode(box)!.attributes.varBinds).toBeUndefined();
+  expect(attributes(box).varBinds).toBeUndefined();
   expect(host.querySelector('input[aria-label="너비"]')).not.toBeNull();
   await act(async () => { await run('undo'); });
-  expect(editor.dataStore.getNode(box)!.attributes.varBinds).toContainEqual({ attr: 'width', var: '다른 폭' });
+  expect(attributes(box).varBinds).toContainEqual({ attr: 'width', var: '다른 폭' });
   await act(async () => { await run('redo'); });
-  expect(editor.dataStore.getNode(box)!.attributes.varBinds).toBeUndefined();
+  expect(attributes(box).varBinds).toBeUndefined();
 });
 
 it('shows mixed binding rather than the first shape name and replaces both from one picker', async () => {
@@ -63,7 +69,7 @@ it('shows mixed binding rather than the first shape name and replaces both from 
   editor.setNode({ nodeIds: [box, second] }); await render();
   expect(button('너비 변수 서로 다름').textContent).toContain('서로 다름');
   await pick('너비', '다른 폭');
-  for (const sid of [box, second]) expect(editor.dataStore.getNode(sid)!.attributes.varBinds).toContainEqual({ attr: 'width', var: '다른 폭' });
+  for (const sid of [box, second]) expect(attributes(sid).varBinds).toContainEqual({ attr: 'width', var: '다른 폭' });
 });
 
 it('resolves and offers the slide-local shadow once, and excludes incompatible local kinds', async () => {
@@ -81,8 +87,8 @@ it('retires an open picker after a selection change and blocks read-only or lock
   await act(async () => { editor.setNode({ nodeId: second }); stale.click(); });
   expect(host.querySelector('[role="dialog"]')).toBeNull();
   await act(async () => stale.click());
-  expect(editor.dataStore.getNode(box)!.attributes.varBinds).toBeUndefined();
-  expect(editor.dataStore.getNode(second)!.attributes.varBinds).toBeUndefined();
+  expect(attributes(box).varBinds).toBeUndefined();
+  expect(attributes(second).varBinds).toBeUndefined();
   await render(true); expect(button('너비 변수 연결').matches(':disabled')).toBe(true);
   await render(); await act(async () => { await run('setBoxLocked', { nodeIds: [second], locked: true }); });
   expect(button('너비 변수 연결').matches(':disabled')).toBe(true);
@@ -121,7 +127,7 @@ it('refuses a connected old picker after same-root replacement restores the exac
     stale.click();
   });
   expect(JSON.stringify(editor.exportDocument())).toBe(before);
-  expect(editor.dataStore.getNode(box)!.attributes.varBinds).toBeUndefined();
+  expect(attributes(box).varBinds).toBeUndefined();
 });
 
 it('closes search on Escape without replacing a pending field value or native data', async () => {
@@ -165,7 +171,7 @@ it('keeps component text binding on the definition and leaves the part and docum
   expect(JSON.stringify(doc.getNode(part))).toBe(beforePart);
   await pick('텍스트 내용', '이름');
   expect(componentsOf(doc)[0].binds).toContainEqual({ part: 'title', attr: 'text', var: 'title' });
-  expect(doc.getNode(part)!.attributes.varBinds).toBeUndefined();
+  expect(attributes(part).varBinds).toBeUndefined();
 });
 
 it('binding a numeric field preserves exact paint-list color references', async () => {
@@ -175,7 +181,7 @@ it('binding a numeric field preserves exact paint-list color references', async 
   expect(button('채우기 값 변수 연결')).toBeNull();
   expect(button('1번 채우기')).not.toBeNull();
   await pick('너비', '폭');
-  expect(editor.dataStore.getNode(box)!.attributes.fills).toEqual(paints);
+  expect(attributes(box).fills).toEqual(paints);
   await pick('너비', '연결 해제');
-  expect(editor.dataStore.getNode(box)!.attributes.fills).toEqual(paints);
+  expect(attributes(box).fills).toEqual(paints);
 });
