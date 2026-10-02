@@ -217,7 +217,7 @@ test.describe('the rulers along a slide', () => {
   test('are marked in millimetres when the panel is', async ({ page }) => {
     await openDeck(page);
     await pickMenu(page, 'view.panes.3');
-    await page.getByRole('button', { name: '자세한 속성', exact: true }).click();
+    await page.getByRole('button', { name: '속성', exact: true }).click();
     await expect(page.locator('.sl-properties')).toBeVisible();
     await page.locator('.sl-properties').getByLabel('단위').selectOption('mm');
 

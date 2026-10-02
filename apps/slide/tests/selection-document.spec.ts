@@ -74,8 +74,8 @@ for (const theme of ['light', 'dark']) test(`continuous ${theme} deck has reacha
   const initialPath = info.outputPath('native-before.slides.json'); await initialDownload.saveAs(initialPath);
   const initialPortable = JSON.parse(readFileSync(initialPath, 'utf8'));
 
-  const full = page.locator('.sl-topbar').getByRole('button', { name: '전체 도구', exact: true });
-  const detail = page.locator('.sl-topbar').getByRole('button', { name: '자세한 속성', exact: true });
+  const full = page.locator('.sl-topbar').getByRole('button', { name: '편집 도구', exact: true });
+  const detail = page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true });
   await expect(full).toHaveAttribute('aria-expanded', 'false');
   await expect(detail).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('complementary', { name: '속성', exact: true })).toBeHidden();
@@ -217,10 +217,10 @@ test('on-demand navigation, units and timeline retain target and native content'
   const { ids, boxes } = await independentObjects(page);
   await page.mouse.click(boxes[0].x, boxes[0].y);
   const before = await native(page), active = await currentSlide(page);
-  await page.locator('.sl-topbar').getByRole('button', { name: '자세한 속성', exact: true }).click();
+  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
   const left = page.getByRole('complementary', { name: '슬라이드 탐색', exact: true });
   const tabs = left.getByRole('tablist', { name: '탐색 방식' });
-  await page.getByRole('button', { name: '레이어 및 컴포넌트', exact: true }).click();
+  await page.getByRole('button', { name: '레이어', exact: true }).click();
   await tabs.getByRole('tab', { name: '레이어', exact: true }).focus();
   await page.keyboard.press('ArrowRight'); await expect(tabs.getByRole('tab', { name: '컴포넌트', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Home'); await expect(tabs.getByRole('tab', { name: '레이어', exact: true })).toHaveAttribute('aria-selected', 'true');

@@ -1,6 +1,6 @@
 /* Pure gallery layout. Actual products own models, authority and persistence. */
 .compact-slide-specimen { border:1px solid var(--ou-line); border-radius:14px; background:var(--ou-ground); color:var(--ou-ink); }
-.compact-slide-stage { position:relative; height:520px; overflow:hidden; background:var(--ou-ground); border-top:1px solid var(--ou-line); }
+.compact-slide-stage { position:relative; height:520px; overflow:hidden; background:var(--ou-studio); border-top:1px solid var(--ou-line); }
 .compact-slide-insert,.compact-slide-utilities { position:absolute; top:14px; z-index:2; width:max-content; max-width:480px; }
 .compact-slide-insert { left:14px; }
 .compact-slide-utilities { right:14px; }
