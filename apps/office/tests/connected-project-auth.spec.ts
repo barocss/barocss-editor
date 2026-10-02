@@ -57,13 +57,34 @@ async function login(page: Page, alias: 'alpha-editor' | 'beta-viewer', url = or
   await expect(page.locator('.ow-project-home')).toBeVisible();
 }
 function track(page: Page) {
-  const state = { bearer: '', projectWrites: [] as Array<Record<string, unknown>> };
+  const started = Date.now();
+  const state = { bearer: '', phase: 'entry', projectWrites: [] as Array<Record<string, unknown>>, timeline: [] as Array<Record<string, unknown>> };
   page.on('request', request => {
     if (request.headers().authorization) state.bearer = request.headers().authorization;
-    if (request.method() === 'PATCH' && /\/projects\/[0-9a-f-]+$/.test(new URL(request.url()).pathname)) state.projectWrites.push(request.postDataJSON());
+    const path = new URL(request.url()).pathname;
+    if (request.method() === 'PATCH' && /\/projects\/[0-9a-f-]+$/.test(path)) state.projectWrites.push(request.postDataJSON());
+    if (!path.startsWith('/api/v1/')) return;
+    const body = ['POST', 'PUT', 'PATCH'].includes(request.method()) ? request.postDataJSON() as Record<string, unknown> | null : null;
+    const action = body?.action as { type?: string } | undefined;
+    state.timeline.push({ atMs: Date.now() - started, kind: 'request', phase: state.phase, method: request.method(), path,
+      ...(action?.type ? { action: action.type } : {}), ...(typeof body?.expectedRevision === 'number' ? { expectedRevision: body.expectedRevision } : {}),
+      ...(typeof body?.snapshotText === 'string' ? { snapshotHash: hash(body.snapshotText), snapshotBytes: Buffer.byteLength(body.snapshotText) } : {}) });
+  });
+  page.on('response', response => {
+    const path = new URL(response.url()).pathname;
+    if (path.startsWith('/api/v1/')) state.timeline.push({ atMs: Date.now() - started, kind: 'response', phase: state.phase,
+      method: response.request().method(), path, status: response.status() });
   });
   return state;
 }
+async function notePhase(page: Page, state: ReturnType<typeof track>, phase: string) {
+  state.phase = phase;
+  const selected = await page.evaluate(() => getSelection()?.toString() ?? '');
+  state.timeline.push({ kind: 'ui', phase, saveStatus: await page.locator('[data-save-status]').allTextContents(),
+    selectionLength: selected.length, selectionHash: hash(selected),
+    nativeEditable: await paragraph(page).count() ? await paragraph(page).evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable')) : null });
+}
+
 async function seedNative(page: Page, product: 'word' | 'slides', title: string) {
   const document = product === 'word' ? createSampleDocument() : createSampleDeck();
   const meta = document.content?.find((node): node is INode => typeof node !== 'string' && node.stype === 'docMeta');
@@ -116,6 +137,7 @@ async function linkResult(page: Page, name: string) {
 }
 async function selectGuide(page: Page) {
   const p = paragraph(page); await expect(p).toBeVisible();
+  await expect.poll(() => p.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
   await p.scrollIntoViewIfNeeded(); const bounds = await p.boundingBox(); expect(bounds).not.toBeNull();
   await p.click({ position: { x: 8, y: Math.min(10, bounds!.height / 2) } }); await page.keyboard.press('Home');
   await page.keyboard.down('Shift'); for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight'); await page.keyboard.up('Shift');
@@ -148,12 +170,13 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
   const profileA = mkdtempSync(join(directory, 'project-editor-')), profileB = mkdtempSync(join(directory, 'project-viewer-'));
   let a: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined, b: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined;
   let passed = false, roleChanged = false;
+  let diagnosticTrack: ReturnType<typeof track> | undefined;
   writeFileSync(evidenceFile, JSON.stringify({ status: 'incomplete' }), { mode: 0o600 });
   const evidence: Record<string, unknown> = {};
   try {
     const status = await privateControl<RealStatus>({ action: 'status' });
     const tenantRoot = `${origin}/api/v1/tenants/${status.tenantId}`;
-    a = await launchPrivateProfile(profileA); const page = await a.context.newPage(), requests = track(page);
+    a = await launchPrivateProfile(profileA); const page = await a.context.newPage(), requests = track(page); diagnosticTrack = requests;
     await login(page, 'alpha-editor');
     await expect(page.getByRole('heading', { name: '프로젝트', exact: true })).toBeVisible();
     await page.getByRole('button', { name: '프로젝트 만들기', exact: true }).click();
@@ -185,10 +208,16 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     let current = await readProject(); expect(current.project.record.results).toHaveLength(2);
     expect(current.project.record.results.map(result => result.document.id).sort()).toEqual([guide.id, training.id].sort());
     const initialGuide = await readDocument(guide.id, 'word'), initialTraining = await readDocument(training.id, 'slides');
-    await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible();
+    requests.phase = 'open-guide'; await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible();
+    await notePhase(page, requests, 'before-direct-edit');
     await page.getByRole('button', { name: '직접 편집', exact: true }).click();
-    await selectGuide(page); await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
-    await expect(feedback(page)).toBeVisible(); const input = feedback(page).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
+    await expect.poll(() => paragraph(page).evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
+    await expect(page.getByRole('button', { name: '읽기', exact: true })).toBeVisible();
+    await notePhase(page, requests, 'direct-edit-ready');
+    await selectGuide(page); requests.phase = 'native-quote-selected';
+    requests.timeline.push({ kind: 'ui', phase: requests.phase, selectionLength: 4, selectionHash: hash('This') });
+    await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await expect(feedback(page)).toBeVisible(); await notePhase(page, requests, 'opinion-opened'); const input = feedback(page).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
     await input.fill('초안 보관'); await input.dispatchEvent('compositionstart');
     await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, bubbles: true });
     await input.dispatchEvent('keydown', { key: 'Escape', code: 'Escape', isComposing: true, bubbles: true });
@@ -206,9 +235,11 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
         expectedRevision: canonical.project.revision, idempotencyKey: randomUUID(), action: { type: 'metadata', goal: '서버에서 먼저 저장한 프로젝트 목표를 유지한다.' } } });
       expect(concurrent.status()).toBe(200); await route.abort('failed');
     });
+    await notePhase(page, requests, 'first-comment-submit');
     await feedback(page).getByRole('button', { name: '댓글만 남기기', exact: true }).click();
     await expect(feedback(page).getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible(); await expect(input).toHaveValue(opinion);
     expect(dropped).toBe(true); current = await readProject(); expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
+    await notePhase(page, requests, 'same-comment-retry');
     await feedback(page).getByRole('button', { name: '댓글만 남기기', exact: true }).click();
     await expect(page.getByRole('button', { name: '의견 1', exact: true })).toBeVisible();
     current = await readProject(); expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
@@ -286,7 +317,8 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     const failedPage = a?.context.pages().at(-1);
     if (failedPage && new URL(failedPage.url()).origin === origin) {
       const url = new URL(failedPage.url());
-      const diagnostic = { path: url.pathname, queryKeys: Array.from(url.searchParams.keys()), headings: await failedPage.getByRole('heading').allTextContents() };
+      if (diagnosticTrack) await notePhase(failedPage, diagnosticTrack, 'failed');
+      const diagnostic = { path: url.pathname, queryKeys: Array.from(url.searchParams.keys()), headings: await failedPage.getByRole('heading').allTextContents(), timeline: diagnosticTrack?.timeline };
       writeFileSync(join(directory, 'failure-ui.json'), JSON.stringify(diagnostic), { mode: 0o600 });
       await failedPage.screenshot({ path: test.info().outputPath('failure-project-ui.png') });
     }
@@ -295,6 +327,6 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     if (roleChanged) { await privateControl({ action: 'beta-active', active: true }); await privateControl({ action: 'beta-role', role: 'viewer' }); }
     if (a) await stopPrivateProfile(a.context, a.pid); if (b) await stopPrivateProfile(b.context, b.pid);
     rmSync(profileA, { recursive: true, force: true }); rmSync(profileB, { recursive: true, force: true });
-    writeFileSync(evidenceFile, JSON.stringify({ status: passed ? 'passed' : 'incomplete', cleanup: true, ...evidence }), { mode: 0o600 });
+    writeFileSync(evidenceFile, JSON.stringify({ status: passed ? 'passed' : 'incomplete', cleanup: true, timeline: diagnosticTrack?.timeline, ...evidence }), { mode: 0o600 });
   }
 });
