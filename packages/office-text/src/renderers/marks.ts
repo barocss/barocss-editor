@@ -10,6 +10,27 @@ import type { RenderEnv } from '@barocss/dsl';
 import { getWordStyles } from '../text-context';
 import { authorColor, revisionTitle } from '../revisions';
 import { markAttributes, markCss, VALUED_MARKS } from '../mark-format';
+import type { StyleResolver } from '../style-resolver';
+import type { CssStyle } from '../css';
+
+/** A decoration uses its own font metrics, even when a nested mark changes the glyph size. */
+function decorationFont(props: Record<string, unknown>, styles: StyleResolver | undefined): CssStyle {
+  const model = props.model as { marks?: { stype: string; range?: [number, number]; attrs?: Record<string, unknown>; attributes?: Record<string, unknown> }[] } | undefined;
+  const run = props.run as { start?: number; end?: number } | undefined;
+  if (!Array.isArray(model?.marks) || typeof run?.start !== 'number' || typeof run.end !== 'number') return {};
+  const { start, end } = run;
+  const font: CssStyle = {};
+  for (const type of ['fontFamily', 'fontSize']) {
+    const mark = model.marks.find(mark => mark.stype === type && (!mark.range || Math.max(0, mark.range[0]) < end && Math.max(0, mark.range[1]) > start));
+    if (!mark) continue;
+    const css = markCss(type, mark.attributes ?? mark.attrs, styles);
+    if (type === 'fontFamily' && css.fontFamily) font.fontFamily = css.fontFamily;
+    // Copy absolute sizes only. Repeating em/% on an outer wrapper would
+    // multiply the nested relative size rather than preserve the rendered run.
+    if (type === 'fontSize' && typeof css.fontSize === 'string' && /^(?:\d+\.?\d*|\.\d+)(?:px|pt|pc|in|cm|mm|q)$/i.test(css.fontSize)) font.fontSize = css.fontSize;
+  }
+  return font;
+}
 
 /**
  * How a tracked change is drawn.
@@ -144,7 +165,10 @@ export function registerValuedMarks(): void {
         {
           className: `mark-${type}`,
           ...markAttributes(type, attrs),
-          style: markCss(type, attrs, styles)
+          style: {
+            ...markCss(type, attrs, styles),
+            ...(type === 'underline' || type === 'strikethrough' ? decorationFont(props, styles) : {})
+          }
         },
         [data('text')]
       );
