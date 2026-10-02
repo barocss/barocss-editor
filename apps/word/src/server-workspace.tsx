@@ -161,7 +161,9 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     runtime.current = { generation, value, off: () => value.editor.off('editor:content.change', changed) };
   }, [client, capture]);
   useEffect(() => {
-    runtime.current?.value.editor.setEditable(canEdit && !busy && !(draft.current?.source && draft.current.status !== 'confirmed'));
+    const editor = runtime.current?.value.editor;
+    const editable = canEdit && !busy && !(draft.current?.source && draft.current.status !== 'confirmed');
+    if (editor && editor.isEditable !== editable) editor.setEditable(editable);
   }, [canEdit, busy, current?.generation, records]);
   useEffect(() => {
     const observer = new MutationObserver(() => {

@@ -47,11 +47,14 @@ function transport() {
     mode: 'snapshot', pageId: null, documentKey: 'word-review', fileFormat: WORD_FORMAT, fileVersion: WORD_FILE_VERSION,
     revision: 1, snapshotHash: digest(text) };
   let denied = false, puts = 0;
+  let nextWrite: { enter(): void; gate: Promise<void> } | undefined;
   const authorizedFetch = vi.fn<typeof fetch>(async (input, init) => {
     const url = String(input);
     if (denied) return Response.json({ status: 'forbidden' }, { status: 403 });
     if (url.includes('/receipts/')) return Response.json({ status: 'not_found' }, { status: 404 });
     if (init?.method === 'PUT') {
+      const pending = nextWrite; nextWrite = undefined;
+      if (pending) { pending.enter(); await pending.gate; }
       const body = JSON.parse(String(init.body)) as { expectedRevision: number; snapshotText: string; idempotencyKey: string };
       expect(body.expectedRevision).toBe(head.revision); puts += 1; text = body.snapshotText;
       head = { ...head, revision: head.revision + 1, snapshotHash: digest(text) };
@@ -61,7 +64,14 @@ function transport() {
     if (url.includes('/documents?')) return Response.json({ documents: [head], nextCursor: null });
     return Response.json({ document: head, snapshotText: text });
   });
-  return { authorizedFetch, deny: () => { denied = true; }, text: () => text, puts: () => puts };
+  return { authorizedFetch, deny: () => { denied = true; }, text: () => text, puts: () => puts,
+    holdNextWrite() {
+      let enter!: () => void, release!: () => void;
+      const entered = new Promise<void>(resolve => { enter = resolve; });
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      nextWrite = { enter, gate }; return { entered, release };
+    }
+  };
 }
 async function fixture(role: ServerWordWorkspaceProps['role'] = 'editor') {
   const remote = transport();
@@ -120,4 +130,53 @@ it('refuses a host from the previous authenticated account', async () => {
   await act(async () => { root!.render(<ServerWordWorkspace {...props} subject="other-account" role="viewer" />); });
   await act(async () => { await vi.waitFor(() => expect(productDocumentHost()).not.toBe(previous)); });
   expect(previous.id()).toBe(''); expect(await previous.beforeNavigate()).toBe(false);
+});
+
+it('keeps edit authority unchanged while native input updates recovery records and confirmed navigation repeats', async () => {
+  const { remote, props, runtime } = await fixture();
+  const changes: boolean[] = [];
+  runtime.editor.on('editor:editable.change', () => changes.push(runtime.editor.isEditable));
+  await act(async () => { expect(await prepareProductNavigation()).toBe(true); });
+  expect(remote.puts()).toBe(0); expect(changes).toEqual([]);
+  await act(async () => { expect(await runtime.editor.run('insertText', { text: '복구 기록을 갱신하는 입력' })).toBe(true); });
+  expect(Object.values(localStorage).some(value => value.includes('복구 기록을 갱신하는 입력'))).toBe(true);
+  expect(runtime.editor.isEditable).toBe(true); expect(changes).toEqual([]);
+  await act(async () => { root!.render(<ServerWordWorkspace {...props} role="admin" />); });
+  expect(bridge.runtime).toBe(runtime); expect(changes).toEqual([]);
+});
+it('still changes authority when the live role is revoked and restored', async () => {
+  const { props, runtime } = await fixture();
+  const native = runtime.exportNativeDocument(), changes: boolean[] = [];
+  runtime.editor.on('editor:editable.change', () => changes.push(runtime.editor.isEditable));
+  await act(async () => { root!.render(<ServerWordWorkspace {...props} role="viewer" />); });
+  expect(bridge.runtime).toBe(runtime); expect(runtime.editor.isEditable).toBe(false); expect(changes).toEqual([false]);
+  expect(runtime.view.contentEditableElement.contentEditable).toBe('false');
+  expect(runtime.view.contentEditableElement.dispatchEvent(new InputEvent('beforeinput', {
+    bubbles: true, cancelable: true, inputType: 'insertText', data: '권한 없는 입력'
+  }))).toBe(false);
+  expect(runtime.exportNativeDocument()).toEqual(native);
+  await act(async () => { root!.render(<ServerWordWorkspace {...props} role="viewer" />); });
+  expect(changes).toEqual([false]);
+  await act(async () => { root!.render(<ServerWordWorkspace {...props} role="editor" />); });
+  expect(bridge.runtime).toBe(runtime); expect(runtime.editor.isEditable).toBe(true); expect(changes).toEqual([false, true]);
+  expect(runtime.exportNativeDocument()).toEqual(native);
+});
+it('keeps the real busy save transition and restores authority only after exact confirmation', async () => {
+  const { remote, runtime } = await fixture();
+  await act(async () => { expect(await runtime.editor.run('insertText', { text: '확인을 기다리는 원문' })).toBe(true); });
+  const native = runtime.exportNativeDocument(), changes: boolean[] = [];
+  runtime.editor.on('editor:editable.change', () => changes.push(runtime.editor.isEditable));
+  const held = remote.holdNextWrite(); let navigation!: Promise<boolean>;
+  await act(async () => { navigation = prepareProductNavigation(); await held.entered; });
+  expect(runtime.editor.isEditable).toBe(false); expect(changes).toEqual([false]);
+  expect(runtime.view.contentEditableElement.contentEditable).toBe('false');
+  expect(runtime.view.contentEditableElement.dispatchEvent(new InputEvent('beforeinput', {
+    bubbles: true, cancelable: true, inputType: 'insertText', data: '저장 중 입력'
+  }))).toBe(false);
+  expect(runtime.exportNativeDocument()).toEqual(native);
+  await act(async () => { held.release(); expect(await navigation).toBe(true); });
+  expect(runtime.editor.isEditable).toBe(true); expect(changes).toEqual([false, true]);
+  expect(JSON.parse(remote.text()).document).toEqual(native); expect(remote.puts()).toBe(1);
+  await act(async () => { expect(await prepareProductNavigation()).toBe(true); });
+  expect(remote.puts()).toBe(1); expect(changes).toEqual([false, true]);
 });
