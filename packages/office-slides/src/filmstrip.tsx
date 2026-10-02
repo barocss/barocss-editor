@@ -95,10 +95,22 @@ export function Filmstrip({
   };
 
   return (
-    <nav ref={strip} className="sl-filmstrip" data-orientation={orientation} aria-label="슬라이드">
+    <nav ref={strip} className="sl-filmstrip" data-orientation={orientation} aria-label="슬라이드"
+      onKeyDown={event => {
+        if (orientation !== 'horizontal' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          !(event.target instanceof HTMLButtonElement) || !event.target.matches('[data-slide]')) return;
+        const buttons = Array.from(strip.current?.querySelectorAll<HTMLButtonElement>('button[data-slide]') ?? []);
+        const at = buttons.indexOf(event.target);
+        const next = event.key === 'ArrowRight' ? Math.min(at + 1, buttons.length - 1) :
+          event.key === 'ArrowLeft' ? Math.max(at - 1, 0) : event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : -1;
+        if (next < 0) return;
+        event.preventDefault(); event.stopPropagation();
+        buttons[next]?.focus({ preventScroll: true });
+        buttons[next]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }}>
       <ol>
         {slides.map((slide) => (
-          <li key={slide.sid}>
+          <li key={slide.sid} style={orientation === 'horizontal' ? { width: thumbnailWidth + 8 } : undefined}>
             {renaming?.sid === slide.sid ? (
               <span className="sl-filmstrip-rename" onBlurCapture={event => {
                 if (!latest.current.active || latest.current.canRename?.() === false || strip.current?.closest('[hidden], [inert]')) event.stopPropagation();
@@ -118,6 +130,7 @@ export function Filmstrip({
               data-hidden={slide.hidden ? 'true' : undefined}
               aria-current={slide.sid === current ? 'true' : undefined}
               aria-label={`${slide.number} · ${slide.name || `슬라이드 ${slide.number}`}`}
+              title={slide.name || `슬라이드 ${slide.number}`}
               onClick={() => onSelect(slide.sid)}
               onDoubleClick={() => {
                 if (readOnly || !editor?.isEditable || !active || canRename?.() === false) return;
