@@ -13,7 +13,7 @@ let host: HTMLDivElement, root: Root, editor: ReturnType<typeof createSlidesEdit
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   vi.stubGlobal('CSS', { escape: (value: string) => value });
-  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
   editor = createSlidesEditor(); editor.loadDocument(createSampleDeck(), 'ribbon427');
 });
@@ -68,19 +68,19 @@ it('keeps a freshly reopened global menu mounted after Escape and a later parent
   const slides = deckSlides({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) });
   const scope = createRef<HTMLElement>(); scope.current = host;
   const render = () => root.render(createElement(SlidesDocumentChrome, {
-    editor, slides, current: slides[0].sid, scope, expanded: false, onInspect: () => {}
+    editor, slides, current: slides[0].sid, scope, onInspect: () => {}
   }));
-  const trigger = () => host.querySelector<HTMLButtonElement>('[data-menu="tools-slide"]')!;
+  const trigger = () => host.querySelector<HTMLButtonElement>('[data-secondary-trigger]')!;
   const before = deckFileText(editor.exportDocument());
   act(render);
   act(() => { trigger().focus(); trigger().click(); });
-  expect(trigger().getAttribute('aria-expanded')).toBe('true');
+  expect(trigger().getAttribute('aria-pressed')).toBe('true');
   act(() => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
-  expect(trigger().getAttribute('aria-expanded')).toBe('false');
+  expect(trigger().getAttribute('aria-pressed')).toBe('false');
   act(() => trigger().click());
   const menu = host.querySelector('[role="menu"]'); expect(menu).not.toBeNull();
   act(render);
   expect(host.querySelector('[role="menu"]')).toBe(menu);
-  expect(trigger().getAttribute('aria-expanded')).toBe('true');
+  expect(trigger().getAttribute('aria-pressed')).toBe('true');
   expect(deckFileText(editor.exportDocument())).toBe(before); expect(editor.canRun('undo')).toBe(false);
 });

@@ -145,6 +145,8 @@ export function ContextToolbar({ editor, controls, scope, portalRoot, active = t
   if (context?.selection) target.selection = context.selection;
   const { open, dismiss, reopen } = useEditorContextVisibility(editor, target.selection,
     { scope, retainWithin: chrome, relatedChrome, active, sameKey: sameTextRange });
+  const selectionToolsOpen = useRef(open);
+  selectionToolsOpen.current = open;
   const dismissSelection = useRef(dismiss);
   dismissSelection.current = dismiss;
   const reopenSelection = useRef(reopen);
@@ -164,7 +166,7 @@ export function ContextToolbar({ editor, controls, scope, portalRoot, active = t
     const keyboard = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       const element = event.target;
-      if (event.key === 'Escape' && active && editor.isEditable && editor.getRootId() === root &&
+      if (event.key === 'Escape' && selectionToolsOpen.current && textRange(editor.selection) && active && editor.isEditable && editor.getRootId() === root &&
           element instanceof Element && !chrome.current?.contains(element) &&
           !element.closest('[data-editor-input-owner]') && element.closest('[contenteditable="true"]') &&
           (scope?.current ? scope.current.contains(element) : ownsEditorSelection(editor, doc.getSelection()))) {

@@ -95,9 +95,9 @@ for (const theme of ['light', 'dark']) test(`continuous ${theme} deck has reacha
   await page.screenshot({ path: info.outputPath(`${theme}-inspector.png`), animations: 'disabled' });
   await detail.press('Enter'); await expect(right).toBeHidden();
   await page.getByRole('button', { name: '추가 Slides 도구', exact: true }).click();
-  await expect(page.getByRole('menu', { name: '추가 Slides 도구', exact: true })).toBeVisible();
+  await expect(page.getByRole('menu', { name: 'Slides 삽입 및 슬라이드 메뉴', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('menu', { name: '추가 Slides 도구', exact: true })).toBeHidden();
+  await expect(page.getByRole('menu', { name: 'Slides 삽입 및 슬라이드 메뉴', exact: true })).toBeHidden();
   await pickMenu(page, 'view.present.0');
   await expect(page.locator('.sl-present-hint')).toBeVisible();
   await page.screenshot({ path: info.outputPath(`${theme}-presentation.png`), animations: 'disabled' });

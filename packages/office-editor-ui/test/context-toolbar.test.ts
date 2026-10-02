@@ -551,3 +551,19 @@ it('keeps owned tools during focusout before the popup receives focus', async ()
   await act(async () => outside.focus());
   expect(toolbar('focus-transfer')).toBeNull(); outside.remove();
 });
+
+
+it('leaves Escape to the containing panel when text tools are dismissed or the caret is collapsed', async () => {
+  const body = bodies[0];
+  await act(async () => root.render(createElement(ContextToolbar, { editor: body.session.editor, controls, label: 'panel-escape', scope: { current: body.scope } })));
+  await select(body);
+  const editable = body.text.parentElement!.parentElement!;
+  const key = () => new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  const first = key(); await act(async () => editable.dispatchEvent(first));
+  expect(first.defaultPrevented).toBe(true); expect(toolbar('panel-escape')).toBeNull();
+  const next = key(); await act(async () => editable.dispatchEvent(next));
+  expect(next.defaultPrevented).toBe(false);
+  await select(body, 4, 4);
+  const caret = key(); await act(async () => editable.dispatchEvent(caret));
+  expect(caret.defaultPrevented).toBe(false);
+});

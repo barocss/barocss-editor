@@ -109,7 +109,7 @@ export function SlideNavigation(props: SlideNavigationProps) {
   return <div ref={owner} className="sl-slide-navigation" data-slide-navigation data-expanded={open}>
     <div className="sl-slide-dock" data-slide-dock>
     {props.renderNotes && <div ref={notes} id={notesId} className="sl-notes-panel" data-notes-panel
-      hidden={!notesOpen} inert={!notesOpen} tabIndex={-1} onKeyDown={event => {
+      hidden={!notesOpen} inert={!notesOpen} tabIndex={-1} onKeyDownCapture={event => {
         if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
           (event.target instanceof Element && event.target.closest('[role="menu"],[role="listbox"],[data-floating-surface]'))) return;
         event.preventDefault(); event.stopPropagation(); closeNotes();

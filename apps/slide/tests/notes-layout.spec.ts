@@ -72,3 +72,26 @@ test('unformatted notes restore the exact native document after typing and undo'
   await expect(paragraph).toContainText(' note typing'); await page.keyboard.press('Meta+z');
   await expect.poll(()=>page.evaluate(()=>(window as any).editor.exportDocument())).toEqual(before);
 });
+
+
+test('both sidebars, notes and thumbnails overlay the unchanged editing area', async ({page}, info) => {
+  await openDeck(page);
+  const before = await geometry(page);
+  const header = page.locator('.sl-topbar');
+  await header.getByRole('button',{name:'레이어',exact:true}).click();
+  await header.getByRole('button',{name:'속성',exact:true}).click();
+  await openFilmstrip(page);
+  await page.getByRole('button',{name:'발표자 노트',exact:true}).click();
+  const notes=page.locator('[data-notes-panel]');
+  await expect(notes).toBeVisible();
+  await expect.poll(async()=>{
+    const top=(await notes.boundingBox())!.y;
+    return page.locator('[data-floating-panel]').evaluateAll((nodes,top)=>nodes.every(node=>node.getBoundingClientRect().bottom<=top-8),top);
+  }).toBe(true);
+  expect(await geometry(page)).toEqual(before);
+  const close=notes.getByRole('button',{name:'발표자 노트 닫기',exact:true});
+  expect(await close.evaluate(node=>{const r=node.getBoundingClientRect();return node.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
+  await page.screenshot({path:info.outputPath('notes-menu-integrated-ui.png'),animations:'disabled'});
+  await close.click(); await expect(notes).toBeHidden();
+  expect(await geometry(page)).toEqual(before);
+});

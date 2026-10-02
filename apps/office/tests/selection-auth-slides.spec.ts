@@ -249,6 +249,7 @@ test('actual Slides writer and automatic viewer preserve complete native API/PG 
     await expect(workspace(viewer).locator('[contenteditable=true]').first()).toBeVisible();
     await expect(workspace(viewer)).toContainText('LATEST RICH NOTE');
     expect(await downloadNative(viewer, info, 'promoted-draft.slides.json')).toEqual(draftNative);
+    await workspace(viewer).getByRole('button', { name: '발표자 노트', exact: true }).click();
     await note.click();await viewer.keyboard.press('Meta+z');expect(await downloadNative(viewer,info,'current-role-undo.slides.json')).toEqual(source.document);await viewer.keyboard.press('Meta+Shift+z');expect(await downloadNative(viewer,info,'current-role-redo.slides.json')).toEqual(draftNative);
     expect((await inspect(id)).document!.snapshotText).toBe(source.text); expect((await inspect(id)).document!.revision).toBe(confirmed.document!.revision); expect(readerRequests.writes).toHaveLength(0);
     await privateControl({ action: 'beta-active', active: false });

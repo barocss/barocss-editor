@@ -69,11 +69,11 @@ test('insertion More is compact and keeps every secondary insertion discoverable
   await openDeck(page);
   await page.locator('.sl-topbar').getByRole('button', { name: '레이어', exact: true }).click();
   await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '추가 Slides 도구', exact: true }).click();
-  const more = page.locator('.sl-insert-more'); await expect(more).toBeVisible();
+  const more = page.getByRole('menu', { name: 'Slides 삽입 및 슬라이드 메뉴', exact: true }); await expect(more).toBeVisible();
   const bounds = (await more.boundingBox())!; expect(bounds.width).toBeLessThanOrEqual(320);
   expect(await more.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
-  for (const label of ['텍스트 상자', '사각형', '타원', '선', '그림 삽입']) await expect(more.getByRole('button', { name: label, exact: true })).toBeVisible();
-  expect(await more.getByRole('button', { name: '타원', exact: true }).evaluate(node => { const r = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+  for (const label of ['텍스트 상자', '사각형', '타원', '선', '그림 삽입']) await expect(more.getByRole('menuitem', { name: label, exact: true })).toBeVisible();
+  expect(await more.getByRole('menuitem', { name: '타원', exact: true }).evaluate(node => { const r = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
   await page.screenshot({ path: info.outputPath('compact-insertion-more.png'), animations: 'disabled' });
   const tooltip = page.getByRole('tooltip');
   const tooltipOwned = await tooltip.isVisible();
