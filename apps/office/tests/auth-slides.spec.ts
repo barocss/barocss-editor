@@ -254,3 +254,40 @@ test('fixed Slides save waits for restored writer authority after a held list re
   expect(state.writes).toHaveLength(1); expect(state.writes[0].idempotencyKey).toBe(fixed[0].attempt.idempotencyKey);
   expect(state.writes[0].snapshotText).toBe(fixed[0].attempt.snapshotText);
 });
+
+
+test('Canvas edits use the authenticated document and stop on current viewer authority', async ({ page }) => {
+  const state = await setup(page);
+  await expect(shell(page).locator('.sl-stage .w-paragraph').first()).toBeVisible();
+  await shell(page).getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
+  await expect(shell(page).locator('.sl-stage')).toHaveAttribute('data-freeboard', 'true');
+  await expect(shell(page).locator('.sl-map')).toHaveCount(0);
+  const title = shell(page).locator('.sl-stage .sl-text-frame').first();
+  const titleBounds = (await title.boundingBox())!;
+  await page.mouse.dblclick(titleBounds.x + titleBounds.width / 2, titleBounds.y + titleBounds.height / 2);
+  await page.keyboard.press('End'); await page.keyboard.insertText('Authenticated Canvas input');
+  await expect(title).toContainText('Authenticated Canvas input');
+  await page.keyboard.press('Escape');
+  await save(page).click();
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const confirmed = state.text();
+  expect(confirmed).toContain('Authenticated Canvas input');
+  await changeCurrentSlidesRole(page, 'viewer');
+  await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
+  const paragraph = shell(page).locator('.sl-stage .w-paragraph').first();
+  const visible = await paragraph.textContent();
+  await paragraph.dblclick(); await page.keyboard.type('DENIED Canvas input');
+  await expect(paragraph).toHaveText(visible!);
+  const label = shell(page).locator('[data-board-label]').first();
+  const before = (await label.boundingBox())!;
+  await page.mouse.move(before.x + 8, before.y + 8); await page.mouse.down();
+  await page.mouse.move(before.x + 65, before.y + 30, { steps: 5 });
+  expect(await label.boundingBox()).toEqual(before);
+  await page.mouse.up();
+  expect(state.text()).toBe(confirmed); expect(state.writes).toHaveLength(1);
+  await changeCurrentSlidesRole(page, 'editor');
+  await expect(save(page)).toBeVisible();
+  await shell(page).getByRole('button', { name: '슬라이드 보기', exact: true }).click();
+  await expect(paragraph).toContainText('Authenticated Canvas input');
+  expect(state.text()).toBe(confirmed);
+});

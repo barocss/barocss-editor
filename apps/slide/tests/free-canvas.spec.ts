@@ -18,17 +18,18 @@ test('places slides in two dimensions and activates the slide being edited', asy
   const sid = await labels.nth(1).getAttribute('data-board-label');
   const text = page.locator(`.sl-stage .sl-slide[data-bc-sid="${sid}"] .sl-text-frame`).first();
   await text.click();
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
-  expect(await currentSlide(page)).toBe(sid);
+  await expect.poll(() => currentSlide(page)).toBe(sid);
+  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
   await expect(page.locator('.sl-properties')).toContainText('위치');
+  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
   await text.dblclick({ force: true });
   await page.keyboard.press('End');
   await page.keyboard.type(' canvas');
   await expect(text).toContainText('canvas');
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(sid);
   const slide = page.locator(`.sl-stage .sl-slide[data-bc-sid="${sid}"]`);
   const before = await slide.locator('.sl-rectangle').count();
-  await page.locator('[data-control="insert-rectangle"]').click();
+  await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '사각형', exact: true }).click();
   await expect(slide.locator('.sl-rectangle')).toHaveCount(before + 1);
 });
 

@@ -2,6 +2,7 @@ import { useFloatingPanelBounds } from './floating-panel-bounds';
 import { documentTitle } from '@barocss/office-text';
 import { EditorHeader, ProductMenu, DocumentMenu, SecondaryPopup, Toolbar, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { selectedNodeIds } from '@barocss/editor-core';
 import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
 import { AuditPanel, SlideSidebar, SlideNavigation } from '@barocss/office-slides/ui';
@@ -129,6 +130,7 @@ export function App({
    */
   const stage = useRef<HTMLDivElement>(null);
   const toolScope = useRef<HTMLElement | null>(null);
+  const stageOwner = useRef<HTMLDivElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [serverLibraryOpen, setServerLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -449,6 +451,21 @@ export function App({
       const sid = slide?.getAttribute('data-bc-sid');
       if (!sid || !slides.some(one => one.sid === sid)) return;
       if (sid === current) return;
+      if (event.type === 'pointerdown' && !event.defaultPrevented && (event as PointerEvent).button === 0 &&
+        !readOnly && editor?.isEditable) {
+        // Activate and measure the existing overlay before handing it this first
+        // gesture. Selecting a different board must not consume the user's drag.
+        const root = editor.dataStore.getNode(editor.getRootId()!);
+        flushSync(() => setCurrent(sid));
+        const overlay = stageOwner.current?.querySelector<HTMLElement>(`[data-slide-overlay="${CSS.escape(sid)}"]`);
+        if (overlay?.isConnected && editor.isEditable && root === editor.dataStore.getNode(editor.getRootId()!) &&
+          !overlay.closest('[hidden], [inert]')) {
+          event.preventDefault();
+          event.stopPropagation();
+          overlay.dispatchEvent(new PointerEvent('pointerdown', event as PointerEvent));
+        }
+        return;
+      }
       setCurrent(sid);
       const box = target.closest('[data-bc-sid]');
       let placed = box;
@@ -474,7 +491,7 @@ export function App({
     pane.addEventListener('pointerdown', activate, true);
     pane.addEventListener('focusin', activate, true);
     return () => { pane.ownerDocument.removeEventListener('selectionchange', caretChanged); pane.removeEventListener('pointerdown', activate, true); pane.removeEventListener('focusin', activate, true); };
-  }, [focused, presenting, editingComponent, editingDesign, slides, current, editor]);
+  }, [focused, presenting, editingComponent, editingDesign, slides, current, editor, readOnly]);
 
 
   /**
@@ -1039,11 +1056,11 @@ export function App({
   });
 
   const menus = useMemo(() => nativeMenus.map(menu => ({ ...menu, blocks: menu.blocks.map(block => ({
-    ...block, items: block.items.filter(item => slidesMenuEntry(item.id)?.view !== 'map').map(item => {
+    ...block, items: block.items.map(item => {
       const entry = slidesMenuEntry(item.id);
       const disabled = item.disabled || (Boolean(server) && entry?.view === 'template')
         || (readOnly && ['template', 'dialog.size', 'dialog.layout', 'dialog.theme'].includes(entry?.view ?? ''));
-      return { ...item, disabled, ...(entry?.view === 'ruler' ? { checked: rulerShown } : {}) };
+      return { ...item, disabled, ...(entry?.view === 'map' ? { label: '슬라이드 이동 지도' } : {}), ...(entry?.view === 'ruler' ? { checked: rulerShown } : {}) };
     })
   })) })), [nativeMenus, readOnly, server, rulerShown]);
 
@@ -1862,7 +1879,7 @@ export function App({
         </>} />
 
       {!presenting && <div className="sl-utilities" data-slides-utilities>
-        {editor && <SlidesDocumentChrome active={!mapping} editor={editor} slides={slides} current={current} scope={toolScope}
+        {editor && <SlidesDocumentChrome key={focused ? 'single' : 'canvas'} active={!mapping} editor={editor} slides={slides} current={current} scope={toolScope}
           inspectorHost={inspectorTools} onInspectorEscape={() => closePanel('inspector')} onInspect={origin => { inspectorOrigin.current = origin ?? null; focusInspector.current = true; setInspectorOpen(true); if (inspectorOpen) { focusInspector.current = false; inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true }); } }} />}
         <Toolbar variant="compact" surface="floating" label="Slides 보기 도구">
           <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
@@ -2042,10 +2059,13 @@ export function App({
             />
           )}
 
-          <div className="sl-stage-owner" inert={mapping && !presenting} aria-hidden={mapping && !presenting ? true : undefined}
+          <div ref={stageOwner} className="sl-stage-owner" inert={mapping && !presenting} aria-hidden={mapping && !presenting ? true : undefined}
             style={{ visibility: mapping && !presenting ? 'hidden' : undefined }}>
           <Stage
             host={host}
+            interactionRoot={stageOwner}
+            editable={!readOnly && !!editor?.isEditable}
+            lifetimeKey={editor?.dataStore.getNode(editor.getRootId()!)}
             /** 무대의 요소를 앱이 받아 형제들에게 건넨다 — `stage` 위의 설명. */
             frame={stage}
             /** One page, one definition, or the deck as a strip — see `stageFocus`. */
@@ -2146,8 +2166,8 @@ export function App({
           </div>
 
           {editor && !presenting && <SlideNavigation editor={editor} slides={slides} current={current} revision={revision}
-            viewMode={mapping ? 'multi' : focused ? 'single' : undefined}
-            onViewModeChange={mode => { setMapping(mode === 'multi'); if (mode === 'single') setFocused(true); }}
+            viewMode={mapping ? 'map' : focused ? 'single' : 'multi'}
+            onViewModeChange={mode => { setMapping(false); setFocused(mode === 'single'); }}
             lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
             readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
             renderNotes={(close, open) => <NotesPane active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}

@@ -515,3 +515,62 @@ test('real Slides v1 head upgrades without changing document identity or its fro
     expect(cleanup).toBe(true);
   }
 });
+
+test('real Canvas editing persists the same native deck and preserves current viewer authority', async ({ page, browser }) => {
+  test.setTimeout(180_000);
+  const status = await privateControl<RealStatus>({ action: 'status' });
+  const root = `${origin}/api/v1/tenants/${status.tenantId}`, requests = track(page);
+  const otherContext = await browser.newContext();
+  try {
+    await login(page, 'alpha-editor');
+    const source = await seed(page, 'Canvas native source'), originalRows = await rows(page);
+    const pending = await prepare(page, source.title);
+    await save(page).click(); await expect(saved(page)).toHaveText('서버 저장 확인됨');
+    const created = await inspect(undefined, pending.attempt!.idempotencyKey, 'create');
+    const documentId = created.receipt!.documentId;
+    await canonical(page, root, requests.bearer, documentId, source.text);
+    const library = workspace(page).getByRole('button', { name: '서버 Slides 목록', exact: true });
+    if (await library.getAttribute('aria-expanded') === 'true') await library.click();
+    await workspace(page).getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
+    await expect(workspace(page).locator('.sl-stage')).toHaveAttribute('data-freeboard', 'true');
+    await typeInput(page, ' Canvas authenticated first '); await page.keyboard.press('Escape');
+    const second = paragraphs(page).filter({ hasText: 'What the second product cost' }).first();
+    const frame = second.locator('xpath=ancestor::*[contains(@class, "sl-text-frame")]').first();
+    const bounds = (await frame.boundingBox())!;
+    await page.mouse.dblclick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.keyboard.press('End'); await page.keyboard.insertText(' Canvas authenticated second');
+    await expect(second).toContainText('Canvas authenticated second'); await page.keyboard.press('Escape');
+    await save(page).click(); await expect(saved(page)).toHaveText('서버 저장 확인됨');
+    const expected = requests.writes.at(-1)!.body.snapshotText as string;
+    expect(expected).toContain('Canvas authenticated first'); expect(expected).toContain('Canvas authenticated second');
+    const confirmed = await canonical(page, root, requests.bearer, documentId, expected);
+    expect(await rows(page)).toEqual(originalRows);
+    const url = page.url();
+    await page.reload(); await expect(workspace(page)).toBeVisible();
+    await workspace(page).getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
+    await expect(paragraphs(page).filter({ hasText: 'Canvas authenticated second' })).toBeVisible();
+    await canonical(page, root, requests.bearer, documentId, expected);
+
+    const other = await otherContext.newPage(), viewerRequests = track(other);
+    await login(other, 'beta-viewer', url);
+    await workspace(other).getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
+    await expect(workspace(other).locator('.sl-stage')).toHaveAttribute('data-freeboard', 'true');
+    await expect(workspace(other).locator('[contenteditable=true]')).toHaveCount(0);
+    const paragraph = paragraphs(other).filter({ hasText: 'Canvas authenticated second' }).first(), text = await paragraph.textContent();
+    await paragraph.dblclick(); await other.keyboard.type('viewer-denied');
+    await expect(paragraph).toHaveText(text!);
+    const label = workspace(other).locator('[data-board-label]').first(), before = (await label.boundingBox())!;
+    await other.mouse.move(before.x + 8, before.y + 8); await other.mouse.down();
+    await other.mouse.move(before.x + 60, before.y + 30, { steps: 4 });
+    expect(await label.boundingBox()).toEqual(before); await other.mouse.up();
+    expect(viewerRequests.writes).toHaveLength(0);
+    await privateControl({ action: 'beta-active', active: false });
+    await other.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(workspace(other)).not.toBeVisible();
+    expect((await inspect(documentId)).document).toEqual(confirmed.document);
+    await page.screenshot({ path: test.info().outputPath('authenticated-canvas.png') });
+  } finally {
+    await privateControl({ action: 'beta-active', active: true });
+    await otherContext.close();
+  }
+});
