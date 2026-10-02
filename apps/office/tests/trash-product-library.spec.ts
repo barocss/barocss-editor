@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openLocalLibrary } from './helpers/local-library';
 import { readFile } from 'node:fs/promises';
 
 const products = ['Slides', 'Word', 'Site'] as const;
@@ -9,6 +10,7 @@ const dialog = (page: Page, product: Product) => page.getByRole('dialog', { name
 const library = (page: Page, product: Product) => page.getByRole('button', { name: product === 'Word' ? '문서 보관함' : '최근 자료', exact: true });
 async function create(page: Page, product: Product, title: string) {
   await page.goto('/');
+  await openLocalLibrary(page);
   await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill(title);
   await page.getByRole('button', { name: '만들기', exact: true }).click();
@@ -17,6 +19,7 @@ async function create(page: Page, product: Product, title: string) {
 }
 async function moveToTrash(page: Page, title: string) {
   await page.goto('/');
+  await openLocalLibrary(page);
   await page.getByRole('button', { name: `${title} 관리`, exact: true }).click();
   await page.getByRole('button', { name: '휴지통으로 이동', exact: true }).click();
   await expect(page.getByRole('button', { name: `${title} 관리`, exact: true })).toHaveCount(0);

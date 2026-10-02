@@ -1,11 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openLocalLibrary } from './helpers/local-library';
 
 async function create(page: Page, product: 'Word' | 'Slides' | 'Site', title: string) {
+  await openLocalLibrary(page);
   await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill(title);
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   // Slides loads a separate entry before its mounted editor starts persistence.
-  if (product === 'Slides') await expect(page.getByRole('toolbar', { name: '슬라이드 서식', exact: true })).toBeVisible();
+  if (product === 'Slides') await expect(page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true })).toBeVisible();
   await expect(page.locator(`[data-${product === 'Slides' ? 'slide' : product.toLowerCase()}-save-status]`)).toHaveText('저장됨');
 }
 
@@ -23,8 +25,7 @@ for (const product of ['Slides', 'Site'] as const) {
     const originalUrl = page.url();
     const marker = `${product.toUpperCase()} OFFICE FINAL!`;
     if (product === 'Slides') {
-      await page.locator('.sl-toolbar').getByRole('menuitem', { name: '슬라이드', exact: true }).click();
-      await page.getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+      await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '새 슬라이드', exact: true }).click();
     } else {
       await page.locator('[data-admin-open="home"]').click();
       const paragraph = page.locator('[data-frame="desktop"] .w-paragraph').first();
@@ -40,6 +41,7 @@ for (const product of ['Slides', 'Site'] as const) {
     await page.getByRole('button', { name: `${product[0]} ${title}`, exact: true }).click();
     await expect(page).toHaveURL(originalUrl);
     if (product === 'Slides') {
+      await page.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();
       await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(2);
       await page.locator('.sl-filmstrip button[data-slide]').last().click();
       await expect(page.locator('.sl-stage')).toContainText(marker);

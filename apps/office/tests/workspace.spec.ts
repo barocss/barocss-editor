@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openLocalLibrary } from './helpers/local-library';
 import { readFile } from 'node:fs/promises';
 
 const products = ['Note', 'Word', 'Slides', 'Site'] as const;
 async function create(page: Page, product: typeof products[number], title: string) {
+  await openLocalLibrary(page);
   await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill(title);
   await page.getByRole('button', { name: '만들기', exact: true }).click();
