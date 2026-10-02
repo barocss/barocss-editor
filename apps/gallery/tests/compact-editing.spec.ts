@@ -534,6 +534,12 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800
       expect(groups[0].box.y).toBe(groups[1].box.y);
       expect(groups[2].box.x + groups[2].box.width / 2).toBeCloseTo(stageBefore!.x + stageBefore!.width / 2, 0);
       await slides.screenshot({ path: info.outputPath('folded-slides.png') });
+      for (const label of ['레이어 패널 예시', '속성 패널 예시']) await slides.getByRole('button', { name: label, exact: true }).click();
+      await expect(slides.locator('[data-floating-panel]:visible')).toHaveCount(2);
+      expect(await stage.boundingBox()).toEqual(stageBefore); expect(await paper.boundingBox()).toEqual(paperBefore);
+      await slides.screenshot({ path: info.outputPath('floating-panels.png'), animations: 'disabled' });
+      for (const label of ['레이어 패널 예시', '속성 패널 예시']) await slides.getByRole('button', { name: label, exact: true }).click();
+      expect(await stage.boundingBox()).toEqual(stageBefore); expect(await paper.boundingBox()).toEqual(paperBefore);
       await slides.getByRole('button', { name: '텍스트 상자 삽입 예시', exact: true }).click();
       await expect(paper).toContainText('삽입된 텍스트 예시');
       await expect(sample.locator('[data-compact-last-command]')).toContainText('slide:insert-textbox');

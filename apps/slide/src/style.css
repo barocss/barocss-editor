@@ -284,13 +284,12 @@ body {
 
 .sl-toolbar.office-compact-toolbar .sl-font-row { display: contents; }
 
-/* All navigation views occupy the same column. */
-.sl-workspace-navigation { display:flex; min-height:0; }
+/* Both panels float over a full-width, stable editing area. */
+.sl-body > [data-floating-panel] { bottom:var(--sl-panel-bottom,12px); }
+.sl-workspace-navigation { display:flex; flex:1; min-height:0; }
 .sl-shell[data-presenting='true'] .sl-body > .office-workspace-side-panel { display:none; }
 
-/* Keep detail controls mounted while returning space to the canvas. */
-.sl-inspector-slot:not([hidden]) { display: contents; }
-.sl-inspector-slot[hidden] { display: none; }
+
 
 /* The authenticated entry styles its own sections, not native slide sheets. */
 .office-auth .sl-shell .sl-slide { max-width: none; margin: 0; }
@@ -300,7 +299,7 @@ body {
 
 /* Content-width clusters reserve space above the stage without a full-width band. */
 .sl-utilities { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; flex: 0 0 auto; background: var(--sl-ground); }
-.sl-insertion-chrome { min-width: 0; }
+.sl-insertion-chrome { min-width:0; position:relative; z-index:var(--ou-z-popover); }
 .sl-document-detail { width: min(880px, calc(100vw - 24px)); max-height: min(65vh, 560px); overflow: auto; }
 .sl-workspace-navigation[hidden] { display: none; }
 

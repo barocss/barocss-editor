@@ -27,7 +27,7 @@ test('keeps rulers hidden until requested without changing the native document o
     const surface = document.querySelector('[data-slides-formatting]')!.getBoundingClientRect();
     return Math.min(Math.abs(range.top - surface.bottom), Math.abs(surface.top - range.bottom));
   });
-  expect(await gap()).toBeCloseTo(8, 0);
+  await expect.poll(gap).toBeCloseTo(8, 0);
   for (let i = 0; i < 2; i++) {
     await pickMenu(page, 'view.panes.3');
     expect(await native(page)).toEqual(selected);
@@ -99,8 +99,8 @@ for (const [width,height] of [[1440,900],[1280,800]]) for (const theme of ['ligh
     const anchor=await page.evaluate(()=>{const rect=getSelection()!.getRangeAt(0).getBoundingClientRect();const bar=document.querySelector('[data-slides-formatting]')!.getBoundingClientRect();return{range:rect.toJSON(),bar:bar.toJSON()};});
     expect(anchor.bar.bottom<=anchor.range.top-7 || anchor.bar.top>=anchor.range.bottom+7).toBe(true);
     await page.screenshot({path:info.outputPath('selected.png'),animations:'disabled'});
-    await tools(page).getByRole('button',{name:'추가 Slides 도구',exact:true}).click();
-    const more=page.locator('[data-secondary-popup]:visible').filter({has:page.locator('.sl-toolbar')});
+    await tools(page).getByRole('button',{name:'선택 속성 열기',exact:true}).click();
+    const more=page.locator('#slides-details');
     await expect(more).toBeVisible(); await expect(more).toHaveCSS('opacity','1');
     await expect(more.getByLabel('Size', {exact:true})).toBeVisible();
     await page.screenshot({path:info.outputPath('more.png'),animations:'disabled'});
@@ -109,13 +109,17 @@ for (const [width,height] of [[1440,900],[1280,800]]) for (const theme of ['ligh
     const tooltipOwned = await tooltip.isVisible();
     await page.keyboard.press('Escape');
     if (tooltipOwned) { await expect(tooltip).toHaveCount(0); await expect(more).toBeVisible(); await page.keyboard.press('Escape'); }
-    await expect(more).toBeHidden(); await expect(tools(page).getByRole('button',{name:'추가 Slides 도구',exact:true})).toBeFocused();
+    await expect(more).toBeHidden(); await expect(tools(page).getByRole('button',{name:'선택 속성 열기',exact:true})).toBeFocused();
     expect(await native(page)).toEqual(selected);
     await page.keyboard.press('Escape'); await expect(tools(page)).toHaveCount(0);
+    const foldedViewport = await page.locator('.sl-stage-viewport').boundingBox();
     await openFilmstrip(page);
     const region=await page.evaluate(()=>({viewport:document.querySelector('.sl-stage-viewport')!.getBoundingClientRect().toJSON(),panel:document.querySelector('[data-filmstrip-panel]')!.getBoundingClientRect().toJSON(),strip:document.querySelector('.sl-filmstrip')!.getBoundingClientRect().toJSON()}));
     await info.attach('expanded-regions.json',{body:JSON.stringify(region),contentType:'application/json'});
-    expect(region.viewport.bottom).toBeLessThanOrEqual(region.panel.y);
+    // The owner-requested tray overlays the canvas without changing its geometry.
+    expect(await page.locator('.sl-stage-viewport').boundingBox()).toEqual(foldedViewport);
+    expect(region.panel.y).toBeGreaterThanOrEqual(region.viewport.y);
+    expect(region.panel.y).toBeLessThan(region.viewport.bottom);
     expect(region.panel.right).toBeLessThanOrEqual(width); expect(region.panel.x).toBeGreaterThanOrEqual(0);
     await expect(page.locator('.sl-filmstrip')).toHaveCount(1); await expect(page.locator('.sl-filmstrip button')).toHaveCount(6);
     await expect(page.locator('.sl-thumb [data-bc-sid]').first()).toBeVisible();
@@ -159,8 +163,8 @@ test('folded thumbnail navigation retains unfinished rename, current SID and exa
 
 test('More owns nested font picker Escape and current selection; revoked rename cannot write',async({page})=>{
   await openDeck(page);await selectTitle(page);const before=await native(page);
-  const trigger=tools(page).getByRole('button',{name:'추가 Slides 도구',exact:true});await trigger.click();
-  const more=page.locator('[data-secondary-popup]:visible').filter({has:page.locator('.sl-toolbar')});
+  const trigger=tools(page).getByRole('button',{name:'선택 속성 열기',exact:true});await trigger.click();
+  const more=page.locator('#slides-details');
   const ownedSlide = await currentSlide(page);
   await more.getByRole('combobox',{name:'Size',exact:true}).click();await expect(page.getByRole('listbox')).toBeVisible();
   await page.keyboard.press('PageDown'); await expect(page.getByRole('listbox')).toBeVisible(); expect(await currentSlide(page)).toBe(ownedSlide); expect(await native(page)).toEqual(before);

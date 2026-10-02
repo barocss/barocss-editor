@@ -1473,3 +1473,13 @@ textarea.office-field[readonly] {
 .office-secondary-owner button, .office-secondary-popup :is(button,input,select) { min-width:var(--ou-compact-target); min-height:var(--ou-compact-target); }
 
 [data-floating-surface][data-compact][data-floating-variant="toolbar"] { padding:0; border-radius:var(--ou-compact-surface-radius); }
+
+/* Opt-in canvas panels share popup material without taking document space. */
+.office-workspace-side-panel[data-floating-panel] { position:absolute; inset-block:12px; max-width:calc(100% - 32px); z-index:var(--ou-z-overlay); overflow:hidden; border:1px solid var(--ou-line); border-radius:14px; background:var(--ou-panel); box-shadow:var(--ou-lift-2); }
+.office-workspace-side-panel[data-floating-panel][data-workspace-panel='navigation'] { left:16px; }
+.office-workspace-side-panel[data-floating-panel][data-workspace-panel='inspector'] { right:16px; }
+.office-workspace-side-panel[data-floating-panel] > :first-child { border:0; }
+.office-properties[data-property-density='floating'] { width:100%; --ou-control-h:28px; --ou-text:12px; --ou-text-small:11px; --ou-text-label:11px; --ou-label-w:64px; --ou-field-line:var(--ou-line); }
+.office-properties[data-property-density='floating'] [data-property-group] { padding:10px 12px; gap:6px; }
+.office-properties[data-property-density='floating'] [data-property-group-header] h3 { font-size:12px; color:var(--ou-ink); letter-spacing:normal; }
+.office-properties[data-property-density='floating'] [data-property-group-body] { gap:6px; }

@@ -1,0 +1,108 @@
+/* The tray floats over the stage. Folding must not resize or refit the deck. */
+[data-slide-navigation].sl-slide-navigation {
+  position: relative;
+  height: 62px;
+  min-height: 62px;
+  z-index: 40;
+}
+
+[data-slide-navigation] > .sl-slide-navigation-panel {
+  position: absolute;
+  inset: auto 12px 12px;
+  width: auto;
+  max-width: none;
+  border-radius: 16px;
+}
+
+.sl-slide-navigation-folded[hidden] { display: none; }
+
+.sl-slide-navigation-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 12px 0;
+  color: var(--ou-ink);
+}
+
+.sl-slide-navigation-heading > .office-button {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.sl-slide-navigation-title { flex: 1; font-size: 12px; font-weight: 500; }
+.sl-slide-navigation-title > span { margin-left: 4px; color: var(--ou-muted); font-variant-numeric: tabular-nums; }
+
+[data-slide-navigation] .sl-filmstrip[data-orientation='horizontal'] {
+  padding: 8px 16px 12px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+[data-slide-navigation] .sl-filmstrip ol { gap: 12px; }
+[data-slide-navigation] .sl-filmstrip li { position: relative; }
+
+[data-slide-navigation] .sl-filmstrip button[data-slide] {
+  position: relative;
+  display: block;
+  padding: 4px;
+  border-radius: 9px;
+  line-height: 0;
+}
+
+[data-slide-navigation] .sl-filmstrip button[data-current='true'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--ou-accent);
+}
+
+[data-slide-navigation] .sl-filmstrip button:focus-visible {
+  outline: 2px solid var(--ou-accent);
+  outline-offset: 2px;
+}
+
+[data-slide-navigation] .sl-thumb { border-radius: 5px; }
+
+[data-slide-navigation] .sl-filmstrip-number {
+  position: absolute;
+  left: 9px;
+  bottom: 9px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--ou-line);
+  border-radius: 5px;
+  background: var(--ou-panel);
+  color: var(--ou-ink);
+  box-shadow: 0 1px 3px #0002;
+  line-height: 1;
+}
+
+[data-slide-navigation] .sl-filmstrip-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[data-slide-navigation] .sl-filmstrip-badge {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  background: var(--ou-panel);
+  line-height: 18px;
+}
+
+[data-slide-navigation] .sl-filmstrip-rename {
+  position: absolute;
+  inset: auto 4px 4px;
+  z-index: 2;
+  margin: 0;
+}
+
+[data-slide-navigation] .sl-filmstrip-rename input { width: 100%; background: var(--ou-panel); }

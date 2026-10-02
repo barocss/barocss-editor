@@ -22,10 +22,11 @@ const sameTextRange = (a: ModelSelection | null, b: ModelSelection | null) => !!
 
 /** Tracks an editor-owned range, retaining its snapshot while a toolbar field has focus. */
 export function useEditorTextSelection(editor: Editor, {
-  scope, retainWithin, active = true
+  scope, retainWithin, relatedChrome, active = true
 }: {
   scope?: RefObject<HTMLElement | null>;
   retainWithin?: RefObject<HTMLElement | null>;
+  relatedChrome?: RefObject<HTMLElement | null>;
   active?: boolean;
 } = {}) {
   const revision = useEditorRevision(editor);
@@ -39,7 +40,7 @@ export function useEditorTextSelection(editor: Editor, {
       const model = editor.selection;
       if (!active || !textRange(model) || gesture.current.dragging || gesture.current.composing) return setContext(null);
       if (doc.activeElement?.closest('[data-editor-input-owner]')) return setContext(null);
-      if (retainWithin?.current?.contains(doc.activeElement)) {
+      if ((retainWithin?.current?.contains(doc.activeElement) || relatedChrome?.current?.contains(doc.activeElement))) {
         const at = retained.current ? visibleRangeRect(retained.current) : null;
         setContext(previous => !previous || !sameTextRange(previous.selection, model) ? null
           : sameRect(previous.at, at) ? previous : { ...previous, at });
@@ -71,7 +72,7 @@ export function useEditorTextSelection(editor: Editor, {
     const endComposition = () => { gesture.current.composing = false; measure(); };
     const blur = () => { gesture.current = { dragging: false, composing: false }; setContext(null); };
     const stopAnchor = observeRangeAnchor(scope?.current ?? doc.body, () => {
-      if (retainWithin?.current?.contains(doc.activeElement)) return retained.current;
+      if ((retainWithin?.current?.contains(doc.activeElement) || relatedChrome?.current?.contains(doc.activeElement))) return retained.current;
       const selection = doc.getSelection();
       return ownsEditorSelection(editor, selection, scope?.current) && selection?.rangeCount ? selection.getRangeAt(0) : null;
     }, measure);
@@ -96,7 +97,7 @@ export function useEditorTextSelection(editor: Editor, {
       doc.removeEventListener('focusin', measure);
 
     };
-  }, [editor, scope, retainWithin, active, revision]);
+  }, [editor, scope, retainWithin, relatedChrome, active, revision]);
   // A retained range can outlive the blocks removed by a toolbar command.
   // Validate during render, before children inspect marks on that old range.
   const attached = (id: string) => {
@@ -115,14 +116,17 @@ export function useEditorTextSelection(editor: Editor, {
 
 /** Shared selection lifecycle and command rendering; products supply their Control declarations. */
 export function ContextToolbar({ editor, controls, scope, portalRoot, active = true, compact = false, label = '선택한 글 서식', mark,
-  leading, children, onOpenChange, ...hooks
+  leading, children, onOpenChange, relatedChrome, onRelatedChromeEscape, ...hooks
 }: {
   editor: Editor;
   controls: readonly Control[];
   scope?: RefObject<HTMLElement | null>;
   /** Untransformed destination for viewport-positioned tools; ownership remains scoped. */
   portalRoot?: HTMLElement | null;
+  /** Retain the owned selection while using its separate property inspector. */
+  relatedChrome?: RefObject<HTMLElement | null>;
   active?: boolean;
+  onRelatedChromeEscape?: () => void;
   /** Products choose a bounded primary command set; secondary tools remain in owned popups. */
   compact?: boolean;
   label?: string;
@@ -135,12 +139,12 @@ export function ContextToolbar({ editor, controls, scope, portalRoot, active = t
 }) {
   const chrome = useRef<HTMLDivElement>(null);
   const root = editor.getRootId();
-  const context = useEditorTextSelection(editor, { scope, retainWithin: chrome, active });
+  const context = useEditorTextSelection(editor, { scope, retainWithin: chrome, relatedChrome, active });
   // Offscreen/null anchors hide the surface, but must not erase its Escape target.
   const target = useMemo(() => ({ selection: null as ModelSelection | null }), [editor, root]);
   if (context?.selection) target.selection = context.selection;
   const { open, dismiss, reopen } = useEditorContextVisibility(editor, target.selection,
-    { scope, retainWithin: chrome, active, sameKey: sameTextRange });
+    { scope, retainWithin: chrome, relatedChrome, active, sameKey: sameTextRange });
   const dismissSelection = useRef(dismiss);
   dismissSelection.current = dismiss;
   const reopenSelection = useRef(reopen);
@@ -193,7 +197,10 @@ export function ContextToolbar({ editor, controls, scope, portalRoot, active = t
   </>;
   return <FloatingSurface open={visible} compact={compact} role={compact ? 'group' : undefined} at={context?.at ?? null} aria-label={label}
     className={compact ? 'office-compact-selection' : undefined}
-    portalRoot={portalRoot ?? scope?.current} onDismiss={dismiss} ownedElements={scope ? [scope] : []}
+    portalRoot={portalRoot ?? scope?.current} onDismiss={(reason, event) => {
+      if (reason === 'escape' && event?.target instanceof Node && relatedChrome?.current?.contains(event.target) && onRelatedChromeEscape) onRelatedChromeEscape();
+      else dismiss(reason);
+    }} ownedElements={[...(scope ? [scope] : []), ...(relatedChrome ? [relatedChrome] : [])]}
     {...hooks}>
     {compact ? <Toolbar variant="compact" elementRef={chrome} label={`${label} 도구`} data-editor-context-toolbar>{content}</Toolbar>
       : <div ref={chrome} className="flex min-w-0 flex-wrap items-center gap-0.5" data-editor-context-toolbar>{content}</div>}

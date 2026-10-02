@@ -15,10 +15,12 @@ export function ownsEditorSelection(editor: Editor, selection: Selection | null,
 
 /** Shared focus and dismissal rules. Products retain target detection and geometry. */
 export function useEditorContextVisibility<K>(editor: Editor, key: K | null, {
-  scope, retainWithin, active = true, sameKey = Object.is
+  scope, retainWithin, relatedChrome, active = true, sameKey = Object.is
 }: {
   scope?: RefObject<HTMLElement | null>;
   retainWithin?: RefObject<HTMLElement | null>;
+  /** A separately mounted inspector for this same current selection. */
+  relatedChrome?: RefObject<HTMLElement | null>;
   active?: boolean;
   sameKey?: (a: K, b: K) => boolean;
 } = {}) {
@@ -39,7 +41,7 @@ export function useEditorContextVisibility<K>(editor: Editor, key: K | null, {
     let alive = true;
     const measureElement = (element: Element | null) => {
       if (!windowActive || !element || element.closest('[data-editor-input-owner]')) { setFocused(false); return; }
-      if (retainWithin?.current?.contains(element)) { setFocused(true); return; }
+      if ((retainWithin?.current?.contains(element) || relatedChrome?.current?.contains(element))) { setFocused(true); return; }
       if (element.matches('input, textarea, select')) { setFocused(false); return; }
       setFocused(scope?.current ? scope.current.contains(element)
         : ownsEditorSelection(editor, doc.getSelection()) && element.contains(doc.getSelection()?.anchorNode ?? null));
@@ -66,13 +68,13 @@ export function useEditorContextVisibility<K>(editor: Editor, key: K | null, {
       win?.removeEventListener('blur', blur);
       win?.removeEventListener('focus', focus);
     };
-  }, [editor, root, scope, retainWithin]);
+  }, [editor, root, scope, retainWithin, relatedChrome]);
   const dismiss = (reason?: 'escape' | 'outside') => {
     if (current.current !== session || key === null || editor.getRootId() !== root) return;
     session.dismissed = key;
     if (reason === 'escape' && editor.isEditable) {
       const doc = scope?.current?.ownerDocument ?? document;
-      if (retainWithin?.current?.contains(doc.activeElement)) {
+      if ((retainWithin?.current?.contains(doc.activeElement) || relatedChrome?.current?.contains(doc.activeElement))) {
         const anchor = doc.getSelection()?.anchorNode;
         const element = anchor?.nodeType === 1 ? anchor as Element : anchor?.parentElement;
         const selected = element?.closest<HTMLElement>('[contenteditable="true"]');

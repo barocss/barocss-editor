@@ -288,8 +288,8 @@ test('actual authenticated selection tools stay near their owned range in both t
  const geometry=await tools.evaluate(node=>{const box=node.getBoundingClientRect().toJSON(),anchor=getSelection()!.getRangeAt(0).getBoundingClientRect().toJSON();const ancestry=[];let el:Element|null=node;while(el){const cs=getComputedStyle(el);ancestry.push({tag:el.tagName,className:el.className,rect:el.getBoundingClientRect().toJSON(),position:cs.position,transform:cs.transform,maxWidth:cs.maxWidth,margin:cs.margin,overflow:cs.overflow,height:cs.height});el=el.parentElement;}return{box,anchor,rangeRects:Array.from(getSelection()!.getRangeAt(0).getClientRects()).map(r=>r.toJSON()),style:node.getAttribute('style'),groups:Array.from(node.querySelectorAll('[data-group]')).map(el=>el.getAttribute('data-group')),ancestry};});
  writeFileSync(info.outputPath(`${width}-${theme}-geometry.json`),JSON.stringify(geometry,null,2));await page.screenshot({path:info.outputPath(`${width}-${theme}-geometry.png`),animations:'disabled'});
  expect(Math.min(Math.abs(geometry.box.bottom-geometry.anchor.top),Math.abs(geometry.box.top-geometry.anchor.bottom))).toBeLessThanOrEqual(20);
- const trigger=tools.getByRole('button',{name:'추가 Slides 도구',exact:true}); await trigger.click();
- const more=workspace(page).locator('[data-secondary-popup]:visible').filter({has:page.locator('.sl-toolbar')});
+ const trigger=tools.getByRole('button',{name:'선택 속성 열기',exact:true}); await trigger.click();
+ const more=workspace(page).locator('#slides-details');
  await expect(more).toBeVisible(); await expect(more).toHaveCSS('opacity','1');
  const contrast = await more.evaluate(panel => {
    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
@@ -318,8 +318,12 @@ test('actual authenticated selection tools stay near their owned range in both t
  await page.keyboard.press('Escape'); await expect(page.getByRole('listbox')).toHaveCount(0); await expect(more).toBeVisible();
  await page.keyboard.press('Escape'); await expect(more).toBeHidden(); await expect(trigger).toBeFocused();
  await page.keyboard.press('Escape'); await expect(tools).toHaveCount(0);
+ const foldedStage = await page.locator('.sl-stage-viewport').boundingBox();
  await page.getByRole('button',{name:'슬라이드 탐색 펼치기',exact:true}).click();
- const gap=await page.evaluate(()=>({stage:document.querySelector('.sl-stage-viewport')!.getBoundingClientRect().bottom,panel:document.querySelector('[data-filmstrip-panel]')!.getBoundingClientRect().top})); expect(gap.panel).toBeGreaterThanOrEqual(gap.stage);
+ expect(await page.locator('.sl-stage-viewport').boundingBox()).toEqual(foldedStage);
+ const tray = (await page.locator('[data-filmstrip-panel]').boundingBox())!;
+ expect(tray.y).toBeGreaterThanOrEqual(foldedStage!.y);
+ expect(tray.y).toBeLessThan(foldedStage!.y + foldedStage!.height);
  await page.getByRole('button',{name:'슬라이드 탐색 접기',exact:true}).click(); await expect(page.locator('[data-filmstrip-toggle]')).toBeFocused();
  await expect(page.locator('[data-document-identity]')).toContainText('A long authenticated Slides document title');
  expect(await downloadNative(page,info,`${width}-${theme}-tools-only.slides.json`)).toEqual(source.document);}
