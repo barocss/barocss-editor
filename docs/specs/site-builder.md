@@ -370,7 +370,7 @@ registers, a shell that moved out of the app. Not: how many files there are, how
 | marks | 25 |
 | widths a page answers at | **3** — base, tablet, mobile |
 
-Word holds 108 node types and 1,043 attribute slots; the deck holds 64 and 529. The site builder
+Word holds 108 node types and 1,043 attribute slots; the deck holds 64 and 543. The site builder
 sits between them and the reason is in the fourteen: everything about **data, publishing and a
 visitor** is this product's own, and everything about text and arrangement is not.
 
@@ -406,12 +406,12 @@ build, it fails, and somebody decides whether to teach the probe or to name the 
 
 | | |
 | --- | ---: |
-| `apps/site/src` | **4,263 lines** |
+| `apps/site/src` | **4,601 lines** |
 | components behind `@barocss/office-site/ui` | **5** |
-| browser test declarations (2026-09-30; inventory, not run results) | **328** |
+| line-anchored browser test registrations (2026-10-03; inventory, not run results) | **337** |
 
 `apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
-five — moved into this package. That is the move `note.md` uses as its gauge, and the 328 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 337 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
 
 **283 of those 291 until `site-theme-values.spec.ts`**, and the eight it adds are worth naming
 because of what the suite could not previously say. Of 1,092 browser tests across the repository,

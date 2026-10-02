@@ -13,7 +13,12 @@ afternoon, for one reason: they are in a test. So the reason this document exist
 is the table in it, and `packages/office-slides/test/spec-numbers.test.ts` is the
 half of it that cannot rot.
 
-Every number below is produced by that test, out of the running product.
+The current inventory below was measured on 2026-10-03 from the product's schema,
+registered commands, public UI exports and source files. These counts do not
+report test execution or passing browser scenarios. The spec check also
+checks the app's structure: the shell, entry point and menu/search controller,
+plus the six named runtime and server adapters listed below. Any additional
+source file must be accounted for explicitly.
 
 ## What a deck is, in this model
 
@@ -29,7 +34,7 @@ So a slide is not a new document; it is the half of `surface` a word processor
 never asked for. A slide is **19200 × 10800 twips** — 16:9 in the unit every
 length in this engine is in — and 14400 × 10800 for a deck that wants 4:3.
 
-What it holds, measured: **64 node types, 529 attribute slots, 25 marks**. Word
+What it holds, measured: **64 node types, 543 attribute slots, 25 marks**. Word
 holds 108 and 1,043, the site builder 71 and 862. The deck is the *smallest*
 vocabulary of the three products that have one, which is the right answer: a deck
 says less about text than a word processor and less about layout than a page
@@ -96,9 +101,11 @@ their existing units, pointer readout and guide placement behavior.
 
 A **ribbon, a filmstrip, a properties panel, a layer panel, a timeline pane, a
 notes pane, a components panel, an audit panel, a find bar and a deck map** —
-**30 components and 4 hooks** behind `@barocss/office-slides/ui`, which is why
-`apps/slide` is 2,300 lines of `app.tsx`, 160 of `main.tsx` and 180 of
-`use-slide-menu-search.ts` and nothing else.
+**32 components and 4 hooks** behind `@barocss/office-slides/ui`.
+`apps/slide/src` contains 3,785 lines of TypeScript and TSX: 2,435 in `app.tsx`,
+12 in `main.tsx`, 252 in `use-slide-menu-search.ts`, and 1,086 in the runtime,
+floating-panel bounds and server adapters. Line counts use newline characters,
+as `wc -l` does.
 
 Measured: **10 toolbar groups, 60 controls, 61 commands, 59 icons**; **47 panel
 rows over two tabs** (style, motion) offering **63 settable attributes**; **24
@@ -120,7 +127,7 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 
 | | |
 | --- | ---: |
-| commands registered | 198 (99 the deck's own) |
+| commands registered | 202 (100 the deck's own) |
 | of those, reachable from a surface | toolbar 61 · keys 13 · panel 14 · menu 7 |
 | attributes a reader can set, from the panel | 63 |
 | box types a reader can hold | 13 |
@@ -128,9 +135,15 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 | slide transitions | 7 |
 | deck templates · themes | 4 · 4 |
 | theme slots — colour, font | 12 · 2 |
-| components · hooks behind `./ui` | 30 · 4 |
-| `apps/slide/src` | **2,640 lines** — `app.tsx` 2,300, `main.tsx` 160, `use-slide-menu-search.ts` 180 |
-| browser test declarations | 467 |
+| components · hooks behind `./ui` | 32 · 4 |
+| `apps/slide/src` | **3,785 lines** — `app.tsx` 2,435, `main.tsx` 12, `use-slide-menu-search.ts` 252; runtime and server adapters 1,086 |
+| browser test registrations matched by the spec counter | 530 |
+
+The browser counter matches line-start `test(` or `it(` registrations in
+`apps/slide/tests/*.spec.ts`. It does not count generated cases, skips, or passed
+tests. The additional app source is `floating-panel-bounds.ts` (21 lines),
+`runtime.ts` (206), `server-documents.ts` (232), `server-file.ts` (163),
+`server-pending.ts` (175) and `server-workspace.tsx` (289).
 
 There is deliberately **no line count of this package** in that table, and finding
 out why was worth the round. A package's total moves when somebody adds a
@@ -182,8 +195,9 @@ stopped moving.
 Three claims about this product were being made by `ROADMAP.md` and by nothing
 else, and two of them were wrong:
 
-1. ***"139 commands"*** — it is **190**, of which 97 are the deck's own. The line
-   was measured once and never again.
+1. ***"139 commands"*** — the original correction measured **190**, of which
+   97 were the deck's own. The current inventory above is 202 and 100. The
+   roadmap line had been measured once and never again.
 2. ***"fifteen canvas node types declared"*** — there are **13** box types a
    reader can hold, and the schema's `scene` group holds 12 of them.
 3. ***"A shape's whole style is `fill`, `stroke` and `strokeWidth` today. No

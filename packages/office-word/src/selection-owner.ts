@@ -1,4 +1,5 @@
 import type { Editor, ModelSelection } from '@barocss/editor-core';
+import type { INode } from '@barocss/datastore';
 
 export function createWordSelectionLifetime(editor: Editor) {
   return { editor, generation: 0 };
@@ -27,7 +28,14 @@ export function trackWordSelectionLifetime(lifetime: ReturnType<typeof createWor
 }
 
 /** A command belongs to the exact native root and range that opened its tools. */
-export function captureWordSelectionOwner(editor: Editor, selection: ModelSelection | null | undefined, lifetime: ReturnType<typeof createWordSelectionLifetime>) {
+export function captureWordSelectionOwner(editor: Editor, selection: ModelSelection | null | undefined, lifetime: ReturnType<typeof createWordSelectionLifetime>): {
+  lifetime: ReturnType<typeof createWordSelectionLifetime>;
+  generation: number;
+  version: number;
+  rootId: string;
+  root: INode | undefined;
+  selection: ModelSelection;
+} | null {
   const rootId = editor.getRootId();
   if (!rootId || !selection) return null;
   return { lifetime, generation: lifetime.generation, version: editor.dataStore.getVersion(), rootId, root: editor.dataStore.getNode(rootId), selection: structuredClone(selection) };

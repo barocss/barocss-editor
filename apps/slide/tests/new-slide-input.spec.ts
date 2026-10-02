@@ -156,7 +156,8 @@ for (const deck of ['sample', 'blank'] as const) {
       if (deck === 'blank') {
         // This visible File menu entry invokes file.new and creates an empty deck.
         await pickMenu(page, 'file.document.0');
-        await expect(page.locator('.sl-count')).toHaveText('1 / 1');
+        await expect(page.getByRole('combobox', { name: '현재 슬라이드', exact: true })).toHaveText('1');
+        await expect(page.getByLabel('전체 슬라이드 수', { exact: true })).toHaveText('/ 1');
       }
       await saved(page);
       const original = await snapshot(page);
@@ -165,8 +166,8 @@ for (const deck of ['sample', 'blank'] as const) {
       const originalIds = new Set(original.slides.map(slide => slide.sid));
       await recordInputDiagnostics(page);
 
-      await page.locator('.sl-toolbar').getByRole('menuitem', { name: '슬라이드', exact: true }).click();
-      await page.getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+      await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true })
+        .getByRole('button', { name: '새 슬라이드', exact: true }).click();
       // Only the explicitly delayed scenario waits. No click, focus call, or model command follows insertion.
       if (delay) await page.waitForTimeout(delay);
       await page.keyboard.type(marker, { delay: 50 });
@@ -241,7 +242,7 @@ for (const deck of ['sample', 'blank'] as const) {
       });
       const file = JSON.parse(bytes.toString('utf8'));
       expect(file.format).toBe('barocss-slides');
-      expect(file.version).toBe(1);
+      expect(file.version).toBe(2);
       expect(file.document).toEqual(expectedDocument);
       expect(JSON.stringify(file.document).split(marker)).toHaveLength(2);
       expect(download.suggestedFilename()).toMatch(/\.slides\.json$/);

@@ -82,3 +82,30 @@ The auth scenario is `apps/office/tests/connected-project-auth.spec.ts`, opt-in 
 Original failed runs were preserved. Test protocol repairs wait for confirmed UI save/pause settlement. The activity fallback assertion checks the exact direct label separately from its sibling timestamp. None weakens raw native equality, current authorization, source bytes or revision checks.
 
 Developer verification is distinct from whole-product release readiness. Live product execution (#439), authenticated Site (#407), #438 introduction export, physical OS Korean IME, and external alpha requirements remain incomplete or unverified. No publication or deployment was performed. Automatic opening of the separate local preview was rejected by browser permission review; it was not bypassed. This does not replace the scoped controlled browser checks above.
+
+
+## Aggregate PR validation repair
+
+The first aggregate PR #440 CI run on `7d50d4a4` failed. Its original reports remain retained. The repair stays within this PR and does not claim that the first run passed.
+
+The selected desktop scenarios now enter the optional library from the default project home and use the current accessible compact document menus, context toolbar and on-demand filmstrip/inspector. Immediate and delayed input, original identities, storage-failure refusal, stale trash targets, native Undo/Redo, backup and full export checks retain their criteria. Slides download version is exactly **2**, as introduced by accepted connector identity commit `fdab132f`; the exported document equality is unchanged.
+
+The Slides test configuration now discovers the existing `.tsx` chrome tests. The known collapsed-caret baseline points to the same unchanged object after its source moved five lines. Its count remains six. Site specification numbers are refreshed from the actual app sources and browser declaration inventory; the inventory is not a count of passed browser scenarios.
+
+Word and Slides selection-owner declarations explicitly use the public `@barocss/datastore` node type. Independent transpilation confirms identical JavaScript. The packed-package consumer checks keep their private-import guards.
+
+The cross-product clipboard fixture addresses the actual loaded paragraph and text IDs. The Slides native loader allocates session IDs, so pre-import fixture IDs cannot identify a live selection. Copy/paste text, exact native Undo/Redo snapshots and external input expectations remain unchanged for all four products.
+
+A separately portalled modal must receive Escape before its background floating launcher. Regression checks cover real modal dismissal and focus restoration while retaining child-picker, tooltip, composition and topmost-layer behavior. This is a shared Office interaction repair; it does not apply product Agent changes.
+
+Word selection and secondary-tool styles belong to the exported Word UI package. The aggregate unit check found six classes styled only by the standalone app. Their rules moved to the package stylesheet; the secondary-toolbar selector retains its original cascade priority. Nine actual primary, secondary, document and table-size controls have identical computed styles before and after the transfer.
+
+Slides authenticated export now constructs portable native node fields without loader-invented own `undefined` keys. Explicit empty arrays/objects, supported null/false/zero values, resource metadata, order, marks and durable connector targets stay intact. Nonportable input is rejected before model replacement, without a content event. Existing literal full native comparisons remain; canonical v2 fixtures are constructed once before runtime creation, because persisted originals already have durable identities. The expected result is not derived from the observed export. Raw imports also retain caller ownership and independent runtime identities.
+
+The drawing-only conformance probe distinguishes exact nonvisual identity readers from paint attributes. Each of twelve explicit `type.objectId` claims must pass the real native validator's unique-ID acceptance and duplicate refusal. Both durable connector endpoints run through native loading, the actual connector layout pass and SVG output. Attachment writers remain the existing `setConnector` path, verified with serialized targets and exact Undo/Redo. Notes reachability is observed from the real mounted input while further Korean text arrives during guarded initial creation. No broad attribute exemption or fake DOM attribute is used.
+
+The project ownership browser fixture creates an independent second project. Its final preservation check now addresses the exact original project ID; list ordering must not select that newly created project as the original. The full native-tree and saved-byte equality checks remain unchanged.
+
+Slides specification inventory is measured from the current schema, commands, UI exports and source. Its structural guard accounts for the exact shell, entry, menu controller and six named runtime/server adapters; it still fails for unexplained additional source. Browser declaration totals describe source inventory, not executed or passed cases.
+
+Final repair commits, completed checks and remaining CI state are recorded in PR #440. Neither a draft PR nor a local passing check authorizes merge, publication or deployment.

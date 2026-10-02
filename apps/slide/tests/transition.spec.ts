@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, openFilmstrip } from './helpers';
 
 /**
  * How a slide arrives.
@@ -43,6 +43,8 @@ const slideAt = (page: Page, index: number) =>
   }, index);
 
 const chooseTransition = async (page: Page, label: string) => {
+  const inspector = page.getByRole('button', { name: '속성', exact: true });
+  if (await inspector.getAttribute('aria-expanded') === 'false') await inspector.click();
   await panel(page).getByLabel('화면 전환').selectOption(label);
   await page.waitForTimeout(400);
 };
@@ -124,6 +126,7 @@ test.describe('how a slide arrives', () => {
 
   test('plays while presenting, and puts the slide back afterwards', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
 
     // The *second* slide gets the transition: it is the one being arrived at.
     await page.locator('.sl-filmstrip button').nth(1).click();

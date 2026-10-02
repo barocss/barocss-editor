@@ -1,4 +1,5 @@
 import type { Editor, ModelSelection } from '@barocss/editor-core';
+import type { INode } from '@barocss/datastore';
 
 export type SlidesRegion = 'canvas' | 'notes';
 export function createSlidesSelectionLifetime(editor: Editor, slide?: string) {
@@ -26,7 +27,10 @@ export function trackSlidesSelectionLifetime(lifetime: SlidesSelectionLifetime) 
     editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);
   };
 }
-export function captureSlidesSelectionOwner(lifetime: SlidesSelectionLifetime, selection: ModelSelection | null | undefined = lifetime.editor.selection) {
+export function captureSlidesSelectionOwner(lifetime: SlidesSelectionLifetime, selection: ModelSelection | null | undefined = lifetime.editor.selection): {
+  lifetime: SlidesSelectionLifetime; generation: number; version: number; rootId: string;
+  root: INode | undefined; slide: string | undefined; region: SlidesRegion; selection: ModelSelection | null;
+} | null {
   const editor = lifetime.editor, rootId = editor.getRootId();
   if (!rootId) return null;
   return { lifetime, generation: lifetime.generation, version: editor.dataStore.getVersion(), rootId,

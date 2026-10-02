@@ -191,7 +191,7 @@ describe('the numbers in the site builder spec', () => {
      */
     const quoted: [string, number[]][] = [
       ['word.md', [108, 1043]],
-      ['slides.md', [64, 529]]
+      ['slides.md', [64, 543]]
     ];
     for (const [name, numbers] of quoted) {
       const other = readFileSync(join(ROOT, 'docs', 'specs', name), 'utf8');

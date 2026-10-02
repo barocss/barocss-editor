@@ -19,18 +19,20 @@ function bodyText(node: NativeNode): string[] {
   if (node.stype === 'resources') return [];
   return [...(typeof node.text === 'string' ? [node.text] : []), ...(node.content ?? []).flatMap(bodyText)];
 }
-async function state(page: Page, flush = false) {
-  return page.evaluate(async ({ modules, flush }) => {
+async function state(page: Page, flush = false, projectId?: string) {
+  return page.evaluate(async ({ modules, flush, projectId }) => {
     const { OfficeWorkspace, workspaceIdentity } = await import(modules.workspace) as typeof import('@barocss/office-workspace');
     if (flush) {
       const { prepareProductNavigation } = await import(modules.shared) as typeof import('@barocss/shared');
       if (!await prepareProductNavigation()) throw new Error('The current native input was not saved');
     }
-    const workspace = new OfficeWorkspace(workspaceIdentity()), project = (await workspace.projects())[0]!;
+    const workspace = new OfficeWorkspace(workspaceIdentity());
+    const project = (await workspace.projects()).find(one => !projectId || one.record.id === projectId);
+    if (!project) throw new Error('The expected project is absent');
     const guide = project.record.results.find(one => one.name === '고객 설치 안내')!;
     const saved = await workspace.require('word', guide.document.id);
     return { record: project.record, native: JSON.parse(saved.text).document as NativeNode, text: saved.text, revision: saved.row.revision };
-  }, { modules, flush });
+  }, { modules, flush, projectId });
 }
 async function createResult(page: Page, name: string, product: 'Word' | 'Slides') {
   await page.getByRole('button', { name: '결과물 연결', exact: true }).click();
@@ -422,5 +424,6 @@ test('project home retires old pinned reads and stops refresh continuation after
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await expect.soft(mounted).toHaveAttribute('data-document-calls', '0');
   await expect.soft(mounted).toHaveAttribute('data-read-calls', '0');
-  const after = await state(page, true); expect(after.native).toEqual(before.native); expect(after.text).toBe(before.text);
+  // The independent ownership fixture creates a second project. Recheck the exact original, not the latest list entry.
+  const after = await state(page, true, before.record.id); expect(after.native).toEqual(before.native); expect(after.text).toBe(before.text);
 });
