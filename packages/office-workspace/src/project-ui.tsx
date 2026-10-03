@@ -37,6 +37,7 @@ export interface ProjectRepository {
     comment(project: string, documentId: string, pin: Pin): Promise<ProjectSnapshot>;
     request(project: string, documentId: string, commentId: string, body: string): Promise<ProjectSnapshot>;
     clear(project: string, documentId: string): Promise<void>;
+    cancel?(project: string, documentId: string, targetId: string): Promise<void>;
   };
 }
 

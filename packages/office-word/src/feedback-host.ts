@@ -2,6 +2,8 @@ import type { Editor, ModelSelection } from '@barocss/editor-core';
 import type { ProductFeedbackHost, ProductFeedbackTarget } from '@barocss/shared';
 import { collectCommentRange, commentIdentityInUse, resolveCommentTarget } from './comments';
 import { previewConnectedWordRevision } from './connected-proposal';
+import { inspectCommittedWordComment } from './feedback-recovery';
+import { wordFileText } from './word-file';
 
 export interface WordFeedbackOptions {
   editor: Editor;
@@ -121,6 +123,21 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
     excerpt(target) {
       const capture = captures.get(target.id);
       return target.kind === 'word-comment' && capture?.target.quote === target.quote ? structuredClone(capture.excerpt) : [];
+    },
+    committedComment(target, body) {
+      return !editable() ? 'missing' : inspectCommittedWordComment(doc(), target, body);
+    },
+    commentAbsent(target) {
+      return editable() && target.kind === 'word-comment' && !!target.id && !commentIdentityInUse(doc(), target.id);
+    },
+    async commentFingerprint(target, body) {
+      if (!editable() || !options.nativeDocument || inspectCommittedWordComment(doc(), target, body) !== 'located') return null;
+      const version = store.getVersion(), epoch = store.getDocumentEpoch(), root = editor.getRootId(), documentId = options.id();
+      const nativeText = wordFileText(options.nativeDocument(), '');
+      const bytes = new TextEncoder().encode(nativeText);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      if (!editable() || store.getVersion() !== version || store.getDocumentEpoch() !== epoch || editor.getRootId() !== root || options.id() !== documentId || wordFileText(options.nativeDocument(), '') !== nativeText) return null;
+      return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
     },
     async comment(target, body) {
       const capture = captures.get(target.id);

@@ -75,14 +75,6 @@ function track(page: Page) {
   });
   return state;
 }
-async function notePhase(page: Page, state: ReturnType<typeof track>, phase: string) {
-  state.phase = phase;
-  const selected = await page.evaluate(() => getSelection()?.toString() ?? '');
-  state.timeline.push({ kind: 'ui', phase, saveStatus: await page.locator('[data-save-status]').allTextContents(),
-    selectionLength: selected.length, selectionHash: hash(selected),
-    nativeEditable: await paragraph(page).count() ? await paragraph(page).evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable')) : null });
-}
-
 async function importMixed(page: Page) {
   await page.getByRole('button', { name: '자료함', exact: true }).click();
   await page.getByRole('button', { name: 'Word 자료', exact: true }).click();
@@ -173,7 +165,7 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
   const directory = dirname(process.env.OFFICE_AUTH_CONTROL_FILE!), evidenceFile = join(directory, 'word-mixed-feedback-evidence.json');
   const profileA = mkdtempSync(join(directory, 'mixed-writer-')), profileB = mkdtempSync(join(directory, 'mixed-viewer-'));
   let a: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined, b: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined;
-  let profileASafe = true, profileBSafe = true, passed = false, restoreBeta = false;
+  let profileASafe = true, profileBSafe = true, passed = false, restoreBeta = false, cleanupComplete = false;
   const evidence: Record<string, unknown> = { physicalOsIme: 'not exercised' }, cleanupSteps: Array<{ step: string; status: string }> = [];
   let requests: ReturnType<typeof track> | undefined, failedPage: Page | undefined;
   const checkpoint = () => writeFileSync(evidenceFile, JSON.stringify({ status: 'incomplete', phase: requests?.phase, timeline: requests?.timeline, cleanupSteps, ...evidence }), { mode: 0o600 });
@@ -233,6 +225,9 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     await input.dispatchEvent('compositionend'); await page.keyboard.press('Escape'); await expect(feedback(page)).toBeHidden();
     await page.getByRole('button', { name: '의견 0', exact: true }).click(); await expect(input).toHaveValue(opinion);
     await feedback(page).screenshot({ path: test.info().outputPath('mixed-long-opinion.png') });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await feedback(page).screenshot({ path: test.info().outputPath('mixed-rich-opinion-dark.png') });
+    await page.emulateMedia({ colorScheme: 'light' });
     const panelBounds = await feedback(page).boundingBox(); expect(panelBounds).not.toBeNull();
     for (const button of await feedback(page).getByRole('button').all()) if (await button.isVisible()) {
       const bounds = await button.boundingBox(); expect(bounds!.height).toBeGreaterThanOrEqual(32); expect(bounds!.width).toBeGreaterThanOrEqual(32);
@@ -241,7 +236,29 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     const closeBounds = await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).boundingBox();
     expect(closeBounds!.y).toBeGreaterThanOrEqual(panelBounds!.y); expect(closeBounds!.y + closeBounds!.height).toBeLessThanOrEqual(panelBounds!.y + panelBounds!.height);
     await input.scrollIntoViewIfNeeded();
+    requests.phase = 'retired-native-intent'; checkpoint();
+    let retiredDuringPreparation = false;
+    await page.route(projectApi, async route => {
+      const action = route.request().method() === 'PATCH' ? route.request().postDataJSON()?.action : undefined;
+      if (retiredDuringPreparation || action?.type !== 'draft' || !String(action.key).endsWith(':meta') || JSON.parse(action.text).phase !== 'native') return route.continue();
+      const prepared = await route.fetch(); expect(prepared.status()).toBe(200);
+      retiredDuringPreparation = true;
+      await paragraph(page).click(); await page.keyboard.press('ArrowRight');
+      await route.fulfill({ response: prepared });
+    });
+    await feedback(page).getByRole('button', { name: '댓글만 남기기', exact: true }).click();
+    await expect(feedback(page).getByRole('button', { name: '이전 요청 취소하고 대상 다시 선택', exact: true })).toBeVisible();
+    expect(retiredDuringPreparation).toBe(true); expect((await readDocument()).snapshotText).toBe(initial.snapshotText);
+    await feedback(page).screenshot({ path: test.info().outputPath('mixed-stale-intent.png') });
+    expect((await readProject()).project.record.comments).toHaveLength(0);
+    await feedback(page).getByRole('button', { name: '이전 요청 취소하고 대상 다시 선택', exact: true }).click();
+    await expect(feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true })).toBeHidden();
+    await expect(input).toHaveValue(opinion); expect((await readDocument()).snapshotText).toBe(initial.snapshotText);
+    await page.unroute(projectApi);
+    await selectMixed(page, 'forward'); await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await expect(feedback(page).locator('blockquote')).toHaveText(sentence); await expect(input).toHaveValue(opinion);
     requests.phase = 'lost-native-save-ack'; checkpoint();
+    const beforeNativeReceipts = await privateControl<Inspection<'word'>>({ action: 'inspect', product: 'word', documentId: guide.id });
     let saveDropped = false; const saves: unknown[] = [];
     await page.route(`${documentApi}/snapshot`, async route => {
       if (route.request().method() !== 'PUT') return route.continue();
@@ -253,23 +270,55 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     await expect(feedback(page).getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible(); await expect(input).toHaveValue(opinion);
     expect(saveDropped).toBe(true); expect((await readProject()).project.record.comments).toHaveLength(0);
     const savedNative = await readDocument();
+    // Confirm the original save receipt while this native runtime still owns its history.
+    await word(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ }).click();
+    await expect(word(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+    const exportedNative = async () => {
+      const event = page.waitForEvent('download');
+      await word(page).getByRole('button', { name: 'Word 파일 내보내기', exact: true }).click();
+      const download = await event, path = await download.path(); expect(path).not.toBeNull();
+      return JSON.parse(readFileSync(path!, 'utf8')).document as INode;
+    };
+    await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).click();
+    await paragraph(page).click(); await page.keyboard.press('Meta+z');
+    expect(await exportedNative()).toEqual(JSON.parse(initial.snapshotText).document);
+    await paragraph(page).click(); await page.keyboard.press('Meta+Shift+z');
+    expect(await exportedNative()).toEqual(JSON.parse(savedNative.snapshotText).document);
+    expect((await readDocument()).snapshotText).toBe(savedNative.snapshotText);
+
+    expect(new URL(page.url()).searchParams.get('project')).toBe(projectId);
+    await page.reload(); await expect(word(page)).toBeVisible(); await expect(input).toHaveValue(opinion);
+    await expect(feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true })).toBeVisible();
     requests.phase = 'lost-comment-ack'; checkpoint();
-    let commentDropped = false, firstCommentPayload: unknown;
+    let commentDrops = 0, firstCommentPayload: unknown;
     await page.route(projectApi, async route => {
-      if (route.request().method() !== 'PATCH' || route.request().postDataJSON()?.action?.type !== 'comment' || commentDropped) return route.continue();
-      commentDropped = true; firstCommentPayload = route.request().postDataJSON();
+      if (route.request().method() !== 'PATCH' || route.request().postDataJSON()?.action?.type !== 'comment' || commentDrops >= 2) return route.continue();
+      commentDrops++; if (commentDrops === 1) { firstCommentPayload = route.request().postDataJSON(); return route.abort('failed'); }
       const committed = await route.fetch(); expect(committed.status()).toBe(200); await route.abort('failed');
     });
-    await feedback(page).getByRole('button', { name: '댓글만 남기기', exact: true }).click();
+    await feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true }).click();
     await expect(feedback(page).getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible(); await expect(input).toHaveValue(opinion);
-    expect(commentDropped).toBe(true); let current = await readProject(); expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
-    await feedback(page).getByRole('button', { name: '댓글만 남기기', exact: true }).click();
+    expect(commentDrops).toBe(1); expect((await readProject()).project.record.comments).toHaveLength(0);
+    expect(new URL(page.url()).searchParams.get('project')).toBe(projectId);
+    await page.reload(); await expect(word(page)).toBeVisible(); await expect(input).toHaveValue(opinion);
+    await feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true }).click();
+    await expect(feedback(page).getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible(); await expect(input).toHaveValue(opinion);
+    expect(commentDrops).toBe(2); let current = await readProject(); expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
+    expect(new URL(page.url()).searchParams.get('project')).toBe(projectId);
+    await page.reload(); await expect(word(page)).toBeVisible(); await expect(input).toHaveValue(opinion);
+    await feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true }).click();
+    await expect(feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true })).toBeHidden();
     await expect(page.getByRole('button', { name: '의견 1', exact: true })).toBeVisible();
     current = await readProject(); const comment = current.project.record.comments[0];
     expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
     const commentPayloads = requests.projectWrites.filter(payload => (payload.action as { type?: string })?.type === 'comment');
-    expect(commentPayloads).toHaveLength(2); expect(commentPayloads[0]).toEqual(firstCommentPayload); expect(commentPayloads[1]).toEqual(firstCommentPayload);
-    expect(saves.length).toBeGreaterThanOrEqual(2); expect(saves[1]).toEqual(saves[0]);
+    expect(commentPayloads).toHaveLength(3); for (const payload of commentPayloads) expect(payload).toEqual(firstCommentPayload);
+    expect(saves).toHaveLength(1);
+    const saveAttempt = saves[0] as { idempotencyKey: string; snapshotText: string };
+    const nativeReceipt = await privateControl<Inspection<'word'>>({ action: 'inspect', product: 'word', documentId: guide.id, operation: 'update', idempotencyKey: saveAttempt.idempotencyKey });
+    expect(nativeReceipt.receiptCount).toBe(beforeNativeReceipts.receiptCount + 1);
+    expect(nativeReceipt.receipt).toMatchObject({ idempotencyKey: saveAttempt.idempotencyKey, documentId: guide.id, snapshotText: saveAttempt.snapshotText });
+    expect(requests.timeline.some(event => event.kind === 'request' && event.method === 'GET' && String(event.path).includes(`/receipts/update/${saveAttempt.idempotencyKey}`))).toBe(true);
     const afterComment = await readDocument(); expect(afterComment.snapshotText).toBe(savedNative.snapshotText);
     expect(comment.target).toEqual({ kind: 'word-comment', id: comment.target.id, quote: sentence });
     expect(comment.body).toBe(opinion.trim()); expect(comment.pin.text).toBe(afterComment.snapshotText); expect(comment.pin.revision).toBe(afterComment.document.revision);
@@ -278,19 +327,26 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     expect(executionDispatches).toBe(0);
     expect(executionDispatches).toBe(0);
     requests.phase = 'lost-request-ack'; checkpoint();
-    let requestDropped = false; const workRequests: unknown[] = [];
+    let requestDrops = 0; const workRequests: unknown[] = [];
     await page.route(projectApi, async route => {
       if (route.request().method() !== 'PATCH' || route.request().postDataJSON()?.action?.type !== 'request') return route.continue();
-      workRequests.push(route.request().postDataJSON()); if (requestDropped) return route.continue(); requestDropped = true;
+      workRequests.push(route.request().postDataJSON()); if (requestDrops >= 2) return route.continue(); requestDrops++;
+      if (requestDrops === 1) return route.abort('failed');
       const committed = await route.fetch(); expect(committed.status()).toBe(200); await route.abort('failed');
     });
     await feedback(page).getByRole('button', { name: '수정 작업 연결', exact: true }).click();
     await expect(feedback(page).getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible();
-    current = await readProject(); expect(current.project.record.works).toHaveLength(1); const workId = current.project.record.works[0].id;
-    await feedback(page).getByRole('button', { name: '수정 작업 연결', exact: true }).click();
+    expect(requestDrops).toBe(1); expect((await readProject()).project.record.works).toHaveLength(0);
+    await page.reload(); await expect(word(page)).toBeVisible();
+    await feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true }).click();
+    await expect(feedback(page).getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible();
+    expect(requestDrops).toBe(2); current = await readProject(); expect(current.project.record.works).toHaveLength(1); const workId = current.project.record.works[0].id;
+    await page.reload(); await expect(word(page)).toBeVisible();
+    await feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true }).click();
+    await expect(feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true })).toBeHidden();
     await expect(feedback(page).getByText('요청 보관됨 · 아직 실행하지 않음', { exact: true })).toBeVisible();
     current = await readProject(); expect(current.project.record.works).toHaveLength(1); expect(current.project.record.works[0].id).toBe(workId);
-    expect(current.project.record.works[0].commentId).toBe(comment.id); expect(current.project.record.works[0].inputs).toContainEqual(comment.pin); expect(workRequests).toHaveLength(2); expect(workRequests[1]).toEqual(workRequests[0]);
+    expect(current.project.record.works[0].commentId).toBe(comment.id); expect(current.project.record.works[0].inputs).toContainEqual(comment.pin); expect(workRequests).toHaveLength(3); for (const payload of workRequests) expect(payload).toEqual(workRequests[0]);
     expect(executionDispatches).toBe(0);
     const executionApi = `${projectApi}/works/${workId}/execution`;
     const beforeUnsupported = await readDocument();
@@ -304,13 +360,6 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     const executionRead = await page.request.get(executionApi, { headers: headers() });
     const held = await executionRead.json() as { execution: { id: string; provenance?: unknown } };
     expect(held.execution.provenance).toBeUndefined();
-    await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).click();
-    await paragraph(page).click(); await page.keyboard.press('Meta+z');
-    await word(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ }).click();
-    await expect.poll(async () => JSON.parse((await readDocument()).snapshotText).document).toEqual(beforeTree);
-    await paragraph(page).click(); await page.keyboard.press('Meta+Shift+z');
-    await word(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ }).click();
-    await expect.poll(async () => JSON.parse((await readDocument()).snapshotText).document).toEqual(expected);
     await page.reload(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
     await page.getByRole('button', { name: '의견 1', exact: true }).click();
     await feedback(page).getByRole('button', { name: '대상 영역', exact: true }).click();
@@ -348,7 +397,7 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
   } catch (error) {
     evidence.failure = 'acceptance_incomplete'; checkpoint();
     try { if (failedPage && !failedPage.isClosed() && new URL(failedPage.url()).origin === origin) {
-      writeFileSync(join(directory, 'word-mixed-feedback-failure-ui.json'), JSON.stringify({ phase: requests?.phase, headings: await failedPage.getByRole('heading').allTextContents(), timeline: requests?.timeline }), { mode: 0o600 });
+      writeFileSync(join(directory, 'word-mixed-feedback-failure-ui.json'), JSON.stringify({ url: failedPage.url(), phase: requests?.phase, headings: await failedPage.getByRole('heading').allTextContents(), timeline: requests?.timeline }), { mode: 0o600 });
       await failedPage.screenshot({ path: test.info().outputPath('mixed-feedback-failure.png') });
     } } catch { evidence.failureUiStatus = 'diagnostic_failed'; checkpoint(); }
     throw error;
@@ -365,8 +414,8 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
       if (stopped) await cleanup(`remove-${name}-profile`, async () => { rmSync(path, { recursive: true, force: true }); });
       else cleanupSteps.push({ step: `remove-${name}-profile`, status: 'unconfirmed' });
     }
-    const cleanupComplete = cleanupSteps.every(step => step.status === 'complete');
+    cleanupComplete = cleanupSteps.every(step => step.status === 'complete');
     writeFileSync(evidenceFile, JSON.stringify({ status: passed && cleanupComplete ? 'passed' : 'incomplete', cleanup: cleanupComplete, timeline: requests?.timeline, cleanupSteps, ...evidence }), { mode: 0o600 });
-    if (passed && !cleanupComplete) throw new Error('mixed_feedback_cleanup_incomplete');
   }
+  if (passed && !cleanupComplete) throw new Error('mixed_feedback_cleanup_incomplete');
 });

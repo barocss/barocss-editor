@@ -3,7 +3,7 @@ import { Button, Icon, IconButton, StatusNotice } from '@barocss/office-ui';
 import { createProjectComment, requestProjectWork, productDocumentHost, productFeedbackHost, prepareProductNavigation,
   type ProductFeedbackTarget, type ProductFeedbackHost, type Pin, type ProjectComment } from '@barocss/shared';
 import type { Product } from './products';
-import { type ProjectRepository, type ProjectSnapshot, PinnedSource } from './project-ui';
+import { type ProjectRepository, type ProjectSnapshot, type WordFeedbackRecovery, PinnedSource } from './project-ui';
 import { ConnectedWorkControl } from './connected-work-control';
 
 export function ProjectFeedback({ repository, projectId, document: address, beforeLeave, actor }: {
@@ -14,6 +14,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   const [draft, setDraft] = useState(''), [target, setTarget] = useState<ProductFeedbackTarget>(), [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(new URLSearchParams(location.search).get('mode') === 'read');
   const [viewing, setViewing] = useState<string>();
+  const [recovery, setRecovery] = useState<WordFeedbackRecovery | null>(null);
   const [excerpt, setExcerpt] = useState<ReturnType<NonNullable<ProductFeedbackHost['excerpt']>>>([]);
   const [source, setSource] = useState<Pin>(), [hasReading, setHasReading] = useState(!!productFeedbackHost()?.reading);
   const inputVersion = useRef(0);
@@ -36,7 +37,14 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   const perform = async (action: () => Promise<void>) => {
     if (lock.current || !owns()) return;
     lock.current = true; setBusy(true); setError('');
-    try { await action(); } catch (cause) { if (owns()) { setOpen(true); setError(cause instanceof Error ? cause.message : '의견을 저장하지 못했습니다.'); } }
+    try { await action(); } catch (cause) {
+      if (owns()) {
+        setOpen(true); setError(cause instanceof Error ? cause.message : '의견을 저장하지 못했습니다.');
+        if (address.product === 'word' && repository.feedbackRecovery) {
+          try { const pending = await repository.feedbackRecovery.read(projectId, address.id); if (owns()) setRecovery(pending); } catch { /* Keep the original failure and draft when authority or recovery reads fail. */ }
+        }
+      }
+    }
     finally { if (owns()) { lock.current = false; setBusy(false); } }
   };
   const saveDraft = () => {
@@ -52,11 +60,15 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   };
   useEffect(() => {
     mounted.current = true; lock.current = false; queue.current = Promise.resolve(); setBusy(false);
-    setTarget(undefined); setExcerpt([]); successfulNative.current = undefined; pendingComment.current = undefined; pendingActivity.current = undefined; pendingRequest.current = undefined; capturedPin.current = undefined;
+    setTarget(undefined); setExcerpt([]); setRecovery(null); successfulNative.current = undefined; pendingComment.current = undefined; pendingActivity.current = undefined; pendingRequest.current = undefined; capturedPin.current = undefined;
     const startingInput = inputVersion.current;
-    void repository.read(projectId).then(value => {
+    void repository.read(projectId).then(async value => {
       if (!owns()) return; setSnapshot(value); const text = value?.record.drafts[key] ?? ''; savedDraft.current = text;
       if (inputVersion.current === startingInput && !composing.current) { latest.current = text; setDraft(text); }
+      if (address.product === 'word' && repository.feedbackRecovery) {
+        const pending = await repository.feedbackRecovery.read(projectId, address.id);
+        if (owns()) { setRecovery(pending); if (pending) setOpen(true); }
+      }
     }).catch(cause => owns() && setError(cause instanceof Error ? cause.message : '프로젝트를 열지 못했습니다.'));
     const host = productFeedbackHost(); if (host?.product === address.product && host.id() === address.id) host.reading?.(reading);
     const change = () => { const next = productFeedbackHost(); if (owns() && next?.product === address.product && next.id() === address.id) { next.reading?.(reading); setHasReading(!!next.reading); } };
@@ -68,6 +80,19 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   }, [identity, repository, generation]);
   const refresh = async () => { const value = await repository.read(projectId); if (!owns()) throw new Error('문서가 바뀌었습니다.'); setSnapshot(value); return value; };
   const requestWork = async (commentId: string, body: string) => {
+    if (address.product === 'word' && repository.feedbackRecovery) {
+      const current = await repository.read(projectId); requireOwn();
+      const comment = current?.record.comments.find(one => one.id === commentId);
+      const host = productFeedbackHost();
+      if (!comment || comment.target.kind !== 'word-comment' || host?.product !== 'word' || host.id() !== address.id || !host.editable() || host.committedComment?.(comment.target, body) !== 'located') throw new Error('원래 댓글과 대상 영역을 확인하지 못했습니다. 입력을 유지합니다.');
+      await repository.feedbackRecovery.begin(projectId, { documentId: address.id, resultId: comment.resultId, target: comment.target, body, requestWork: true }); requireOwn();
+      const fingerprint = await host.commentFingerprint?.(comment.target, body); requireOwn();
+      if (!fingerprint) throw new Error('원본 상태가 바뀌었습니다. 새 요청을 만들지 않습니다.');
+      await repository.feedbackRecovery.nativeSnapshot(projectId, address.id, fingerprint); requireOwn();
+      const stored = await repository.feedbackRecovery.request(projectId, address.id, commentId, body); requireOwn();
+      await repository.feedbackRecovery.clear(projectId, address.id); requireOwn();
+      setRecovery(null); setSnapshot(stored); await refresh(); return;
+    }
     if (pendingRequest.current && pendingRequest.current.commentId !== commentId) throw new Error('저장 응답을 확인 중인 수정 요청이 있습니다. 같은 요청을 먼저 확인하세요.');
     if (!pendingRequest.current) {
       const current = await repository.read(projectId); requireOwn();
@@ -85,6 +110,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     pendingRequest.current = undefined; setSnapshot(stored);
   };
   const start = async () => {
+    if (recovery) throw new Error('이전 저장 응답을 먼저 확인하세요. 의견 초안은 유지합니다.');
     const host = productFeedbackHost();
     if (host && (host.product !== address.product || host.id() !== address.id || !host.editable())) throw new Error('현재 문서에 의견을 남길 권한이 없습니다.');
     const captured = host ? host.capture() : { kind: 'document' as const, id: address.id, quote: '' };
@@ -103,13 +129,29 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     const ready = await repository.read(projectId);
     if (!owns() || !ready || ready.record.archived || !ready.record.results.some(one => one.id === result.id && one.document.product === address.product && one.document.id === address.id)) throw new Error('프로젝트 또는 결과물 연결이 바뀌었습니다. 의견 초안은 유지합니다.');
     const native = productFeedbackHost();
+    const durable = target.kind === 'word-comment' ? repository.feedbackRecovery : undefined;
+    if (durable) { await durable.begin(projectId, { documentId: address.id, resultId: result.id, target, body: submittedBody, requestWork: request }); requireOwn(); }
     if (target.kind === 'word-comment') {
       if (!native || native.product !== address.product || native.id() !== address.id || !native.editable()) throw new Error('현재 문서에 의견을 남길 권한이 없습니다.');
       if (!successfulNative.current) { const savedTarget = await native.comment(target, submittedBody); requireOwn(); successfulNative.current = savedTarget; }
+      if (durable) {
+        const fingerprint = await native.commentFingerprint?.(target, submittedBody); requireOwn();
+        if (!fingerprint) throw new Error('원래 댓글의 저장 상태를 확인하지 못했습니다. 입력을 유지합니다.');
+        await durable.nativeSnapshot(projectId, address.id, fingerprint); requireOwn();
+      }
     }
     if (!await prepareProductNavigation() || !owns()) throw new Error('원본 댓글을 저장하지 못했습니다. 입력한 의견을 유지합니다.');
     const pin = pendingComment.current?.pin ?? (target.kind === 'word-comment' ? await repository.pin(address) : capturedPin.current);
     requireOwn(); if (!pin) throw new Error('의견의 원본 버전을 다시 확인하세요.');
+    if (durable) {
+      const stored = await durable.comment(projectId, address.id, pin); requireOwn();
+      const inserted = stored.record.comments.find(one => one.id === stored.commentId || one.target.id === target.id && one.target.kind === 'word-comment');
+      if (!inserted) throw new Error('저장한 의견의 식별자를 확인하지 못했습니다.');
+      if (request) { await durable.request(projectId, address.id, inserted.id, submittedBody); requireOwn(); }
+      await durable.clear(projectId, address.id); requireOwn(); setRecovery(null);
+      if (!composing.current && latest.current === submittedDraft) { latest.current = ''; setDraft(''); }
+      await saveDraft(); requireOwn(); await refresh(); setTarget(undefined); setExcerpt([]); successfulNative.current = undefined; pendingComment.current = undefined; return;
+    }
     const current = await repository.read(projectId);
     if (!current || !owns()) throw new Error('프로젝트가 바뀌었습니다.');
     const actual = successfulNative.current ?? target;
@@ -139,6 +181,38 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     if (!composing.current && latest.current === submittedDraft) { latest.current = ''; setDraft(''); }
     await saveDraft(); requireOwn(); setTarget(undefined); setExcerpt([]); successfulNative.current = undefined; pendingComment.current = undefined;
   };
+  const cancelRecovery = async () => {
+    const durable = repository.feedbackRecovery;
+    if (!durable?.cancel || composing.current) return;
+    const pending = await durable.read(projectId, address.id); requireOwn();
+    if (!pending) { setRecovery(null); return; }
+    const host = productFeedbackHost();
+    if (pending.phase !== 'native' || pending.nativeHash || pending.commentId || host?.product !== 'word' || host.id() !== address.id ||
+      !host.editable() || host.commentAbsent?.(pending.target) !== true) throw new Error('원본 댓글 또는 미확인 저장이 남아 있습니다. 이전 요청을 취소하지 않습니다.');
+    await durable.cancel(projectId, address.id, pending.target.id); requireOwn();
+    setRecovery(null); setTarget(undefined); setExcerpt([]); successfulNative.current = undefined; pendingComment.current = undefined;
+    setError('이전 요청을 취소했습니다. 초안은 유지합니다. 대상 영역을 다시 선택하세요.');
+  };
+  const recover = async () => {
+    const durable = repository.feedbackRecovery;
+    if (!durable || composing.current || !recovery) return;
+    const pending = await durable.read(projectId, address.id); requireOwn();
+    if (!pending) { setRecovery(null); await refresh(); return; }
+    const host = productFeedbackHost();
+    const state = host?.product === 'word' && host.id() === address.id && host.editable() ? host.committedComment?.(pending.target, pending.body) : 'missing';
+    if (state !== 'located') throw new Error(state === 'ambiguous' ? '원래 대상이 중복되어 저장을 이어가지 않습니다. 초안을 유지합니다.' : state === 'changed' ? '원본 댓글 또는 텍스트가 바뀌었습니다. 초안을 유지합니다.' : '원래 댓글을 찾지 못했습니다. 이전 선택으로 새 댓글을 만들지 않습니다. 초안을 유지합니다.');
+    const fingerprint = await host!.commentFingerprint?.(pending.target, pending.body); requireOwn();
+    if (!pending.nativeHash || fingerprint !== pending.nativeHash) throw new Error('미확인 저장 이후 원본이 바뀌었습니다. 같은 요청을 다시 만들지 않습니다. 초안을 유지합니다.');
+    if (!await prepareProductNavigation() || !owns()) throw new Error('원본 저장 응답을 확인하지 못했습니다. 초안을 유지합니다.');
+    const pin = await repository.pin(address); requireOwn();
+    const stored = await durable.comment(projectId, address.id, pin); requireOwn();
+    const comment = stored.record.comments.find(one => one.id === stored.commentId || one.target.kind === 'word-comment' && one.target.id === pending.target.id);
+    if (!comment) throw new Error('원래 의견의 저장 응답을 확인하지 못했습니다.');
+    if (pending.requestWork || pending.phase === 'request') { await durable.request(projectId, address.id, comment.id, pending.body); requireOwn(); }
+    await durable.clear(projectId, address.id); requireOwn(); setRecovery(null);
+    if (!composing.current && latest.current.trim() === pending.body) { latest.current = ''; setDraft(''); }
+    await saveDraft(); requireOwn(); await refresh(); setTarget(undefined); setExcerpt([]); successfulNative.current = undefined; pendingComment.current = undefined;
+  };
   const comments = snapshot?.record.comments.filter(one => one.resultId === result?.id) ?? [];
   return <>
     {result && <div className="ow-project-feedback-controls">
@@ -153,6 +227,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     </div>}
     {error && !open && <span role="alert">{error}</span>}
     {open && <aside className="ow-feedback-panel" aria-label="프로젝트 의견"><header><h2>프로젝트 의견</h2><IconButton label="의견 닫기" onClick={() => void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); })}><Icon name="close" /></IconButton></header>
+      {recovery && <div className="ow-feedback-recovery"><StatusNotice tone="warning" title="저장 응답을 확인해야 합니다">원래 댓글과 같은 요청만 확인합니다. 초안은 유지합니다.</StatusNotice><Button disabled={busy || !repository.writable} onClick={() => void perform(recover)}>저장 응답 확인</Button>{recovery.phase === 'native' && !recovery.nativeHash && !recovery.commentId && repository.feedbackRecovery?.cancel && <Button disabled={busy || !repository.writable} onClick={() => void perform(cancelRecovery)}>이전 요청 취소하고 대상 다시 선택</Button>}</div>}
       {error && <StatusNotice tone="danger" title="의견을 저장하지 못했습니다">{error}</StatusNotice>}
       {!target && draft && <p className="ow-feedback-note">작성 중인 의견을 보관했습니다. 문서의 대상 영역을 선택한 뒤 의견 남기기를 누르세요.</p>}
       {(target || draft) && <div className="ow-feedback-composer"><p>{!target ? '보관한 초안' : target.kind === 'document' ? '문서 전체' : '선택한 텍스트 영역'}</p>{target?.quote && <blockquote>{excerpt.length ? excerpt.map((part, index) => <span key={index} style={{ fontWeight: part.bold ? 650 : undefined, fontStyle: part.italic ? 'italic' : undefined, textDecoration: part.underline || part.link ? 'underline' : undefined }} className={part.link ? 'ow-feedback-excerpt-link' : undefined}>{part.text}</span>) : target.quote}</blockquote>}
@@ -161,7 +236,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
           if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) { if (event.key === 'Enter' || event.key === 'Escape') event.stopPropagation(); return; }
           if (event.key === 'Escape') { event.stopPropagation(); void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); }); }
         }} />
-        <div className="ow-actions"><Button disabled={busy || !target || !draft.trim()} onClick={() => void perform(() => submit(false))}>댓글만 남기기</Button><Button tone="accent" disabled={busy || !target || !draft.trim()} onClick={() => void perform(() => submit(true))}>수정 요청</Button></div><p className="ow-feedback-note">수정 요청은 작업을 연결합니다. 모델 실행과 원본 변경 승인은 별도 단계입니다.</p>
+        <div className="ow-actions"><Button disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(false))}>댓글만 남기기</Button><Button tone="accent" disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(true))}>수정 요청</Button></div><p className="ow-feedback-note">수정 요청은 작업을 연결합니다. 모델 실행과 원본 변경 승인은 별도 단계입니다.</p>
       </div>}
       {comments.map(comment => <article className="ow-feedback-thread" key={comment.id}><small>{comment.actor.label} · 버전 {comment.pin.revision}</small><p>{comment.body}</p>
         <Button disabled={busy} onClick={() => { const host = productFeedbackHost(); if (comment.target.kind === 'document') return; const state = host?.product === address.product && host.id() === address.id ? host.locate(comment.target) : 'missing'; if (state !== 'located') setError(state === 'ambiguous' ? '대상 영역이 중복되어 이동하지 않습니다.' : '대상 영역을 찾을 수 없습니다.'); }}>대상 영역</Button>

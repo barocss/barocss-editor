@@ -66,6 +66,7 @@ for (const damage of ['missing', 'body', 'quote', 'ambiguous', 'protected'] as c
     const f = await fixture(document), before = snapshot(f.editor), requested = damage === 'quote' ? { ...target, quote: target.quote + ' ' } : target;
     const digest = vi.spyOn(webcrypto.subtle, 'digest');
     expect(f.host.committedComment!(requested, body)).toBe(damage === 'ambiguous' ? 'ambiguous' : damage === 'body' || damage === 'quote' ? 'changed' : 'missing');
+    expect(f.host.commentAbsent!(target)).toBe(false);
     expect(await f.host.commentFingerprint!(requested, body)).toBeNull(); expect(digest).not.toHaveBeenCalled();
     expect(snapshot(f.editor)).toEqual(before); expect(f.captureSelection).not.toHaveBeenCalled(); expect(f.run).not.toHaveBeenCalled();
   });
@@ -93,3 +94,10 @@ for (const change of ['native-command', 'direct-source', 'root', 'document-id', 
     expect(f.captureSelection).not.toHaveBeenCalled(); expect(f.run).not.toHaveBeenCalled();
   });
 }
+
+it('proves only an unused native identity absent and refuses cancellation after authority loss', async () => {
+  const f = await fixture(), before = snapshot(f.editor), unused = { ...target, id: 'never-inserted' };
+  expect(f.host.commentAbsent!(unused)).toBe(true); expect(f.host.commentAbsent!(target)).toBe(false);
+  expect(snapshot(f.editor)).toEqual(before); expect(f.captureSelection).not.toHaveBeenCalled(); expect(f.run).not.toHaveBeenCalled();
+  f.revoke(); expect(f.host.commentAbsent!(unused)).toBe(false);
+});

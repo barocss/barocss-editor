@@ -193,6 +193,9 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           if (!workspace) throw new AuthError('forbidden', '선택한 자료함에 접근할 수 없습니다.');
           const context = await openVerifiedSnapshot(fresh.tenantId, workspace.id, direct.documentId, role, direct.product);
           if (run !== generation.current) return;
+          // Silent login restores the URL after this component was mounted on the callback.
+          // Retain the freshly authorized project intent before native navigation reports its document.
+          noteIntent.current = direct;
           history.replaceState(null, '', `/?${snapshotIntentSearch(direct)}`);
           const retainNativeRuntime = context.product === 'word' || context.product === 'slides';
           if (retainedNote && (retainNativeRuntime || role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
