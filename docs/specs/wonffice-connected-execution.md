@@ -125,3 +125,51 @@ same-attempt pause/resume, pinned training follow-up, browser/API restart and
 current authorization against this exact candidate. Retain all seven #439
 criteria and all thirteen Goal requirements. Training automatic editing remains
 unsupported and explicitly pending. Full Goal and alpha readiness are not claimed.
+
+## Resumed authenticated acceptance — 2026-10-03
+
+The later normally interactive runtime produced a real local-model proposal.
+The first resumed case retained a test-instrumentation failure: it counted both
+the request and its response as dispatches. The correction filters only request
+events; the expected count remains one. No assertion, model fixture or timeout
+was relaxed. That failed run and its actual proposal/provenance remain preserved.
+
+The corrected desktop case passed with actual OIDC, disposable PostgreSQL/API,
+one installed-model call and two independent browser profiles. It verified:
+
+- Comment-only makes no inference. Exact native input and live provenance bind
+  the deliberate request to the proposal.
+- Pause/reload/resume retains the same proposal and attempt without inference.
+- Explicit approval applies one declared Word delta and saves canonical revision
+  3. Complete native Undo/Redo returns exact before/after bytes using the existing
+  editor history and save path.
+- A deliberately linked training original uses guide revision 3, preserves its
+  exact pin and remains visibly pending/unsupported. Its own native bytes are
+  unchanged. Historical guide bytes remain retrievable after human changes.
+- Actual browser-process/API restart and explicit replay retain the same attempt,
+  proposal and provenance. Viewer acceptance and revoked evidence reads return
+  403. All private profile cleanup steps complete.
+
+The provider measured 44.327 seconds, 14,823 prompt bytes, 3,914 input tokens and
+138 output tokens in that passing case. These are measurements of one run, not a
+performance comparison. Before/after source manifests matched 3,330 paths.
+The native and client refusal/recovery tests and injected-adapter PostgreSQL
+checks remain separately attributed; they are not relabeled as physical IME or
+additional live-model calls.
+
+QA prerequisite: the existing installed model, protected fictional OIDC accounts,
+local Keycloak, Node 22.22.0, PostgreSQL binaries, and a disposable outside-repository
+0700 control directory with an empty 0600 control file. Run the existing
+`apps/office/playwright.auth.real.config.ts` with
+`connected-execution-auth.spec.ts`; it creates and cleans private API/database
+and browser resources. Missing prerequisites fail rather than skip.
+`OFFICE_LOCAL_AGENT_ENABLED=true` explicitly enables the adapter; production
+defaults remain unconnected. No new credentials, model download or service setup
+is needed or authorized by this acceptance.
+
+The owner's latest local-Git instruction closed PR #440 without merging or
+deleting its branch. Release-only PR publication remains required. Final
+source-bound preflight and serial local integration are recorded in the local
+evidence manifest. This bounded Word execution does not complete the full Goal,
+four-product editing, semantic business criteria, training automatic editing or
+external alpha/release readiness.

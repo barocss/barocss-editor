@@ -260,7 +260,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
       return (await response.json() as { execution: Execution | null }).execution;
     };
     expect(await readExecution()).toBeNull();
-    expect(timelines.flat().filter(entry => entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(0);
+    expect(timelines.flat().filter(entry => entry.kind === 'request' && entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(0);
     await page.getByRole('button', { name: '프로젝트로 돌아가기', exact: true }).click();
     await expect(page.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
     const details = page.locator('.ow-project-work'); await details.locator('summary').first().click();
@@ -327,7 +327,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await pausePage.close(); await page.bringToFront(); diagnosticPage = page; diagnosticRequests = requests;
     await executionPanel(page).getByRole('button', { name: '실행 기록 확인', exact: true }).click();
     await expect(executionPanel(page).getByRole('status')).toHaveText('제안 검토');
-    expect(timelines.flat().filter(entry => entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(1);
+    expect(timelines.flat().filter(entry => entry.kind === 'request' && entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(1);
     await expect(executionPanel(page).getByRole('button', { name: '이 변경 승인 및 저장', exact: true })).toBeEnabled();
     requests.phase = 'human-accept'; await executionPanel(page).getByRole('button', { name: '이 변경 승인 및 저장', exact: true }).click();
     await expect(executionPanel(page).getByRole('status')).toHaveText('원본 반영 확인', { timeout: 30_000 });
@@ -382,7 +382,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await expect(word(page)).toBeVisible(); expect((await readDocument(guide.id, 'word')).snapshotText).toBe(expected);
     const restored = await readExecution(); expect(restored!.id).toBe(proposed.id); expect(restored!.proposal).toEqual(proposed.proposal);
     expect(restored!.provenance).toEqual(proposed.provenance); expect(restored!.pendingOutputs).toEqual(linkedExecution!.pendingOutputs);
-    expect(timelines.flat().filter(entry => entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(1);
+    expect(timelines.flat().filter(entry => entry.kind === 'request' && entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(1);
     const replay = await page.request.post(executionApi, { headers: { Authorization: requests.bearer }, data: { expectedRevision: (await readProject()).project.revision } });
     expect(replay.status()).toBe(200); const replayed = (await replay.json() as { execution: Execution }).execution;
     expect(replayed.id).toBe(proposed.id); expect(replayed.provenance).toEqual(proposed.provenance);
