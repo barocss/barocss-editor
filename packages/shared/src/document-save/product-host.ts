@@ -3,25 +3,46 @@ import { documentLibrary } from '../document-library/document-library';
 export interface ProductDocumentHost {
   product: 'note' | 'word' | 'slides' | 'site';
   id(): string;
+  /** The product increments this lifetime when its document is replaced, including A → B → A. */
+  identityEpoch?(): number;
   /** Resolve only after nested input and conditional storage writes settle. */
   beforeNavigate(): Promise<boolean>;
 }
 let current: ProductDocumentHost | undefined;
+let registrationEpoch = 0;
 export function registerProductDocumentHost(host: ProductDocumentHost): () => void {
   current = host;
+  const registered = ++registrationEpoch;
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('wonffice:host-change'));
   return () => {
-    if (current !== host) return;
+    if (current !== host || registered !== registrationEpoch) return;
     current = undefined;
+    registrationEpoch++;
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('wonffice:host-change'));
   };
 }
 export function productDocumentHost(): ProductDocumentHost | undefined { return current; }
-export async function prepareProductNavigation(): Promise<boolean> {
+export interface ProductNavigationGuard {
+  readonly product: ProductDocumentHost['product'];
+  readonly id: string;
+  /** Recheck after every async catalog operation and immediately before changing the route. */
+  isCurrent(): boolean;
+  prepare(): Promise<boolean>;
+}
+
+/** Captures a lifetime, not only the document ID seen at both ends of an async operation. */
+export function captureProductNavigation(): ProductNavigationGuard | undefined {
   const host = current;
-  if (!host) return false;
-  const id = host.id();
-  return await host.beforeNavigate() && current === host && host.id() === id;
+  if (!host) return undefined;
+  const registered = registrationEpoch, id = host.id(), identity = host.identityEpoch?.();
+  const isCurrent = () => current === host && registrationEpoch === registered &&
+    host.id() === id && host.identityEpoch?.() === identity;
+  return Object.freeze({ product: host.product, id, isCurrent,
+    prepare: async () => isCurrent() && await host.beforeNavigate() && isCurrent() });
+}
+
+export async function prepareProductNavigation(): Promise<boolean> {
+  return await captureProductNavigation()?.prepare() ?? false;
 }
 
 /** The local workspace owns trash state. Standalone development hosts have no workspace policy. */

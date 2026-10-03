@@ -66,6 +66,7 @@ export class DocumentSession {
   private stopped = false;
   private version = 0;
   private opening = 0;
+  private navigationEpoch = 0;
   private pendingInput = false;
   private settled: DocumentSessionStatusCode = 'saved';
   private unsubscribe?: () => void;
@@ -92,7 +93,7 @@ export class DocumentSession {
       try { await this.open(id); } catch { if (!this.stopped) this.notify(this.quarantined ? 'recovery-required' : 'restore-error'); }
     } else { this.remember(); this.capture(); this.schedule(); }
     if (!this.stopped && ['note', 'word', 'slides', 'site'].includes(this.options.key))
-      this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, beforeNavigate: () => this.beforeReplace() });
+      this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, identityEpoch: () => this.navigationEpoch, beforeNavigate: () => this.beforeReplace() });
   }
   private leaving = (event: BeforeUnloadEvent) => {
     if (this.quarantined) {
@@ -111,7 +112,7 @@ export class DocumentSession {
   private changed = (replaced = false) => {
     if (this.replacing || this.stopped || this.quarantined) return;
     this.version++;
-    if (replaced) { this.id = crypto.randomUUID(); this.last = ''; this.settled = 'saved'; }
+    if (replaced) { this.navigationEpoch++; this.id = crypto.randomUUID(); this.last = ''; this.settled = 'saved'; }
     this.remember(); this.capture(); this.schedule();
   };
   private capture() {
@@ -144,6 +145,7 @@ export class DocumentSession {
   }
   async open(id: string, preserveCurrentOnFailure = false): Promise<boolean> {
     const ticket = ++this.opening;
+    this.navigationEpoch++;
     const wasQuarantined = this.quarantined;
     if (wasQuarantined && id !== this.recoveryId) {
       this.notify('recovery-required');
