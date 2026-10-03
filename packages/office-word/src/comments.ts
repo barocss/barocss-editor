@@ -42,11 +42,16 @@ export function collectCommentRange(doc: DocumentAccess, selection: ModelSelecti
     if (parent) parents.set(node.sid, parent);
     const protectedNode = protectedPath || node.attributes?.locked === true || node.attributes?.protected === true || ['resources', 'commentThread', 'contentControl'].includes(node.stype ?? '');
     if (protectedNode) blocked.add(node.sid);
+    // Coverage belongs to the text flow. Resource children can contain a new
+    // pending thread in the operation overlay while public nodes remain the
+    // committed source; their graph cannot invalidate this captured body range.
+    if (node.stype === 'resources' || node.stype === 'commentThread') return;
     for (const child of node.content ?? []) visit(typeof child === 'string' ? doc.getNode(child) : child, node, protectedNode, depth + 1);
   };
   visit(doc.getNode(doc.rootId), undefined, false, 0);
   const paragraph = parents.get(selection.startNodeId), endParent = parents.get(selection.endNodeId);
-  if (invalid || !paragraph?.sid || paragraph.stype !== 'paragraph' || paragraph !== endParent) return null;
+  if (invalid || !paragraph?.sid || paragraph !== endParent ||
+    selection.startNodeId !== selection.endNodeId && paragraph.stype !== 'paragraph') return null;
   const runs = childrenOf(doc, paragraph), startIndex = runs.findIndex(node => node.sid === selection.startNodeId), endIndex = runs.findIndex(node => node.sid === selection.endNodeId);
   if (startIndex < 0 || endIndex < 0) return null;
   const forward = startIndex < endIndex || startIndex === endIndex && selection.startOffset <= selection.endOffset;

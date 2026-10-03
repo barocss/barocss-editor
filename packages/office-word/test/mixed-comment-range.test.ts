@@ -8,9 +8,9 @@ import { collectCommentRange, resolveCommentTarget } from '../src/comments';
 
 const editors: ReturnType<typeof createWordEditor>[] = [];
 afterEach(() => { editors.splice(0).forEach(editor => editor.destroy()); });
-function fixture(source?: unknown) {
+function fixture(source?: unknown, defaultStore = false) {
   const schema = createSchema('word', getWordSchemaDefinition());
-  const editor = createWordEditor({ schema, dataStore: new DataStore(undefined, schema), editable: true,
+  const editor = createWordEditor({ ...(defaultStore ? {} : { schema, dataStore: new DataStore(undefined, schema) }), editable: true,
     author: { name: 'Fictional Writer', date: () => '2026-10-03' } });
   editors.push(editor);
   const document = createStarterDocument() as unknown as DocumentNode;
@@ -122,4 +122,16 @@ it('inserts a backward mixed selection with ordered parts and retains its native
   const found = resolveCommentTarget(f.doc, 'mixed-fictional'); expect(found.status).toBe('located');
   if (found.status !== 'located') throw new Error('ordered range required');
   expect(found.anchors.map(anchor => anchor.sid)).toEqual(f.runs.map(run => run.sid));
+});
+
+it('keeps the committed ordered source current during its own unguarded native comment overlay', async () => {
+  const f = fixture(undefined, true);
+  const doc: DocumentAccess = { rootId: f.doc.rootId, getNode: id => f.editor.dataStore.getNodes().get(id) as DocumentNode };
+  const range = collectCommentRange(doc, f.selection)!;
+  const bytes = JSON.stringify(range.anchors.map(anchor => doc.getNode(anchor.sid)));
+  const current = () => { const now = collectCommentRange(doc, f.selection); return !!now &&
+    JSON.stringify(now.anchors.map(anchor => doc.getNode(anchor.sid))) === bytes; };
+  expect(current()).toBe(true);
+  expect(await f.editor.run('insertComment', { selection: f.selection, id: 'mixed-current', text: 'Keep this draft.', canApply: current })).toBe(true);
+  expect(resolveCommentTarget(f.doc, 'mixed-current').status).toBe('located');
 });
