@@ -46,11 +46,13 @@ export function SlideNavigation(props: SlideNavigationProps) {
   renameVisible.current = expanded;
   const rootId = editor?.getRootId();
   const nativeRoot = rootId ? editor?.dataStore.getNode(rootId) : undefined;
+  // Guarded transactions replace node objects; only a document epoch retires disclosure state.
+  const documentEpoch = editor?.dataStore.getDocumentEpoch();
   const editable = editor?.isEditable;
   const context = useMemo(() => ({}), [editor, rootId, lifetimeKey, current, readOnly, editable]);
   const latest = useRef({ editor, nativeRoot, lifetimeKey, current, slides, readOnly, open, context, onSelect: props.onSelect });
   latest.current = { editor, nativeRoot, lifetimeKey, current, slides, readOnly, open, context, onSelect: props.onSelect };
-  useLayoutEffect(() => { renameVisible.current = false; setOpen(false); setNotesOpen(false); }, [editor, nativeRoot, lifetimeKey, readOnly, editable]);
+  useLayoutEffect(() => { renameVisible.current = false; setOpen(false); setNotesOpen(false); }, [editor, rootId, documentEpoch, lifetimeKey, readOnly, editable]);
   useLayoutEffect(() => { if (notesOpen) notes.current?.focus({ preventScroll: true }); }, [notesOpen]);
   const closeNotes = () => {
     setNotesOpen(false);

@@ -118,3 +118,44 @@ it.each(['multi', 'map'] as const)('%s suspends notes and the retained tray with
   expect(notes.querySelector('textarea')).toBe(field);
   expect(deckFileText(editor.exportDocument())).toBe(native); expect(editor.getHistoryStats()).toEqual(history);
 });
+
+it('keeps the tray and rename draft through an ordinary guarded native publication', async () => {
+  render(); clickFold(); rename();
+  const field = input(); field.value = 'Pending name'; act(() => field.focus());
+  const store = editor.dataStore, rootId = editor.getRootId()!;
+  const originalRoot = store.getNode(rootId), epoch = store.getDocumentEpoch();
+  const native = deckFileText(editor.exportDocument()), history = editor.getHistoryStats();
+  const lock = await store.acquireLock('navigation-disclosure-test');
+  try {
+    const draft = store.createGuardedDraft(node => structuredClone(node));
+    store.publishGuardedDraft(draft, []);
+  } finally { store.releaseLock(lock); }
+  expect(store.getNode(rootId)).not.toBe(originalRoot);
+  expect(store.getDocumentEpoch()).toBe(epoch);
+  render({ revision: props.revision + 1 });
+  expect(panel().hidden).toBe(false); expect(panel().hasAttribute('inert')).toBe(false);
+  expect(input()).toBe(field); expect(field.value).toBe('Pending name');
+  expect(document.activeElement).toBe(field);
+  expect(deckFileText(editor.exportDocument())).toBe(native); expect(editor.getHistoryStats()).toEqual(history);
+  // Retaining the draft cannot grant its old native capture permission to write.
+  act(() => field.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+  expect(props.onRename).not.toHaveBeenCalled();
+});
+
+it('closes retained disclosures when the native graph is replaced at the same root SID in a new epoch', () => {
+  render({ renderNotes: () => createElement('textarea', { 'aria-label': 'Native notes draft' }) });
+  clickFold(); rename();
+  const field = input(); field.value = 'Retired name';
+  act(() => host.querySelector<HTMLButtonElement>('[data-filmstrip-panel] [data-notes-toggle]')!.click());
+  const store = editor.dataStore, rootId = editor.getRootId()!, epoch = store.getDocumentEpoch();
+  // The native graph replacement API advances the document epoch even with the same SIDs.
+  // loadDocument allocates fresh runtime SIDs, so it cannot exercise this endpoint ABA.
+  const sameIds = new Map([...store.getNodes()].map(([id, node]) => [id, structuredClone(node)]));
+  act(() => store.setNodes(sameIds));
+  expect(editor.getRootId()).toBe(rootId); expect(store.getDocumentEpoch()).toBeGreaterThan(epoch);
+  render({ revision: props.revision + 1 });
+  expect(panel().hidden).toBe(true);
+  expect(host.querySelector<HTMLElement>('[data-notes-panel]')!.hidden).toBe(true);
+  act(() => field.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+  expect(props.onRename).not.toHaveBeenCalled();
+});
