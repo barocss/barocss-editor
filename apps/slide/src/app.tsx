@@ -366,7 +366,8 @@ export function App({
    * would mean two drawings of one deck that could disagree.
    */
   const [presenting, setPresenting] = useState(false);
-  useFloatingPanelBounds(host, !!instance && !presenting);
+  const narrowPanels = useFloatingPanelBounds(host, !!instance && !presenting);
+  const navigationVisible = sidebarOpen && (!narrowPanels || !inspectorOpen);
 
   /**
    * Whether the reader is looking at the deck's **map** instead of a page.
@@ -1842,7 +1843,10 @@ export function App({
         actions={<>
           <Tip label="레이어 · 개체 순서와 컴포넌트">
             <Button square tone="quiet" ariaLabel="레이어" aria-controls="slides-objects"
-              aria-expanded={sidebarOpen} pressed={sidebarOpen} onMouseDown={event => event.preventDefault()} onClick={() => setSidebarOpen(value => !value)}>
+              aria-expanded={navigationVisible} pressed={navigationVisible} onMouseDown={event => event.preventDefault()} onClick={() => {
+                if (narrowPanels && inspectorOpen) { setInspectorOpen(false); setSidebarOpen(true); }
+                else setSidebarOpen(value => !value);
+              }}>
               <Icon name="outline" />
             </Button>
           </Tip>
@@ -1896,7 +1900,7 @@ export function App({
             if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
               (event.target instanceof Element && event.target.closest('input,textarea,[role="menu"],[role="listbox"],[data-floating-surface]'))) return;
             event.preventDefault(); event.stopPropagation(); closePanel('navigation');
-          }} floating width={240} hidden={!sidebarOpen || presenting} inert={!sidebarOpen || presenting}>
+          }} floating width={240} hidden={!navigationVisible || presenting} inert={!navigationVisible || presenting}>
           <div className="sl-workspace-navigation">
             <SlideSidebar objectsOnly
               editor={editor}

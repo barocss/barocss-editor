@@ -74,4 +74,31 @@ describe('local catalog projections', () => {
     expect(site.groups.at(-1)?.kind).toBe('unlinked');
     expect(buildLocalCatalogTree(rows, projects, { ...options, query: 'absent' }).groups.flatMap(group => group.entries)).toEqual([]);
   });
+
+  it.each(
+    (['project', 'my'] as const).flatMap(perspective =>
+      (['title', 'searchText'] as const).flatMap(field =>
+        (['NFC', 'NFD'] as const).map(storedForm => ({ perspective, field, storedForm }))
+      )
+    )
+  )('matches Korean $field in $perspective with $storedForm storage and the other input form', ({ perspective, field, storedForm }) => {
+    const phrase = '분기 보고서';
+    const typedForm = storedForm === 'NFC' ? 'NFD' : 'NFC';
+    const target = { ...row('word', 'korean', '업무/문서'), [field]: phrase.normalize(storedForm) };
+    const other = row('site', 'other');
+    const rows = [target, other];
+    const projects = [project('one', [target]), project('two', [target])];
+    const before = JSON.stringify({ rows, projects });
+    const matched = (query: string) => buildLocalCatalogTree(rows, projects, { ...options, perspective, query });
+    const same = matched(phrase.normalize(storedForm));
+    const equivalent = matched(`  ${phrase.normalize(typedForm)}  `);
+    const entries = equivalent.groups.flatMap(group => group.entries);
+    expect(entries.map(entry => entry.row.key)).toEqual(perspective === 'project' ? ['word:korean', 'word:korean'] : ['word:korean']);
+    expect(entries.every(entry => entry.row === target)).toBe(true);
+    expect(equivalent).toEqual(same);
+    expect(matched('찾을 수 없는 내용').groups.flatMap(group => group.entries)).toEqual([]);
+    expect(JSON.stringify({ rows, projects })).toBe(before);
+    expect(target[field]).toBe(phrase.normalize(storedForm));
+  });
+
 });

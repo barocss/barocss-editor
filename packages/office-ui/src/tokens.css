@@ -1483,3 +1483,16 @@ textarea.office-field[readonly] {
 .office-properties[data-property-density='floating'] [data-property-group] { padding:10px 12px; gap:6px; }
 .office-properties[data-property-density='floating'] [data-property-group-header] h3 { font-size:12px; color:var(--ou-ink); letter-spacing:normal; }
 .office-properties[data-property-density='floating'] [data-property-group-body] { gap:6px; }
+
+/* Native identity owns the flexible header space; host context is descriptive only. */
+.office-editor-title-stack{flex:1 1 240px;min-width:0;position:relative}
+.office-editor-title-stack>.office-editor-title{width:100%;min-width:0}
+.office-editor-location{font-size:10px;line-height:12px;color:var(--ou-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.office-editor-location>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.office-editor-header[data-compact] .office-editor-title-stack[data-has-context]{height:40px}
+.office-editor-header[data-compact] .office-editor-title-stack[data-has-context]>.office-editor-location{position:absolute;inset:0 0 auto}
+.office-editor-header[data-compact] .office-editor-title-stack[data-has-context]>.office-editor-title{position:absolute;top:8px;left:0;right:0}
+.office-workspace-panel-controls{height:40px}
+.office-workspace-panel-controls button{min-height:32px;height:32px}
+.office-adaptive-workspace[data-compact]{padding-top:40px}
+.office-adaptive-workspace[data-compact]>.office-workspace-side-panel{top:40px}

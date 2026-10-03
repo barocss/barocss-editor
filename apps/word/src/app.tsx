@@ -8,7 +8,7 @@ import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
 import type { ReactNode } from 'react';
-import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, onApple, useRevision } from '@barocss/office-ui';
+import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, onApple, useRevision } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
   captureCaptionSession, type CaptionSession,
@@ -458,9 +458,24 @@ export function App({ mount, server }: {
         {instance && <>
           <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<DocumentMenu label="문서 메뉴" menus={menus} onPick={onMenu} />}
+            menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={menus} onPick={onMenu} />}
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
-            actions={<><Button tone="quiet" pressed={businessOpen} onMouseDown={event => event.preventDefault()} onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); }}>요구·결정</Button>{!readOnly && <span ref={detailAnchor}><Button tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded} aria-label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'} onClick={() => setRibbonExpanded(value => !value)}>{ribbonExpanded ? '도구 접기' : '전체 도구'}</Button></span>}<CommandSearchTrigger onClick={openCommandSearch} />{server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} native={instance} />}</>}
+            actions={<>
+              <div className="w-header-command-group">
+                <Tip label="요구·결정"><Button square tone="quiet" ariaLabel="요구·결정" pressed={businessOpen}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); }}><Icon name="resolve" /></Button></Tip>
+                {!readOnly && <span ref={detailAnchor}>
+                  <Tip label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'}>
+                    <Button square tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded}
+                      ariaLabel={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'}
+                      onClick={() => setRibbonExpanded(value => !value)}><Icon name="frame-grid" /></Button>
+                  </Tip>
+                </span>}
+                <CommandSearchTrigger iconOnly onClick={openCommandSearch} />
+              </div>
+              {server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} native={instance} />}
+            </>}
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
           {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}

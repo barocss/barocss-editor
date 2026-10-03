@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { ProductNavigation } from '@barocss/office-workspace/host';
+import { ProductNavigation, ProductLocation } from '@barocss/office-workspace/host';
 import { WorkspaceFrame } from '../../../packages/office-workspace/src/workspace-frame';
 import { OfficeWorkspace, readProductDocument, workspaceIdentity, type Product } from '@barocss/office-workspace';
 import { Button, OfficeLocaleProvider, registerEditorNavigation } from '@barocss/office-ui';
@@ -30,7 +30,7 @@ export async function mountWorkspaceProduct(product: Product, start: () => Promi
   await readProductDocument(product, source.text);
   if ((await library.meta(`${product}:${id}`)).trashedAt !== null) throw new Error('휴지통에 있는 자료입니다. 자료함에서 복원하세요.');
   document.body.classList.add('ow-host');
-  registerEditorNavigation(ProductNavigation);
+  registerEditorNavigation(ProductNavigation, ProductLocation);
   const nativeRoot = document.getElementById('root')!;
   const shellRoot = document.createElement('div'); shellRoot.id = 'ow-shell-root';
   document.body.append(shellRoot);

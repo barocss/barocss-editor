@@ -124,5 +124,8 @@
   "workspace.heading.createProject": "프로젝트 만들기",
   "site.header.viewTools": "사이트 보기",
   "site.header.preview": "미리보기",
-  "site.header.edit": "편집으로 돌아가기"
+  "site.header.edit": "편집으로 돌아가기",
+  "workspace.context.current": "현재 위치",
+  "workspace.context.unavailableProject": "프로젝트를 확인할 수 없음",
+  "workspace.context.loadingProject": "프로젝트를 불러오는 중"
 }

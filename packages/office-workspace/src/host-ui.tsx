@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, SearchSelect, Dialog, ProductMenu, type EditorNavigationProps } from '@barocss/office-ui';
+import { Button, SearchSelect, Dialog, ProductMenu, useOfficeLocale, type EditorNavigationProps } from '@barocss/office-ui';
 import { captureProductNavigation, prepareProductNavigation, productDocumentHost } from '@barocss/shared';
 import { beginWorkspaceNavigation, registerWorkspaceBeforeLeave } from './workspace-navigation';
 import { workspaceReturnURL } from './catalog-origin';
@@ -86,4 +86,27 @@ export function ProductNavigation({ product }: EditorNavigationProps) {
     <div>원본 자료<SearchSelect ariaLabel="원본 자료" value={target} onChange={setTarget} disabled={busy} placeholder="자료 선택" options={rows.filter(row => row.key !== current?.key && row.trashedAt === null && !current?.references.includes(row.key)).map(row => ({ id: row.key, label: row.title, description: products[row.product].label }))} /></div>
     <Button disabled={busy || !target || !current} onClick={() => void run(async () => { await workspace.link(current!.key, target); setTarget(''); await refresh(); })}>원본 참조 추가</Button>{error && <p role="alert">{error}</p>}
     </div></Dialog></>;
+}
+
+/** Local route context is descriptive only; aliases never switch feedback scope. */
+export function ProductLocation() {
+  const { t } = useOfficeLocale();
+  const projectId = new URLSearchParams(location.search).get('project');
+  const [project, setProject] = useState<{ id: string; title: string }>();
+  useEffect(() => {
+    let live = true, request = 0;
+    if (!projectId) { setProject(undefined); return; }
+    const workspace = new OfficeWorkspace(workspaceIdentity());
+    const refresh = async () => {
+      const current = ++request;
+      try {
+        const found = (await workspace.projects()).find(one => one.record.id === projectId);
+        if (live && current === request) setProject({ id: projectId, title: found?.record.title || t('workspace.context.unavailableProject') });
+      } catch { if (live && current === request) setProject({ id: projectId, title: t('workspace.context.unavailableProject') }); }
+    };
+    void refresh(); window.addEventListener('wonffice:catalog-refresh', refresh);
+    return () => { live = false; window.removeEventListener('wonffice:catalog-refresh', refresh); };
+  }, [projectId, t]);
+  const caption = `${t('workspace.heading.localWorkspace')}${projectId ? ` · ${project?.id === projectId ? project.title : t('workspace.context.loadingProject')}` : ''}`;
+  return <span aria-label={t('workspace.context.current')} title={caption}>{caption}</span>;
 }
