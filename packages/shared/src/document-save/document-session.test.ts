@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { LibraryRevisionConflict } from '../document-library/document-library';
 import { DocumentSession, type DocumentSessionOptions } from './document-session';
 
-function setup(mode: 'both' | 'legacy' | 'code' = 'both') {
+function setup() {
   const records = new Map<string, { row: any; text: string }>();
   const store = {
     keep: vi.fn(async (row: any, text: string) => {
@@ -23,10 +23,8 @@ function setup(mode: 'both' | 'legacy' | 'code' = 'both') {
     subscribe: listener => { changed = listener; return () => { changed = () => {}; }; }
   };
   const notify = vi.fn();
-  const notifyCode = vi.fn();
-  const session = mode === 'legacy' ? new DocumentSession(options, notify)
-    : new DocumentSession(options, mode === 'code' ? undefined : notify, notifyCode);
-  return { session, options, records, store, notify, notifyCode, content: () => content,
+  const session = new DocumentSession(options, notify);
+  return { session, options, records, store, notify, content: () => content,
     edit: (text: string, replaced = false) => { content = text; changed(replaced); } };
 }
 
@@ -39,28 +37,19 @@ describe('local document session', () => {
   afterEach(() => { running.splice(0).forEach(session => session.stop()); vi.useRealTimers(); vi.unstubAllGlobals(); });
   const start = async () => { const one = setup(); running.push(one.session); await one.session.start(); await one.session.flush(); return one; };
 
-  it('supports the existing two-argument legacy callback without a code subscription', async () => {
-    const one = setup('legacy'); running.push(one.session); await one.session.start();
-    expect(one.notify).toHaveBeenLastCalledWith('저장 중');
+  it('reports loading/saved through the single status-code callback without altering saved native bytes', async () => {
+    const one = setup(); running.push(one.session); await one.session.start();
+    expect(one.notify).toHaveBeenLastCalledWith('saving');
     expect(await one.session.flush()).toBe(true);
-    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
-    expect(one.notifyCode).not.toHaveBeenCalled();
-    expect(one.records.get(one.session.id)?.text).toBe('initial');
-  });
-  it('supports code-only subscribers and reports loading/saved without altering saved native bytes', async () => {
-    const one = setup('code'); running.push(one.session); await one.session.start();
-    expect(one.notifyCode).toHaveBeenLastCalledWith('saving');
-    expect(await one.session.flush()).toBe(true);
-    expect(one.notifyCode).toHaveBeenLastCalledWith('saved');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
     const original = one.session.id, saved = structuredClone(one.records.get(original));
     one.records.set('other', { row: { name: 'other', revision: 1 }, text: 'other native bytes' });
     expect(await one.session.open('other')).toBe(true);
-    expect(one.notifyCode.mock.calls.map(([code]) => code)).toContain('loading');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('saved');
+    expect(one.notify.mock.calls.map(([code]) => code)).toContain('loading');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
     expect(one.records.get(original)).toEqual(saved);
     expect(one.records.get('other')).toEqual({ row: { name: 'other', revision: 1 }, text: 'other native bytes' });
     expect(one.session.id).toBe('other'); expect(one.content()).toBe('other native bytes');
-    expect(one.notify).not.toHaveBeenCalled();
   });
   it('keeps stable file identities and saves the source before opening another', async () => {
     const one = await start(); const original = one.session.id;
@@ -77,8 +66,7 @@ describe('local document session', () => {
     one.options.beforeSnapshot = async () => { one.edit('last child input'); };
     one.session.input(); await one.session.flush();
     expect(one.records.get(one.session.id)?.text).toBe('last child input');
-    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('saved');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
   });
   it('does not navigate over an edit made while storage is reading', async () => {
     const one = await start(); const original = one.session.id;
@@ -98,8 +86,7 @@ describe('local document session', () => {
     one.store.keep.mockRejectedValueOnce(new Error('full'));
     one.edit('preserve');
     expect(await one.session.beforeReplace()).toBe(false);
-    expect(one.notify).toHaveBeenLastCalledWith('저장 실패');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('save-error');
+    expect(one.notify).toHaveBeenLastCalledWith('save-error');
     expect(await one.session.flush()).toBe(true);
     expect(one.records.get(one.session.id)?.text).toBe('preserve');
   });
@@ -107,8 +94,7 @@ describe('local document session', () => {
     const one = await start(); const writes = one.store.keep.mock.calls.length;
     one.session.input(); await one.session.flush();
     expect(one.store.keep).toHaveBeenCalledTimes(writes);
-    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('saved');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
   });
   it('never writes a partially replaced B model under B after A fails', async () => {
     const one = await start();
@@ -120,8 +106,7 @@ describe('local document session', () => {
     await expect(one.session.open('a')).rejects.toThrow('load failed');
     expect(one.session.id).toBe(b);
     expect(one.session.recoveryRequired).toBe(true);
-    expect(one.notify).toHaveBeenLastCalledWith('복구 필요');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('recovery-required');
+    expect(one.notify).toHaveBeenLastCalledWith('recovery-required');
     await expect(one.session.open('a')).rejects.toThrow('Reopen the current saved document');
     one.edit('B edited after failure');
     expect(await one.session.flush()).toBe(false);
@@ -143,8 +128,7 @@ describe('local document session', () => {
     expect(one.session.recoveryRequired).toBe(false);
     expect(one.session.id).toBe(b);
     expect(one.content()).toBe('initial');
-    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('saved');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
     expect(await one.session.open('a', true)).toBe(true);
     expect(one.session.id).toBe('a');
     expect(one.content()).toBe('A saved');
@@ -166,8 +150,7 @@ describe('local document session', () => {
     history.replaceState(null, '', '#test=missing');
     const one = setup(); running.push(one.session);
     await one.session.start();
-    expect(one.notify).toHaveBeenLastCalledWith('복원 실패');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('restore-error');
+    expect(one.notify).toHaveBeenLastCalledWith('restore-error');
 
     one.edit('B saved after startup failure');
     const b = one.session.id;
@@ -189,17 +172,15 @@ describe('local document session', () => {
     one.store.keep.mockRejectedValueOnce(new LibraryRevisionConflict(saved!.row.revision, saved));
     one.edit('keep this conflicting draft');
     expect(await one.session.flush()).toBe(true);
-    expect(one.notify).toHaveBeenLastCalledWith('충돌한 초안 보관됨');
-    expect(one.notifyCode).toHaveBeenLastCalledWith('conflict');
+    expect(one.notify).toHaveBeenLastCalledWith('conflict');
     expect(one.records.get(original)).toEqual(saved);
     const drafts = [...one.records.entries()].filter(([name]) => name !== original);
     expect(drafts).toHaveLength(1); expect(drafts[0][1].text).toBe('keep this conflicting draft');
     expect(drafts[0][1].row.metadata.originalId).toBe(original);
     const writes = one.store.keep.mock.calls.length;
-    one.session.input(); expect(one.notifyCode).toHaveBeenLastCalledWith('saving');
+    one.session.input(); expect(one.notify).toHaveBeenLastCalledWith('saving');
     expect(await one.session.flush()).toBe(true);
-    expect(one.notifyCode).toHaveBeenLastCalledWith('conflict');
-    expect(one.notify).toHaveBeenLastCalledWith('충돌한 초안 보관됨');
+    expect(one.notify).toHaveBeenLastCalledWith('conflict');
     expect(one.store.keep).toHaveBeenCalledTimes(writes);
     expect(one.records.size).toBe(2);
   });

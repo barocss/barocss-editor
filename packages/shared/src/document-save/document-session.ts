@@ -2,14 +2,9 @@ import type { documentLibrary, LibraryEntry, LibraryRow } from '../document-libr
 import { DocumentSaveQueue } from './document-save';
 import { assertProductDocumentOpen, registerProductDocumentHost } from './product-host';
 
-export type DocumentSessionStatus = '불러오는 중' | '저장 중' | '저장됨' | '충돌한 초안 보관됨' | '저장 실패' | '복원 실패' | '복구 필요';
-/** Product state codes are independent of the display language. */
-export type DocumentSessionStatusCode = 'loading' | 'saving' | 'saved' | 'conflict' | 'save-error' | 'restore-error' | 'recovery-required';
-/** Keep the published two-argument callback contract unchanged. New UI uses codes. */
-const legacyStatus: Record<DocumentSessionStatusCode, DocumentSessionStatus> = {
-  loading: '불러오는 중', saving: '저장 중', saved: '저장됨', conflict: '충돌한 초안 보관됨',
-  'save-error': '저장 실패', 'restore-error': '복원 실패', 'recovery-required': '복구 필요'
-};
+/** Product state is independent of the display language. Translate only in UI. */
+export type DocumentSessionStatus = 'loading' | 'saving' | 'saved' | 'conflict' | 'save-error' | 'restore-error' | 'recovery-required';
+export type DocumentSessionStatusCode = DocumentSessionStatus;
 export interface DocumentSessionOptions {
   key: string;
   documents: ReturnType<typeof documentLibrary>;
@@ -79,18 +74,13 @@ export class DocumentSession {
   get recoveryRequired() { return this.quarantined; }
   constructor(
     readonly options: DocumentSessionOptions,
-    private notifyLegacy: (status: DocumentSessionStatus) => void = () => {},
-    private notifyCode?: (code: DocumentSessionStatusCode) => void
+    private notify: (status: DocumentSessionStatus) => void = () => {}
   ) {
     this.writes = new DocumentSaveQueue(options.documents, options.drafts, (id, status) => {
       if (!this.quarantined && id === this.id && (status === 'saved' || status === 'conflict')) this.settled = status;
       if (!this.stopped && !this.quarantined && (id === this.id || status === 'error'))
         this.notify(status === 'error' ? 'save-error' : status);
     });
-  }
-  private notify(code: DocumentSessionStatusCode) {
-    this.notifyLegacy(legacyStatus[code]);
-    this.notifyCode?.(code);
   }
   private remember() { history.replaceState(null, '', `${location.pathname}${location.search}#${this.options.key}=${encodeURIComponent(this.id)}`); }
   async start() {
