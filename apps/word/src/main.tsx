@@ -1,3 +1,4 @@
+import { OfficeLocaleProvider } from '@barocss/office-ui';
 import { StrictMode, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createSampleDocument, createStarterDocument, exportWordDocx, readWordDocx } from '@barocss/office-word';
@@ -31,5 +32,5 @@ export function mountWord(container: HTMLElement, onFurniture?: (id?: string) =>
 }
 
 createRoot(document.getElementById('root')!).render(
-  createElement(StrictMode, null, createElement(App, { mount: mountWord }))
+  createElement(StrictMode, null, createElement(OfficeLocaleProvider, { children: createElement(App, { mount: mountWord }) }))
 );

@@ -1,8 +1,8 @@
-import { DocumentSaveStatus } from '@barocss/office-editor-ui';
+import { DocumentSaveStatus, useOfficeLocale } from '@barocss/office-editor-ui';
 import { DocxImport } from './docx-import';
 import { DocxExport } from './docx-export';
 import { WordAutosave, wordDrafts, wordStore } from './autosave';
-import { ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type DocumentSessionStatus } from '@barocss/shared';
+import { ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type DocumentSessionStatusCode } from '@barocss/shared';
 import type { LibraryRow } from '@barocss/shared';
 import { forwardRef, useImperativeHandle, useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { Editor } from '@barocss/editor-core';
@@ -14,6 +14,7 @@ import { wordLibraryRows, keepWordDocument, wordFileText, type WordLibraryRow } 
 /** The host owns document navigation; shared UI and Word's file/library adapters do the work. */
 export interface DocumentLibraryHandle { open: (kind: 'library' | 'actions') => void }
 export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Editor; native?: Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'> }>(function DocumentLibrary({ editor, native }, ref) {
+  const { t } = useOfficeLocale();
   const [actions, setActions] = useState(false);
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [query, setQuery] = useState(''), [loaded, setLoaded] = useState(false);
@@ -30,11 +31,11 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
   const recoveryButtonRef = useRef<HTMLButtonElement>(null);
   const autosave = useRef<WordAutosave | null>(null);
   const [drafts, setDrafts] = useState<LibraryRow[]>([]);
-  const [autoStatus, setAutoStatus] = useState<DocumentSessionStatus>('불러오는 중');
-  const recoveryRequired = autoStatus === '복구 필요';
+  const [autoStatus, setAutoStatus] = useState<DocumentSessionStatusCode>('loading');
+  const recoveryRequired = autoStatus === 'recovery-required';
   useEffect(() => { if (recoveryRequired && open) recoveryButtonRef.current?.focus(); }, [recoveryRequired, open]);
   useEffect(() => {
-    const controller = new WordAutosave(editor, (status, error) => { setAutoStatus(status); setProblem(error ?? ''); }, native);
+    const controller = new WordAutosave(editor, status => { setAutoStatus(status); setProblem(''); }, native);
     autosave.current = controller;
     void controller.start();
     return () => { controller.stop(); autosave.current = null; };
@@ -102,28 +103,28 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
       {status && <StatusIndicator tone="success">{status}</StatusIndicator>}
       {problem && <StatusNotice tone="danger" title="작업을 완료하지 못했습니다">{problem}</StatusNotice>}
     </Dialog>
-    <DocumentSaveStatus status={autoStatus} title={problem || undefined} data-word-save-status />
+    <DocumentSaveStatus status={autoStatus} title={problem || (autoStatus === 'save-error' ? t('document.save.error.save') : autoStatus === 'restore-error' ? t('document.save.error.restore') : undefined)} data-word-save-status />
     {recoveryRequired && !open && <>
       <StatusNotice tone="danger" title="복구 필요">문서 화면이 저장본과 다를 수 있어 자동 저장을 멈췄습니다. 저장본을 다시 열기 전에 필요한 내용을 보관하세요.</StatusNotice>
       {recoveryButton}
       {confirmRecovery && recoveryConfirmation}
     </>}
-    {(autoStatus === '저장 실패' || autoStatus === '복원 실패') && <Button disabled={busy} onClick={() => void perform(async () => {
+    {(autoStatus === 'save-error' || autoStatus === 'restore-error') && <Button disabled={busy} onClick={() => void perform(async () => {
       const session = autosave.current;
       if (!session) return;
-      if (autoStatus === '복원 실패') {
+      if (autoStatus === 'restore-error') {
         const id = new URLSearchParams(location.hash.slice(1)).get('word');
         if (id) await session.open(id);
       } else await session.flush();
-    })}>{autoStatus === '복원 실패' ? '복원 다시 시도' : '저장 다시 시도'}</Button>}
-    {autoStatus === '충돌한 초안 보관됨' && <Button disabled={busy} onClick={event => {
+    })}>{t(autoStatus === 'restore-error' ? 'document.save.action.retryRestore' : 'document.save.action.retrySave')}</Button>}
+    {autoStatus === 'conflict' && <Button disabled={busy} onClick={event => {
       if (pending.current) return;
       libraryOpener.current = event.currentTarget;
       void perform(async () => {
         setRows(await availableRows()); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
       });
-    }}>복구 초안 보기</Button>}
-    {problem && autoStatus !== '저장 실패' && autoStatus !== '복원 실패' && !recoveryRequired && <span role="alert">{problem}</span>}
+    }}>{t('document.save.action.openDraft')}</Button>}
+    {problem && autoStatus !== 'save-error' && autoStatus !== 'restore-error' && !recoveryRequired && <span role="alert">{problem}</span>}
     <Dialog open={open} onClosed={restoreLibraryFocus} onOpenChange={value => { if (!pending.current) { setOpen(value); if (!value) setProblem(''); } }} title="문서 보관함" description="이 브라우저에 저장한 문서와 복구 초안입니다."
       footer={<Button disabled={busy || !loaded || recoveryRequired} onClick={() => void perform(async () => {
         if (!await autosave.current?.beforeReplace()) throw new Error('Pending input');
