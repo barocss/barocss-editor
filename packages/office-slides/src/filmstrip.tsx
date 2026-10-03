@@ -65,12 +65,13 @@ export function Filmstrip({
   const generation = useRef(0);
   const rootId = editor?.getRootId();
   const nativeRoot = rootId ? editor?.dataStore.getNode(rootId) : undefined;
+  const documentEpoch = editor?.dataStore.getDocumentEpoch();
   const [renaming, setRenaming] = useState<{
     sid: string; current?: string; root: typeof nativeRoot; version: number; generation: number;
   }>();
   const latest = useRef({ editor, current, nativeRoot, readOnly, active, canRename, slides });
   latest.current = { editor, current, nativeRoot, readOnly, active, canRename, slides };
-  useLayoutEffect(() => { generation.current += 1; setRenaming(undefined); }, [editor, current, nativeRoot, readOnly, lifetimeKey]);
+  useLayoutEffect(() => { generation.current += 1; setRenaming(undefined); }, [editor, current, rootId, documentEpoch, readOnly, lifetimeKey]);
   useEffect(() => {
     if (!editor) return;
     const retire = () => { generation.current += 1; setRenaming(undefined); };

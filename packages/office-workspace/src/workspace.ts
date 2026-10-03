@@ -22,6 +22,7 @@ export interface WorkspaceDocument extends WorkspaceMeta {
 export interface BackupDocument { product: Product; row: LibraryRow; text: string; meta: WorkspaceMeta; }
 export interface WorkspaceBackup { format: 'wonffice-workspace'; version: 1; workspace: string; createdAt: string; documents: BackupDocument[]; projects?: ProjectRecord[]; }
 const defaults = (): WorkspaceMeta => ({ favorite: false, folder: '', trashedAt: null, openedAt: 0, references: [] });
+const catalogChanged = () => { if (typeof window !== 'undefined') window.dispatchEvent(new Event('wonffice:catalog-refresh')); };
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 function metadata(value: unknown): WorkspaceMeta {
   const v = object(value) ? value : {};
@@ -69,6 +70,7 @@ export class OfficeWorkspace {
   async createProject(title: string, goal: string): Promise<ProjectSnapshot> {
     const record = createProjectRecord(title, goal);
     const row = await this.metaStore.keep({ name: `project:${record.id}`, title: record.title }, JSON.stringify(record), { expectedRevision: null });
+    catalogChanged();
     return { record, revision: row.revision ?? 0 };
   }
   async pin(document: ProjectDocument): Promise<Pin> {
@@ -117,6 +119,7 @@ export class OfficeWorkspace {
       }
     }
     const row = await this.metaStore.keep({ name: `project:${record.id}`, title: record.title }, JSON.stringify(record), { expectedRevision });
+    catalogChanged();
     return { record, revision: row.revision ?? 0 };
   }
   async list(): Promise<WorkspaceDocument[]> {
@@ -173,6 +176,7 @@ export class OfficeWorkspace {
       } }, snapshot.text, { expectedRevision: snapshot.row.revision ?? 0 });
     }
     await this.metaStore.keep({ name: key }, JSON.stringify(next), { expectedRevision: previous?.row.revision ?? null });
+    catalogChanged();
   }
   async create(product: Product, title: string): Promise<string> {
     const codec = await productCodec(product);

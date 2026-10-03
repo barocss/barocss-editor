@@ -1,11 +1,14 @@
 import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { ProductNavigation } from '@barocss/office-workspace/host';
+import { WorkspaceFrame } from '../../../packages/office-workspace/src/workspace-frame';
 import { OfficeWorkspace, readProductDocument, workspaceIdentity, type Product } from '@barocss/office-workspace';
-import { Button, registerEditorNavigation } from '@barocss/office-ui';
+import { Button, OfficeLocaleProvider, registerEditorNavigation } from '@barocss/office-ui';
 import { snapshotIntentFromSearch, snapshotIntentSearch } from './auth-client';
 import '@barocss/office-workspace/style.css';
 
 export async function mountWorkspaceProduct(product: Product, start: () => Promise<unknown>) {
+ let shell: ReturnType<typeof createRoot> | undefined;
  try {
   if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
    const requestedIntent = snapshotIntentFromSearch(location.search);
@@ -28,8 +31,15 @@ export async function mountWorkspaceProduct(product: Product, start: () => Promi
   if ((await library.meta(`${product}:${id}`)).trashedAt !== null) throw new Error('휴지통에 있는 자료입니다. 자료함에서 복원하세요.');
   document.body.classList.add('ow-host');
   registerEditorNavigation(ProductNavigation);
+  const nativeRoot = document.getElementById('root')!;
+  const shellRoot = document.createElement('div'); shellRoot.id = 'ow-shell-root';
+  document.body.append(shellRoot);
+  shell = createRoot(shellRoot);
+  flushSync(() => shell!.render(<OfficeLocaleProvider><WorkspaceFrame nativeRoot={nativeRoot} expected={{ product, id }} /></OfficeLocaleProvider>));
   await start();
  } catch (error) {
-  createRoot(document.getElementById('root')!).render(<main style={{ padding: 32 }}><h1 tabIndex={-1} ref={element => element?.focus()}>자료를 열지 못했습니다.</h1><p role="alert">{error instanceof Error ? error.message : '다시 시도하세요.'}</p><Button onClick={() => location.assign('/')}>자료함으로 돌아가기</Button></main>);
+  const failure = <main style={{ padding: 32 }}><h1 tabIndex={-1} ref={element => element?.focus()}>자료를 열지 못했습니다.</h1><p role="alert">{error instanceof Error ? error.message : '다시 시도하세요.'}</p><Button onClick={() => location.assign('/')}>자료함으로 돌아가기</Button></main>;
+  if (shell) shell.render(<OfficeLocaleProvider><WorkspaceFrame key="opening-failed">{failure}</WorkspaceFrame></OfficeLocaleProvider>);
+  else createRoot(document.getElementById('root')!).render(failure);
  }
 }

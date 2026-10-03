@@ -27,7 +27,8 @@ for (const product of ['Slides', 'Site'] as const) {
     if (product === 'Slides') {
       await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '새 슬라이드', exact: true }).click();
     } else {
-      await page.locator('[data-admin-open="home"]').click();
+      const chooser = page.locator('[data-admin-open="home"]');
+      if (await chooser.isVisible()) await chooser.click();
       const paragraph = page.locator('[data-frame="desktop"] .w-paragraph').first();
       await paragraph.click({ force: true, modifiers: ['Meta'] });
       await paragraph.dblclick({ force: true });
@@ -41,12 +42,17 @@ for (const product of ['Slides', 'Site'] as const) {
     await page.getByRole('button', { name: `${product[0]} ${title}`, exact: true }).click();
     await expect(page).toHaveURL(originalUrl);
     if (product === 'Slides') {
+      // A matching URL precedes async native restore. Confirm the restored graph before disclosure.
+      await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
+      await expect(page.locator('.sl-filmstrip button[data-slide]').last()).toHaveAttribute('title', marker);
       await page.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();
+      await expect(page.locator('[data-filmstrip-panel]')).toBeVisible();
       await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(2);
       await page.locator('.sl-filmstrip button[data-slide]').last().click();
       await expect(page.locator('.sl-stage')).toContainText(marker);
     } else {
-      await page.locator('[data-admin-open="home"]').click();
+      const chooser = page.locator('[data-admin-open="home"]');
+      if (await chooser.isVisible()) await chooser.click();
       await expect(page.locator('[data-frame="desktop"] .w-paragraph').first()).toHaveText(marker);
     }
     await info.attach('product-navigation-identity', { body: JSON.stringify({ product, originalUrl, reopenedUrl: page.url(), marker }), contentType: 'application/json' });

@@ -4,6 +4,8 @@ import { OfficeWorkspace, workspaceIdentity, type WorkspaceDocument } from './wo
 import { documentURL, productKeys, products, type Product } from './products';
 import { ProjectHome } from './project-ui';
 import { localProjectRepository } from './project-local';
+import { WorkspaceFrame } from './workspace-frame';
+import { readLibraryOrigin, saveLibraryOrigin } from './catalog-origin';
 import './project-ui.css';
 
 function download(text: string, name: string) {
@@ -12,29 +14,36 @@ function download(text: string, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function WorkspaceHome() {
+  return <WorkspaceFrame><WorkspaceHomeContent /></WorkspaceFrame>;
+}
+function WorkspaceHomeContent() {
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const repository = useMemo(() => localProjectRepository(workspace), [workspace]);
-  const [library, setLibrary] = useState(new URLSearchParams(location.search).get('view') === 'library');
+  const [library, setLibrary] = useState(() => { const params = new URLSearchParams(location.search); return params.get('view') === 'library' || params.get('view') !== 'projects' && !params.get('project'); });
   useEffect(() => { const url = new URL(location.href); url.searchParams.set('workspace', workspace.id); history.replaceState(null, '', url); }, [workspace]);
-  if (library) return <DocumentLibrary onProjects={() => { const url = new URL(location.href); url.searchParams.delete('view'); history.replaceState(null, '', url); setLibrary(false); }} />;
+  if (library) return <DocumentLibrary embedded onProjects={() => { const url = new URL(location.href); url.searchParams.set('view', 'projects'); history.replaceState(null, '', url); setLibrary(false); }} />;
   return <ProjectHome repository={repository} onLibrary={() => { const url = new URL(location.href); url.searchParams.set('view', 'library'); history.replaceState(null, '', url); setLibrary(true); }} onOpen={async (project, row) => {
     if ((await workspace.meta(`${row.product}:${row.id}`)).trashedAt !== null) throw new Error('휴지통에서 복원한 뒤 열 수 있습니다.');
     await workspace.update(`${row.product}:${row.id}`, { openedAt: Date.now() });
     location.assign(documentURL({ workspace: workspace.id, product: row.product, id: row.id, project, mode: 'read' }));
   }} />;
 }
-export function DocumentLibrary({ onProjects }: { onProjects?: () => void } = {}) {
+export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?: () => void; embedded?: boolean } = {}) {
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const [rows, setRows] = useState<WorkspaceDocument[]>([]), [ready, setReady] = useState(false);
-  const [query, setQuery] = useState(''), [view, setView] = useState<'all' | 'recent' | 'favorites' | 'trash'>('all');
-  const [product, setProduct] = useState<Product | 'all'>('all'), [folder, setFolder] = useState('');
+  const [origin] = useState(() => readLibraryOrigin(workspace.id));
+  const main = useRef<HTMLElement>(null);
+  const [query, setQuery] = useState(origin.query), [view, setView] = useState(origin.view);
+  const [product, setProduct] = useState<Product | 'all'>(origin.product), [folder, setFolder] = useState(origin.folder);
+  useEffect(() => { if (ready && main.current) main.current.scrollTop = origin.scroll; }, [ready, origin]);
+  useEffect(() => { saveLibraryOrigin(workspace.id, { query, view, product, folder, scroll: main.current?.scrollTop ?? origin.scroll }); }, [workspace, query, view, product, folder, origin]);
   const [problem, setProblem] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState<Product>(), [name, setName] = useState('');
   const [managing, setManaging] = useState<WorkspaceDocument>(), [destination, setDestination] = useState('');
   const [linkTarget, setLinkTarget] = useState('');
   const [backupOpen, setBackupOpen] = useState(false), [restoreFile, setRestoreFile] = useState<File>();
   const lock = useRef(false);
-  const refresh = async () => { setRows(await workspace.list()); setReady(true); };
+  const refresh = async () => { setRows(await workspace.list()); setReady(true); window.dispatchEvent(new Event('wonffice:catalog-refresh')); };
   const perform = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setProblem(''); setNotice('');
@@ -56,8 +65,8 @@ export function DocumentLibrary({ onProjects }: { onProjects?: () => void } = {}
     && (product === 'all' || row.product === product) && (!folder || row.folder === folder)
     && (!needle || `${row.title} ${row.searchText}`.normalize('NFC').toLocaleLowerCase().includes(needle)));
   const folders = [...new Set<string>(rows.map(row => row.folder).filter(Boolean))].sort();
-  return <div className="ow-home">
-    <aside className="ow-sidebar">
+  return <div className={`ow-home${embedded ? ' ow-library-embedded' : ''}`}>
+    <aside className={`ow-sidebar${embedded ? ' ow-library-tools' : ''}`}>
       <a className="ow-brand" href="/">wonffice<span>하나의 작업 공간</span></a>
       {onProjects && <Button onClick={onProjects}>프로젝트</Button>}
       <nav aria-label="자료함">
@@ -68,7 +77,7 @@ export function DocumentLibrary({ onProjects }: { onProjects?: () => void } = {}
         <Button key={value} pressed={folder === value} onClick={() => { setView('all'); setFolder(value); }}>{value}</Button>)}</nav></>}
       <div className="ow-sidebar-bottom"><Button disabled={busy} onClick={() => { setProblem(''); setNotice(''); setBackupOpen(true); }}>백업 및 가져오기</Button><p>이 브라우저에 저장됩니다.</p></div>
     </aside>
-    <main className="ow-main">
+    <main className="ow-main" ref={main} onScroll={event => saveLibraryOrigin(workspace.id, { query, view, product, folder, scroll: event.currentTarget.scrollTop })}>
       <header className="ow-heading"><div><p className="ow-eyebrow">WORKSPACE</p><h1>{folder || { all: '전체 자료', recent: '최근 자료', favorites: '즐겨찾기', trash: '휴지통' }[view]}</h1></div>
         <TextField ariaLabel="자료 검색" placeholder="이름과 본문 검색" value={query} onChange={setQuery} />
       </header>

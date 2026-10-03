@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, SearchSelect, Dialog, ProductMenu, type EditorNavigationProps } from '@barocss/office-ui';
-import { prepareProductNavigation, productDocumentHost } from '@barocss/shared';
-import { OfficeWorkspace, workspaceIdentity, type WorkspaceDocument } from './workspace';
+import { captureProductNavigation, prepareProductNavigation, productDocumentHost } from '@barocss/shared';
+import { beginWorkspaceNavigation, registerWorkspaceBeforeLeave } from './workspace-navigation';
+import { workspaceReturnURL } from './catalog-origin';
+import { OfficeWorkspace, readProductDocument, workspaceIdentity, type WorkspaceDocument } from './workspace';
 import { documentURL, products, referenceKey } from './products';
 import { localProjectRepository } from './project-local';
 import { ProjectFeedback } from './project-feedback';
@@ -13,6 +15,8 @@ export function ProductNavigation({ product }: EditorNavigationProps) {
   const projectId = new URLSearchParams(location.search).get('project');
   const repository = useMemo(() => localProjectRepository(workspace), [workspace]);
   const beforeLeave = useRef<(() => Promise<boolean>) | undefined>(undefined);
+  const navigationLock = useRef(false);
+  useEffect(() => registerWorkspaceBeforeLeave(async () => !beforeLeave.current || await beforeLeave.current()), []);
   const [mountedHost, setMountedHost] = useState(() => ({ host: productDocumentHost(), id: productDocumentHost()?.id(), epoch: 0 })), [busy, setBusy] = useState(false);
   const ready = !!mountedHost.host;
   const [error, setError] = useState(''), [open, setOpen] = useState(false);
@@ -31,17 +35,31 @@ export function ProductNavigation({ product }: EditorNavigationProps) {
   };
   const flush = async () => { if (!await prepareProductNavigation()) throw new Error('마지막 입력을 저장하지 못했습니다. 현재 화면에서 저장을 다시 시도하세요.'); };
   const go = async (row?: WorkspaceDocument) => {
-    if (beforeLeave.current && !await beforeLeave.current()) throw new Error('작성 중인 의견을 저장하지 못했습니다. 현재 화면을 유지합니다.');
+    const mounted = productDocumentHost();
+    if (row && mounted?.product === row.product && mounted.id() === row.id) return;
+    if (navigationLock.current) return;
+    const release = beginWorkspaceNavigation(); if (!release) return;
+    navigationLock.current = true;
+    const guard = captureProductNavigation();
+    const current = () => { if (!guard?.isCurrent()) throw new Error('열려 있는 자료가 바뀌었습니다. 현재 자료에서 다시 시도하세요.'); };
     const root = document.getElementById('root');
-    if (root) root.inert = true;
     try {
-      await flush();
+    if (beforeLeave.current && !await beforeLeave.current()) throw new Error('작성 중인 의견을 저장하지 못했습니다. 현재 화면을 유지합니다.');
+    current();
+    if (root) root.inert = true;
+      if (!await guard!.prepare()) throw new Error('마지막 입력을 저장하지 못했습니다. 현재 화면에서 저장을 다시 시도하세요.');
+      current();
       if (row) {
+        const source = await workspace.require(row.product, row.id); current();
+        await readProductDocument(row.product, source.text); current();
         if ((await workspace.meta(row.key)).trashedAt !== null) throw new Error('휴지통에 있는 자료입니다. 자료함에서 복원하세요.');
+        current();
         await workspace.update(row.key, { openedAt: Date.now() });
       }
-      location.assign(row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id, ...(projectId ? { project: projectId } : {}) }) : `/?${new URLSearchParams({ workspace: workspace.id, ...(projectId ? { project: projectId } : { view: 'library' }) })}`);
+      current();
+      location.assign(row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id, ...(projectId ? { project: projectId } : {}) }) : workspaceReturnURL(workspace.id, projectId));
     } catch (error) { if (root) root.inert = false; throw error; }
+    finally { navigationLock.current = false; release(); }
   };
   const refresh = async () => {
     const host = productDocumentHost();
