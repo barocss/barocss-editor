@@ -23,3 +23,24 @@ export function PinnedContent({ text }: { text: string }) {
   </div>;
 }
 
+
+/** Display evidence only. The native bookmark and stored pin remain the locator. */
+export function PinnedItemExcerpt({ text, bookmarkId }: { text: string; bookmarkId: string }) {
+  const file = readWordFile(text);
+  if ('error' in file) return <p>보관한 원문을 읽을 수 없습니다.</p>;
+  type Node = { stype?: string; text?: string; attributes?: { id?: string }; content?: unknown[] };
+  const matches: Node[] = [];
+  const visit = (value: unknown, paragraph?: Node): void => {
+    if (!value || typeof value !== 'object') return;
+    const node = value as Node, owner = node.stype === 'paragraph' ? node : paragraph;
+    if (node.stype === 'bookmarkAnchor' && node.attributes?.id === bookmarkId && owner) matches.push(owner);
+    node.content?.forEach(child => visit(child, owner));
+  };
+  const content = (value: unknown): string => {
+    if (!value || typeof value !== 'object') return '';
+    const node = value as Node;
+    return (node.text ?? '') + (node.content?.map(content).join('') ?? '');
+  };
+  visit(file.document);
+  return <p className="w-business-item-excerpt">{matches.length === 1 ? content(matches[0]) : '보관한 문단 위치를 확인할 수 없습니다.'}</p>;
+}

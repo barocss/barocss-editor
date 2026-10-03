@@ -14,12 +14,14 @@ export interface BusinessItem {
   derivedFrom?: { itemId: string; version: number };
 }
 export interface BusinessPairPayload {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  /** v2 requires explicit opt-in; legacy v1 remains a complete pair. */
+  lifecycle?: 'unlinked' | 'linked';
   items: BusinessItem[];
   relations: { kind: 'supported_by'; source: { itemId: string; version: number }; target: { itemId: string; version: number } }[];
 }
 export type BusinessPairRead = { status: 'absent' } | { status: 'unsupported'; reason: string } | { status: 'invalid'; reason: string }
-  | { status: 'valid'; payload: BusinessPairPayload; items: { item: BusinessItem; state: 'current' | 'stale' | 'unavailable' }[]; review: 'current' | 'needed' };
+  | { status: 'valid'; lifecycle: 'unlinked' | 'linked'; payload: BusinessPairPayload; items: { item: BusinessItem; state: 'current' | 'stale' | 'unavailable' }[]; review: 'current' | 'needed' };
 export class BusinessPairError extends Error {}
 type Native = Record<string, unknown>;
 const object = (value: unknown): value is Native => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -154,7 +156,9 @@ function pinned(version: BusinessItemVersion, bookmarkId: string): Native {
   return parsed.document;
 }
 function validate(raw: Native): BusinessPairPayload {
-  if (!Array.isArray(raw.items) || raw.items.length !== 2 || !Array.isArray(raw.relations) || raw.relations.length !== 1) fail('Exactly one requirement, decision and relation are required');
+  const standalone = raw.schemaVersion === 2 && raw.lifecycle === 'unlinked';
+  if (raw.schemaVersion === 2 && !['unlinked', 'linked'].includes(String(raw.lifecycle))) fail('Invalid business lifecycle');
+  if (!Array.isArray(raw.items) || raw.items.length !== (standalone ? 1 : 2) || !Array.isArray(raw.relations) || raw.relations.length !== (standalone ? 0 : 1)) fail('Invalid business lifecycle cardinality');
   const items = raw.items;
   for (const item of items) {
     if (!object(item) || !id(item.id) || !['requirement', 'decision'].includes(String(item.kind)) || !positive(item.currentVersion)
@@ -166,6 +170,10 @@ function validate(raw: Native): BusinessPairPayload {
       if (!object(version) || version.version !== index + 1 || typeof version.snapshotText !== 'string') fail('Invalid item version');
       pinned(version as unknown as BusinessItemVersion, bookmarkId);
     });
+  }
+  if (standalone) {
+    if (items[0].kind !== 'requirement') fail('An unlinked lifecycle requires one requirement');
+    return raw as unknown as BusinessPairPayload;
   }
   if (items[0].id === items[1].id || items[0].kind === items[1].kind || items[0].locator.bookmarkId === items[1].locator.bookmarkId) fail('Duplicate business identity, kind or locator');
   const relation = raw.relations[0];
@@ -181,7 +189,9 @@ export function readBusinessPair(document: unknown): BusinessPairRead {
   if (!object(document) || !object(document.metadata) || !(BUSINESS_PAIR_KEY in document.metadata)) return { status: 'absent' };
   const raw = document.metadata[BUSINESS_PAIR_KEY];
   if (!object(raw)) return { status: 'invalid', reason: 'Invalid business payload' };
-  if (raw.schemaVersion !== 1) return positive(raw.schemaVersion) ? { status: 'unsupported', reason: 'Unsupported business schema version' } : { status: 'invalid', reason: 'Invalid business schema version' };
+  // Bare v2 was previously an unknown payload. Only its explicit lifecycle
+  // discriminant opts into this bounded schema; reading never migrates it.
+  if (raw.schemaVersion !== 1 && (raw.schemaVersion !== 2 || raw.lifecycle === undefined)) return positive(raw.schemaVersion) ? { status: 'unsupported', reason: 'Unsupported business schema version' } : { status: 'invalid', reason: 'Invalid business schema version' };
   try {
     const payload = validate(raw);
     const clean = cleanDocument(document);
@@ -191,8 +201,9 @@ export function readBusinessPair(document: unknown): BusinessPairRead {
       return { item, state: !current ? 'unavailable' as const : current === previous ? 'current' as const : 'stale' as const };
     });
     const relation = payload.relations[0];
-    const oldReference = payload.items.some(item => item.currentVersion !== (item.kind === 'requirement' ? relation.source.version : relation.target.version));
-    return { status: 'valid', payload, items, review: oldReference || items.some(item => item.state !== 'current') ? 'needed' : 'current' };
+    const lifecycle = payload.schemaVersion === 2 && payload.lifecycle === 'unlinked' ? 'unlinked' : 'linked';
+    const oldReference = lifecycle === 'linked' && payload.items.some(item => item.currentVersion !== (item.kind === 'requirement' ? relation.source.version : relation.target.version));
+    return { status: 'valid', lifecycle, payload, items, review: oldReference || items.some(item => item.state !== 'current') ? 'needed' : 'current' };
   } catch (error) { return { status: 'invalid', reason: error instanceof Error ? error.message : 'Invalid business payload' }; }
 }
 export function createBusinessPair(document: unknown, requirementPointBookmarkId: string, decisionPointBookmarkId: string): BusinessPairPayload {
@@ -205,9 +216,37 @@ export function createBusinessPair(document: unknown, requirementPointBookmarkId
   }));
   return validate({ schemaVersion: 1, items, relations: [{ kind: 'supported_by', source: { itemId: items[0].id, version: 1 }, target: { itemId: items[1].id, version: 1 } }] });
 }
+/** Record one manual requirement without manufacturing a decision or relation. */
+export function createStandaloneRequirement(document: unknown, requirementPointBookmarkId: string): BusinessPairPayload {
+  if (readBusinessPair(document).status !== 'absent') fail('An existing payload must not be replaced');
+  const clean = cleanDocument(document);
+  if (!basis(clean, requirementPointBookmarkId)) fail('A uniquely located paragraph with resolved native references is required');
+  return validate({ schemaVersion: 2, lifecycle: 'unlinked', items: [{
+    id: crypto.randomUUID(), kind: 'requirement', currentVersion: 1,
+    locator: { kind: 'point-bookmark', bookmarkId: requirementPointBookmarkId },
+    versions: [{ version: 1, snapshotText: wordFileText(clean, '') }]
+  }], relations: [] });
+}
+/** Link the deliberately selected existing requirement version. Historical
+ * requirement bytes remain intact even when the current paragraph is stale. */
+export function linkBusinessDecision(document: unknown, decisionPointBookmarkId: string, requirementVersion: number): BusinessPairPayload {
+  const read = readBusinessPair(document);
+  if (read.status !== 'valid' || read.lifecycle !== 'unlinked') fail('A valid unlinked requirement is required');
+  const requirement = read.payload.items[0];
+  if (!positive(requirementVersion) || !requirement.versions.some(version => version.version === requirementVersion)) fail('An explicit available requirement version is required');
+  if (read.items.some(item => item.state === 'unavailable') || decisionPointBookmarkId === requirement.locator.bookmarkId) fail('Distinct uniquely located native paragraphs are required');
+  const clean = cleanDocument(document);
+  if (!basis(clean, decisionPointBookmarkId)) fail('A uniquely located decision paragraph with resolved native references is required');
+  if (located(clean, requirement.locator.bookmarkId) === located(clean, decisionPointBookmarkId)) fail('A separately authored decision paragraph is required');
+  const decision: BusinessItem = { id: crypto.randomUUID(), kind: 'decision', currentVersion: 1,
+    locator: { kind: 'point-bookmark', bookmarkId: decisionPointBookmarkId },
+    versions: [{ version: 1, snapshotText: wordFileText(clean, '') }] };
+  return validate({ schemaVersion: 2, lifecycle: 'linked', items: [structuredClone(requirement), decision],
+    relations: [{ kind: 'supported_by', source: { itemId: requirement.id, version: requirementVersion }, target: { itemId: decision.id, version: 1 } }] });
+}
 export function appendDecisionVersion(document: unknown): BusinessPairPayload {
   const read = readBusinessPair(document);
-  if (read.status !== 'valid') fail('A valid existing pair is required');
+  if (read.status !== 'valid' || read.lifecycle !== 'linked') fail('A valid linked pair is required');
   const decision = read.items.find(one => one.item.kind === 'decision')!;
   if (decision.state !== 'stale' || read.items.some(one => one.state === 'unavailable')) fail('A changed, uniquely located decision is required');
   const payload = structuredClone(read.payload);
@@ -227,7 +266,7 @@ export function appendRequirementVersion(document: unknown): BusinessPairPayload
   const item = payload.items.find(one => one.kind === 'requirement')!;
   item.currentVersion++;
   item.versions.push({ version: item.currentVersion, snapshotText: wordFileText(cleanDocument(document), '') });
-  payload.relations[0].source.version = item.currentVersion;
+  if (read.lifecycle === 'linked') payload.relations[0].source.version = item.currentVersion;
   return payload;
 }
 /** Independent copy/restore allocates business identity; ordinary move/view never calls this. */
