@@ -13,7 +13,7 @@ import { wordLibraryRows, keepWordDocument, wordFileText, type WordLibraryRow } 
 
 /** The host owns document navigation; shared UI and Word's file/library adapters do the work. */
 export interface DocumentLibraryHandle { open: (kind: 'library' | 'actions') => void }
-export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Editor; native?: Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'> }>(function DocumentLibrary({ editor, native }, ref) {
+export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Editor; native?: Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'>; menuOnly?: boolean }>(function DocumentLibrary({ editor, native, menuOnly = false }, ref) {
   const { t } = useOfficeLocale();
   const [actions, setActions] = useState(false);
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
@@ -21,9 +21,10 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
   const pending = useRef(false);
   const libraryOpener = useRef<HTMLElement | null>(null);
   const libraryButton = useRef<HTMLButtonElement | null>(null);
+  const chrome = useRef<HTMLDivElement | null>(null);
   const restoreLibraryFocus = () => {
     const target = libraryOpener.current;
-    (target?.isConnected && target !== document.body && !target.matches(':disabled') ? target : libraryButton.current)?.focus();
+    (target?.isConnected && target !== document.body && !target.matches(':disabled') ? target : libraryButton.current ?? chrome.current?.closest('.w-document-header')?.querySelector<HTMLElement>('.office-document-menu [data-menu="document"]'))?.focus();
   };
   const [rows, setRows] = useState<WordLibraryRow[]>([]);
   const [problem, setProblem] = useState(''), [status, setStatus] = useState('');
@@ -74,7 +75,7 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
       setRows(await availableRows()); setDrafts(await wordDrafts.rows()); setLoaded(true); setOpen(true);
     });
   };
-  useImperativeHandle(ref, () => ({ open: kind => { if (kind === 'library') openLibrary(); else setActions(true); } }));
+  useImperativeHandle(ref, () => ({ open: kind => { if (kind === 'library') openLibrary(); else { libraryOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setActions(true); } } }));
   const titleOf = (row: { title?: string }) => row.title || '제목 없는 문서';
   const matching = (row: { title?: string }) => titleOf(row).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
   const visibleRows = rows.filter(matching), visibleDrafts = drafts.filter(matching);
@@ -91,10 +92,10 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
       <Button disabled={busy} onClick={reopenSaved}>화면 버리고 저장본 열기</Button></>}>
     자동 저장이 중지돼 있습니다. 필요한 내용을 복사하거나 DOCX로 내보낸 뒤 저장본을 다시 여세요.
   </StatusNotice>;
-  return <div className="w-document-library">
-    <Tip label="문서 작업"><Button square tone="quiet" ariaLabel="문서 작업" onClick={() => setActions(true)}><Icon name="page-setup" /></Button></Tip>
-    <Tip label="문서 보관함"><Button square tone="quiet" ariaLabel="문서 보관함" ref={libraryButton} disabled={busy} onClick={openLibrary}><Icon name="recent-documents" /></Button></Tip>
-    <Dialog open={actions} onOpenChange={value => { if (!pending.current) setActions(value); }} title="문서 작업" description="문서를 보관하거나 DOCX 파일을 가져오고 내보냅니다.">
+  return <div ref={chrome} className="w-document-library">
+    {!menuOnly && <><Tip label="문서 작업"><Button square tone="quiet" ariaLabel="문서 작업" onClick={() => setActions(true)}><Icon name="page-setup" /></Button></Tip>
+    <Tip label="문서 보관함"><Button square tone="quiet" ariaLabel="문서 보관함" ref={libraryButton} disabled={busy} onClick={openLibrary}><Icon name="recent-documents" /></Button></Tip></>}
+    <Dialog open={actions} onClosed={menuOnly ? restoreLibraryFocus : undefined} onOpenChange={value => { if (!pending.current) setActions(value); }} title="문서 작업" description="문서를 보관하거나 DOCX 파일을 가져오고 내보냅니다.">
       <div className="w-file-action-list">
         <Button disabled={busy || recoveryRequired} onClick={() => void perform(async () => { await save(); })}>보관함에 사본 저장</Button>
         <DocxExport editor={editor} />

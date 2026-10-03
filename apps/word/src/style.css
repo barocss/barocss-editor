@@ -387,3 +387,8 @@ body {
 /* Document commands stay compact; the native paper and panel geometry are unchanged. */
 .w-header-command-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .w-header-command-group > span { display: inline-flex; }
+
+/* Same compact view capsule as Slides, above the native scroll pane. */
+.w-view-utilities { display: flex; justify-content: flex-end; flex: 0 0 auto; padding: 10px 16px; background: var(--ou-studio); }
+.w-view-utilities .w-zoom-control button { width: 32px; height: 32px; }
+.w-view-utilities .w-zoom-control input { height: 32px; }

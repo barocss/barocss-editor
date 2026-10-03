@@ -8,7 +8,7 @@ import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
 import type { ReactNode } from 'react';
-import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, onApple, useRevision } from '@barocss/office-ui';
+import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, Toolbar, onApple, useRevision } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
   captureCaptionSession, type CaptionSession,
@@ -404,10 +404,14 @@ export function App({ mount, server }: {
   /** A pick in the menubar, which is `runEntry` with the entry looked up. */
   const onMenu = useCallback(
     (id: string) => {
+      if (!server && !proposalSample && (id === 'local.library' || id === 'local.actions')) {
+        library.current?.open(id === 'local.library' ? 'library' : 'actions');
+        return;
+      }
       const entry = wordMenuEntry(id);
       if (entry) runEntry(entry);
     },
-    [runEntry]
+    [runEntry, server, proposalSample]
   );
 
   useEffect(() => {
@@ -458,7 +462,11 @@ export function App({ mount, server }: {
         {instance && <>
           <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={menus} onPick={onMenu} />}
+            menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={server || proposalSample ? menus : [...menus, {
+              id: 'local-library', label: '문서 작업', blocks: [{ id: 'local-library', items: [
+                { id: 'local.library', label: '문서 보관함' }, { id: 'local.actions', label: '문서 작업' }
+              ] }]
+            }]} onPick={onMenu} />}
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
             actions={<>
               <div className="w-header-command-group">
@@ -474,9 +482,8 @@ export function App({ mount, server }: {
                 </span>}
                 <CommandSearchTrigger iconOnly onClick={openCommandSearch} />
               </div>
-              {server ? server.headerActions : proposalSample ? null : <DocumentLibrary ref={library} editor={instance.editor} native={instance} />}
-            </>}
-            view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
+              {server ? server.headerActions : proposalSample ? null : <DocumentLibrary menuOnly ref={library} editor={instance.editor} native={instance} />}
+            </>} />
           {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
         {instance && !reading ? (
@@ -508,6 +515,11 @@ export function App({ mount, server }: {
             position in the text below. */}
         {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
+      {instance && <div className="w-view-utilities">
+        <Toolbar variant="compact" surface="floating" label="보기 도구">
+          <ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />
+        </Toolbar>
+      </div>}
 
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
