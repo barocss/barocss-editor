@@ -109,3 +109,13 @@ The file format/version for Note, Word, Slides and Site is the product's `barocs
 An optional server-owned collaboration dependency registers `POST /v1/tenants/:tenantId/documents/:documentId/collaboration` with `{expectedRevision, idempotencyKey}` and `POST .../collaboration/reconcile` with an empty body. A current writer may request the first transition. The service freezes the snapshot revision and hash with the document lock, then stores an initializing attempt before calling the pinned provider. During initialization, document open returns `transitionStatus` and no snapshot body; snapshot writes and receipt replay remain blocked. A lost or unverified provider outcome becomes `uncertain`. An exact retry returns the current state without another provider write. The protected reconciliation route only inspects the same pinned provider project/build and seed identity; it does not repeat a seed write. Promotion requires a provider-native checkpoint and a read-back body hash that matches the frozen snapshot. The production API does **not** configure a seeder, so these routes are not registered there. Synthetic tests use an in-memory fake provider and do not prove actual Yorkie persistence, attach authorization, or convergence. #367 remains open for real Yorkie evidence, while #366 owns capabilities and webhooks.
 
 Wonffice does not implement its own collaboration server. Yorkie is the selected alpha provider, but this API check does not authenticate Yorkie connections or stop a direct local Yorkie client. Provider authorization and revocation require separate [#366](https://github.com/barocss/barocss-editor/issues/366) evidence. See the [provider contract](../../docs/specs/wonffice-collaboration-providers.md).
+
+### Word criterion confirmation
+
+Authenticated routes under `/v1/tenants/:tenantId/documents/:documentId/criterion-confirmations`:
+
+- `GET /context`: current full Word snapshot, business context, authority epoch and server actor identity.
+- `POST`: version-1 request with `expectedRevision`, `snapshotHash`, `snapshotText`, `context`, `authorityEpoch` and `idempotencyKey`. Extra actor, time or approval-status fields are rejected.
+- `GET`: `{ confirmations: [...] }` containing immutable server receipts for the document.
+
+All three require current writer authority and return `Cache-Control: no-store`. No query parameters are accepted. Confirmation is an explicit fictional writer self-confirmation. Ordinary storage receipts remain separate. Server actor/time and `verification: 'not-run'` cannot be supplied by the client.

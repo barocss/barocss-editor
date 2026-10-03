@@ -35,11 +35,17 @@
     "./project-execution": {
       "types": "./src/project-execution.ts",
       "import": "./dist/project-execution.js"
+    },
+    "./criterion-confirmation-store": {
+      "types": "./src/criterion-confirmation-store.ts",
+      "import": "./dist/criterion-confirmation-store.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "pnpm --filter @barocss/office-note-file build && tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @barocss/office-note-file build && pnpm --filter @barocss/office-word build:criterion && tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
@@ -54,7 +60,8 @@
   },
   "dependencies": {
     "@barocss/office-note-file": "workspace:^",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "@barocss/office-word": "workspace:^"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"

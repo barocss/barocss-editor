@@ -22,6 +22,7 @@ The published package provides ES modules and TypeScript declarations. Use a bun
 | `@barocss/office-word/ui` | React UI components |
 | `@barocss/office-word/ui.css` | Stylesheet |
 | `@barocss/office-word/workspace` | Workspace file codec |
+| `@barocss/office-word/criterion-confirmation` | Exact native criterion context; Node consumers run `pnpm build:criterion` before use |
 
 Import only these public paths. Source paths such as `@barocss/office-word/src/...` are not part of the published API.
 

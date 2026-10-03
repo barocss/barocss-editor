@@ -4,34 +4,13 @@ import { appendDecisionVersion, createBusinessPair, readBusinessPair } from '../
 import { prepareBusinessPairWrite } from '../../../packages/office-word/src/business-pair-write';
 import type { WordRuntime } from './runtime';
 import { captureBusinessPairIntent } from './business-pair-intent';
-import { readWordFile } from '@barocss/office-word';
+import { PinnedContent } from './business-pair-pin';
+import { CriterionConfirmationPanel } from './criterion-confirmation-panel';
+import type { CriterionConfirmationHost } from './criterion-confirmation-client';
 import { watchAnswers } from '@barocss/editor-core';
 
-function PinnedContent({ text }: { text: string }) {
-  const file = readWordFile(text);
-  if ('error' in file) return <p role="status">보관한 자료를 읽을 수 없습니다.</p>;
-  const paragraphs: string[] = [];
-  const contentText = (value: unknown): string => {
-    if (!value || typeof value !== 'object') return '';
-    const node = value as { text?: string; content?: unknown[] };
-    return (node.text ?? '') + (node.content?.map(contentText).join('') ?? '');
-  };
-  const collect = (value: unknown): void => {
-    if (!value || typeof value !== 'object') return;
-    const node = value as { stype?: string; content?: unknown[] };
-    if (node.stype === 'resources') return;
-    if (node.stype === 'paragraph' || node.stype === 'heading') paragraphs.push(contentText(node));
-    else node.content?.forEach(collect);
-  };
-  collect(file.document);
-  return <div className="w-business-pin"><p>보관된 내용 · 텍스트 보기</p>
-    {paragraphs.map((paragraph, index) => <p key={index}>{paragraph || '\u00a0'}</p>)}
-    <details><summary>전체 원본과 서식 데이터</summary><pre style={{ maxHeight: 240, overflow: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{text}</pre></details>
-  </div>;
-}
-
 /** Product ownership stays here; the shared buttons carry no document semantics. */
-export function BusinessPairPanel({ runtime, readOnly }: { runtime: WordRuntime; readOnly: boolean }) {
+export function BusinessPairPanel({ runtime, readOnly, confirmation }: { runtime: WordRuntime; readOnly: boolean; confirmation?: CriterionConfirmationHost }) {
   useRevision(reread => watchAnswers(runtime.editor, reread), [runtime]);
   const authority = useRef(readOnly); authority.current = readOnly;
   const authorityStamp = useRef({ readOnly, version: 0 });
@@ -92,7 +71,7 @@ export function BusinessPairPanel({ runtime, readOnly }: { runtime: WordRuntime;
   };
   return <details className="w-business-pair" open>
     <summary>요구사항과 결정</summary>
-    <p>직접 작성한 항목입니다. 승인 여부는 미확인, 검증은 미실행입니다.</p>
+    <p>직접 작성한 항목입니다. 문서에 적힌 승인 여부는 미확인입니다. 서버의 작성자 확인 기록은 아래에 따로 표시합니다. 검증은 미실행입니다.</p>
     {result.status === 'absent' ? <>
       <p>각 문단에 커서를 놓고 지정하세요. 문단 내용과 서식을 그대로 보관합니다.</p>
       <Button disabled={!writable} onMouseDown={event => event.preventDefault()} onClick={() => void capture('requirement')}>요구사항 문단 지정</Button>
@@ -110,6 +89,7 @@ export function BusinessPairPanel({ runtime, readOnly }: { runtime: WordRuntime;
       <p role="status">{result.review === 'needed' ? '다시 검토해야 합니다. 기존 참조 버전은 유지됩니다.' : '작성한 버전 관계입니다. 사람의 승인은 확인되지 않았습니다.'}</p>
       <Button disabled={!writable} onMouseDown={event => event.preventDefault()} onClick={() => void write(true)}>현재 결정 내용을 새 버전으로 보관</Button>
     </>}
+    {result.status === 'valid' && <CriterionConfirmationPanel runtime={runtime} host={confirmation} readOnly={readOnly} />}
     {pin && pin.rootId === rootId && <section><Button tone="quiet" onClick={() => setPin(undefined)}>보관 내용 닫기</Button><PinnedContent text={pin.text} /></section>}
     {problem && <p role="alert">{problem}</p>}
   </details>;
