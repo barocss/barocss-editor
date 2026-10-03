@@ -6,14 +6,15 @@ const transport = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock('./auth-client', () => ({ captureAuthorizedFetch: () => transport.fetch, listSnapshotDocuments: vi.fn() }));
 import { serverProjectRepository } from './project-client';
 beforeEach(() => { vi.stubGlobal('crypto', webcrypto); transport.fetch.mockReset(); });
-function fixture() {
+function fixture(reorder = false) {
+  const jsonbOrder = (value: unknown): unknown => Array.isArray(value) ? value.map(jsonbOrder) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).reverse().map(([key, one]) => [key, jsonbOrder(one)])) : value;
   const current = createProjectRecord('공개', '검토');
   const pin: Pin = { id: 'source', document: { product: 'word', id: 'guide' }, revision: 1, text: 'native source', title: '안내' };
   current.results.push({ id: 'result', name: '안내', document: pin.document, inputs: [] });
   let revision = 1, actorId = 'verified', lose: string | null = null, beforeCommit = false, cas = false;
   let afterDraft: ((action: Record<string, unknown>) => Promise<void>) | undefined, beforeDraft: ((action: Record<string, unknown>) => Promise<void>) | undefined;
   const receipts = new Map<string, unknown>(), posted: Array<{ expectedRevision: number; idempotencyKey: string; action: Record<string, unknown> }> = [];
-  const view = () => ({ tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: actorId, label: 'Member' }, project: { record: structuredClone(current), revision } });
+  const view = () => { const value = { tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: actorId, label: 'Member' }, project: { record: structuredClone(current), revision } }; return reorder ? jsonbOrder(value) : value; };
   transport.fetch.mockImplementation(async (input: string, init?: RequestInit) => {
     if (new URL(input).pathname.endsWith('/documents/guide')) return new Response(JSON.stringify({ document: { workspaceId: 'workspace', product: 'word', revision: 1 }, snapshotText: pin.text }));
     if (init?.method !== 'PATCH') return new Response(JSON.stringify(view()));
@@ -175,4 +176,18 @@ it('cancels only a proven uncommitted native intent with the exact original targ
   await recovery.begin(f.current.id, intent); await recovery.nativeSnapshot(f.current.id, 'guide', createHash('sha256').update(f.pin.text).digest('hex'));
   await expect(recovery.cancel(f.current.id, 'guide', intent.target.id)).rejects.toThrow();
   expect(await recovery.read(f.current.id, 'guide')).toMatchObject(intent);
+});
+
+it('recovers receipts through JSONB-like nested key ordering without changing frozen strings or payload bytes', async () => {
+  const f = fixture(true), repo = f.repo(); await repo.feedbackRecovery!.begin(f.current.id, intent);
+  await repo.feedbackRecovery!.nativeSnapshot(f.current.id, 'guide', createHash('sha256').update(f.pin.text).digest('hex'));
+  f.lose('comment'); await expect(repo.feedbackRecovery!.comment(f.current.id, 'guide', f.pin)).rejects.toThrow('lost after commit');
+  const metadataText = f.current.drafts['verified:word-feedback:guide:meta'];
+  const saved = await f.repo().feedbackRecovery!.comment(f.current.id, 'guide', f.pin);
+  const commentPosts = f.posted.filter(one => one.action.type === 'comment'); expect(commentPosts).toHaveLength(2); expect(JSON.stringify(commentPosts[1])).toBe(JSON.stringify(commentPosts[0]));
+  expect(saved.record.comments[0]!.pin.text).toBe(f.pin.text); expect(metadataText).toContain('idempotencyKey');
+  f.lose('request'); await expect(f.repo().feedbackRecovery!.request(f.current.id, 'guide', saved.commentId!, intent.body)).rejects.toThrow('lost after commit');
+  const final = await f.repo().feedbackRecovery!.request(f.current.id, 'guide', saved.commentId!, intent.body);
+  const requestPosts = f.posted.filter(one => one.action.type === 'request'); expect(requestPosts).toHaveLength(2); expect(JSON.stringify(requestPosts[1])).toBe(JSON.stringify(requestPosts[0]));
+  expect(final.record.works).toHaveLength(1); expect(f.current.comments).toHaveLength(1);
 });

@@ -4,7 +4,15 @@ import { captureAuthorizedFetch, listSnapshotDocuments, type TenantRole, type Sn
 
 type Action = Record<string, unknown>;
 export class ProjectRevisionConflict extends Error { readonly code = 'project_revision_conflict'; }
-const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+// JSONB may reorder descriptor keys. Strings and ordered arrays remain exact.
+const equal = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((one, index) => equal(one, b[index]));
+  const left = Object.keys(a), right = Object.keys(b);
+  return left.length === right.length && left.every(key => Object.prototype.hasOwnProperty.call(b, key) &&
+    equal((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+};
 export function serverProjectRepository(tenant: string, workspace: string, role: TenantRole): ProjectRepository {
   const requestFetch = captureAuthorizedFetch();
   const base = `/api/v1/tenants/${tenant}/projects`;
@@ -172,7 +180,10 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
   };
   const prepareRecovery = async (project: string, meta: RecoveryMeta, action: Action) => {
     const captured = await readRecovery(project, meta.documentId);
-    if (!captured.pending || !equal({ ...captured.pending.meta, phase: meta.phase, commentId: meta.commentId }, meta)) throw recoveryError();
+    if (!captured.pending) throw recoveryError();
+    const advancing = { ...captured.pending.meta, phase: meta.phase };
+    if (meta.commentId !== undefined) advancing.commentId = meta.commentId; else delete advancing.commentId;
+    if (!equal(advancing, meta)) throw recoveryError();
     const current = captured.snapshot;
     const prepared: RecoveryMeta = { ...meta, envelope: { expectedRevision: current.revision + 1, idempotencyKey: crypto.randomUUID(), action } };
     // Preparation and its future action are bound to this exact CAS; do not infer a future revision.
