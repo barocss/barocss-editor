@@ -11,7 +11,7 @@ export interface ProjectDocument { product: Product; id: string; title: string; 
 /** Only actor-owned server drafts and existing project receipts hold this pending intent. */
 export interface WordFeedbackRecovery {
   documentId: string; resultId: string; target: ProductFeedbackTarget; body: string;
-  phase: 'native' | 'comment' | 'request'; commentId?: string;
+  phase: 'native' | 'comment' | 'request'; commentId?: string; requestWork?: boolean; nativeHash?: string;
 }
 /** Both stores preserve the product's canonical document. Server implementations check access per request. */
 export interface ProjectRepository {
@@ -33,6 +33,7 @@ export interface ProjectRepository {
   feedbackRecovery?: {
     begin(project: string, intent: Omit<WordFeedbackRecovery, 'phase' | 'commentId'>): Promise<void>;
     read(project: string, documentId: string): Promise<WordFeedbackRecovery | null>;
+    nativeSnapshot(project: string, documentId: string, snapshotHash: string): Promise<void>;
     comment(project: string, documentId: string, pin: Pin): Promise<ProjectSnapshot>;
     request(project: string, documentId: string, commentId: string, body: string): Promise<ProjectSnapshot>;
     clear(project: string, documentId: string): Promise<void>;

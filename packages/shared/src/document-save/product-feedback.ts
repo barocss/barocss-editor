@@ -26,6 +26,10 @@ export interface ProductFeedbackHost {
   ownsCapture?(target: ProductFeedbackTarget): boolean;
   /** Read-only presentation of a captured original; never a locator or persisted source. */
   excerpt?(target: ProductFeedbackTarget): readonly { text: string; bold?: boolean; italic?: boolean; underline?: boolean; link?: boolean }[];
+  /** Inspect a persisted identity without restoring an expired selection or inserting anything. */
+  committedComment?(target: ProductFeedbackTarget, body: string): 'located' | 'missing' | 'ambiguous' | 'changed';
+  /** Fingerprint the complete native original for an explicitly prepared comment save. */
+  commentFingerprint?(target: ProductFeedbackTarget, body: string): Promise<string | null>;
   /** Refuse a retired document, selection or permission. Must use native history. */
   comment(target: ProductFeedbackTarget, body: string): Promise<ProductFeedbackTarget>;
   locate(target: ProductFeedbackTarget): 'located' | 'missing' | 'ambiguous';
