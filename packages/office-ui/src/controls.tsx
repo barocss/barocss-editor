@@ -135,10 +135,13 @@ export function IconButton({
   size = 'md',
   className,
   testClass,
-  data
+  data, controls, expanded, elementRef
 }: {
   /** What it does, in words. Becomes the accessible name, and the tooltip unless one is given. */
   label: string;
+  controls?: string;
+  expanded?: boolean;
+  elementRef?: React.Ref<HTMLButtonElement>;
   /**
    * The chord that reaches it, written the way a reader reads it — `keyLabel` in `office-controls`.
    *
@@ -202,6 +205,9 @@ export function IconButton({
         aria-keyshortcuts={shortcut}
         aria-label={label}
         aria-pressed={pressed}
+        aria-controls={controls}
+        aria-expanded={expanded}
+        ref={elementRef}
         disabled={disabled}
         onClick={onClick}
         onMouseDown={preserveFocus ? event => event.preventDefault() : undefined}

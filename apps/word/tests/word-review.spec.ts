@@ -174,7 +174,7 @@ test.describe('comments', () => {
   test('anchors to the selected text and shows who said it', async ({ page }) => {
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
     await comment(page, 'Is this clear?');
@@ -190,7 +190,7 @@ test.describe('comments', () => {
     await page.clock.setFixedTime(new Date('2040-01-02T12:00:00Z'));
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     await selectSome(page);
     await comment(page, 'Is this clera?');
 
@@ -212,7 +212,7 @@ test.describe('comments', () => {
   test('collects replies under the comment they answer', async ({ page }) => {
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     await selectSome(page);
     await comment(page, 'Is this clear?');
 
@@ -230,7 +230,7 @@ test.describe('comments', () => {
   test('lets several comments cover the same words', async ({ page }) => {
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     // This one's subject really is the total, so it starts from what is there.
     const before = await countOf(page, '.w-comment');
 
@@ -276,7 +276,7 @@ test.describe('comments', () => {
   test('cannot comment on nothing', async ({ page }) => {
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     // A comment is about something. With only a caret there is nothing to
     // anchor to, and the button says so rather than making a comment that
     // points nowhere.
@@ -287,7 +287,7 @@ test.describe('comments', () => {
   test('resolving settles it and takes the mark off the page', async ({ page }) => {
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
     await comment(page, 'Settled?');
@@ -304,7 +304,7 @@ test.describe('comments', () => {
   test('deleting takes the thread and the mark together', async ({ page }) => {
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     const before = await countOf(page, '.w-comment');
     const hits = await countOf(page, '.w-comment-hit');
     await selectSome(page);
@@ -321,7 +321,7 @@ test.describe('comments', () => {
   test('keeps what somebody wrote when the text it was about goes', async ({ page }) => {
     await page.goto('/?sample');
     await page.waitForSelector('.w-sheet');
-    await page.locator('.w-comments-closed').click();
+    await page.locator('[data-workspace-toggle="inspector"]').click();
     await selectSome(page);
     await comment(page, 'About text that will not last');
 

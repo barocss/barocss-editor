@@ -2,13 +2,13 @@ import type { CriterionVerificationHost } from './criterion-verification-client'
 import type { CriterionConfirmationHost } from './criterion-confirmation-client';
 import { EditorHeader, DocumentMenu, ProductMenu, CommandSearch, CommandSearchTrigger } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
 import type { ReactNode } from 'react';
-import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, Toolbar, onApple, useRevision } from '@barocss/office-ui';
+import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, Toolbar, onApple, useRevision, useOfficeLocale } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
   captureCaptionSession, type CaptionSession,
@@ -98,6 +98,7 @@ export function App({ mount, server }: {
   mount: (host: HTMLElement, onFurniture?: (id?: string) => void) => WordRuntime;
   server?: WordServerHost;
 }) {
+  const { t } = useOfficeLocale();
   const proposalSample = !server && new URLSearchParams(location.search).get('sample') === 'paragraph-proposal';
   const library = useRef<DocumentLibraryHandle>(null);
   const [compact, setCompact] = useState(false);
@@ -105,6 +106,12 @@ export function App({ mount, server }: {
   const [rulerShown, setRulerShown] = useState(false);
   const [businessOpen, setBusinessOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
+  const panelId = useId();
+  const outlineButton = useRef<HTMLButtonElement>(null);
+  const commentsButton = useRef<HTMLButtonElement>(null);
+  const restorePanelFocus = useCallback((side: 'navigation' | 'inspector') => {
+    (side === 'navigation' ? outlineButton : commentsButton).current?.focus({ preventScroll: true });
+  }, []);
   const host = useRef<HTMLDivElement>(null);
   const detailAnchor = useRef<HTMLSpanElement>(null);
   const mounted = useRef(false);
@@ -188,10 +195,14 @@ export function App({ mount, server }: {
    */
   const [outlining, setOutlining] = useState(false);
   const togglePanel = useCallback((side: 'navigation' | 'inspector') => {
+    const shown = compact ? activePanel === side : side === 'navigation' ? outlining : commenting;
+    const closingRegion = side === 'navigation' && !compact && server?.navigation ? `${panelId}-outline` : `${panelId}-${side}`;
+    const closingFromPanel = shown && document.getElementById(closingRegion)?.contains(document.activeElement);
     if (compact) setActivePanel(current => current === side ? null : side);
-    else if (side === 'navigation') setOutlining(shown => !shown);
-    else setCommenting(shown => !shown);
-  }, [compact]);
+    else if (side === 'navigation') setOutlining(value => !value);
+    else setCommenting(value => !value);
+    if (closingFromPanel) requestAnimationFrame(() => restorePanelFocus(side));
+  }, [compact, activePanel, outlining, commenting, panelId, restorePanelFocus, server?.navigation]);
   const outlineShown = compact ? activePanel === 'navigation' : outlining;
   const commentsShown = compact ? activePanel === 'inspector' : commenting;
 
@@ -470,9 +481,15 @@ export function App({ mount, server }: {
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
             actions={<>
               <div className="w-header-command-group">
+                <Tip label={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}><Button ref={outlineButton} square tone="quiet" ariaLabel={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}
+                  aria-controls={!compact && server?.navigation ? `${panelId}-outline` : `${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
+                  pressed={outlineShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('navigation')}><Icon name="outline" /></Button></Tip>
+                <Tip label={t('word.header.comments')}><Button ref={commentsButton} square tone="quiet" ariaLabel={t('word.header.comments')}
+                  aria-controls={`${panelId}-inspector`} aria-expanded={commentsShown} data-workspace-toggle="inspector"
+                  pressed={commentsShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('inspector')}><Icon name="comments" /></Button></Tip>
                 <Tip label="요구·결정"><Button square tone="quiet" ariaLabel="요구·결정" pressed={businessOpen}
                   onMouseDown={event => event.preventDefault()}
-                  onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); }}><Icon name="resolve" /></Button></Tip>
+                  onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); if (!compact) setOutlining(true); }}><Icon name="resolve" /></Button></Tip>
                 {!readOnly && <span ref={detailAnchor}>
                   <Tip label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'}>
                     <Button square tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded}
@@ -516,15 +533,17 @@ export function App({ mount, server }: {
         {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
-      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
+      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: t(server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline'), inspector: t('word.header.comments') }}
+        showPanelControls={false} restorePanelFocus={restorePanelFocus}
+        panelIds={{ navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
-        {instance ? <WorkspaceSidePanel side="navigation" width={server?.navigation || compact || outlining || businessOpen ? 240 : 40}>{server?.navigation}<OutlinePane
+        {instance ? <WorkspaceSidePanel side="navigation" width={240} hidden={!outlineShown && !server?.navigation}>{server?.navigation}<div className="w-outline-slot" id={`${panelId}-outline`} hidden={!outlineShown}><OutlinePane
             editor={instance.editor}
-            open={compact || outlining}
+            open={outlineShown}
             onToggle={() => togglePanel('navigation')}
             /* 어느 요소에 문서가 그려졌는지는 조립하는 쪽이 안다 — `#editor` 는 이 파일의 id 다. */
             host={host.current}
-          />{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} />}</WorkspaceSidePanel> : null}
+          /></div>{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} />}</WorkspaceSidePanel> : null}
 
         <div className="w-document-slot" data-workspace-main tabIndex={-1}>
         <AppMain className="w-shell-document relative">
@@ -584,7 +603,7 @@ export function App({ mount, server }: {
           */}
           {instance && !readOnly ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
         </AppMain>
-        {instance && <div className="w-view-utilities">
+        {instance && <div className="w-view-utilities" data-workspace-utility data-comments-overlay={compact && activePanel === 'inspector' || undefined}>
           <Toolbar variant="compact" surface="floating" label="보기 도구">
             <ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />
           </Toolbar>
@@ -592,10 +611,10 @@ export function App({ mount, server }: {
         </div>
 
         {instance ? (
-          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane readOnly={authorityReadOnly}
+          <WorkspaceSidePanel side="inspector" width={280} hidden={!commentsShown}><CommentsPane readOnly={authorityReadOnly}
             editor={instance.editor}
             view={instance.view}
-            open={compact || commenting}
+            open={commentsShown}
             onToggle={() => togglePanel('inspector')}
           /></WorkspaceSidePanel>
         ) : null}

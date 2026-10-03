@@ -371,7 +371,7 @@ body {
 
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] { flex-direction:column; }
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > aside { flex:none; }
-[data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > .w-outline { flex:1; min-height:0; }
+[data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > .w-outline-slot { flex:1; min-height:0; }
 [data-server-word-workspace] .w-business-pair { flex: none; }
 .w-business-pair { padding: 12px; border-top: 1px solid var(--office-border, #d8dce4); font-size: 12px; overflow: auto; max-height: 50vh; }
 .w-business-pair summary { cursor: pointer; font-weight: 600; }
@@ -394,3 +394,11 @@ body {
 .w-view-utilities > .office-toolbar { pointer-events: auto; }
 .w-view-utilities .w-zoom-control button { width: 32px; height: 32px; }
 .w-view-utilities .w-zoom-control input { height: 32px; }
+
+/* Compact comments overlay the existing canvas; only the view capsule steps aside. */
+.w-view-utilities[data-comments-overlay] { right: 296px; max-width: calc(100% - 312px); }
+
+/* Server document actions remain visible; the outline has its own disclosure. */
+.w-outline-slot { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.w-outline-slot[hidden] { display: none; }
+.w-outline-slot > .w-outline { flex: 1; min-width: 0; min-height: 0; }

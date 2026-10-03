@@ -51,7 +51,7 @@ async function openPanels(page: Page, product: Product) {
       await expect(page.locator('.w-outline [data-outline-sid]').first()).toBeVisible();
       await page.locator('[data-workspace-toggle="inspector"]').click();
     } else {
-      await page.locator('.w-outline-closed').click(); await page.locator('.w-comments-closed').click();
+      await page.locator('[data-workspace-toggle="navigation"]').click(); await page.locator('[data-workspace-toggle="inspector"]').click();
     }
     await expect(page.locator('.w-comment-text').first()).toBeVisible();
   } else if (product === 'note') {
@@ -103,6 +103,37 @@ for (const product of products) for (const width of [1170, 1440]) for (const the
     const before = await savedNative(page, product, original.id);
     await page.screenshot({ path: test.info().outputPath(`${product}-${theme}-${width}-default.png`), animations: 'disabled' });
     await openPanels(page, product);
+    await page.mouse.move(10, 10);
+    if (product === 'word' || product === 'site') {
+      await expect(page.locator('.office-workspace-panel-controls')).toHaveCount(0);
+      expect(await page.locator(product === 'word' ? '.w-shell-body' : '.st-body').evaluate(el => getComputedStyle(el).paddingTop)).toBe('0px');
+      const geometry = await page.evaluate(product => {
+        const body = document.querySelector(product === 'word' ? '.w-shell-body' : '.st-body')!;
+        const header = document.querySelector('.office-editor-header')!;
+        const capsules = [...document.querySelectorAll(product === 'word' ? '.w-view-utilities' : '.st-utilities')];
+        const panels = [...body.querySelectorAll('[data-workspace-panel]')].filter(el => !el.hasAttribute('hidden'));
+        const controls = [...capsules.flatMap(el => [...el.querySelectorAll('button')]), ...panels.flatMap(el => [...el.querySelectorAll('header button,.office-panel-header button,input[aria-label="속성 찾기"]')])]
+          .filter(el => { const rect = el.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && !el.closest('[hidden]'); });
+        return { gap: body.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+          targets: controls.map(el => { const rect = el.getBoundingClientRect(); return {
+            name: el.getAttribute('aria-label') || el.textContent, width: rect.width, height: rect.height,
+            hit: el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+          }; }) };
+      }, product);
+      await test.info().attach('panel-and-capsule-hit-ownership', { body: JSON.stringify(geometry), contentType: 'application/json' });
+      expect(geometry.gap).toBeLessThanOrEqual(1); // Site retains its native 1px chrome border, not a panel row.
+      expect(geometry.targets.length).toBeGreaterThan(3);
+      for (const target of geometry.targets) expect(target.hit, target.name || 'panel or capsule control').toBe(true);
+      // Capsule buttons remain full targets even when a native panel is open.
+      const capsuleTargets = await page.locator(product === 'word' ? '.w-view-utilities button' : '.st-utilities > .office-toolbar button').evaluateAll(els =>
+        els.filter(el => el.getBoundingClientRect().width > 0).map(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height })));
+      expect(capsuleTargets.length).toBeGreaterThan(1);
+      for (const target of capsuleTargets) { expect(target.width).toBeGreaterThanOrEqual(32); expect(target.height).toBeGreaterThanOrEqual(32); }
+      const utility = page.locator(product === 'word' ? '.w-view-utilities' : '.st-utilities');
+      const inspector = page.locator(`[data-workspace-panel="inspector"]`);
+      await utility.locator('[data-zoom-in]').click(); await expect(inspector).toBeVisible();
+      await utility.locator('[data-zoom-out]').click(); await expect(inspector).toBeVisible();
+    }
     const geometry = await page.evaluate(() => {
       const header = document.querySelector('.office-editor-header')!, name = header.querySelector('[data-document-identity]')!;
       const all = [...header.querySelectorAll('button,input,select,[role="menuitem"]')].filter(el => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0);
@@ -111,7 +142,7 @@ for (const product of products) for (const width of [1170, 1440]) for (const the
       return { title: name.getBoundingClientRect().width, header: header.getBoundingClientRect().height,
         clippedFiles: clippedFiles.map(el => ({ tag: el.tagName, type: el.getAttribute('type'), className: el.className, clipPath: getComputedStyle(el).clipPath, clip: getComputedStyle(el).clip, width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, name: el.getAttribute('aria-label') })),
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        targets: controls.map(el => ({ hit: el.contains(document.elementFromPoint(el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2, el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)), height: el.getBoundingClientRect().height, width: el.getBoundingClientRect().width, left: el.getBoundingClientRect().left, right: el.getBoundingClientRect().right, name: el.getAttribute("aria-label") || el.textContent })) };
+        targets: controls.map(el => ({ hit: el.contains(document.elementFromPoint(el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2, el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)), height: el.getBoundingClientRect().height, width: el.getBoundingClientRect().width, left: el.getBoundingClientRect().left, right: el.getBoundingClientRect().right, name: el.getAttribute("aria-label") || el.textContent, blocker: document.elementFromPoint(el.getBoundingClientRect().left + el.getBoundingClientRect().width / 2, el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)?.outerHTML.slice(0, 250) })) };
     });
     await test.info().attach('header-geometry', { body: JSON.stringify(geometry, null, 2), contentType: 'application/json' });
     for (const input of geometry.clippedFiles) {
@@ -120,7 +151,7 @@ for (const product of products) for (const width of [1170, 1440]) for (const the
     }
     expect(geometry.title).toBeGreaterThan(0); expect(geometry.header).toBe(48);
     expect(geometry.overflow).toBeLessThanOrEqual(1);
-    expect(geometry.targets.length).toBeGreaterThan(3); for (const target of geometry.targets) { expect(target.hit, target.name || "header control").toBe(true); expect(target.height, target.name || "header control").toBeGreaterThanOrEqual(32); expect(target.width, target.name || "header control").toBeGreaterThanOrEqual(32); expect(target.left).toBeGreaterThanOrEqual(276); expect(target.right, target.name || "header control").toBeLessThanOrEqual(width); }
+    expect(geometry.targets.length).toBeGreaterThan(3); for (const target of geometry.targets) { expect(target.hit, `${target.name}: ${target.blocker}`).toBe(true); expect(target.height, target.name || "header control").toBeGreaterThanOrEqual(32); expect(target.width, target.name || "header control").toBeGreaterThanOrEqual(32); expect(target.left).toBeGreaterThanOrEqual(276); expect(target.right, target.name || "header control").toBeLessThanOrEqual(width); }
     await page.screenshot({ path: test.info().outputPath(`${product}-${theme}-${width}-panels.png`), animations: 'disabled' });
     expect(await savedNative(page, product, original.id)).toBe(before);
     expect(page.url()).toBe(new URL(original.url, page.url()).href);
@@ -209,7 +240,7 @@ test('Word desktop panels retain the native selection and unsubmitted comment th
   await expect.poll(() => page.evaluate(() => (window as any).editor.selection?.collapsed)).toBe(false);
   const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
   const before = await native();
-  await page.locator('.w-comments-closed').click();
+  await page.locator('[data-workspace-toggle="inspector"]').click();
   const draft = page.getByRole('textbox', { name: 'New comment', exact: true });
   await draft.fill('Review this original, not a copy.');
   await page.setViewportSize({ width: 1170, height: 1000 }); await expect(draft).toBeHidden();
@@ -279,4 +310,34 @@ test('Site canvas capsules retain native history and keep advanced tools keyboar
   await search.fill('실행 취소'); await search.press('Enter');
   await expect(search).toHaveCount(0);
   await expect.poll(async () => (await native()).document).toEqual(before.document);
+});
+
+test('Site compact panel close exposes the right-edge original without committing its property draft', async ({ page }) => {
+  await page.setViewportSize({ width: 1170, height: 1000 });
+  const original = await populated(page, 'site'); await page.goto(original.url);
+  const picture = page.locator('[data-frame="desktop"] img.st-picture[alt="문서와 덱과 페이지가 한 화면에 놓인 그림"]');
+  await expect(picture).toBeVisible();
+  await page.locator('.st-utilities [data-zoom-fit]').click();
+  const pictureSid = await picture.evaluate(el => el.closest('[data-bc-sid]')?.getAttribute('data-bc-sid')?.split('~').pop());
+  expect(pictureSid).toBeTruthy();
+  const selectedPicture = () => page.evaluate(() => (window as any).editor.selection?.nodeIds);
+  const rect = (await picture.boundingBox())!;
+  const point = { x: rect.x + rect.width - 10, y: rect.y + 10 };
+  const hit = () => picture.evaluate((el, p) => el.closest('[data-frame="desktop"]')?.contains(document.elementFromPoint(p.x, p.y)) ?? false, point);
+  expect(await hit()).toBe(true);
+  await page.keyboard.down('Meta'); await page.mouse.click(point.x, point.y); await page.keyboard.up('Meta');
+  await expect.poll(selectedPicture).toEqual([pictureSid]);
+  const detail = page.getByRole('button', { name: '자세한 속성', exact: true }); await detail.click();
+  const panel = page.locator('.office-properties'); await panel.getByRole('tab', { name: '모양', exact: true }).click();
+  const input = panel.getByRole('spinbutton', { name: '기울기', exact: true });
+  const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
+  const before = await native(); await input.fill('12'); expect(await native()).toEqual(before);
+  // Explicit close exposes the original; toggling never silently changes zoom, history or the draft.
+  await detail.click(); await expect(page.locator('.st-detail-slot')).toBeHidden();
+  expect(await native()).toEqual(before); expect(await hit()).toBe(true); await expect(detail).toBeFocused();
+  await page.keyboard.down('Meta'); await page.mouse.click(point.x, point.y); await page.keyboard.up('Meta');
+  await expect.poll(selectedPicture).toEqual([pictureSid]);
+  expect((await native()).document).toEqual(before.document);
+  await detail.click(); await expect(input).toHaveValue('12'); expect(await native()).toEqual(before);
+  await input.press('Escape'); expect(await native()).toEqual(before);
 });

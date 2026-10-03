@@ -8,7 +8,7 @@ import {
   useEditorRevision,
   type DocumentFileActions
 } from '@barocss/office-editor-ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
@@ -388,6 +388,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const [panel, setPanel] = useState<RailPanel>('add');
   const [fullTools, setFullTools] = useState(false);
   const [narrowWorkspace, setNarrowWorkspace] = useState(false);
+  const panelId = useId();
+  const panelIds = { navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` };
+  const navigationTrigger = useRef<HTMLButtonElement>(null);
+  const inspectorTrigger = useRef<HTMLButtonElement>(null);
+  const [utilityInsets, setUtilityInsets] = useState({ left: 0, right: 0 });
+  const restorePanelFocus = (side: 'navigation' | 'inspector') => {
+    const trigger = side === 'navigation' ? navigationTrigger.current : inspectorTrigger.current;
+    if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+  };
   const [workspacePanels, setWorkspacePanels] = useState<{ navigation: boolean; inspector: boolean; active: 'navigation' | 'inspector' | null }>({ navigation: false, inspector: false, active: null });
   const navigationOpen = workspacePanels.navigation, detailOpen = workspacePanels.inspector;
   const setNavigationOpen = (value: boolean | ((open: boolean) => boolean)) => setWorkspacePanels(previous => {
@@ -399,6 +408,20 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     return { ...previous, inspector: next, ...(narrowWorkspace ? { navigation: false, active: next ? 'inspector' as const : null } : {}) };
   });
   const workspaceCompactChanged = useCallback((compact: boolean) => setNarrowWorkspace(compact), []);
+  useLayoutEffect(() => {
+    const navigation = document.getElementById(panelIds.navigation);
+    const inspector = document.getElementById(panelIds.inspector);
+    const measure = () => {
+      const left = narrowWorkspace && navigationOpen && navigation && !navigation.hidden ? navigation.getBoundingClientRect().width : 0;
+      const right = narrowWorkspace && detailOpen && inspector && !inspector.hidden ? inspector.getBoundingClientRect().width : 0;
+      setUtilityInsets(previous => previous.left === left && previous.right === right ? previous : { left, right });
+    };
+    const observer = new ResizeObserver(measure);
+    if (navigation) observer.observe(navigation);
+    if (inspector) observer.observe(inspector);
+    measure();
+    return () => observer.disconnect();
+  }, [narrowWorkspace, navigationOpen, detailOpen, railW, panelIds.navigation, panelIds.inspector]);
   const [selectedBoard, setSelectedBoard] = useState<BreakpointId>('desktop');
 
   const editor = instance?.editor ?? null;
@@ -1561,8 +1584,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={bar} onPick={onMenu} />}
           actions={<><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
           <div className="st-header-actions">{datasetAt && completeTools}{editor && !admin ? <>
-            <IconButton label="페이지 및 구조" pressed={navigationOpen} preserveFocus onClick={() => setNavigationOpen(value => !value)}><Icon name="outline" /></IconButton>
-            <IconButton label="자세한 속성" pressed={detailOpen} preserveFocus onClick={() => setDetailOpen(value => !value)}><Icon name="expand" /></IconButton>
+            <IconButton label="페이지 및 구조" pressed={navigationOpen} controls={panelIds.navigation} expanded={navigationOpen} elementRef={navigationTrigger} data={{ 'workspace-toggle': 'navigation' }} preserveFocus onClick={() => setNavigationOpen(value => !value)}><Icon name="outline" /></IconButton>
+            <IconButton label="자세한 속성" pressed={detailOpen} controls={panelIds.inspector} expanded={detailOpen} elementRef={inspectorTrigger} data={{ 'workspace-toggle': 'inspector' }} preserveFocus onClick={() => setDetailOpen(value => !value)}><Icon name="expand" /></IconButton>
           </> : null}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
           {editor ? <FileActions ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
 
@@ -1574,7 +1597,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           {exportTask && <TaskStatusRegion label="사이트 출력 상태"><TaskStatus title={exportTask.title} phase={exportTask.phase} description={exportTask.description}
             onDismiss={() => { setExportTask(undefined); setExportRetry(undefined); }}
             actions={exportTask.phase === 'error' && exportRetry ? <Button onClick={exportRetry}>다시 시도</Button> : undefined} /></TaskStatusRegion>}
-      <AdaptiveWorkspace className="st-body" enabled={!!editor && !admin} activePanel={workspacePanels.active}
+      <AdaptiveWorkspace className="st-body" showPanelControls={false} panelIds={panelIds} restorePanelFocus={restorePanelFocus} enabled={!!editor && !admin} activePanel={workspacePanels.active}
         onCompactChange={workspaceCompactChanged} onActivePanelChange={side => setWorkspacePanels({ navigation: side === 'navigation', inspector: side === 'inspector', active: side })}>
         {/*
           One rail, several panels — 추가, 구성, 페이지, 컴포넌트, 데이터.
@@ -1591,7 +1614,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           */}
         {editor && !admin && navigationOpen && !narrowWorkspace ? <Grip at={railW} onWidth={setRailW} /> : null}
         {editor && !admin ? (
-          <WorkspaceSidePanel side="navigation" width={railW} className="st-navigation-slot" onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }} hidden={!navigationOpen} inert={!navigationOpen}><Rail
+          <WorkspaceSidePanel id={panelIds.navigation} side="navigation" width={railW} className="st-navigation-slot" onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }} hidden={!navigationOpen} inert={!navigationOpen}><Rail
             width={railW}
             editor={given ?? editor}
             panel={panel}
@@ -1612,7 +1635,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         ) : null}
 
         <AppMain className="st-main" data={{ 'workspace-main': '' }}>
-          {editor && !admin && !datasetAt && <div className="st-utilities" data-site-utilities>
+          {editor && !admin && !datasetAt && <div className="st-utilities" data-site-utilities data-workspace-utility style={{ left: 12 + utilityInsets.left, right: 12 + utilityInsets.right }}>
             <Toolbar variant="compact" surface="floating" label={t('site.header.insertTools')}>
               {!preview && <>
               <IconButton label="넣을 것 고르기" preserveFocus disabled={writing || !root} onClick={() => { setAddAt(null); setAdding(true); }}><Icon name="add" /></IconButton>
@@ -1903,7 +1926,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           *아무것도 선택되지 않았습니다*.
         */}
         {editor && !admin ? (
-          <WorkspaceSidePanel side="inspector" width={280} className="st-detail-slot" hidden={!detailOpen} inert={!detailOpen} onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}><Inspector key={toolOwnerKey}
+          <WorkspaceSidePanel id={panelIds.inspector} side="inspector" width={280} className="st-detail-slot" hidden={!detailOpen} inert={!detailOpen} onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}><Inspector key={toolOwnerKey}
             editor={given ?? editor}
             writing={writing}
             at={at}

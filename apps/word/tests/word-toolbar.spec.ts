@@ -504,8 +504,8 @@ test.describe('the toolbar’s icons', () => {
       if ((await page.locator(strip).count()) > 0) await page.locator(strip).click();
       await expect(page.locator(pane)).toHaveCount(1);
     };
-    await reveal('.w-outline-closed', '.w-outline');
-    await reveal('.w-comments-closed', '.w-comments-pane');
+    await reveal('[data-workspace-toggle="navigation"]', '.w-outline');
+    await reveal('[data-workspace-toggle="inspector"]', '.w-comments-pane');
 
     // Ctrl+F rather than a control, because the find bar has none — it is bound
     // and nothing else opens it.

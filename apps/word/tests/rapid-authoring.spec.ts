@@ -52,7 +52,7 @@ test('rapid text selection applies formatting and anchors a comment to exactly t
   expect(page.url()).toBe(saved);
   await expect(page.locator('.mark-bold')).toHaveText('Review this sentence');
   await expect(page.locator('.mark-bold')).toHaveCSS('font-weight', '700');
-  await page.locator('.w-comments-closed').click();
+  await page.locator('[data-workspace-toggle="inspector"]').click();
   await expect(page.locator('.w-comment-hit')).toHaveText('Review this sentence');
   await expect(page.locator('.w-comment-text')).toHaveText(['Check the entire sentence']);
   await expect(page.locator('.w-comment-orphan')).toHaveCount(0);
