@@ -6,7 +6,7 @@ import { wordFileText, readWordFile } from './word-file';
 
 /** One complete plain run with an existing native comment anchor. No text search or new original. */
 export function previewConnectedWordRevision(options: {
-  editor: Editor; proposal: ProductRevisionProposal; nativeDocument(): unknown; current(): boolean;
+  editor: Editor; proposal: ProductRevisionProposal; nativeDocument(): unknown; current(): boolean; afterCommitCurrent?(): boolean;
 }): ProductRevisionPreview | null {
   const { editor, proposal } = options;
   const before = readWordFile(proposal.snapshotText), after = readWordFile(proposal.expectedSnapshotText);
@@ -71,7 +71,10 @@ export function previewConnectedWordRevision(options: {
       if (!current()) return false;
       const result = await editing.apply(decision.plan, { validateIntent: () => intentCurrent() ? undefined : 'The proposal context changed' });
       retired = true;
-      return result.success && result.committed === true && options.current() && native() === afterText;
+      // The owned committed render may move DOM selection. Only its postcommit
+      // observation uses the dedicated guard; all precommit gates stay strict.
+      return result.success && result.committed === true && native() === afterText &&
+        (options.afterCommitCurrent ? options.afterCommitCurrent() : options.current());
     },
     dispose() { retired = true; editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);
       editor.off('editor:selection.model', selectionChanged); editor.off('editor:selection.change', selectionChanged); }

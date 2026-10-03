@@ -13,6 +13,8 @@ export interface WordFeedbackOptions {
   reading?: (value: boolean) => void;
   nativeDocument?: () => unknown;
   captureInputIntent?: () => (() => boolean) | null;
+  /** Revision approval also binds raw DOM selection before its model debounce. */
+  captureRevisionIntent?: () => ((committed?: boolean) => boolean) | null;
 }
 export interface WordFeedbackHost extends ProductFeedbackHost { dispose(): void }
 
@@ -132,13 +134,17 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
     reading(value) { if (!disposed) options.reading?.(value); },
     previewRevision(proposal, owns = () => true) {
       if (!editable() || !options.nativeDocument) return null;
-      const inputCurrent = options.captureInputIntent?.();
-      if (options.captureInputIntent && !inputCurrent) return null;
+      const revisionCurrent = options.captureRevisionIntent?.();
+      const inputCurrent = options.captureRevisionIntent ? revisionCurrent : options.captureInputIntent?.();
+      if ((options.captureRevisionIntent || options.captureInputIntent) && !inputCurrent) return null;
       const documentId = options.id(), rootId = editor.getRootId(), root = store.getNodes().get(rootId!),
         epoch = store.getDocumentEpoch(), session = store.getSessionId();
       return previewConnectedWordRevision({ editor, proposal, nativeDocument: options.nativeDocument,
         current: () => owns() && (!inputCurrent || inputCurrent()) && editable() && options.id() === documentId && editor.getRootId() === rootId &&
-          store.getNodes().get(rootId!) === root && store.getDocumentEpoch() === epoch && store.getSessionId() === session });
+          store.getNodes().get(rootId!) === root && store.getDocumentEpoch() === epoch && store.getSessionId() === session,
+        afterCommitCurrent: () => owns() && (!inputCurrent || (revisionCurrent ? revisionCurrent(true) : inputCurrent())) && editable() &&
+          options.id() === documentId && editor.getRootId() === rootId && store.getNodes().get(rootId!) === root &&
+          store.getDocumentEpoch() === epoch && store.getSessionId() === session });
     },
     dispose() {
       disposed = true; captures.clear();

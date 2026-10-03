@@ -66,7 +66,7 @@ export interface WordRuntime {
   /** Wait for entered native commands; refuse an unfinished or changed input. */
   flushCommands: () => Promise<void>;
   /** Freeze input readiness across an awaited external proposal approval. */
-  captureInputIntent: (options?: { command: 'addWordBookmark' }) => (() => boolean) | null;
+  captureInputIntent: (options?: { command?: 'addWordBookmark'; selection?: boolean }) => ((committed?: boolean) => boolean) | null;
 }
 
 export interface WordRuntimeOptions {
@@ -195,14 +195,35 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
   listen(container, 'beforeinput', () => { inputVersion += 1; }, true);
   listen(container, 'compositionstart', () => { composing = true; inputVersion += 1; }, true);
   listen(container, 'compositionend', () => { composing = false; inputVersion += 1; }, true);
-  const captureInputIntent = (options?: { command: 'addWordBookmark' }) => {
+  let selectionGestureVersion = 0;
+  listen(container, 'pointerdown', () => { selectionGestureVersion++; }, true);
+  listen(container, 'keydown', event => {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes((event as KeyboardEvent).key)) selectionGestureVersion++;
+  }, true);
+  // Native DOM selection can precede the view's debounced model selection.
+  // Sample its owned node identities and offsets at the actual mutation guard.
+  const domSelection = () => {
+    const one = container.ownerDocument.getSelection();
+    return one && (container.contains(one.anchorNode) || container.contains(one.focusNode))
+      ? [one.anchorNode, one.anchorOffset, one.focusNode, one.focusOffset] as const : null;
+  };
+  const captureInputIntent = (options?: { command?: 'addWordBookmark'; selection?: boolean }) => {
     if (disposed || composing || pendingCommands.size || container.querySelector('.w-math-draft')) return null;
     const version = inputVersion, epoch = dataStore.getDocumentEpoch(), commands = commandVersion;
+    const gesture = selectionGestureVersion, selection = options?.selection ? domSelection() : null;
+    const selectionCurrent = (committed: boolean) => {
+      if (!options?.selection) return true;
+      const next = domSelection();
+      return selectionGestureVersion === gesture && (committed || (selection === null ? next === null :
+        next !== null && selection.every((value, index) => value === next[index])));
+    };
     // One explicitly owned bookmark command may hold the pending slot. Any
     // second command, input, account/root or selection change retires its intent.
     const commandsCurrent = () => commandVersion === commands && !pendingCommands.size ||
-      !!options && commandVersion === commands + 1 && lastCommand === options.command && pendingCommands.size === 1;
-    return () => !disposed && !composing && commandsCurrent() && inputVersion === version &&
+      !!options?.command && commandVersion === commands + 1 && lastCommand === options.command && pendingCommands.size === 1;
+    // Only the exact successfully committed native transaction may use this
+    // postcommit sample. User gestures, input and root/command epochs still bind.
+    return (committed = false) => !disposed && !composing && commandsCurrent() && selectionCurrent(committed) && inputVersion === version &&
       dataStore.getDocumentEpoch() === epoch && !container.querySelector('.w-math-draft');
   };
   const flushCommands = async () => {
