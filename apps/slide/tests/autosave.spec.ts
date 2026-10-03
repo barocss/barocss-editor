@@ -5,8 +5,7 @@ const saved = (page: Page) => expect(page.locator('[data-slide-save-status]')).t
 const id = (page: Page) => new URL(page.url()).hash;
 const tree = (page: Page) => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument(), (key, value) => key === 'sid' || key === 'metadata' ? undefined : value));
 const add = async (page: Page) => {
-  await page.getByRole('toolbar', { name: '슬라이드 서식' }).getByRole('menuitem', { name: '슬라이드', exact: true }).click();
-  await page.getByRole('menu', { name: '슬라이드', exact: true }).getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+  await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '새 슬라이드', exact: true }).click();
 };
 
 test('autosaves text and preserves the previous deck when starting a template', async ({ page }) => {

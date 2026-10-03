@@ -274,3 +274,5 @@ export { ParagraphProposalReview, type ParagraphProposalReviewProps } from './pa
 
 export { DocumentMenu } from './document-bar';
 export { SecondaryPopup, type SecondaryPopupProps } from './secondary-popup';
+
+export { OfficeLocaleProvider, useOfficeLocale } from './locale';

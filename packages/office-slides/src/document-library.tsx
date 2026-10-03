@@ -9,7 +9,7 @@ export function useSlidePersistence(editor: Editor | null, enabled = true): {
   beforeReplace: () => Promise<boolean>;
 } {
   const session = useRef<DeckAutosave | null>(null);
-  const [status, setStatus] = useState<SlideSaveStatus>('불러오는 중');
+  const [status, setStatus] = useState<SlideSaveStatus>('loading');
   useEffect(() => {
     if (!editor || !enabled) return;
     const controller = new DeckAutosave(editor, setStatus);
