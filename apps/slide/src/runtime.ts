@@ -1,3 +1,4 @@
+import { createCommandSettlement, type NativeCommandFailure } from './command-settlement';
 import { DataStore } from '@barocss/datastore';
 import { getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
@@ -13,6 +14,9 @@ export interface SlidesRuntime {
   dispose: () => void;
   loadNativeDocument: (document: unknown) => void;
   exportNativeDocument: () => unknown;
+  /** Started commands only. The host must first deliver child drafts and composition. */
+  settleCommands: (isCurrent: () => boolean) => Promise<boolean>;
+  commandFailure: () => NativeCommandFailure | undefined;
 }
 export interface SlidesRuntimeOptions {
   initialDocument: unknown;
@@ -133,15 +137,33 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
   const schema = createSchema('slides', getSlidesSchemaDefinition());
   const dataStore = new DataStore(undefined, schema);
   const editor = createSlidesEditor({ editable: options.editable, schema, dataStore });
+  let disposed = false;
+  let nativeEpoch = 0;
+  const commandOwner = () => disposed ? undefined :
+    `${nativeEpoch}:${dataStore.getDocumentEpoch()}:${editor.getRootId()}`;
+  const commands = createCommandSettlement(commandOwner);
+  const executing = new Set<{ command: string; payload: unknown; owner: unknown }>();
+  const commandFailed = ({ command, payload, error }: { command: string; payload?: unknown; error: unknown }) => {
+    const matching = [...executing].filter(held => held.command === command && held.payload === payload);
+    // The core error event has no operation ID. Ambiguous concurrent calls refuse until explicit recovery.
+    const owners = new Set(matching.map(held => held.owner));
+    if (owners.size === 1) commands.fail(error, matching[0].owner);
+    else if (owners.size > 1) commands.fail(error);
+  };
+  editor.on('error:command', commandFailed);
   // Slides commands predate readonly hosts. Enforce authority at their public entry points.
   const readerCommands = new Set(['setNode', 'setRange', 'setSelection', 'selectAll', 'copy', 'copySlides', 'copyBoxes', 'nextCell', 'previousCell']);
   const canExecute = editor.canExecuteCommand.bind(editor);
   const execute = editor.executeCommand.bind(editor);
   editor.canExecuteCommand = (command, payload) =>
     (editor.isEditable || readerCommands.has(command)) && canExecute(command, payload);
-  editor.executeCommand = (command, payload) =>
-    editor.isEditable || readerCommands.has(command) ? execute(command, payload) : Promise.resolve(false);
-  let disposed = false;
+  editor.executeCommand = (command, payload) => {
+    const held = { command, payload, owner: commandOwner() };
+    executing.add(held);
+    const result = commands.track(editor.isEditable || readerCommands.has(command) ? execute(command, payload) : Promise.resolve(false));
+    void result.then(() => executing.delete(held), () => executing.delete(held));
+    return result;
+  };
   const sourceShape = new Map<string, NativeSourceShape>();
   let loadingNative: unknown;
   const exportNativeDocument = (): unknown => {
@@ -152,6 +174,7 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
     if (disposed) throw new Error('Slides runtime is disposed.');
     assertSlidesNativeDocument(value);
     const source = nativeTree(value);
+    nativeEpoch++;
     loadingNative = source;
     try {
       editor.loadDocument(source as never, 'slides');
@@ -195,10 +218,11 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
   }
   const diagnostics = window as Window & { editor?: Editor; editorView?: EditorViewDOM };
   if (options.debug) { diagnostics.editor = editor; diagnostics.editorView = view; }
-  return { editor, view, loadNativeDocument, exportNativeDocument, dispose: () => {
+  return { editor, view, loadNativeDocument, exportNativeDocument, settleCommands: commands.settle, commandFailure: commands.failure, dispose: () => {
     if (disposed) return;
     disposed = true;
     editor.off('editor:editable.change', syncEditable);
+    editor.off('error:command', commandFailed);
     listeners.abort(); cells.destroy(); sourceShape.clear(); view.destroy(); editor.destroy();
     if (options.debug && diagnostics.editor === editor) { delete diagnostics.editor; delete diagnostics.editorView; }
   } };
