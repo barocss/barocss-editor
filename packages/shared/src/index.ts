@@ -71,7 +71,7 @@ export {
   type GestureHandlers,
   type GestureOptions
 } from './gesture';
-export { replacePlaceholders, normalizeLocale } from './i18n';
+export { replacePlaceholders, normalizeLocale, messagesEn, messagesKo, messageParameters, createTranslator, translateMessage, messageLocale, type MessageKey, type MessageLocale, type MessageArguments, type Translator } from './i18n';
 
 export * from './decorator';
 export * from './text-run-index';
