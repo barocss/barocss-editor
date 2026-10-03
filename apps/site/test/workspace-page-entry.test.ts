@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveWorkspacePageEntry } from './workspace-page-entry';
+import { resolveWorkspacePageEntry } from '../src/workspace-page-entry';
 
 const home = { sid: 'runtime-home', id: 'native-home', path: '/' };
 const second = { sid: 'runtime-second', id: 'native-second', path: '/about' };

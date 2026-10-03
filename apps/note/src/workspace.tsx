@@ -1,7 +1,7 @@
 import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice } from '@barocss/office-ui';
 import { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from '@barocss/office-note';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Choice, Icon, TextField, Dialog, IconButton } from '@barocss/office-ui';
+import { Button, Choice, Icon, TextField, Dialog, IconButton, useOfficeLocale } from '@barocss/office-ui';
 import { documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, type LibraryRow } from '@barocss/shared';
 import { NoteEditor } from '@barocss/office-note/view';
 import { noteLibrary, noteFileText, noteFileName, readNoteFile, openNoteTree, noteTreeOf, type NoteDocument, type NoteSession } from '@barocss/office-note';
@@ -50,6 +50,9 @@ function loadNotes() {
 }
 
 export function Workspace() {
+  const { t } = useOfficeLocale();
+  const inWorkspace = !!new URLSearchParams(location.search).get('workspace');
+  const [navigationOpen, setNavigationOpen] = useState(!inWorkspace);
   const [panel, setPanel] = useState<'export' | 'page' | 'template' | null>(null);
   const [exchangeFormat, setExchangeFormat] = useState<'json' | NoteExchangeFormat>('json');
   const [notes, setNotes] = useState<StoredNote[]>([]);
@@ -59,7 +62,9 @@ export function Workspace() {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'all' | 'favorites' | 'trash'>('all');
   const [template, setTemplate] = useState<PageTemplate>('blank');
-  const [selected, setSelected] = useState('');
+  const [selected, setSelectedState] = useState('');
+  const selectionEpoch = useRef(0);
+  const setSelected = (id: string) => { selectionEpoch.current++; setSelectedState(id); };
   const [session, setSession] = useState<{ id: string; value: NoteSession; generation: number }>();
   const [navigationRequest, setNavigationRequest] = useState<{ mode: 'find' | 'outline'; id: number; pageId: string }>();
   const openNavigation = (mode: 'find' | 'outline') => setNavigationRequest(previous => ({ mode, id: (previous?.id ?? 0) + 1, pageId: selected }));
@@ -333,10 +338,11 @@ export function Workspace() {
   const hostFlush = useRef(flushArchive); hostFlush.current = flushArchive;
   useEffect(() => {
     if (!ready) return;
-    return registerProductDocumentHost({ product: 'note', id: () => selectedPage.current, beforeNavigate: async () => {
+    return registerProductDocumentHost({ product: 'note', id: () => selectedPage.current, identityEpoch: () => selectionEpoch.current + sessionGeneration.current, beforeNavigate: async () => {
       try { await hostFlush.current(); return true; } catch { return false; }
     } });
   }, [ready]);
+  useEffect(() => { if (ready) window.dispatchEvent(new Event('wonffice:host-change')); }, [ready, selected, session?.generation]);
   const backupWorkspace = () => withArchive(async () => {
     await flushArchive();
     // Recovery moves draft → durable page → draft deletion. Read drafts first so a concurrent
@@ -475,11 +481,11 @@ export function Workspace() {
           else if (id === 'export') setPanel('export');
           else if (id === 'template' || id === 'page') setPanel(id);
           else if (id === 'find' || id === 'outline') openNavigation(id);
-        }} />} actions={<><StatusIndicator data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
+        }} />} actions={<>{inWorkspace && <IconButton label={t('workspace.note.manage')} pressed={navigationOpen} onClick={() => setNavigationOpen(open => !open)}><Icon name="workspace-files" /></IconButton>}<StatusIndicator data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
         <input ref={picker} hidden disabled={!ready} type="file" accept=".json,.md,.markdown,.html,.htm,.csv" aria-label="노트 파일" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importFile(file); }} />
         </>} />
-    <AdaptiveWorkspace className="nw-workspace" panelSides={['navigation']} locationKey={selected}>
-    <WorkspaceSidePanel side="navigation" width={240}>
+    <AdaptiveWorkspace className="nw-workspace" enabled={!inWorkspace} panelSides={['navigation']} locationKey={selected}>
+    <WorkspaceSidePanel side="navigation" width={240} hidden={inWorkspace && !navigationOpen}>
     <aside className="nw-sidebar" aria-label="노트 보관함">
       <PanelHeader title="페이지" actions={<IconButton label="새 노트" disabled={!ready} onClick={() => add(pageTemplate(template))}><Icon name="add" size={16} /></IconButton>} />
       <TextField className="nw-search" type="search" ariaLabel="노트 검색" placeholder="제목과 본문 검색" value={query} onChange={setQuery} />

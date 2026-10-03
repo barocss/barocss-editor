@@ -114,6 +114,7 @@ export class DocumentSession {
     this.version++;
     if (replaced) { this.navigationEpoch++; this.id = crypto.randomUUID(); this.last = ''; this.settled = 'saved'; }
     this.remember(); this.capture(); this.schedule();
+    if (replaced && this.unregisterHost) window.dispatchEvent(new Event('wonffice:host-change'));
   };
   private capture() {
     const { text, title, count } = this.options.snapshot();
@@ -181,6 +182,7 @@ export class DocumentSession {
     this.recoveryId = undefined;
     this.hasCurrentDocument = true;
     this.remember(); this.notify('saved');
+    if (this.unregisterHost) window.dispatchEvent(new Event('wonffice:host-change'));
     return true;
   }
   async recover(row: LibraryRow) {

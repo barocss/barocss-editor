@@ -59,6 +59,7 @@ import {
   type StateId
 } from '@barocss/office-site';
 import { Canvas } from './canvas';
+import { resolveWorkspacePageEntry } from './workspace-page-entry';
 
 import { TextSurface } from './text-surface';
 import { ObjectTools } from './object-tools';
@@ -729,6 +730,22 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   }, []);
   const sessionOptions = useMemo(() => editor ? siteSessionOptions(editor, flushBodies) : null, [editor, flushBodies]);
   const persistence = useLocalDocuments(sessionOptions);
+  const workspaceEntry = new URLSearchParams(location.search).get('workspace');
+  const workspacePage = useRef('');
+  useEffect(() => {
+    const id = persistence.session.current?.id;
+    if (!workspaceEntry || persistence.status !== 'saved' || !id || workspacePage.current === id) return;
+    workspacePage.current = id;
+    const remembered = sessionStorage.getItem(`wonffice.site-page:${workspaceEntry}:${id}`);
+    const target = resolveWorkspacePageEntry(pages, remembered);
+    setCurrent(target); setAdmin(target ? undefined : 'pages');
+  }, [workspaceEntry, persistence.status, persistence.session, pages]);
+  useEffect(() => {
+    const id = persistence.session.current?.id;
+    const selected = pages.find(one => one.sid === page);
+    if (workspaceEntry && id && !admin && selected?.id && persistence.status === 'saved')
+      sessionStorage.setItem(`wonffice.site-page:${workspaceEntry}:${id}`, selected.id);
+  }, [workspaceEntry, persistence.status, persistence.session, admin, page, pages]);
   useEffect(() => {
     const pending = (event: Event) => {
       if ((event.target as Element | null)?.closest?.('[contenteditable="true"]')) persistence.session.current?.input();

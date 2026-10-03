@@ -12,7 +12,7 @@ describe('the centralized host-owned message catalogs', () => {
       expect(messagesEn[key].length, key).toBeGreaterThan(0);
       expect(messagesKo[key].length, key).toBeGreaterThan(0);
     }
-    expect(Object.keys(messagesEn)).toHaveLength(80);
+    expect(Object.keys(messagesEn)).toHaveLength(110);
   });
 
   it.each([['ko', 'ko'], ['ko-KR', 'ko'], ['KO-kr', 'ko'], ['en-US', 'en'], ['fr-FR', 'en'], ['', 'en']])(
