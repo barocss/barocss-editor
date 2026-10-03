@@ -878,8 +878,14 @@ body {
 
 /* One native header: title first, compact document actions, then the view group. */
 .st-documentbar[data-compact] .office-editor-title { flex: 1 1 auto; min-width: 120px; }
-.st-header-actions, .st-header-view { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+.st-header-actions { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
 .st-header-actions { padding-left: 6px; border-left: 1px solid var(--ou-line); }
-.st-header-view { padding-left: 6px; border-left: 1px solid var(--ou-line); }
+
 /* File/open remains in the document menu. Keep its native picker and task feedback mounted. */
 .st-documentbar .st-file-picker { display: none; }
+
+/* Canvas tools do not participate in the native plane's measurement or pan/zoom. */
+.st-main { position: relative; }
+.st-utilities { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 30; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; pointer-events: none; }
+.st-utilities > * { pointer-events: auto; }
+.st-utilities .st-view-tools { margin-left: auto; }

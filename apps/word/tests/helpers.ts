@@ -267,3 +267,9 @@ export async function changes<T>(
 
   return { before, after };
 }
+
+/** File and library commands share the compact document menu. */
+export async function openWordDocumentAction(page: Page, name: '문서 작업' | '문서 보관함') {
+  await page.locator('.office-document-menu [data-menu]').click();
+  await page.getByRole('menuitem', { name, exact: true }).click();
+}

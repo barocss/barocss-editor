@@ -1,3 +1,4 @@
+import { openWordDocumentAction } from './helpers';
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -33,7 +34,7 @@ function zipEntries(bytes: Buffer): Record<string, string> {
 }
 
 export async function verifyDownloadedTable(page: Page, testInfo: TestInfo, body: string, cells: string[]) {
-  await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+  await openWordDocumentAction(page, '문서 작업');
   await page.getByRole('button', { name: 'DOCX 내보내기', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'DOCX 내보내기', exact: true });
   const pending = page.waitForEvent('download');

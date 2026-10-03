@@ -1,3 +1,4 @@
+import { openWordDocumentAction } from '../../word/tests/helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { openLocalLibrary } from './helpers/local-library';
 import { fileURLToPath } from 'node:url';
@@ -177,7 +178,7 @@ test('downloads a product backup and restores it through the shared library UI',
   const originalText = 'OFFICE BACKUP ORIGINAL';
   await page.locator('.w-paragraph').last().click();
   await page.keyboard.type(originalText);
-  await page.getByRole('button', { name: '문서 보관함', exact: true }).click();
+  await openWordDocumentAction(page, '문서 보관함');
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: '보관함 전체 백업', exact: true }).click();
   const file = await downloadEvent; const bytes = await readFile((await file.path())!);

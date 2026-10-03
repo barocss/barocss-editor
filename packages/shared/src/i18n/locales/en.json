@@ -127,5 +127,6 @@
   "site.header.edit": "Return to editing",
   "workspace.context.current": "Current location",
   "workspace.context.unavailableProject": "Project unavailable",
-  "workspace.context.loadingProject": "Loading project"
+  "workspace.context.loadingProject": "Loading project",
+  "site.header.insertTools": "Site insertion tools"
 }

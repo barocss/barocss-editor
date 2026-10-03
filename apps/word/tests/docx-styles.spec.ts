@@ -1,3 +1,4 @@
+import { openWordDocumentAction } from './helpers';
 import { test, expect } from '@playwright/test';
 import { placeCaret, settled } from './helpers';
 
@@ -8,7 +9,7 @@ test('DOCX download and reopen keep shared styles editable through undo, reload 
   const paragraphs = page.locator('#editor .w-paragraph');
   const originalText = await paragraphs.allTextContents();
   const sizes = await paragraphs.evaluateAll(els => els.map(el => getComputedStyle(el).fontSize));
-  await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+  await openWordDocumentAction(page, '문서 작업');
   await page.getByRole('button', { name: 'DOCX 내보내기', exact: true }).click();
   const exportDialog = page.getByRole('dialog', { name: 'DOCX 내보내기', exact: true });
   await expect(exportDialog).toContainText('문단·글자 스타일');
