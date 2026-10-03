@@ -1,4 +1,4 @@
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Button, TaskStatus, TaskStatusRegion, type TaskPhase } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase } from '@barocss/office-ui';
 import {
   FileActions,
   LocalDocuments,
@@ -247,6 +247,7 @@ function payloadFor(
 }
 
 export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM } }) {
+  const { t } = useOfficeLocale();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
   const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
@@ -688,6 +689,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             checked:
               item.view === 'preview'
                 ? preview
+                : item.view === 'writing' ? writing
+                : item.view === 'wireframe' ? wireframe
                 : item.view?.startsWith('frames.') && item.view !== 'frames.all'
                   ? shown.some((one) => one.id === item.view!.slice('frames.'.length))
                   : undefined
@@ -700,7 +703,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     // And **`menus` itself**, which was missing: the model changes when the reader moves between
     // 관리 and a page, and a memo that does not list it went on drawing the bar for the place they
     // left. Measured — going in from 관리 kept the two-menu bar.
-    [menus, given, editor, revision, answers, root, page, preview, shown, writing]
+    [menus, given, editor, revision, answers, root, page, preview, shown, writing, wireframe]
   );
 
   /**
@@ -1546,57 +1549,31 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     <AppShell className="st-shell">
       <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPickIntent={prepareSearchCommandPick} onPick={id => void pickSearchCommand(id)} />
       {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
-      {/*
-        Two rows, which is what both other products settled on and for the same reason: **what
-        document am I in** and **what can I do to it** are different questions, and a reader who has
-        to find the second among the first reads the whole bar every time.
-
-        Row one is the site — its name, its pages, and how far away the reader is standing. Row two
-        is the tools.
-      */}
       <AppChrome className="st-chrome">
         <EditorHeader compact product="Site" className="st-documentbar"
           fallbackNavigation={<ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
-          view={editor && !admin ? <>
+          view={editor && !admin ? <div className="st-header-view" role="group" aria-label={t('site.header.viewTools')}>
             <IconButton
-              label={writing ? '모든 편집으로 돌아갑니다' : '글만 고칩니다 — 배치는 잠깁니다'}
-              /* `IconButton` passes arbitrary attributes through `data`, not as loose props. */
-              data={{ 'writing-toggle': writing ? 'true' : undefined }}
-              pressed={writing}
-              onClick={() => setWriting((one) => !one)}
-            >
-              <Icon name="paragraph" />
-            </IconButton>
-            <IconButton
-              label={wireframe ? '색을 되돌립니다' : '색을 빼고 구조만 봅니다'}
-              data={{ 'wireframe-toggle': wireframe ? 'true' : undefined }}
-              pressed={wireframe}
-              onClick={() => setWireframe((one) => !one)}
-            >
-              <Icon name="outline" />
-            </IconButton>
-            <Button
               className="st-preview-toggle"
-              data-preview={preview ? 'true' : undefined}
+              label={t(preview ? 'site.header.edit' : 'site.header.preview')}
+              data={{ preview: preview ? 'true' : undefined }}
               pressed={preview}
-              title={preview ? '편집으로 돌아갑니다 (Esc)' : '방문자가 보는 대로 봅니다'}
               onClick={() => setPreview((one) => !one)}
-            >
-              {preview ? '편집' : '미리보기'}
-            </Button>
+            ><Icon name={preview ? 'edit' : 'shown'} /></IconButton>
             <ZoomControl
               zoom={zoom}
               ladder={SITE_ZOOM_LADDER}
               onChange={(next) => controls.zoomAt(next)}
               onFit={onFit}
               fitLabel="맞춤"
-            /></> : undefined}
+            /></div> : undefined}
           title={editor ? `${siteTitle(editor.dataStore as never) || '제목 없는 사이트'}${definition ? ` · ${definition.name} · ${definition.uses}곳에서 사용 중` : !admin ? ` · ${pages.find(one => one.sid === page)?.name ?? ''}` : ''}` : '불러오는 중'}
-          menus={<DocumentMenu label="문서 메뉴" menus={bar} onPick={onMenu} />}
-          actions={<>{completeTools}{editor && !admin ? <>
+          menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={bar} onPick={onMenu} />}
+          actions={<><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
+          <div className="st-header-actions">{completeTools}{editor && !admin ? <>
             <IconButton label="페이지 및 구조" pressed={navigationOpen} preserveFocus onClick={() => setNavigationOpen(value => !value)}><Icon name="outline" /></IconButton>
             <IconButton label="자세한 속성" pressed={detailOpen} preserveFocus onClick={() => setDetailOpen(value => !value)}><Icon name="expand" /></IconButton>
-          </> : null}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} /><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} />
+          </> : null}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
           {editor ? <FileActions ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
 
 
