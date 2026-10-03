@@ -4,6 +4,7 @@ import { createProjectComment, requestProjectWork, productDocumentHost, productF
   type ProductFeedbackTarget, type Pin, type ProjectComment } from '@barocss/shared';
 import type { Product } from './products';
 import { type ProjectRepository, type ProjectSnapshot, PinnedSource } from './project-ui';
+import { ConnectedWorkControl } from './connected-work-control';
 
 export function ProjectFeedback({ repository, projectId, document: address, beforeLeave, actor }: {
   repository: ProjectRepository; projectId: string; document: { product: Product; id: string };
@@ -141,13 +142,13 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
           if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) { if (event.key === 'Enter' || event.key === 'Escape') event.stopPropagation(); return; }
           if (event.key === 'Escape') { event.stopPropagation(); void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); }); }
         }} />
-        <div className="ow-actions"><Button disabled={busy || !target || !draft.trim()} onClick={() => void perform(() => submit(false))}>댓글만 남기기</Button><Button tone="accent" disabled={busy || !target || !draft.trim()} onClick={() => void perform(() => submit(true))}>수정 요청</Button></div><p className="ow-feedback-note">수정 요청은 작업을 연결합니다. 제품 Agent 실행기는 아직 연결되지 않았습니다.</p>
+        <div className="ow-actions"><Button disabled={busy || !target || !draft.trim()} onClick={() => void perform(() => submit(false))}>댓글만 남기기</Button><Button tone="accent" disabled={busy || !target || !draft.trim()} onClick={() => void perform(() => submit(true))}>수정 요청</Button></div><p className="ow-feedback-note">수정 요청은 작업을 연결합니다. 모델 실행과 원본 변경 승인은 별도 단계입니다.</p>
       </div>}
       {comments.map(comment => <article className="ow-feedback-thread" key={comment.id}><small>{comment.actor.label} · 버전 {comment.pin.revision}</small><p>{comment.body}</p>
         <Button disabled={busy} onClick={() => { const host = productFeedbackHost(); if (comment.target.kind === 'document') return; const state = host?.product === address.product && host.id() === address.id ? host.locate(comment.target) : 'missing'; if (state !== 'located') setError(state === 'ambiguous' ? '대상 영역이 중복되어 이동하지 않습니다.' : '대상 영역을 찾을 수 없습니다.'); }}>대상 영역</Button>
         <Button disabled={busy} onClick={() => void perform(async () => { if (viewing === comment.id) { setViewing(undefined); return; } const stored = await repository.readPin(projectId, comment.pin.id); requireOwn(); setSource(stored); setViewing(comment.id); })}>참고한 버전</Button>
         <Button disabled={busy || !repository.writable || !!comment.workId} onClick={() => void perform(async () => { const current = await refresh(); if (!current) throw new Error('프로젝트가 없습니다.'); const stored = await repository.save(requestProjectWork(current.record, comment.id, comment.body), current.revision); requireOwn(); setSnapshot(stored); })}>{comment.workId ? '작업에 연결됨' : '수정 작업 연결'}</Button>
-        {comment.workId && <p className="ow-feedback-note">실행기 미연결 · 원본은 자동 변경되지 않습니다.</p>}{viewing === comment.id && source && <PinnedSource pin={source} />}
+        {comment.workId && snapshot && <ConnectedWorkControl repository={repository} project={projectId} work={comment.workId} revision={snapshot.revision} document={address} results={snapshot.record.results} />}{viewing === comment.id && source && <PinnedSource pin={source} />}
       </article>)}
     </aside>}
   </>;

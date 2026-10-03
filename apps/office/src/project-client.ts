@@ -1,4 +1,4 @@
-import { readProjectRecord, type ProjectRecord, type Pin } from '@barocss/shared';
+import { readProjectRecord, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
 import type { ProjectRepository, ProjectSnapshot, ProjectDocument } from '@barocss/office-workspace/project';
 import { captureAuthorizedFetch, listSnapshotDocuments, type TenantRole, type SnapshotProduct } from './auth-client';
 
@@ -33,6 +33,19 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
     const snapshot = { record, revision: raw.project!.revision as number }; records.set(record.id, structuredClone(snapshot)); return snapshot;
   };
   const post = (path: string, body: unknown, method = 'POST') => request(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const executionPath = (project: string, work: string) => `${base}/${project}/works/${work}/execution`;
+  const executionView = (value: unknown, project: string, work: string): ProjectExecution | null => {
+    const execution = (value as { execution?: ProjectExecution } | null)?.execution;
+    if (execution === null) return null;
+    if (!execution || execution.tenantId !== tenant || execution.workspaceId !== workspace || execution.projectId !== project || execution.workId !== work ||
+      !['unknown', 'proposal', 'blocked', 'failed', 'accepted', 'applied', 'rejected', 'unsupported'].includes(execution.phase) ||
+      typeof execution.id !== 'string' || typeof execution.input?.snapshotText !== 'string') throw new Error('실행 기록을 확인하지 못했습니다.');
+    return execution;
+  };
+  const executionPost = async (project: string, work: string, path: string, body: unknown) => {
+    const execution = executionView(await post(`${executionPath(project, work)}${path}`, body), project, work);
+    if (!execution) throw new Error('실행 기록이 없습니다.'); return execution;
+  };
   const getSource = async (pin: Pin) => {
     const known = sources.get(pin.id); if (known) return known;
     const raw = await request(`/api/v1/tenants/${tenant}/documents/${pin.document.id}`);
@@ -81,6 +94,11 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
   };
   return {
     writable: role !== 'viewer', canCreateDocument: false, save,
+    execution: async (project, work) => executionView(await request(executionPath(project, work)), project, work),
+    execute: (project, work, expectedRevision) => executionPost(project, work, '', { expectedRevision }),
+    acceptExecution: (project, work, attempt) => executionPost(project, work, `/${attempt}/accept`, {}),
+    acknowledgeExecution: (project, work, attempt, revision, snapshotHash) => executionPost(project, work, `/${attempt}/ack`, { revision, snapshotHash }),
+    rejectExecution: (project, work, attempt) => executionPost(project, work, `/${attempt}/reject`, {}),
     list: async () => {
       const results: ProjectSnapshot[] = []; let after: string | null = null;
       do {

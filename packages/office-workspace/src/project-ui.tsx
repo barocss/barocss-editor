@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Dialog, Icon, SearchSelect, StatusNotice, TextField } from '@barocss/office-ui';
-import { setProjectWorkPaused, type ProjectRecord, type Pin } from '@barocss/shared';
+import { setProjectWorkPaused, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
 import { products, type Product, plainText } from './products';
 import './project-ui.css';
+import { ConnectedWorkControl } from './connected-work-control';
 
 export interface ProjectSnapshot { record: ProjectRecord; revision: number; commentId?: string; }
 export interface ProjectDocument { product: Product; id: string; title: string; unavailable?: boolean; }
@@ -18,6 +19,11 @@ export interface ProjectRepository {
   pin(document: { product: Product; id: string }): Promise<Pin>;
   readPin(project: string, pin: string): Promise<Pin & { sourceState?: 'current' | 'changed' | 'unavailable' }>;
   writable: boolean;
+  execution?(project: string, work: string): Promise<ProjectExecution | null>;
+  execute?(project: string, work: string, revision: number): Promise<ProjectExecution>;
+  acceptExecution?(project: string, work: string, attempt: string): Promise<ProjectExecution>;
+  acknowledgeExecution?(project: string, work: string, attempt: string, revision: number, snapshotHash: string): Promise<ProjectExecution>;
+  rejectExecution?(project: string, work: string, attempt: string): Promise<ProjectExecution>;
 }
 
 function sourceText(pin: Pin) {
@@ -115,8 +121,8 @@ export function ProjectHome({ repository, onOpen, onLibrary }: { repository: Pro
         </section>
         <section className="ow-project-section" aria-labelledby="project-work"><h2 id="project-work">작업</h2>
           {!record.works.length && <p>수정 요청이 없습니다. 결과물의 영역에 의견을 남기고 수정 작업으로 연결할 수 있습니다.</p>}
-          {record.works.map(work => <details className="ow-project-work" key={work.id}><summary>{work.request}<span>{work.state === 'paused' ? '일시 정지' : '실행기 미연결'}</span></summary>
-            <p>{work.state === 'paused' ? '수정 요청을 중단했습니다. 원본 변경은 적용되지 않았습니다.' : '제품 Agent 실행기가 연결되지 않았습니다. 요청을 보관하며 원본은 자동 변경하지 않습니다.'}</p><p>담당: 연결된 Agent 없음</p><h3>입력 자료</h3>{work.inputs.map(pin => {
+          {record.works.map(work => <details className="ow-project-work" key={work.id}><summary>{work.request}<span>{work.state === 'paused' ? '일시 정지' : repository.execution ? '요청 기록' : '실행기 미연결'}</span></summary>
+            <p>{work.state === 'paused' ? '수정 요청을 중단했습니다.' : '요청과 원본 버전을 보관합니다. 원본은 자동 변경하지 않습니다.'}</p><h3>입력 자료</h3>{work.inputs.map(pin => {
               const initial = record.comments.find(comment => comment.id === work.commentId)?.pin.id === pin.id;
               const uses = record.results.filter(result => result.request === work.id && result.inputs.some(input => input.id === pin.id));
               return <div key={pin.id} className="ow-project-reference" role="group" aria-label={initial ? '수정 요청의 기준 원본' : '후속 결과의 참고 원본'}><p>{initial ? '수정 요청의 기준 원본' : '후속 결과의 참고 원본'}{uses.length > 0 && ` · ${uses.map(result => result.name).join(', ')}`}</p>
@@ -125,6 +131,7 @@ export function ProjectHome({ repository, onOpen, onLibrary }: { repository: Pro
             <h3>관련 결과</h3>{work.outputs.map(id => <p key={id}>{record.results.find(one => one.id === id)?.name ?? '연결 해제된 결과'}</p>)}
             <Button disabled={busy || !repository.writable || record.archived || !record.results.some(one => !work.outputs.includes(one.id))} onClick={() => { setFollowup(work.id); setFollowupResult(''); const first = work.inputs[0]; setInputKey(first ? `${first.document.product}:${first.document.id}` : ''); }}>후속 결과 연결</Button>
             <Button disabled={busy || !repository.writable || record.archived} onClick={() => void perform(() => update(setProjectWorkPaused(record, work.id, work.state !== 'paused')))}>{work.state === 'paused' ? '같은 작업 재개' : '일시 정지'}</Button>
+            <ConnectedWorkControl repository={repository} project={record.id} work={work.id} revision={selected!.revision} results={record.results} />
           </details>)}
         </section>
         {record.activities.length > 0 && <section className="ow-project-section"><h2>최근 변경</h2><ol className="ow-project-activities">{record.activities.slice(-6).reverse().map(activity => <li key={activity.id}>{Object.prototype.hasOwnProperty.call(activityLabels, activity.label) ? activityLabels[activity.label] : activity.label}<time>{new Date(activity.at).toLocaleString('ko-KR')}</time></li>)}</ol></section>}

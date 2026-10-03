@@ -1,10 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { TenantAccessDeniedError, type VerifiedPrincipal } from '@barocss/office-service/membership-store';
 import { ProjectError, type ProjectStore, type CreateProjectInput, type UpdateProjectInput } from '@barocss/office-service/project-store';
+import type { ProjectExecutionStore } from '@barocss/office-service/project-execution';
 
 export interface ProjectRouteDependencies {
   authenticate(request: FastifyRequest, reply: FastifyReply): Promise<VerifiedPrincipal | null>;
   projects: Pick<ProjectStore, 'list' | 'get' | 'create' | 'update' | 'getPin'>;
+  executions?: Pick<ProjectExecutionStore, 'get' | 'execute' | 'authorizeAcceptance' | 'acknowledge' | 'reject'>;
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const emptyQuery = (value: unknown) => {
@@ -47,4 +49,25 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectRouteDe
     const { projectId, pinId } = request.params as { projectId: string; pinId: string };
     return deps.projects.getPin(principal, tenantId, projectId, pinId);
   }));
+  if (deps.executions) {
+    const executions = deps.executions;
+    const execution = `${prefix}/:projectId/works/:workId/execution`;
+    app.get(execution, async (request, reply) => route(request, reply, (principal, tenantId) => {
+      emptyQuery(request.query);
+      const { projectId, workId } = request.params as Record<string, string>;
+      return executions.get(principal, tenantId, projectId, workId);
+    }));
+    app.post(execution, { bodyLimit: 1024 }, async (request, reply) => route(request, reply, (principal, tenantId) => {
+      emptyQuery(request.query);
+      const { projectId, workId } = request.params as Record<string, string>;
+      return executions.execute(principal, tenantId, projectId, workId, request.body);
+    }));
+    for (const [suffix, method] of [['accept', 'authorizeAcceptance'], ['ack', 'acknowledge'], ['reject', 'reject']] as const) {
+      app.post(`${execution}/:attemptId/${suffix}`, { bodyLimit: 1024 }, async (request, reply) => route(request, reply, (principal, tenantId) => {
+        emptyQuery(request.query);
+        const { projectId, workId, attemptId } = request.params as Record<string, string>;
+        return executions[method](principal, tenantId, projectId, workId, attemptId, request.body);
+      }));
+    }
+  }
 }

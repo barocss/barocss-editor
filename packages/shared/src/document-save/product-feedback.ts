@@ -4,6 +4,18 @@ export interface ProductFeedbackTarget {
   id: string;
   quote: string;
 }
+/** Supplied server proposal. Native editors still own validation, history and the original. */
+export interface ProductRevisionProposal {
+  targetId: string;
+  snapshotText: string;
+  expectedSnapshotText: string;
+  replacement: string;
+}
+export interface ProductRevisionPreview {
+  current(): boolean;
+  apply(): Promise<boolean>;
+  dispose(): void;
+}
 export interface ProductFeedbackHost {
   product: 'note' | 'word' | 'slides' | 'site';
   id(): string;
@@ -17,6 +29,8 @@ export interface ProductFeedbackHost {
   locate(target: ProductFeedbackTarget): 'located' | 'missing' | 'ambiguous';
   /** Reading changes presentation only; it must never grant write permission. */
   reading?(value: boolean): void;
+  /** A proposal is not a command. Capture an exact native plan before approval awaits. */
+  previewRevision?(proposal: ProductRevisionProposal, owns?: () => boolean): ProductRevisionPreview | null;
 }
 let current: ProductFeedbackHost | undefined;
 export function registerProductFeedbackHost(host: ProductFeedbackHost): () => void {
