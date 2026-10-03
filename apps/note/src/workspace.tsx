@@ -463,7 +463,7 @@ export function Workspace() {
     event.preventDefault(); openNavigation('find');
   }}>
       <EditorHeader compact product="Note" className="nw-header" title={title || '제목 없는 노트'}
-        menus={<DocumentMenu label="노트 메뉴" menus={[
+        menus={<DocumentMenu label="노트 메뉴" icon={<Icon name="more" />} menus={[
           { id: 'file', label: '파일', blocks: [{ id: 'file', items: [
             { id: 'template', label: '새 페이지', disabled: !ready },
             { id: 'open', label: '파일 열기', disabled: !ready },
@@ -496,7 +496,7 @@ export function Workspace() {
       </div>
       <Button className="nw-template-action" tone="quiet" disabled={!ready} onClick={() => setPanel('template')}><Icon name="type-page" size={16} />템플릿으로 만들기</Button>
       <nav aria-label="노트 목록" className="nw-list">
-        {visibleRows.map(({ page: note, depth }) => <NavigationItem key={note.id} selected={selected === note.id} leading={<Icon name="type-page" size={16} />} trailing={note.meta.favorite ? <Icon name="favorite" size={12} /> : undefined} data-page-id={note.id} aria-label={note.document.attributes.title || '제목 없는 노트'} data-page-depth={depth} data-page-favorite={note.meta.favorite || undefined} style={{ paddingLeft: 12 + Math.min(depth, 12) * 14 }} aria-current={selected === note.id ? 'page' : undefined} onClick={() => void navigatePage(note.id, true, undefined, true)}>{note.document.attributes.title || '제목 없는 노트'}</NavigationItem>)}
+        {visibleRows.map(({ page: note, depth }) => <NavigationItem key={note.id} selected={selected === note.id} leading={<Icon name="type-page" size={16} />} trailing={note.meta.favorite ? <Icon name="favorite" size={12} /> : undefined} data-page-id={note.id} title={note.document.attributes.title || '제목 없는 노트'} aria-label={note.document.attributes.title || '제목 없는 노트'} data-page-depth={depth} data-page-favorite={note.meta.favorite || undefined} style={{ paddingLeft: 12 + Math.min(depth, 12) * 14 }} aria-current={selected === note.id ? 'page' : undefined} onClick={() => void navigatePage(note.id, true, undefined, true)}>{note.document.attributes.title || '제목 없는 노트'}</NavigationItem>)}
         {!visibleRows.length && <EmptyState title={query ? '검색 결과가 없습니다' : view === 'trash' ? '휴지통이 비어 있습니다' : view === 'favorites' ? '즐겨찾는 페이지가 없습니다' : '첫 노트를 만들어보세요'}
           action={query ? <Button onClick={() => setQuery('')}>검색 지우기</Button> : view === 'all' ? <Button disabled={!ready} onClick={() => add(pageTemplate(template))}>새 노트</Button> : undefined}>
           {query ? '다른 검색어를 입력하거나 검색을 지우세요.' : view === 'favorites' ? '페이지 설정에서 즐겨찾기에 추가하세요.' : view === 'trash' ? '삭제한 페이지는 여기에 보관됩니다.' : '팀의 아이디어와 회의 내용을 한곳에 기록하세요.'}
