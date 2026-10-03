@@ -3,6 +3,13 @@ import { DocumentSaveQueue } from './document-save';
 import { assertProductDocumentOpen, registerProductDocumentHost } from './product-host';
 
 export type DocumentSessionStatus = '불러오는 중' | '저장 중' | '저장됨' | '충돌한 초안 보관됨' | '저장 실패' | '복원 실패' | '복구 필요';
+/** Product state codes are independent of the display language. */
+export type DocumentSessionStatusCode = 'loading' | 'saving' | 'saved' | 'conflict' | 'save-error' | 'restore-error' | 'recovery-required';
+/** Keep the published two-argument callback contract unchanged. New UI uses codes. */
+const legacyStatus: Record<DocumentSessionStatusCode, DocumentSessionStatus> = {
+  loading: '불러오는 중', saving: '저장 중', saved: '저장됨', conflict: '충돌한 초안 보관됨',
+  'save-error': '저장 실패', 'restore-error': '복원 실패', 'recovery-required': '복구 필요'
+};
 export interface DocumentSessionOptions {
   key: string;
   documents: ReturnType<typeof documentLibrary>;
@@ -65,17 +72,25 @@ export class DocumentSession {
   private version = 0;
   private opening = 0;
   private pendingInput = false;
-  private settled: DocumentSessionStatus = '저장됨';
+  private settled: DocumentSessionStatusCode = 'saved';
   private unsubscribe?: () => void;
   private unregisterHost?: () => void;
   private writes: DocumentSaveQueue;
   get recoveryRequired() { return this.quarantined; }
-  constructor(readonly options: DocumentSessionOptions, private notify: (status: DocumentSessionStatus) => void) {
+  constructor(
+    readonly options: DocumentSessionOptions,
+    private notifyLegacy: (status: DocumentSessionStatus) => void = () => {},
+    private notifyCode?: (code: DocumentSessionStatusCode) => void
+  ) {
     this.writes = new DocumentSaveQueue(options.documents, options.drafts, (id, status) => {
-      if (!this.quarantined && id === this.id && (status === 'saved' || status === 'conflict')) this.settled = status === 'saved' ? '저장됨' : '충돌한 초안 보관됨';
+      if (!this.quarantined && id === this.id && (status === 'saved' || status === 'conflict')) this.settled = status;
       if (!this.stopped && !this.quarantined && (id === this.id || status === 'error'))
-        notify({ saving: '저장 중', saved: '저장됨', conflict: '충돌한 초안 보관됨', error: '저장 실패' }[status] as DocumentSessionStatus);
+        this.notify(status === 'error' ? 'save-error' : status);
     });
+  }
+  private notify(code: DocumentSessionStatusCode) {
+    this.notifyLegacy(legacyStatus[code]);
+    this.notifyCode?.(code);
   }
   private remember() { history.replaceState(null, '', `${location.pathname}${location.search}#${this.options.key}=${encodeURIComponent(this.id)}`); }
   async start() {
@@ -84,7 +99,7 @@ export class DocumentSession {
     document.addEventListener('visibilitychange', this.visibility);
     const id = new URLSearchParams(location.hash.slice(1)).get(this.options.key);
     if (id) {
-      try { await this.open(id); } catch { if (!this.stopped) this.notify(this.quarantined ? '복구 필요' : '복원 실패'); }
+      try { await this.open(id); } catch { if (!this.stopped) this.notify(this.quarantined ? 'recovery-required' : 'restore-error'); }
     } else { this.remember(); this.capture(); this.schedule(); }
     if (!this.stopped && ['note', 'word', 'slides', 'site'].includes(this.options.key))
       this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, beforeNavigate: () => this.beforeReplace() });
@@ -100,13 +115,13 @@ export class DocumentSession {
   /** An embedded editor has input that has not yet reached the host model. */
   input() {
     if (this.stopped || this.replacing || this.quarantined) return;
-    this.pendingInput = true; this.version++; this.notify('저장 중'); this.schedule();
+    this.pendingInput = true; this.version++; this.notify('saving'); this.schedule();
   }
   private schedule() { clearTimeout(this.timer); this.timer = setTimeout(() => { void this.flush(); }, 300); }
   private changed = (replaced = false) => {
     if (this.replacing || this.stopped || this.quarantined) return;
     this.version++;
-    if (replaced) { this.id = crypto.randomUUID(); this.last = ''; this.settled = '저장됨'; }
+    if (replaced) { this.id = crypto.randomUUID(); this.last = ''; this.settled = 'saved'; }
     this.remember(); this.capture(); this.schedule();
   };
   private capture() {
@@ -127,13 +142,13 @@ export class DocumentSession {
       const saved = await this.writes.flush();
       if (pending && saved && !this.stopped) this.notify(this.settled);
       return saved;
-    } catch { if (!this.stopped) this.notify('저장 실패'); return false; }
+    } catch { if (!this.stopped) this.notify('save-error'); return false; }
   }
   async beforeReplace() {
     if (this.replacing || this.quarantined) return false;
     // Flushing child input can legitimately change the host revision.
     try { await this.options.beforeSnapshot?.(); }
-    catch { this.notify('저장 실패'); return false; }
+    catch { this.notify('save-error'); return false; }
     const version = this.version;
     return await this.flush() && !this.stopped && this.version === version;
   }
@@ -141,17 +156,17 @@ export class DocumentSession {
     const ticket = ++this.opening;
     const wasQuarantined = this.quarantined;
     if (wasQuarantined && id !== this.recoveryId) {
-      this.notify('복구 필요');
+      this.notify('recovery-required');
       throw new Error('Reopen the current saved document before switching documents');
     }
     if (!wasQuarantined && !await this.beforeReplace()) return false;
-    this.notify('불러오는 중');
+    this.notify('loading');
     const version = this.version;
     let snapshot;
     try { await assertProductDocumentOpen(this.options.key, id); snapshot = await this.options.documents.read(id); }
-    catch (error) { if (!this.stopped) this.notify(wasQuarantined ? '복구 필요' : preserveCurrentOnFailure ? this.settled : '복원 실패'); throw error; }
+    catch (error) { if (!this.stopped) this.notify(wasQuarantined ? 'recovery-required' : preserveCurrentOnFailure ? this.settled : 'restore-error'); throw error; }
     if (this.stopped || ticket !== this.opening || version !== this.version) return false;
-    if (!snapshot) { this.notify(wasQuarantined ? '복구 필요' : preserveCurrentOnFailure ? this.settled : '복원 실패'); throw new Error('Missing document'); }
+    if (!snapshot) { this.notify(wasQuarantined ? 'recovery-required' : preserveCurrentOnFailure ? this.settled : 'restore-error'); throw new Error('Missing document'); }
     this.replacing = true;
     let loadedText: string;
     try {
@@ -162,18 +177,18 @@ export class DocumentSession {
       if (!wasQuarantined) this.recoveryId = this.hasCurrentDocument ? this.id : id;
       this.quarantined = true;
       clearTimeout(this.timer);
-      this.notify('복구 필요');
+      this.notify('recovery-required');
       throw error;
     }
     finally { this.replacing = false; }
     this.writes.adopt(id, snapshot.row.revision ?? 0);
     this.id = id;
     this.last = loadedText;
-    this.settled = '저장됨';
+    this.settled = 'saved';
     this.quarantined = false;
     this.recoveryId = undefined;
     this.hasCurrentDocument = true;
-    this.remember(); this.notify('저장됨');
+    this.remember(); this.notify('saved');
     return true;
   }
   async recover(row: LibraryRow) {
