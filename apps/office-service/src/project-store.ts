@@ -226,10 +226,16 @@ export class ProjectStore {
       if (writable && role === 'viewer') throw new ProjectError(403, 'forbidden');
       const actor = await this.actor(client, principal, writable);
       const epoch = await client.query<{ epoch: string }>('SELECT epoch FROM wonffice.project_execution_actor_epoch($1)', [tenantId]);
-      if (!epoch.rows[0]) throw new TenantAccessDeniedError();
+      // project_current_actor already holds FOR SHARE on this current membership.
+      // Company role changes use a separate audit log; the row lifetime also
+      // detects revoke/restore and role ABA without changing old migrations.
+      const membership = await client.query<{ version: string }>(
+        'SELECT xmin::text AS version FROM wonffice.tenant_memberships WHERE tenant_id=$1 AND identity_id=$2 AND revoked_at IS NULL',
+        [tenantId, actor.id]);
+      if (!epoch.rows[0] || !membership.rows[0]) throw new TenantAccessDeniedError();
       const project = await this.require(client, tenantId, projectId, writable);
       await this.sources(client, tenantId, project);
-      return operation({ client, project, actor, authorityEpoch: epoch.rows[0].epoch,
+      return operation({ client, project, actor, authorityEpoch: `${epoch.rows[0].epoch}:${membership.rows[0].version}`,
         document: documentId => this.document(client, tenantId, project.workspace_id, documentId) });
     });
   }

@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { validateProjectAction, verifyProjectTarget, type ProjectPin } from '../src/project-store.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Pool, PoolClient } from 'pg';
+import { MembershipStore } from '../src/membership-store.js';
+import { ProjectStore, validateProjectAction, verifyProjectTarget, type ProjectPin } from '../src/project-store.js';
 
 const doc = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const pin = (document: unknown): ProjectPin => ({ id: 'pin', document: { product: 'word', id: doc },
@@ -43,5 +45,40 @@ describe('canonical native anchor evidence', () => {
     const documentPin = pin({ stype: 'document', content: [] });
     expect(() => verifyProjectTarget(documentPin, { kind: 'document', id: doc, quote: '' })).not.toThrow();
     expect(() => verifyProjectTarget(documentPin, { kind: 'document', id: doc, quote: 'guess' })).toThrow();
+  });
+});
+
+
+describe('project execution current authority boundary', () => {
+  afterEach(() => vi.restoreAllMocks());
+  it('retires captured authority on a membership lifetime change even when the event counter and editor role stay the same', async () => {
+    const tenantId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const actorId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    const projectId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    let membershipVersion: string | undefined = '42';
+    const query = vi.fn(async (sql: string, values?: unknown[]) => {
+      if (sql.includes('project_current_actor')) return { rows: [{ id: actorId, role: 'editor' }] };
+      if (sql.includes('project_execution_actor_epoch')) return { rows: [{ epoch: 'editor:0' }] };
+      if (sql.includes('xmin::text')) {
+        expect(values).toEqual([tenantId, actorId]);
+        return { rows: membershipVersion ? [{ version: membershipVersion }] : [] };
+      }
+      if (sql.includes('FROM wonffice.projects')) return { rows: [{ id: projectId, workspace_id: doc, revision: 1,
+        data: { id: projectId, title: 'Project', goal: '', archived: false, results: [], comments: [], works: [], activities: [], drafts: {} } }] };
+      throw new Error('Unexpected SQL');
+    });
+    const client = { query } as unknown as PoolClient;
+    vi.spyOn(MembershipStore.prototype, 'withAuthorizedTenant').mockImplementation(async (_principal, _tenant, operation) => operation(client, 'editor'));
+    const store = new ProjectStore({} as Pool);
+    const principal = { issuer: 'https://fixture.invalid', subject: 'writer' };
+    const capture = () => store.withExecutionContext(principal, tenantId, projectId, true, async context => context.authorityEpoch);
+    const original = await capture();
+    expect(await capture()).toBe(original); // A true no-op does not replace the membership row.
+    membershipVersion = '43';
+    expect(await capture()).not.toBe(original); // Same current role/event counter, different committed lifetime.
+    membershipVersion = undefined;
+    const operation = vi.fn(async () => 'must not run');
+    await expect(store.withExecutionContext(principal, tenantId, projectId, true, operation)).rejects.toThrow('tenant_access_denied');
+    expect(operation).not.toHaveBeenCalled();
   });
 });
