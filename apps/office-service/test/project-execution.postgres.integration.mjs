@@ -7,6 +7,7 @@ import pg from 'pg';
 import { migrate } from '../dist/migrate.js';
 import { migrations } from '../dist/migrations.js';
 import { DocumentStore } from '../dist/document-store.js';
+import { CompanyMemberStore } from '../dist/company-member-store.js';
 import { ProjectStore } from '../dist/project-store.js';
 import { ProjectExecutionStore } from '../dist/project-execution.js';
 import { TenantAccessDeniedError } from '../dist/membership-store.js';
@@ -43,12 +44,13 @@ try {
     assert.deepEqual(await migrate(owner), []);
   });
   const tenantId = randomUUID(), beta = randomUUID(), workspaceId = randomUUID();
-  const actorId = randomUUID(), viewerId = randomUUID(), outsiderId = randomUUID();
+  const actorId = randomUUID(), viewerId = randomUUID(), outsiderId = randomUUID(), companyAdminId = randomUUID();
   const issuer = 'https://synthetic-execution.example.test';
+  const companyAdmin = { issuer, subject: 'company-admin' };
   const actor = { issuer, subject: 'editor' }, viewer = { issuer, subject: 'viewer' }, outsider = { issuer, subject: 'outsider' };
   await owner.query('INSERT INTO wonffice.tenants(id,name) VALUES($1,\'Execution\'),($2,\'Foreign\')', [tenantId,beta]);
   await owner.query('INSERT INTO wonffice.workspaces(tenant_id,id,name) VALUES($1,$2,\'Synthetic\')', [tenantId,workspaceId]);
-  for (const [id, subject, tenant, role] of [[actorId,'editor',tenantId,'editor'],[viewerId,'viewer',tenantId,'viewer'],[outsiderId,'outsider',beta,'editor']]) {
+  for (const [id, subject, tenant, role] of [[actorId,'editor',tenantId,'editor'],[viewerId,'viewer',tenantId,'viewer'],[outsiderId,'outsider',beta,'editor'],[companyAdminId,'company-admin',tenantId,'admin']]) {
     await owner.query('INSERT INTO wonffice.identities(id,issuer,subject) VALUES($1,$2,$3)', [id,issuer,subject]);
     await owner.query('INSERT INTO wonffice.tenant_memberships(tenant_id,identity_id,role) VALUES($1,$2,$3)', [tenant,id,role]);
   }
@@ -107,6 +109,98 @@ try {
     assert.equal(applied.execution.phase,'applied');assert.equal(applied.execution.appliedRevision,2);
     assert.deepEqual(await execution.acknowledge(...first.args(),firstView.id,{revision:2,snapshotHash:digest(bytes)}),applied);
     assert.deepEqual(await projects.get(...first.args().slice(0,3)),before);
+  });
+  // #444 uses the actual restricted company administration service. Its audit is
+  // company_member_admin_events; it must not fabricate membership_events.
+  const companyMembers = new CompanyMemberStore(pool);
+  const authorityEpoch = s => projects.withExecutionContext(...s.args().slice(0,3),false,async context=>context.authorityEpoch);
+  const eventCount = async () => (await owner.query('SELECT count(*)::int AS count FROM wonffice.membership_events WHERE tenant_id=$1 AND identity_id=$2',[tenantId,actorId])).rows[0].count;
+  const frozenRows = async s => ({
+    project:(await owner.query('SELECT revision,data FROM wonffice.projects WHERE tenant_id=$1 AND id=$2',[tenantId,s.projectId])).rows[0],
+    attempt:(await owner.query('SELECT data FROM wonffice.project_executions WHERE tenant_id=$1 AND project_id=$2',[tenantId,s.projectId])).rows[0],
+    source:(await owner.query('SELECT revision,snapshot_hash,snapshot_text FROM wonffice.document_snapshots WHERE tenant_id=$1 AND document_id=$2',[tenantId,s.documentId])).rows[0],
+  });
+  const restoreRole = async () => {
+    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'viewer')).changed,true);
+    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor')).changed,true);
+  };
+  const restoreRevocation = async () => {
+    assert.equal((await companyMembers.revoke(companyAdmin,tenantId,actorId)).changed,true);
+    // Existing protected test-owner control restores membership. No audit event
+    // is manufactured, and no product endpoint or administrator right is added.
+    await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at=NULL WHERE tenant_id=$1 AND identity_id=$2',[tenantId,actorId]);
+  };
+  const waitForLock = async fragment => {
+    const deadline=Date.now()+4000;
+    while(Date.now()<deadline){
+      if((await admin.query("SELECT 1 FROM pg_stat_activity WHERE datname='office_test' AND usename='wonffice_app' AND wait_event_type='Lock' AND query LIKE $1",['%'+fragment+'%'])).rowCount)return;
+      await new Promise(resolve=>setTimeout(resolve,10));
+    }
+    throw new Error('operation did not reach the expected real PostgreSQL lock: '+fragment);
+  };
+  await check('true no-change CompanyMemberStore role request preserves captured lifetime and acceptance',async()=>{
+    const s=await seed(),result=(await execution.execute(...s.args(),{expectedRevision:s.current().project.revision})).execution;
+    const beforeEpoch=await authorityEpoch(s),events=await eventCount();
+    const xmin=(await owner.query('SELECT xmin::text AS version FROM wonffice.tenant_memberships WHERE tenant_id=$1 AND identity_id=$2',[tenantId,actorId])).rows[0].version;
+    assert.deepEqual(await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor'),{memberId:actorId,role:'editor',active:true,changed:false});
+    assert.equal(await eventCount(),events);assert.equal(await authorityEpoch(s),beforeEpoch);
+    assert.equal((await owner.query('SELECT xmin::text AS version FROM wonffice.tenant_memberships WHERE tenant_id=$1 AND identity_id=$2',[tenantId,actorId])).rows[0].version,xmin);
+    assert.equal((await execution.authorizeAcceptance(...s.args(),result.id,{})).execution.phase,'accepted');
+    assert.equal((await documents.open(actor,tenantId,s.documentId)).snapshotText,s.snapshotText);
+  });
+  await check('real CompanyMemberStore role ABA retires old acceptance rejection and apply acknowledgement without rewriting evidence',async()=>{
+    for(const operation of ['accept','reject','ack']){
+      const s=await seed(),result=(await execution.execute(...s.args(),{expectedRevision:s.current().project.revision})).execution;
+      if(operation==='ack'){
+        await execution.authorizeAcceptance(...s.args(),result.id,{});
+        await documents.updateSnapshot(actor,tenantId,s.documentId,{expectedRevision:1,snapshotText:result.expectedSnapshotText,idempotencyKey:randomUUID()});
+      }
+      const before=await frozenRows(s),beforeEpoch=await authorityEpoch(s),events=await eventCount();
+      await restoreRole();assert.equal(await eventCount(),events);
+      const act=operation==='accept'?()=>execution.authorizeAcceptance(...s.args(),result.id,{})
+        :operation==='reject'?()=>execution.reject(...s.args(),result.id,{})
+        :()=>execution.acknowledge(...s.args(),result.id,{revision:2,snapshotHash:result.expectedSnapshotHash});
+      await assert.rejects(act(),error=>error.status===409&&error.reason==='authority_changed');
+      assert.notEqual(await authorityEpoch(s),beforeEpoch);assert.deepEqual(await frozenRows(s),before);
+      const historical=(await execution.get(...s.args())).execution;assert.equal(historical.id,result.id);assert.deepEqual(historical.input,result.input);assert.deepEqual(historical.provenance,result.provenance);
+    }
+  });
+  await check('actual role ABA and revoke-restore while provider is deferred retain blocked terminal lineage',async()=>{
+    for(const change of [restoreRole,restoreRevocation]){
+      const s=await seed(),entered=deferred(),hold=deferred();let dispatches=0;
+      const store=new ProjectExecutionStore(pool,{generate:async input=>{dispatches++;entered.resolve();await hold.promise;return response(input);}});
+      const pending=store.execute(...s.args(),{expectedRevision:s.current().project.revision});await entered.promise;
+      const before=await frozenRows(s),events=await eventCount();await change();assert.equal(await eventCount(),events);
+      hold.resolve();const result=(await pending).execution;assert.equal(result.phase,'blocked');assert.equal(result.reason,'authority_changed');assert.deepEqual(result.proposal,proposal);
+      const after=await frozenRows(s);assert.deepEqual(after.project,before.project);assert.deepEqual(after.source,before.source);
+      assert.deepEqual(after.attempt.data.input,before.attempt.data.input);assert.equal(after.attempt.data.authorityEpoch,before.attempt.data.authorityEpoch);
+      await assert.rejects(store.authorizeAcceptance(...s.args(),result.id,{}),error=>error.status===409&&error.reason==='execution_not_applicable');
+      assert.deepEqual(await store.execute(...s.args(),{expectedRevision:1}),{execution:result});assert.equal(dispatches,1);
+    }
+  });
+  await check('committed restricted role ABA while acceptance waits on membership lock retires the old intent',async()=>{
+    const s=await seed(),result=(await execution.execute(...s.args(),{expectedRevision:s.current().project.revision})).execution;
+    const before=await frozenRows(s),events=await eventCount(),control=await connect('wonffice_app');
+    await control.query('BEGIN');
+    await control.query("SELECT set_config('wonffice.tenant_id',$1,true),set_config('wonffice.oidc_issuer',$2,true),set_config('wonffice.oidc_subject',$3,true)",[tenantId,companyAdmin.issuer,companyAdmin.subject]);
+    assert.equal((await control.query("SELECT * FROM wonffice.company_member_change($1,$2,'set_role','viewer',$3)",[tenantId,actorId,randomUUID()])).rows[0].status,'applied');
+    const pending=execution.authorizeAcceptance(...s.args(),result.id,{}),refusal=assert.rejects(pending,error=>error.status===409&&error.reason==='authority_changed');
+    await waitForLock('project_current_actor');
+    assert.equal((await control.query("SELECT * FROM wonffice.company_member_change($1,$2,'set_role','editor',$3)",[tenantId,actorId,randomUUID()])).rows[0].status,'applied');
+    await control.query('COMMIT');await refusal;assert.equal(await eventCount(),events);assert.deepEqual(await frozenRows(s),before);
+  });
+  await check('document lock waiting holds membership authority until acceptance commits before a queued downgrade',async()=>{
+    const s=await seed(),result=(await execution.execute(...s.args(),{expectedRevision:s.current().project.revision})).execution;
+    await owner.query('BEGIN');await owner.query('SELECT 1 FROM wonffice.documents WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[tenantId,s.documentId]);
+    const pending=execution.authorizeAcceptance(...s.args(),result.id,{});await waitForLock('FROM wonffice.documents');
+    const downgrade=companyMembers.setRole(companyAdmin,tenantId,actorId,'viewer');await waitForLock('company_member_change');
+    // The operation already owns FOR SHARE on the membership. Its acceptance
+    // linearizes before the waiting role change, not in a fabricated mid-commit gap.
+    await owner.query('COMMIT');assert.equal((await pending).execution.phase,'accepted');assert.equal((await downgrade).changed,true);
+    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor')).changed,true);
+    const before=await frozenRows(s);
+    await assert.rejects(execution.acknowledge(...s.args(),result.id,{revision:2,snapshotHash:result.expectedSnapshotHash}),error=>error.status===409&&error.reason==='authority_changed');
+    assert.deepEqual(await frozenRows(s),before);assert.equal(before.source.snapshot_text,s.snapshotText);
   });
   await check('training linked after saved guide observes exact new pin without changing the captured attempt', async () => {
     const before=(await owner.query('SELECT data FROM wonffice.project_executions WHERE id=$1',[firstView.id])).rows[0].data;
