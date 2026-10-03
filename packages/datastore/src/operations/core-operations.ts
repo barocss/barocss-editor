@@ -19,7 +19,7 @@ export class CoreOperations {
    *   - Validates node; if content contains objects, validates object form; otherwise validates shallow (content undefined).
    * - Converts object children in content to ids recursively before persisting.
    * - Overlay-aware: if overlay is active, writes go to overlay (upsertNode); base map updates on commit().
-   * - Emits 'create' when id is new, otherwise 'update'. Operation payload includes type/attributes/text/content/parentId/marks.
+   * - Emits 'create' when id is new, otherwise 'update'. Operation payload includes type/attributes/text/content/parentId/marks/metadata.
    * - Never mutates returned nodes with defaults (e.g., marks); normalization is handled elsewhere.
    */
   setNode(node: INode, validate: boolean = true): void {
@@ -68,7 +68,10 @@ export class CoreOperations {
         text: node.text,
         content: node.content,
         parentId: node.parentId,
-        marks: node.marks
+        marks: node.marks,
+        // Commit replays this full-node payload. Keep metadata, including an
+        // explicit undefined used by history to undo or remove metadata.
+        metadata: node.metadata
       },
       timestamp: Date.now(),
       parentId: node.parentId
