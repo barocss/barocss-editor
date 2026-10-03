@@ -8,7 +8,7 @@ it('keeps focused input identity and draft text when group headings change langu
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   const host = document.createElement('div'); document.body.append(host);
   const root = createRoot(host);
-  const row = { attr: 'name', label: 'Name', control: 'embedded-editor' };
+  const row = { attr: 'name', label: 'Name', ariaLabel: 'Name', group: 'selection', control: 'embedded-editor' };
   const render = (label: string) => act(() => root.render(<PropertySheet
     groups={[{ id: 'selection', label, rows: [row] }]}
     value={() => 'Original'} onWrite={() => {}} render={() => <input defaultValue="Original" aria-label="Name" />} />));
@@ -27,7 +27,7 @@ it('keeps distinct groups with equal translated headings when their order change
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   const host = document.createElement('div'); document.body.append(host);
   const root = createRoot(host);
-  const groups = ['position', 'size'].map(id => ({ id, label: 'Layout', rows: [{ attr: id, label: id, control: 'embedded-editor' }] }));
+  const groups = ['position', 'size'].map(id => ({ id, label: 'Layout', rows: [{ attr: id, label: id, ariaLabel: id, group: id, control: 'embedded-editor' }] }));
   const render = (reverse: boolean) => act(() => root.render(<PropertySheet
     groups={reverse ? [...groups].reverse() : groups} value={() => ''} onWrite={() => {}}
     render={row => <input aria-label={row.attr} defaultValue={row.attr} />} />));
