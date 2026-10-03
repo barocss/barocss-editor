@@ -3,7 +3,7 @@ import type { ProjectRepository, ProjectSnapshot, ProjectDocument } from '@baroc
 import { captureAuthorizedFetch, listSnapshotDocuments, type TenantRole, type SnapshotProduct } from './auth-client';
 
 type Action = Record<string, unknown>;
-class ProjectRevisionConflict extends Error {}
+export class ProjectRevisionConflict extends Error {}
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 export function serverProjectRepository(tenant: string, workspace: string, role: TenantRole): ProjectRepository {
   const requestFetch = captureAuthorizedFetch();
@@ -11,7 +11,7 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
   const records = new Map<string, ProjectSnapshot>();
   const sources = new Map<string, { documentId: string; revision: number; snapshotHash: string }>();
   const receipts = new Map<string, string>();
-  const pendingOperations = new Map<string, { expectedRevision: number; idempotencyKey: string; action: Action; commentBefore: string[] }>();
+  const pendingOperations = new Map<string, { expectedRevision: number; idempotencyKey: string; action: Action; commentBefore: string[]; frozenRequest?: { projectId: string; recordText: string } }>();
   let actorId = '';
   const request = async (path: string, init?: RequestInit) => {
     const response = await requestFetch(new URL(path, location.origin).href, init);
@@ -53,7 +53,33 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
     const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin.text)));
     return { documentId: pin.document.id, revision: pin.revision, snapshotHash: Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('') };
   };
+  const transmit = async (signature: string, operation: NonNullable<ReturnType<typeof pendingOperations.get>>, projectId: string) => {
+    let saved: ProjectSnapshot;
+    try { saved = view(await post(`${base}/${projectId}`, { expectedRevision: operation.expectedRevision, idempotencyKey: operation.idempotencyKey, action: operation.action }, 'PATCH')); }
+    catch (cause) {
+      // A confirmed CAS rejection committed nothing. A later explicit retry may use the freshly read revision.
+      // Unknown transport/acknowledgement failures must keep the original receipt and payload.
+      if (cause instanceof ProjectRevisionConflict) pendingOperations.delete(signature);
+      throw cause;
+    }
+    if (operation.action.type === 'comment') {
+      const created = saved.record.comments.filter(one => !operation.commentBefore.includes(one.id));
+      if (created.length !== 1) throw new Error('의견 저장 결과를 확인하지 못했습니다.');
+      return { ...saved, commentId: created[0].id };
+    }
+    if (operation.action.type === 'request') pendingOperations.delete(signature);
+    return saved;
+  };
   const save = async (next: ProjectRecord, revision: number) => {
+    // Only an explicit retry of the exact captured request may recover an unknown ACK.
+    // A refreshed cache can contain its canonical work and a later project revision.
+    const recordText = JSON.stringify(next);
+    for (const [signature, operation] of pendingOperations) {
+      if (operation.action.type === 'request' && operation.expectedRevision === revision &&
+        operation.frozenRequest?.projectId === next.id && operation.frozenRequest.recordText === recordText) {
+        return transmit(signature, operation, next.id);
+      }
+    }
     const previous = records.get(next.id);
     if (!previous || previous.revision !== revision) throw new Error('프로젝트 버전을 다시 확인하세요.');
     const old = previous.record;
@@ -75,22 +101,10 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
     const newComment = next.comments.find(one => !old.comments.some(before => before.id === one.id));
     const signature = action.type === 'comment' && newComment
       ? `comment:${next.id}:${newComment.id}` : JSON.stringify({ id: next.id, revision, action });
-    const operation = pendingOperations.get(signature) ?? { expectedRevision: revision, idempotencyKey: crypto.randomUUID(), action, commentBefore: old.comments.map(one => one.id) };
+    const operation = pendingOperations.get(signature) ?? { expectedRevision: revision, idempotencyKey: crypto.randomUUID(), action, commentBefore: old.comments.map(one => one.id), ...(action.type === 'request' ? { frozenRequest: { projectId: next.id, recordText } } : {}) };
+    if (operation.action.type === 'request' && operation.frozenRequest?.recordText !== recordText) throw new Error('보관한 요청 입력을 다시 확인하세요.');
     pendingOperations.set(signature, operation);
-    let saved: ProjectSnapshot;
-    try { saved = view(await post(`${base}/${next.id}`, { expectedRevision: operation.expectedRevision, idempotencyKey: operation.idempotencyKey, action: operation.action }, 'PATCH')); }
-    catch (cause) {
-      // A confirmed CAS rejection committed nothing. A later explicit retry may use the freshly read revision.
-      // Unknown transport/acknowledgement failures must keep the original receipt and payload.
-      if (cause instanceof ProjectRevisionConflict) pendingOperations.delete(signature);
-      throw cause;
-    }
-    if (operation.action.type === 'comment') {
-      const created = saved.record.comments.filter(one => !operation.commentBefore.includes(one.id));
-      if (created.length !== 1) throw new Error('의견 저장 결과를 확인하지 못했습니다.');
-      return { ...saved, commentId: created[0].id };
-    }
-    return saved;
+    return transmit(signature, operation, next.id);
   };
   return {
     writable: role !== 'viewer', canCreateDocument: false, save,

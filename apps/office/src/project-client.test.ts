@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from 'vitest';
 import { createHash, randomUUID, webcrypto } from 'node:crypto';
-import { createProjectRecord, type ProjectRecord, type Pin, type ProjectComment } from '@barocss/shared';
+import { createProjectRecord, requestProjectWork, type ProjectRecord, type Pin, type ProjectComment } from '@barocss/shared';
 const transport = vi.hoisted(() => ({ fetch: vi.fn(), epoch: 0 }));
 vi.mock('./auth-client', () => ({ captureAuthorizedFetch: () => { const epoch = transport.epoch; return (...args: unknown[]) => { if (epoch !== transport.epoch) throw new Error('account generation changed'); return transport.fetch(...args); }; }, listSnapshotDocuments: vi.fn() }));
 import { serverProjectRepository } from './project-client';
@@ -97,4 +97,65 @@ it('retires an old repository before sending any request after account ABA', asy
   await expect(old.read('project')).rejects.toThrow('account generation changed');
   await expect(old.create('제목', '목표')).rejects.toThrow('account generation changed');
   expect(transport.fetch).not.toHaveBeenCalled();
+});
+
+function requestedProject() {
+  const record = createProjectRecord('공개 준비', '사용자 검토');
+  const pin: Pin = { id: 'pin', document: { product: 'word', id: 'guide' }, revision: 1, text: 'source', title: '안내' };
+  record.results.push({ id: 'result', name: '안내', document: pin.document, inputs: [] });
+  record.comments.push({ id: 'comment', resultId: 'result', target: { kind: 'document', id: 'guide', quote: '' }, pin,
+    actor: { kind: 'human', id: 'verified', label: 'Member' }, body: '수정 의견', createdAt: '2026-10-03T00:00:00Z', status: 'open' });
+  return record;
+}
+it('replays the identical frozen work request after a lost ACK and a refreshed canonical work', async () => {
+  const current = requestedProject(); let revision = 1;
+  const posted: string[] = [], replies = new Map<string, unknown>();
+  const view = () => ({ tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: 'verified', label: 'Member' }, project: { record: structuredClone(current), revision } });
+  transport.fetch.mockImplementation(async (_input: string, init?: RequestInit) => {
+    if (init?.method !== 'PATCH') return new Response(JSON.stringify(view()));
+    posted.push(init.body as string);
+    const body = JSON.parse(init.body as string);
+    if (replies.has(body.idempotencyKey)) return new Response(JSON.stringify(replies.get(body.idempotencyKey)));
+    const requested = requestProjectWork(current, body.action.commentId, body.action.request);
+    Object.assign(current, requested); current.works[0]!.id = 'canonical-work'; current.comments[0]!.workId = 'canonical-work'; revision++;
+    replies.set(body.idempotencyKey, view()); current.goal = '다른 사용자의 새 목표'; revision++;
+    throw new Error('request ACK lost');
+  });
+  const repo = serverProjectRepository('tenant', 'workspace', 'editor'), before = (await repo.read(current.id))!;
+  const frozen = requestProjectWork(before.record, 'comment', '범위 수정');
+  await expect(repo.save(frozen, before.revision)).rejects.toThrow('request ACK lost');
+  await expect(repo.save({ ...frozen, drafts: { comment: 'unrelated draft' } }, before.revision)).rejects.toThrow('요청 입력');
+  expect(posted).toHaveLength(1);
+  const refreshed = (await repo.read(current.id))!;
+  expect(refreshed.record.works[0]!.id).toBe('canonical-work');
+  await expect(repo.save({ ...frozen, goal: 'unrelated metadata' }, before.revision)).rejects.toThrow('버전');
+  await expect(repo.save({ ...frozen, drafts: { comment: 'unrelated draft' } }, before.revision)).rejects.toThrow('버전');
+  expect(posted).toHaveLength(1);
+  const saved = await repo.save(frozen, before.revision);
+  expect(posted).toHaveLength(2); expect(posted[1]).toBe(posted[0]);
+  expect(saved.record.works[0]!.id).toBe('canonical-work'); expect(current.works).toHaveLength(1);
+  expect(current.goal).toBe('다른 사용자의 새 목표');
+  await expect(repo.save(frozen, before.revision)).rejects.toThrow('버전');
+  expect(posted).toHaveLength(2);
+});
+it('allocates a fresh work request receipt only after a confirmed CAS rejection', async () => {
+  const current = requestedProject(); let revision = 1;
+  const posted: Array<{ expectedRevision: number; idempotencyKey: string; action: { commentId: string; request: string } }> = [];
+  const view = () => ({ tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: 'verified', label: 'Member' }, project: { record: structuredClone(current), revision } });
+  transport.fetch.mockImplementation(async (_input: string, init?: RequestInit) => {
+    if (init?.method === 'PATCH') {
+      const body = JSON.parse(init.body as string); posted.push(body);
+      if (posted.length === 1) { current.goal = '보존할 새 목표'; revision++; return new Response(JSON.stringify({ status: 'revision_conflict' }), { status: 409 }); }
+      Object.assign(current, requestProjectWork(current, body.action.commentId, body.action.request)); revision++;
+    }
+    return new Response(JSON.stringify(view()));
+  });
+  const repo = serverProjectRepository('tenant', 'workspace', 'editor'), before = (await repo.read(current.id))!;
+  const frozen = requestProjectWork(before.record, 'comment', '범위 수정');
+  await expect(repo.save(frozen, before.revision)).rejects.toThrow('다른 변경');
+  const refreshed = (await repo.read(current.id))!;
+  await repo.save(requestProjectWork(refreshed.record, 'comment', '범위 수정'), refreshed.revision);
+  expect(posted.map(one => one.expectedRevision)).toEqual([1, 2]);
+  expect(posted[1]!.idempotencyKey).not.toBe(posted[0]!.idempotencyKey);
+  expect(current.goal).toBe('보존할 새 목표'); expect(current.works).toHaveLength(1);
 });
