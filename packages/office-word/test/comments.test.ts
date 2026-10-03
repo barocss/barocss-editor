@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { commentThreads, freeThreadId } from '../src/comments';
+import { commentThreads, freeThreadId, resolveCommentTarget } from '../src/comments';
 import type { DocumentAccess, DocumentNode } from '@barocss/office-text';
 
 /**
@@ -122,5 +122,16 @@ describe('naming a new thread', () => {
       thread('comment-2', [entry('e2', 'Jinho', 'b')])
     ]);
     expect(freeThreadId(doc)).toBe('comment-3');
+  });
+});
+
+describe('legacy external comment resolution', () => {
+  it('keeps a single durable legacy mark located and refuses duplicate legacy marks as ambiguous', () => {
+    const one = withThreads([thread('c1', [entry('e1', 'Jinho', 'Legacy')])], [{ stype: 'commentRef', range: [4, 9], attrs: { id: 'c1' } }]);
+    expect(resolveCommentTarget(one, 'c1')).toMatchObject({ status: 'located', anchor: { sid: 't', start: 4, end: 9 }, anchors: [{ sid: 't', start: 4, end: 9 }] });
+    const duplicate = withThreads([thread('c1', [entry('e1', 'Jinho', 'Legacy')])], [
+      { stype: 'commentRef', range: [4, 9], attrs: { id: 'c1' } }, { stype: 'commentRef', range: [10, 15], attrs: { id: 'c1' } }
+    ]);
+    expect(resolveCommentTarget(duplicate, 'c1')).toEqual({ status: 'ambiguous' });
   });
 });
