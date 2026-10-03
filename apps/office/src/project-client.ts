@@ -3,7 +3,7 @@ import type { ProjectRepository, ProjectSnapshot, ProjectDocument } from '@baroc
 import { captureAuthorizedFetch, listSnapshotDocuments, type TenantRole, type SnapshotProduct } from './auth-client';
 
 type Action = Record<string, unknown>;
-export class ProjectRevisionConflict extends Error {}
+export class ProjectRevisionConflict extends Error { readonly code = 'project_revision_conflict'; }
 const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 export function serverProjectRepository(tenant: string, workspace: string, role: TenantRole): ProjectRepository {
   const requestFetch = captureAuthorizedFetch();

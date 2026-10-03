@@ -152,7 +152,7 @@ it('allocates a fresh work request receipt only after a confirmed CAS rejection'
   });
   const repo = serverProjectRepository('tenant', 'workspace', 'editor'), before = (await repo.read(current.id))!;
   const frozen = requestProjectWork(before.record, 'comment', '범위 수정');
-  await expect(repo.save(frozen, before.revision)).rejects.toThrow('다른 변경');
+  await expect(repo.save(frozen, before.revision)).rejects.toMatchObject({ code: 'project_revision_conflict' });
   const refreshed = (await repo.read(current.id))!;
   await repo.save(requestProjectWork(refreshed.record, 'comment', '범위 수정'), refreshed.revision);
   expect(posted.map(one => one.expectedRevision)).toEqual([1, 2]);
