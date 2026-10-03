@@ -4,9 +4,15 @@ import { setProjectWorkPaused, type ProjectRecord, type Pin, type ProjectExecuti
 import { products, type Product, plainText } from './products';
 import './project-ui.css';
 import { ConnectedWorkControl } from './connected-work-control';
+import type { ProductFeedbackTarget } from '@barocss/shared';
 
 export interface ProjectSnapshot { record: ProjectRecord; revision: number; commentId?: string; }
 export interface ProjectDocument { product: Product; id: string; title: string; unavailable?: boolean; }
+/** Only actor-owned server drafts and existing project receipts hold this pending intent. */
+export interface WordFeedbackRecovery {
+  documentId: string; resultId: string; target: ProductFeedbackTarget; body: string;
+  phase: 'native' | 'comment' | 'request'; commentId?: string; requestWork?: boolean; nativeHash?: string;
+}
 /** Both stores preserve the product's canonical document. Server implementations check access per request. */
 export interface ProjectRepository {
   canCreateDocument?: boolean;
@@ -24,6 +30,15 @@ export interface ProjectRepository {
   acceptExecution?(project: string, work: string, attempt: string): Promise<ProjectExecution>;
   acknowledgeExecution?(project: string, work: string, attempt: string, revision: number, snapshotHash: string): Promise<ProjectExecution>;
   rejectExecution?(project: string, work: string, attempt: string): Promise<ProjectExecution>;
+  feedbackRecovery?: {
+    begin(project: string, intent: Omit<WordFeedbackRecovery, 'phase' | 'commentId'>): Promise<void>;
+    read(project: string, documentId: string): Promise<WordFeedbackRecovery | null>;
+    nativeSnapshot(project: string, documentId: string, snapshotHash: string): Promise<void>;
+    comment(project: string, documentId: string, pin: Pin): Promise<ProjectSnapshot>;
+    request(project: string, documentId: string, commentId: string, body: string): Promise<ProjectSnapshot>;
+    clear(project: string, documentId: string): Promise<void>;
+    cancel?(project: string, documentId: string, targetId: string): Promise<void>;
+  };
 }
 
 function sourceText(pin: Pin) {

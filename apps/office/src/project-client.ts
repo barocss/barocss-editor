@@ -1,17 +1,25 @@
 import { readProjectRecord, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
-import type { ProjectRepository, ProjectSnapshot, ProjectDocument } from '@barocss/office-workspace/project';
+import type { ProjectRepository, ProjectSnapshot, ProjectDocument, WordFeedbackRecovery } from '@barocss/office-workspace/project';
 import { captureAuthorizedFetch, listSnapshotDocuments, type TenantRole, type SnapshotProduct } from './auth-client';
 
 type Action = Record<string, unknown>;
-class ProjectRevisionConflict extends Error {}
-const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+export class ProjectRevisionConflict extends Error { readonly code = 'project_revision_conflict'; }
+// JSONB may reorder descriptor keys. Strings and ordered arrays remain exact.
+const equal = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((one, index) => equal(one, b[index]));
+  const left = Object.keys(a), right = Object.keys(b);
+  return left.length === right.length && left.every(key => Object.prototype.hasOwnProperty.call(b, key) &&
+    equal((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+};
 export function serverProjectRepository(tenant: string, workspace: string, role: TenantRole): ProjectRepository {
   const requestFetch = captureAuthorizedFetch();
   const base = `/api/v1/tenants/${tenant}/projects`;
   const records = new Map<string, ProjectSnapshot>();
   const sources = new Map<string, { documentId: string; revision: number; snapshotHash: string }>();
   const receipts = new Map<string, string>();
-  const pendingOperations = new Map<string, { expectedRevision: number; idempotencyKey: string; action: Action; commentBefore: string[] }>();
+  const pendingOperations = new Map<string, { expectedRevision: number; idempotencyKey: string; action: Action; commentBefore: string[]; frozenRequest?: { projectId: string; recordText: string } }>();
   let actorId = '';
   const request = async (path: string, init?: RequestInit) => {
     const response = await requestFetch(new URL(path, location.origin).href, init);
@@ -53,7 +61,33 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
     const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin.text)));
     return { documentId: pin.document.id, revision: pin.revision, snapshotHash: Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('') };
   };
+  const transmit = async (signature: string, operation: NonNullable<ReturnType<typeof pendingOperations.get>>, projectId: string) => {
+    let saved: ProjectSnapshot;
+    try { saved = view(await post(`${base}/${projectId}`, { expectedRevision: operation.expectedRevision, idempotencyKey: operation.idempotencyKey, action: operation.action }, 'PATCH')); }
+    catch (cause) {
+      // A confirmed CAS rejection committed nothing. A later explicit retry may use the freshly read revision.
+      // Unknown transport/acknowledgement failures must keep the original receipt and payload.
+      if (cause instanceof ProjectRevisionConflict) pendingOperations.delete(signature);
+      throw cause;
+    }
+    if (operation.action.type === 'comment') {
+      const created = saved.record.comments.filter(one => !operation.commentBefore.includes(one.id));
+      if (created.length !== 1) throw new Error('의견 저장 결과를 확인하지 못했습니다.');
+      return { ...saved, commentId: created[0].id };
+    }
+    if (operation.action.type === 'request') pendingOperations.delete(signature);
+    return saved;
+  };
   const save = async (next: ProjectRecord, revision: number) => {
+    // Only an explicit retry of the exact captured request may recover an unknown ACK.
+    // A refreshed cache can contain its canonical work and a later project revision.
+    const recordText = JSON.stringify(next);
+    for (const [signature, operation] of pendingOperations) {
+      if (operation.action.type === 'request' && operation.expectedRevision === revision &&
+        operation.frozenRequest?.projectId === next.id && operation.frozenRequest.recordText === recordText) {
+        return transmit(signature, operation, next.id);
+      }
+    }
     const previous = records.get(next.id);
     if (!previous || previous.revision !== revision) throw new Error('프로젝트 버전을 다시 확인하세요.');
     const old = previous.record;
@@ -75,25 +109,198 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
     const newComment = next.comments.find(one => !old.comments.some(before => before.id === one.id));
     const signature = action.type === 'comment' && newComment
       ? `comment:${next.id}:${newComment.id}` : JSON.stringify({ id: next.id, revision, action });
-    const operation = pendingOperations.get(signature) ?? { expectedRevision: revision, idempotencyKey: crypto.randomUUID(), action, commentBefore: old.comments.map(one => one.id) };
+    const operation = pendingOperations.get(signature) ?? { expectedRevision: revision, idempotencyKey: crypto.randomUUID(), action, commentBefore: old.comments.map(one => one.id), ...(action.type === 'request' ? { frozenRequest: { projectId: next.id, recordText } } : {}) };
+    if (operation.action.type === 'request' && operation.frozenRequest?.recordText !== recordText) throw new Error('보관한 요청 입력을 다시 확인하세요.');
     pendingOperations.set(signature, operation);
-    let saved: ProjectSnapshot;
-    try { saved = view(await post(`${base}/${next.id}`, { expectedRevision: operation.expectedRevision, idempotencyKey: operation.idempotencyKey, action: operation.action }, 'PATCH')); }
+    return transmit(signature, operation, next.id);
+  };
+  type RecoveryEnvelope = { expectedRevision: number; idempotencyKey: string; action: Action };
+  type RecoveryMeta = { schemaVersion: 1; generation: string; bodyHash: string; quoteHash: string; actorId: string; documentId: string; resultId: string;
+    target: { kind: 'word-comment'; id: string }; phase: WordFeedbackRecovery['phase']; requestWork: boolean;
+    nativeHash?: string; commentId?: string; envelope?: RecoveryEnvelope };
+  const recoveryKeys = (documentId: string) => {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(documentId)) throw new Error('복구 문서 식별자를 확인하세요.');
+    return { body: `word-feedback:${documentId}:body`, quote: `word-feedback:${documentId}:quote`, meta: `word-feedback:${documentId}:meta` };
+  };
+  const recoveryError = () => new Error('보관한 의견 복구 기록을 확인하세요.');
+  const boundedText = (value: unknown, empty = false): value is string => typeof value === 'string' &&
+    [...value].length <= 8000 && (empty || !!value.trim()) && ![...value].some(char => char.charCodeAt(0) < 32 && !'\t\n\r'.includes(char));
+  const exactKeys = (value: object, keys: string[]) => Object.keys(value).every(key => keys.includes(key));
+  const recoveryHash = async (text: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), one => one.toString(16).padStart(2, '0')).join('');
+  const readRecovery = async (project: string, documentId: string) => {
+    const snapshot = view(await request(`${base}/${project}`)), keys = recoveryKeys(documentId);
+    const raw = snapshot.record.drafts[keys.meta]; if (!raw) return { snapshot, pending: null };
+    let meta: RecoveryMeta;
+    try { meta = JSON.parse(raw); } catch { throw recoveryError(); }
+    const body = snapshot.record.drafts[keys.body], quote = snapshot.record.drafts[keys.quote] ?? '';
+    if (!meta || !exactKeys(meta, ['schemaVersion', 'generation', 'bodyHash', 'quoteHash', 'actorId', 'documentId', 'resultId', 'target', 'phase', 'requestWork', 'nativeHash', 'commentId', 'envelope']) ||
+      meta.schemaVersion !== 1 || typeof meta.generation !== 'string' || !/^[a-f0-9-]{36}$/.test(meta.generation) ||
+      !/^[a-f0-9]{64}$/.test(meta.bodyHash) || !/^[a-f0-9]{64}$/.test(meta.quoteHash) || meta.actorId !== actorId || meta.documentId !== documentId || typeof meta.resultId !== 'string' ||
+      !meta.target || !exactKeys(meta.target, ['kind', 'id']) || meta.target.kind !== 'word-comment' || typeof meta.target.id !== 'string' || !meta.target.id ||
+      !['native', 'comment', 'request'].includes(meta.phase) || typeof meta.requestWork !== 'boolean' ||
+      (meta.nativeHash !== undefined && !/^[a-f0-9]{64}$/.test(meta.nativeHash)) ||
+      (meta.commentId !== undefined && typeof meta.commentId !== 'string') || !boundedText(body) || !boundedText(quote, true)) throw recoveryError();
+    if (await recoveryHash(body) !== meta.bodyHash || await recoveryHash(quote) !== meta.quoteHash) throw recoveryError();
+    const result = snapshot.record.results.find(one => one.id === meta.resultId);
+    if (!result || result.document.product !== 'word' || result.document.id !== documentId) throw recoveryError();
+    if (meta.envelope) {
+      const e = meta.envelope, a = e.action;
+      if (!exactKeys(e, ['expectedRevision', 'idempotencyKey', 'action']) || !Number.isSafeInteger(e.expectedRevision) || e.expectedRevision < 1 ||
+        typeof e.idempotencyKey !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(e.idempotencyKey) || !a || typeof a !== 'object') throw recoveryError();
+      if (meta.phase === 'comment') {
+        const source = a.source as { documentId: string; revision: number; snapshotHash: string } | undefined;
+        if (!exactKeys(a, ['type', 'resultId', 'target', 'source']) || a.type !== 'comment' || a.resultId !== meta.resultId || !equal(a.target, meta.target) ||
+          !source || !exactKeys(source, ['documentId', 'revision', 'snapshotHash']) || source.documentId !== documentId ||
+          !Number.isSafeInteger(source.revision) || source.revision < 1 || !/^[a-f0-9]{64}$/.test(source.snapshotHash)) throw recoveryError();
+      } else if (meta.phase !== 'request' || !exactKeys(a, ['type', 'commentId']) || a.type !== 'request' || a.commentId !== meta.commentId) throw recoveryError();
+    }
+    return { snapshot, pending: { meta, body, quote } };
+  };
+  const writeRecoveryDraft = async (project: string, key: string, text: string, guard?: { metaKey: string; expected: string }) => {
+    if (!boundedText(text, true)) throw recoveryError();
+    const current = view(await request(`${base}/${project}`));
+    if (guard && (current.record.drafts[guard.metaKey] ?? '') !== guard.expected && (key !== guard.metaKey || current.record.drafts[key] !== text)) throw recoveryError();
+    if ((current.record.drafts[key] ?? '') === text) return current;
+    try { return view(await post(`${base}/${project}`, { expectedRevision: current.revision, idempotencyKey: crypto.randomUUID(), action: { type: 'draft', key, text } }, 'PATCH')); }
     catch (cause) {
-      // A confirmed CAS rejection committed nothing. A later explicit retry may use the freshly read revision.
-      // Unknown transport/acknowledgement failures must keep the original receipt and payload.
-      if (cause instanceof ProjectRevisionConflict) pendingOperations.delete(signature);
+      if (cause instanceof ProjectRevisionConflict) throw cause;
+      // A lost preparation ACK cannot authorize an effect until the server confirms the exact draft.
+      const verified = view(await request(`${base}/${project}`));
+      if ((verified.record.drafts[key] ?? '') !== text) throw cause;
+      return verified;
+    }
+  };
+  const persistRecovery = async (project: string, meta: RecoveryMeta, previous?: RecoveryMeta) => {
+    const raw = JSON.stringify(meta), metaKey = recoveryKeys(meta.documentId).meta;
+    await writeRecoveryDraft(project, metaKey, raw, { metaKey, expected: previous ? JSON.stringify(previous) : '' });
+    const checked = await readRecovery(project, meta.documentId);
+    if (!checked.pending || !equal(checked.pending.meta, meta) ||
+      (meta.envelope && checked.snapshot.revision < meta.envelope.expectedRevision)) throw recoveryError();
+    return checked;
+  };
+  const prepareRecovery = async (project: string, meta: RecoveryMeta, action: Action) => {
+    const captured = await readRecovery(project, meta.documentId);
+    if (!captured.pending) throw recoveryError();
+    const advancing = { ...captured.pending.meta, phase: meta.phase };
+    if (meta.commentId !== undefined) advancing.commentId = meta.commentId; else delete advancing.commentId;
+    if (!equal(advancing, meta)) throw recoveryError();
+    const current = captured.snapshot;
+    const prepared: RecoveryMeta = { ...meta, envelope: { expectedRevision: current.revision + 1, idempotencyKey: crypto.randomUUID(), action } };
+    // Preparation and its future action are bound to this exact CAS; do not infer a future revision.
+    const text = JSON.stringify(prepared); if (!boundedText(text)) throw recoveryError();
+    try { view(await post(`${base}/${project}`, { expectedRevision: current.revision, idempotencyKey: crypto.randomUUID(), action: { type: 'draft', key: recoveryKeys(meta.documentId).meta, text } }, 'PATCH')); }
+    catch (cause) {
+      if (cause instanceof ProjectRevisionConflict) throw cause;
+      const verified = await readRecovery(project, meta.documentId);
+      if (!verified.pending || !equal(verified.pending.meta, prepared) || verified.snapshot.revision < prepared.envelope!.expectedRevision) throw cause;
+    }
+    const verified = await readRecovery(project, meta.documentId);
+    if (!verified.pending || !equal(verified.pending.meta, prepared) || verified.snapshot.revision < prepared.envelope!.expectedRevision) throw recoveryError();
+    return verified.pending;
+  };
+  const recoveryComment = (snapshot: ProjectSnapshot, meta: RecoveryMeta, body: string, quote: string, commentId?: string) => {
+    const matches = snapshot.record.comments.filter(one => (!commentId || one.id === commentId) && one.actor.kind === 'human' && one.actor.id === actorId &&
+      one.resultId === meta.resultId && equal(one.target, { ...meta.target, quote }) && one.body === body &&
+      one.pin.document.product === 'word' && one.pin.document.id === meta.documentId);
+    if (matches.length !== 1) throw recoveryError(); return matches[0]!;
+  };
+  const transmitRecovery = async (project: string, pending: { meta: RecoveryMeta; body: string; quote: string }) => {
+    const { meta, body, quote } = pending, e = meta.envelope!;
+    const action = e.action.type === 'comment' ? { ...e.action, target: { ...meta.target, quote }, body } : { ...e.action, request: body };
+    try { return view(await post(`${base}/${project}`, { expectedRevision: e.expectedRevision, idempotencyKey: e.idempotencyKey, action }, 'PATCH')); }
+    catch (cause) {
+      if (cause instanceof ProjectRevisionConflict) {
+        const reset = { ...meta }; delete reset.envelope;
+        await persistRecovery(project, { ...reset, phase: meta.phase === 'comment' ? 'native' : 'comment' }, meta);
+      }
       throw cause;
     }
-    if (operation.action.type === 'comment') {
-      const created = saved.record.comments.filter(one => !operation.commentBefore.includes(one.id));
-      if (created.length !== 1) throw new Error('의견 저장 결과를 확인하지 못했습니다.');
-      return { ...saved, commentId: created[0].id };
+  };
+  const retireRecovery = async (project: string, documentId: string, snapshot: ProjectSnapshot) => {
+    // One captured CAS retires this generation. Separate buffers stay bounded and private;
+    // deleting them later could erase a newer begin. Its hashes must validate before any effect.
+    const metaKey = recoveryKeys(documentId).meta;
+    try { view(await post(`${base}/${project}`, { expectedRevision: snapshot.revision, idempotencyKey: crypto.randomUUID(), action: { type: 'draft', key: metaKey, text: '' } }, 'PATCH')); }
+    catch (cause) {
+      if (cause instanceof ProjectRevisionConflict) throw cause;
+      const current = view(await request(`${base}/${project}`));
+      if (current.record.drafts[metaKey]) throw cause;
     }
-    return saved;
+  };
+  const feedbackRecovery: NonNullable<ProjectRepository['feedbackRecovery']> & { cancel(project: string, documentId: string, targetId: string): Promise<void> } = {
+    begin: async (project, intent) => {
+      const existing = await readRecovery(project, intent.documentId);
+      if (existing.pending) {
+        const one = existing.pending;
+        if (!equal({ documentId: one.meta.documentId, resultId: one.meta.resultId, target: { ...one.meta.target, quote: one.quote }, body: one.body, requestWork: one.meta.requestWork },
+          { ...intent, requestWork: (intent as typeof intent & { requestWork?: boolean }).requestWork ?? false })) throw recoveryError();
+        return;
+      }
+      if (intent.target.kind !== 'word-comment' || !boundedText(intent.body) || intent.body !== intent.body.trim() || !boundedText(intent.target.quote, true)) throw recoveryError();
+      const keys = recoveryKeys(intent.documentId);
+      const guard = { metaKey: keys.meta, expected: '' };
+      await writeRecoveryDraft(project, keys.body, intent.body, guard); await writeRecoveryDraft(project, keys.quote, intent.target.quote, guard);
+      await persistRecovery(project, { schemaVersion: 1, generation: crypto.randomUUID(), bodyHash: await recoveryHash(intent.body), quoteHash: await recoveryHash(intent.target.quote), actorId, documentId: intent.documentId, resultId: intent.resultId,
+        target: { kind: 'word-comment', id: intent.target.id }, phase: 'native', requestWork: (intent as typeof intent & { requestWork?: boolean }).requestWork ?? false });
+    },
+    read: async (project, documentId) => {
+      const { pending } = await readRecovery(project, documentId); if (!pending) return null;
+      return { documentId, resultId: pending.meta.resultId, target: { ...pending.meta.target, quote: pending.quote }, body: pending.body,
+        phase: pending.meta.phase, requestWork: pending.meta.requestWork, ...(pending.meta.nativeHash ? { nativeHash: pending.meta.nativeHash } : {}), ...(pending.meta.commentId ? { commentId: pending.meta.commentId } : {}) };
+    },
+    nativeSnapshot: async (project, documentId, snapshotHash) => {
+      const { pending } = await readRecovery(project, documentId);
+      if (!pending || !/^[a-f0-9]{64}$/.test(snapshotHash) || (pending.meta.nativeHash && pending.meta.nativeHash !== snapshotHash)) throw recoveryError();
+      await persistRecovery(project, { ...pending.meta, nativeHash: snapshotHash }, pending.meta);
+    },
+    comment: async (project, documentId, pin) => {
+      const captured = await readRecovery(project, documentId), snapshot = captured.snapshot; let pending = captured.pending; if (!pending || pin.document.product !== 'word' || pin.document.id !== documentId) throw recoveryError();
+      const source = await getSource(pin);
+      if (!pending.meta.nativeHash || pending.meta.nativeHash !== source.snapshotHash) throw recoveryError();
+      if (pending.meta.phase === 'request' || pending.meta.commentId) {
+        const comment = recoveryComment(snapshot, pending.meta, pending.body, pending.quote, pending.meta.commentId);
+        if (comment.pin.revision !== pin.revision || comment.pin.text !== pin.text) throw recoveryError();
+        return { ...snapshot, commentId: comment.id };
+      }
+      if (pending.meta.envelope) { if (!equal(pending.meta.envelope.action.source, source)) throw recoveryError(); }
+      else pending = await prepareRecovery(project, { ...pending.meta, phase: 'comment' }, { type: 'comment', resultId: pending.meta.resultId, target: pending.meta.target, source });
+      const saved = await transmitRecovery(project, pending), comment = recoveryComment(saved, pending.meta, pending.body, pending.quote);
+      if (comment.pin.revision !== pin.revision || comment.pin.text !== pin.text) throw recoveryError();
+      const done = { ...pending.meta }; delete done.envelope; await persistRecovery(project, { ...done, commentId: comment.id }, pending.meta);
+      return { ...saved, commentId: comment.id };
+    },
+    request: async (project, documentId, commentId, body) => {
+      const captured = await readRecovery(project, documentId), snapshot = captured.snapshot; let pending = captured.pending; if (!pending || pending.body !== body) throw recoveryError();
+      const comment = recoveryComment(snapshot, pending.meta, body, pending.quote, commentId);
+      const source = await getSource(comment.pin);
+      if (!pending.meta.nativeHash || pending.meta.nativeHash !== source.snapshotHash) throw recoveryError();
+      if (pending.meta.commentId && pending.meta.commentId !== commentId) throw recoveryError();
+      if (!pending.meta.envelope || pending.meta.envelope.action.type !== 'request') pending = await prepareRecovery(project,
+        { ...pending.meta, phase: 'request', commentId }, { type: 'request', commentId });
+      const saved = await transmitRecovery(project, pending), committed = recoveryComment(saved, pending.meta, body, pending.quote, comment.id);
+      const works = saved.record.works.filter(one => one.commentId === comment.id && one.request === body && one.id === committed.workId);
+      if (works.length !== 1 || !works[0]!.inputs.some(one => one.id === committed.pin.id && one.revision === committed.pin.revision && one.text === committed.pin.text)) throw recoveryError();
+      return saved;
+    },
+    cancel: async (project, documentId, targetId) => {
+      const { snapshot, pending } = await readRecovery(project, documentId);
+      if (!pending || pending.meta.target.id !== targetId || pending.meta.phase !== 'native' || pending.meta.nativeHash || pending.meta.envelope || pending.meta.commentId ||
+        snapshot.record.comments.some(one => one.target.kind === 'word-comment' && one.target.id === targetId)) throw recoveryError();
+      await retireRecovery(project, documentId, snapshot);
+    },
+    clear: async (project, documentId) => {
+      const { snapshot, pending } = await readRecovery(project, documentId);
+      if (pending) {
+        if (!pending.meta.commentId || pending.meta.phase === 'native') throw recoveryError();
+        const comment = recoveryComment(snapshot, pending.meta, pending.body, pending.quote, pending.meta.commentId);
+        if (pending.meta.phase === 'request' && snapshot.record.works.filter(one => one.commentId === comment.id && one.id === comment.workId && one.request === pending.body).length !== 1) throw recoveryError();
+      }
+      if (!pending) return;
+      await retireRecovery(project, documentId, snapshot);
+    }
   };
   return {
-    writable: role !== 'viewer', canCreateDocument: false, save,
+    writable: role !== 'viewer', canCreateDocument: false, save, feedbackRecovery,
     execution: async (project, work) => executionView(await request(executionPath(project, work)), project, work),
     execute: (project, work, expectedRevision) => executionPost(project, work, '', { expectedRevision }),
     acceptExecution: (project, work, attempt) => executionPost(project, work, `/${attempt}/accept`, {}),

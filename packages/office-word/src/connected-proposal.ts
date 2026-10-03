@@ -15,7 +15,7 @@ export function previewConnectedWordRevision(options: {
   const beforeText = wordFileText(before.document, ''), afterText = wordFileText(after.document, '');
   if (native() !== beforeText) return null;
   const found = resolveCommentTarget({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNodes().get(id) }, proposal.targetId);
-  if (found.status !== 'located') return null;
+  if (found.status !== 'located' || found.anchors.length !== 1) return null;
   const node = editor.dataStore.getNodes().get(found.anchor.sid);
   const parent = node?.parentId ? editor.dataStore.getNodes().get(node.parentId) : undefined;
   if (!node || typeof node.text !== 'string' || found.anchor.start !== 0 || found.anchor.end !== node.text.length ||

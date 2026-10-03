@@ -66,7 +66,7 @@ export interface WordRuntime {
   /** Wait for entered native commands; refuse an unfinished or changed input. */
   flushCommands: () => Promise<void>;
   /** Freeze input readiness across an awaited external proposal approval. */
-  captureInputIntent: (options?: { command?: 'addWordBookmark'; selection?: boolean }) => ((committed?: boolean) => boolean) | null;
+  captureInputIntent: (options?: { command?: 'addWordBookmark' | 'insertComment'; selection?: boolean | 'gesture' }) => ((committed?: boolean) => boolean) | null;
 }
 
 export interface WordRuntimeOptions {
@@ -182,11 +182,15 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
     author: options.author ?? { name: '사용자', date: () => new Date().toISOString().slice(0, 10) }
   });
   const pendingCommands = new Set<Promise<boolean>>();
-  let commandVersion = 0, lastCommand = '';
+  let commandVersion = 0, lastCommand = '', startingCommand = '';
   const execute = editor.executeCommand.bind(editor);
   editor.executeCommand = (command, payload) => {
     commandVersion++; lastCommand = command;
-    const pending = execute(command, payload);
+    // canExecute runs synchronously before execute returns its pending promise.
+    // Keep that one owned dispatch visible to its captured intent as well.
+    startingCommand = command;
+    let pending: Promise<boolean>;
+    try { pending = execute(command, payload); } finally { startingCommand = ''; }
     pendingCommands.add(pending);
     void pending.then(() => pendingCommands.delete(pending), () => pendingCommands.delete(pending));
     return pending;
@@ -207,20 +211,21 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
     return one && (container.contains(one.anchorNode) || container.contains(one.focusNode))
       ? [one.anchorNode, one.anchorOffset, one.focusNode, one.focusOffset] as const : null;
   };
-  const captureInputIntent = (options?: { command?: 'addWordBookmark'; selection?: boolean }) => {
+  const captureInputIntent = (options?: { command?: 'addWordBookmark' | 'insertComment'; selection?: boolean | 'gesture' }) => {
     if (disposed || composing || pendingCommands.size || container.querySelector('.w-math-draft')) return null;
     const version = inputVersion, epoch = dataStore.getDocumentEpoch(), commands = commandVersion;
-    const gesture = selectionGestureVersion, selection = options?.selection ? domSelection() : null;
+    const gesture = selectionGestureVersion, selection = options?.selection === true ? domSelection() : null;
     const selectionCurrent = (committed: boolean) => {
       if (!options?.selection) return true;
       const next = domSelection();
-      return selectionGestureVersion === gesture && (committed || (selection === null ? next === null :
+      return selectionGestureVersion === gesture && (options.selection === 'gesture' || committed || (selection === null ? next === null :
         next !== null && selection.every((value, index) => value === next[index])));
     };
-    // One explicitly owned bookmark command may hold the pending slot. Any
+    // One explicitly owned command may hold the dispatch or pending slot. Any
     // second command, input, account/root or selection change retires its intent.
     const commandsCurrent = () => commandVersion === commands && !pendingCommands.size ||
-      !!options?.command && commandVersion === commands + 1 && lastCommand === options.command && pendingCommands.size === 1;
+      !!options?.command && commandVersion === commands + 1 && lastCommand === options.command &&
+        (pendingCommands.size === 1 || !pendingCommands.size && startingCommand === options.command);
     // Only the exact successfully committed native transaction may use this
     // postcommit sample. User gestures, input and root/command epochs still bind.
     return (committed = false) => !disposed && !composing && commandsCurrent() && selectionCurrent(committed) && inputVersion === version &&

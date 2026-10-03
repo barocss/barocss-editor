@@ -16,7 +16,7 @@ import { Editor, Extension } from '@barocss/editor-core';
 import type { ModelSelection } from '@barocss/editor-core';
 import { transaction } from '@barocss/model';
 import { childOfType, childrenOf, type DocumentAccess, type DocumentNode } from '@barocss/office-text';
-import { commentThreads, freeThreadId, commentIdentityInUse } from './comments';
+import { commentThreads, freeThreadId, commentIdentityInUse, collectCommentRange, resolveCommentTarget } from './comments';
 
 export interface InsertWordCommentPayload {
   selection?: ModelSelection;
@@ -156,6 +156,12 @@ export class WordCommentExtension implements Extension {
     const doc = this._doc(editor);
     const resources = childOfType(doc, doc.getNode(doc.rootId), 'resources');
     if (!resources?.sid) return false;
+    const range = collectCommentRange(doc, selection);
+    if (!range) return false;
+    const multi = range.anchors.length > 1;
+    // Adding a rich range must not replace another thread's overlapping marks.
+    if (multi && range.anchors.some(anchor => doc.getNode(anchor.sid)?.marks?.some(mark => mark.stype === 'commentRef' &&
+      mark.range && mark.range[0] < anchor.end && mark.range[1] > anchor.start))) return false;
 
     const id = payload?.id ?? freeThreadId(doc);
     if (commentIdentityInUse(doc, id)) return false;
@@ -179,26 +185,18 @@ export class WordCommentExtension implements Extension {
       const result = await transaction(
         editor,
         [
-          {
+          ...range.anchors.map((anchor, part) => ({
             type: 'applyMark',
-            payload: {
-              range: {
-                startNodeId: selection.startNodeId,
-                startOffset: selection.startOffset,
-                endNodeId: selection.endNodeId,
-                endOffset: selection.endOffset
-              },
-              markType: 'commentRef',
-              attrs: { id }
-            }
-          },
+            payload: { range: { startNodeId: anchor.sid, startOffset: anchor.start, endNodeId: anchor.sid, endOffset: anchor.end },
+              markType: 'commentRef', attrs: multi ? { id, part } : { id } }
+          })),
           {
             type: 'addChild',
             payload: {
               parentId: resources.sid,
               child: {
                 stype: 'commentThread',
-                attributes: { id, resolved: false },
+                attributes: { id, resolved: false, ...(multi ? { coverage: range.anchors.map(anchor => ({ text: doc.getNode(anchor.sid)!.text!.slice(anchor.start, anchor.end) })) } : {}) },
                 content: [entryNode(this._author, text)]
               }
             }
@@ -253,15 +251,14 @@ export class WordCommentExtension implements Extension {
     if (!thread) return false;
 
     const operations: unknown[] = [];
-    if (thread.anchor) {
-      operations.push({
-        type: 'removeMark',
-        payload: {
-          nodeId: thread.anchor.sid,
-          markType: 'commentRef',
-          range: [thread.anchor.start, thread.anchor.end]
-        }
-      });
+    const resolved = resolveCommentTarget(this._doc(editor), id!);
+    if (resolved.status === 'ambiguous') return false;
+    const anchors = resolved.status === 'located' ? resolved.anchors : [];
+    // Refuse damaged ordered coverage rather than remove a thread while leaving
+    // its unidentified marks. Legacy missing-anchor threads remain removable.
+    if (this._doc(editor).getNode(thread.sid)?.attributes?.coverage !== undefined && resolved.status !== 'located') return false;
+    for (const anchor of anchors) {
+      operations.push({ type: 'removeMark', payload: { nodeId: anchor.sid, markType: 'commentRef', range: [anchor.start, anchor.end] } });
     }
 
     const doc = this._doc(editor);
