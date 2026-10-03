@@ -18,7 +18,13 @@
       "default": "./src/ui.ts"
     },
     "./ui.css": "./src/ui.css",
-    "./workspace": "./src/workspace-adapter.ts"
+    "./workspace": "./src/workspace-adapter.ts",
+    "./criterion-confirmation": {
+      "types": "./dist/criterion/criterion-confirmation.d.ts",
+      "node": "./dist/criterion/index.js",
+      "import": "./src/criterion-confirmation.ts",
+      "default": "./dist/criterion/index.js"
+    }
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -40,6 +46,11 @@
         "types": "./dist/workspace.d.ts",
         "import": "./dist/workspace.js",
         "default": "./dist/workspace.js"
+      },
+      "./criterion-confirmation": {
+        "types": "./dist/criterion/criterion-confirmation.d.ts",
+        "import": "./dist/criterion/index.js",
+        "default": "./dist/criterion/index.js"
       }
     },
     "files": [
@@ -51,12 +62,14 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && pnpm build:criterion",
     "dev": "vite build --watch",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "build:criterion": "vite build --config vite.criterion.config.ts",
+    "test:criterion:node": "pnpm build:criterion && node test/criterion-confirmation.node.mjs"
   },
   "peerDependencies": {
     "react": ">=18",
