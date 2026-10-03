@@ -1,3 +1,4 @@
+import { createCriterionClient, criterionRequest, criterionHash, type CriterionConfirmationHost, type CriterionRequest } from './criterion-confirmation-client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-word';
 import { Button } from '@barocss/office-ui';
@@ -67,6 +68,8 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const shell = useRef<HTMLDivElement>(null);
   const canEdit = role !== 'viewer' && problem?.kind !== 'denied';
   const authority = useRef(canEdit); authority.current = canEdit;
+  const criterionAuthority = useRef({ canEdit, version: 0 });
+  if (criterionAuthority.current.canEdit !== canEdit) criterionAuthority.current = { canEdit, version: criterionAuthority.current.version + 1 };
   const dirty = !!current && (current.confirmed === null || stableWordSnapshotText(current.text) !== stableWordSnapshotText(current.confirmed));
   const signalProtection = useCallback((safe: boolean) => {
     protectedRef.current = safe; setProtectedInput(safe);
@@ -315,6 +318,60 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     link.href = url; link.download = wordFileName(runtime.current ? wordTitle(runtime.current.value.editor.dataStore) : '초안'); link.click(); URL.revokeObjectURL(url);
   };
   const status = !protectedInput ? '복구 저장 실패' : nestedInput ? '수식 입력 완료 필요' : busy ? '저장 중…' : fixed.current ? '저장 확인 필요' : dirty ? '저장되지 않음' : current ? '서버 저장 확인됨' : '문서 선택';
+  const criterionConfirmation = useMemo<CriterionConfirmationHost>(() => {
+    const captureOwner = () => {
+      const one = currentRef.current, live = runtime.current;
+      if (!one?.documentId || !one.head || one.confirmed === null || !live || live.generation !== one.generation ||
+        active.current !== client || !authority.current || !live.value.editor.isEditable || nestedRef.current ||
+        busyRef.current || fixed.current || problemRef.current || !protectedRef.current) throw new Error('confirmation_not_ready');
+      const native = () => stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), ''));
+      const before = native();
+      if (before !== stableWordSnapshotText(one.confirmed)) throw new Error('save_before_confirmation');
+      const root = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
+      const permission = criterionAuthority.current.version;
+      const current = () => active.current === client && authority.current && criterionAuthority.current.version === permission &&
+        runtime.current === live && currentRef.current?.generation === one.generation && currentRef.current.documentId === one.documentId &&
+        live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch && native() === before &&
+        !nestedRef.current && !busyRef.current && !fixed.current && !problemRef.current;
+      return { one, current, transport: createCriterionClient(authorizedFetch, tenantId, one.documentId) };
+    };
+    return {
+      async load() {
+        const { one, current, transport } = captureOwner();
+        const basis = await transport.context();
+        if (!current() || basis.documentRevision !== one.head!.revision || basis.snapshotHash !== one.head!.snapshotHash ||
+          basis.snapshotText !== one.confirmed) throw new Error('confirmation_context_changed');
+        const receipts = await transport.list();
+        if (!current()) throw new Error('confirmation_owner_changed');
+        return { basis, receipts };
+      },
+      async confirm(basis, intent) {
+        const { one, current, transport } = captureOwner();
+        if (!intent() || basis.documentRevision !== one.head!.revision || basis.snapshotHash !== one.head!.snapshotHash ||
+          basis.snapshotText !== one.confirmed) throw new Error('confirmation_context_changed');
+        const pendingKey = `wonffice.criterion-confirmation.v1:${encodeURIComponent(JSON.stringify([issuer, subject, tenantId, workspaceId, one.documentId, basis.actorIdentityId, basis.documentRevision, basis.snapshotHash, basis.authorityEpoch]))}`;
+        const stored = localStorage.getItem(pendingKey);
+        let attempt: CriterionRequest;
+        if (stored) {
+          const candidate = JSON.parse(stored) as CriterionRequest;
+          if (typeof candidate.idempotencyKey !== 'string' || JSON.stringify(candidate) !== JSON.stringify(criterionRequest(basis, candidate.idempotencyKey))) throw new Error('invalid_confirmation_recovery');
+          attempt = candidate;
+        } else {
+          attempt = criterionRequest(basis);
+          localStorage.setItem(pendingKey, JSON.stringify(attempt));
+        }
+        const requestHash = await criterionHash(JSON.stringify(['criterion-confirmation-v1', tenantId, one.documentId, basis.actorIdentityId, attempt]));
+        if (!current() || !intent()) throw new Error('confirmation_intent_changed');
+        const receipt = await transport.confirm(attempt, basis.actorIdentityId);
+        if (receipt.actorIdentityId !== basis.actorIdentityId || receipt.requestHash !== requestHash) throw new Error('invalid_confirmation_receipt');
+        // The immutable server record remains valid for its original context even
+        // if the user navigates while its acknowledgement is in flight. Never
+        // attach that acknowledgement to a different current document or target.
+        if (!current() || !intent()) throw new Error('confirmation_acknowledgement_for_old_context');
+        return receipt;
+      }
+    };
+  }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject]);
   const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}<Button disabled={!current || nestedInput} onClick={exportNative}>Word 파일 내보내기</Button></>;
   const navigation = <aside aria-label="서버 Word 목록">
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverWordFileText(createStarterDocument(), ''))}>새 Word</Button>}
@@ -333,7 +390,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Word 자료를 확인하는 중입니다.</p>}
-    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ headerActions: actions, headerNavigation, navigation,
+    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ headerActions: actions, headerNavigation, navigation, criterionConfirmation,
       feedbackDocumentId: () => active.current === client && currentRef.current?.generation === current.generation ? currentRef.current.documentId ?? '' : '',
       canComment: () => active.current === client && currentRef.current?.generation === current.generation && authority.current &&
         !busyRef.current && !nestedRef.current && problemRef.current?.kind !== 'conflict' && protectedRef.current,

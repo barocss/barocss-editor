@@ -359,6 +359,8 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     expect(receipt.context).toStrictEqual(basis.context); expect(receipt.verification).toBe('not-run'); expect(receipt.scope).toBe('writer-self-confirmation');
     expect(await exported(page)).toStrictEqual(expectedAuthored);
     expect((await canonical(page, root, requests.bearer, source.documentId, expectedAuthored)).document).toStrictEqual(committed.document);
+    await confirmation(page).getByText('원본 · 문서에 작성한 요구사항과 보관된 결정', { exact: true }).evaluate(node => node.scrollIntoView({ block: 'start' }));
+    await expect(confirmation(page).getByRole('status')).toContainText(receipt.actorIdentityId);
     await page.screenshot({ path: join(directory, 'criterion-confirmed-native.png'), animations: 'disabled' });
     phase = 'native-input-and-whole-history-after-confirmation'; checkpoint();
     await caret(page, decisionText, 'End'); await page.keyboard.insertText(decisionAddition);
@@ -414,6 +416,9 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     expect(next.context.decision.snapshotText).toBe(pin); expect(next.context.decision.currentSnapshotText).toBe(pinV2);
     expect(await records()).toStrictEqual([receipt]); expect((await inspect(source.documentId)).document).toStrictEqual(nextCommitted.document);
     await ensureBusinessPanel(page); await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
+    await confirmation(page).getByText('원본 · 문서에 작성한 요구사항과 보관된 결정', { exact: true }).evaluate(node => node.scrollIntoView({ block: 'start' }));
+    await expect(confirmation(page).getByRole('status')).toContainText('미확인');
+    await page.screenshot({ path: join(directory, 'criterion-new-context-unconfirmed.png'), animations: 'disabled' });
     phase = 'ambiguous-canonical-source'; checkpoint();
     const ambiguousNative = structuredClone(expectedV2);
     const surface = ambiguousNative.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'surface')!;

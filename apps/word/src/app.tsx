@@ -1,3 +1,4 @@
+import type { CriterionConfirmationHost } from './criterion-confirmation-client';
 import { EditorHeader, DocumentMenu, ProductMenu, CommandSearch, CommandSearchTrigger } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -80,6 +81,7 @@ function ReadOnlyControls({ enabled, children }: { enabled?: boolean; children: 
 }
 
 export interface WordServerHost {
+  criterionConfirmation?: CriterionConfirmationHost;
   headerActions?: ReactNode;
   headerNavigation?: ReactNode;
   navigation?: ReactNode;
@@ -496,7 +498,7 @@ export function App({ mount, server }: {
             onToggle={() => togglePanel('navigation')}
             /* 어느 요소에 문서가 그려졌는지는 조립하는 쪽이 안다 — `#editor` 는 이 파일의 id 다. */
             host={host.current}
-          />{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} />}</WorkspaceSidePanel> : null}
+          />{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} />}</WorkspaceSidePanel> : null}
 
         <AppMain className="w-shell-document relative" data-workspace-main>
           {clipboard.feedback}
