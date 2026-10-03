@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Button, Icon, TextField, useOfficeLocale } from '@barocss/office-ui';
+import { useOfficeLocale } from '@barocss/office-ui';
 import { captureProductNavigation, productDocumentHost } from '@barocss/shared';
 import { beginWorkspaceNavigation, prepareWorkspaceBeforeLeave } from './workspace-navigation';
 import { OfficeWorkspace, readProductDocument, workspaceIdentity, type WorkspaceDocument } from './workspace';
@@ -7,10 +7,10 @@ import { buildLocalCatalogTree } from './catalog-tree';
 import { documentURL, products, isProduct, referenceKey, type Product } from './products';
 import { readLibraryOrigin, saveLibraryOrigin, workspaceReturnURL } from './catalog-origin';
 import type { ProjectSnapshot } from '@barocss/shared';
-import './workspace-frame.css';
+import { WorkspaceFramePresentation, type WorkspaceFrameLabels, type WorkspaceTreeView } from './workspace-frame-presentation';
 
 type Perspective = 'project' | 'my';
-interface TreeView { query: string; product: Product | 'all'; collapsed: string[]; scroll: number; }
+type TreeView = WorkspaceTreeView;
 const freshView = (): TreeView => ({ query: '', product: 'all', collapsed: [], scroll: 0 });
 function readView(workspace: string, perspective: Perspective): TreeView {
   try {
@@ -107,41 +107,45 @@ export function WorkspaceFrame({ children, nativeRoot, expected }: { children?: 
     changeView({ query: '', product: 'all', collapsed: [] });
     requestAnimationFrame(() => tree.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' }));
   };
-  return <div className="ow-workspace-frame" data-workspace-frame data-focus-mode={focused || undefined}>
-    <nav className="ow-workspace-rail" aria-label={t('workspace.rail.navigation')}>
-      <Button square tone="quiet" ariaLabel={t('workspace.rail.home')} title={t('workspace.rail.home')} disabled={busy} onClick={() => void open(undefined, undefined, 'projects')}><Icon name="workspace-home" size={20} /></Button>
-      <Button square tone="quiet" ariaLabel={t('workspace.rail.files')} title={t('workspace.rail.files')} disabled={busy} onClick={() => void open()}><Icon name="workspace-files" size={20} /></Button>
-      <Button square tone="quiet" ariaLabel={t('workspace.rail.recent')} title={t('workspace.rail.recent')} disabled={busy} onClick={() => void open(undefined, undefined, 'recent')}><Icon name="recent-documents" size={20} /></Button>
-      <hr />
-      <Button square tone="quiet" ariaLabel={t('workspace.rail.projects')} title={t('workspace.rail.projects')} pressed={perspective === 'project' && !focused} onClick={() => { choose('project'); setFocused(false); }}><Icon name="workspace-projects" size={20} /></Button>
-    </nav>
-    <aside className="ow-file-navigation" aria-label={t('workspace.tree.navigation')} hidden={focused}>
-      <div className="ow-tree-header"><strong title={t('workspace.tree.local')}>{t('workspace.tree.localWorkspace')}</strong><Button tone="quiet" ariaLabel={t('workspace.tree.focus')} onClick={() => setFocused(true)}><Icon name="close" /></Button></div>
-      <div className="ow-tree-perspectives" aria-label={t('workspace.tree.perspective')}>
-        <Button pressed={perspective === 'project'} onClick={() => choose('project')}>{t('workspace.tree.project')}</Button>
-        <Button pressed={perspective === 'my'} onClick={() => choose('my')}>{t('workspace.tree.my')}</Button>
-      </div>
-      <p className="ow-tree-source">{t('workspace.tree.local')}</p>
-      <TextField ariaLabel={t('workspace.tree.search')} placeholder={t('workspace.tree.search')} value={view.query} onChange={query => changeView({ query })} />
-      <select aria-label={t('workspace.tree.product')} value={view.product} onChange={event => changeView({ product: isProduct(event.target.value) ? event.target.value : 'all' })}>
-        <option value="all">{t('workspace.tree.allProducts')}</option>{Object.entries(products).map(([id, product]) => <option key={id} value={id}>{product.label}</option>)}
-      </select>
-      <nav ref={tree} className="ow-file-tree" aria-label={t('workspace.tree.files')} onScroll={event => changeView({ scroll: event.currentTarget.scrollTop })}>
-        {!ready && <p role="status">{t('workspace.tree.loading')}</p>}
-        {ready && catalogState !== 'error' && !catalog.groups.some(group => group.entries.length) && <p className="ow-tree-empty">{t('workspace.tree.empty')}</p>}
-        {catalog.groups.map(group => <section key={group.id} data-tree-group={group.id}>
-          <div className="ow-tree-group-heading"><Button className="ow-tree-group" tone="quiet" title={group.label || undefined} aria-expanded={!view.collapsed.includes(group.id)} onClick={() => changeView({ collapsed: view.collapsed.includes(group.id) ? view.collapsed.filter(id => id !== group.id) : [...view.collapsed, group.id] })}>
-            <Icon name="disclosed" /><span>{group.label || t(group.kind === 'unlinked' ? 'workspace.tree.unlinked' : 'workspace.tree.files')}</span>
-          </Button>{group.projectId && <Button square tone="quiet" ariaLabel={t('workspace.tree.openProject', { title: group.label ?? '' })} title={t('workspace.tree.openProject', { title: group.label ?? '' })} aria-current={projectContext === group.projectId ? 'page' : undefined} disabled={busy} onClick={() => void open(undefined, group.projectId, 'projects')}><Icon name="dialog-launch" size={15} /></Button>}</div>
-          {!view.collapsed.includes(group.id) && group.entries.map(entry => <Button key={entry.id} className="ow-tree-file" tone="quiet" ariaLabel={t('workspace.tree.openOriginal', { title: entry.row.title })} title={entry.row.title} pressed={active === entry.row.key} disabled={busy || catalogState === 'error'} onMouseDown={event => event.preventDefault()} onClick={() => void open(entry.row, entry.projectId)} data-original={entry.row.key}>
-            <span className="ow-tree-product" aria-hidden><Icon name={products[entry.row.product].icon} /></span><span>{entry.row.title}</span>
-          </Button>)}
-        </section>)}
-      </nav>
-      {error && <div className="ow-tree-error"><p role="alert">{error}</p><Button onClick={() => window.dispatchEvent(new Event('wonffice:catalog-refresh'))}>{t('workspace.tree.retry')}</Button></div>}
-      <div className="ow-tree-footer">{nativeRoot && rows.some(row => row.key === active) && <Button tone="quiet" disabled={busy} onClick={revealCurrent}>{t('workspace.tree.revealCurrent')}</Button>}<Button disabled={busy} onClick={() => void open()}>{t('workspace.tree.library')}</Button></div>
-    </aside>
-    {focused && <Button className="ow-tree-restore" ariaLabel={t('workspace.tree.restore')} onClick={() => setFocused(false)}><Icon name="disclosed" /></Button>}
-    <div className="ow-native-slot" ref={slot}>{children}{entry !== 'ready' && <div className="ow-entry-status" role={entry === 'error' ? 'alert' : 'status'}><p>{t(entry === 'error' ? 'workspace.tree.unavailable' : 'workspace.tree.loading')}</p><a href={workspaceReturnURL(workspace.id)}>{t('workspace.tree.library')}</a></div>}</div>
-  </div>;
+  return <WorkspaceFramePresentation children={children} nativeSlotRef={slot} treeRef={tree}
+    groups={catalog.groups.map(group => ({ ...group, title: group.label || null, label: group.label || t(group.kind === 'unlinked' ? 'workspace.tree.unlinked' : 'workspace.tree.files') }))}
+    perspectives={[{ id: 'project', label: t('workspace.tree.project') }, { id: 'my', label: t('workspace.tree.my') }]}
+    projectPerspective="project" perspective={perspective} views={views}
+    productOptions={Object.entries(products).map(([id, product]) => ({ id: id as Product, ...product }))}
+    labels={frameLabels(t)} ready={ready} catalogState={catalogState} entry={entry}
+    entryReturnHref={workspaceReturnURL(workspace.id)} error={error} busy={busy} focused={focused}
+    active={active} projectContext={projectContext} canRevealCurrent={!!nativeRoot && rows.some(row => row.key === active)}
+    onViewChange={changeView} onPerspectiveChange={choose} onFocusChange={setFocused}
+    onOpen={(row, project) => { void open(row, project); }}
+    onNavigate={(destination, project) => { void open(undefined, project, destination === 'library' ? undefined : destination); }}
+    onRetry={() => window.dispatchEvent(new Event('wonffice:catalog-refresh'))} onRevealCurrent={revealCurrent} />;
+}
+
+/** The local controller supplies all translated labels, including its local-device source. */
+function frameLabels(t: ReturnType<typeof useOfficeLocale>['t']): WorkspaceFrameLabels {
+  return {
+    railNavigation: t('workspace.rail.navigation'),
+    home: t('workspace.rail.home'),
+    railFiles: t('workspace.rail.files'),
+    recent: t('workspace.rail.recent'),
+    projects: t('workspace.rail.projects'),
+    treeNavigation: t('workspace.tree.navigation'),
+    source: t('workspace.tree.local'),
+    workspace: t('workspace.tree.localWorkspace'),
+    focus: t('workspace.tree.focus'),
+    perspective: t('workspace.tree.perspective'),
+    search: t('workspace.tree.search'),
+    product: t('workspace.tree.product'),
+    allProducts: t('workspace.tree.allProducts'),
+    files: t('workspace.tree.files'),
+    loading: t('workspace.tree.loading'),
+    empty: t('workspace.tree.empty'),
+    retry: t('workspace.tree.retry'),
+    revealCurrent: t('workspace.tree.revealCurrent'),
+    library: t('workspace.tree.library'),
+    restore: t('workspace.tree.restore'),
+    unavailable: t('workspace.tree.unavailable'),
+    openProject: title => t('workspace.tree.openProject', { title }),
+    openOriginal: title => t('workspace.tree.openOriginal', { title })
+  };
 }

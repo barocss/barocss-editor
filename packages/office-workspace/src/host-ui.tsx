@@ -110,3 +110,6 @@ export function ProductLocation() {
   const caption = `${t('workspace.heading.localWorkspace')}${projectId ? ` · ${project?.id === projectId ? project.title : t('workspace.context.loadingProject')}` : ''}`;
   return <span aria-label={t('workspace.context.current')} title={caption}>{caption}</span>;
 }
+
+export { WorkspaceFramePresentation } from './workspace-frame-presentation';
+export type { WorkspaceFrameRow, WorkspaceFrameEntry, WorkspaceFrameGroup, WorkspaceTreeView, WorkspaceFrameLabels, WorkspaceFramePresentationProps } from './workspace-frame-presentation';
