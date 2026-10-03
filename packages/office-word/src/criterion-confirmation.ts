@@ -53,3 +53,6 @@ export function compareCriterionContext(snapshotText: string, expected: unknown)
   try { return same(captureCriterionContext(snapshotText), expected); }
   catch { return false; }
 }
+
+export { captureExecutableCriterion, getCriterionSpecimen, listCriterionSpecimens, CRITERION_EVALUATOR, evaluateRenderedCriterion } from './criterion-verification.js';
+export type { ExecutableCriterion, CriterionSpecimen, RenderedCriterionInput, RenderedCriterionEvaluation, CriterionExecutableRead } from './criterion-verification.js';
