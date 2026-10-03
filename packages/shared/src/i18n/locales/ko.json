@@ -131,5 +131,11 @@
   "site.header.insertTools": "사이트 삽입 도구",
   "word.header.documentsOutline": "문서 탐색 및 개요",
   "word.header.outline": "개요",
-  "word.header.comments": "댓글"
+  "word.header.comments": "댓글",
+  "workspace.catalog.invalidAddress": "잘못된 자료함 주소입니다.",
+  "workspace.catalog.invalidResponse": "자료함 응답을 확인하지 못했습니다.",
+  "workspace.catalog.expiredLogin": "로그인이 만료되었습니다. 다시 로그인해 주세요.",
+  "workspace.catalog.denied": "현재 계정에는 이 회사의 접근 권한이 없습니다.",
+  "workspace.catalog.limitReached": "자료함 목록을 끝까지 불러오지 못했습니다.",
+  "workspace.catalog.changed": "계정 또는 작업 공간이 바뀌었습니다."
 }

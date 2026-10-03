@@ -1,3 +1,5 @@
+import { createTranslator, type Translator } from '@barocss/shared';
+
 export type EntryIntent = 'user' | 'admin' | 'operator';
 export type TenantRole = 'owner' | 'admin' | 'editor' | 'viewer';
 export type TenantAccess = { tenantId: string; name: string; role: TenantRole };
@@ -274,6 +276,96 @@ export async function listSnapshotDocuments(tenantId: string, workspaceId: strin
     item => typeof item.documentId === 'string' && uuid.test(item.documentId) && item.tenantId === tenantId &&
       item.workspaceId === workspaceId && item.product === product && typeof item.title === 'string' && typeof item.revision === 'number' &&
       typeof item.mode === 'string' && typeof item.fileFormat === 'string' && typeof item.fileVersion === 'number');
+}
+
+/** Authorized service heads only. Listing Site does not enable a native Site host. */
+export type CatalogDocumentHead = DocumentAccess & {
+  mode: 'snapshot' | 'initializing' | 'collaborative';
+  metadataRevision: number;
+  pageId: string | null;
+  documentKey: string;
+  snapshotHash: string;
+};
+export type CatalogDocumentPage = { items: CatalogDocumentHead[]; nextCursor: string | null };
+const catalogPageSize = 50;
+const catalogMaxPages = 100;
+const catalogFormats = { note: 'barocss-note', word: 'barocss-word', slides: 'barocss-slides', site: 'barocss-site' };
+const catalogHeadKeys = ['documentId', 'tenantId', 'workspaceId', 'product', 'title', 'metadataRevision', 'mode', 'pageId', 'documentKey', 'fileFormat', 'fileVersion', 'revision', 'snapshotHash'];
+const catalogRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+const catalogRevision = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+function catalogError(t: Translator): AuthError { return new AuthError('unavailable', t('workspace.catalog.invalidResponse')); }
+function catalogFailure(error: unknown, t: Translator): AuthError {
+  if (!(error instanceof AuthError)) return catalogError(t);
+  if (error.kind === 'unauthorized') return new AuthError(error.kind, t('workspace.catalog.expiredLogin'));
+  if (error.kind === 'forbidden') return new AuthError(error.kind, t('workspace.catalog.denied'));
+  if (error.kind === 'cancelled') return new AuthError(error.kind, t('workspace.catalog.changed'));
+  return error.kind === 'unavailable' ? catalogError(t) : error;
+}
+
+/** Use one captured fetch for every page and its JSON decode. No product filter. */
+export async function listCatalogDocuments(tenantId: string, workspaceId: string, after?: string,
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentPage> {
+  if (![tenantId, workspaceId].every(value => typeof value === 'string' && uuid.test(value)) ||
+    (after !== undefined && (typeof after !== 'string' || !uuid.test(after)))) {
+    throw new AuthError('configuration', t('workspace.catalog.invalidAddress'));
+  }
+  const query = new URLSearchParams({ workspaceId });
+  if (after !== undefined) query.set('after', after);
+  let response: Response;
+  try { response = await requestFetch(`/api/v1/tenants/${tenantId}/documents?${query}`); }
+  catch (error) { throw catalogFailure(error, t); }
+  if (response.status === 401) throw new AuthError('unauthorized', t('workspace.catalog.expiredLogin'));
+  if (response.status === 403) throw new AuthError('forbidden', t('workspace.catalog.denied'));
+  if (!response.ok) throw catalogError(t);
+  let raw: unknown;
+  try { raw = await response.json(); }
+  catch (error) { throw catalogFailure(error, t); }
+  if (!catalogRecord(raw) || Object.keys(raw).some(key => key !== 'documents' && key !== 'nextCursor') ||
+    !Array.isArray(raw.documents) || raw.documents.length > catalogPageSize ||
+    (raw.nextCursor !== null && (typeof raw.nextCursor !== 'string' || !uuid.test(raw.nextCursor)))) throw catalogError(t);
+  const items: CatalogDocumentHead[] = [];
+  let previous = after?.toLowerCase();
+  for (const item of raw.documents) {
+    if (!catalogRecord(item) || Object.keys(item).some(key => !catalogHeadKeys.includes(key)) ||
+      typeof item.documentId !== 'string' || !uuid.test(item.documentId) ||
+      item.tenantId !== tenantId || item.workspaceId !== workspaceId ||
+      typeof item.product !== 'string' || !Object.hasOwn(catalogFormats, item.product) ||
+      typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200 ||
+      !catalogRevision(item.revision) || !catalogRevision(item.metadataRevision) ||
+      !['snapshot', 'initializing', 'collaborative'].includes(item.mode as string) ||
+      item.fileFormat !== catalogFormats[item.product as keyof typeof catalogFormats] ||
+      (item.fileVersion !== 1 && !(item.product === 'slides' && item.fileVersion === 2)) ||
+      (item.product === 'note' ? typeof item.pageId !== 'string' || !uuid.test(item.pageId) : item.pageId !== null) ||
+      item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
+      typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash) ||
+      (previous !== undefined && item.documentId.toLowerCase() <= previous)) throw catalogError(t);
+    previous = item.documentId.toLowerCase();
+    items.push(item as CatalogDocumentHead);
+  }
+  // The fixed service page has 50 heads when another page exists. Its cursor
+  // is the last returned UUID, ordered by the same database UUID comparison.
+  if (raw.nextCursor !== null && (items.length !== catalogPageSize || raw.nextCursor.toLowerCase() !== previous)) throw catalogError(t);
+  return { items, nextCursor: raw.nextCursor as string | null };
+}
+
+/** A failed or bounded-out page never becomes an empty successful catalog. */
+export async function readDocumentCatalog(tenantId: string, workspaceId: string,
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentHead[]> {
+  const items: CatalogDocumentHead[] = [];
+  const seen = new Set<string>();
+  let after: string | undefined;
+  for (let page = 0; page < catalogMaxPages; page++) {
+    const result = await listCatalogDocuments(tenantId, workspaceId, after, requestFetch, t);
+    for (const item of result.items) {
+      const id = item.documentId.toLowerCase();
+      if (seen.has(id)) throw catalogError(t);
+      seen.add(id);
+      items.push(item);
+    }
+    if (result.nextCursor === null) return items;
+    after = result.nextCursor;
+  }
+  throw new AuthError('unavailable', t('workspace.catalog.limitReached'));
 }
 
 export async function openVerifiedSnapshot(tenantId: string, workspaceId: string, documentId: string, role: TenantRole, product: SnapshotProduct): Promise<VerifiedSnapshotContext> {
