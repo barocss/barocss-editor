@@ -38,7 +38,7 @@ try {
   await migrate(owner, migrations.filter(m => m.id < '0012'));
   const history = (await owner.query('SELECT id,checksum FROM wonffice_meta.migrations ORDER BY id')).rows;
   await check('execution migration preserves every existing migration and is idempotent', async () => {
-    assert.deepEqual(await migrate(owner), ['0012_project_execution_attempts', '0013_criterion_confirmations']);
+    assert.deepEqual(await migrate(owner), ['0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications']);
     assert.deepEqual((await owner.query("SELECT id,checksum FROM wonffice_meta.migrations WHERE id<'0012' ORDER BY id")).rows, history);
     assert.deepEqual(await migrate(owner), []);
   });

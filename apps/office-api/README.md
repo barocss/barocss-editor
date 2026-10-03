@@ -119,3 +119,15 @@ Authenticated routes under `/v1/tenants/:tenantId/documents/:documentId/criterio
 - `GET`: `{ confirmations: [...] }` containing immutable server receipts for the document.
 
 All three require current writer authority and return `Cache-Control: no-store`. No query parameters are accepted. Confirmation is an explicit fictional writer self-confirmation. Ordinary storage receipts remain separate. Server actor/time and `verification: 'not-run'` cannot be supplied by the client.
+
+## Private fictional criterion verification (#431)
+
+Verified, current writers use `/v1/tenants/:tenantId/documents/:documentId/criterion-verifications`:
+
+- `GET /context` returns the exact saved Word basis, current actor/authority epoch, exact current confirmation ID (or null), executable/unsupported explanation, and registered specimens/evaluator.
+- `POST` requires exactly `schemaVersion`, `expectedRevision`, `snapshotHash`, `snapshotText`, `context`, `authorityEpoch`, `idempotencyKey`, `confirmationId`, `specimen`, and `evaluator`. It returns one immutable `CriterionRunReceipt`. Caller actor, time, flags, measurements, arbitrary source, URL and code are rejected.
+- `GET` returns `{runs:[]}`; `GET /:runId` returns the private receipt and exact `outputText`/`outputHash`. All responses use `Cache-Control: no-store`.
+
+The receipt includes server requester identity, source revision/hash/context/epoch, confirmation, registered versions, outcome and server timestamps. The immutable output also includes the full frozen request with native source bytes, executor identity/browser version when execution occurred, measured inputs, evaluator calculation, and explicit error/unsupported reasons. The service checks canonical source and current authority before and after execution. Viewer/revoked/private and conflicting-context requests refuse. No run occurs on ordinary save, import, reopen, or criterion confirmation.
+
+The protected local auth supervisor supports only the private IPC command `{action:"criterion-executor-mode",mode:"live"|"unavailable"}` to restart its API child with the live or absent adapter. It adds no production endpoint, browser hook, arbitrary code or authority bypass. The runtime owner restores `live` in test cleanup. Production main always constructs the live adapter.

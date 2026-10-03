@@ -62,6 +62,7 @@ let owner;
 let admin;
 let closing = false;
 let apiChild;
+let criterionExecutorMode = 'live';
 let controlServer;
 const controlConnections = new Set();
 let commandQueue = Promise.resolve();
@@ -96,7 +97,7 @@ async function startApi() {
       if (message.ready) resolve();
       else reject(new Error('local_api_start_failed'));
     });
-    child.send({ database: config('wonffice_app'), issuer: fixture.issuer, audience: fixture.audience, port });
+    child.send({ database: config('wonffice_app'), issuer: fixture.issuer, audience: fixture.audience, port, executorMode: criterionExecutorMode });
   });
 }
 async function stopApi() {
@@ -124,10 +125,17 @@ const status = () => ({ databaseGeneration, databaseRunning: started,
 async function control(command) {
   if (closing || !command || typeof command !== 'object' || Array.isArray(command)) throw new Error('invalid_local_command');
   const allowed = command.action === 'inspect' ? ['action', 'documentId', 'operation', 'idempotencyKey', 'actor', 'tenant', 'product']
+    : command.action === 'criterion-executor-mode' ? ['action', 'mode']
     : command.action === 'beta-role' ? ['action', 'role'] : command.action === 'beta-active' ? ['action', 'active'] : ['action'];
   if (Object.keys(command).some(key => !allowed.includes(key))) throw new Error('invalid_local_command');
   switch (command.action) {
     case 'status': return status();
+    case 'criterion-executor-mode':
+      if (!['live', 'unavailable'].includes(command.mode)) throw new Error('invalid_local_executor_mode');
+      await stopApi();
+      criterionExecutorMode = command.mode;
+      await startApi();
+      return { ...status(), executorMode: criterionExecutorMode };
     case 'api-stop': await stopApi(); return status();
     case 'api-start': await startApi(); return status();
     case 'db-stop':
