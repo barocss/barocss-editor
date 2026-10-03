@@ -11,7 +11,8 @@ beforeEach(() => { vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true); container = 
 afterEach(async () => { await act(async () => root.unmount()); disposers.reverse().forEach(dispose => dispose()); container.remove(); vi.unstubAllGlobals(); });
 function setup() {
   let text = 'original native bytes', phase: ProjectExecution['phase'] = 'proposal';
-  let acceptLost = false, saveLost = false;
+  let acceptLost = false, saveLost = false, selectionEpoch = 0, inputEpoch = 0;
+  let prepare = async () => true;
   const execution = (): ProjectExecution => ({ id: 'attempt', projectId: 'project', workId: 'work', resultId: 'result', documentId: 'word',
     tenantId: 'tenant', workspaceId: 'workspace', actorId: 'actor', phase, reason: null, pendingOutputs: [],
     input: { request: '실행 중인 앱 조치를 안내해줘.', revision: 1, snapshotHash: 'before', snapshotText: 'original native bytes',
@@ -20,17 +21,22 @@ function setup() {
   const apply = vi.fn(async () => { text = 'declared after bytes'; return true; });
   const host: ProductFeedbackHost = { product: 'word', id: () => 'word', editable: () => true, capture: () => null,
     comment: async () => { throw new Error('unused'); }, locate: () => 'located',
-    previewRevision: () => text === 'original native bytes' ? { current: () => true, apply, dispose: () => {} } : null };
+    previewRevision: (_proposal, owns = () => true) => {
+      const selection = selectionEpoch, input = inputEpoch;
+      return text === 'original native bytes' ? { current: () => owns() && selection === selectionEpoch && input === inputEpoch, apply, dispose: () => {} } : null;
+    } };
   disposers.push(registerProductFeedbackHost(host));
   disposers.push(registerProductDocumentHost({ product: 'word', id: () => 'word', beforeNavigate: async () => {
-    if (saveLost && text === 'declared after bytes') { saveLost = false; return false; } return true;
+    if (saveLost && text === 'declared after bytes') { saveLost = false; return false; } return prepare();
   } }));
   const acknowledge = vi.fn(async () => { phase = 'applied'; return execution(); });
   const execute = vi.fn(async () => execution());
   const accept = vi.fn(async () => { phase = 'accepted'; if (acceptLost) { acceptLost = false; throw new Error('Acceptance acknowledgement lost'); } return execution(); });
   const repository = { writable: true, execution: async () => execution(), acceptExecution: accept,
     acknowledgeExecution: acknowledge, execute, pin: async () => ({ id: 'pin', document: { product: 'word', id: 'word' }, title: 'guide', text, revision: text === 'original native bytes' ? 1 : 2 }) } as unknown as ProjectRepository;
-  return { repository, apply, accept, acknowledge, execute, host, loseAcceptance: () => { acceptLost = true; }, loseSave: () => { saveLost = true; } };
+  return { repository, apply, accept, acknowledge, execute, host, loseAcceptance: () => { acceptLost = true; }, loseSave: () => { saveLost = true; },
+    holdPreparation: (next: () => Promise<boolean>) => { prepare = next; },
+    selectionABA: () => { selectionEpoch += 2; }, inputABA: () => { inputEpoch += 2; }, nativeText: () => text };
 }
 async function render(repository: ProjectRepository) { await act(async () => root.render(createElement(ConnectedWorkControl, { repository, project: 'project', work: 'work', revision: 1, document: { product: 'word', id: 'word' } }))); }
 async function click(label: string) { const button = [...container.querySelectorAll('button')].find(one => one.textContent === label); expect(button).toBeDefined(); await act(async () => button!.click()); }
@@ -82,4 +88,40 @@ it('shows a deliberate later training follow-up and its exact guide version with
   expect(container.textContent).toContain('팀 교육자료 · 대기: 이 결과물의 자동 편집은 아직 지원하지 않습니다.');
   expect(container.textContent).toContain('고객 설치 안내 · 버전 2'); expect(container.textContent).toContain('declared-guide-hash');
   expect(initial!.input.revision).toBe(1); expect(f.apply).not.toHaveBeenCalled(); expect(f.execute).not.toHaveBeenCalled();
+});
+
+for (const recovery of [false, true]) {
+  it.each(['selection', 'input'] as const)(`retires %s ABA during initial preparation ${recovery ? 'of lost-ACK recovery' : 'of approval'} without silently recapturing intent`, async kind => {
+    const f = setup(); await render(f.repository);
+    if (recovery) {
+      f.loseAcceptance(); await click('이 변경 승인 및 저장');
+      await act(async () => root.unmount()); root = createRoot(container); await render(f.repository);
+    }
+    const acceptedBefore = f.accept.mock.calls.length;
+    let enter!: () => void, release!: () => void;
+    const entered = new Promise<void>(resolve => { enter = resolve; });
+    const gate = new Promise<boolean>(resolve => { release = () => resolve(true); });
+    f.holdPreparation(() => { enter(); return gate; });
+    const label = recovery ? '승인된 변경 이어서 확인' : '이 변경 승인 및 저장';
+    const button = [...container.querySelectorAll('button')].find(one => one.textContent === label)!;
+    await act(async () => { button.click(); await entered; });
+    if (kind === 'selection') f.selectionABA(); else f.inputABA();
+    await act(async () => { release(); });
+    expect(f.accept).toHaveBeenCalledTimes(acceptedBefore);
+    expect(f.apply).not.toHaveBeenCalled(); expect(f.acknowledge).not.toHaveBeenCalled();
+    expect(f.execute).not.toHaveBeenCalled(); expect(f.nativeText()).toBe('original native bytes');
+    expect(container.textContent).toContain('현재 입력과 제안을 유지합니다.');
+  });
+}
+
+it('acknowledges exact already-applied bytes without requesting another acceptance or preview', async () => {
+  const f = setup(); await render(f.repository); f.loseSave(); await click('이 변경 승인 및 저장');
+  const preview = vi.spyOn(f.host, 'previewRevision');
+  await act(async () => root.unmount()); root = createRoot(container);
+  f.repository.acceptExecution = undefined; await render(f.repository);
+  await click('승인된 변경 이어서 확인');
+  expect(f.accept).toHaveBeenCalledTimes(1); expect(f.apply).toHaveBeenCalledTimes(1);
+  expect(f.acknowledge).toHaveBeenCalledTimes(1); expect(f.execute).not.toHaveBeenCalled();
+  expect(preview).toHaveReturnedWith(null);
+  expect(f.nativeText()).toBe('declared after bytes'); expect(container.textContent).toContain('원본 반영 확인');
 });
