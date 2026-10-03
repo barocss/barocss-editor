@@ -59,7 +59,7 @@ test('the outline lists every heading, indented by its level', async ({ page }) 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
 
 
   const items = page.locator('.w-outline [data-outline-sid]');
@@ -85,7 +85,7 @@ test('the outline goes deeper than the contents page does', async ({ page }) => 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
 
 
   // A contents page lists 1–3 by default; a map that hid the rest would
@@ -108,7 +108,7 @@ test('clicking an entry takes the reader and the caret there', async ({ page }) 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
 
 
   const items = page.locator('.w-outline [data-outline-sid]');
@@ -153,13 +153,13 @@ test('closes to a strip, and opens again', async ({ page }) => {
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
 
 
   await page.getByRole('button', { name: '개요 닫기', exact: true }).click();
   await expect(page.locator('.w-outline')).toHaveCount(0);
   // A pane with no way back is a pane a reader closes once
-  await page.locator('.w-outline-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
   await expect(page.locator('.w-outline')).toHaveCount(1);
 });
 
@@ -169,12 +169,12 @@ test('closes to a strip, and opens again', async ({ page }) => {
  * how many comments there are — which is what a reader wants before deciding to
  * look.
  */
-test('the comments pane collapses to a strip that counts', async ({ page }) => {
+test('the comments pane closes without reserving a strip and keeps its thread count', async ({ page }) => {
   await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-comments-closed').click();
+  await page.locator('[data-workspace-toggle="inspector"]').click();
 
 
   const openWidth = (await page.locator('.w-comments-pane').boundingBox())!.width;
@@ -184,15 +184,15 @@ test('the comments pane collapses to a strip that counts', async ({ page }) => {
   await expect(page.locator('.w-comments-pane')).toHaveCount(0);
 
   const strip = page.locator('.w-comments-closed');
-  await expect(strip).toBeVisible();
-  expect((await strip.boundingBox())!.width).toBeLessThan(48);
+  await expect(strip).toBeHidden();
+  await expect(page.locator('[data-workspace-toggle="inspector"]')).toHaveAttribute('aria-expanded', 'false');
 
   // It counted the document's threads while closed, which it could not do while
   // it only read them when open
   const counted = Number(await strip.getAttribute('data-comment-count'));
   expect(Number.isFinite(counted)).toBe(true);
 
-  await strip.click();
+  await page.locator('[data-workspace-toggle="inspector"]').click();
   await expect(page.locator('.w-comments-pane')).toHaveCount(1);
 });
 
@@ -201,7 +201,7 @@ test('closing the pane puts the discussion away, not the sign of it', async ({ p
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-comments-closed').click();
+  await page.locator('[data-workspace-toggle="inspector"]').click();
 
 
   // Create a current thread through the pane instead of depending on sample anchors.
@@ -238,8 +238,8 @@ test('the ribbon turns each pane on and off, and says which is on', async ({ pag
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
-  await page.locator('.w-comments-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
+  await page.locator('[data-workspace-toggle="inspector"]').click();
   await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await page.getByRole('tab', { name: '보기', exact: true }).click();
 
@@ -273,7 +273,7 @@ test('the pane and its own close button say the same thing', async ({ page }) =>
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
   await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
   await page.getByRole('tab', { name: '보기', exact: true }).click();
 
@@ -286,7 +286,7 @@ test('the pane and its own close button say the same thing', async ({ page }) =>
   await page.getByRole('button', { name: '개요 닫기', exact: true }).click();
   await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'off');
 
-  await page.locator('.w-outline-closed').click();
+  await page.locator('[data-workspace-toggle="navigation"]').click();
   await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'on');
 });
 

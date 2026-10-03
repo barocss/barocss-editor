@@ -1501,3 +1501,10 @@ textarea.office-field[readonly] {
 .office-save-status[data-icon-only] { display:inline-flex;align-items:center;justify-content:center;width:32px;min-width:32px;height:32px;min-height:32px;gap:0;padding:0; }
 .office-save-status[data-icon-only] > span:last-child { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap; }
 .office-save-status[data-icon-only]:focus-visible { border-radius:var(--ou-radius);outline:2px solid var(--ou-accent);outline-offset:2px; }
+
+/* Header-owned triggers leave the entire native work area available. */
+.office-adaptive-workspace[data-compact][data-panel-controls="header"]{padding-top:0}
+.office-adaptive-workspace[data-compact][data-panel-controls="header"]>.office-workspace-side-panel{top:0}
+
+/* Tooltip portals must not cover adjacent command hit targets. */
+[data-radix-popper-content-wrapper]:has(>[data-office-tooltip]),[data-office-tooltip]{pointer-events:none}

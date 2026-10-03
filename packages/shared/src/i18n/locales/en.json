@@ -128,5 +128,8 @@
   "workspace.context.current": "Current location",
   "workspace.context.unavailableProject": "Project unavailable",
   "workspace.context.loadingProject": "Loading project",
-  "site.header.insertTools": "Site insertion tools"
+  "site.header.insertTools": "Site insertion tools",
+  "word.header.documentsOutline": "Documents and outline",
+  "word.header.outline": "Outline",
+  "word.header.comments": "Comments"
 }

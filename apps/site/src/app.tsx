@@ -1584,8 +1584,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={bar} onPick={onMenu} />}
           actions={<><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
           <div className="st-header-actions">{datasetAt && completeTools}{editor && !admin ? <>
-            <IconButton label="페이지 및 구조" pressed={navigationOpen} controls={panelIds.navigation} expanded={navigationOpen} elementRef={navigationTrigger} data={{ 'workspace-toggle': 'navigation' }} preserveFocus onClick={() => { if (navigationOpen) restorePanelFocus('navigation'); setNavigationOpen(value => !value); }}><Icon name="outline" /></IconButton>
-            <IconButton label="자세한 속성" pressed={detailOpen} controls={panelIds.inspector} expanded={detailOpen} elementRef={inspectorTrigger} data={{ 'workspace-toggle': 'inspector' }} preserveFocus onClick={() => { if (detailOpen) restorePanelFocus('inspector'); setDetailOpen(value => !value); }}><Icon name="expand" /></IconButton>
+            <IconButton label="페이지 및 구조" pressed={navigationOpen} controls={panelIds.navigation} expanded={navigationOpen} elementRef={navigationTrigger} data={{ 'workspace-toggle': 'navigation' }} preserveFocus onClick={() => setNavigationOpen(value => !value)}><Icon name="outline" /></IconButton>
+            <IconButton label="자세한 속성" pressed={detailOpen} controls={panelIds.inspector} expanded={detailOpen} elementRef={inspectorTrigger} data={{ 'workspace-toggle': 'inspector' }} preserveFocus onClick={() => setDetailOpen(value => !value)}><Icon name="expand" /></IconButton>
           </> : null}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
           {editor ? <FileActions ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
 

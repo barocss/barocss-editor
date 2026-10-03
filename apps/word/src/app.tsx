@@ -8,7 +8,7 @@ import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
 import type { ReactNode } from 'react';
-import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, Toolbar, onApple, useRevision } from '@barocss/office-ui';
+import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, Toolbar, onApple, useRevision, useOfficeLocale } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
   captureCaptionSession, type CaptionSession,
@@ -98,6 +98,7 @@ export function App({ mount, server }: {
   mount: (host: HTMLElement, onFurniture?: (id?: string) => void) => WordRuntime;
   server?: WordServerHost;
 }) {
+  const { t } = useOfficeLocale();
   const proposalSample = !server && new URLSearchParams(location.search).get('sample') === 'paragraph-proposal';
   const library = useRef<DocumentLibraryHandle>(null);
   const [compact, setCompact] = useState(false);
@@ -195,12 +196,13 @@ export function App({ mount, server }: {
   const [outlining, setOutlining] = useState(false);
   const togglePanel = useCallback((side: 'navigation' | 'inspector') => {
     const shown = compact ? activePanel === side : side === 'navigation' ? outlining : commenting;
-    const closingFromPanel = shown && document.getElementById(`${panelId}-${side}`)?.contains(document.activeElement);
+    const closingRegion = side === 'navigation' && !compact && server?.navigation ? `${panelId}-outline` : `${panelId}-${side}`;
+    const closingFromPanel = shown && document.getElementById(closingRegion)?.contains(document.activeElement);
     if (compact) setActivePanel(current => current === side ? null : side);
     else if (side === 'navigation') setOutlining(value => !value);
     else setCommenting(value => !value);
     if (closingFromPanel) requestAnimationFrame(() => restorePanelFocus(side));
-  }, [compact, activePanel, outlining, commenting, panelId, restorePanelFocus]);
+  }, [compact, activePanel, outlining, commenting, panelId, restorePanelFocus, server?.navigation]);
   const outlineShown = compact ? activePanel === 'navigation' : outlining;
   const commentsShown = compact ? activePanel === 'inspector' : commenting;
 
@@ -479,10 +481,10 @@ export function App({ mount, server }: {
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
             actions={<>
               <div className="w-header-command-group">
-                <Tip label={compact && server?.navigation ? '문서 탐색 및 개요' : '개요'}><Button ref={outlineButton} square tone="quiet" ariaLabel={compact && server?.navigation ? '문서 탐색 및 개요' : '개요'}
+                <Tip label={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}><Button ref={outlineButton} square tone="quiet" ariaLabel={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}
                   aria-controls={!compact && server?.navigation ? `${panelId}-outline` : `${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
                   pressed={outlineShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('navigation')}><Icon name="outline" /></Button></Tip>
-                <Tip label="댓글"><Button ref={commentsButton} square tone="quiet" ariaLabel="댓글"
+                <Tip label={t('word.header.comments')}><Button ref={commentsButton} square tone="quiet" ariaLabel={t('word.header.comments')}
                   aria-controls={`${panelId}-inspector`} aria-expanded={commentsShown} data-workspace-toggle="inspector"
                   pressed={commentsShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('inspector')}><Icon name="comments" /></Button></Tip>
                 <Tip label="요구·결정"><Button square tone="quiet" ariaLabel="요구·결정" pressed={businessOpen}
@@ -531,7 +533,7 @@ export function App({ mount, server }: {
         {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
-      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: server?.navigation ? '문서 탐색 및 개요' : '개요', inspector: '댓글' }}
+      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: t(server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline'), inspector: t('word.header.comments') }}
         showPanelControls={false} restorePanelFocus={restorePanelFocus}
         panelIds={{ navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
