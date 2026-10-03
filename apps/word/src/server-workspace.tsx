@@ -3,6 +3,7 @@ import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-
 import { Button } from '@barocss/office-ui';
 import { registerProductDocumentHost } from '@barocss/shared';
 import { App } from './app';
+import { deriveBusinessPair, readBusinessPair } from '../../../packages/office-word/src/business-pair';
 import './style.css';
 import { wordStore } from './autosave';
 import { assertWordNativeDocument, mountWordRuntime, type WordRuntime } from './runtime';
@@ -180,7 +181,13 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const prepare = async (text: string, name?: string, sourceTitle?: string) => {
     if (!authority.current || !safeSwitch()) return;
     let initial: WordDocument;
-    try { initial = documentOf(text); } catch (error) { setSourceError(error instanceof Error ? error.message : '파일을 읽지 못했습니다.'); return; }
+    try {
+      initial = documentOf(text);
+      if (readBusinessPair(initial).status !== 'absent') {
+        initial = deriveBusinessPair(initial) as WordDocument;
+        text = serverWordFileText(initial, '');
+      }
+    } catch (error) { setSourceError(error instanceof Error ? error.message : '파일을 읽지 못했습니다.'); return; }
     busyRef.current = true; setBusy(true);
     try {
       await client.list();

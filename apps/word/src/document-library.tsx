@@ -6,12 +6,14 @@ import { ProductDocumentTrashedError, downloadDocumentArchive, isProductDocument
 import type { LibraryRow } from '@barocss/shared';
 import { forwardRef, useImperativeHandle, useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import type { WordRuntime } from './runtime';
+import { deriveBusinessPair } from '../../../packages/office-word/src/business-pair';
 import { Button, Dialog, EmptyState, Icon, NavigationItem, StatusIndicator, StatusNotice, TextField } from '@barocss/office-ui';
 import { wordLibraryRows, keepWordDocument, wordFileText, type WordLibraryRow } from '@barocss/office-word';
 
 /** The host owns document navigation; shared UI and Word's file/library adapters do the work. */
 export interface DocumentLibraryHandle { open: (kind: 'library' | 'actions') => void }
-export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Editor }>(function DocumentLibrary({ editor }, ref) {
+export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Editor; native?: Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'> }>(function DocumentLibrary({ editor, native }, ref) {
   const [actions, setActions] = useState(false);
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [query, setQuery] = useState(''), [loaded, setLoaded] = useState(false);
@@ -32,16 +34,17 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
   const recoveryRequired = autoStatus === '복구 필요';
   useEffect(() => { if (recoveryRequired && open) recoveryButtonRef.current?.focus(); }, [recoveryRequired, open]);
   useEffect(() => {
-    const controller = new WordAutosave(editor, (status, error) => { setAutoStatus(status); setProblem(error ?? ''); });
+    const controller = new WordAutosave(editor, (status, error) => { setAutoStatus(status); setProblem(error ?? ''); }, native);
     autosave.current = controller;
     void controller.start();
     return () => { controller.stop(); autosave.current = null; };
-  }, [editor]);
+  }, [editor, native]);
   const save = async () => {
     if (!await autosave.current?.flush()) throw new Error('Unsaved work');
     // Save independent snapshots: opening/importing a different document must never overwrite
     // the previously opened entry through a stale active-library identifier.
-    const row = await keepWordDocument(editor.dataStore, wordFileText(editor.exportDocument()));
+    const source = native ? native.exportNativeDocument() : editor.exportDocument();
+    const row = await keepWordDocument(editor.dataStore, wordFileText(deriveBusinessPair(source)));
     setStatus(`“${row.title || '제목 없는 문서'}” 보관함에 저장됨`);
     return row;
   };
