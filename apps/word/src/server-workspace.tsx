@@ -2,7 +2,7 @@ import { createVerificationClient, verificationRequest, type CriterionVerificati
 import { createCriterionClient, criterionRequest, criterionHash, type CriterionConfirmationHost, type CriterionRequest } from './criterion-confirmation-client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-word';
-import { Button } from '@barocss/office-ui';
+import { Button, useOfficeLocale } from '@barocss/office-ui';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { App } from './app';
 import { createWordOpenGate } from './guarded-open';
@@ -19,6 +19,7 @@ export interface ServerWordWorkspaceProps {
   initialDocumentId?: string; authorizedFetch: typeof fetch;
   role: 'owner' | 'admin' | 'editor' | 'viewer';
   headerNavigation?: ReactNode;
+  workspaceNavigation?: boolean;
   onNavigate?: (documentId: string) => void;
   onUnsafeChange?: (unsafe: boolean) => void;
 }
@@ -40,7 +41,8 @@ function documentOf(text: string) {
 
 /** Full native Word runtime, with authenticated snapshot authority and scoped recovery. */
 export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, initialDocumentId,
-  authorizedFetch, role, onNavigate, onUnsafeChange, headerNavigation }: ServerWordWorkspaceProps) {
+  authorizedFetch, role, onNavigate, onUnsafeChange, headerNavigation, workspaceNavigation = false }: ServerWordWorkspaceProps) {
+  const { t } = useOfficeLocale();
   const client = useMemo(() => createServerWordClient({ tenantId, workspaceId, authorizedFetch }), [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const store = useMemo(() => createServerPendingStore({ tenantId, workspaceId, issuer, subject }), [tenantId, workspaceId, issuer, subject]);
   const active = useRef(client); active.current = client;
@@ -53,7 +55,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const fixed = useRef<Fixed | undefined>(undefined);
   const openGate = useRef(createWordOpenGate());
   const openingLoad = useRef<{ token: symbol; owner: object; roleOwner: object; accessOwner: object } | undefined>(undefined);
-  const requestOpen = useRef<(documentId: string, isCurrent?: () => boolean) => Promise<ProductNavigationGuard | false>>(async () => false);
+  const requestOpen = useRef<(documentId: string, isCurrent?: () => boolean, parentCurrent?: () => boolean) => Promise<ProductNavigationGuard | false>>(async () => false);
   const nativeIdentityEpoch = useRef(0);
   const nativeHost = useRef<ProductDocumentHost | undefined>(undefined);
   const openingCompletion = useRef<{ owner: object; generation: string; documentId: string; roleOwner: object; accessOwner: object;
@@ -338,14 +340,14 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       return confirmed !== null && stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), '')) === stableWordSnapshotText(confirmed);
     } catch { return false; }
   };
-  requestOpen.current = async (documentId: string, intentCurrent = () => true) => {
+  requestOpen.current = async (documentId: string, intentCurrent = () => true, parentCurrent = () => true) => {
     const one = currentRef.current, live = runtime.current;
     if (!one?.documentId || one.owner !== client || !live || live.generation !== one.generation) return false;
     const rootId = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
     const roleOwner = openRole.current, accessOwner = criterionAuthority.current;
     let preparedText: string | undefined;
     const registeredHost = nativeHost.current;
-    const owns = () => { try { return !!registeredHost && productDocumentHost() === registeredHost && intentCurrent() && active.current === client && currentRef.current?.generation === one.generation &&
+    const owns = () => { try { return !!registeredHost && productDocumentHost() === registeredHost && intentCurrent() && parentCurrent() && active.current === client && currentRef.current?.generation === one.generation &&
       currentRef.current.documentId === one.documentId && runtime.current === live &&
       live.value.editor.getRootId() === rootId && live.value.editor.dataStore.getDocumentEpoch() === epoch &&
       openRole.current === roleOwner && criterionAuthority.current === accessOwner &&
@@ -381,7 +383,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
           head: result.document, initial, text: result.snapshotText, confirmed: result.snapshotText });
         return new Promise<ProductNavigationGuard | false>(resolve => {
           openingCompletion.current = { owner: client, generation, documentId, roleOwner, accessOwner,
-            resolve: guard => { if (guard) callbacks.current.onNavigate?.(documentId); resolve(guard); } };
+            resolve: guard => { if (!parentCurrent()) { resolve(false); return; } if (guard) callbacks.current.onNavigate?.(documentId); resolve(guard); } };
         });
       }
     });
@@ -392,7 +394,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       id: () => active.current === client && currentRef.current?.owner === client ? currentRef.current.documentId ?? '' : '',
       identityEpoch: () => nativeIdentityEpoch.current + openRole.current.epoch + criterionAuthority.current.version,
       beforeNavigate: () => active.current === client ? beforeNavigate.current() : Promise.resolve(false),
-      requestOpen: (documentId, isCurrent) => active.current === client ? requestOpen.current(documentId, isCurrent) : Promise.resolve(false)
+      requestOpen: (documentId, isCurrent, parentCurrent) => active.current === client ? requestOpen.current(documentId, isCurrent, parentCurrent) : Promise.resolve(false)
     };
     nativeHost.current = host;
     const unregister = registerProductDocumentHost(host);
@@ -532,9 +534,9 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     };
   }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject]);
   const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}<Button disabled={!current || nestedInput} onClick={exportNative}>Word 파일 내보내기</Button></>;
-  const navigation = <aside aria-label="서버 Word 목록">
+  const navigation = <aside aria-label={workspaceNavigation ? t('workspace.document.actions') : '서버 Word 목록'}>
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverWordFileText(createStarterDocument(), ''))}>새 Word</Button>}
-      {heads.map(head => <Button key={head.documentId} disabled={busy || !protectedInput || nestedInput} onClick={() => void (current ? requestOpen.current(head.documentId) : openDocument(head.documentId))}>{head.title}</Button>)}
+      {!workspaceNavigation && heads.map(head => <Button key={head.documentId} disabled={busy || !protectedInput || nestedInput} onClick={() => void (current ? requestOpen.current(head.documentId) : openDocument(head.documentId))}>{head.title}</Button>)}
       {canEdit && <Button disabled={busy} onClick={() => void wordStore.rows().then(rows => { if (active.current === client) setSources(rows); }).catch(() => setSourceError('로컬 문서 목록을 읽지 못했습니다.'))}>이 기기의 로컬 문서 목록 확인</Button>}
       {canEdit && sources?.map(source => <Button key={source.name} disabled={busy} onClick={() => void wordStore.text(source.name).then(text => { if (active.current === client) { if (text === undefined) throw new Error('missing_local_document'); return prepare(text, source.name, source.title); } }).catch(() => setSourceError('로컬 문서를 읽지 못했습니다. 원본은 유지됩니다.'))}>{source.title || source.name} · 새 서버 사본 준비</Button>)}
       {canEdit && <label>Word 원본 파일로 새 서버 사본 준비<input type="file" accept=".word.json,.json,application/json" disabled={busy || !protectedInput || nestedInput}
@@ -550,7 +552,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Word 자료를 확인하는 중입니다.</p>}
-    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ headerActions: actions, headerNavigation, navigation, criterionConfirmation, criterionVerification,
+    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ workspaceNavigation, headerActions: actions, headerNavigation, navigation, criterionConfirmation, criterionVerification,
       feedbackDocumentId: () => active.current === client && currentRef.current?.generation === current.generation ? currentRef.current.documentId ?? '' : '',
       canComment: () => active.current === client && currentRef.current?.generation === current.generation && authority.current &&
         !busyRef.current && !nestedRef.current && problemRef.current?.kind !== 'conflict' && protectedRef.current,

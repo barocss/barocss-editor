@@ -20,9 +20,10 @@ const f = vi.hoisted(() => ({
 vi.mock('@barocss/shared', async original => ({ ...await original<typeof import('@barocss/shared')>(), ...await import('../../../packages/shared/src/document-save/product-host') }));
 vi.mock('@barocss/office-ui', async () => {
   const React = await import('react');
+  const { useOfficeLocale } = await import('../../../packages/office-ui/src/locale');
   const { AdaptiveWorkspace, WorkspaceSidePanel } = await import('../../../packages/office-ui/src/adaptive-workspace');
   const Box = ({ children }: BoxProps) => React.createElement('div', {}, children);
-  return { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
+  return { useOfficeLocale, AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
     Button: ({ children, ...props }: React.ComponentPropsWithRef<'button'>) => React.createElement('button', props, children),
     DocumentMenu: Box, EditorHeader: ({ children, actions }: BoxProps) => React.createElement('div', {}, children, actions), StatusIndicator: Box, StatusNotice: Box };
 });

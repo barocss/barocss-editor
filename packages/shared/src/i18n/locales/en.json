@@ -137,5 +137,11 @@
   "workspace.catalog.expiredLogin": "Your login expired. Sign in again.",
   "workspace.catalog.denied": "This account cannot access this company.",
   "workspace.catalog.limitReached": "The file catalog could not be loaded completely.",
-  "workspace.catalog.changed": "The account or workspace changed."
+  "workspace.catalog.changed": "The account or workspace changed.",
+  "workspace.tree.sources": "Source files",
+  "workspace.tree.server": "Files in the authorized workspace",
+  "workspace.tree.serverProjectsUnavailable": "Projects could not be loaded. Authorized source files remain available.",
+  "workspace.tree.nativeUnavailable": "This editor is not ready for safe navigation. The current document stays open.",
+  "workspace.document.actions": "Document actions",
+  "workspace.tree.workspace": "Workspace"
 }

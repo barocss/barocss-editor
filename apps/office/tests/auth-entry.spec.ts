@@ -1017,3 +1017,48 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(workspace).toHaveCount(0);
   });
 }
+
+
+test('authenticated Note tree saves pending native input before switching originals', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  const otherId = '00000000-0000-4000-8000-000000000006', otherPage = '00000000-0000-4000-8000-000000000007';
+  const otherText = JSON.stringify({ format: 'barocss-note', version: 1, document: { stype: 'note', attributes: { title: 'Second Note', pageId: otherPage },
+    content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Second native body' }] }] } });
+  let text = snapshotText, revision = 1;
+  const digest = (value: string) => createHash('sha256').update(value).digest('hex');
+  const head = () => ({ ...documentHead, revision, snapshotHash: digest(text) });
+  const other = { ...documentHead, documentId: otherId, pageId: otherPage, title: 'Second Note', documentKey: `wonffice-${id}-${otherId}`, snapshotHash: digest(otherText) };
+  const json = (value: unknown) => ({ contentType: 'application/json', body: JSON.stringify(value) });
+  const writes: Record<string, unknown>[] = [];
+  await page.route(`**/api/v1/tenants/${id}/projects?**`, route => route.fulfill(json({ projects: [], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${id}/documents?**`, route => route.fulfill(json({ documents: [head(), other], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => route.fulfill(json({ document: head(), snapshotText: text })));
+  await page.route(`**/api/v1/tenants/${id}/documents/${otherId}`, route => route.fulfill(json({ document: other, snapshotText: otherText })));
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}/snapshot`, route => {
+    const body = route.request().postDataJSON(); writes.push(body);
+    text = body.snapshotText; revision++;
+    return route.fulfill(json({ operation: 'update', idempotencyKey: body.idempotencyKey,
+      requestHash: digest(JSON.stringify(['update', documentId, body.expectedRevision, body.snapshotText])), document: head(), snapshotText: text }));
+  });
+  await page.goto(`/?tenant=${id}&workspace=${workspaceId}&document=${documentId}&product=note`);
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  const native = page.locator('[data-server-note-workspace]'), paragraph = native.locator('.on-doc > p').first();
+  await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('document') === documentId);
+  await page.waitForLoadState('networkidle');
+  await expect(paragraph).toContainText('Mock body');
+  await expect(native.getByRole('complementary', { name: '문서 작업' })).toBeHidden();
+  await expect(native.getByRole('navigation', { name: '서버 문서 목록' })).toHaveCount(0);
+  await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' immediate Note input');
+  await expect(paragraph).toContainText('immediate Note input');
+  const node = await paragraph.elementHandle();
+  await page.locator('.ow-file-navigation').getByRole('button', { name: 'Alpha Note 열기' }).click();
+  expect(await node!.evaluate(element => element.isConnected)).toBe(true); expect(writes).toHaveLength(0);
+  await page.locator('.ow-file-navigation').getByRole('button', { name: 'Second Note 열기' }).click();
+  await expect(page).toHaveURL(new RegExp(`document=${otherId}`));
+  await expect(paragraph).toContainText('Second native body');
+  expect(writes).toHaveLength(1); expect(text).toContain('immediate Note input');
+  await native.getByRole('button', { name: '문서 작업', exact: true }).click();
+  await expect(native.getByRole('button', { name: '새 노트', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(native.getByRole('button', { name: '문서 작업', exact: true })).toBeFocused();
+});

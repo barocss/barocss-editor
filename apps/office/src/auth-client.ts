@@ -230,19 +230,20 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
   return response;
 };
 
-/** Bind retained product work to this exact login generation, including account ABA. */
-export function captureAuthorizedFetch(): typeof fetch {
+/** Bind retained work to this exact login generation, including account ABA. */
+export function captureAuthorizedSession(): { requestFetch: typeof fetch; isCurrent: () => boolean } {
   const token = activeSession, epoch = sessionEpoch;
-  const current = () => { if (!token || activeSession !== token || sessionEpoch !== epoch) throw new AuthError('cancelled', '계정이 바뀌었습니다. 프로젝트를 다시 여세요.'); };
-  return async (input, init) => {
-    current(); const response = await authorizedFetch(input, init); current();
-    // Headers may arrive before a streamed JSON body. Keep the same login
-    // generation through decoding, before any retained product consumes it.
+  const isCurrent = () => !!token && activeSession === token && sessionEpoch === epoch;
+  const check = () => { if (!isCurrent()) throw new AuthError('cancelled', '계정이 바뀌었습니다. 프로젝트를 다시 여세요.'); };
+  const requestFetch: typeof fetch = async (input, init) => {
+    check(); const response = await authorizedFetch(input, init); check();
     const decode = response.json.bind(response);
-    response.json = async () => { current(); const value: unknown = await decode(); current(); return value; };
+    response.json = async () => { check(); const value: unknown = await decode(); check(); return value; };
     return response;
   };
+  return Object.freeze({ requestFetch, isCurrent });
 }
+export function captureAuthorizedFetch(): typeof fetch { return captureAuthorizedSession().requestFetch; }
 
 async function apiGet(path: string, requestFetch: typeof fetch = authorizedFetch): Promise<unknown> {
   const response = await requestFetch(`/api/v1${path}`);
@@ -368,9 +369,9 @@ export async function readDocumentCatalog(tenantId: string, workspaceId: string,
   throw new AuthError('unavailable', t('workspace.catalog.limitReached'));
 }
 
-export async function openVerifiedSnapshot(tenantId: string, workspaceId: string, documentId: string, role: TenantRole, product: SnapshotProduct): Promise<VerifiedSnapshotContext> {
+export async function openVerifiedSnapshot(tenantId: string, workspaceId: string, documentId: string, role: TenantRole, product: SnapshotProduct, requestFetch: typeof fetch = authorizedFetch): Promise<VerifiedSnapshotContext> {
   if (![tenantId, workspaceId, documentId].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 문서 주소입니다.');
-  const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`) as Record<string, unknown>;
+  const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`, requestFetch) as Record<string, unknown>;
   const head = data?.document as Record<string, unknown> | undefined;
   if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
     head.product !== product || (product !== 'note' && product !== 'word' && product !== 'slides') ||
@@ -389,7 +390,7 @@ export async function openVerifiedSnapshot(tenantId: string, workspaceId: string
     throw new AuthError('unavailable', '문서 응답을 확인하지 못했습니다. 다시 시도해 주세요.');
   }
   return { tenantId, workspaceId, documentId, role, product, document: head as unknown as DocumentAccess,
-    snapshotText: data.snapshotText, authorizedFetch };
+    snapshotText: data.snapshotText, authorizedFetch: requestFetch };
 }
 
 export function listNoteDocuments(tenantId: string, workspaceId: string, after?: string) {

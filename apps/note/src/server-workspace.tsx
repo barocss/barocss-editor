@@ -5,7 +5,7 @@ import { captureProductNavigation, productDocumentHost, registerProductDocumentH
 import { NoteEditor } from '@barocss/office-note/view';
 import { readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
 import { noteTreeOf, openNoteTree, type NoteDocument, type NoteSession } from '@barocss/office-note';
-import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, StatusIndicator, StatusNotice } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, StatusIndicator, StatusNotice, useOfficeLocale } from '@barocss/office-ui';
 import { pageTemplate } from './workspace-library';
 import { ServerLocalNoteCopy } from './server-local-copy';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
@@ -49,6 +49,7 @@ function saveProblem(error: unknown): Omit<Problem, 'owner'> {
 /** Office supplies an authorized fetch only after it has verified the protected workspace context. */
 export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, authorizedFetch,
   issuer, subject, role, onNavigate, onLeave, onUnsafeChange, headerNavigation, workspaceNavigation = false }: ServerNoteWorkspaceProps) {
+  const { t } = useOfficeLocale();
   const client = useMemo(() => createServerNoteClient({ tenantId, workspaceId, authorizedFetch }),
     [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const pendingStore = useMemo(() => createServerPendingStore({ issuer, subject, tenantId, workspaceId } satisfies PendingNoteScope),
@@ -706,7 +707,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         { id: 'view', label: '보기', blocks: [{ id: 'view', items: [{ id: 'outline', label: '목차', disabled: navigationDisabled }] }] }
       ]} onPick={id => { if (id === 'find' || id === 'outline') openNavigation(id); }} />}
       actions={<>{workspaceNavigation && <Button ref={documentActionsToggle} tone="quiet" aria-controls={documentActionsId} aria-expanded={documentActionsOpen}
-          onClick={() => setDocumentActionsOpen(value => !value)}>문서 작업</Button>}<StatusIndicator data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
+          onClick={() => setDocumentActionsOpen(value => !value)}>{t('workspace.document.actions')}</Button>}<StatusIndicator data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
         {canEdit && <Button disabled={!currentOpen || busy || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict' || (!isDirty && !currentPending)}
           onClick={() => void save()}>{currentPending ? '저장 확인·재시도' : '저장'}</Button>}
         {onLeave && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={onLeave}>나가기</Button>}</>} />
@@ -717,7 +718,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       onActivePanelChange={workspaceNavigation ? side => setDocumentActionsOpen(side === 'navigation') : undefined}
       restorePanelFocus={workspaceNavigation ? () => documentActionsToggle.current?.focus({ preventScroll: true }) : undefined}>
       <WorkspaceSidePanel side="navigation" width={240} floating={workspaceNavigation} hidden={workspaceNavigation && !documentActionsOpen}>
-      <aside className="nw-sidebar" aria-label={workspaceNavigation ? '문서 작업' : '서버 노트 목록'}>
+      <aside className="nw-sidebar" aria-label={workspaceNavigation ? t('workspace.document.actions') : '서버 노트 목록'}>
         {canEdit && <Button disabled={loading || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'} onClick={create}>새 노트</Button>}
         {canEdit && <ServerLocalNoteCopy key={`${issuer}\0${subject}\0${tenantId}\0${workspaceId}`}
           disabled={loading || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'}

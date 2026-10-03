@@ -8,7 +8,7 @@ export interface ProductDocumentHost {
   /** Resolve only after nested input and conditional storage writes settle. */
   beforeNavigate(): Promise<boolean>;
   /** Native server host owns preparation, authority checks and validated installation. */
-  requestOpen?(documentId: string, isCurrent: () => boolean): Promise<ProductNavigationGuard | false>;
+  requestOpen?(documentId: string, isCurrent: () => boolean, intentCurrent?: () => boolean): Promise<ProductNavigationGuard | false>;
 }
 let current: ProductDocumentHost | undefined;
 let registrationEpoch = 0;
@@ -32,7 +32,7 @@ export interface ProductNavigationGuard {
   isCurrent(): boolean;
   prepare(): Promise<boolean>;
   /** Returns the exact installed target guard; the old guard retires on replacement. */
-  open?(documentId: string): Promise<ProductNavigationGuard | false>;
+  open?(documentId: string, intentCurrent?: () => boolean): Promise<ProductNavigationGuard | false>;
 }
 
 /** Captures a lifetime, not only the document ID seen at both ends of an async operation. */
@@ -43,15 +43,16 @@ export function captureProductNavigation(): ProductNavigationGuard | undefined {
   const isCurrent = () => current === host && registrationEpoch === registered &&
     host.id() === id && host.identityEpoch?.() === identity;
   const requestOpen = host.requestOpen;
-  const open = requestOpen ? async (documentId: string): Promise<ProductNavigationGuard | false> => {
-    if (!isCurrent() || !documentId || opening?.isCurrent()) return false;
-    const lease = { token: Symbol('native document opening'), isCurrent };
+  const open = requestOpen ? async (documentId: string, intentCurrent = () => true): Promise<ProductNavigationGuard | false> => {
+    const owns = () => isCurrent() && intentCurrent();
+    if (!owns() || !documentId || opening?.isCurrent()) return false;
+    const lease = { token: Symbol('native document opening'), isCurrent: owns };
     opening = lease;
     try {
       // Product checks this captured owner after every await and before replacement.
       // Its own beforeNavigate may change fixed save state, but never bypasses input.
-      const installed = await requestOpen.call(host, documentId, isCurrent);
-      return opening === lease && installed && installed.product === host.product && installed.id === documentId && installed.isCurrent() ? installed : false;
+      const installed = await requestOpen.call(host, documentId, owns, intentCurrent);
+      return opening === lease && intentCurrent() && installed && installed.product === host.product && installed.id === documentId && installed.isCurrent() ? installed : false;
     } finally { if (opening === lease) opening = undefined; }
   } : undefined;
   return Object.freeze({ product: host.product, id, isCurrent, open,

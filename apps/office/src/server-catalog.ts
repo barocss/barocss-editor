@@ -33,12 +33,14 @@ export async function readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, re
   let projects: ProjectSnapshot[], state: 'ready' | 'partial' = 'ready';
   try { projects = await readProjects(); check(); }
   catch (error) {
-    check();
+    // A current 401 retires the login before throwing. Preserve its access-error kind.
+    // The parent scope still rejects errors from older transitions.
     // Revocation or retired login must clear the entire previous projection.
     if (error instanceof AuthError && ['cancelled', 'unauthorized', 'forbidden'].includes(error.kind)) {
       const key = error.kind === 'cancelled' ? 'workspace.catalog.changed' : error.kind === 'unauthorized' ? 'workspace.catalog.expiredLogin' : 'workspace.catalog.denied';
       throw new AuthError(error.kind, t(key));
     }
+    check();
     projects = []; state = 'partial';
   }
   return { source: 'server', tenantId, workspaceId, capabilities: { stableFolders: false, ownershipClassification: false }, documents, projects, state };

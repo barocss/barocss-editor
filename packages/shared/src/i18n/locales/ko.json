@@ -137,5 +137,11 @@
   "workspace.catalog.expiredLogin": "로그인이 만료되었습니다. 다시 로그인해 주세요.",
   "workspace.catalog.denied": "현재 계정에는 이 회사의 접근 권한이 없습니다.",
   "workspace.catalog.limitReached": "자료함 목록을 끝까지 불러오지 못했습니다.",
-  "workspace.catalog.changed": "계정 또는 작업 공간이 바뀌었습니다."
+  "workspace.catalog.changed": "계정 또는 작업 공간이 바뀌었습니다.",
+  "workspace.tree.sources": "원본 자료",
+  "workspace.tree.server": "현재 권한으로 확인한 작업 공간 자료",
+  "workspace.tree.serverProjectsUnavailable": "프로젝트를 불러오지 못했습니다. 접근 가능한 원본 자료는 사용할 수 있습니다.",
+  "workspace.tree.nativeUnavailable": "이 편집기는 아직 안전한 이동을 준비하지 못했습니다. 현재 문서를 유지합니다.",
+  "workspace.document.actions": "문서 작업",
+  "workspace.tree.workspace": "작업 공간"
 }

@@ -98,3 +98,9 @@ for (const [kind, key] of [['unauthorized', 'expiredLogin'], ['forbidden', 'deni
     await expect(reading).rejects.toMatchObject({ kind, message });
   });
 }
+
+it('preserves current Project login expiry when its request clears the session before rejecting', async () => {
+  let current = true;
+  await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: requestFetch(),
+    readProjects: async () => { current = false; throw new AuthError('unauthorized', 'expired'); }, isCurrent: () => current })).rejects.toMatchObject({ kind: 'unauthorized' });
+});

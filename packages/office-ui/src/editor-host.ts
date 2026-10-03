@@ -8,7 +8,7 @@ let registration = 0;
 let location: ComponentType<EditorNavigationProps> | undefined;
 const listeners = new Set<() => void>();
 const subscribe = (notify: () => void) => { listeners.add(notify); return () => { listeners.delete(notify); }; };
-export function registerEditorNavigation(component: ComponentType<EditorNavigationProps>, context?: ComponentType<EditorNavigationProps>) {
+export function registerEditorNavigation(component: ComponentType<EditorNavigationProps> | undefined, context?: ComponentType<EditorNavigationProps>) {
   const current = ++registration;
   navigation = component;
   location = context;

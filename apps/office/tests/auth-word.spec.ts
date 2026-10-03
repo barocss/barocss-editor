@@ -12,7 +12,7 @@ const origin = `http://127.0.0.1:${process.env.OFFICE_AUTH_TEST_PORT ?? '5191'}`
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const shell = (page: Page) => page.locator('[data-server-word-workspace]');
 const save = (page: Page) => shell(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ });
-async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; failSave?: boolean } = {}) {
+async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; failSave?: boolean; tree?: boolean } = {}) {
   let snapshotText = wordFileText(createStarterDocument(), '');
   let revision = 1;
   let viewer = !!options.viewer;
@@ -32,7 +32,7 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
   await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'word-synthetic', tenants: [{ tenantId, name: 'Word Company', role: viewer ? 'viewer' : 'editor' }], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role: viewer ? 'viewer' : 'editor' })));
   await page.route(`**/api/v1/tenants/${tenantId}/workspaces**`, route => route.fulfill(json({ workspaces: [{ id: workspaceId, name: 'Word workspace' }], nextCursor: null })));
-  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: new URL(route.request().url()).searchParams.get('product') === 'word' ? [head(), ...(options.second ? [secondHead()] : [])] : [], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: ['word', null].includes(new URL(route.request().url()).searchParams.get('product')) ? [head(), ...(options.second ? [secondHead()] : [])] : [], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/documents/${documentId}`, route => route.fulfill(json({ document: head(), ...(options.mode ? {} : { snapshotText }) })));
   if (options.second) await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondDocumentId}`, route => route.fulfill(json({ document: secondHead(), snapshotText: secondText })));
   await page.route(`**/api/v1/tenants/${tenantId}/receipts/**`, route => {
@@ -51,13 +51,27 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
     if (lose) { lose = false; return route.abort('failed'); }
     return route.fulfill(json(receipt));
   });
-  await page.goto(`/?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId}&product=word`);
+  if (options.tree) {
+    const projects = ['Alpha', 'Beta'].map((title, index) => ({ id: `00000000-0000-4000-8000-00000000000${index + 5}`, title,
+      goal: '', archived: false, comments: [], works: [], activities: [], drafts: {},
+      results: [{ id: `${title}-result`, name: 'Stale alias', document: { product: 'word', id: documentId }, inputs: [] }] }));
+    const projectValue = (record: typeof projects[number]) => ({ tenantId, workspaceId, actor: { kind: 'human', id: 'synthetic-member' }, project: { revision: 1, record } });
+    await page.route(`**/api/v1/tenants/${tenantId}/projects?**`, route => route.fulfill(json({ projects: projects.map(projectValue), nextCursor: null })));
+    for (const record of projects) await page.route(`**/api/v1/tenants/${tenantId}/projects/${record.id}`, route => route.fulfill(json(projectValue(record))));
+  }
+  await page.goto(`/?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId}&product=word${options.tree ? '&project=00000000-0000-4000-8000-000000000005&mode=read' : ''}`);
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   return { writes, text: () => snapshotText, revision: () => revision, setViewer: (value: boolean) => { viewer = value; } };
 }
 async function type(page: Page, text: string) {
   const paragraph = shell(page).locator('.w-paragraph').first();
   await paragraph.click(); await page.keyboard.type(text);
+}
+
+async function openWordActions(page: Page) {
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '열기…', exact: true }).click();
+  await expect(page.getByRole('region', { name: '문서 작업', exact: true })).toBeVisible();
 }
 
 test('Word discovery mounts full editor and confirms native save without bootstrap globals', async ({ page }) => {
@@ -134,6 +148,7 @@ test('reload exposes a separate protected last-input draft without replacing ser
   await expect.poll(async () => await shell(page).isVisible() || await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible()).toBe(true);
   if (await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible()) await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await expect(shell(page).locator('.w-paragraph').first()).not.toContainText('Reload latest input');
+  await openWordActions(page);
   const recover = shell(page).getByRole('button', { name: /저장된 Word 초안 복구/ });
   await expect(recover).toHaveCount(1);
   const stored = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:')).map(key => JSON.parse(localStorage.getItem(key)!)));
@@ -180,6 +195,7 @@ test('unsupported native file leaves current Word model and source file unchange
   await setup(page); await type(page, 'Retained current Word');
   const source = JSON.stringify({ format: 'barocss-word', version: 1, document: { stype: 'document', content: [{ stype: 'unknownWordNode', text: 'Unsupported source' }] } });
   page.once('dialog', dialog => dialog.accept());
+  await openWordActions(page);
   await shell(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({ name: 'unsupported.word.json', mimeType: 'application/json', buffer: Buffer.from(source) });
   await expect(shell(page).getByText('지원하지 않는 Word 파일입니다.', { exact: false })).toBeVisible();
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Retained current Word');
@@ -190,7 +206,7 @@ test('selected Word tools retire while a save owns the current busy document', a
   const state = await setup(page);
   await type(page, 'Busy owned Word input');
   await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
-  const tools = page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true });
+  const tools = page.getByRole('toolbar', { name: '선택한 Word 글 서식 도구', exact: true });
   await expect(tools).toBeVisible();
   let release!: () => void, entered!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
@@ -221,7 +237,7 @@ test('current viewer permission retires selected Word tools before further mutat
   await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
   const paragraph = shell(page).locator('.w-paragraph').first();
   await paragraph.click(); await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
-  const tools = page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true });
+  const tools = page.getByRole('toolbar', { name: '선택한 Word 글 서식 도구', exact: true });
   await expect(tools).toBeVisible();
   const savedText = state.text();
   const json = (body: unknown) => ({ contentType: 'application/json', body: JSON.stringify(body) });
@@ -272,7 +288,7 @@ test('dirty Word draft survives current viewer demotion and writer promotion', a
   await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(1);
   await expect(paragraph).toHaveText(visible!);
   await paragraph.click(); await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
-  await expect(page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true })).toBeVisible();
+  await expect(page.getByRole('toolbar', { name: '선택한 Word 글 서식 도구', exact: true })).toBeVisible();
   await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
   expect(state.text()).toContain('Protected role-change draft'); expect(state.writes).toHaveLength(1);
 });
@@ -296,6 +312,7 @@ test('delayed imported Word file cannot replace the document after viewer demoti
   await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, async route => {
     entered(); await held; await route.fallback();
   }, { times: 1 });
+  await openWordActions(page);
   await shell(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({
     name: 'delayed.word.json', mimeType: 'application/json', buffer: Buffer.from(wordFileText(source, '')) });
   await waiting;
@@ -338,15 +355,15 @@ test('native Word opening saves the final input before installing another origin
   const state = await setup(page, { second: true });
   await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
   await type(page, 'Final input before native transition');
-  const list = shell(page).getByRole('complementary', { name: '서버 Word 목록' });
+  const list = page.getByRole('complementary', { name: '작업 공간 파일 탐색' });
   if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
-  await list.getByRole('button', { name: 'Second server Word', exact: true }).click();
+  await list.getByRole('button', { name: 'Second server Word 열기', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
   await expect(shell(page).locator('.w-paragraph').first()).not.toContainText('Final input before native transition');
   expect(state.writes).toHaveLength(1);
   expect(state.text()).toContain('Final input before native transition');
   if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
-  await list.getByRole('button', { name: 'Server Word', exact: true }).click();
+  await list.getByRole('button', { name: 'Server Word 열기', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Final input before native transition');
   expect(state.writes).toHaveLength(1);
@@ -356,9 +373,9 @@ test('failed native Word preparation preserves the current original and last dra
   const state = await setup(page, { second: true, failSave: true });
   await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
   await type(page, 'Retained failed transition input');
-  const list = shell(page).getByRole('complementary', { name: '서버 Word 목록' });
+  const list = page.getByRole('complementary', { name: '작업 공간 파일 탐색' });
   if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
-  await list.getByRole('button', { name: 'Second server Word', exact: true }).click();
+  await list.getByRole('button', { name: 'Second server Word 열기', exact: true }).click();
   await expect(shell(page).locator('[data-save-status]')).toHaveText('저장 확인 필요');
   await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Retained failed transition input');
@@ -377,15 +394,15 @@ test('retired Word role loading cannot lock or replace a newer viewer opening', 
   await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondDocumentId}`, async route => {
     entered(); await held; await route.fallback();
   }, { times: 1 });
-  const list = shell(page).getByRole('complementary', { name: '서버 Word 목록' });
+  const list = page.getByRole('complementary', { name: '작업 공간 파일 탐색' });
   if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
-  await list.getByRole('button', { name: 'Second server Word', exact: true }).click(); await waiting;
+  await list.getByRole('button', { name: 'Second server Word 열기', exact: true }).click(); await waiting;
   state.setViewer(true);
   const access = page.waitForResponse(response => response.url().endsWith('/access'));
   await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await access;
   await expect(save(page)).toHaveCount(0);
-  await expect(list.getByRole('button', { name: 'Second server Word', exact: true })).toBeEnabled();
-  await list.getByRole('button', { name: 'Second server Word', exact: true }).click();
+  await expect(list.getByRole('button', { name: 'Second server Word 열기', exact: true })).toBeEnabled();
+  await list.getByRole('button', { name: 'Second server Word 열기', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
   const installed = await shell(page).locator('.w-paragraph').first().elementHandle();
   expect(installed).not.toBeNull();
@@ -397,4 +414,86 @@ test('retired Word role loading cannot lock or replace a newer viewer opening', 
   await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
   await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+});
+
+
+test('authenticated workspace tree retains native Word and Project context across aliases and perspectives', async ({ page }) => {
+  const state = await setup(page, { tree: true });
+  await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+  const navigation = page.getByRole('complementary', { name: '작업 공간 파일 탐색' });
+  await expect(navigation.getByRole('button', { name: 'Server Word 열기' })).toHaveCount(3);
+  await expect(navigation.getByText('Stale alias')).toHaveCount(0);
+  const paragraph = shell(page).locator('.w-paragraph').first();
+  await type(page, 'Unsaved same original input');
+  await expect(paragraph).toContainText('Unsaved same original input');
+  const node = await paragraph.elementHandle();
+  const before = page.url();
+  await navigation.getByRole('button', { name: 'Server Word 열기' }).nth(1).click();
+  await expect(paragraph).toContainText('Unsaved same original input');
+  expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+  expect(page.url()).toBe(before); expect(state.writes).toHaveLength(0);
+  await navigation.locator('.ow-tree-perspectives').getByRole('button', { name: '원본 자료', exact: true }).click();
+  await expect(navigation.getByRole('button', { name: 'Server Word 열기' })).toHaveCount(1);
+  await navigation.getByRole('button', { name: 'Server Word 열기' }).click();
+  expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+  expect(page.url()).toBe(before); expect(state.writes).toHaveLength(0);
+});
+
+test('authenticated workspace tree saves immediate input before opening another Word original', async ({ page }) => {
+  const state = await setup(page, { tree: true, second: true });
+  await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+  const tree = page.locator('.ow-file-navigation');
+  await expect(tree.getByRole('button', { name: 'Second server Word 열기' })).toBeVisible();
+  await type(page, 'Immediate tree input');
+  await expect(shell(page).locator('.w-paragraph').first()).toContainText('Immediate tree input');
+  await tree.getByRole('button', { name: 'Second server Word 열기' }).click();
+  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+  await expect(shell(page).locator('.w-paragraph').first()).not.toContainText('Immediate tree input');
+  expect(state.writes).toHaveLength(1); expect(state.text()).toContain('Immediate tree input');
+  expect(new URL(page.url()).searchParams.has('project')).toBe(false);
+});
+
+
+for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const) test(`authenticated Word frame geometry ${width} ${theme}`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width, height: 1000 });
+  await setup(page, { tree: true });
+  // Complete the provider round trip before measuring the native editor.
+  await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('document') === documentId);
+  await page.waitForLoadState('networkidle');
+  await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
+  await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+  await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+  await type(page, 'Wonffice workspace product overview');
+  const paragraph = shell(page).locator('.w-paragraph').first();
+  await expect(paragraph).toContainText('Wonffice workspace product overview');
+  const header = shell(page).locator('.office-document-bar');
+  await expect(header).toHaveCount(1);
+  const geometry = await header.boundingBox();
+  expect(geometry!.height).toBe(48);
+  await expect(header.locator('[data-document-context]')).toContainText('Word workspace / Server Word');
+  const controls = await header.locator('button,input').evaluateAll(elements => elements.filter(element => element.getBoundingClientRect().width > 0).map(element => {
+    const rect = element.getBoundingClientRect(), hit = element.ownerDocument.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return { name: element.getAttribute('aria-label') ?? element.textContent, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height,
+      ownsHit: !!hit && (element === hit || element.contains(hit)) };
+  }));
+  for (const control of controls) {
+    expect(control.height, control.name ?? '').toBeGreaterThanOrEqual(32); expect(control.width, control.name ?? '').toBeGreaterThanOrEqual(32);
+    expect(control.x, control.name ?? '').toBeGreaterThanOrEqual(geometry!.x); expect(control.right, control.name ?? '').toBeLessThanOrEqual(geometry!.x + geometry!.width);
+    expect(control.y, control.name ?? '').toBeGreaterThanOrEqual(geometry!.y); expect(control.bottom, control.name ?? '').toBeLessThanOrEqual(geometry!.y + geometry!.height);
+    expect(control.ownsHit, control.name ?? '').toBe(true);
+  }
+  expect(geometry!.x).toBeGreaterThan(250); expect(geometry!.x + geometry!.width).toBeLessThanOrEqual(width);
+  await expect(shell(page).getByRole('complementary', { name: '서버 Word 목록' })).toHaveCount(0);
+  await expect(shell(page).getByRole('complementary', { name: '문서 작업' })).toBeHidden();
+  await page.screenshot({ path: testInfo.outputPath(`authenticated-word-${width}-${theme}.png`) });
+  const node = await paragraph.elementHandle();
+  await openWordActions(page);
+  await page.getByRole('region', { name: '문서 작업', exact: true }).getByRole('button', { name: '닫기', exact: true }).click();
+  await expect(shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true })).toBeFocused();
+  await openWordActions(page);
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('region', { name: '문서 작업', exact: true }).getByRole('button', { name: '새 Word', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true })).toBeFocused();
+  expect(await node!.evaluate(element => element.isConnected)).toBe(true);
 });

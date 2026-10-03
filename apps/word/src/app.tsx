@@ -1,6 +1,6 @@
 import type { CriterionVerificationHost } from './criterion-verification-client';
 import type { CriterionConfirmationHost } from './criterion-confirmation-client';
-import { EditorHeader, DocumentMenu, ProductMenu, CommandSearch, CommandSearchTrigger } from '@barocss/office-ui';
+import { EditorHeader, DocumentMenu, ProductMenu, CommandSearch, CommandSearchTrigger, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
@@ -87,6 +87,7 @@ export interface WordServerHost {
   headerActions?: ReactNode;
   headerNavigation?: ReactNode;
   navigation?: ReactNode;
+  workspaceNavigation?: boolean;
   readOnly?: boolean;
   onRuntime: (runtime: WordRuntime) => void;
   feedbackDocumentId: () => string;
@@ -194,9 +195,12 @@ export function App({ mount, server }: {
    * Open on request so the initial workspace gives its width to the page.
    */
   const [outlining, setOutlining] = useState(false);
+  const [documentActionsOpen, setDocumentActionsOpen] = useState(false);
+  const documentMenuAnchor = useRef<HTMLSpanElement>(null);
+  useEffect(() => setDocumentActionsOpen(false), [instance]);
   const togglePanel = useCallback((side: 'navigation' | 'inspector') => {
     const shown = compact ? activePanel === side : side === 'navigation' ? outlining : commenting;
-    const closingRegion = side === 'navigation' && !compact && server?.navigation ? `${panelId}-outline` : `${panelId}-${side}`;
+    const closingRegion = side === 'navigation' && !compact && server?.navigation && !server.workspaceNavigation ? `${panelId}-outline` : `${panelId}-${side}`;
     const closingFromPanel = shown && document.getElementById(closingRegion)?.contains(document.activeElement);
     if (compact) setActivePanel(current => current === side ? null : side);
     else if (side === 'navigation') setOutlining(value => !value);
@@ -317,6 +321,7 @@ export function App({ mount, server }: {
         case 'file.new':
           return server ? server.onFileAction('new') : files.current?.create();
         case 'file.open':
+          if (server?.workspaceNavigation) { setDocumentActionsOpen(true); return; }
           return server ? server.onFileAction('open') : files.current?.open();
         case 'file.save':
           return server ? server.onFileAction('save') : files.current?.save();
@@ -473,16 +478,16 @@ export function App({ mount, server }: {
         {instance && <>
           <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={server || proposalSample ? menus : [...menus, {
+            menus={<span ref={documentMenuAnchor}><DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={server || proposalSample ? menus : [...menus, {
               id: 'local-library', label: '문서 작업', blocks: [{ id: 'local-library', items: [
                 { id: 'local.library', label: '문서 보관함' }, { id: 'local.actions', label: '문서 작업' }
               ] }]
-            }]} onPick={onMenu} />}
+            }]} onPick={onMenu} /></span>}
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
             actions={<>
               <div className="w-header-command-group">
                 <Tip label={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}><Button ref={outlineButton} square tone="quiet" ariaLabel={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}
-                  aria-controls={!compact && server?.navigation ? `${panelId}-outline` : `${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
+                  aria-controls={!compact && server?.navigation && !server.workspaceNavigation ? `${panelId}-outline` : `${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
                   pressed={outlineShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('navigation')}><Icon name="outline" /></Button></Tip>
                 <Tip label={t('word.header.comments')}><Button ref={commentsButton} square tone="quiet" ariaLabel={t('word.header.comments')}
                   aria-controls={`${panelId}-inspector`} aria-expanded={commentsShown} data-workspace-toggle="inspector"
@@ -533,11 +538,19 @@ export function App({ mount, server }: {
         {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
+      {server?.workspaceNavigation && <FloatingSurface open={documentActionsOpen} keepMounted at={documentMenuAnchor.current?.getBoundingClientRect() ?? null}
+        prefer="below" align="start" variant="panel" focusOnOpen portalRoot={host.current?.closest('.w-shell') as HTMLElement | null}
+        ownedElements={[documentMenuAnchor]} role="region" aria-label={t('workspace.document.actions')} style={{ width: 320, maxWidth: 'calc(100vw - 24px)' }}
+        onDismiss={reason => { setDocumentActionsOpen(false); if (reason === 'escape') documentMenuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true }); }}>
+        <FloatingPanelHeader title={t('workspace.document.actions')} onClose={() => { setDocumentActionsOpen(false); const opener = documentMenuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]'); if (opener?.isConnected) opener.focus({ preventScroll: true }); }} />
+        {server.navigation}
+      </FloatingSurface>}
+
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: t(server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline'), inspector: t('word.header.comments') }}
         showPanelControls={false} restorePanelFocus={restorePanelFocus}
         panelIds={{ navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
-        {instance ? <WorkspaceSidePanel side="navigation" width={240} hidden={!outlineShown && !server?.navigation}>{server?.navigation}<div className="w-outline-slot" id={`${panelId}-outline`} hidden={!outlineShown}><OutlinePane
+        {instance ? <WorkspaceSidePanel side="navigation" width={240} hidden={!outlineShown && (!server?.navigation || server.workspaceNavigation)}>{!server?.workspaceNavigation && server?.navigation}<div className="w-outline-slot" id={`${panelId}-outline`} hidden={!outlineShown}><OutlinePane
             editor={instance.editor}
             open={outlineShown}
             onToggle={() => togglePanel('navigation')}

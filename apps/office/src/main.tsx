@@ -14,6 +14,7 @@ if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
     return <Suspense fallback={<p role="status">문서 화면을 불러오는 중입니다.</p>}>
       <Workspace key={`${principal.issuer}\0${principal.subject}\0${context.tenantId}\0${context.workspaceId}\0${context.product}`}
         headerNavigation={headerNavigation}
+        {...(context.product !== 'slides' ? { workspaceNavigation: true } : {})}
         tenantId={context.tenantId}
         workspaceId={context.workspaceId}
         issuer={principal.issuer}
@@ -22,15 +23,7 @@ if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
         authorizedFetch={context.authorizedFetch}
         role={context.role}
         onUnsafeChange={onUnsafeChange}
-        onNavigate={documentId => {
-          onDocumentNavigate(documentId);
-          const url = new URL(location.href);
-          url.searchParams.set('tenant', context.tenantId);
-          url.searchParams.set('workspace', context.workspaceId);
-          url.searchParams.set('document', documentId);
-          url.searchParams.set('product', context.product);
-          history.replaceState(null, '', url);
-        }}
+        onNavigate={onDocumentNavigate}
       />
     </Suspense>;
   }} /></OfficeLocaleProvider>));

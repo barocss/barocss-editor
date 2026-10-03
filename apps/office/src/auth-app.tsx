@@ -2,12 +2,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import {
   AuthError, beginLogin, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
   isLogoutEvent, loadIdentity, providerLogout, consumeLogoutReturn, consumeResumeIntent,
-  listWorkspaces, listSnapshotDocuments, openVerifiedSnapshot, snapshotIntentFromSearch, snapshotIntentSearch, projectLocation, authorizedFetch,
+  listWorkspaces, listSnapshotDocuments, openVerifiedSnapshot, snapshotIntentFromSearch, snapshotIntentSearch, projectLocation, authorizedFetch, captureAuthorizedSession,
   type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext, type VerifiedSnapshotContext, type SnapshotProduct,
 } from './auth-client';
 import { Icon, IconButton, ProductLabel } from '@barocss/office-ui';
-import { productDocumentHost, prepareProductNavigation } from '@barocss/shared';
+import { productDocumentHost, prepareProductNavigation, captureProductNavigation } from '@barocss/shared';
 import { ProjectFeedback } from '@barocss/office-workspace/feedback';
+import { AuthenticatedWorkspaceFrame } from './authenticated-frame';
+import type { ServerCatalogRow } from './server-catalog';
+import { readProductDocument } from '@barocss/office-workspace';
+import { useOfficeLocale } from '@barocss/office-ui';
 import { ConnectedWorkspace } from './connected-workspace';
 import { serverProjectRepository } from './project-client';
 import './auth-style.css';
@@ -20,7 +24,7 @@ type View =
   | { phase: 'opened'; intent: EntryIntent; tenant: TenantAccess; role: TenantRole; workspaces?: WorkspaceAccess[]; workspaceCursor?: string | null }
   | { phase: 'library'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; product: SnapshotProduct; documents: DocumentAccess[]; cursor: string | null }
   | { phase: 'project'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess }
-  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; context: VerifiedSnapshotContext; principal: Pick<Identity, 'issuer' | 'subject'> }
+  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; context: VerifiedSnapshotContext; principal: Pick<Identity, 'issuer' | 'subject'> }
   | { phase: 'operator-opened' }
   | { phase: 'operator-denied' }
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
@@ -51,6 +55,12 @@ function asAuthError(error: unknown) {
 export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (context: VerifiedSnapshotContext, principal: Pick<Identity, 'issuer' | 'subject'>,
   onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void, headerNavigation: ReactNode) => ReactNode; noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
   onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode } = {}) {
+  const { t } = useOfficeLocale();
+  const [treeBusy, setTreeBusy] = useState(false);
+  const [treeError, setTreeError] = useState('');
+  const [activeDocument, setActiveDocument] = useState<string | null>(null);
+  const nativeSlot = useRef<{ token: symbol; session: ReturnType<typeof captureAuthorizedSession> } | null>(null);
+  const treeOperation = useRef<symbol | null>(null);
   const [view, setView] = useState<View>({ phase: 'checking' });
   const selected = useRef<TenantAccess | null>(null);
   const chosenIntent = useRef<EntryIntent | null>(null);
@@ -72,6 +82,9 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   const feedbackRepository = useMemo(() => mountedNote ? serverProjectRepository(mountedNote.context.tenantId, mountedNote.context.workspaceId, mountedNote.role) : null,
     [mountedNote?.context, mountedNote?.role]);
   const forgetNote = () => {
+    nativeSlot.current = null; treeOperation.current = null;
+    setTreeBusy(false); setTreeError('');
+    setActiveDocument(null);
     rememberedNote.current = null;
     noteAccount.current = null;
     noteAccess.current = false;
@@ -81,8 +94,10 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   };
   const rememberNote = (next: Omit<Extract<View, { phase: 'note' }>, 'principal'>, identity: Identity) => {
     const account = `${identity.issuer}\0${identity.subject}`;
+    const slot = { token: Symbol('native mount'), session: captureAuthorizedSession() };
+    nativeSlot.current = slot;
     const guardedContext = { ...next.context, authorizedFetch: ((...args: Parameters<typeof fetch>) => {
-      if (noteAccount.current !== account) {
+      if (nativeSlot.current !== slot || !slot.session.isCurrent() || noteAccount.current !== account) {
         throw new AuthError('forbidden', '현재 계정의 문서 접근 권한이 없습니다.');
       }
       if (!noteAccess.current) {
@@ -90,12 +105,13 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         const denied = current.phase === 'error' && ['forbidden', 'unauthorized'].includes(current.error.kind);
         throw new AuthError(denied ? 'forbidden' : 'unavailable', '현재 문서 접근 권한을 확인하고 있습니다.');
       }
-      return next.context.authorizedFetch(...args);
+      return slot.session.requestFetch(...args);
     }) as typeof fetch };
     const retained = { ...next, principal: { issuer: identity.issuer, subject: identity.subject }, context: guardedContext };
     noteAccount.current = account;
     noteAccess.current = true;
     rememberedDocumentId.current = next.context.documentId ?? null;
+    setActiveDocument(rememberedDocumentId.current);
     rememberedNote.current = retained;
     setMountedNote(retained);
     setView(retained);
@@ -113,6 +129,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
 
   async function checkAccess(intent = chosenIntent.current ?? currentIntent(), tenant = selected.current) {
     const run = ++generation.current;
+    treeOperation.current = null; setTreeBusy(false);
     const retainedNote = rememberedNote.current;
     noteAccess.current = false;
     showCurtain();
@@ -211,7 +228,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
             setView(retained);
             hideCurtain();
           } else if (retainedNote) throw new AuthError('forbidden', '이 초안을 다시 편집할 권한이 없습니다.');
-          else rememberNote({ phase: 'note', tenant: fresh, role, context }, identity);
+          else rememberNote({ phase: 'note', tenant: fresh, role, workspace, context }, identity);
           return;
         }
         if (projectLink && intent === 'user') {
@@ -318,7 +335,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     if (rememberedNote.current && !canLeaveNote()) return;
     if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
     if (!ownsLogout()) return;
-    if (productDocumentHost() && !await prepareProductNavigation()) { if (ownsLogout()) setLeaveBlocked(true); return; }
+    if ((rememberedNote.current || productDocumentHost()) && !await prepareProductNavigation()) { if (ownsLogout()) setLeaveBlocked(true); return; }
     if (!ownsLogout()) return;
     noteUnsafe.current = false;
     setLeaveBlocked(false);
@@ -388,7 +405,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       if (run !== generation.current) return;
       noteIntent.current = null;
       history.replaceState(null, '', '/');
-      rememberNote({ phase: 'note', tenant: current.tenant, role,
+      rememberNote({ phase: 'note', tenant: current.tenant, role, workspace: current.workspace,
         context: { product: current.product, tenantId: current.tenant.tenantId, workspaceId: current.workspace.id, role, authorizedFetch } }, identity);
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
@@ -405,8 +422,88 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       noteIntent.current = { tenantId: context.tenantId, workspaceId: context.workspaceId, documentId, product: context.product, ...(projectId ? { projectId, mode: 'read' as const } : {}) };
       history.replaceState(null, '', `/?${snapshotIntentSearch(noteIntent.current)}`);
       if (run !== generation.current) return;
-      rememberNote({ phase: 'note', tenant: current.tenant, role, context }, identity);
+      rememberNote({ phase: 'note', tenant: current.tenant, role, workspace: current.workspace, context }, identity);
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
+  }
+
+  function commitNativeLocation(documentId: string, projectId: string | null | undefined = noteIntent.current?.projectId) {
+    const native = rememberedNote.current;
+    if (!native) return;
+    rememberedDocumentId.current = documentId; setActiveDocument(documentId);
+    noteIntent.current = { tenantId: native.context.tenantId, workspaceId: native.context.workspaceId, documentId,
+      product: native.context.product, ...(projectId ? { projectId, mode: 'read' as const } : {}) };
+    history.replaceState(null, '', `/?${snapshotIntentSearch(noteIntent.current)}`);
+  }
+  async function openTreeOriginal(row: ServerCatalogRow, projectId?: string) {
+    if (treeOperation.current || !row.nativeOpenSupported || row.product === 'site') return;
+    const scope = rememberedNote.current ?? (currentView.current.phase === 'project' || currentView.current.phase === 'library' ? currentView.current : null);
+    if (!scope) return;
+    const run = generation.current, slot = nativeSlot.current, session = captureAuthorizedSession(), token = Symbol('tree open');
+    const owns = () => treeOperation.current === token && run === generation.current && nativeSlot.current === slot && session.isCurrent() && (!slot || (noteAccess.current && slot.session.isCurrent()));
+    treeOperation.current = token; setTreeBusy(true); setTreeError('');
+    try {
+      const native = rememberedNote.current;
+      if (native && row.product === native.context.product && row.documentId === rememberedDocumentId.current) {
+        const same = captureProductNavigation();
+        if (!owns() || !same?.isCurrent() || same.product !== row.product || same.id !== row.documentId) throw new Error(t('workspace.tree.nativeUnavailable'));
+        return; // A placement alias preserves the current Project, feedback draft and native selection.
+      }
+      if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
+      if (!owns()) return;
+      if (native) {
+        const guard = captureProductNavigation();
+        if (!guard || guard.product !== native.context.product || guard.id !== rememberedDocumentId.current) throw new Error(t('workspace.tree.nativeUnavailable'));
+        if (row.product !== native.context.product) {
+          // Cross-product replacement needs an installed native witness as well. Keep the current runtime until that contract is available.
+          throw new Error(t('workspace.tree.nativeUnavailable'));
+        }
+        if (!guard.open) throw new Error(t('workspace.tree.nativeUnavailable'));
+        const installed = await guard.open(row.documentId, owns);
+        if (!owns()) return;
+        if (!installed || !installed.isCurrent()) throw new Error(t('workspace.tree.nativeUnavailable'));
+        commitNativeLocation(row.documentId, projectId ?? null);
+        return;
+      }
+      const identity = verifiedIdentity.current;
+      if (!identity) return;
+      const context = await openVerifiedSnapshot(scope.tenant.tenantId, scope.workspace.id, row.documentId, scope.role, row.product, session.requestFetch);
+      if (!owns()) return;
+      await readProductDocument(row.product, context.snapshotText!);
+      if (!owns()) return;
+      rememberNote({ phase: 'note', tenant: scope.tenant, role: scope.role, workspace: scope.workspace, context }, identity);
+      commitNativeLocation(row.documentId, projectId ?? null);
+    } catch (error) { if (owns()) setTreeError(error instanceof Error ? error.message : t('workspace.tree.nativeUnavailable')); }
+    finally { if (treeOperation.current === token) { treeOperation.current = null; setTreeBusy(false); } }
+  }
+  async function navigateTree(destination: 'projects' | 'library', projectId?: string) {
+    if (treeOperation.current) return;
+    const scope = rememberedNote.current ?? (currentView.current.phase === 'project' || currentView.current.phase === 'library' ? currentView.current : null);
+    if (!scope) return;
+    const run = generation.current, slot = nativeSlot.current, session = captureAuthorizedSession(), token = Symbol('tree destination');
+    const owns = () => treeOperation.current === token && run === generation.current && nativeSlot.current === slot && session.isCurrent() && (!slot || (noteAccess.current && slot.session.isCurrent()));
+    treeOperation.current = token; setTreeBusy(true); setTreeError('');
+    try {
+      if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
+      if (!owns()) return;
+      if (rememberedNote.current) {
+        const guard = captureProductNavigation();
+        if (!guard || !await guard.prepare()) { if (owns()) setLeaveBlocked(true); return; }
+        if (!owns()) return;
+      }
+      if (destination === 'library') {
+        const page = await listSnapshotDocuments(scope.tenant.tenantId, scope.workspace.id, 'note');
+        if (!owns()) return;
+        forgetNote(); noteIntent.current = null;
+        history.replaceState(null, '', `/?${new URLSearchParams({ tenant: scope.tenant.tenantId, workspace: scope.workspace.id })}`);
+        setView({ phase: 'library', tenant: scope.tenant, role: scope.role, workspace: scope.workspace, product: 'note', documents: page.items, cursor: page.nextCursor });
+      } else {
+        if (!owns()) return;
+        forgetNote(); noteIntent.current = null;
+        history.replaceState(null, '', `/?${new URLSearchParams({ tenant: scope.tenant.tenantId, workspace: scope.workspace.id, ...(projectId ? { project: projectId } : {}) })}`);
+        setView({ phase: 'project', tenant: scope.tenant, role: scope.role, workspace: scope.workspace });
+      }
+    } catch (error) { if (owns()) setTreeError(error instanceof Error ? error.message : t('workspace.tree.nativeUnavailable')); }
+    finally { if (treeOperation.current === token) { treeOperation.current = null; setTreeBusy(false); } }
   }
 
   const compactEditor = view.phase === 'note' && ['note', 'word', 'slides'].includes(view.context.product) && !!editorRenderer;
@@ -416,22 +513,23 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     const ownsReturn = () => started === generation.current && currentView.current === current && account === noteAccount.current && rememberedNote.current === originalNote;
     if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
     if (!ownsReturn()) return;
-    if (productDocumentHost() && !await prepareProductNavigation()) { if (ownsReturn()) setLeaveBlocked(true); return; }
+    if ((rememberedNote.current || productDocumentHost()) && !await prepareProductNavigation()) { if (ownsReturn()) setLeaveBlocked(true); return; }
     if (!ownsReturn()) return;
     forgetNote(); noteIntent.current = null;
     if (project) {
       history.replaceState(null, '', `/?${new URLSearchParams({ tenant: current.tenant.tenantId, workspace: current.context.workspaceId, project })}`);
-      setView({ phase: 'project', tenant: current.tenant, role: current.role, workspace: { id: current.context.workspaceId, name: '작업 공간' } });
+      setView({ phase: 'project', tenant: current.tenant, role: current.role, workspace: current.workspace });
     } else { history.replaceState(null, '', '/'); await checkAccess('user', current.tenant); }
   };
-  const headerNavigation = view.phase === 'note' ? <div className="office-editor-product">
+  const headerNavigation = view.phase === 'note' ? <div className="office-editor-product office-auth-native-navigation">
     <IconButton label={noteIntent.current?.projectId ? '프로젝트로 돌아가기' : '자료함으로 돌아가기'} onClick={() => void returnToProject()}><Icon name="back" /></IconButton>
     <IconButton label="로그아웃" onClick={() => void logout()}><Icon name="logout" /></IconButton>
     <ProductLabel name={view.context.product === 'slides' ? 'Slides' : view.context.product === 'word' ? 'Word' : 'Note'} />
-    {noteIntent.current?.projectId && view.context.documentId && feedbackRepository && <ProjectFeedback key={`${noteAccount.current}:${view.context.documentId}`} repository={feedbackRepository} projectId={noteIntent.current.projectId} beforeLeave={feedbackBeforeLeave}
-      document={{ product: view.context.product, id: view.context.documentId }} />}
+    {noteIntent.current?.projectId && activeDocument && feedbackRepository && <ProjectFeedback key={`${noteAccount.current}:${noteIntent.current.projectId}:${activeDocument}`} repository={feedbackRepository} projectId={noteIntent.current.projectId} beforeLeave={feedbackBeforeLeave}
+      document={{ product: view.context.product, id: activeDocument }} />}
   </div> : null;
-  return <main className="office-auth" data-editor-open={compactEditor || undefined}>
+  const renderedSlot = nativeSlot.current, renderedAuthority = generation.current;
+  const content = <main className="office-auth" data-editor-open={compactEditor || undefined}>
     {!compactEditor && view.phase !== 'project' && <header className="office-auth-brand"><span>wonffice</span><small>서비스 로그인 후보 · 서버 권한 확인</small></header>}
     {mountedNote && leaveBlocked && <p role="alert">현재 입력을 복구 가능한 저장소에 보관하지 못했습니다. 저장 상태를 확인한 뒤 다시 시도하세요. 이 화면은 그대로 유지합니다.</p>}
     {view.phase === 'checking' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>접근 권한 확인 중</h1><p>현재 계정과 회사 권한을 서버에서 확인하고 있습니다.</p></section>}
@@ -474,9 +572,14 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     </section>}
     {mountedNote && <section className="office-auth-note-host" hidden={view.phase !== 'note'} aria-hidden={view.phase !== 'note'} inert={view.phase !== 'note'}>
       {view.phase === 'note' && !compactEditor && <div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>}
-      <div className="office-auth-editor">{(editorRenderer ?? (mountedNote.context.product === 'note' ? noteRenderer : undefined)) ? (editorRenderer ?? noteRenderer)!(mountedNote.context, mountedNote.principal, unsafe => { noteUnsafe.current = unsafe; }, documentId => {
-        rememberedDocumentId.current = documentId;
-        noteIntent.current = { tenantId: mountedNote.context.tenantId, workspaceId: mountedNote.context.workspaceId, documentId, product: mountedNote.context.product, ...(noteIntent.current?.projectId ? { projectId: noteIntent.current.projectId, mode: noteIntent.current.mode } : {}) };
+      <div className="office-auth-editor">{(editorRenderer ?? (mountedNote.context.product === 'note' ? noteRenderer : undefined)) ? (editorRenderer ?? noteRenderer)!(mountedNote.context, mountedNote.principal, unsafe => {
+        if (nativeSlot.current === renderedSlot && renderedSlot?.session.isCurrent() &&
+          noteAccess.current && renderedAuthority === generation.current) noteUnsafe.current = unsafe;
+      }, documentId => {
+        if (treeOperation.current || nativeSlot.current !== renderedSlot || !renderedSlot?.session.isCurrent() || !noteAccess.current || renderedAuthority !== generation.current) return;
+        const native = captureProductNavigation();
+        if (!native?.isCurrent() || native.product !== mountedNote.context.product || native.id !== documentId) return;
+        commitNativeLocation(documentId);
       }, headerNavigation) : <p role="status">{productName(mountedNote.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}</div>
     </section>}
     {view.phase === 'operator-opened' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
@@ -500,4 +603,15 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         }}>진입 선택</button></div>
     </section>}
   </main>;
+  const scope = mountedNote ?? (view.phase === 'project' || view.phase === 'library' ? view : null);
+  if (!scope) return content;
+  return <AuthenticatedWorkspaceFrame tenantId={scope.tenant.tenantId} workspaceId={scope.workspace.id} workspaceName={scope.workspace.name}
+    role={scope.role} authorityEpoch={generation.current} authorized={view.phase === 'project' || view.phase === 'library' || (view.phase === 'note' && noteAccess.current)}
+    active={activeDocument && mountedNote ? JSON.stringify([scope.tenant.tenantId, scope.workspace.id, mountedNote.context.product, activeDocument]) : ''}
+    projectId={noteIntent.current?.projectId} busy={treeBusy} error={treeError}
+    onOpen={(row, project) => void openTreeOriginal(row, project)} onNavigate={(destination, project) => void navigateTree(destination, project)}
+    onAccessFailure={error => { noteAccess.current = false; ++generation.current; setView({ phase: 'error', error }); }}>
+    {content}
+  </AuthenticatedWorkspaceFrame>;
+
 }

@@ -257,3 +257,38 @@ describe('workspace trash policy for product libraries', () => {
     await expect(assertProductDocumentOpen('site', 'a')).rejects.toThrow('catalog unavailable');
   });
 });
+
+it('a retired parent intent prevents installation and releases its held lease for a new parent', async () => {
+  let epoch = 0, id = 'one', release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const install = vi.fn();
+  const close = registerProductDocumentHost({ product: 'word', id: () => id, identityEpoch: () => epoch, beforeNavigate: async () => true,
+    requestOpen: async (target, owns, parent) => {
+      if (target === 'old') await held;
+      if (!owns() || !parent?.()) return false;
+      install(target); id = target; epoch++; return captureProductNavigation()!;
+    } });
+  let parentEpoch = 1;
+  const original = captureProductNavigation()!, stale = original.open!('old', () => parentEpoch === 1);
+  parentEpoch = 2;
+  try {
+    const latest = await original.open!('new', () => parentEpoch === 2);
+    expect(latest && latest.id).toBe('new');
+    release(); expect(await stale).toBe(false); expect(install.mock.calls).toEqual([['new']]);
+  } finally { release(); close(); }
+});
+it('keeps the standalone parent witness valid after native host replacement and refuses completion after parent retirement', async () => {
+  let release!: () => void, entered!: () => void, parent = true, targetClose = () => {};
+  const waiting = new Promise<void>(resolve => { release = resolve; }), installed = new Promise<void>(resolve => { entered = resolve; });
+  const close = registerProductDocumentHost({ product: 'note', id: () => 'one', beforeNavigate: async () => true,
+    requestOpen: async (target, owns, parentCurrent) => {
+      if (!owns()) return false;
+      targetClose = registerProductDocumentHost({ product: 'note', id: () => target, beforeNavigate: async () => true });
+      const witness = captureProductNavigation()!;
+      expect(owns()).toBe(false); expect(parentCurrent?.()).toBe(true);
+      entered(); await waiting; return witness;
+    } });
+  const opening = captureProductNavigation()!.open!('two', () => parent);
+  await installed; parent = false; release();
+  try { expect(await opening).toBe(false); } finally { close(); targetClose(); }
+});
