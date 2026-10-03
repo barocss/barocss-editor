@@ -95,17 +95,26 @@ try{
   assert.deepEqual((await store.list(principal,tenantId,documentId)).confirmations,[receipt]);
   assert.deepEqual(await store.confirm(principal,tenantId,documentId,request),receipt);
  });
+ await check('committed role ABA without membership events changes MVCC epoch and refuses the frozen writer request',async()=>{
+  const eventsBefore=(await owner.query('SELECT count(*)::int AS count FROM wonffice.membership_events WHERE tenant_id=$1 AND identity_id=$2',[tenantId,writerId])).rows[0].count;
+  await owner.query("UPDATE wonffice.tenant_memberships SET role='viewer' WHERE tenant_id=$1 AND identity_id=$2",[tenantId,writerId]);
+  await owner.query("UPDATE wonffice.tenant_memberships SET role='editor' WHERE tenant_id=$1 AND identity_id=$2",[tenantId,writerId]);
+  assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice.membership_events WHERE tenant_id=$1 AND identity_id=$2',[tenantId,writerId])).rows[0].count,eventsBefore);
+  const restored=await store.getContext(principal,tenantId,documentId);assert.notEqual(restored.authorityEpoch,basis.authorityEpoch);
+  await assert.rejects(store.confirm(principal,tenantId,documentId,request),error=>error.reason==='authority_conflict');
+  assert.deepEqual((await store.list(principal,tenantId,documentId)).confirmations,[receipt]);
+ });
  await check('revocation committed while actor lock waits denies private confirmation and retains old receipt',async()=>{
   const now=await store.getContext(principal,tenantId,documentId);
   await owner.query('BEGIN');await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at=now() WHERE tenant_id=$1 AND identity_id=$2',[tenantId,writerId]);
-  const pending=store.confirm(principal,tenantId,documentId,{...request,expectedRevision:now.documentRevision,snapshotHash:now.snapshotHash,snapshotText:now.snapshotText,context:now.context,idempotencyKey:randomUUID()});
+  const pending=store.confirm(principal,tenantId,documentId,{...request,expectedRevision:now.documentRevision,snapshotHash:now.snapshotHash,snapshotText:now.snapshotText,context:now.context,authorityEpoch:now.authorityEpoch,idempotencyKey:randomUUID()});
   const refusal=assert.rejects(pending,error=>error.message==='tenant_access_denied');
   await waitForLock();await owner.query('COMMIT');await refusal;
   assert.equal((await owner.query('SELECT count(*)::int AS count FROM wonffice.criterion_confirmations')).rows[0].count,1);
   await assert.rejects(store.list(principal,tenantId,documentId),error=>error.message==='tenant_access_denied');
   const row=(await owner.query('SELECT * FROM wonffice.criterion_confirmations')).rows[0];assert.equal(row.id,receipt.confirmationId);assert.equal(row.snapshot_text,native);
  });
- console.log(JSON.stringify({result:'passed',transport:'private-unix-socket',checks:6}));
+ console.log(JSON.stringify({result:'passed',transport:'private-unix-socket',checks:7}));
 }finally{
  for(const pool of pools)await pool.end().catch(()=>{});
  for(const client of clients)await client.end().catch(()=>{});

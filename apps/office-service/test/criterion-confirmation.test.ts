@@ -12,10 +12,11 @@ const hash=(text:string)=>createHash('sha256').update(text).digest('hex');
 function file(){return readFileSync(new URL('./fixtures/criterion-confirmation-word.json',import.meta.url),'utf8');}
 function setup(){
   const snapshotText=file();const source={product:'word',mode:'snapshot',revision:3,snapshot_hash:hash(snapshotText),snapshot_text:snapshotText};
-  const state={epoch:'editor:4',role:'editor',source,records:[] as Array<Record<string,unknown>>,sql:[] as string[]};
+  const state={epoch:'editor:4',membershipVersion:'41',role:'editor',source,records:[] as Array<Record<string,unknown>>,sql:[] as string[]};
   const client={query:vi.fn(async(sql:string,args:unknown[]=[])=>{
     state.sql.push(sql);
     if(sql.includes('project_execution_actor_epoch'))return {rows:[{epoch:state.epoch}]};
+    if(sql.includes('FROM wonffice.tenant_memberships'))return {rows:[{version:state.membershipVersion}]};
     if(sql.includes('project_current_actor'))return {rows:[{id:actorId,role:state.role}]};
     if(sql.includes('FROM wonffice.documents'))return {rows:[structuredClone(state.source)]};
     if(sql.includes('INSERT INTO wonffice.criterion_confirmations')){
@@ -27,7 +28,7 @@ function setup(){
     throw new Error('unexpected SQL '+sql);
   })};
   vi.spyOn(MembershipStore.prototype,'withAuthorizedTenant').mockImplementation(async(_principal,_tenant,operation)=>operation(client as unknown as PoolClient,'editor'));
-  const input:ConfirmCriterionInput={schemaVersion:1,expectedRevision:3,snapshotHash:hash(snapshotText),snapshotText,context:captureCriterionContext(snapshotText),authorityEpoch:state.epoch,idempotencyKey:'explicit-criterion-1'};
+  const input:ConfirmCriterionInput={schemaVersion:1,expectedRevision:3,snapshotHash:hash(snapshotText),snapshotText,context:captureCriterionContext(snapshotText),authorityEpoch:`${state.epoch}:${state.membershipVersion}`,idempotencyKey:'explicit-criterion-1'};
   return {state,client,input,store:new CriterionConfirmationStore({} as Pool)};
 }
 afterEach(()=>vi.restoreAllMocks());
@@ -71,4 +72,12 @@ it('freezes caller data before the awaited current authority transaction',async(
   vi.mocked(original).mockImplementation(async(...args)=>{await gate;return prior(...args);});
   const expected=structuredClone(input.context);const pending=store.confirm(principal,tenantId,documentId,input);input.context.requirement.locator.bookmarkId='other';input.expectedRevision=90;resume();
   expect((await pending).context).toStrictEqual(expected);expect(state.records).toHaveLength(1);
+});
+
+it('committed writer role ABA invalidates frozen intent even when existing membership event count is unchanged',async()=>{
+ const {state,input,store}=setup();const original=await store.confirm(principal,tenantId,documentId,input);
+ const oldEpoch=state.epoch;state.role='viewer';state.membershipVersion='42';state.role='editor';state.membershipVersion='43';
+ expect(state.epoch).toBe(oldEpoch);await expect(store.confirm(principal,tenantId,documentId,input)).rejects.toThrow('authority_conflict');
+ const basis=await store.getContext(principal,tenantId,documentId);expect(basis.authorityEpoch).toBe('editor:4:43');
+ expect((await store.list(principal,tenantId,documentId)).confirmations).toStrictEqual([original]);expect(state.records).toHaveLength(1);
 });

@@ -57,7 +57,14 @@ export class CriterionConfirmationStore {
     if (actor.rows[0].role === 'viewer') throw new DocumentError(403,'forbidden');
     const epoch = await client.query<{ epoch: string }>('SELECT epoch FROM wonffice.project_execution_actor_epoch($1)',[tenantId]);
     if (!epoch.rows[0]) throw new TenantAccessDeniedError();
-    return { id:actor.rows[0].id,epoch:epoch.rows[0].epoch };
+    // Existing company administration and privileged recovery may update this row
+    // without membership_events. Bind its committed MVCC version too, under the
+    // same held membership lock, so writer → viewer → writer cannot revive intent.
+    const membership = await client.query<{ version: string }>(`SELECT xmin::text AS version
+      FROM wonffice.tenant_memberships WHERE tenant_id=$1 AND identity_id=$2 AND revoked_at IS NULL`,
+    [tenantId,actor.rows[0].id]);
+    if (!membership.rows[0]) throw new TenantAccessDeniedError();
+    return { id:actor.rows[0].id,epoch:`${epoch.rows[0].epoch}:${membership.rows[0].version}` };
   }
   private async source(client: PoolClient, tenantId: string, documentId: string) {
     const found = await client.query<Source>(`SELECT d.product,d.mode,s.revision,s.snapshot_hash,s.snapshot_text
