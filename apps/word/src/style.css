@@ -372,3 +372,8 @@ body {
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] { flex-direction:column; }
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > aside { flex:none; }
 [data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > .w-outline { flex:1; min-height:0; }
+[data-server-word-workspace] .w-business-pair { flex: none; }
+.w-business-pair { padding: 12px; border-top: 1px solid var(--office-border, #d8dce4); font-size: 12px; overflow: auto; max-height: 50vh; }
+.w-business-pair summary { cursor: pointer; font-weight: 600; }
+.w-business-pair p { margin: 8px 0; overflow-wrap: anywhere; }
+.w-business-pair section { margin-block: 12px; }

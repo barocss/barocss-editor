@@ -21,6 +21,7 @@ interface PairItem {
   id: string; kind: 'requirement' | 'decision'; currentVersion: number;
   locator: { kind: 'point-bookmark'; bookmarkId: string };
   versions: Array<{ version: number; snapshotText: string }>;
+  derivedFrom?: { itemId: string; version: number };
 }
 interface Pair {
   schemaVersion: number; items: PairItem[];
@@ -103,8 +104,9 @@ async function caret(page: Page, text: string, position: 'Home' | 'End' = 'Home'
   await expect.poll(() => paragraph.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
   await paragraph.scrollIntoViewIfNeeded();
   const bounds = await paragraph.boundingBox(); expect(bounds).not.toBeNull();
-  await paragraph.click({ position: { x: 8, y: Math.min(10, bounds!.height / 2) } });
-  await page.keyboard.press(position);
+  await paragraph.click({ position: position === 'Home' ? { x: 8, y: Math.min(10, bounds!.height / 2) }
+    : { x: Math.max(8, bounds!.width - 8), y: Math.max(4, bounds!.height - 8) } });
+  await page.keyboard.press(position === 'Home' ? 'Meta+ArrowLeft' : 'Meta+ArrowRight');
 }
 async function inspect(documentId?: string) {
   return privateControl<Inspection<'word'>>({ action: 'inspect', product: 'word', ...(documentId ? { documentId } : {}) });
@@ -181,7 +183,7 @@ test('authored native business pair retains exact evidence and identity across h
     await login(page, 'alpha-editor');
     const source = await seedAndOpen(page), documentUrl = page.url();
     phase = 'native-authoring'; checkpoint();
-    await panel(page).locator('summary').first().click();
+    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
     await expect(panel(page)).toContainText('승인 여부는 미확인');
     await caret(page, requirementText);
     await panel(page).getByRole('button', { name: '요구사항 문단 지정', exact: true }).click();
@@ -207,7 +209,11 @@ test('authored native business pair retains exact evidence and identity across h
     expect(pair.schemaVersion).toBe(1); expect(pair.items).toHaveLength(2);
     pair.items.forEach(item => expect(item.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i));
     expect(pair.items[0].id).not.toBe(pair.items[1].id);
-    const pinV1 = wordFileText(expectedAnchors, '');
+    const pinV1 = pair.items[0].versions[0].snapshotText;
+    // Export and native reconciliation order JSON properties differently. Verify
+    // every authored key/value, then freeze the independently checked pin bytes.
+    expect(JSON.parse(pinV1)).toStrictEqual(JSON.parse(wordFileText(expectedAnchors, '')));
+    expect(pair.items[1].versions[0].snapshotText).toBe(pinV1);
     const expectedPair: Pair = { schemaVersion: 1, items: (['requirement', 'decision'] as const).map((kind, index) => ({
       id: pair.items[index].id, kind, currentVersion: 1, locator: { kind: 'point-bookmark', bookmarkId: bookmarkIds[index] },
       versions: [{ version: 1, snapshotText: pinV1 }],
@@ -220,9 +226,13 @@ test('authored native business pair retains exact evidence and identity across h
     await caret(page, decisionText, 'End'); await page.keyboard.press('Meta+Shift+z');
     expect(await exported(page)).toStrictEqual(expectedAuthored);
     await caret(page, decisionText, 'End'); await page.keyboard.insertText(decisionAddition);
+    writeFileSync(join(directory, 'native-after-ordinary-edit.json'), JSON.stringify(await exported(page), null, 2), { mode: 0o600 });
     await expect(workspace(page).locator('.w-paragraph').filter({ hasText: decisionText }).first()).toHaveText(decisionText + decisionAddition);
     const expectedEdited = structuredClone(expectedAuthored);
-    (nativeParagraph(expectedEdited, decisionText).content!.find(node => typeof node !== 'string' && node.stype === 'inline-text') as INode).text = decisionText + decisionAddition;
+    const changedRun = nativeParagraph(expectedEdited, decisionText).content!.find(node => typeof node !== 'string' && node.stype === 'inline-text') as INode;
+    changedRun.text = decisionText + decisionAddition;
+    // Existing native text insertion explicitly writes the adjusted mark list.
+    changedRun.marks = [];
     expect(await exported(page)).toStrictEqual(expectedEdited);
     await caret(page, decisionText + decisionAddition, 'End'); await page.keyboard.press('Meta+z');
     expect(await exported(page)).toStrictEqual(expectedAuthored);
@@ -231,19 +241,26 @@ test('authored native business pair retains exact evidence and identity across h
     await panel(page).getByRole('button', { name: '현재 결정 내용을 새 버전으로 보관', exact: true }).click();
     await expect(panel(page)).toContainText('결정 · v2');
     await expect(panel(page)).toContainText('다시 검토해야 합니다');
+    await page.screenshot({ path: join(directory, 'authored-pair-v2.png'), animations: 'disabled' });
     const pinV2Document: INode = structuredClone(expectedEdited); delete pinV2Document.metadata!.wonfficeBusinessPair;
     const expectedV2 = structuredClone(expectedEdited);
     const nextPair = expectedV2.metadata!.wonfficeBusinessPair as Pair;
     nextPair.items[1].currentVersion = 2;
-    nextPair.items[1].versions.push({ version: 2, snapshotText: wordFileText(pinV2Document, '') });
+    const actualV2 = await exported(page);
+    const pinV2 = (actualV2.metadata!.wonfficeBusinessPair as Pair).items[1].versions[1].snapshotText;
+    expect(JSON.parse(pinV2)).toStrictEqual(JSON.parse(wordFileText(pinV2Document, '')));
+    nextPair.items[1].versions.push({ version: 2, snapshotText: pinV2 });
     expect(await exported(page)).toStrictEqual(expectedV2);
     await caret(page, decisionText + decisionAddition, 'End'); await page.keyboard.press('Meta+z');
     expect(await exported(page)).toStrictEqual(expectedEdited);
     await caret(page, decisionText + decisionAddition, 'End'); await page.keyboard.press('Meta+Shift+z');
     expect(await exported(page)).toStrictEqual(expectedV2);
     await panel(page).getByRole('button', { name: '보관된 v1 내용', exact: true }).last().click();
+    await expect(panel(page)).toContainText('보관된 내용 · 텍스트 보기');
+    await panel(page).getByText('전체 원본과 서식 데이터', { exact: true }).click();
     expect(await panel(page).locator('pre').textContent()).toBe(pinV1);
-    await panel(page).getByRole('button', { name: '닫기', exact: true }).click();
+    await page.screenshot({ path: join(directory, 'historic-rich-pin.png'), animations: 'disabled' });
+    await panel(page).getByRole('button', { name: '보관 내용 닫기', exact: true }).click();
     phase = 'canonical-save'; checkpoint();
     await save(page).click(); await expect(status(page)).toHaveText('서버 저장 확인됨');
     const committed = await canonical(page, root, requests.bearer, source.documentId, expectedV2);
@@ -260,6 +277,52 @@ test('authored native business pair retains exact evidence and identity across h
     const afterRestart = await canonical(page, root, requests.bearer, source.documentId, expectedV2);
     expect(afterRestart.document).toStrictEqual(committed.document);
     expect(await exported(page)).toStrictEqual(expectedV2);
+    phase = 'independent-server-copy'; checkpoint();
+    const copyText = wordFileText(expectedV2, '');
+    const copyIds: string[][] = [];
+    for (const kind of ['file', 'local'] as const) {
+      await page.goto(documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
+      if (kind === 'file') {
+        await workspace(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({
+          name: 'fictional-pair.word.json', mimeType: 'application/json', buffer: Buffer.from(copyText),
+        });
+      } else {
+        await page.evaluate(({ text }) => new Promise<void>((resolve, reject) => {
+          const open = indexedDB.open('barocss-word', 1);
+          open.onupgradeneeded = () => open.result.createObjectStore('documents', { keyPath: 'name' });
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const db = open.result, tx = db.transaction('documents', 'readwrite');
+            tx.objectStore('documents').put({ name: 'fictional-pair-copy', title: 'Fictional pair copy', text, count: 1, savedAt: 100 });
+            tx.oncomplete = () => { db.close(); resolve(); }; tx.onabort = () => reject(tx.error);
+          };
+        }), { text: copyText });
+        await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
+        await workspace(page).getByRole('button', { name: 'Fictional pair copy · 새 서버 사본 준비', exact: true }).click();
+      }
+      await expect(save(page)).toBeEnabled();
+      const response = page.waitForResponse(response => response.request().method() === 'POST' && /\/documents$/.test(new URL(response.url()).pathname));
+      await save(page).click(); const created = await response; expect(created.status()).toBe(201);
+      const raw = await created.json() as { document: { documentId: string }; snapshotText: string };
+      expect(raw.document.documentId).not.toBe(source.documentId);
+      const copied = JSON.parse(raw.snapshotText).document as INode;
+      const derived = copied.metadata!.wonfficeBusinessPair as Pair;
+      const expectedCopy = structuredClone(expectedV2), expectedCopyPair = expectedCopy.metadata!.wonfficeBusinessPair as Pair;
+      const ids = derived.items.map(item => item.id); expect(ids[0]).not.toBe(ids[1]);
+      expectedCopyPair.items.forEach((item, index) => {
+        expect(ids[index]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+        expect(ids[index]).not.toBe(item.id); copyIds.forEach(previous => expect(previous).not.toContain(ids[index]));
+        item.derivedFrom = { itemId: item.id, version: item.currentVersion }; item.id = ids[index];
+      });
+      expectedCopyPair.relations[0].source.itemId = ids[0]; expectedCopyPair.relations[0].target.itemId = ids[1];
+      expect(copied).toStrictEqual(expectedCopy); copyIds.push(ids);
+      await expect(status(page)).toHaveText('서버 저장 확인됨');
+      await canonical(page, root, requests.bearer, raw.document.documentId, expectedCopy);
+      expect((await inspect(source.documentId)).document).toStrictEqual(committed.document);
+      await page.reload(); await expect(status(page)).toHaveText('서버 저장 확인됨');
+      expect(await exported(page)).toStrictEqual(expectedCopy);
+    }
+    await page.goto(documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
     phase = 'independent-authority'; checkpoint();
     b = await launchPrivateProfile(profileB); expect(b.pid).not.toBe(a.pid);
     const other = await b.context.newPage(), otherRequests = track(other, checkpoint);
@@ -267,7 +330,7 @@ test('authored native business pair retains exact evidence and identity across h
     await expect(workspace(other)).toBeVisible({ timeout: 30_000 });
     await expect(save(other)).toHaveCount(0);
     await expect(workspace(other).locator('[contenteditable=true]')).toHaveCount(0);
-    await panel(other).locator('summary').first().click();
+    await other.getByRole('button', { name: '요구·결정', exact: true }).click();
     await expect(panel(other).getByRole('button', { name: '현재 결정 내용을 새 버전으로 보관', exact: true })).toBeDisabled();
     expect(await exported(other)).toStrictEqual(expectedV2);
     const deny = async (token: string, tenantId: string, key: string, expectedStatus: number) => {

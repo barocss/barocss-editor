@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import type { INode } from '../../../packages/datastore/src/types';
 import type { BusinessPairPayload } from '../../../packages/office-word/src/business-pair';
 import { createSampleDocument } from '../../../packages/office-word/src/sample-document';
+import { createSchema, validateTree } from '../../../packages/schema/src/index';
+import { getWordSchemaDefinition } from '../../../packages/office-word/src/word-schema';
 import { wordFileText } from '../../../packages/office-word/src/word-file';
 import { openLocalLibrary } from './helpers/local-library';
 
@@ -34,7 +36,7 @@ function fixture(name: string): INode {
     { stype: 'paragraph', attributes: { styleId: 'BusinessEvidence' }, content: [{ stype: 'inline-text', text: requirementText, marks: [{ stype: 'bold', range: [0, requirementText.length] }] }] },
     { stype: 'paragraph', attributes: { styleId: 'BusinessEvidence' }, content: [{ stype: 'inline-text', text: decisionText }] }
   ];
-  document.content = [docMeta, resources, surface];
+  document.content = [docMeta, surface, resources];
   document.metadata = { originalOwner: 'fictional-local-pair', loadedAt: 'declared-original-native-loadedAt', retained: { purpose: 'complete resource-backed evidence' } };
   return document;
 }
@@ -50,6 +52,7 @@ async function read(page: Page, id: string) {
 }
 async function seed(page: Page, document: INode, name: string) {
   await page.goto('/'); await openLocalLibrary(page);
+  expect(validateTree(createSchema('local-business-pair', getWordSchemaDefinition()), document)).toEqual([]);
   const text = wordFileText(document, '');
   const id = await page.evaluate(async ({ root, text, name }) => {
     const { OfficeWorkspace, workspaceIdentity, productStore } = await import(`/@fs${root}/packages/office-workspace/src/index.ts`);
@@ -143,7 +146,9 @@ test('actual local Word authors the rich pair then copy, restore, move and reope
   await expect.poll(async () => !!JSON.parse((await read(page, seeded.id)).text).document.metadata?.wonfficeBusinessPair).toBe(true);
   const original = await read(page, seeded.id); const authored = JSON.parse(original.text).document as INode;
   const pair = authored.metadata!.wonfficeBusinessPair as BusinessPairPayload;
-  const pin = wordFileText(expectedAnchors, '');
+  const pin = pair.items[0].versions[0].snapshotText;
+  expect(JSON.parse(pin)).toStrictEqual(JSON.parse(wordFileText(expectedAnchors, '')));
+  expect(pair.items[1].versions[0].snapshotText).toBe(pin);
   expect(pair.items).toHaveLength(2);
   pair.items.forEach(item => expect(item.id).toMatch(uuid)); expect(pair.items[0].id).not.toBe(pair.items[1].id);
   const expectedPair: BusinessPairPayload = { schemaVersion: 1,
@@ -174,7 +179,33 @@ test('actual local Word authors the rich pair then copy, restore, move and reope
   await open(page, `${title} 사본`); await page.getByRole('button', { name: '요구·결정', exact: true }).click();
   await expect(page.locator('.w-business-pair')).toContainText(copyIds[0]); await home(page);
   expect(await read(page, seeded.id)).toStrictEqual(original);
-  await info.attach('local-native-original-and-derived', { body: JSON.stringify({ original, copied, restored }), contentType: 'application/json' });
+  await open(page, title);
+  await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+  const actions = page.getByRole('dialog', { name: '문서 작업', exact: true });
+  await actions.getByRole('button', { name: '보관함에 사본 저장', exact: true }).click();
+  await expect.poll(async () => (await snapshots(page)).length).toBe(4);
+  const manual = (await snapshots(page)).find(row => ![seeded.id, copied.row.name, restored.row.name].includes(row.row.name))!;
+  const manualIds = assertDerived(authored, JSON.parse(manual.text).document, title);
+  manualIds.forEach(id => { expect(copyIds).not.toContain(id); expect(restoreIds).not.toContain(id); });
+  expect(await read(page, seeded.id)).toStrictEqual(original);
+  await page.keyboard.press('Escape');
+  // This controlled recovery source comes from the actually UI-authored pair;
+  // it does not seed metadata to stand in for authoring acceptance.
+  await page.evaluate(async ({ root, text }) => {
+    const { wordDrafts } = await import(`/@fs${root}/apps/word/src/autosave.ts`);
+    await wordDrafts.keep({ name: 'fictional-business-draft', title: 'Fictional pair recovery', count: 1, savedAt: 100 }, text);
+  }, { root: sourceRoot!, text: wordFileText(authored, '') });
+  await page.getByRole('button', { name: '문서 보관함', exact: true }).click();
+  const library = page.getByRole('dialog', { name: '문서 보관함', exact: true });
+  await library.getByRole('button', { name: 'Fictional pair recovery 초안 복구', exact: true }).click();
+  await expect.poll(async () => (await snapshots(page)).length).toBe(5);
+  const recovery = (await snapshots(page)).find(row => ![seeded.id, copied.row.name, restored.row.name, manual.row.name].includes(row.row.name))!;
+  const recoveryIds = assertDerived(authored, JSON.parse(recovery.text).document, title);
+  recoveryIds.forEach(id => { expect(copyIds).not.toContain(id); expect(restoreIds).not.toContain(id); expect(manualIds).not.toContain(id); });
+  expect(await read(page, seeded.id)).toStrictEqual(original);
+  await page.reload(); await expect(page.locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible();
+  await home(page); expect(await read(page, recovery.row.name)).toStrictEqual(recovery);
+  await info.attach('local-native-original-and-derived', { body: JSON.stringify({ original, copied, restored, manual, recovery }), contentType: 'application/json' });
 });
 
 test('invalid authored metadata refuses actual local copy and restore without changing stored originals', async ({ page }) => {

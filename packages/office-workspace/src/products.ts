@@ -18,6 +18,8 @@ export interface ProductCodec {
   read(text: string): { document: unknown } | { error: string };
   text(document: never): string;
   schema(): unknown;
+  /** Optional domain identity remap for an independent copy. Refusals preserve the source. */
+  deriveIndependent?(document: unknown): unknown;
 }
 /** File adapters are separate package entries, so loading four codecs does not register four editors. */
 export async function productCodec(product: Product): Promise<ProductCodec> {

@@ -66,7 +66,7 @@ export interface WordRuntime {
   /** Wait for entered native commands; refuse an unfinished or changed input. */
   flushCommands: () => Promise<void>;
   /** Freeze input readiness across an awaited external proposal approval. */
-  captureInputIntent: () => (() => boolean) | null;
+  captureInputIntent: (options?: { command: 'addWordBookmark' }) => (() => boolean) | null;
 }
 
 export interface WordRuntimeOptions {
@@ -182,8 +182,10 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
     author: options.author ?? { name: '사용자', date: () => new Date().toISOString().slice(0, 10) }
   });
   const pendingCommands = new Set<Promise<boolean>>();
+  let commandVersion = 0, lastCommand = '';
   const execute = editor.executeCommand.bind(editor);
   editor.executeCommand = (command, payload) => {
+    commandVersion++; lastCommand = command;
     const pending = execute(command, payload);
     pendingCommands.add(pending);
     void pending.then(() => pendingCommands.delete(pending), () => pendingCommands.delete(pending));
@@ -193,10 +195,14 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
   listen(container, 'beforeinput', () => { inputVersion += 1; }, true);
   listen(container, 'compositionstart', () => { composing = true; inputVersion += 1; }, true);
   listen(container, 'compositionend', () => { composing = false; inputVersion += 1; }, true);
-  const captureInputIntent = () => {
+  const captureInputIntent = (options?: { command: 'addWordBookmark' }) => {
     if (disposed || composing || pendingCommands.size || container.querySelector('.w-math-draft')) return null;
-    const version = inputVersion, epoch = dataStore.getDocumentEpoch();
-    return () => !disposed && !composing && !pendingCommands.size && inputVersion === version &&
+    const version = inputVersion, epoch = dataStore.getDocumentEpoch(), commands = commandVersion;
+    // One explicitly owned bookmark command may hold the pending slot. Any
+    // second command, input, account/root or selection change retires its intent.
+    const commandsCurrent = () => commandVersion === commands && !pendingCommands.size ||
+      !!options && commandVersion === commands + 1 && lastCommand === options.command && pendingCommands.size === 1;
+    return () => !disposed && !composing && commandsCurrent() && inputVersion === version &&
       dataStore.getDocumentEpoch() === epoch && !container.querySelector('.w-math-draft');
   };
   const flushCommands = async () => {

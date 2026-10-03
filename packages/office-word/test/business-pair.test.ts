@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { createSchema, validateTree } from '@barocss/schema';
+import { getWordSchemaDefinition } from '../src/word-schema';
 import { appendDecisionVersion, BUSINESS_PAIR_KEY, createBusinessPair, deriveBusinessPair, readBusinessPair } from '../src/business-pair';
 import { readWordFile, wordFileText } from '../src/word-file';
 
 interface TestNode { stype: string; content?: TestNode[]; attributes?: Record<string, unknown>; text?: string; marks?: { stype: string; range: number[] }[] }
 function fixture(): { stype: string; metadata: { ownerClaim: string }; content: TestNode[] } {
   return { stype: 'document', metadata: { ownerClaim: 'fictional' }, content: [
-    { stype: 'resources', content: [{ stype: 'paragraphStyle', attributes: { id: 'custom', fontSize: 31 } }] },
     { stype: 'surface', content: [
       { stype: 'paragraph', attributes: { styleId: 'custom' }, content: [{ stype: 'bookmarkAnchor', attributes: { id: 'requirement' } }, { stype: 'inline-text', text: 'Retain the original', marks: [{ stype: 'bold', range: [0, 6] }] }] },
       { stype: 'paragraph', content: [{ stype: 'bookmarkAnchor', attributes: { id: 'decision' } }, { stype: 'inline-text', text: 'Save before changes' }] }
-    ] }
+    ] },
+    { stype: 'resources', content: [{ stype: 'styleDef', attributes: { id: 'custom', name: 'Custom', type: 'paragraph', fontSize: 31 } }] }
   ] };
 }
 function authored() {
@@ -17,6 +19,24 @@ function authored() {
   return { ...doc, metadata: { ...doc.metadata, [BUSINESS_PAIR_KEY]: createBusinessPair(doc, 'requirement', 'decision') } };
 }
 describe('one fictional native business pair', () => {
+  it('starts from schema-valid fictional native content', () => {
+    expect(validateTree(createSchema('word-business-fixture', getWordSchemaDefinition()), fixture() as never)).toEqual([]);
+  });
+  it('refuses schema-invalid current content and historic rich pins without altering originals', () => {
+    const document = authored();
+    const original = structuredClone(document);
+    const pin = readWordFile(document.metadata[BUSINESS_PAIR_KEY].items[0].versions[0].snapshotText);
+    if ('error' in pin) throw new Error(pin.error);
+    const tree = pin.document as typeof document;
+    tree.content[0].content![0].content!.push({ stype: 'unknownNativeBusinessBlock', text: 'Cannot render' });
+    document.metadata[BUSINESS_PAIR_KEY].items[0].versions[0].snapshotText = wordFileText(tree, '');
+    const before = structuredClone(document);
+    expect(readBusinessPair(document).status).toBe('invalid');
+    expect(() => deriveBusinessPair(document)).toThrow();
+    expect(document).toEqual(before);
+    original.content[0].content![0].content!.push({ stype: 'unknownNativeBusinessBlock', text: 'Cannot render' });
+    expect(readBusinessPair(original).status).toBe('invalid');
+  });
   it('captures rich complete resource-backed files with independent durable identities and exact directed v1 pin', () => {
     const doc = authored();
     const read = readBusinessPair(doc);
@@ -40,14 +60,14 @@ describe('one fictional native business pair', () => {
   it('captures through the native codec without leaking live runtime node identifiers', () => {
     const doc = fixture();
     Object.assign(doc, { sid: 'runtime-root', parentId: 'runtime-parent' });
-    Object.assign(doc.content[1].content![0], { sid: 'runtime-paragraph', parentId: 'runtime-surface' });
+    Object.assign(doc.content[0].content![0], { sid: 'runtime-paragraph', parentId: 'runtime-surface' });
     const payload = createBusinessPair(doc, 'requirement', 'decision');
     expect(payload.items[0].versions[0].snapshotText).not.toContain('runtime-');
     expect(JSON.stringify(doc)).toContain('runtime-paragraph');
   });
   it('retains historical content and v1 relation after an explicit decision-v2 capture', () => {
     const doc = authored(); const original = structuredClone(doc.metadata[BUSINESS_PAIR_KEY]);
-    const decision = doc.content[1].content![1]; decision.content![1].text = 'Keep two backups';
+    const decision = doc.content[0].content![1]; decision.content![1].text = 'Keep two backups';
     const changed = readBusinessPair(doc);
     expect(changed.status === 'valid' && changed.items[1].state).toBe('stale');
     doc.metadata[BUSINESS_PAIR_KEY] = appendDecisionVersion(doc);
@@ -61,27 +81,27 @@ describe('one fictional native business pair', () => {
     expect(() => appendDecisionVersion(doc)).toThrow();
   });
   it('detects changed resource definitions even when paragraph bytes stay unchanged', () => {
-    const doc = authored(); doc.content[0].content![0].attributes!.fontSize = 47;
+    const doc = authored(); doc.content[1].content![0].attributes!.fontSize = 47;
     const read = readBusinessPair(doc);
     expect(read.status === 'valid' && read.items.map(item => item.state)).toEqual(['stale', 'stale']);
   });
   it('does not normalize authored empty attributes or runtime-looking fields into current content', () => {
     const doc = authored();
-    doc.content[1].content![1].attributes = {};
+    doc.content[0].content![1].attributes = {};
     const empty = readBusinessPair(doc);
     expect(empty.status === 'valid' && empty.items[1].state).toBe('stale');
     const next = authored();
-    next.content[1].content![1].attributes = { loadedAt: 'authored' };
+    next.content[0].content![1].attributes = { loadedAt: 'authored' };
     const changed = readBusinessPair(next);
     expect(changed.status === 'valid' && changed.items[1].state).toBe('stale');
   });
   it('keeps identity on paragraph move and reports unavailable on deleted or ambiguous point', () => {
     const doc = authored(); const items = doc.metadata[BUSINESS_PAIR_KEY].items;
-    doc.content[1].content!.reverse();
+    doc.content[0].content!.reverse();
     const read = readBusinessPair(doc);
     expect(read.status === 'valid' && read.payload.items).toEqual(items);
     expect(read.status === 'valid' && read.review).toBe('current');
-    doc.content[1].content!.push(structuredClone(doc.content[1].content![0]));
+    doc.content[0].content!.push(structuredClone(doc.content[0].content![0]));
     const ambiguous = readBusinessPair(doc);
     expect(ambiguous.status === 'valid' && ambiguous.items[1].state).toBe('unavailable');
     expect(() => appendDecisionVersion(doc)).toThrow();
@@ -121,8 +141,8 @@ describe('one fictional native business pair', () => {
     if (failure === 'pin') pair.items[0].versions[0].snapshotText = '{}';
     if (failure === 'pin-runtime' || failure === 'pin-locator') {
       const pin = JSON.parse(pair.items[0].versions[0].snapshotText);
-      if (failure === 'pin-runtime') pin.document.content[1].sid = 'runtime';
-      else pin.document.content[1].content[0].content[0].attributes.id = 'missing';
+      if (failure === 'pin-runtime') pin.document.content[0].sid = 'runtime';
+      else pin.document.content[0].content[0].content[0].attributes.id = 'missing';
       pair.items[0].versions[0].snapshotText = JSON.stringify(pin);
     }
     Object.assign(pair.items[0], { approved: true, actor: 'admin', time: 'yesterday' });
@@ -134,7 +154,7 @@ describe('one fictional native business pair', () => {
     const read = readBusinessPair(doc); expect(read.status).toBe('valid');
     expect(read).not.toHaveProperty('approved');
     const missing = fixture(); expect(() => createBusinessPair(missing, 'unknown', 'decision')).toThrow();
-    missing.content[1].content!.push(structuredClone(missing.content[1].content![0]));
+    missing.content[0].content!.push(structuredClone(missing.content[0].content![0]));
     expect(() => createBusinessPair(missing, 'requirement', 'decision')).toThrow();
   });
 });

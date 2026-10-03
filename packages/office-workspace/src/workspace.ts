@@ -197,7 +197,8 @@ export class OfficeWorkspace {
   }
   async copy(product: Product, id: string): Promise<string> {
     const snapshot = await this.require(product, id);
-    const { codec, document } = await readProductDocument(product, snapshot.text);
+    const { codec, document: sourceDocument } = await readProductDocument(product, snapshot.text);
+    const document = codec.deriveIndependent ? codec.deriveIndependent(sourceDocument) : sourceDocument;
     const next = crypto.randomUUID(), title = `${snapshot.row.title || products[product].label} 사본`;
     setDocumentTitle(product, document, title, next);
     if (product === 'note') visitTree(document, node => {
@@ -273,7 +274,8 @@ export class OfficeWorkspace {
     const backup = readWorkspaceBackup(value);
     const ids = new Map(backup.documents.map(entry => [referenceKey({ product: entry.product, id: entry.row.name }), crypto.randomUUID()]));
     const prepared = await Promise.all(backup.documents.map(async entry => {
-      const { codec, document } = await readProductDocument(entry.product, entry.text);
+      const { codec, document: sourceDocument } = await readProductDocument(entry.product, entry.text);
+      const document = codec.deriveIndependent ? codec.deriveIndependent(sourceDocument) : sourceDocument;
       const source = referenceKey({ product: entry.product, id: entry.row.name });
       const id = ids.get(source)!;
       const title = `${entry.row.title || products[entry.product].label} (복원)`;

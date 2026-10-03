@@ -1,4 +1,7 @@
 import { readWordFile, wordFileText } from './word-file';
+import { createSchema, validateTree } from '@barocss/schema';
+import { getWordSchemaDefinition } from './word-schema';
+import { createFieldResolver, createNumberingResolver, createStyleResolver, blockStyleLayers, suppressedSpacing, sharedBorders, type DocumentNode } from '@barocss/office-text';
 
 export const BUSINESS_PAIR_KEY = 'wonfficeBusinessPair';
 export interface BusinessItemVersion { version: number; snapshotText: string }
@@ -22,6 +25,10 @@ type Native = Record<string, unknown>;
 const object = (value: unknown): value is Native => !!value && typeof value === 'object' && !Array.isArray(value);
 const positive = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) > 0;
 const id = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+const nativeSchema = createSchema('word-business-pair', getWordSchemaDefinition());
+function validateNative(document: unknown): void {
+  if (validateTree(nativeSchema, document as never).length) fail('Unsupported or invalid native Word content');
+}
 function fail(reason: string): never { throw new BusinessPairError(reason); }
 function visit(document: unknown, fn: (node: Native, paragraph?: Native) => void, paragraph?: Native): void {
   if (!object(document)) return;
@@ -40,6 +47,7 @@ function cleanDocument(document: unknown): Native {
   const parsed = readWordFile(wordFileText(document, ''));
   if ('error' in parsed || !object(parsed.document) || parsed.document.stype !== 'document') fail('A full native Word document is required');
   const result = parsed.document;
+  validateNative(result);
   if (object(result.metadata)) delete result.metadata[BUSINESS_PAIR_KEY];
   return result;
 }
@@ -49,16 +57,90 @@ function comparable(value: unknown): unknown {
   if (!object(value)) return value;
   return Object.fromEntries(Object.keys(value).sort().map(key => [key, comparable(value[key])]));
 }
+/** Resolve document-dependent text with the same native readers used by Word.
+ * The temporary index belongs only to this clone; no runtime identifiers are pinned. */
 function basis(document: unknown, bookmarkId: string): string | undefined {
   const paragraph = located(document, bookmarkId);
   if (!paragraph) return;
   const resources: Native[] = [];
   visit(document, node => { if (node.stype === 'resources') resources.push(node); });
-  return JSON.stringify({ paragraph: comparable(paragraph), resources: resources.map(resource => comparable(resource)) });
+  const tree = structuredClone(document) as Native;
+  const nodes = new Map<string, DocumentNode>();
+  let count = 0;
+  const index = (node: Native, parentId?: string): void => {
+    node.sid = `business-context-${count++}`;
+    node.parentId = parentId;
+    nodes.set(String(node.sid), node as DocumentNode);
+    if (Array.isArray(node.content)) node.content.forEach(child => { if (object(child)) index(child, String(node.sid)); });
+  };
+  index(tree);
+  const target = located(tree, bookmarkId)!;
+  const access = { rootId: String(tree.sid), getNode: (key: string) => nodes.get(key) };
+  const resourceIds = new Set<string>();
+  let ambiguousResource = false;
+  resources.forEach(resource => {
+    if (!Array.isArray(resource.content)) return;
+    resource.content.forEach(node => {
+      if (!object(node) || !object(node.attributes) || typeof node.attributes.id !== 'string') return;
+      if (resourceIds.has(node.attributes.id)) ambiguousResource = true;
+      resourceIds.add(node.attributes.id);
+    });
+  });
+  if (ambiguousResource) return;
+  const referencedBookmarkIsAmbiguous = (name: string): boolean => {
+    let points = 0, range = false;
+    visit(tree, node => {
+      if (node.stype === 'bookmarkAnchor' && object(node.attributes) && node.attributes.id === name) points++;
+      if (Array.isArray(node.marks)) node.marks.forEach(mark => {
+        if (object(mark) && mark.stype === 'bookmark' && object(mark.attrs) && mark.attrs.name === name) range = true;
+      });
+    });
+    return points > 1 || points > 0 && range;
+  };
+  const fields = createFieldResolver(access);
+  const styles = createStyleResolver(access);
+  const block = target as DocumentNode;
+  const layers = blockStyleLayers(access, styles, block);
+  const numbered = createNumberingResolver(access).numberFor(String(target.sid));
+  const resolved: (string | null)[] = [];
+  visit(target, node => {
+    const attrs = object(node.attributes) ? node.attributes : {};
+    let value: string | undefined;
+    switch (node.stype) {
+      case 'fieldRef':
+        if ((attrs.targetKind ?? 'bookmark') === 'bookmark' && referencedBookmarkIsAmbiguous(String(attrs.targetId ?? ''))) { resolved.push(null); return; }
+        value = fields.reference(String(attrs.targetId ?? ''), String(attrs.format ?? 'text'), String(node.sid), String(attrs.targetKind ?? 'bookmark')); break;
+      case 'fieldSeq': value = fields.sequenceNumber(String(node.sid)); break;
+      case 'fieldStyleRef': value = fields.styleReference(String(attrs.styleId ?? ''), String(node.sid), attrs.searchFromBottom === true); break;
+      case 'fieldDocTitle': value = fields.documentTitle(); break;
+      case 'fieldAuthor': value = fields.documentAuthor(); break;
+      case 'fieldDateTime': case 'pageNumber': case 'pageCount': resolved.push(null); return;
+      default: return;
+    }
+    resolved.push(value ?? null);
+  });
+  // Moving within an equivalent container preserves identity; changed container
+  // settings require review without tying identity to sibling positions.
+  const parents: unknown[] = [];
+  const path = (node: unknown): boolean => {
+    if (node === paragraph) return true;
+    if (!object(node) || !Array.isArray(node.content)) return false;
+    if (!node.content.some(path)) return false;
+    parents.unshift({ stype: node.stype, attributes: comparable(node.attributes) });
+    return true;
+  };
+  path(document);
+  if (resolved.includes(null)) return;
+  return JSON.stringify({ paragraph: comparable(paragraph), resources: resources.map(comparable), parents,
+    numbering: numbered ? { text: numbered.text, counters: numbered.counters, suffix: numbered.suffix } : null, resolved,
+    format: comparable(styles.resolveNodeWith(block, 'paragraph', layers)),
+    spacing: suppressedSpacing(access, styles, block), borders: sharedBorders(access, styles, block) });
 }
+
 function pinned(version: BusinessItemVersion, bookmarkId: string): Native {
   const parsed = readWordFile(version.snapshotText);
   if ('error' in parsed || !object(parsed.document) || parsed.document.stype !== 'document') fail('Invalid pinned native Word file');
+  validateNative(parsed.document);
   if (object(parsed.document.metadata) && BUSINESS_PAIR_KEY in parsed.document.metadata) fail('Recursive business pin');
   let runtime = false;
   const inspect = (value: unknown): void => {
@@ -116,6 +198,7 @@ export function readBusinessPair(document: unknown): BusinessPairRead {
 export function createBusinessPair(document: unknown, requirementPointBookmarkId: string, decisionPointBookmarkId: string): BusinessPairPayload {
   if (readBusinessPair(document).status !== 'absent') fail('An existing payload must not be replaced');
   const clean = cleanDocument(document);
+  if (!basis(clean, requirementPointBookmarkId) || !basis(clean, decisionPointBookmarkId)) fail('A uniquely located paragraph with resolved native references is required');
   const snapshotText = wordFileText(clean, '');
   const items: BusinessItem[] = ([['requirement', requirementPointBookmarkId], ['decision', decisionPointBookmarkId]] as const).map(([kind, bookmarkId]) => ({
     id: crypto.randomUUID(), kind, currentVersion: 1, locator: { kind: 'point-bookmark', bookmarkId }, versions: [{ version: 1, snapshotText }]
