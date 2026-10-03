@@ -17,12 +17,13 @@ const f = vi.hoisted(() => ({
   onConstruct: () => {}, onMount: (_id: string) => {}, navigate: vi.fn(),
   delivery: async () => true, failSave: false, failNative: false, saveHold: undefined as Promise<void> | undefined,
 }));
-vi.mock('@barocss/shared', async () => await import('../../../packages/shared/src/document-save/product-host'));
+vi.mock('@barocss/shared', async original => ({ ...await original<typeof import('@barocss/shared')>(), ...await import('../../../packages/shared/src/document-save/product-host') }));
 vi.mock('@barocss/office-ui', async () => {
   const React = await import('react');
+  const { AdaptiveWorkspace, WorkspaceSidePanel } = await import('../../../packages/office-ui/src/adaptive-workspace');
   const Box = ({ children }: BoxProps) => React.createElement('div', {}, children);
-  return { AdaptiveWorkspace: Box, WorkspaceSidePanel: Box, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
-    Button: ({ children, ...props }: BoxProps) => React.createElement('button', { onClick: props.onClick, disabled: props.disabled }, children),
+  return { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
+    Button: ({ children, ...props }: React.ComponentPropsWithRef<'button'>) => React.createElement('button', props, children),
     DocumentMenu: Box, EditorHeader: ({ children, actions }: BoxProps) => React.createElement('div', {}, children, actions), StatusIndicator: Box, StatusNotice: Box };
 });
 vi.mock('@barocss/office-note/view', () => ({ NoteEditor: ({ registerBeforeSnapshot, editor }: { registerBeforeSnapshot: (flush: () => Promise<boolean>) => () => void; editor: { id: string } }) => {
@@ -56,8 +57,8 @@ const opened = (id: string, snapshotText = serializeNoteFile(note(id))) => {
   return { mode: 'snapshot', document: { documentId: id, tenantId, workspaceId, product: 'note', title: id, revision: 1, pageId: id }, note: read.document, snapshotText };
 };
 let root: Root, container: HTMLDivElement;
-const render = (role: 'editor' | 'viewer' = 'editor', subject = 'A') => flushSync(() => root.render(<ServerNoteWorkspace tenantId={tenantId} workspaceId={workspaceId}
-  issuer="https://idp.example.test" subject={subject} initialDocumentId={a} authorizedFetch={transport} role={role} onNavigate={f.navigate} />));
+const render = (role: 'editor' | 'viewer' = 'editor', subject = 'A', workspaceNavigation = false) => flushSync(() => root.render(<ServerNoteWorkspace tenantId={tenantId} workspaceId={workspaceId}
+  issuer="https://idp.example.test" subject={subject} initialDocumentId={a} authorizedFetch={transport} role={role} workspaceNavigation={workspaceNavigation} onNavigate={f.navigate} />));
 const transport: typeof fetch = vi.fn();
 async function mounted() { await vi.waitFor(() => expect(productDocumentHost()?.id()).toBe(a)); }
 beforeEach(async () => {
@@ -213,4 +214,32 @@ it('role retirement preserves the separate in-flight save and its frozen recover
   expect(Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!))).toEqual(records);
   finish(); expect(await old).toBe(false); expect(await fresh).toBe(false); expect(f.client.confirm).not.toHaveBeenCalled();
   expect(productDocumentHost()?.id()).toBe(a);
+});
+
+it.each([1200, 600])('keeps optional native document actions closed at width %s with the outer tree', async width => {
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
+  render('editor', 'A', true); await mounted();
+  flushSync(() => window.dispatchEvent(new Event('resize')));
+  expect(container.querySelector('.office-adaptive-workspace')?.hasAttribute('data-compact')).toBe(width < 960);
+  const panel = container.querySelector<HTMLElement>('[data-workspace-panel="navigation"]')!;
+  const toggle = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '문서 작업')!;
+  expect(panel.hidden).toBe(true); expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(container.querySelector('[aria-label="서버 문서 목록"]')).toBeNull();
+  expect(container.textContent).not.toContain('목록 새로고침');
+  expect(container.querySelector('[aria-label="문서 작업"]')?.textContent).toContain('새 노트');
+  expect(container.querySelector('.office-workspace-panel-controls')).toBeNull();
+  flushSync(() => toggle.click()); expect(panel.hidden).toBe(false);
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  flushSync(() => panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  expect(panel.hidden).toBe(true); expect(document.activeElement).toBe(toggle);
+  flushSync(() => toggle.click());
+  const newNote = [...panel.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '새 노트')!;
+  flushSync(() => newNote.click());
+  await vi.waitFor(() => expect(panel.hidden).toBe(true));
+  expect(container.querySelector('[data-native-note]')).not.toBeNull();
+});
+it('keeps standalone discovery and native find/outline separate from workspace document actions', async () => {
+  expect(container.querySelector('[aria-label="서버 문서 목록"]')).not.toBeNull();
+  expect(container.textContent).toContain('목록 새로고침');
+  expect(container.querySelector('[aria-label="서버 문서 목록"]')?.textContent).toContain(b);
 });
