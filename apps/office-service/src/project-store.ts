@@ -378,23 +378,51 @@ export function verifyProjectTarget(pin: ProjectPin, target: ProjectTarget) {
   if (resources.length !== 1 || !object(resources[0]) || !Array.isArray(resources[0].content)) throw new ProjectError(409, 'target_conflict');
   const threads = resources[0].content.filter(node => object(node) && node.stype === 'commentThread' &&
     object(node.attributes) && node.attributes.id === target.id);
-  const quotes: string[] = [];
+  if (threads.length !== 1 || !object(threads[0]) || !object(threads[0].attributes)) throw new ProjectError(409, 'target_conflict');
+  type Anchor = { node: Record<string, unknown>; parent?: Record<string, unknown>; index: number;
+    attrs: Record<string, unknown>; start: number; end: number; text: string; blocked: boolean };
+  const anchors: Anchor[] = [];
   const textOf = (node: Record<string, unknown>, depth = 0): string => {
     if (depth > 100) throw new ProjectError(409, 'target_conflict');
     if (typeof node.text === 'string') return node.text;
     return Array.isArray(node.content) ? node.content.filter(object).map(child => textOf(child, depth + 1)).join('') : '';
   };
-  const visit = (node: unknown, depth: number) => {
-    if (!object(node) || depth > 100 || node.stype === 'resources') return;
+  const visit = (node: unknown, depth: number, parent?: Record<string, unknown>, index = 0, protectedAncestor = false) => {
+    if (!object(node) || node.stype === 'resources') return;
+    if (depth > 100) throw new ProjectError(409, 'target_conflict');
+    const blocked = protectedAncestor || node.stype === 'contentControl' || node.stype === 'commentThread' ||
+      (object(node.attributes) && (node.attributes.locked === true || node.attributes.protected === true));
     const contentText = textOf(node);
     if (Array.isArray(node.marks)) for (const mark of node.marks) {
       if (!object(mark) || mark.stype !== 'commentRef' || !object(mark.attrs) || mark.attrs.id !== target.id) continue;
       if (!Array.isArray(mark.range) || mark.range.length !== 2 || !mark.range.every(Number.isSafeInteger) ||
         mark.range[0] < 0 || mark.range[1] > contentText.length || mark.range[0] >= mark.range[1]) throw new ProjectError(409, 'target_conflict');
-      quotes.push(contentText.slice(mark.range[0], mark.range[1]));
+      anchors.push({ node, parent, index, attrs: mark.attrs, start: mark.range[0], end: mark.range[1],
+        text: contentText.slice(mark.range[0], mark.range[1]), blocked });
     }
-    if (Array.isArray(node.content)) for (const child of node.content) visit(child, depth + 1);
+    if (Array.isArray(node.content)) node.content.forEach((child, childIndex) => visit(child, depth + 1, node, childIndex, blocked));
   };
   visit(value.document, 0);
-  if (threads.length !== 1 || quotes.length !== 1 || quotes[0] !== target.quote) throw new ProjectError(409, 'target_conflict');
+  const coverage = threads[0].attributes.coverage;
+  if (coverage === undefined) {
+    // Existing single-run native comments have no indexed coverage metadata.
+    if (anchors.length !== 1 || anchors[0].blocked || Object.hasOwn(anchors[0].attrs, 'part') || anchors[0].text !== target.quote)
+      throw new ProjectError(409, 'target_conflict');
+    return;
+  }
+  if (!Array.isArray(coverage) || coverage.length < 2 || anchors.length !== coverage.length ||
+    coverage.some(part => !object(part) || Object.keys(part).length !== 1 || typeof part.text !== 'string' || !part.text))
+    throw new ProjectError(409, 'target_conflict');
+  const first = anchors[0];
+  for (const [part, anchor] of anchors.entries()) {
+    // Persisted native order and exact endpoint slices establish identity. Quote
+    // equality alone never attaches a different run or paragraph to this thread.
+    if (anchor.blocked || anchor.node.stype !== 'inline-text' || typeof anchor.node.text !== 'string' ||
+      Object.hasOwn(anchor.node, 'sid') || Object.hasOwn(anchor.node, 'parentId') ||
+      anchor.parent?.stype !== 'paragraph' || anchor.parent !== first.parent || anchor.index !== first.index + part ||
+      Object.keys(anchor.attrs).length !== 2 || anchor.attrs.id !== target.id || anchor.attrs.part !== part ||
+      anchor.text !== coverage[part].text || (part > 0 && anchor.start !== 0) ||
+      (part < anchors.length - 1 && anchor.end !== anchor.node.text.length)) throw new ProjectError(409, 'target_conflict');
+  }
+  if (anchors.map(anchor => anchor.text).join('') !== target.quote) throw new ProjectError(409, 'target_conflict');
 }
