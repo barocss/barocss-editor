@@ -158,7 +158,8 @@ export function App({ mount, server }: {
       captureSelection: () => captureTextSelection(instance.editor, instance.view, { allowBlurred: true }),
       reading: value => { instance.setReading(value); setReading(value); },
       nativeDocument: () => instance.exportNativeDocument(),
-      captureInputIntent: () => instance.captureInputIntent()
+      captureInputIntent: () => instance.captureInputIntent(),
+      captureRevisionIntent: () => instance.captureInputIntent({ selection: true })
     });
     const unregister = registerProductFeedbackHost(feedback);
     return () => { unregister(); feedback.dispose(); };

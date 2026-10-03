@@ -8,7 +8,7 @@ import { previewConnectedWordRevision } from '../src/connected-proposal';
 
 let runtime: WordRuntime | undefined, surface: HTMLDivElement | undefined;
 afterEach(() => { runtime?.dispose(); surface?.remove(); vi.restoreAllMocks(); });
-async function fixture() {
+async function fixture(strictRevision = false) {
   vi.spyOn(EditorViewDOM.prototype, 'render').mockImplementation(() => {});
   surface = document.createElement('div'); document.body.append(surface);
   const source = createParagraphProposalSample();
@@ -20,7 +20,8 @@ async function fixture() {
   const node = [...editor.dataStore.getNodes().values()].find(one => one.text === PARAGRAPH_PROPOSAL_SAMPLE.original)!;
   editor.updateSelection({ type: 'range', startNodeId: node.sid!, endNodeId: node.sid!, startOffset: 0, endOffset: node.text!.length, collapsed: false });
   const host = createWordFeedbackHost({ editor, id: () => 'original-word', canComment: () => true,
-    captureSelection: () => editor.selection, nativeDocument: () => runtime!.exportNativeDocument() });
+    captureSelection: () => editor.selection, nativeDocument: () => runtime!.exportNativeDocument(),
+    captureRevisionIntent: strictRevision ? () => runtime!.captureInputIntent({ selection: true }) : undefined });
   const target = host.capture()!;
   expect(target).not.toBeNull(); await host.comment(target, '앱이 켜져 있을 때의 조치도 안내해주세요.');
   const before = runtime.exportNativeDocument(), expected = structuredClone(before) as Record<string, unknown>;
@@ -100,5 +101,41 @@ it('refuses account generation ABA while queued under the existing native transa
   const applying = preview.apply(); epoch++; epoch++;
   f.editor.dataStore.releaseLock(lock);
   expect(await applying).toBe(false); expect(runtime!.exportNativeDocument()).toEqual(f.before);
+  preview.dispose(); f.host.dispose();
+});
+
+
+it('retires a revision intent on raw DOM selection before debounced model selection arrives', async () => {
+  const f = await fixture(), native = runtime!.exportNativeDocument(), model = structuredClone(f.editor.selection);
+  const text = document.createTextNode('DOM selection guard'); surface!.append(text);
+  const selection = document.getSelection()!; selection.setBaseAndExtent(text, 0, text, text.length);
+  const intent = runtime!.captureInputIntent({ selection: true })!; expect(intent()).toBe(true);
+  selection.collapse(text, text.length);
+  expect(f.editor.selection).toEqual(model); expect(intent()).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(native); f.host.dispose();
+});
+it('retires revision selection gestures even when a rapid DOM caret ABA ends at its original range', async () => {
+  const f = await fixture(), native = runtime!.exportNativeDocument(), model = structuredClone(f.editor.selection);
+  const text = document.createTextNode('DOM gesture guard'); surface!.append(text);
+  const selection = document.getSelection()!; selection.setBaseAndExtent(text, 0, text, text.length);
+  const intent = runtime!.captureInputIntent({ selection: true })!;
+  surface!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  selection.collapse(text, text.length); selection.setBaseAndExtent(text, 0, text, text.length);
+  expect(f.editor.selection).toEqual(model); expect(intent()).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(native); f.host.dispose();
+});
+
+it('accepts the exact owned native delta when its committed render changes DOM selection, preserving whole document history', async () => {
+  const f = await fixture(true), text = document.createTextNode('owned render'); surface!.append(text);
+  const selection = document.getSelection()!; selection.setBaseAndExtent(text, 0, text, text.length);
+  const preview = f.host.previewRevision!(f.proposal)!; expect(preview.current()).toBe(true);
+  // The real DOM renderer updates the caret after the validated native commit.
+  // This observation changes no input/gesture/authority epoch.
+  const render = () => selection.collapse(text, text.length);
+  f.editor.on('editor:content.change', render);
+  expect(await preview.apply()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(f.expected);
+  f.editor.off('editor:content.change', render);
+  expect(await f.editor.undo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(f.before);
+  expect(await f.editor.redo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(f.expected);
   preview.dispose(); f.host.dispose();
 });

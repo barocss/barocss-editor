@@ -104,6 +104,11 @@ async function seedNative(page: Page, product: 'word' | 'slides', title: string)
   if (product === 'word') {
     const surface = document.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'surface')!;
     const p = surface.content![0] as INode; p.content = [{ stype: 'inline-text', text: guideText }];
+    // The supported target is one complete plain run. Rich untouched siblings,
+    // references, stable IDs and resource definitions must survive the full delta.
+    surface.content!.push({ stype: 'paragraph', attributes: { id: '444-rich-sibling', styleId: 'Body' }, content: [
+      { stype: 'inline-text', text: '보존할 안내', marks: [{ stype: 'bold', range: [0, 6] }, { stype: 'italic', range: [0, 6] }] }
+    ] });
   }
   document.metadata = { originalOwner: 'synthetic-connected-work', loadedAt: 'original-native-load' };
   const text = product === 'word' ? wordFileText(document, '') : deckFileText(document, '');
@@ -197,7 +202,7 @@ function expectedReplacement(original: string, threadId: string, replacement: st
 }
 
 test('live local proposal uses exact native Word, human acceptance, durable attempt and explicit training follow-up', async () => {
-  test.setTimeout(960_000);
+  test.setTimeout(1_440_000);
   const directory = dirname(process.env.OFFICE_AUTH_CONTROL_FILE!);
   const evidenceFile = join(directory, 'connected-execution-evidence.json');
   const profileA = mkdtempSync(join(directory, 'execution-editor-')), profileB = mkdtempSync(join(directory, 'execution-viewer-'));
@@ -314,6 +319,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await expect(pausePage.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
     const pausedWork = pausePage.locator('.ow-project-work'); await pausedWork.locator('summary').first().click();
     await pausedWork.getByRole('button', { name: '일시 정지', exact: true }).click();
+    await expect(pausedWork.getByRole('button', { name: '같은 작업 재개', exact: true })).toBeEnabled();
     expect((await readProject()).project.record.works.find(one => one.id === workId)!.state).toBe('paused');
     const pausedAttempt = await readExecution(); expect(pausedAttempt!.id).toBe(proposed.id);
     expect(pausedAttempt!.proposal).toEqual(proposed.proposal); expect(pausedAttempt!.provenance).toEqual(proposed.provenance);
@@ -321,6 +327,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await pausePage.reload(); await expect(pausePage.getByRole('heading', { name: projectTitle, exact: true })).toBeVisible();
     await pausePage.locator('.ow-project-work summary').first().click(); pauseRequests.phase = 'resume-same-live-proposal';
     await pausePage.getByRole('button', { name: '같은 작업 재개', exact: true }).click();
+    await expect(pausePage.locator('.ow-project-work').getByRole('button', { name: '일시 정지', exact: true })).toBeEnabled();
     const resumedAttempt = await readExecution(); expect(resumedAttempt!.id).toBe(proposed.id); expect(resumedAttempt!.phase).toBe('proposal');
     expect(resumedAttempt!.proposal).toEqual(proposed.proposal); expect(resumedAttempt!.provenance).toEqual(proposed.provenance);
     expect((await readProject()).project.record.works).toHaveLength(1);
@@ -329,8 +336,42 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await expect(executionPanel(page).getByRole('status')).toHaveText('제안 검토');
     expect(timelines.flat().filter(entry => entry.kind === 'request' && entry.method === 'POST' && String(entry.path).endsWith('/execution'))).toHaveLength(1);
     await expect(executionPanel(page).getByRole('button', { name: '이 변경 승인 및 저장', exact: true })).toBeEnabled();
-    requests.phase = 'human-accept'; await executionPanel(page).getByRole('button', { name: '이 변경 승인 및 저장', exact: true }).click();
+    // Hold an actual authorized response after the server commits. Native
+    // selection changes during that wait retire only this browser's intent.
+    const acceptUrl = `${executionApi}/${proposed.id}/accept`;
+    let releaseAccept!: () => void, acceptArrived!: () => void;
+    const acceptGate = new Promise<void>(resolve => { releaseAccept = resolve; });
+    const acceptReady = new Promise<void>(resolve => { acceptArrived = resolve; });
+    await page.route(acceptUrl, async route => {
+      const response = await route.fetch(); expect(response.status()).toBe(200);
+      acceptArrived(); await acceptGate; await route.fulfill({ response });
+    });
+    await selectCompleteGuide(page);
+    requests.phase = '444-late-accept-selection-retirement';
+    await notePhase(page, requests, requests.phase);
+    await executionPanel(page).getByRole('button', { name: '이 변경 승인 및 저장', exact: true }).click();
+    await acceptReady;
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe('');
+    releaseAccept();
+    await expect(executionPanel(page)).toContainText('원본, 대상 또는 선택이 바뀌었습니다.');
+    await page.unroute(acceptUrl);
+    expect((await readDocument(guide.id, 'word')).snapshotText).toBe(preCall.snapshotText);
+    expect((await readExecution())!.phase).toBe('accepted');
+    await executionPanel(page).getByRole('button', { name: '실행 기록 확인', exact: true }).click();
+    // Lose an actual repeated acceptance ACK; the frozen attempt stays accepted
+    // and source stays original until a new deliberate recovery action.
+    await page.route(acceptUrl, async route => { const response = await route.fetch(); expect(response.status()).toBe(200); await route.abort('failed'); });
+    await executionPanel(page).getByRole('button', { name: '승인된 변경 이어서 확인', exact: true }).click();
+    await expect(executionPanel(page).getByRole('button', { name: '실행 기록 확인', exact: true })).toBeEnabled();
+    await page.unroute(acceptUrl);
+    expect((await readDocument(guide.id, 'word')).snapshotText).toBe(preCall.snapshotText);
+    expect((await readExecution())!.id).toBe(proposed.id);
+    await executionPanel(page).getByRole('button', { name: '실행 기록 확인', exact: true }).click();
+    requests.phase = 'human-explicit-same-attempt-recovery';
+    await executionPanel(page).getByRole('button', { name: '승인된 변경 이어서 확인', exact: true }).click();
     await expect(executionPanel(page).getByRole('status')).toHaveText('원본 반영 확인', { timeout: 30_000 });
+    evidence.delayedAcceptanceSelectionRetired = true; evidence.actualLostAcceptanceAckRecovered = true;
     const accepted = await readExecution(); expect(accepted!.phase).toBe('applied'); expect(accepted!.id).toBe(proposed.id);
     const applied = await readDocument(guide.id, 'word'); expect(applied.snapshotText).toBe(expected);
     expect(accepted!.appliedRevision).toBe(applied.document.revision); expect(applied.document.revision).toBe(preCall.document.revision + 1);
@@ -394,8 +435,73 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await login(viewer, 'beta-viewer', projectUrl);
     const denied = await viewer.request.post(executionApi, { headers: { Authorization: viewerRequests.bearer }, data: { expectedRevision: (await readProject()).project.revision } });
     expect(denied.status()).toBe(403);
+    expect((await page.request.get(`${origin}/api/v1/tenants/${status.betaTenantId}/projects/${projectId}`, { headers: { Authorization: requests.bearer } })).status()).toBe(403);
     const forbiddenAcceptance = await viewer.request.post(`${executionApi}/${proposed.id}/accept`, { headers: { Authorization: viewerRequests.bearer }, data: {} });
     expect(forbiddenAcceptance.status()).toBe(403);
+    // #444: use the authenticated restricted company API, not a forged audit
+    // event or a direct role UPDATE, to retire the beta writer's captured intent.
+    const membersResponse = await page.request.get(`${tenantRoot}/members`, { headers: { Authorization: requests.bearer } });
+    expect(membersResponse.status()).toBe(200);
+    const members = await membersResponse.json() as { members: Array<{ memberId: string; isSelf: boolean }> };
+    const betaMember = members.members.find(member => !member.isSelf)!; expect(betaMember).toBeDefined();
+    const setBetaRole = async (role: 'editor' | 'viewer') => {
+      const response = await page.request.patch(`${tenantRoot}/members/${betaMember.memberId}`, { headers: { Authorization: requests.bearer }, data: { role } });
+      expect(response.status()).toBe(200); return response.json() as Promise<{ changed: boolean }>;
+    };
+    expect((await setBetaRole('editor')).changed).toBe(true);
+    const updateBeta = async (action: Record<string, unknown>) => {
+      const current = await readProject();
+      const response = await viewer.request.patch(projectApi, { headers: { Authorization: viewerRequests.bearer },
+        data: { expectedRevision: current.project.revision, idempotencyKey: randomUUID(), action } });
+      expect(response.status()).toBe(200); return response.json() as Promise<ProjectView>;
+    };
+    const betaSource = await readDocument(guide.id, 'word');
+    let betaProject = await updateBeta({ type: 'comment', resultId: current.project.record.results.find(result => result.document.id === guide.id)!.id,
+      target: { kind: 'word-comment', id: comment.target.id, quote: proposed.proposal!.replacement }, body: '현재 설치 안내를 간결하게 다듬어 주세요.',
+      source: { documentId: guide.id, revision: betaSource.document.revision, snapshotHash: betaSource.document.snapshotHash } });
+    betaProject = await updateBeta({ type: 'request', commentId: betaProject.project.record.comments.at(-1)!.id, request: '현재 안내의 사실을 유지하고 문장을 간결하게 다듬어 주세요.' });
+    const betaWork = betaProject.project.record.works.at(-1)!;
+    const betaApi = `${projectApi}/works/${betaWork.id}/execution`;
+    viewerRequests.phase = '444-explicit-beta-live-proposal'; checkpoint();
+    const betaResponse = await viewer.request.post(betaApi, { headers: { Authorization: viewerRequests.bearer }, data: { expectedRevision: betaProject.project.revision }, timeout: 660_000 });
+    expect(betaResponse.status()).toBe(200);
+    const betaAttempt = (await betaResponse.json() as { execution: Execution }).execution;
+    expect(betaAttempt.phase).toBe('proposal'); expect(betaAttempt.actorId).toBe(betaProject.actor.id);
+    expect(betaAttempt.provenance!.kind).toBe('live-local-model');
+    const betaBefore = await readProject();
+    const authorityBefore = await privateControl<{ version: string; events: number; admin_events: number }>({ action: 'beta-authority' });
+    expect((await setBetaRole('editor')).changed).toBe(false);
+    const authorityNoOp = await privateControl<{ version: string; events: number; admin_events: number }>({ action: 'beta-authority' });
+    expect(authorityNoOp).toEqual({ ...authorityBefore, admin_events: authorityBefore.admin_events + 1 });
+    expect((await setBetaRole('viewer')).changed).toBe(true); expect((await setBetaRole('editor')).changed).toBe(true);
+    const authorityAfter = await privateControl<{ version: string; events: number; admin_events: number }>({ action: 'beta-authority' });
+    expect(authorityAfter.events).toBe(authorityBefore.events); expect(authorityAfter.version).not.toBe(authorityBefore.version);
+    expect(authorityAfter.admin_events).toBe(authorityNoOp.admin_events + 2);
+    const betaFrozen = { id: betaAttempt.id, proposal: betaAttempt.proposal, provenance: betaAttempt.provenance, input: betaAttempt.input };
+    const retired = async () => {
+      for (const operation of ['accept', 'reject']) {
+        const response = await viewer.request.post(`${betaApi}/${betaAttempt.id}/${operation}`, { headers: { Authorization: viewerRequests.bearer }, data: {} });
+        expect(response.status()).toBe(409); expect(await response.json()).toMatchObject({ status: 'authority_changed' });
+      }
+      const response = await viewer.request.get(betaApi, { headers: { Authorization: viewerRequests.bearer } }); expect(response.status()).toBe(200);
+      const held = (await response.json() as { execution: Execution }).execution;
+      expect({ id: held.id, proposal: held.proposal, provenance: held.provenance, input: held.input }).toEqual(betaFrozen);
+      expect(held.phase).toBe('proposal'); expect(await readProject()).toEqual(betaBefore);
+      expect((await readDocument(guide.id, 'word')).snapshotText).toBe(betaSource.snapshotText);
+      expect((await readExecution())!.provenance).toEqual(proposed.provenance);
+    };
+    await retired();
+    const revokeResponse = await page.request.delete(`${tenantRoot}/members/${betaMember.memberId}`, { headers: { Authorization: requests.bearer } }); expect(revokeResponse.status()).toBe(200);
+    expect((await viewer.request.get(betaApi, { headers: { Authorization: viewerRequests.bearer } })).status()).toBe(403);
+    await privateControl({ action: 'beta-active', active: true }); await retired();
+    const beforeRestart = await privateControl<RealStatus>({ action: 'status' });
+    await privateControl({ action: 'api-stop' }); await privateControl({ action: 'db-stop' });
+    await privateControl({ action: 'db-start' }); const afterRestart = await privateControl<RealStatus>({ action: 'api-start' });
+    expect(afterRestart.databaseIdentity).toBe(beforeRestart.databaseIdentity);
+    expect(afterRestart.postgresPid).not.toBe(beforeRestart.postgresPid); expect(afterRestart.apiPid).not.toBe(beforeRestart.apiPid);
+    await retired(); expect((await setBetaRole('viewer')).changed).toBe(true);
+    evidence.restoredRoleIntent = { status: 'passed', attempt: betaFrozen, actualCompanyApi: true, authorityBefore, authorityNoOp, authorityAfter, sameDatabaseRestart: true,
+      unchangedProject: betaBefore, sourceHash: hash(betaSource.snapshotText), noOpChanged: false };
     await privateControl({ action: 'beta-active', active: false }); viewerRevoked = true;
     const revoked = await viewer.request.get(executionApi, { headers: { Authorization: viewerRequests.bearer } }); expect(revoked.status()).toBe(403);
     const revokedPin = await viewer.request.get(`${projectApi}/pins/${fixedPin.id}`, { headers: { Authorization: viewerRequests.bearer } }); expect(revokedPin.status()).toBe(403);

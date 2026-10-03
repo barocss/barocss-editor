@@ -146,6 +146,15 @@ async function control(command) {
     case 'db-start':
       if (!started) { run('pg_ctl', ['-D', data, '-l', join(directory, 'postgres.log'), '-o', `-k ${socket} -h ''`, '-w', 'start']); started = true; }
       return status();
+    case 'beta-authority': {
+      // Private fixture observation only; no product debug route or identity data.
+      const authority = await ownerQuery(`SELECT m.xmin::text AS version,
+        (SELECT count(*)::integer FROM wonffice.membership_events e WHERE e.tenant_id=$1 AND e.identity_id=$2) AS events,
+        (SELECT count(*)::integer FROM wonffice.company_member_admin_events e WHERE e.tenant_id=$1) AS admin_events
+        FROM wonffice.tenant_memberships m WHERE m.tenant_id=$1 AND m.identity_id=$2`, [alpha, bob]);
+      if (authority.rowCount !== 1) throw new Error('local_membership_missing');
+      return authority.rows[0];
+    }
     case 'beta-role': {
       if (!['editor', 'viewer'].includes(command.role)) throw new Error('invalid_local_role');
       const changed = await ownerQuery('UPDATE wonffice.tenant_memberships SET role=$3 WHERE tenant_id=$1 AND identity_id=$2 RETURNING role',

@@ -173,3 +173,64 @@ source-bound preflight and serial local integration are recorded in the local
 evidence manifest. This bounded Word execution does not complete the full Goal,
 four-product editing, semantic business criteria, training automatic editing or
 external alpha/release readiness.
+
+
+## Project authority lifetime (#444)
+
+Captured project execution authority binds the existing membership-event epoch and
+the committed membership row version (`xmin`). `project_current_actor` holds the
+current actor row with `FOR SHARE` before both observations. Company role changes
+write their own audit table; they need not fabricate membership events. An actual
+editor → viewer → editor transition, or revoke/restore, retires old acceptance,
+rejection and apply acknowledgement. A genuine no-change role request does not
+update that row and does not retire intent. Existing migration checksums are unchanged.
+
+If a role change commits while acceptance waits for the membership lock, the fresh
+statement observes the new lifetime and refuses the old request with 409. If
+acceptance already holds that lock while waiting on a document lock, it linearizes
+before the queued role change. Deferred provider completion retains its frozen
+input/provenance and records a blocked outcome after authority retirement.
+Historical evidence remains readable only under current ACL; retry never dispatches
+the model again or rewrites the captured actor. Same-database restart preserves it.
+
+The Word approval gesture captures its native preview before awaiting draft/save
+preparation. That exact preview stays bound through acceptance or explicit
+lost-acknowledgement recovery. Selection/input/root/account retirement cannot be
+silently recaptured by the waiting gesture. An already-applied exact canonical
+snapshot needs only acknowledgement and does not apply another native change.
+This is a bounded mutation-boundary check, not continuous server authorization for
+every keystroke. Rich target-run editing remains outside this plain-run executor;
+untouched rich siblings, resources and stable references must be preserved.
+
+QA: use Node 22.22.0, the protected local OIDC fixture, existing installed local model
+and a fresh private PostgreSQL supervisor. Run the project execution PG suite and
+`connected-execution-auth.spec.ts`. The desktop scenario creates the guide/training
+project, previews a real local proposal, changes selection during a delayed actual
+acceptance response, loses a repeated acceptance acknowledgement, explicitly
+recovers the same attempt, and checks full canonical Undo/Redo/save/reopen. A second
+authenticated writer obtains a separate proposal; the owner uses the restricted
+company API for role ABA and revocation. Old acceptance/rejection must return409
+after restoration; native/project bytes and provenance must remain unchanged,
+including after real API and PostgreSQL process restart. Synthetic service
+provider tests do not constitute model inference or physical OS IME verification.
+
+Operator/Technical Writer handoff: no configuration, deployment, external service,
+new migration or permission grant is required. The private test-only authority
+observation is not a product HTTP endpoint. Independent recipient acknowledgement
+is not claimed. Full Goal/alpha and release preparation remain incomplete.
+
+The actual DOM selection can change before the view's debounced model event.
+The revision-specific runtime guard therefore samples owned DOM node identities
+and offsets at the commit check, and retires on editor navigation/pointer gestures.
+It does not wait for a timer or infer unchanged DOM selection from model events.
+Ordinary input captures and the existing bookmark-command exception retain their
+previous behavior. A navigation gesture may conservatively retire a proposal even
+when its final caret returns to the original range; the user can explicitly recover
+the same immutable attempt. No native mutation or model redispatch is automatic.
+
+Precommit observations remain strict, including raw DOM selection. After the exact
+native transaction reports success and committed=true and its full canonical bytes
+match the declared candidate, the dedicated postcommit observation permits the
+owned renderer's caret/node update. It still checks gesture, input, composition,
+command, root, account and host lifetimes. This distinction prevents reporting a
+failed apply after a valid native commit without allowing stale precommit input.

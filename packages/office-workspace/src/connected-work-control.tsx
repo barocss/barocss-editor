@@ -55,37 +55,59 @@ export function ConnectedWorkControl({ repository, project, work, revision, docu
     if (pin.text !== one.expectedSnapshotText) throw new Error('현재 저장한 원본이 제안과 다릅니다. 입력과 제안을 유지하고 변경을 확인하세요.');
     const next = await repository.acknowledgeExecution(project, work, one.id, pin.revision, one.expectedSnapshotHash); requireOwn(); setExecution(next);
   };
+  const capturePreview = (one: ProjectExecution) => {
+    if (!one.proposal || !document || !one.expectedSnapshotText) return null;
+    const host = productFeedbackHost();
+    if (host?.product !== document.product || host.id() !== document.id || one.documentId !== document.id || !host.previewRevision) throw new Error('이 원본의 직접 편집 화면에서 제안을 확인하세요.');
+    const preview = host.previewRevision({ targetId: one.input.target.nodeId, snapshotText: one.input.snapshotText,
+      expectedSnapshotText: one.expectedSnapshotText, replacement: one.proposal.replacement }, owns);
+    return preview ? { host, preview } : null;
+  };
+  const requirePreview = (capture: NonNullable<ReturnType<typeof capturePreview>>) => {
+    requireOwn();
+    if (capture.host !== productFeedbackHost() || !capture.preview.current()) throw new Error('원본, 대상 또는 선택이 바뀌었습니다. 현재 입력과 제안을 유지합니다.');
+  };
+  const applyApproval = async (one: ProjectExecution, capture: NonNullable<ReturnType<typeof capturePreview>>) => {
+    requirePreview(capture);
+    const accepted = await repository.acceptExecution!(project, work, one.id); requireOwn();
+    if (accepted.phase !== 'accepted' || accepted.id !== one.id || accepted.documentId !== one.documentId ||
+      accepted.actorId !== one.actorId || accepted.expectedSnapshotText !== one.expectedSnapshotText ||
+      accepted.expectedSnapshotHash !== one.expectedSnapshotHash || JSON.stringify(accepted.input) !== JSON.stringify(one.input) ||
+      JSON.stringify(accepted.proposal) !== JSON.stringify(one.proposal)) throw new Error('승인 중 원본 또는 권한이 바뀌었습니다. 다시 확인하세요.');
+    requirePreview(capture);
+    if (!await capture.preview.apply()) throw new Error('원본 적용을 확인하지 못했습니다. 현재 초안과 제안을 유지합니다.');
+    requireOwn(); setExecution(accepted);
+    if (!await prepareProductNavigation()) throw new Error('원본 변경은 초안에 있습니다. 기존 저장 복구를 사용한 뒤 저장 결과를 확인하세요.');
+    requireOwn(); await acknowledge(accepted);
+  };
   const approve = async () => {
     if (!execution?.proposal || !document || !repository.acceptExecution || !execution.expectedSnapshotText) return;
-    if (!await prepareProductNavigation()) throw new Error('현재 입력과 저장 복구를 먼저 완료하세요.');
-    requireOwn();
-    const host = productFeedbackHost();
-    if (host?.product !== document.product || host.id() !== document.id || execution.documentId !== document.id || !host.previewRevision) throw new Error('이 원본의 직접 편집 화면에서 제안을 확인하세요.');
-    const preview = host.previewRevision({ targetId: execution.input.target.nodeId, snapshotText: execution.input.snapshotText,
-      expectedSnapshotText: execution.expectedSnapshotText, replacement: execution.proposal.replacement }, owns);
-    if (!preview) throw new Error('원본, 대상 또는 선택이 바뀌었습니다. 현재 입력과 제안을 유지합니다.');
+    // Capture before preparing storage. A selection or input ABA during that
+    // wait retires this gesture even if its final bytes and selection match.
+    const capture = capturePreview(execution);
+    if (!capture) throw new Error('원본, 대상 또는 선택이 바뀌었습니다. 현재 입력과 제안을 유지합니다.');
     try {
-      const accepted = await repository.acceptExecution(project, work, execution.id); requireOwn();
-      if (accepted.phase !== 'accepted' || accepted.id !== execution.id || accepted.documentId !== execution.documentId ||
-        accepted.actorId !== execution.actorId || accepted.expectedSnapshotText !== execution.expectedSnapshotText ||
-        accepted.expectedSnapshotHash !== execution.expectedSnapshotHash || JSON.stringify(accepted.input) !== JSON.stringify(execution.input) ||
-        JSON.stringify(accepted.proposal) !== JSON.stringify(execution.proposal) || host !== productFeedbackHost() || !preview.current()) throw new Error('승인 중 원본 또는 권한이 바뀌었습니다. 다시 확인하세요.');
-      if (!await preview.apply()) throw new Error('원본 적용을 확인하지 못했습니다. 현재 초안과 제안을 유지합니다.');
-      requireOwn(); setExecution(accepted);
-      if (!await prepareProductNavigation()) throw new Error('원본 변경은 초안에 있습니다. 기존 저장 복구를 사용한 뒤 저장 결과를 확인하세요.');
-      requireOwn(); await acknowledge(accepted);
-    } finally { preview.dispose(); }
+      if (!await prepareProductNavigation()) throw new Error('현재 입력과 저장 복구를 먼저 완료하세요.');
+      await applyApproval(execution, capture);
+    } finally { capture.preview.dispose(); }
   };
   const recoverAccepted = async () => {
     if (!execution || !document) return;
-    // First reconcile the existing native draft/receipt. Do not create another
-    // inference or apply the same delta blindly after a lost acceptance ACK.
-    if (!await prepareProductNavigation()) throw new Error('기존 문서 저장 복구를 먼저 완료하세요.');
-    requireOwn();
-    const pin = await repository.pin(document); requireOwn();
-    if (pin.text === execution.expectedSnapshotText) return acknowledge(execution);
-    if (pin.text !== execution.input.snapshotText || pin.revision !== execution.input.revision) throw new Error('승인 뒤 원본이 바뀌었습니다. 현재 입력과 제안을 유지하고 다시 확인하세요.');
-    await approve();
+    // Keep the existing gesture through draft reconciliation and pin reading.
+    // An already-applied draft needs only its exact saved-byte ACK; it must not
+    // construct or apply another preview of the original source.
+    const capture = capturePreview(execution);
+    try {
+      if (!await prepareProductNavigation()) throw new Error('기존 문서 저장 복구를 먼저 완료하세요.');
+      requireOwn();
+      const pin = await repository.pin(document); requireOwn();
+      if (capture) requirePreview(capture);
+      if (pin.text === execution.expectedSnapshotText) return acknowledge(execution);
+      if (pin.text !== execution.input.snapshotText || pin.revision !== execution.input.revision) throw new Error('승인 뒤 원본이 바뀌었습니다. 현재 입력과 제안을 유지하고 다시 확인하세요.');
+      if (!capture) throw new Error('원본, 대상 또는 선택이 바뀌었습니다. 현재 입력과 제안을 유지합니다.');
+      if (!repository.acceptExecution) throw new Error('이 제안의 승인을 확인할 수 없습니다.');
+      await applyApproval(execution, capture);
+    } finally { capture?.preview.dispose(); }
   };
   if (!repository.execution) return <p className="ow-feedback-note">실행기 미연결 · 원본은 자동 변경되지 않습니다.</p>;
   return <section className="ow-connected-work" aria-label="연결된 수정 작업">
