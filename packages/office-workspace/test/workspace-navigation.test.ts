@@ -27,4 +27,21 @@ describe('the shared Workspace transition boundary', () => {
     expect(await prepareWorkspaceBeforeLeave()).toBe(true); current();
     expect(await prepareWorkspaceBeforeLeave()).toBe(true);
   });
+  it('old cleanup cannot retire the same callback registered for a new owner', async () => {
+    let calls = 0;
+    const prepare = async () => { calls++; return false; };
+    const old = registerWorkspaceBeforeLeave(prepare), current = registerWorkspaceBeforeLeave(prepare);
+    try { old(); expect(await prepareWorkspaceBeforeLeave()).toBe(false); expect(calls).toBe(1); }
+    finally { old(); current(); }
+  });
+  it('refuses an awaited flush from a retired registration of the same callback', async () => {
+    let finish!: () => void;
+    const wait = new Promise<void>(resolve => { finish = resolve; });
+    const prepare = async () => { await wait; return true; };
+    const old = registerWorkspaceBeforeLeave(prepare), pending = prepareWorkspaceBeforeLeave();
+    const current = registerWorkspaceBeforeLeave(prepare);
+    try { finish(); expect(await pending).toBe(false); expect(await prepareWorkspaceBeforeLeave()).toBe(true); }
+    finally { finish(); old(); current(); }
+  });
+
 });

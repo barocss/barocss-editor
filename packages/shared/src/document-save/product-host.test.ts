@@ -73,6 +73,112 @@ describe('product navigation ownership', () => {
     expect(captureProductNavigation()).toBeUndefined();
   });
 
+  it('keeps unsupported native opening unavailable', () => {
+    const close = registerProductDocumentHost({ product: 'note', id: () => 'one', beforeNavigate: async () => true });
+    try { expect(captureProductNavigation()!.open).toBeUndefined(); } finally { close(); }
+  });
+  it('opens through the product owner and verifies the installed target', async () => {
+    let id = 'one', epoch = 0;
+    const prepare = vi.fn(async () => true);
+    const close = registerProductDocumentHost({ product: 'word', id: () => id, identityEpoch: () => epoch,
+      beforeNavigate: prepare, requestOpen: async (target, isCurrent) => {
+        if (!isCurrent()) return false;
+        id = target; epoch++; return captureProductNavigation()!;
+      } });
+    const guard = captureProductNavigation()!;
+    try { expect((await guard.open!('two')) && captureProductNavigation()!.id).toBe('two'); expect(guard.isCurrent()).toBe(false);
+      expect(captureProductNavigation()!.id).toBe('two'); expect(prepare).not.toHaveBeenCalled();
+    } finally { close(); }
+  });
+  it('rejects retired callbacks and never invokes their opening command', async () => {
+    const requestOpen = vi.fn(async () => captureProductNavigation()!);
+    const old = registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate: async () => true, requestOpen });
+    const guard = captureProductNavigation()!;
+    const close = registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate: async () => true });
+    try { expect(await guard.open!('two')).toBe(false); expect(requestOpen).not.toHaveBeenCalled(); }
+    finally { old(); close(); }
+  });
+  it('passes the captured lifetime through delayed product preparation and refuses a duplicate', async () => {
+    let release!: () => void, id = 'one', epoch = 0;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const requestOpen = vi.fn(async (target: string, isCurrent: () => boolean) => {
+      await waiting;
+      if (!isCurrent()) return false;
+      id = target; epoch++; return captureProductNavigation()!;
+    });
+    const close = registerProductDocumentHost({ product: 'word', id: () => id, identityEpoch: () => epoch,
+      beforeNavigate: async () => true, requestOpen });
+    const guard = captureProductNavigation()!;
+    try {
+      const pending = guard.open!('two');
+      expect(await captureProductNavigation()!.open!('three')).toBe(false);
+      id = 'two'; epoch++; id = 'one'; epoch++;
+      release(); expect(await pending).toBe(false); expect(id).toBe('one'); expect(requestOpen).toHaveBeenCalledTimes(1);
+    } finally { release(); close(); }
+  });
+  it('refuses a reported success that did not install the requested original and releases after failure', async () => {
+    const requestOpen = vi.fn().mockRejectedValueOnce(new Error('save failed')).mockImplementation(async () => captureProductNavigation()!);
+    const close = registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate: async () => true, requestOpen });
+    try {
+      await expect(captureProductNavigation()!.open!('two')).rejects.toThrow('save failed');
+      expect(await captureProductNavigation()!.open!('two')).toBe(false);
+      expect(requestOpen).toHaveBeenCalledTimes(2);
+    } finally { close(); }
+  });
+
+  it('accepts the exact target witness when installation registers its new native owner', async () => {
+    let removeTarget: (() => void) | undefined;
+    const close = registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate: async () => true,
+      requestOpen: async () => {
+        removeTarget = registerProductDocumentHost({ product: 'word', id: () => 'two', beforeNavigate: async () => true });
+        return captureProductNavigation()!;
+      } });
+    try { const opened = await captureProductNavigation()!.open!('two'); expect(opened && opened.isCurrent()).toBe(true); }
+    finally { close(); removeTarget?.(); }
+  });
+
+  it('rejects completion from a target registration replaced before delivery', async () => {
+    const cleanups: (() => void)[] = [];
+    const owner = { product: 'word' as const, id: () => 'two', beforeNavigate: async () => true };
+    cleanups.push(registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate: async () => true,
+      requestOpen: async () => {
+        cleanups.push(registerProductDocumentHost(owner));
+        const installed = captureProductNavigation()!;
+        cleanups.push(registerProductDocumentHost(owner));
+        return installed;
+      } }));
+    try { expect(await captureProductNavigation()!.open!('two')).toBe(false); }
+    finally { cleanups.forEach(close => close()); }
+  });
+  it('does not let an unresolved retired opening lock a new native host', async () => {
+    let release!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const old = registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate: async () => true,
+      requestOpen: async (_target, isCurrent) => { await waiting; return isCurrent() ? captureProductNavigation()! : false; } });
+    const pending = captureProductNavigation()!.open!('two');
+    let id = 'new';
+    const close = registerProductDocumentHost({ product: 'word', id: () => id, beforeNavigate: async () => true,
+      requestOpen: async target => { id = target; return captureProductNavigation()!; } });
+    try { old(); expect((await captureProductNavigation()!.open!('three')) && id).toBe('three');
+      release(); expect(await pending).toBe(false); expect(id).toBe('three');
+    } finally { release(); old(); close(); }
+  });
+
+  it('retires an unresolved opening after the same host identity epoch changes', async () => {
+    let release!: () => void, id = 'one', epoch = 0, requests = 0;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const close = registerProductDocumentHost({ product: 'word', id: () => id, identityEpoch: () => epoch,
+      beforeNavigate: async () => true, requestOpen: async (target, isCurrent) => {
+        if (++requests === 1) await waiting;
+        if (!isCurrent()) return false;
+        id = target; epoch++; return captureProductNavigation()!;
+      } });
+    const pending = captureProductNavigation()!.open!('two'); epoch++;
+    try { expect((await captureProductNavigation()!.open!('three')) && id).toBe('three');
+      release(); expect(await pending).toBe(false); expect(id).toBe('three');
+    } finally { release(); close(); }
+  });
+
   it('tracks actual DocumentSession reopen ABA without changing original saved bytes', async () => {
     history.replaceState(null, '', '#');
     let native = JSON.stringify({ paragraph: 'original', attributes: { objectId: 'stable' } });
