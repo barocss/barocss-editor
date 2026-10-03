@@ -11,6 +11,7 @@ function fixture() {
   const pin: Pin = { id: 'source', document: { product: 'word', id: 'guide' }, revision: 1, text: 'native source', title: '안내' };
   current.results.push({ id: 'result', name: '안내', document: pin.document, inputs: [] });
   let revision = 1, actorId = 'verified', lose: string | null = null, beforeCommit = false, cas = false;
+  let afterDraft: ((action: Record<string, unknown>) => Promise<void>) | undefined, beforeDraft: ((action: Record<string, unknown>) => Promise<void>) | undefined;
   const receipts = new Map<string, unknown>(), posted: Array<{ expectedRevision: number; idempotencyKey: string; action: Record<string, unknown> }> = [];
   const view = () => ({ tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: actorId, label: 'Member' }, project: { record: structuredClone(current), revision } });
   transport.fetch.mockImplementation(async (input: string, init?: RequestInit) => {
@@ -21,6 +22,7 @@ function fixture() {
     const loseThis = lose === body.action.type || (lose === 'prepare' && body.action.type === 'draft' && String(body.action.text).includes('idempotencyKey'));
     if (cas && body.action.type === 'comment') { cas = false; current.goal = '새 목표'; revision++; return new Response(JSON.stringify({ status: 'revision_conflict' }), { status: 409 }); }
     if (loseThis && beforeCommit) { lose = null; throw new Error('lost before commit'); }
+    if (body.action.type === 'draft' && beforeDraft) await beforeDraft(body.action);
     if (body.expectedRevision !== revision) return new Response(JSON.stringify({ status: 'revision_conflict' }), { status: 409 });
     const action = body.action;
     if (action.type === 'draft') { const key = `${actorId}:${action.key}`; if (action.text) current.drafts[key] = action.text; else delete current.drafts[key]; }
@@ -28,10 +30,11 @@ function fixture() {
     else if (action.type === 'request') Object.assign(current, requestProjectWork(current, action.commentId, action.request));
     else throw new Error('unexpected action');
     revision++; const reply = view(); receipts.set(body.idempotencyKey, reply);
+    if (action.type === 'draft' && afterDraft) await afterDraft(action);
     if (loseThis) { lose = null; throw new Error('lost after commit'); }
     return new Response(JSON.stringify(reply));
   });
-  return { current, pin, posted, repo: () => serverProjectRepository('tenant', 'workspace', 'editor'), lose: (type: string, before = false) => { lose = type; beforeCommit = before; }, actor: (id: string) => { actorId = id; }, cas: () => { cas = true; } };
+  return { current, pin, posted, repo: () => serverProjectRepository('tenant', 'workspace', 'editor'), lose: (type: string, before = false) => { lose = type; beforeCommit = before; }, actor: (id: string) => { actorId = id; }, cas: () => { cas = true; }, afterDraft: (hook: (action: Record<string, unknown>) => Promise<void>) => { afterDraft = hook; }, beforeDraft: (hook: (action: Record<string, unknown>) => Promise<void>) => { beforeDraft = hook; } };
 }
 const intent = { documentId: 'guide', resultId: 'result', target: { kind: 'word-comment' as const, id: 'native-thread', quote: 'selected' }, body: '수정해 주세요' };
 it('recovers durable comment and work receipts with exact envelopes after fresh repository instances', async () => {
@@ -114,4 +117,62 @@ it('stores full bounded body and quote separately from small receipt metadata', 
   expect(await f.repo().feedbackRecovery!.read(f.current.id, 'guide')).toMatchObject(long);
   const meta = f.current.drafts['verified:word-feedback:guide:meta']!;
   expect(meta.length).toBeLessThan(1000); expect(meta).not.toContain(long.body); expect(meta).not.toContain(long.target.quote);
+});
+
+it('refuses changed separate body and quote bytes before a comment or request effect', async () => {
+  for (const field of ['body', 'quote']) {
+    const f = fixture(), repo = f.repo(); await repo.feedbackRecovery!.begin(f.current.id, intent);
+    await repo.feedbackRecovery!.nativeSnapshot(f.current.id, 'guide', createHash('sha256').update(f.pin.text).digest('hex'));
+    f.current.drafts[`verified:word-feedback:guide:${field}`] = 'changed by another preparation';
+    await expect(f.repo().feedbackRecovery!.read(f.current.id, 'guide')).rejects.toThrow();
+    await expect(f.repo().feedbackRecovery!.comment(f.current.id, 'guide', f.pin)).rejects.toThrow();
+    expect(f.posted.filter(one => one.action.type === 'comment')).toHaveLength(0);
+  }
+});
+it('does not let an old clear erase a new intent begun after metadata retirement', async () => {
+  const f = fixture(), repo = f.repo(); await repo.feedbackRecovery!.begin(f.current.id, intent);
+  await repo.feedbackRecovery!.nativeSnapshot(f.current.id, 'guide', createHash('sha256').update(f.pin.text).digest('hex'));
+  await repo.feedbackRecovery!.comment(f.current.id, 'guide', f.pin);
+  const newer = { ...intent, target: { ...intent.target, id: 'new-native-thread' }, body: 'new separate intent' };
+  let once = true;
+  f.afterDraft(async action => { if (once && action.key === 'word-feedback:guide:meta' && action.text === '') {
+    once = false; await f.repo().feedbackRecovery!.begin(f.current.id, newer);
+  } });
+  await repo.feedbackRecovery!.clear(f.current.id, 'guide');
+  expect(await f.repo().feedbackRecovery!.read(f.current.id, 'guide')).toMatchObject(newer);
+});
+
+it('keeps the winning simultaneous begin bytes and refuses the stale preparation', async () => {
+  const f = fixture(); let once = true, release!: () => void, arrived!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; }), waiting = new Promise<void>(resolve => { arrived = resolve; });
+  f.afterDraft(async action => { if (once && action.key === 'word-feedback:guide:body') { once = false; arrived(); await held; } });
+  const first = f.repo().feedbackRecovery!.begin(f.current.id, intent);
+  await waiting;
+  const newer = { ...intent, target: { ...intent.target, id: 'second-native-thread' }, body: 'second body' };
+  await f.repo().feedbackRecovery!.begin(f.current.id, newer); release();
+  await expect(first).rejects.toThrow();
+  expect(await f.repo().feedbackRecovery!.read(f.current.id, 'guide')).toMatchObject(newer);
+  expect(f.current.comments).toHaveLength(0);
+});
+it('refuses a stale captured clear CAS after another caller retires and begins a new intent', async () => {
+  const f = fixture(), repo = f.repo(); await repo.feedbackRecovery!.begin(f.current.id, intent);
+  await repo.feedbackRecovery!.nativeSnapshot(f.current.id, 'guide', createHash('sha256').update(f.pin.text).digest('hex'));
+  await repo.feedbackRecovery!.comment(f.current.id, 'guide', f.pin);
+  const newer = { ...intent, target: { ...intent.target, id: 'replacement-native-thread' }, body: 'replacement body' };
+  let once = true;
+  f.beforeDraft(async action => { if (once && action.key === 'word-feedback:guide:meta' && action.text === '') {
+    once = false; await f.repo().feedbackRecovery!.clear(f.current.id, 'guide'); await f.repo().feedbackRecovery!.begin(f.current.id, newer);
+  } });
+  await expect(repo.feedbackRecovery!.clear(f.current.id, 'guide')).rejects.toMatchObject({ code: 'project_revision_conflict' });
+  expect(await f.repo().feedbackRecovery!.read(f.current.id, 'guide')).toMatchObject(newer);
+});
+it('cancels only a proven uncommitted native intent with the exact original target', async () => {
+  const f = fixture(), repo = f.repo(); await repo.feedbackRecovery!.begin(f.current.id, intent);
+  const recovery = repo.feedbackRecovery as NonNullable<typeof repo.feedbackRecovery> & { cancel(project: string, document: string, target: string): Promise<void> };
+  await expect(recovery.cancel(f.current.id, 'guide', 'foreign')).rejects.toThrow();
+  await recovery.cancel(f.current.id, 'guide', intent.target.id);
+  expect(await recovery.read(f.current.id, 'guide')).toBeNull();
+  await recovery.begin(f.current.id, intent); await recovery.nativeSnapshot(f.current.id, 'guide', createHash('sha256').update(f.pin.text).digest('hex'));
+  await expect(recovery.cancel(f.current.id, 'guide', intent.target.id)).rejects.toThrow();
+  expect(await recovery.read(f.current.id, 'guide')).toMatchObject(intent);
 });
