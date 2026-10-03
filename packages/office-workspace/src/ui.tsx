@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dialog, EmptyState, FileItem, FilePick, Icon, SearchSelect, StatusIndicator, StatusNotice, TextField } from '@barocss/office-ui';
+import { Button, Dialog, EmptyState, FileItem, FilePick, Icon, SearchSelect, StatusIndicator, StatusNotice, TextField, useOfficeLocale } from '@barocss/office-ui';
 import { OfficeWorkspace, workspaceIdentity, type WorkspaceDocument } from './workspace';
 import { documentURL, productKeys, products, type Product } from './products';
 import { ProjectHome } from './project-ui';
@@ -7,6 +7,7 @@ import { localProjectRepository } from './project-local';
 import { WorkspaceFrame } from './workspace-frame';
 import { readLibraryOrigin, saveLibraryOrigin } from './catalog-origin';
 import './project-ui.css';
+import { WorkspaceHeading } from './workspace-heading';
 
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -22,13 +23,14 @@ function WorkspaceHomeContent() {
   const [library, setLibrary] = useState(() => { const params = new URLSearchParams(location.search); return params.get('view') === 'library' || params.get('view') !== 'projects' && !params.get('project'); });
   useEffect(() => { const url = new URL(location.href); url.searchParams.set('workspace', workspace.id); history.replaceState(null, '', url); }, [workspace]);
   if (library) return <DocumentLibrary embedded onProjects={() => { const url = new URL(location.href); url.searchParams.set('view', 'projects'); history.replaceState(null, '', url); setLibrary(false); }} />;
-  return <ProjectHome repository={repository} onLibrary={() => { const url = new URL(location.href); url.searchParams.set('view', 'library'); history.replaceState(null, '', url); setLibrary(true); }} onOpen={async (project, row) => {
+  return <ProjectHome embedded repository={repository} onLibrary={() => { const url = new URL(location.href); url.searchParams.set('view', 'library'); history.replaceState(null, '', url); setLibrary(true); }} onOpen={async (project, row) => {
     if ((await workspace.meta(`${row.product}:${row.id}`)).trashedAt !== null) throw new Error('휴지통에서 복원한 뒤 열 수 있습니다.');
     await workspace.update(`${row.product}:${row.id}`, { openedAt: Date.now() });
     location.assign(documentURL({ workspace: workspace.id, product: row.product, id: row.id, project, mode: 'read' }));
   }} />;
 }
 export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?: () => void; embedded?: boolean } = {}) {
+  const { t } = useOfficeLocale();
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const [rows, setRows] = useState<WorkspaceDocument[]>([]), [ready, setReady] = useState(false);
   const [origin] = useState(() => readLibraryOrigin(workspace.id));
@@ -66,7 +68,11 @@ export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?:
     && (!needle || `${row.title} ${row.searchText}`.normalize('NFC').toLocaleLowerCase().includes(needle)));
   const folders = [...new Set<string>(rows.map(row => row.folder).filter(Boolean))].sort();
   return <div className={`ow-home${embedded ? ' ow-library-embedded' : ''}`}>
-    <aside className={`ow-sidebar${embedded ? ' ow-library-tools' : ''}`}>
+    {embedded ? <WorkspaceHeading workspaceLabel={t('workspace.heading.localWorkspace')} location={t('workspace.heading.library')}
+      title={folder || t(`workspace.heading.${view}`)} actions={<>
+        {onProjects && <Button tone="quiet" disabled={busy} onClick={onProjects}>{t('workspace.heading.projects')}</Button>}
+        <Button tone="quiet" disabled={busy} onClick={() => { setProblem(''); setNotice(''); setBackupOpen(true); }}>{t('workspace.heading.backup')}</Button>
+      </>} /> : <aside className="ow-sidebar">
       <a className="ow-brand" href="/">wonffice<span>하나의 작업 공간</span></a>
       {onProjects && <Button onClick={onProjects}>프로젝트</Button>}
       <nav aria-label="자료함">
@@ -76,11 +82,19 @@ export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?:
       {folders.length > 0 && <><p className="ow-section-label">폴더</p><nav aria-label="폴더">{folders.map(value =>
         <Button key={value} pressed={folder === value} onClick={() => { setView('all'); setFolder(value); }}>{value}</Button>)}</nav></>}
       <div className="ow-sidebar-bottom"><Button disabled={busy} onClick={() => { setProblem(''); setNotice(''); setBackupOpen(true); }}>백업 및 가져오기</Button><p>이 브라우저에 저장됩니다.</p></div>
-    </aside>
+    </aside>}
     <main className="ow-main" ref={main} onScroll={event => saveLibraryOrigin(workspace.id, { query, view, product, folder, scroll: event.currentTarget.scrollTop })}>
-      <header className="ow-heading"><div><p className="ow-eyebrow">WORKSPACE</p><h1>{folder || { all: '전체 자료', recent: '최근 자료', favorites: '즐겨찾기', trash: '휴지통' }[view]}</h1></div>
+      {embedded ? <div className="ow-library-view-controls">
+        <select aria-label={t('workspace.heading.views')} value={view} onChange={event => {
+          const next = event.target.value; if (next === 'all' || next === 'recent' || next === 'favorites' || next === 'trash') { setView(next); setFolder(''); }
+        }}>{(['all', 'recent', 'favorites', 'trash'] as const).map(key => <option key={key} value={key}>{t(`workspace.heading.${key}`)}</option>)}</select>
+        {folders.length > 0 && <select aria-label={t('workspace.heading.folder')} value={folder} onChange={event => { setFolder(event.target.value); setView('all'); }}>
+          <option value="">{t('workspace.heading.allFolders')}</option>{folders.map(value => <option key={value} value={value}>{value}</option>)}
+        </select>}
+        <TextField ariaLabel={t('workspace.heading.search')} placeholder={t('workspace.heading.search')} value={query} onChange={setQuery} />
+      </div> : <header className="ow-heading"><div><p className="ow-eyebrow">WORKSPACE</p><h1>{folder || { all: '전체 자료', recent: '최근 자료', favorites: '즐겨찾기', trash: '휴지통' }[view]}</h1></div>
         <TextField ariaLabel="자료 검색" placeholder="이름과 본문 검색" value={query} onChange={setQuery} />
-      </header>
+      </header>}
       {view !== 'trash' && <div className="ow-create" aria-label="제품별 새 자료">
         {productKeys.map(key => <Button key={key} disabled={busy} onClick={() => { setCreating(key); setName(''); }}>
           <span className="ow-product-mark" style={{ color: products[key].color }}>{products[key].label.charAt(0)}</span><span><strong>{products[key].label}</strong><small>새 자료 만들기</small></span><span aria-hidden><Icon name="add" /></span>
