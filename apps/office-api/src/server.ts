@@ -1,3 +1,5 @@
+import { registerCriterionVerificationRoutes } from './criterion-verification-routes.js';
+import type { CriterionVerificationStore } from '@barocss/office-service/criterion-verification-store';
 import { registerCriterionConfirmationRoutes } from './criterion-confirmation-routes.js';
 import type { CriterionConfirmationStore } from '@barocss/office-service/criterion-confirmation-store';
 import { registerProjectRoutes } from './project-routes.js';
@@ -34,6 +36,7 @@ export interface ApiAuthDependencies {
   projectExecutions?: Pick<ProjectExecutionStore, 'get' | 'execute' | 'authorizeAcceptance' | 'acknowledge' | 'reject'>;
   workspaces?: Pick<MembershipStore, 'listWorkspaces'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
+  criterionVerifications?: Pick<CriterionVerificationStore,'getContext'|'run'|'list'|'get'>;
   criterionConfirmations?: Pick<CriterionConfirmationStore,'getContext' | 'confirm' | 'list'>;
   collaboration?: Pick<CollaborationStore, 'requestTransition' | 'reconcile'>;
   capabilities?: {
@@ -205,6 +208,8 @@ export function createApiServer(auth?: ApiAuthDependencies) {
       });
     }
     if (auth.projects) registerProjectRoutes(app, { authenticate, projects: auth.projects, executions: auth.projectExecutions });
+    if (auth.criterionVerifications) registerCriterionVerificationRoutes(app,
+      { authenticate, verifications:auth.criterionVerifications });
     if (auth.criterionConfirmations) registerCriterionConfirmationRoutes(app,
       { authenticate, confirmations:auth.criterionConfirmations });
     if (auth.operators) registerOperatorRoutes(app, { authenticate, operators: auth.operators });

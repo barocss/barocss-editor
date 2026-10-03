@@ -1,3 +1,5 @@
+import { CriterionVerificationStore } from '../../office-service/dist/criterion-verification-store.js';
+import { createCriterionBrowserExecutor } from '../../office-service/dist/criterion-browser-executor.js';
 import { CriterionConfirmationStore } from '../../office-service/dist/criterion-confirmation-store.js';
 import { ProjectExecutionStore } from '../../office-service/dist/project-execution.js';
 import { createLocalAgent } from '../dist/local-agent.js';
@@ -25,8 +27,9 @@ const stop = () => { void close().then(() => process.exit(0)); };
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
 process.on('disconnect', stop);
-process.once('message', async ({ database, issuer, audience, port }) => {
+process.once('message', async ({ database, issuer, audience, port, executorMode = 'live' }) => {
   try {
+    if (!['live', 'unavailable'].includes(executorMode)) throw new Error('invalid_local_executor_mode');
     pool = new pg.Pool({ ...database, max: 3, connectionTimeoutMillis: 2000 });
     // A deliberate DB outage terminates idle connections. New requests still reach
     // the real service and its 503 handling instead of crashing the test child.
@@ -37,7 +40,7 @@ process.once('message', async ({ database, issuer, audience, port }) => {
     if (!auth) throw new Error('synthetic_auth_config_missing');
     app = createApiServer({ verifier: createOidcVerifier(auth),
       memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
-      documents: new DocumentStore(pool), criterionConfirmations: new CriterionConfirmationStore(pool), operators: new PlatformOperatorStore(pool),
+      documents: new DocumentStore(pool), criterionConfirmations: new CriterionConfirmationStore(pool), criterionVerifications: new CriterionVerificationStore(pool, executorMode === 'unavailable' ? undefined : createCriterionBrowserExecutor()), operators: new PlatformOperatorStore(pool),
       companyMembers: new CompanyMemberStore(pool), projects: new ProjectStore(pool),
       projectExecutions: new ProjectExecutionStore(pool, createLocalAgent(process.env)) });
     await app.listen({ host: '127.0.0.1', port });

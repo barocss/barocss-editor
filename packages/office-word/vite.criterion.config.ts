@@ -9,7 +9,7 @@ const root = fileURLToPath(new URL('.', import.meta.url));
  * No second reduced schema or server-only approximation is maintained. */
 export default defineConfig({
   plugins: [dts({ entryRoot: resolve(root, 'src'), outDir: resolve(root, 'dist/criterion'),
-    tsconfigPath: resolve(root, 'tsconfig.json'), include: [resolve(root, 'src/criterion-confirmation.ts')],
+    tsconfigPath: resolve(root, 'tsconfig.json'), include: [resolve(root, 'src/criterion-confirmation.ts'), resolve(root, 'src/criterion-verification.ts')],
     pathsToAliases: false, compilerOptions: { rootDir: undefined, paths: {}, declarationMap: false } })],
   build: {
     outDir: resolve(root, 'dist/criterion'),

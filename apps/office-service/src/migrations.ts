@@ -1,3 +1,4 @@
+import { criterionVerificationMigration } from './criterion-verification-migration.js';
 import { criterionConfirmationMigration } from './criterion-confirmation-migration.js';
 import { projectMigration } from './project-migration.js';
 import { projectExecutionMigration } from './project-execution-migration.js';
@@ -293,4 +294,4 @@ UPDATE wonffice.documents AS d SET mode = 'initializing', updated_at = now()
     AND s.codec_version IS NULL AND s.status = 'uncertain'
     AND d.mode = 'collaborative';
 `,
-}, memberDirectoryMigration, projectMigration, projectExecutionMigration, criterionConfirmationMigration];
+}, memberDirectoryMigration, projectMigration, projectExecutionMigration, criterionConfirmationMigration, criterionVerificationMigration];

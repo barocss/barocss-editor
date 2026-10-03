@@ -216,6 +216,20 @@ export function appendDecisionVersion(document: unknown): BusinessPairPayload {
   item.versions.push({ version: item.currentVersion, snapshotText: wordFileText(cleanDocument(document), '') });
   return payload;
 }
+/** Explicitly retain a changed requirement as a new criterion version. The old
+ * rich pins and the exact referenced decision remain historical and unchanged. */
+export function appendRequirementVersion(document: unknown): BusinessPairPayload {
+  const read = readBusinessPair(document);
+  if (read.status !== 'valid') fail('A valid existing pair is required');
+  const requirement = read.items.find(one => one.item.kind === 'requirement')!;
+  if (requirement.state !== 'stale' || read.items.some(one => one.state === 'unavailable')) fail('A changed, uniquely located requirement is required');
+  const payload = structuredClone(read.payload);
+  const item = payload.items.find(one => one.kind === 'requirement')!;
+  item.currentVersion++;
+  item.versions.push({ version: item.currentVersion, snapshotText: wordFileText(cleanDocument(document), '') });
+  payload.relations[0].source.version = item.currentVersion;
+  return payload;
+}
 /** Independent copy/restore allocates business identity; ordinary move/view never calls this. */
 export function deriveBusinessPair(document: unknown): unknown {
   const read = readBusinessPair(document);
