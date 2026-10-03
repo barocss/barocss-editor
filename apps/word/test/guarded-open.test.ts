@@ -79,4 +79,34 @@ describe('guarded Word original opening', () => {
     expect(one.native).toEqual({ id: 'A', text: 'last native input' });
   });
 
+  it('retires a held old-owner lock without allowing duplicates in the new owner', async () => {
+    const old = fixture(), fresh = fixture(), heldOld = deferred<{ id: string; text: string }>(), heldFresh = deferred<boolean>();
+    const gate = createWordOpenGate();
+    old.load.mockImplementation(() => heldOld.promise);
+    const oldPending = gate(old.request); await Promise.resolve();
+    old.epoch.value++;
+    fresh.prepare.mockImplementation(() => heldFresh.promise);
+    const freshPending = gate(fresh.request);
+    expect(fresh.prepare).toHaveBeenCalledTimes(1);
+    heldOld.resolve({ id: 'B', text: 'retired response' }); expect(await oldPending).toBe(false);
+    expect(await gate(fresh.request)).toBe(false);
+    heldFresh.resolve(true); expect(await freshPending).toBe(true);
+    expect(old.commit).not.toHaveBeenCalled(); expect(fresh.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('permanently retires a replaced request when its readiness predicate becomes true again', async () => {
+    const old = fixture(), fresh = fixture(), heldOld = deferred<{ id: string; text: string }>(), heldFresh = deferred<boolean>();
+    const gate = createWordOpenGate();
+    let oldReady = true;
+    old.load.mockImplementation(() => heldOld.promise);
+    const oldPending = gate({ ...old.request, isCurrent: () => oldReady }); await Promise.resolve();
+    oldReady = false;
+    fresh.prepare.mockImplementation(() => heldFresh.promise);
+    const freshPending = gate(fresh.request);
+    oldReady = true; heldOld.resolve({ id: 'B', text: 'revived old response' });
+    expect(await oldPending).toBe(false); expect(old.commit).not.toHaveBeenCalled();
+    heldFresh.resolve(true); expect(await freshPending).toBe(true);
+    expect(fresh.commit).toHaveBeenCalledTimes(1);
+  });
+
 });

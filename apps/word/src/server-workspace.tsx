@@ -52,6 +52,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const draft = useRef<PendingWordRecord | undefined>(undefined);
   const fixed = useRef<Fixed | undefined>(undefined);
   const openGate = useRef(createWordOpenGate());
+  const openingLoad = useRef<{ token: symbol; owner: object; roleOwner: object; accessOwner: object } | undefined>(undefined);
   const requestOpen = useRef<(documentId: string, isCurrent?: () => boolean) => Promise<ProductNavigationGuard | false>>(async () => false);
   const nativeIdentityEpoch = useRef(0);
   const nativeHost = useRef<ProductDocumentHost | undefined>(undefined);
@@ -81,6 +82,13 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const authority = useRef(canEdit); authority.current = canEdit;
   const criterionAuthority = useRef({ canEdit, version: 0 });
   if (criterionAuthority.current.canEdit !== canEdit) criterionAuthority.current = { canEdit, version: criterionAuthority.current.version + 1 };
+  useEffect(() => {
+    const load = openingLoad.current;
+    if (load && (load.owner !== client || load.roleOwner !== openRole.current || load.accessOwner !== criterionAuthority.current)) {
+      // Retire only this target read, never a fixed save or its protected records.
+      openingLoad.current = undefined; busyRef.current = false; setBusy(false);
+    }
+  }, [client, role, canEdit]);
   const awaitingOpen = openingCompletion.current;
   if (awaitingOpen && (active.current !== awaitingOpen.owner || openRole.current !== awaitingOpen.roleOwner || criterionAuthority.current !== awaitingOpen.accessOwner)) {
     openingCompletion.current = undefined; awaitingOpen.resolve(false);
@@ -306,7 +314,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const beforeNavigate = useRef<(isCurrent?: () => boolean) => Promise<boolean>>(async () => false);
   beforeNavigate.current = async (intentCurrent = () => true) => {
     const one = currentRef.current, live = runtime.current;
-    if (!one?.documentId || !live || live.generation !== one.generation || active.current !== client || nestedRef.current || !protectedRef.current) return false;
+    if (!one?.documentId || one.owner !== client || !live || live.generation !== one.generation || active.current !== client || nestedRef.current || !protectedRef.current) return false;
     const rootId = live.value.editor.getRootId();
     const epoch = live.value.editor.dataStore.getDocumentEpoch();
     const currentOwner = () => intentCurrent() && active.current === client && currentRef.current?.generation === one.generation &&
@@ -332,7 +340,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   };
   requestOpen.current = async (documentId: string, intentCurrent = () => true) => {
     const one = currentRef.current, live = runtime.current;
-    if (!one?.documentId || !live || live.generation !== one.generation) return false;
+    if (!one?.documentId || one.owner !== client || !live || live.generation !== one.generation) return false;
     const rootId = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
     const roleOwner = openRole.current, accessOwner = criterionAuthority.current;
     let preparedText: string | undefined;
@@ -354,10 +362,13 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
         return owns();
       },
       load: async () => {
+        const loadOwner = { token: Symbol('Word target load'), owner: client, roleOwner, accessOwner }; openingLoad.current = loadOwner;
         busyRef.current = true; setBusy(true); setOpeningError('');
         try { return await client.open(documentId); }
         catch (error) { if (owns()) setOpeningError(failure(error).message); throw error; }
-        finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
+        finally { if (openingLoad.current === loadOwner && active.current === client) {
+          openingLoad.current = undefined; busyRef.current = false; setBusy(false);
+        } }
       },
       commit: result => {
         if (result.mode !== 'snapshot') { setOpeningError('공동 편집 문서는 스냅샷 편집으로 열 수 없습니다.'); return false; }
@@ -378,7 +389,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   useEffect(() => {
     if (!current) return;
     const host: ProductDocumentHost = { product: 'word',
-      id: () => active.current === client ? currentRef.current?.documentId ?? '' : '',
+      id: () => active.current === client && currentRef.current?.owner === client ? currentRef.current.documentId ?? '' : '',
       identityEpoch: () => nativeIdentityEpoch.current + openRole.current.epoch + criterionAuthority.current.version,
       beforeNavigate: () => active.current === client ? beforeNavigate.current() : Promise.resolve(false),
       requestOpen: (documentId, isCurrent) => active.current === client ? requestOpen.current(documentId, isCurrent) : Promise.resolve(false)

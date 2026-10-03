@@ -6,37 +6,43 @@ import { wordFileText } from '../../../packages/office-word/src/word-file';
 const tenantId = '00000000-0000-4000-8000-000000000001';
 const workspaceId = '00000000-0000-4000-8000-000000000002';
 const documentId = '00000000-0000-4000-8000-000000000003';
+const secondDocumentId = '00000000-0000-4000-8000-000000000004';
 const issuer = 'http://127.0.0.1:18180/realms/wonffice-local';
 const origin = `http://127.0.0.1:${process.env.OFFICE_AUTH_TEST_PORT ?? '5191'}`;
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const shell = (page: Page) => page.locator('[data-server-word-workspace]');
 const save = (page: Page) => shell(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ });
-async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string } = {}) {
+async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; failSave?: boolean } = {}) {
   let snapshotText = wordFileText(createStarterDocument(), '');
   let revision = 1;
+  let viewer = !!options.viewer;
   const writes: Record<string, unknown>[] = [];
   const receipts = new Map<string, unknown>();
   let lose = !!options.lostAck;
   const head = () => ({ tenantId, workspaceId, documentId, product: options.wrongProduct ? 'note' : 'word', title: 'Server Word',
     metadataRevision: 1, mode: options.mode ?? 'snapshot', revision, pageId: null, documentKey: `wonffice-${tenantId}-${documentId}`,
     fileFormat: 'barocss-word', fileVersion: 1, snapshotHash: hash(snapshotText) });
+  const secondText = wordFileText(createStarterDocument(), '');
+  const secondHead = () => ({ ...head(), documentId: secondDocumentId, title: 'Second server Word', documentKey: `wonffice-${tenantId}-${secondDocumentId}`, revision: 1, snapshotHash: hash(secondText) });
   const json = (value: unknown) => ({ contentType: 'application/json', body: JSON.stringify(value) });
   await page.route(`${issuer}/.well-known/openid-configuration`, route => route.fulfill({ ...json({ issuer,
     authorization_endpoint: `${issuer}/auth`, token_endpoint: `${issuer}/token`, end_session_endpoint: `${issuer}/logout` }), headers: { 'access-control-allow-origin': '*' } }));
   await page.route(`${issuer}/auth**`, route => route.fulfill({ contentType: 'text/html', body: `<script>location.replace('${origin}/auth/callback?code=synthetic&state=${new URL(route.request().url()).searchParams.get('state')}')</script>` }));
   await page.route(`${issuer}/token`, route => route.fulfill({ ...json({ access_token: 'synthetic', token_type: 'Bearer', expires_in: 300 }), headers: { 'access-control-allow-origin': '*' } }));
-  await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'word-synthetic', tenants: [{ tenantId, name: 'Word Company', role: options.viewer ? 'viewer' : 'editor' }], nextCursor: null })));
-  await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role: options.viewer ? 'viewer' : 'editor' })));
+  await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'word-synthetic', tenants: [{ tenantId, name: 'Word Company', role: viewer ? 'viewer' : 'editor' }], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role: viewer ? 'viewer' : 'editor' })));
   await page.route(`**/api/v1/tenants/${tenantId}/workspaces**`, route => route.fulfill(json({ workspaces: [{ id: workspaceId, name: 'Word workspace' }], nextCursor: null })));
-  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: new URL(route.request().url()).searchParams.get('product') === 'word' ? [head()] : [], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: new URL(route.request().url()).searchParams.get('product') === 'word' ? [head(), ...(options.second ? [secondHead()] : [])] : [], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/documents/${documentId}`, route => route.fulfill(json({ document: head(), ...(options.mode ? {} : { snapshotText }) })));
+  if (options.second) await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondDocumentId}`, route => route.fulfill(json({ document: secondHead(), snapshotText: secondText })));
   await page.route(`**/api/v1/tenants/${tenantId}/receipts/**`, route => {
     const key = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1)!);
     return route.fulfill(receipts.has(key) ? json(receipts.get(key)) : { status: 404, ...json({ status: 'not_found' }) });
   });
   await page.route(`**/api/v1/tenants/${tenantId}/documents/${documentId}/snapshot`, async route => {
     const body = route.request().postDataJSON(); writes.push(body);
-    if (options.viewer) return route.fulfill({ status: 403, ...json({ status: 'forbidden' }) });
+    if (options.failSave) return route.fulfill({ status: 503, ...json({ status: 'unavailable' }) });
+    if (viewer) return route.fulfill({ status: 403, ...json({ status: 'forbidden' }) });
     if (body.expectedRevision !== revision) return route.fulfill({ status: 409, ...json({ status: 'revision_conflict' }) });
     snapshotText = body.snapshotText; revision++;
     const receipt = { operation: 'update', idempotencyKey: body.idempotencyKey,
@@ -47,7 +53,7 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
   });
   await page.goto(`/?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId}&product=word`);
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
-  return { writes, text: () => snapshotText, revision: () => revision };
+  return { writes, text: () => snapshotText, revision: () => revision, setViewer: (value: boolean) => { viewer = value; } };
 }
 async function type(page: Page, text: string) {
   const paragraph = shell(page).locator('.w-paragraph').first();
@@ -325,4 +331,70 @@ test('fixed Word save waits for restored writer authority after a held list resp
   expect(state.writes[0].idempotencyKey).toBe(fixed[0].attempt.idempotencyKey);
   expect(state.writes[0].snapshotText).toBe(fixed[0].attempt.snapshotText);
   expect(state.text()).toContain('Frozen permission retry input');
+});
+
+
+test('native Word opening saves the final input before installing another original', async ({ page }) => {
+  const state = await setup(page, { second: true });
+  await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
+  await type(page, 'Final input before native transition');
+  const list = shell(page).getByRole('complementary', { name: '서버 Word 목록' });
+  if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
+  await list.getByRole('button', { name: 'Second server Word', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+  await expect(shell(page).locator('.w-paragraph').first()).not.toContainText('Final input before native transition');
+  expect(state.writes).toHaveLength(1);
+  expect(state.text()).toContain('Final input before native transition');
+  if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
+  await list.getByRole('button', { name: 'Server Word', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
+  await expect(shell(page).locator('.w-paragraph').first()).toContainText('Final input before native transition');
+  expect(state.writes).toHaveLength(1);
+});
+
+test('failed native Word preparation preserves the current original and last draft', async ({ page }) => {
+  const state = await setup(page, { second: true, failSave: true });
+  await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
+  await type(page, 'Retained failed transition input');
+  const list = shell(page).getByRole('complementary', { name: '서버 Word 목록' });
+  if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
+  await list.getByRole('button', { name: 'Second server Word', exact: true }).click();
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('저장 확인 필요');
+  await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
+  await expect(shell(page).locator('.w-paragraph').first()).toContainText('Retained failed transition input');
+  expect(state.writes).toHaveLength(1);
+  const pending = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:')).map(key => JSON.parse(localStorage.getItem(key)!)));
+  expect(pending.some(record => record.status === 'pending' && record.snapshotText.includes('Retained failed transition input'))).toBe(true);
+});
+
+
+test('retired Word role loading cannot lock or replace a newer viewer opening', async ({ page }) => {
+  const state = await setup(page, { second: true });
+  await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondDocumentId}`, async route => {
+    entered(); await held; await route.fallback();
+  }, { times: 1 });
+  const list = shell(page).getByRole('complementary', { name: '서버 Word 목록' });
+  if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
+  await list.getByRole('button', { name: 'Second server Word', exact: true }).click(); await waiting;
+  state.setViewer(true);
+  const access = page.waitForResponse(response => response.url().endsWith('/access'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await access;
+  await expect(save(page)).toHaveCount(0);
+  await expect(list.getByRole('button', { name: 'Second server Word', exact: true })).toBeEnabled();
+  await list.getByRole('button', { name: 'Second server Word', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+  const installed = await shell(page).locator('.w-paragraph').first().elementHandle();
+  expect(installed).not.toBeNull();
+  const retiredResponse = page.waitForResponse(response => response.url().endsWith(`/documents/${secondDocumentId}`));
+  release(); await (await retiredResponse).finished();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  expect(await installed!.evaluate(node => node.isConnected)).toBe(true);
+  await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
+  await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
+  expect(state.writes).toHaveLength(0);
+  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
 });

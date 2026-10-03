@@ -1,6 +1,6 @@
 /** Serial Word-original opening; native ownership and authority stay with the host. */
 export function createWordOpenGate() {
-  let pending = false;
+  let pending: { isCurrent: () => boolean } | undefined;
   return async function request<T, R>({ currentId, targetId, isCurrent, prepare, load, commit, same }: {
     currentId: string; targetId: string;
     isCurrent: () => boolean;
@@ -11,14 +11,15 @@ export function createWordOpenGate() {
   }): Promise<R | false> {
     if (!isCurrent()) return false;
     if (currentId === targetId) return same?.() ?? false;
-    if (pending) return false;
-    pending = true;
+    if (pending?.isCurrent()) return false;
+    const owner = { isCurrent };
+    pending = owner;
     try {
-      if (!await prepare() || !isCurrent()) return false;
+      if (!await prepare() || pending !== owner || !isCurrent()) return false;
       const loaded = await load();
-      if (!isCurrent()) return false;
+      if (pending !== owner || !isCurrent()) return false;
       return await commit(loaded);
     } catch { return false; }
-    finally { pending = false; }
+    finally { if (pending === owner) pending = undefined; }
   };
 }
