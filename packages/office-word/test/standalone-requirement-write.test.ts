@@ -35,7 +35,7 @@ async function fixture() {
 
 function cleanPin(bytes: string) {
   const native = JSON.parse(bytes).document;
-  delete native.metadata.wonfficeBusinessPair;
+  if (native.metadata) delete native.metadata.wonfficeBusinessPair;
   return wordFileText(native, '');
 }
 
