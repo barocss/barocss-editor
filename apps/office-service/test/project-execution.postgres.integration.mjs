@@ -247,8 +247,7 @@ try {
       const pending=store.execute(...s.args(),{expectedRevision:s.current().project.revision});await entered.promise;
       if(change==='pause') await s.update({type:'pause',workId:s.workId,paused:true});
       if(change==='source')await documents.updateSnapshot(actor,tenantId,s.documentId,{expectedRevision:1,snapshotText:s.snapshotText.replace('Untouched sibling','Human changed sibling'),idempotencyKey:randomUUID()});
-      if(change==='authority')await owner.query(`INSERT INTO wonffice.membership_events(id,tenant_id,identity_id,approval_ref,action,role)
-        VALUES($1,$2,$3,$4,'revoke','editor'),($5,$2,$3,$6,'grant','editor')`,[randomUUID(),tenantId,actorId,randomUUID(),randomUUID(),randomUUID()]);
+      if(change==='authority')await restoreRole();
       hold.resolve();const result=(await pending).execution;assert.equal(result.phase,'blocked');assert.deepEqual(result.proposal,proposal);
       await assert.rejects(store.authorizeAcceptance(...s.args(),result.id,{}),e=>e.reason===(change==='pause'?'work_paused':'execution_not_applicable'));
       const expected=change==='source'?s.snapshotText.replace('Untouched sibling','Human changed sibling'):s.snapshotText;
@@ -323,8 +322,7 @@ try {
     const rejected=await execution.reject(...s.args(),result.id,{});assert.equal(rejected.execution.phase,'rejected');
     assert.equal((await documents.open(actor,tenantId,s.documentId)).snapshotText,s.snapshotText);
     const other=await seed();const pending=(await execution.execute(...other.args(),{expectedRevision:other.current().project.revision})).execution;
-    await owner.query(`INSERT INTO wonffice.membership_events(id,tenant_id,identity_id,approval_ref,action,role)
-      VALUES($1,$2,$3,$4,'revoke','editor'),($5,$2,$3,$6,'grant','editor')`,[randomUUID(),tenantId,actorId,randomUUID(),randomUUID(),randomUUID()]);
+    await restoreRole();
     await assert.rejects(execution.reject(...other.args(),pending.id,{}),e=>e.reason==='authority_changed');
     assert.equal((await execution.get(...other.args())).execution.phase,'proposal');
   });
