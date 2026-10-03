@@ -394,3 +394,6 @@ body {
 .w-view-utilities > .office-toolbar { pointer-events: auto; }
 .w-view-utilities .w-zoom-control button { width: 32px; height: 32px; }
 .w-view-utilities .w-zoom-control input { height: 32px; }
+
+/* Compact comments overlay the existing canvas; only the view capsule steps aside. */
+.w-view-utilities[data-comments-overlay] { right: 296px; max-width: calc(100% - 312px); }

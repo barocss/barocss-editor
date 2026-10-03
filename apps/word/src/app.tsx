@@ -2,7 +2,7 @@ import type { CriterionVerificationHost } from './criterion-verification-client'
 import type { CriterionConfirmationHost } from './criterion-confirmation-client';
 import { EditorHeader, DocumentMenu, ProductMenu, CommandSearch, CommandSearchTrigger } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
@@ -105,6 +105,12 @@ export function App({ mount, server }: {
   const [rulerShown, setRulerShown] = useState(false);
   const [businessOpen, setBusinessOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
+  const panelId = useId();
+  const outlineButton = useRef<HTMLButtonElement>(null);
+  const commentsButton = useRef<HTMLButtonElement>(null);
+  const restorePanelFocus = useCallback((side: 'navigation' | 'inspector') => {
+    (side === 'navigation' ? outlineButton : commentsButton).current?.focus({ preventScroll: true });
+  }, []);
   const host = useRef<HTMLDivElement>(null);
   const detailAnchor = useRef<HTMLSpanElement>(null);
   const mounted = useRef(false);
@@ -470,6 +476,12 @@ export function App({ mount, server }: {
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
             actions={<>
               <div className="w-header-command-group">
+                <Tip label="개요"><Button ref={outlineButton} square tone="quiet" ariaLabel="개요"
+                  aria-controls={`${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
+                  pressed={outlineShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('navigation')}><Icon name="outline" /></Button></Tip>
+                <Tip label="댓글"><Button ref={commentsButton} square tone="quiet" ariaLabel="댓글"
+                  aria-controls={`${panelId}-inspector`} aria-expanded={commentsShown} data-workspace-toggle="inspector"
+                  pressed={commentsShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('inspector')}><Icon name="comments" /></Button></Tip>
                 <Tip label="요구·결정"><Button square tone="quiet" ariaLabel="요구·결정" pressed={businessOpen}
                   onMouseDown={event => event.preventDefault()}
                   onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); }}><Icon name="resolve" /></Button></Tip>
@@ -517,6 +529,8 @@ export function App({ mount, server }: {
       </AppChrome>
 
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
+        showPanelControls={false} restorePanelFocus={restorePanelFocus}
+        panelIds={{ navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
         {instance ? <WorkspaceSidePanel side="navigation" width={server?.navigation || compact || outlining || businessOpen ? 240 : 40}>{server?.navigation}<OutlinePane
             editor={instance.editor}
@@ -584,7 +598,7 @@ export function App({ mount, server }: {
           */}
           {instance && !readOnly ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
         </AppMain>
-        {instance && <div className="w-view-utilities">
+        {instance && <div className="w-view-utilities" data-workspace-utility data-comments-overlay={compact && activePanel === 'inspector' || undefined}>
           <Toolbar variant="compact" surface="floating" label="보기 도구">
             <ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />
           </Toolbar>
