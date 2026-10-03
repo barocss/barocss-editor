@@ -79,6 +79,8 @@ export interface SheetRow {
 }
 
 export interface SheetGroup<Row extends SheetRow> {
+  /** Stable identity survives translated headings. */
+  id?: string;
   label: string;
   rows: Row[];
 }
@@ -442,7 +444,8 @@ export function PropertySheet<Row extends SheetRow>({
       ) : null}
       {shown.map((group) => (
         <PropertyGroup
-          key={group.label}
+          key={group.id ?? group.label}
+          groupId={group.id}
           label={heading?.(group) ?? group.label}
           folded={folded?.(group)}
           onFold={onFold ? (next) => onFold(group, next) : undefined}

@@ -12,7 +12,7 @@ describe('the centralized host-owned message catalogs', () => {
       expect(messagesEn[key].length, key).toBeGreaterThan(0);
       expect(messagesKo[key].length, key).toBeGreaterThan(0);
     }
-    expect(Object.keys(messagesEn)).toHaveLength(46);
+    expect(Object.keys(messagesEn)).toHaveLength(80);
   });
 
   it.each([['ko', 'ko'], ['ko-KR', 'ko'], ['KO-kr', 'ko'], ['en-US', 'en'], ['fr-FR', 'en'], ['', 'en']])(
@@ -34,6 +34,8 @@ describe('the centralized host-owned message catalogs', () => {
 
   it('renders typed catalog placeholders without evaluating title values', () => {
     const korean = createTranslator('ko'), english = createTranslator('en');
+    expect(english('site.inspector.selectionCount', { count: 2 })).toBe('2 selected');
+    expect(korean('site.inspector.selectionCount', { count: 2 })).toBe('2개 선택됨');
     expect(english('document.library.openLabel', { title: '<script>fictional</script>' })).toBe('Open <script>fictional</script>');
     expect(korean('document.library.draftLabel', { title: '가상 문서' })).toBe('가상 문서 · 복구 초안');
     expect(translateMessage('document.library.openLabel', 'en-US', { title: 0 })).toBe('Open 0');

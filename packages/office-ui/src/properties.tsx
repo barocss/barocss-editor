@@ -98,6 +98,7 @@ export function PropertyPanel({
 
 /** A property section with independent disclosure and optional reset actions. */
 export function PropertyGroup({
+ groupId,
  label,
  action,
   folded,
@@ -107,6 +108,7 @@ export function PropertyGroup({
   resetLabel,
   children
 }: {
+  groupId?: string;
   label: string;
   action?: React.ReactNode;
   /** The caller owns the reset command and its property scope. */
@@ -122,6 +124,7 @@ export function PropertyGroup({
   return (
     <section
       data-property-group
+      data-property-group-id={groupId}
       className={cn(
         'flex flex-col gap-0.5 px-2 py-2',
  // The rule between sections, and none above the first: a line at the top

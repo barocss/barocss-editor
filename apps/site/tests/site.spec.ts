@@ -31,6 +31,10 @@ const ready = async (page: Page) => {
   await page.waitForSelector('[data-frame="desktop"] .st-page');
   // The boards render on an effect; one settle is enough because a page places nothing.
   await page.waitForTimeout(400);
+  // Compact editing starts with both detail panels closed. Open the actual tools
+  // these inspector scenarios use, without changing the document.
+  if (!await page.locator('.st-detail-slot').isVisible()) await page.getByRole('button', { name: '자세한 속성', exact: true }).click();
+  if (!await page.locator('.st-navigation-slot').isVisible()) await page.getByRole('button', { name: '페이지 및 구조', exact: true }).click();
 };
 
 /** The admin, which is where the window opens — for the checks that are about it. */
@@ -9086,6 +9090,7 @@ test.describe('a card can be asked something new', () => {
     await page.waitForTimeout(200);
 
     await expect(panel(page).getByLabel('연결된 변수')).toHaveValue('이름');
+    const beforeNative = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
     await panel(page).getByLabel('연결된 변수').selectOption('');
     await page.waitForTimeout(600);
 
@@ -9097,6 +9102,13 @@ test.describe('a card can be asked something new', () => {
      * the same question.
      */
     expect(said.asks).toContain('이름');
+    const afterNative = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
+    expect(afterNative).not.toBe(beforeNative);
+    await panel(page).getByLabel('연결된 변수').evaluate(element => (element as HTMLElement).blur());
+    await page.keyboard.press('Meta+z');
+    await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(beforeNative);
+    await page.keyboard.press('Meta+Shift+z');
+    await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(afterNative);
   });
 
   /**
@@ -10435,6 +10447,10 @@ test.describe('a panel section that folds', () => {
     const named = async (at: number) =>
       await page.locator('.office-properties [aria-expanded] h3').nth(at).innerText();
     const label = await named(1);
+    const group = page.locator('.office-properties [data-property-group]').nth(1);
+    const stableId = await group.getAttribute('data-property-group-id');
+    expect(stableId).toBeTruthy();
+    const beforeNative = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
     await page.locator('.office-properties [aria-expanded]').nth(1).click();
     await page.waitForTimeout(200);
 
@@ -10443,6 +10459,8 @@ test.describe('a panel section that folds', () => {
 
     const head = page.locator('.office-properties [aria-expanded]', { hasText: label }).first();
     await expect(head).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator(`.office-properties [data-property-group-id="${stableId}"] [aria-expanded]`)).toHaveAttribute('aria-expanded', 'false');
+    expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(beforeNative);
   });
 });
 
