@@ -383,3 +383,7 @@ body {
 .w-business-pair select:focus-visible { outline: 2px solid var(--ou-accent); outline-offset: 2px; }
 
 .w-business-item-excerpt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Document commands stay compact; the native paper and panel geometry are unchanged. */
+.w-header-command-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.w-header-command-group > span { display: inline-flex; }

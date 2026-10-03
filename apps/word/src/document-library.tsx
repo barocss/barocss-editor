@@ -8,7 +8,7 @@ import { forwardRef, useImperativeHandle, useEffect, useRef, useState, type Mous
 import type { Editor } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import { deriveBusinessPair } from '../../../packages/office-word/src/business-pair';
-import { Button, Dialog, EmptyState, Icon, NavigationItem, StatusIndicator, StatusNotice, TextField } from '@barocss/office-ui';
+import { Button, Dialog, EmptyState, Icon, NavigationItem, StatusIndicator, StatusNotice, TextField, Tip } from '@barocss/office-ui';
 import { wordLibraryRows, keepWordDocument, wordFileText, type WordLibraryRow } from '@barocss/office-word';
 
 /** The host owns document navigation; shared UI and Word's file/library adapters do the work. */
@@ -92,8 +92,8 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
     자동 저장이 중지돼 있습니다. 필요한 내용을 복사하거나 DOCX로 내보낸 뒤 저장본을 다시 여세요.
   </StatusNotice>;
   return <div className="w-document-library">
-    <Button tone="quiet" onClick={() => setActions(true)}>문서 작업</Button>
-    <Button ref={libraryButton} disabled={busy} onClick={openLibrary}>문서 보관함</Button>
+    <Tip label="문서 작업"><Button square tone="quiet" ariaLabel="문서 작업" onClick={() => setActions(true)}><Icon name="page-setup" /></Button></Tip>
+    <Tip label="문서 보관함"><Button square tone="quiet" ariaLabel="문서 보관함" ref={libraryButton} disabled={busy} onClick={openLibrary}><Icon name="recent-documents" /></Button></Tip>
     <Dialog open={actions} onOpenChange={value => { if (!pending.current) setActions(value); }} title="문서 작업" description="문서를 보관하거나 DOCX 파일을 가져오고 내보냅니다.">
       <div className="w-file-action-list">
         <Button disabled={busy || recoveryRequired} onClick={() => void perform(async () => { await save(); })}>보관함에 사본 저장</Button>
