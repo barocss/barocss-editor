@@ -46,8 +46,7 @@ describe('authorized four-product head catalog', () => {
 
   it.each([null, [], {}, { documents: [], nextCursor: undefined }, page([], documentId(1)),
     page(fullPage().concat(head(51))), page([head()], 'invalid'), page([head()], documentId(1)),
-    { ...page([head()]), snapshotText: 'body' }, page([head(), head()]), page([head(2), head(1)])])
-  ('rejects malformed pages %j', async value => {
+    { ...page([head()]), snapshotText: 'body' }, page([head(), head()]), page([head(2), head(1)])])('rejects malformed pages %j', async value => {
     await expect(readDocumentCatalog(tenantId, workspaceId, transport(value))).rejects.toMatchObject({ kind: 'unavailable' });
   });
 
@@ -67,8 +66,7 @@ describe('authorized four-product head catalog', () => {
     expect(requestFetch).toHaveBeenNthCalledWith(2, `/api/v1/tenants/${tenantId}/documents?workspaceId=${workspaceId}&after=${documentId(50)}`);
   });
 
-  it.each([page([head(50)]), page(fullPage(), documentId(50)), page(fullPage(51), documentId(50))])
-  ('refuses duplicate, cyclic or incoherent continuation %j', async continuation => {
+  it.each([page([head(50)]), page(fullPage(), documentId(50)), page(fullPage(51), documentId(50))])('refuses duplicate, cyclic or incoherent continuation %j', async continuation => {
     const requestFetch = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(page(fullPage(), documentId(50))))
       .mockResolvedValueOnce(Response.json(continuation));
@@ -86,8 +84,7 @@ describe('authorized four-product head catalog', () => {
     expect(requests).toBe(100);
   });
 
-  it.each([[401, 'unauthorized'], [403, 'forbidden'], [500, 'unavailable']] as const)
-  ('preserves failed-page status %s and never returns partial titles', async (status, kind) => {
+  it.each([[401, 'unauthorized'], [403, 'forbidden'], [500, 'unavailable']] as const)('preserves failed-page status %s and never returns partial titles', async (status, kind) => {
     const requestFetch = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(page(fullPage(), documentId(50))))
       .mockResolvedValueOnce(new Response(null, { status }));

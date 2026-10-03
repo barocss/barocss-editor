@@ -1,3 +1,5 @@
+import { createTranslator, type Translator } from '@barocss/shared';
+
 export type EntryIntent = 'user' | 'admin' | 'operator';
 export type TenantRole = 'owner' | 'admin' | 'editor' | 'viewer';
 export type TenantAccess = { tenantId: string; name: string; role: TenantRole };
@@ -291,29 +293,36 @@ const catalogFormats = { note: 'barocss-note', word: 'barocss-word', slides: 'ba
 const catalogHeadKeys = ['documentId', 'tenantId', 'workspaceId', 'product', 'title', 'metadataRevision', 'mode', 'pageId', 'documentKey', 'fileFormat', 'fileVersion', 'revision', 'snapshotHash'];
 const catalogRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const catalogRevision = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
-function catalogError(): AuthError { return new AuthError('unavailable', '자료함 응답을 확인하지 못했습니다.'); }
+function catalogError(t: Translator): AuthError { return new AuthError('unavailable', t('workspace.catalog.invalidResponse')); }
+function catalogFailure(error: unknown, t: Translator): AuthError {
+  if (!(error instanceof AuthError)) return catalogError(t);
+  if (error.kind === 'unauthorized') return new AuthError(error.kind, t('workspace.catalog.expiredLogin'));
+  if (error.kind === 'forbidden') return new AuthError(error.kind, t('workspace.catalog.denied'));
+  if (error.kind === 'cancelled') return new AuthError(error.kind, t('workspace.catalog.changed'));
+  return error.kind === 'unavailable' ? catalogError(t) : error;
+}
 
 /** Use one captured fetch for every page and its JSON decode. No product filter. */
 export async function listCatalogDocuments(tenantId: string, workspaceId: string, after?: string,
-  requestFetch: typeof fetch = captureAuthorizedFetch()): Promise<CatalogDocumentPage> {
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentPage> {
   if (![tenantId, workspaceId].every(value => typeof value === 'string' && uuid.test(value)) ||
     (after !== undefined && (typeof after !== 'string' || !uuid.test(after)))) {
-    throw new AuthError('configuration', '잘못된 자료함 주소입니다.');
+    throw new AuthError('configuration', t('workspace.catalog.invalidAddress'));
   }
   const query = new URLSearchParams({ workspaceId });
   if (after !== undefined) query.set('after', after);
   let response: Response;
   try { response = await requestFetch(`/api/v1/tenants/${tenantId}/documents?${query}`); }
-  catch (error) { if (error instanceof AuthError) throw error; throw catalogError(); }
-  if (response.status === 401) throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.');
-  if (response.status === 403) throw new AuthError('forbidden', '현재 계정에는 이 회사의 접근 권한이 없습니다.');
-  if (!response.ok) throw catalogError();
+  catch (error) { throw catalogFailure(error, t); }
+  if (response.status === 401) throw new AuthError('unauthorized', t('workspace.catalog.expiredLogin'));
+  if (response.status === 403) throw new AuthError('forbidden', t('workspace.catalog.denied'));
+  if (!response.ok) throw catalogError(t);
   let raw: unknown;
   try { raw = await response.json(); }
-  catch (error) { if (error instanceof AuthError) throw error; throw catalogError(); }
+  catch (error) { throw catalogFailure(error, t); }
   if (!catalogRecord(raw) || Object.keys(raw).some(key => key !== 'documents' && key !== 'nextCursor') ||
     !Array.isArray(raw.documents) || raw.documents.length > catalogPageSize ||
-    (raw.nextCursor !== null && (typeof raw.nextCursor !== 'string' || !uuid.test(raw.nextCursor)))) throw catalogError();
+    (raw.nextCursor !== null && (typeof raw.nextCursor !== 'string' || !uuid.test(raw.nextCursor)))) throw catalogError(t);
   const items: CatalogDocumentHead[] = [];
   let previous = after?.toLowerCase();
   for (const item of raw.documents) {
@@ -329,34 +338,34 @@ export async function listCatalogDocuments(tenantId: string, workspaceId: string
       (item.product === 'note' ? typeof item.pageId !== 'string' || !uuid.test(item.pageId) : item.pageId !== null) ||
       item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
       typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash) ||
-      (previous !== undefined && item.documentId.toLowerCase() <= previous)) throw catalogError();
+      (previous !== undefined && item.documentId.toLowerCase() <= previous)) throw catalogError(t);
     previous = item.documentId.toLowerCase();
     items.push(item as CatalogDocumentHead);
   }
   // The fixed service page has 50 heads when another page exists. Its cursor
   // is the last returned UUID, ordered by the same database UUID comparison.
-  if (raw.nextCursor !== null && (items.length !== catalogPageSize || raw.nextCursor.toLowerCase() !== previous)) throw catalogError();
+  if (raw.nextCursor !== null && (items.length !== catalogPageSize || raw.nextCursor.toLowerCase() !== previous)) throw catalogError(t);
   return { items, nextCursor: raw.nextCursor as string | null };
 }
 
 /** A failed or bounded-out page never becomes an empty successful catalog. */
 export async function readDocumentCatalog(tenantId: string, workspaceId: string,
-  requestFetch: typeof fetch = captureAuthorizedFetch()): Promise<CatalogDocumentHead[]> {
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentHead[]> {
   const items: CatalogDocumentHead[] = [];
   const seen = new Set<string>();
   let after: string | undefined;
   for (let page = 0; page < catalogMaxPages; page++) {
-    const result = await listCatalogDocuments(tenantId, workspaceId, after, requestFetch);
+    const result = await listCatalogDocuments(tenantId, workspaceId, after, requestFetch, t);
     for (const item of result.items) {
       const id = item.documentId.toLowerCase();
-      if (seen.has(id)) throw catalogError();
+      if (seen.has(id)) throw catalogError(t);
       seen.add(id);
       items.push(item);
     }
     if (result.nextCursor === null) return items;
     after = result.nextCursor;
   }
-  throw new AuthError('unavailable', '자료함 목록을 끝까지 불러오지 못했습니다.');
+  throw new AuthError('unavailable', t('workspace.catalog.limitReached'));
 }
 
 export async function openVerifiedSnapshot(tenantId: string, workspaceId: string, documentId: string, role: TenantRole, product: SnapshotProduct): Promise<VerifiedSnapshotContext> {

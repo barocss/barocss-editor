@@ -131,5 +131,11 @@
   "site.header.insertTools": "Site insertion tools",
   "word.header.documentsOutline": "Documents and outline",
   "word.header.outline": "Outline",
-  "word.header.comments": "Comments"
+  "word.header.comments": "Comments",
+  "workspace.catalog.invalidAddress": "The workspace address is invalid.",
+  "workspace.catalog.invalidResponse": "The file catalog response could not be verified.",
+  "workspace.catalog.expiredLogin": "Your login expired. Sign in again.",
+  "workspace.catalog.denied": "This account cannot access this company.",
+  "workspace.catalog.limitReached": "The file catalog could not be loaded completely.",
+  "workspace.catalog.changed": "The account or workspace changed."
 }
