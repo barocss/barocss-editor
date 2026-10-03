@@ -1,4 +1,4 @@
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Toolbar, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase } from '@barocss/office-ui';
 import {
   FileActions,
   LocalDocuments,
@@ -29,6 +29,7 @@ import {
 
 import {
   siteMenusIn,
+  siteControlsIn,
   widthsOf,
   datasetNamed,
   datasetsOf,
@@ -1545,6 +1546,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           </Ribbon>
   ) : null;
 
+  const frequentInserts = siteControlsIn('insert')
+    .filter(entry => ['insertHeading', 'insertBodyText', 'insertPicture'].includes(entry.command))
+    .map(entry => ({ entry, menu: searchEntries.find(item => item.command === entry.command) }));
+
   return (
     <AppShell className="st-shell">
       <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPickIntent={prepareSearchCommandPick} onPick={id => void pickSearchCommand(id)} />
@@ -1552,25 +1557,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       <AppChrome className="st-chrome">
         <EditorHeader compact product="Site" className="st-documentbar"
           fallbackNavigation={<ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
-          view={editor && !admin ? <div className="st-header-view" role="group" aria-label={t('site.header.viewTools')}>
-            <IconButton
-              className="st-preview-toggle"
-              label={t(preview ? 'site.header.edit' : 'site.header.preview')}
-              data={{ preview: preview ? 'true' : undefined }}
-              pressed={preview}
-              onClick={() => setPreview((one) => !one)}
-            ><Icon name={preview ? 'edit' : 'shown'} /></IconButton>
-            <ZoomControl
-              zoom={zoom}
-              ladder={SITE_ZOOM_LADDER}
-              onChange={(next) => controls.zoomAt(next)}
-              onFit={onFit}
-              fitLabel="맞춤"
-            /></div> : undefined}
           title={editor ? `${siteTitle(editor.dataStore as never) || '제목 없는 사이트'}${definition ? ` · ${definition.name} · ${definition.uses}곳에서 사용 중` : !admin ? ` · ${pages.find(one => one.sid === page)?.name ?? ''}` : ''}` : '불러오는 중'}
           menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={bar} onPick={onMenu} />}
           actions={<><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
-          <div className="st-header-actions">{completeTools}{editor && !admin ? <>
+          <div className="st-header-actions">{datasetAt && completeTools}{editor && !admin ? <>
             <IconButton label="페이지 및 구조" pressed={navigationOpen} preserveFocus onClick={() => setNavigationOpen(value => !value)}><Icon name="outline" /></IconButton>
             <IconButton label="자세한 속성" pressed={detailOpen} preserveFocus onClick={() => setDetailOpen(value => !value)}><Icon name="expand" /></IconButton>
           </> : null}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
@@ -1622,6 +1612,25 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         ) : null}
 
         <AppMain className="st-main" data={{ 'workspace-main': '' }}>
+          {editor && !admin && !datasetAt && <div className="st-utilities" data-site-utilities>
+            <Toolbar variant="compact" surface="floating" label={t('site.header.insertTools')}>
+              {!preview && <>
+              <IconButton label="넣을 것 고르기" preserveFocus disabled={writing || !root} onClick={() => { setAddAt(null); setAdding(true); }}><Icon name="add" /></IconButton>
+              {frequentInserts.map(({ entry, menu }) => menu && <IconButton key={entry.command} label={entry.title ?? entry.label} preserveFocus
+                disabled={writing || preview || !root || !!menuItems.find(item => item.id === menu.id)?.disabled}
+                onClick={() => onMenu(menu.id)}><Icon name={entry.icon ?? 'add'} /></IconButton>)}
+              </>}
+              {completeTools}
+            </Toolbar>
+            <Toolbar variant="compact" surface="floating" className="st-view-tools" label={t('site.header.viewTools')}>
+              <IconButton className="st-preview-toggle" label={t(preview ? 'site.header.edit' : 'site.header.preview')}
+                data={{ preview: preview ? 'true' : undefined }} pressed={preview} preserveFocus onClick={() => setPreview(one => !one)}>
+                <Icon name={preview ? 'edit' : 'shown'} />
+              </IconButton>
+              <ZoomControl zoom={zoom} ladder={SITE_ZOOM_LADDER} onChange={next => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
+            </Toolbar>
+          </div>}
+
           {/*
             **관리** — the surface a reader opens into, filling the same regions with a different
             answer: the left is the five things a site is made of, the middle is a table, and there
