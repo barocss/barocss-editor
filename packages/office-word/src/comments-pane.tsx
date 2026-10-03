@@ -2,7 +2,7 @@ import { PanelHeader, TextField } from '@barocss/office-ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { commentThreads, type CommentThread } from './comments';
+import { commentThreads, resolveCommentTarget, type CommentThread } from './comments';
 /*
  * Importing the type also registers how it is drawn — see `highlight-decorators.ts`. It used to be
  * drawn by `apps/word/src/main.tsx`, so a pane built anywhere else marked its comments with a
@@ -104,18 +104,21 @@ export function CommentsPane({ editor, view, open, onToggle, readOnly = false }:
   const anchors = useMemo(
     () =>
       threads
-        .filter((thread) => thread.anchor && !thread.resolved)
-        .map((thread) => ({
-          sid: `comment-anchor-${thread.id}`,
+        .filter((thread) => !thread.resolved)
+        .flatMap((thread) => {
+          const found = resolveCommentTarget(doc as never, thread.id);
+          return found.status !== 'located' ? [] : found.anchors.map((anchor, part) => ({
+          sid: `comment-anchor-${thread.id}-${part}`,
           stype: ANCHOR_STYPE,
           category: 'inline',
           target: {
-            sid: thread.anchor!.sid,
-            startOffset: thread.anchor!.start,
-            endOffset: thread.anchor!.end
+            sid: anchor.sid,
+            startOffset: anchor.start,
+            endOffset: anchor.end
           },
           data: { selected: thread.id === selected }
-        })),
+        }));
+        }),
     [threads, selected]
   );
 

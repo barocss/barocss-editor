@@ -1,6 +1,6 @@
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import type { ProductFeedbackHost, ProductFeedbackTarget } from '@barocss/shared';
-import { commentIdentityInUse, resolveCommentTarget } from './comments';
+import { collectCommentRange, commentIdentityInUse, resolveCommentTarget } from './comments';
 import { previewConnectedWordRevision } from './connected-proposal';
 
 export interface WordFeedbackOptions {
@@ -13,29 +13,31 @@ export interface WordFeedbackOptions {
   reading?: (value: boolean) => void;
   nativeDocument?: () => unknown;
   captureInputIntent?: () => (() => boolean) | null;
+  /** Comments permit their one owned command and composer focus, but retire native input/gestures. */
+  captureCommentIntent?: () => (() => boolean) | null;
   /** Revision approval also binds raw DOM selection before its model debounce. */
   captureRevisionIntent?: () => ((committed?: boolean) => boolean) | null;
 }
 export interface WordFeedbackHost extends ProductFeedbackHost { dispose(): void }
 
-/** One actual inline run is the initial supported anchor. No quote-based reattachment. */
+/** A native range owns every covered run; a displayed quote cannot retarget it. */
 function textTarget(editor: Editor, selection: ModelSelection | null | undefined) {
-  if (!selection || selection.type !== 'range' || selection.startNodeId !== selection.endNodeId ||
-    !Number.isInteger(selection.startOffset) || !Number.isInteger(selection.endOffset) ||
-    selection.startOffset < 0 || selection.endOffset <= selection.startOffset) return;
-  const node = editor.dataStore.getNodes().get(selection.startNodeId);
-  if (!node || node.stype !== 'inline-text' || typeof node.text !== 'string' || selection.endOffset > node.text.length) return;
-  let current = node;
-  const seen = new Set<string>();
-  while (current.sid !== editor.getRootId()) {
-    if (!current.sid || seen.has(current.sid) || ['resources', 'commentThread', 'contentControl'].includes(current.stype) || current.attributes?.locked === true) return;
-    seen.add(current.sid);
-    const parent = current.parentId ? editor.dataStore.getNodes().get(current.parentId) : undefined;
-    if (!parent || !parent.content?.includes(current.sid)) return;
-    current = parent;
+  const range = collectCommentRange({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNodes().get(id) }, selection);
+  if (!range) return;
+  const nodes = range.anchors.map(anchor => editor.dataStore.getNodes().get(anchor.sid)!);
+  for (const node of nodes) {
+    let current = node;
+    const seen = new Set<string>();
+    while (current.sid !== editor.getRootId()) {
+      if (!current.sid || seen.has(current.sid) || ['resources', 'commentThread', 'contentControl'].includes(current.stype) || current.attributes?.locked === true) return;
+      seen.add(current.sid);
+      const parent = current.parentId ? editor.dataStore.getNodes().get(current.parentId) : undefined;
+      if (!parent || !parent.content?.includes(current.sid)) return;
+      current = parent;
+    }
+    if (current.attributes?.locked === true) return;
   }
-  if (current.attributes?.locked === true) return;
-  return { node, quote: node.text.slice(selection.startOffset, selection.endOffset) };
+  return { ...range, nodes };
 }
 
 /** Native Word owns the capture and transaction. This adapter owns no persisted document copy. */
@@ -63,14 +65,18 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
   const editable = () => !disposed && !!options.id() && editor.isEditable && options.canComment();
   const captures = new Map<string, {
     target: ProductFeedbackTarget; selection: ModelSelection; current: () => boolean; sameDocument: () => boolean;
+    excerpt: { text: string; bold?: boolean; italic?: boolean; underline?: boolean; link?: boolean }[];
     body?: string; pendingBody?: string; pending?: Promise<ProductFeedbackTarget>;
   }>();
   return {
     product: 'word', id: options.id, editable,
     capture() {
       if (!editable() || settling) return null;
-      const selection = options.captureSelection(), actual = textTarget(editor, selection);
-      if (!selection || !actual) return null;
+      const rawSelection = options.captureSelection(), actual = textTarget(editor, rawSelection);
+      if (!rawSelection || !actual) return null;
+      const first = actual.anchors[0], last = actual.anchors[actual.anchors.length - 1];
+      const selection: ModelSelection = { ...rawSelection, startNodeId: first.sid, startOffset: first.start,
+        endNodeId: last.sid, endOffset: last.end, collapsed: false };
       const documentId = options.id(), rootId = editor.getRootId(), root = store.getNodes().get(rootId!), epoch = store.getDocumentEpoch(), session = store.getSessionId();
       const beforeVersion = store.getVersion();
       // The DOM owns this gesture. Settle its model range before taking the
@@ -84,21 +90,37 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
         store.getNodes().get(rootId!) !== root || store.getDocumentEpoch() !== epoch || store.getSessionId() !== session ||
         !sameRange(settled, selection)) return null;
       const version = store.getVersion(), revision = generation, beforeSelection = JSON.stringify(editor.selection);
+      const inputCurrent = options.captureCommentIntent?.();
+      if (options.captureCommentIntent && !inputCurrent) return null;
       const captured = structuredClone(selection);
-      const bytes = JSON.stringify(actual.node);
+      const bytes = JSON.stringify(actual.nodes);
       const id = crypto.randomUUID();
       if (commentIdentityInUse(doc(), id)) return null;
       const target: ProductFeedbackTarget = Object.freeze({ kind: 'word-comment', id, quote: actual.quote });
       const sameDocument = () => !disposed && options.id() === documentId && editor.getRootId() === rootId &&
         store.getDocumentEpoch() === epoch && store.getSessionId() === session && store.getNodes().get(rootId!) === root;
-      captures.set(id, { target, selection: captured, sameDocument, current: () => sameDocument() && editable() && generation === revision &&
+      const excerpt = actual.anchors.flatMap((anchor, index) => {
+        const node = actual.nodes[index], marks = node.marks ?? [];
+        const boundaries = [...new Set([anchor.start, anchor.end, ...marks.flatMap(mark => mark.range ?? [])
+          .filter(offset => offset > anchor.start && offset < anchor.end)])].sort((left, right) => left - right);
+        return boundaries.slice(0, -1).map((start, part) => {
+          const end = boundaries[part + 1];
+          const has = (stype: string) => marks.some(mark => mark.stype === stype && (!mark.range || mark.range[0] <= start && mark.range[1] >= end));
+          return { text: node.text!.slice(start, end), bold: has('bold'), italic: has('italic'), underline: has('underline'), link: has('link') };
+        });
+      });
+      captures.set(id, { target, selection: captured, sameDocument, excerpt, current: () => sameDocument() && editable() && (!inputCurrent || inputCurrent()) && generation === revision &&
         store.getVersion() === version && JSON.stringify(editor.selection) === beforeSelection &&
-        JSON.stringify(store.getNodes().get(captured.startNodeId)) === bytes && !!textTarget(editor, captured) });
+        JSON.stringify(textTarget(editor, captured)?.nodes) === bytes });
       return target;
     },
     ownsCapture(target) {
       const capture = captures.get(target.id);
       return target.kind === 'word-comment' && !!capture && capture.target.quote === target.quote && capture.current();
+    },
+    excerpt(target) {
+      const capture = captures.get(target.id);
+      return target.kind === 'word-comment' && capture?.target.quote === target.quote ? structuredClone(capture.excerpt) : [];
     },
     async comment(target, body) {
       const capture = captures.get(target.id);
@@ -127,8 +149,8 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
       if (disposed || !options.id() || target.kind !== 'word-comment') return 'missing';
       const found = resolveCommentTarget(doc(), target.id);
       if (found.status !== 'located') return found.status;
-      const { sid, start, end } = found.anchor;
-      editor.updateSelection({ type: 'range', startNodeId: sid, endNodeId: sid, startOffset: start, endOffset: end, collapsed: false });
+      const first = found.anchors[0], last = found.anchors[found.anchors.length - 1];
+      editor.updateSelection({ type: 'range', startNodeId: first.sid, endNodeId: last.sid, startOffset: first.start, endOffset: last.end, collapsed: false });
       return 'located';
     },
     reading(value) { if (!disposed) options.reading?.(value); },

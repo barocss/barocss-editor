@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Icon, IconButton, StatusNotice } from '@barocss/office-ui';
 import { createProjectComment, requestProjectWork, productDocumentHost, productFeedbackHost, prepareProductNavigation,
-  type ProductFeedbackTarget, type Pin, type ProjectComment } from '@barocss/shared';
+  type ProductFeedbackTarget, type ProductFeedbackHost, type Pin, type ProjectComment } from '@barocss/shared';
 import type { Product } from './products';
 import { type ProjectRepository, type ProjectSnapshot, PinnedSource } from './project-ui';
 import { ConnectedWorkControl } from './connected-work-control';
@@ -14,12 +14,14 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   const [draft, setDraft] = useState(''), [target, setTarget] = useState<ProductFeedbackTarget>(), [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(new URLSearchParams(location.search).get('mode') === 'read');
   const [viewing, setViewing] = useState<string>();
+  const [excerpt, setExcerpt] = useState<ReturnType<NonNullable<ProductFeedbackHost['excerpt']>>>([]);
   const [source, setSource] = useState<Pin>(), [hasReading, setHasReading] = useState(!!productFeedbackHost()?.reading);
   const inputVersion = useRef(0);
   const composing = useRef(false), latest = useRef(''), savedDraft = useRef(''), queue = useRef(Promise.resolve());
   const lock = useRef(false), mounted = useRef(true), successfulNative = useRef<ProductFeedbackTarget | undefined>(undefined);
   const pendingComment = useRef<ProjectComment | undefined>(undefined), capturedPin = useRef<Pin | undefined>(undefined);
   const pendingActivity = useRef<{ id: string; at: string; label: string } | undefined>(undefined);
+  const pendingRequest = useRef<{ record: ReturnType<typeof requestProjectWork>; revision: number; commentId: string } | undefined>(undefined);
   const identity = `${projectId}:${address.product}:${address.id}`;
   const hostEpochRef = useRef(0);
   const [hostEpoch, setHostEpoch] = useState(0), mountedHost = productDocumentHost();
@@ -50,7 +52,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   };
   useEffect(() => {
     mounted.current = true; lock.current = false; queue.current = Promise.resolve(); setBusy(false);
-    setTarget(undefined); successfulNative.current = undefined; pendingComment.current = undefined; pendingActivity.current = undefined; capturedPin.current = undefined;
+    setTarget(undefined); setExcerpt([]); successfulNative.current = undefined; pendingComment.current = undefined; pendingActivity.current = undefined; pendingRequest.current = undefined; capturedPin.current = undefined;
     const startingInput = inputVersion.current;
     void repository.read(projectId).then(value => {
       if (!owns()) return; setSnapshot(value); const text = value?.record.drafts[key] ?? ''; savedDraft.current = text;
@@ -65,6 +67,23 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     return () => { mounted.current = false; window.removeEventListener('wonffice:feedback-host-change', change); window.removeEventListener('beforeunload', unload); if (beforeLeave) beforeLeave.current = undefined; };
   }, [identity, repository, generation]);
   const refresh = async () => { const value = await repository.read(projectId); if (!owns()) throw new Error('문서가 바뀌었습니다.'); setSnapshot(value); return value; };
+  const requestWork = async (commentId: string, body: string) => {
+    if (pendingRequest.current && pendingRequest.current.commentId !== commentId) throw new Error('저장 응답을 확인 중인 수정 요청이 있습니다. 같은 요청을 먼저 확인하세요.');
+    if (!pendingRequest.current) {
+      const current = await repository.read(projectId); requireOwn();
+      if (!current) throw new Error('프로젝트가 없습니다.');
+      pendingRequest.current = { record: requestProjectWork(current.record, commentId, body), revision: current.revision, commentId };
+    }
+    const frozen = pendingRequest.current;
+    let stored: ProjectSnapshot;
+    try { stored = await repository.save(frozen.record, frozen.revision); }
+    catch (cause) {
+      if (owns() && cause instanceof Error && 'code' in cause && cause.code === 'project_revision_conflict') pendingRequest.current = undefined;
+      throw cause;
+    }
+    requireOwn();
+    pendingRequest.current = undefined; setSnapshot(stored);
+  };
   const start = async () => {
     const host = productFeedbackHost();
     if (host && (host.product !== address.product || host.id() !== address.id || !host.editable())) throw new Error('현재 문서에 의견을 남길 권한이 없습니다.');
@@ -75,7 +94,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     if (host && (host !== productFeedbackHost() || !host.ownsCapture?.(captured))) throw new Error('선택 영역이 바뀌었습니다. 의견 초안은 유지합니다. 대상 영역을 다시 선택하세요.');
     const capturedSource = await repository.pin(address);
     if (!owns() || (host && !host.ownsCapture?.(captured))) throw new Error('선택 영역이 바뀌었습니다. 대상 영역을 다시 선택하세요.');
-    capturedPin.current = capturedSource; pendingComment.current = undefined; pendingActivity.current = undefined; successfulNative.current = undefined; setTarget(captured); setOpen(true);
+    capturedPin.current = capturedSource; pendingComment.current = undefined; pendingActivity.current = undefined; successfulNative.current = undefined; setTarget(captured); setExcerpt(host?.excerpt?.(captured) ?? []); setOpen(true);
   };
   const submit = async (request: boolean) => {
     if (!result || !target || composing.current || !draft.trim()) throw new Error('대상과 의견을 확인하세요.');
@@ -115,11 +134,10 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
       const saved = await repository.read(projectId); if (!saved || !owns()) throw new Error('프로젝트를 다시 확인하세요.');
       const persisted = saved.record.comments.find(one => one.id === pendingComment.current?.id);
       if (!persisted) throw new Error('저장한 의견을 다시 확인하세요.');
-      const requested = requestProjectWork(saved.record, persisted.id, submittedBody);
-      const stored = await repository.save(requested, saved.revision); requireOwn(); setSnapshot(stored);
+      await requestWork(persisted.id, submittedBody);
     } else { const stored = await repository.read(projectId); requireOwn(); setSnapshot(stored); }
     if (!composing.current && latest.current === submittedDraft) { latest.current = ''; setDraft(''); }
-    await saveDraft(); requireOwn(); setTarget(undefined); successfulNative.current = undefined; pendingComment.current = undefined;
+    await saveDraft(); requireOwn(); setTarget(undefined); setExcerpt([]); successfulNative.current = undefined; pendingComment.current = undefined;
   };
   const comments = snapshot?.record.comments.filter(one => one.resultId === result?.id) ?? [];
   return <>
@@ -137,7 +155,8 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     {open && <aside className="ow-feedback-panel" aria-label="프로젝트 의견"><header><h2>프로젝트 의견</h2><IconButton label="의견 닫기" onClick={() => void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); })}><Icon name="close" /></IconButton></header>
       {error && <StatusNotice tone="danger" title="의견을 저장하지 못했습니다">{error}</StatusNotice>}
       {!target && draft && <p className="ow-feedback-note">작성 중인 의견을 보관했습니다. 문서의 대상 영역을 선택한 뒤 의견 남기기를 누르세요.</p>}
-      {(target || draft) && <div className="ow-feedback-composer"><p>{!target ? '보관한 초안' : target.kind === 'document' ? '문서 전체' : '선택한 텍스트 영역'}</p>{target?.quote && <blockquote>{target.quote}</blockquote>}
+      {(target || draft) && <div className="ow-feedback-composer"><p>{!target ? '보관한 초안' : target.kind === 'document' ? '문서 전체' : '선택한 텍스트 영역'}</p>{target?.quote && <blockquote>{excerpt.length ? excerpt.map((part, index) => <span key={index} style={{ fontWeight: part.bold ? 650 : undefined, fontStyle: part.italic ? 'italic' : undefined, textDecoration: part.underline || part.link ? 'underline' : undefined }} className={part.link ? 'ow-feedback-excerpt-link' : undefined}>{part.text}</span>) : target.quote}</blockquote>}
+        {target && capturedPin.current && <small className="ow-feedback-note">{capturedPin.current.title} · 버전 {capturedPin.current.revision}</small>}
         <textarea aria-label="프로젝트 의견 입력" value={draft} onChange={event => { const text = event.target.value; inputVersion.current++; latest.current = text; setDraft(text); void saveDraft().catch(cause => owns() && setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.')); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
           if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) { if (event.key === 'Enter' || event.key === 'Escape') event.stopPropagation(); return; }
           if (event.key === 'Escape') { event.stopPropagation(); void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); }); }
@@ -147,7 +166,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
       {comments.map(comment => <article className="ow-feedback-thread" key={comment.id}><small>{comment.actor.label} · 버전 {comment.pin.revision}</small><p>{comment.body}</p>
         <Button disabled={busy} onClick={() => { const host = productFeedbackHost(); if (comment.target.kind === 'document') return; const state = host?.product === address.product && host.id() === address.id ? host.locate(comment.target) : 'missing'; if (state !== 'located') setError(state === 'ambiguous' ? '대상 영역이 중복되어 이동하지 않습니다.' : '대상 영역을 찾을 수 없습니다.'); }}>대상 영역</Button>
         <Button disabled={busy} onClick={() => void perform(async () => { if (viewing === comment.id) { setViewing(undefined); return; } const stored = await repository.readPin(projectId, comment.pin.id); requireOwn(); setSource(stored); setViewing(comment.id); })}>참고한 버전</Button>
-        <Button disabled={busy || !repository.writable || !!comment.workId} onClick={() => void perform(async () => { const current = await refresh(); if (!current) throw new Error('프로젝트가 없습니다.'); const stored = await repository.save(requestProjectWork(current.record, comment.id, comment.body), current.revision); requireOwn(); setSnapshot(stored); })}>{comment.workId ? '작업에 연결됨' : '수정 작업 연결'}</Button>
+        <Button disabled={busy || !repository.writable || !!comment.workId} onClick={() => void perform(() => requestWork(comment.id, comment.body))}>{comment.workId ? '작업에 연결됨' : '수정 작업 연결'}</Button>
         {comment.workId && snapshot && <ConnectedWorkControl repository={repository} project={projectId} work={comment.workId} revision={snapshot.revision} document={address} results={snapshot.record.results} />}{viewing === comment.id && source && <PinnedSource pin={source} />}
       </article>)}
     </aside>}

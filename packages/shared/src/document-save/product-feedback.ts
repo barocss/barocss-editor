@@ -24,6 +24,8 @@ export interface ProductFeedbackHost {
   capture(): ProductFeedbackTarget | null;
   /** Check the captured gesture after workspace storage/navigation awaits. */
   ownsCapture?(target: ProductFeedbackTarget): boolean;
+  /** Read-only presentation of a captured original; never a locator or persisted source. */
+  excerpt?(target: ProductFeedbackTarget): readonly { text: string; bold?: boolean; italic?: boolean; underline?: boolean; link?: boolean }[];
   /** Refuse a retired document, selection or permission. Must use native history. */
   comment(target: ProductFeedbackTarget, body: string): Promise<ProductFeedbackTarget>;
   locate(target: ProductFeedbackTarget): 'located' | 'missing' | 'ambiguous';

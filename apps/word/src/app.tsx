@@ -159,6 +159,7 @@ export function App({ mount, server }: {
       reading: value => { instance.setReading(value); setReading(value); },
       nativeDocument: () => instance.exportNativeDocument(),
       captureInputIntent: () => instance.captureInputIntent(),
+      captureCommentIntent: () => instance.captureInputIntent({ command: 'insertComment', selection: 'gesture' }),
       captureRevisionIntent: () => instance.captureInputIntent({ selection: true })
     });
     const unregister = registerProductFeedbackHost(feedback);

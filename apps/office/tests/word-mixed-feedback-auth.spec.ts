@@ -126,21 +126,28 @@ async function selectMixed(page: Page, mode: 'forward' | 'backward' | 'keyboard'
   const p = paragraph(page); await p.scrollIntoViewIfNeeded();
   await expect.poll(() => p.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
   const ends = await p.evaluate(node => {
-    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT), texts: Text[] = [];
-    while (walker.nextNode()) if (walker.currentNode.textContent) texts.push(walker.currentNode as Text);
-    const point = (text: Text, offset: number) => {
-      const range = document.createRange(); range.setStart(text, offset); range.setEnd(text, offset);
-      const rect = range.getBoundingClientRect(); return { x: rect.x, y: rect.y + rect.height / 2 };
+    const runs = Array.from(node.querySelectorAll('.w-text'));
+    const texts = runs.map(run => document.createTreeWalker(run, NodeFilter.SHOW_TEXT).nextNode() as Text);
+    if (texts.length !== 3 || texts.some(text => !text?.length)) throw new Error('Expected three visible native text runs');
+    const point = (text: Text, last: boolean) => {
+      const range = document.createRange(); range.setStart(text, last ? text.length - 1 : 0); range.setEnd(text, last ? text.length : 1);
+      const rect = range.getBoundingClientRect(); return { x: last ? rect.right - 0.5 : rect.left + 0.5, y: rect.y + rect.height / 2 };
     };
-    return { start: point(texts[0], 0), end: point(texts.at(-1)!, texts.at(-1)!.length) };
+    return { start: point(texts[0], false), end: point(texts.at(-1)!, true) };
   });
   if (mode === 'keyboard') {
     await page.mouse.click(ends.start.x + 1, ends.start.y); await page.keyboard.press('Home');
     await page.keyboard.down('Shift'); for (let i = 0; i < sentence.length; i++) await page.keyboard.press('ArrowRight'); await page.keyboard.up('Shift');
   } else {
     const start = mode === 'forward' ? ends.start : ends.end, end = mode === 'forward' ? ends.end : ends.start;
+    // Start a fresh ordinary gesture; dragging an already selected range invokes native drag/drop.
+    await page.mouse.click(ends.start.x, ends.start.y);
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => page.evaluate(() => getSelection()?.isCollapsed)).toBe(true);
     await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(end.x, end.y, { steps: 16 }); await page.mouse.up();
   }
+  const geometry = await p.evaluate(node => ({ html: node.innerHTML, rect: node.getBoundingClientRect().toJSON(), selectedText: getSelection()?.toString() }));
+  writeFileSync(test.info().outputPath(`selection-${mode}.json`), JSON.stringify({ ends, ...geometry }), { mode: 0o600 });
   await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe(sentence);
 }
 function expectedComment(before: INode, after: INode, threadId: string): INode {
@@ -269,20 +276,6 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     const beforeTree = JSON.parse(initial.snapshotText).document as INode, afterTree = JSON.parse(afterComment.snapshotText).document as INode;
     const expected = expectedComment(beforeTree, afterTree, comment.target.id); expect(afterTree).toEqual(expected);
     expect(executionDispatches).toBe(0);
-    await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).click();
-    await paragraph(page).click(); await page.keyboard.press('Meta+z');
-    await word(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ }).click();
-    await expect.poll(async () => JSON.parse((await readDocument()).snapshotText).document).toEqual(beforeTree);
-    await paragraph(page).click(); await page.keyboard.press('Meta+Shift+z');
-    await word(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ }).click();
-    await expect.poll(async () => JSON.parse((await readDocument()).snapshotText).document).toEqual(expected);
-    await page.reload(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
-    await page.getByRole('button', { name: '의견 1', exact: true }).click();
-    await feedback(page).getByRole('button', { name: '대상 영역', exact: true }).click();
-    await expect.poll(() => page.evaluate(() => {
-      const selection = getSelection(); const owner = selection?.anchorNode?.parentElement?.closest('.w-paragraph');
-      return { text: selection?.toString(), paragraph: Array.from(document.querySelectorAll('.w-paragraph')).indexOf(owner!) };
-    })).toEqual({ text: sentence, paragraph: 0 });
     expect(executionDispatches).toBe(0);
     requests.phase = 'lost-request-ack'; checkpoint();
     let requestDropped = false; const workRequests: unknown[] = [];
@@ -311,6 +304,20 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     const executionRead = await page.request.get(executionApi, { headers: headers() });
     const held = await executionRead.json() as { execution: { id: string; provenance?: unknown } };
     expect(held.execution.provenance).toBeUndefined();
+    await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).click();
+    await paragraph(page).click(); await page.keyboard.press('Meta+z');
+    await word(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ }).click();
+    await expect.poll(async () => JSON.parse((await readDocument()).snapshotText).document).toEqual(beforeTree);
+    await paragraph(page).click(); await page.keyboard.press('Meta+Shift+z');
+    await word(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ }).click();
+    await expect.poll(async () => JSON.parse((await readDocument()).snapshotText).document).toEqual(expected);
+    await page.reload(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+    await page.getByRole('button', { name: '의견 1', exact: true }).click();
+    await feedback(page).getByRole('button', { name: '대상 영역', exact: true }).click();
+    await expect.poll(() => page.evaluate(() => {
+      const selection = getSelection(); const owner = selection?.anchorNode?.parentElement?.closest('.w-paragraph');
+      return { text: selection?.toString(), paragraph: Array.from(document.querySelectorAll('.w-paragraph')).indexOf(owner!) };
+    })).toEqual({ text: sentence, paragraph: 0 });
     const frozenProject = await readProject(), frozenDocument = await readDocument();
     profileBSafe = false; b = await launchPrivateProfile(profileB); const viewer = await b.context.newPage(), viewerRequests = track(viewer);
     await login(viewer, 'beta-viewer', projectUrl); const viewerHeaders = { Authorization: viewerRequests.bearer };
