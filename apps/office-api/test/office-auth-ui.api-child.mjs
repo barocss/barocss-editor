@@ -1,3 +1,4 @@
+import { CriterionConfirmationStore } from '../../office-service/dist/criterion-confirmation-store.js';
 import { ProjectExecutionStore } from '../../office-service/dist/project-execution.js';
 import { createLocalAgent } from '../dist/local-agent.js';
 import { ProjectStore } from '../../office-service/dist/project-store.js';
@@ -36,7 +37,7 @@ process.once('message', async ({ database, issuer, audience, port }) => {
     if (!auth) throw new Error('synthetic_auth_config_missing');
     app = createApiServer({ verifier: createOidcVerifier(auth),
       memberships: new MembershipStore(pool), workspaces: new MembershipStore(pool),
-      documents: new DocumentStore(pool), operators: new PlatformOperatorStore(pool),
+      documents: new DocumentStore(pool), criterionConfirmations: new CriterionConfirmationStore(pool), operators: new PlatformOperatorStore(pool),
       companyMembers: new CompanyMemberStore(pool), projects: new ProjectStore(pool),
       projectExecutions: new ProjectExecutionStore(pool, createLocalAgent(process.env)) });
     await app.listen({ host: '127.0.0.1', port });

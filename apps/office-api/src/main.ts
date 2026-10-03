@@ -1,3 +1,4 @@
+import { CriterionConfirmationStore } from '@barocss/office-service/criterion-confirmation-store';
 import { ProjectExecutionStore } from '@barocss/office-service/project-execution';
 import { createLocalAgent } from './local-agent.js';
 import { ProjectStore } from '@barocss/office-service/project-store';
@@ -22,7 +23,7 @@ async function main(): Promise<void> {
     workspaces: new MembershipStore(pool),
     operators: new PlatformOperatorStore(pool),
     companyMembers: new CompanyMemberStore(pool),
-    documents: new DocumentStore(pool),
+    documents: new DocumentStore(pool), criterionConfirmations: new CriterionConfirmationStore(pool),
     projects: new ProjectStore(pool),
     projectExecutions: new ProjectExecutionStore(pool, createLocalAgent(process.env)),
   } : undefined);
