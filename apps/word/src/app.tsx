@@ -515,11 +515,6 @@ export function App({ mount, server }: {
             position in the text below. */}
         {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
-      {instance && <div className="w-view-utilities">
-        <Toolbar variant="compact" surface="floating" label="보기 도구">
-          <ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />
-        </Toolbar>
-      </div>}
 
       <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
@@ -531,7 +526,8 @@ export function App({ mount, server }: {
             host={host.current}
           />{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} />}</WorkspaceSidePanel> : null}
 
-        <AppMain className="w-shell-document relative" data-workspace-main>
+        <div className="w-document-slot" data-workspace-main tabIndex={-1}>
+        <AppMain className="w-shell-document relative">
           {clipboard.feedback}
           {instance ? (
             <FindPanel
@@ -588,6 +584,12 @@ export function App({ mount, server }: {
           */}
           {instance && !readOnly ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
         </AppMain>
+        {instance && <div className="w-view-utilities">
+          <Toolbar variant="compact" surface="floating" label="보기 도구">
+            <ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />
+          </Toolbar>
+        </div>}
+        </div>
 
         {instance ? (
           <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane readOnly={authorityReadOnly}

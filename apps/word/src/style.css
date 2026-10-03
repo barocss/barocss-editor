@@ -388,7 +388,9 @@ body {
 .w-header-command-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .w-header-command-group > span { display: inline-flex; }
 
-/* Same compact view capsule as Slides, above the native scroll pane. */
-.w-view-utilities { display: flex; justify-content: flex-end; flex: 0 0 auto; padding: 10px 16px; background: var(--ou-studio); }
+/* The capsule overlays only the native document slot, not adjacent comments. */
+.w-document-slot { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+.w-view-utilities { position: absolute; top: 10px; right: 16px; z-index: 20; width: max-content; max-width: calc(100% - 32px); pointer-events: none; }
+.w-view-utilities > .office-toolbar { pointer-events: auto; }
 .w-view-utilities .w-zoom-control button { width: 32px; height: 32px; }
 .w-view-utilities .w-zoom-control input { height: 32px; }
