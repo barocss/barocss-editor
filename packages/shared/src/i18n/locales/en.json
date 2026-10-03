@@ -108,5 +108,21 @@
   "workspace.tree.localWorkspace": "Local workspace",
   "workspace.note.manage": "Manage Note pages",
   "workspace.tree.openProject": "Open project {title}",
-  "workspace.tree.revealCurrent": "Reveal current file"
+  "workspace.tree.revealCurrent": "Reveal current file",
+  "workspace.heading.localWorkspace": "Local workspace",
+  "workspace.heading.library": "Library",
+  "workspace.heading.projects": "Projects",
+  "workspace.heading.all": "All files",
+  "workspace.heading.recent": "Recent files",
+  "workspace.heading.favorites": "Favorites",
+  "workspace.heading.trash": "Trash",
+  "workspace.heading.views": "Library view",
+  "workspace.heading.folder": "Folder",
+  "workspace.heading.allFolders": "All folders",
+  "workspace.heading.backup": "Backup and import",
+  "workspace.heading.search": "Search files",
+  "workspace.heading.createProject": "Create project",
+  "site.header.viewTools": "Site view",
+  "site.header.preview": "Preview",
+  "site.header.edit": "Return to editing"
 }

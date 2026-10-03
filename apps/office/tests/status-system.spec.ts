@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 const output = `${process.cwd()}/../../.dev/artifacts/design-system`;
 async function create(page: Page, product: string) {
   await page.goto('/');
-  await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
+  await page.getByRole('button', { name: `${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('저장 상태 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
 }

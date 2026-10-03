@@ -1,4 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
+import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { useEditorNavigation } from './editor-host';
 import { MenuBar, type MenuBarMenu } from './menubar';
@@ -12,7 +13,7 @@ export function ProductMenu({ product, blocks, onPick, id = 'product', label = `
   id?: string;
   label?: string;
 }) {
-  return <MenuBar className="office-product-menu" label={label} menus={[{ id, label: product, blocks }]} onPick={onPick} />;
+  return <MenuBar className="office-product-menu" label={label} menus={[{ id, label: product, icon: <Icon name={`product-${product.toLowerCase()}`} />, blocks }]} onPick={onPick} />;
 }
 
 /** A single named entry keeps existing command groups and shortcuts discoverable. */
@@ -37,7 +38,7 @@ export function DocumentBar({ children, className, compact = false }: { children
 
 /** One product signature throughout the suite; document titles remain separate. */
 export function ProductLabel({ name }: { name: 'Note' | 'Word' | 'Slides' | 'Site' }) {
-  return <span className="office-product-label"><span aria-hidden="true" className="office-product-mark">{name[0]}</span>{name}</span>;
+  return <span className="office-product-label"><span aria-hidden="true" className="office-product-mark"><Icon name={`product-${name.toLowerCase()}`} /></span>{name}</span>;
 }
 
 /** One header owns workspace navigation, document identity and document menus. */

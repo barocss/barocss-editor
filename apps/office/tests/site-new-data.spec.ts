@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openLocalLibrary } from './helpers/local-library';
 import { readFile } from 'node:fs/promises';
 
 type Node = { stype?: string; attributes?: Record<string, any>; text?: string; content?: Node[] };
@@ -17,10 +18,13 @@ const documentTree = (page: import('@playwright/test').Page): Promise<Node> =>
 
 async function freshSite(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Site 새 자료 만들기', exact: true }).click();
+  await openLocalLibrary(page);
+  await page.getByRole('button', { name: 'Site 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('새 데이터 검증 Site');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await expect(page.locator('[data-site-save-status]')).toHaveText('저장됨');
+  await page.getByRole('button', { name: '모든 도구', exact: true }).click();
+  await page.getByRole('button', { name: '관리로', exact: true }).click();
   await page.locator('[data-admin-tab="data"]').click();
 }
 
@@ -48,16 +52,18 @@ test('Office new Site creates, edits, reopens and exports unique datasets withou
   await page.locator('.office-product-menu [data-menu]').click();
   await page.getByRole('menuitem', { name: '자료함', exact: true }).click();
   await expect(page.getByRole('heading', { name: '전체 자료', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'S 새 데이터 검증 Site', exact: true }).click();
+  await page.getByRole('button', { name: 'Site 새 데이터 검증 Site', exact: true }).click();
   await expect(page).toHaveURL(originalUrl);
   await page.reload();
   await expect(page.locator('[data-site-save-status]')).toHaveText('저장됨');
+  await page.getByRole('button', { name: '모든 도구', exact: true }).click();
+  await page.getByRole('button', { name: '관리로', exact: true }).click();
   await page.locator('[data-admin-tab="data"]').click();
   await expect(page.locator('[data-admin-data]')).toHaveCount(2);
   await page.locator('[data-admin-data="새 데이터"] [data-admin-open]').click();
   await expect(page.getByRole('textbox', { name: '1행 이름', exact: true })).toHaveValue('첫 행 보존');
 
-  await page.getByRole('menuitem', { name: '파일', exact: true }).click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
   const pending = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: /^저장(?: |$)/ }).click();
   const download = await pending;

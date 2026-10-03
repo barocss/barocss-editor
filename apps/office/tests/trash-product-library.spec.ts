@@ -11,7 +11,7 @@ const library = (page: Page, product: Product) => page.getByRole('button', { nam
 async function create(page: Page, product: Product, title: string) {
   await page.goto('/');
   await openLocalLibrary(page);
-  await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
+  await page.getByRole('button', { name: `${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill(title);
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await expect(status(page, product)).toHaveText('저장됨');
@@ -68,7 +68,7 @@ for (const product of products) {
     await expect(target).toHaveCount(0);
     await preserved(page, product, before);
     await backup(page, aId);
-    await other.getByRole('button', { name: '휴지통', exact: true }).click();
+    await other.getByRole('combobox', { name: '자료 보기', exact: true }).selectOption('trash');
     await other.getByRole('button', { name: `${title} 관리`, exact: true }).click();
     await other.getByRole('button', { name: '복원', exact: true }).click();
     await page.keyboard.press('Escape');

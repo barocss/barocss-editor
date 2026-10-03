@@ -2,10 +2,10 @@ import { documentLibrary } from '@barocss/shared';
 
 /** Durable product keys. No renderer is registered by the workspace catalog. */
 export const products = {
-  note: { label: 'Note', format: 'barocss-note', db: 'barocss-note', store: 'documents', color: '#6255a5' },
-  word: { label: 'Word', format: 'barocss-word', db: 'barocss-word', store: 'documents', color: '#2861b5' },
-  slides: { label: 'Slides', format: 'barocss-slides', db: 'barocss-slides-workspace', store: 'documents', color: '#b35f23' },
-  site: { label: 'Site', format: 'barocss-site', db: 'barocss-site-workspace', store: 'documents', color: '#397e69' }
+  note: { icon: 'product-note', label: 'Note', format: 'barocss-note', db: 'barocss-note', store: 'documents', color: '#6255a5' },
+  word: { icon: 'product-word', label: 'Word', format: 'barocss-word', db: 'barocss-word', store: 'documents', color: '#2861b5' },
+  slides: { icon: 'product-slides', label: 'Slides', format: 'barocss-slides', db: 'barocss-slides-workspace', store: 'documents', color: '#b35f23' },
+  site: { icon: 'product-site', label: 'Site', format: 'barocss-site', db: 'barocss-site-workspace', store: 'documents', color: '#397e69' }
 } as const;
 export type Product = keyof typeof products;
 export const productKeys = Object.keys(products) as Product[];

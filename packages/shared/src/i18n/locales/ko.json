@@ -108,5 +108,21 @@
   "workspace.tree.localWorkspace": "로컬 작업 공간",
   "workspace.note.manage": "노트 페이지 관리",
   "workspace.tree.openProject": "{title} 프로젝트 열기",
-  "workspace.tree.revealCurrent": "현재 파일 찾기"
+  "workspace.tree.revealCurrent": "현재 파일 찾기",
+  "workspace.heading.localWorkspace": "로컬 작업 공간",
+  "workspace.heading.library": "자료함",
+  "workspace.heading.projects": "프로젝트",
+  "workspace.heading.all": "전체 자료",
+  "workspace.heading.recent": "최근 자료",
+  "workspace.heading.favorites": "즐겨찾기",
+  "workspace.heading.trash": "휴지통",
+  "workspace.heading.views": "자료 보기",
+  "workspace.heading.folder": "폴더",
+  "workspace.heading.allFolders": "모든 폴더",
+  "workspace.heading.backup": "백업 및 가져오기",
+  "workspace.heading.search": "자료 검색",
+  "workspace.heading.createProject": "프로젝트 만들기",
+  "site.header.viewTools": "사이트 보기",
+  "site.header.preview": "미리보기",
+  "site.header.edit": "편집으로 돌아가기"
 }

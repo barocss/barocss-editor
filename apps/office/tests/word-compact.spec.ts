@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 
 test('Word fits a narrow pane without changing document layout', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'W Word 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Word 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('작은 화면 문서');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await expect(page.locator('.w-surface').first()).toBeVisible();

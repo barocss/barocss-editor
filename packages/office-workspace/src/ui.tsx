@@ -97,7 +97,7 @@ export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?:
       </header>}
       {view !== 'trash' && <div className="ow-create" aria-label="제품별 새 자료">
         {productKeys.map(key => <Button key={key} disabled={busy} onClick={() => { setCreating(key); setName(''); }}>
-          <span className="ow-product-mark" style={{ color: products[key].color }}>{products[key].label.charAt(0)}</span><span><strong>{products[key].label}</strong><small>새 자료 만들기</small></span><span aria-hidden><Icon name="add" /></span>
+          <span className="ow-product-mark" style={{ color: products[key].color }}><Icon name={products[key].icon} /></span><span><strong>{products[key].label}</strong><small>새 자료 만들기</small></span><span aria-hidden><Icon name="add" /></span>
         </Button>)}
       </div>}
       <div className="ow-filters" aria-label="제품 필터"><Button pressed={product === 'all'} onClick={() => setProduct('all')}>모든 제품</Button>
@@ -114,8 +114,8 @@ export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?:
           {needle || product !== 'all' || folder ? '검색어와 필터를 확인하거나 전체 자료를 보세요.' : view === 'trash' ? '휴지통으로 옮긴 자료를 여기에서 복원할 수 있습니다.' : 'Note, Word, Slides, Site 자료를 한곳에서 관리합니다.'}
         </EmptyState> :
         <table className="ow-table"><thead><tr><th>이름</th><th>제품</th><th>폴더</th><th>수정일</th><th><span className="sr-only">작업</span></th></tr></thead><tbody>{shown.map(row =>
-          <tr key={row.key} data-document={row.key}><td><Button tone="quiet" disabled={busy || row.trashedAt !== null} onClick={() => void perform(() => open(row))}>
-            <span className="ow-file-mark" style={{ color: products[row.product].color }}>{products[row.product].label.charAt(0)}</span><span>{row.title}{row.error && <small>{row.error}</small>}</span>
+          <tr key={row.key} data-document={row.key}><td><Button ariaLabel={`${products[row.product].label} ${row.title}`} tone="quiet" disabled={busy || row.trashedAt !== null} onClick={() => void perform(() => open(row))}>
+            <span className="ow-file-mark" style={{ color: products[row.product].color }}><Icon name={products[row.product].icon} /></span><span>{row.title}{row.error && <small>{row.error}</small>}</span>
           </Button>{row.references.length > 0 && <small className="ow-reference-count">연결 {row.references.length}</small>}</td><td>{products[row.product].label}</td><td>{row.folder || '—'}</td><td>{new Date(row.savedAt).toLocaleDateString('ko-KR')}</td>
             <td><Button ariaLabel={`${row.title} 즐겨찾기`} pressed={row.favorite} disabled={busy} onClick={() => void perform(async () => { await workspace.update(row.key, { favorite: !row.favorite }); await refresh(); })}><Icon name="favorite" /></Button>
               <Button ariaLabel={`${row.title} 관리`} disabled={busy} onClick={() => manage(row)}>관리</Button></td></tr>)}</tbody></table>}

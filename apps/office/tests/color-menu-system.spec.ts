@@ -93,7 +93,7 @@ test('colour surfaces share the light and dark theme', async ({ page }) => {
 
 test('Slides applies a picker colour to an actual shape', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Slides 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Slides 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('색상 도구 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await page.getByRole('button', { name: '사각형', exact: true }).click();

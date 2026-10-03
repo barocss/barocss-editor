@@ -130,11 +130,11 @@ export function WorkspaceFrame({ children, nativeRoot, expected }: { children?: 
         {!ready && <p role="status">{t('workspace.tree.loading')}</p>}
         {ready && catalogState !== 'error' && !catalog.groups.some(group => group.entries.length) && <p className="ow-tree-empty">{t('workspace.tree.empty')}</p>}
         {catalog.groups.map(group => <section key={group.id} data-tree-group={group.id}>
-          <div className="ow-tree-group-heading"><Button className="ow-tree-group" tone="quiet" aria-expanded={!view.collapsed.includes(group.id)} onClick={() => changeView({ collapsed: view.collapsed.includes(group.id) ? view.collapsed.filter(id => id !== group.id) : [...view.collapsed, group.id] })}>
+          <div className="ow-tree-group-heading"><Button className="ow-tree-group" tone="quiet" title={group.label || undefined} aria-expanded={!view.collapsed.includes(group.id)} onClick={() => changeView({ collapsed: view.collapsed.includes(group.id) ? view.collapsed.filter(id => id !== group.id) : [...view.collapsed, group.id] })}>
             <Icon name="disclosed" /><span>{group.label || t(group.kind === 'unlinked' ? 'workspace.tree.unlinked' : 'workspace.tree.files')}</span>
           </Button>{group.projectId && <Button square tone="quiet" ariaLabel={t('workspace.tree.openProject', { title: group.label ?? '' })} title={t('workspace.tree.openProject', { title: group.label ?? '' })} aria-current={projectContext === group.projectId ? 'page' : undefined} disabled={busy} onClick={() => void open(undefined, group.projectId, 'projects')}><Icon name="dialog-launch" size={15} /></Button>}</div>
-          {!view.collapsed.includes(group.id) && group.entries.map(entry => <Button key={entry.id} className="ow-tree-file" tone="quiet" ariaLabel={t('workspace.tree.openOriginal', { title: entry.row.title })} pressed={active === entry.row.key} disabled={busy || catalogState === 'error'} onMouseDown={event => event.preventDefault()} onClick={() => void open(entry.row, entry.projectId)} data-original={entry.row.key}>
-            <span className="ow-tree-product" aria-hidden>{products[entry.row.product].label[0]}</span><span>{entry.row.title}</span>
+          {!view.collapsed.includes(group.id) && group.entries.map(entry => <Button key={entry.id} className="ow-tree-file" tone="quiet" ariaLabel={t('workspace.tree.openOriginal', { title: entry.row.title })} title={entry.row.title} pressed={active === entry.row.key} disabled={busy || catalogState === 'error'} onMouseDown={event => event.preventDefault()} onClick={() => void open(entry.row, entry.projectId)} data-original={entry.row.key}>
+            <span className="ow-tree-product" aria-hidden><Icon name={products[entry.row.product].icon} /></span><span>{entry.row.title}</span>
           </Button>)}
         </section>)}
       </nav>
