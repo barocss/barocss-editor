@@ -479,8 +479,8 @@ export function App({ mount, server }: {
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
             actions={<>
               <div className="w-header-command-group">
-                <Tip label="개요"><Button ref={outlineButton} square tone="quiet" ariaLabel="개요"
-                  aria-controls={`${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
+                <Tip label={compact && server?.navigation ? '문서 탐색 및 개요' : '개요'}><Button ref={outlineButton} square tone="quiet" ariaLabel={compact && server?.navigation ? '문서 탐색 및 개요' : '개요'}
+                  aria-controls={!compact && server?.navigation ? `${panelId}-outline` : `${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
                   pressed={outlineShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('navigation')}><Icon name="outline" /></Button></Tip>
                 <Tip label="댓글"><Button ref={commentsButton} square tone="quiet" ariaLabel="댓글"
                   aria-controls={`${panelId}-inspector`} aria-expanded={commentsShown} data-workspace-toggle="inspector"
@@ -531,17 +531,17 @@ export function App({ mount, server }: {
         {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
-      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
+      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: server?.navigation ? '문서 탐색 및 개요' : '개요', inspector: '댓글' }}
         showPanelControls={false} restorePanelFocus={restorePanelFocus}
         panelIds={{ navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
-        {instance ? <WorkspaceSidePanel side="navigation" width={240} hidden={!outlineShown}>{server?.navigation}<OutlinePane
+        {instance ? <WorkspaceSidePanel side="navigation" width={240} hidden={!outlineShown && !server?.navigation}>{server?.navigation}<div className="w-outline-slot" id={`${panelId}-outline`} hidden={!outlineShown}><OutlinePane
             editor={instance.editor}
             open={outlineShown}
             onToggle={() => togglePanel('navigation')}
             /* 어느 요소에 문서가 그려졌는지는 조립하는 쪽이 안다 — `#editor` 는 이 파일의 id 다. */
             host={host.current}
-          />{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} />}</WorkspaceSidePanel> : null}
+          /></div>{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} />}</WorkspaceSidePanel> : null}
 
         <div className="w-document-slot" data-workspace-main tabIndex={-1}>
         <AppMain className="w-shell-document relative">
