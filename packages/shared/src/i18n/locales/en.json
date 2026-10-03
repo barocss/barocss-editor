@@ -124,5 +124,8 @@
   "workspace.heading.createProject": "Create project",
   "site.header.viewTools": "Site view",
   "site.header.preview": "Preview",
-  "site.header.edit": "Return to editing"
+  "site.header.edit": "Return to editing",
+  "workspace.context.current": "Current location",
+  "workspace.context.unavailableProject": "Project unavailable",
+  "workspace.context.loadingProject": "Loading project"
 }

@@ -77,7 +77,7 @@ test('backup restores independent copies with remapped references and preserves 
   await create(page, 'Note', '회의록'); await home(page);
   await create(page, 'Slides', '발표 자료'); await home(page);
   // Exercise the public workspace API for byte-level assertions, alongside the real UI paths above.
-  const result = await page.evaluate(async ({ workspaceModule, sharedModule }) => {
+  const result = await page.evaluate(async ({ workspaceModule }) => {
     const { OfficeWorkspace, workspaceIdentity } = await import(workspaceModule);
     const workspace = new OfficeWorkspace(workspaceIdentity()); const before = await workspace.list();
     await workspace.link(before[0].key, before[1].key);
@@ -111,7 +111,7 @@ test('links Word and Slides through the editor shell and warns when the original
 
 test('copies Note prose into a Site body and preserves the source after native-file migration', async ({ page }) => {
   await page.goto('/');
-  const result = await page.evaluate(async ({ workspaceModule, sharedModule }) => {
+  const result = await page.evaluate(async ({ workspaceModule }) => {
     const { OfficeWorkspace, workspaceIdentity } = await import(workspaceModule);
     const workspace = new OfficeWorkspace(workspaceIdentity());
     const file = JSON.stringify({ format: 'barocss-note', version: 1, document: { stype: 'note', attributes: { title: '이전 회의록' }, content: [{ stype: 'heading', attributes: { level: 2 }, content: [{ stype: 'inline-text', text: '제품 계획' }] }, { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Note 본문을 Site에서도 편집합니다.' }] }] } });
@@ -132,7 +132,7 @@ test('does not open a trashed document by URL and refuses an invalid restore wit
   await expect(page.locator('[data-document]')).toHaveCount(0);
   await page.goto(url); await expect(page.getByRole('alert')).toContainText('휴지통에 있는 자료');
   await page.getByRole('button', { name: '자료함으로 돌아가기' }).click();
-  const result = await page.evaluate(async ({ workspaceModule, sharedModule }) => {
+  const result = await page.evaluate(async ({ workspaceModule }) => {
     const { OfficeWorkspace, workspaceIdentity } = await import(workspaceModule);
     const workspace = new OfficeWorkspace(workspaceIdentity()); const before = await workspace.backup();
     const backup = structuredClone(before); backup.documents.push({ ...backup.documents[0], row: { ...backup.documents[0].row, name: 'invalid' }, text: '{"format":"barocss-note","version":1,"document":{"stype":"invalid"}}' });

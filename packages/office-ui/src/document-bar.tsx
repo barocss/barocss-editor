@@ -1,7 +1,7 @@
 import type { ReactNode, RefObject } from 'react';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
-import { useEditorNavigation } from './editor-host';
+import { useEditorNavigation, useEditorLocation } from './editor-host';
 import { MenuBar, type MenuBarMenu } from './menubar';
 import type { MenuBlock } from './menu';
 
@@ -54,8 +54,10 @@ export function EditorHeader({ product, title, menus, actions, view, fallbackNav
   compact?: boolean;
 }) {
   const Navigation = useEditorNavigation();
+  const Location = useEditorLocation();
   const navigation = Navigation ? <Navigation product={product} /> : fallbackNavigation ?? <div className="office-editor-product"><ProductLabel name={product} /></div>;
-  const identity = <div className="office-editor-title" data-document-identity title={typeof title === 'string' ? title : undefined}>{title}</div>;
+  const titleNode = <div className="office-editor-title" data-document-identity title={typeof title === 'string' ? title : undefined}>{title}</div>;
+  const identity = <div className="office-editor-title-stack" data-has-context={!!Location || undefined}>{Location && <div data-document-context className="office-editor-location"><Location product={product} /></div>}{titleNode}</div>;
   const menu = <div className="office-editor-menus">{menus}</div>;
   const action = <div className="office-editor-actions" aria-label="문서 작업">{actions}</div>;
   return <div data-compact={compact || undefined} className={cn('office-editor-header office-command-surface', className)}>

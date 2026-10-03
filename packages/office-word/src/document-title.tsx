@@ -1,4 +1,4 @@
-import { Button, Dialog } from '@barocss/office-ui';
+import { Button, Dialog, Icon, Tip } from '@barocss/office-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 
@@ -108,6 +108,7 @@ export function DocumentTitle({ editor, compact = false }: DocumentTitleProps) {
           key={piece.sid}
           className={`doc-title-field doc-title-${piece.stype}`}
           value={piece.text}
+          title={piece.text}
           aria-label={LABELS[piece.stype] ?? piece.stype}
           placeholder={LABELS[piece.stype] ?? piece.stype}
           spellCheck={false}
@@ -129,7 +130,7 @@ export function DocumentTitle({ editor, compact = false }: DocumentTitleProps) {
   return <div className="doc-title-bar">
     {fields(compact ? pieces.filter(piece => piece.stype === 'docTitle') : pieces)}
     {compact && pieces.some(piece => piece.stype !== 'docTitle') && <>
-      <Button tone="quiet" onClick={() => setDetails(true)}>문서 정보</Button>
+      <Tip label="문서 정보"><Button square tone="quiet" ariaLabel="문서 정보" onClick={() => setDetails(true)}><Icon name="document-info" /></Button></Tip>
       <Dialog open={details} onOpenChange={setDetails} title="문서 정보" description="문서의 부제와 작성자를 편집합니다.">
         <div className="w-document-details">{fields(pieces.filter(piece => piece.stype !== 'docTitle'))}</div>
       </Dialog>
