@@ -63,6 +63,7 @@ export {
   sitePanelGroups,
   sitePanelRows,
   type SitePanelControl,
+  type SitePanelGroupId,
   type SitePanelRow,
   type SitePanelTab
 } from './panel-model';

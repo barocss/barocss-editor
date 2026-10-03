@@ -34,3 +34,10 @@ Verification uses catalog key/placeholder parity, explicit translation expectati
 independent providers, locale changes with unchanged status/action/document identity,
 and actual desktop autosave/recovery behavior. Keep tests focused on changed
 boundaries; run repository preflight before serial local integration.
+
+Site inspector declarations use explicit `groupId` values. Gating, selected
+headings, grouping and folding use those IDs. Their display headings come from
+`site.inspector.group.*` in the same JSON catalogs. PropertySheet uses IDs as
+React keys, so translated or equal headings do not replace focused child editors.
+Existing other-product declarations without IDs retain their current grouping.
+JSON imports declare their type for Node22 tools as well as browser bundlers.

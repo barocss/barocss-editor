@@ -77,6 +77,8 @@ export interface PanelRow<Kind extends string = string> {
   command?: string;
   /** The heading it sits under, which is what a reader navigates by. */
   group: string;
+  /** Stable identity independent of the visible group heading. Legacy declarations may omit it. */
+  groupId?: string;
   /** Which pane, for a panel that has them. */
   tab?: string;
   /** What a reader reads at the start of the row. */
@@ -258,32 +260,26 @@ export function panelRowsFor<Row extends PanelRow>(
  * **Order is meaning**: a panel draws these top to bottom, so moving a row in the declaration moves
  * it on screen, and a group takes its place from where its *first* row is.
  *
- * ## By label, and it used to be by contiguous run
- *
- * The old rule was that two runs of one heading draw the heading twice *rather than silently
- * merging*, which reads well and is wrong for a reason nothing in a declaration can prevent: a run
- * is only contiguous **after filtering**. A group's rows are written together and then
- * `panelRowsFor` drops the ones this node type has no place for, so a heading that is one section in
- * the file becomes two on screen the moment a type sits out the middle of it.
- *
- * Measured: a **page** draws `바탕 | 그림자 | 바탕 | 그림자` — two headings each, twice — and React
- * says so out loud, because a list keyed by label then has two children with one key. A `collection`
- * does the same with 데이터.
- *
- * Two sections under one heading is never a design. So the label is the group, wherever its rows
- * turn up.
+ * Explicit IDs group rows independently of translated headings. Legacy declarations still group
+ * by their visible label. These two identity spaces stay separate, and first occurrence determines
+ * section order and visible heading even when filtering leaves a group's rows non-contiguous.
  */
 export function panelGroupsFor<Row extends PanelRow>(
   rows: Row[]
-): { label: string; rows: Row[] }[] {
-  const groups: { label: string; rows: Row[] }[] = [];
-  const at = new Map<string, { label: string; rows: Row[] }>();
+): { id?: string; label: string; rows: Row[] }[] {
+  const groups: { id?: string; label: string; rows: Row[] }[] = [];
+  const at = new Map<string, { id?: string; label: string; rows: Row[] }>();
   for (const row of rows) {
-    const held = at.get(row.group);
+    const key = row.groupId === undefined ? `label:${row.group}` : `id:${row.groupId}`;
+    const held = at.get(key);
     if (held) held.rows.push(row);
     else {
-      const made = { label: row.group, rows: [row] };
-      at.set(row.group, made);
+      const made = {
+        ...(row.groupId === undefined ? {} : { id: row.groupId }),
+        label: row.group,
+        rows: [row]
+      };
+      at.set(key, made);
       groups.push(made);
     }
   }
