@@ -31,7 +31,7 @@ const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
 const uuid = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v);
 const sha = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v);
 const exactKeys = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
-function contextShape(v: unknown): v is CriterionContext {
+export function contextShape(v: unknown): v is CriterionContext {
   if (!object(v) || !exactKeys(v, ['schemaVersion', 'requirement', 'decision', 'relation']) || v.schemaVersion !== 1) return false;
   const item = (value: unknown, decision = false): boolean => object(value) &&
     exactKeys(value, ['itemId', 'version', 'locator', 'snapshotText', ...(decision ? ['currentVersion', 'currentSnapshotText'] : [])]) &&

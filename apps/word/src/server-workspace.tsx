@@ -1,3 +1,4 @@
+import { createVerificationClient, verificationRequest, type CriterionVerificationHost, type VerificationRequest, type VerificationBasis } from './criterion-verification-client';
 import { createCriterionClient, criterionRequest, criterionHash, type CriterionConfirmationHost, type CriterionRequest } from './criterion-confirmation-client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-word';
@@ -372,6 +373,78 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       }
     };
   }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject]);
+  const criterionVerification = useMemo<CriterionVerificationHost>(() => {
+    const recoveryKey = (documentId: string, basis: VerificationBasis, specimen: VerificationRequest['specimen']) =>
+      `wonffice.criterion-verification.v1:${encodeURIComponent(JSON.stringify([issuer, subject, tenantId, workspaceId, documentId, basis.actorIdentityId, basis.documentRevision, basis.snapshotHash, basis.authorityEpoch, basis.confirmationId, specimen, basis.evaluator]))}`;
+    const captureOwner = () => {
+      const one = currentRef.current, live = runtime.current;
+      if (!one?.documentId || !one.head || one.confirmed === null || !live || live.generation !== one.generation ||
+        active.current !== client || !authority.current || !live.value.editor.isEditable || nestedRef.current ||
+        busyRef.current || fixed.current || problemRef.current || !protectedRef.current) throw new Error('confirmation_not_ready');
+      const native = () => stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), ''));
+      const before = native();
+      if (before !== stableWordSnapshotText(one.confirmed)) throw new Error('save_before_confirmation');
+      const root = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
+      const permission = criterionAuthority.current.version;
+      const current = () => active.current === client && authority.current && criterionAuthority.current.version === permission &&
+        runtime.current === live && currentRef.current?.generation === one.generation && currentRef.current.documentId === one.documentId &&
+        live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch && native() === before &&
+        !nestedRef.current && !busyRef.current && !fixed.current && !problemRef.current;
+      return { one, current, transport: createVerificationClient(authorizedFetch, tenantId, one.documentId) };
+    };
+    return {
+      async load() {
+        const { one, current, transport } = captureOwner();
+        const basis = await transport.context();
+        if (!current() || basis.documentRevision !== one.head!.revision || basis.snapshotHash !== one.head!.snapshotHash || basis.snapshotText !== one.confirmed)
+          throw new Error('verification_context_changed');
+        const runs = await transport.list();
+        if (!current()) throw new Error('verification_owner_changed');
+        const reconciled = await transport.context();
+        if (!current() || JSON.stringify(reconciled) !== JSON.stringify(basis)) throw new Error('verification_context_changed');
+        const pendingSpecimenIds = basis.specimens.filter(specimen => {
+          const base = recoveryKey(one.documentId!, basis, specimen), pointer = localStorage.getItem(base + '.active');
+          if (!pointer) return false;
+          if (pointer !== base && !pointer.startsWith(base + ':')) throw new Error('invalid_verification_recovery_pointer');
+          const stored = localStorage.getItem(pointer);
+          if (!stored) throw new Error('missing_verification_recovery');
+          const attempt = JSON.parse(stored) as VerificationRequest;
+          if (typeof attempt.idempotencyKey !== 'string' || JSON.stringify(attempt) !== JSON.stringify(verificationRequest(basis, specimen, attempt.idempotencyKey)))
+            throw new Error('invalid_verification_recovery');
+          const receipt = runs.find(run => run.idempotencyKey === attempt.idempotencyKey && run.requesterIdentityId === basis.actorIdentityId);
+          return !receipt || localStorage.getItem(pointer + '.ack') !== JSON.stringify([receipt.runId, receipt.requestHash]);
+        }).map(specimen => specimen.id);
+        return { basis, runs, pendingSpecimenIds };
+      },
+      async run(basis, specimen, intent, fresh = false) {
+        const { one, current, transport } = captureOwner();
+        if (!intent() || basis.documentRevision !== one.head!.revision || basis.snapshotHash !== one.head!.snapshotHash || basis.snapshotText !== one.confirmed)
+          throw new Error('verification_context_changed');
+        const pendingKey = recoveryKey(one.documentId!, basis, specimen);
+        const pointerKey = pendingKey + '.active';
+        const activeKey = fresh ? pendingKey + ':' + crypto.randomUUID() : localStorage.getItem(pointerKey) ?? pendingKey;
+        if (activeKey !== pendingKey && !activeKey.startsWith(pendingKey + ':')) throw new Error('invalid_verification_recovery_pointer');
+        const stored = localStorage.getItem(activeKey);
+        let attempt: VerificationRequest;
+        if (stored) {
+          const candidate = JSON.parse(stored) as VerificationRequest;
+          if (typeof candidate.idempotencyKey !== 'string' || JSON.stringify(candidate) !== JSON.stringify(verificationRequest(basis, specimen, candidate.idempotencyKey)))
+            throw new Error('invalid_verification_recovery');
+          attempt = candidate;
+        } else {
+          attempt = verificationRequest(basis, specimen);
+          localStorage.setItem(activeKey, JSON.stringify(attempt));
+          localStorage.setItem(pointerKey, activeKey);
+        }
+        const requestHash = await criterionHash(JSON.stringify(['criterion-verification-v1', tenantId, one.documentId, basis.actorIdentityId, attempt]));
+        if (!current() || !intent()) throw new Error('verification_intent_changed');
+        const receipt = await transport.run(attempt, basis.actorIdentityId);
+        if (!current() || !intent() || receipt.requestHash !== requestHash) throw new Error('verification_acknowledgement_for_old_context');
+        localStorage.setItem(activeKey + '.ack', JSON.stringify([receipt.runId, receipt.requestHash]));
+        return receipt;
+      }
+    };
+  }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject]);
   const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}<Button disabled={!current || nestedInput} onClick={exportNative}>Word 파일 내보내기</Button></>;
   const navigation = <aside aria-label="서버 Word 목록">
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverWordFileText(createStarterDocument(), ''))}>새 Word</Button>}
@@ -390,7 +463,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Word 자료를 확인하는 중입니다.</p>}
-    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ headerActions: actions, headerNavigation, navigation, criterionConfirmation,
+    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ headerActions: actions, headerNavigation, navigation, criterionConfirmation, criterionVerification,
       feedbackDocumentId: () => active.current === client && currentRef.current?.generation === current.generation ? currentRef.current.documentId ?? '' : '',
       canComment: () => active.current === client && currentRef.current?.generation === current.generation && authority.current &&
         !busyRef.current && !nestedRef.current && problemRef.current?.kind !== 'conflict' && protectedRef.current,
