@@ -10,10 +10,11 @@ import type { NoteSaveAttempt } from './server-documents';
 import { ServerNoteWorkspace } from './server-workspace';
 
 type BoxProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; actions?: ReactNode };
-type NativeFixture = { editor: { id: string }; change: (content: unknown[]) => void; retireRoot: () => void };
+type NativeFixture = { editor: { id: string }; close: ReturnType<typeof vi.fn>; change: (content: unknown[]) => void; retireRoot: () => void };
 type ClientFixture = { list: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn>; receipt: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn>; confirm: ReturnType<typeof vi.fn> };
 const f = vi.hoisted(() => ({
   sessions: [] as NativeFixture[], client: undefined as unknown as ClientFixture,
+  onConstruct: () => {}, onMount: (_id: string) => {}, navigate: vi.fn(),
   delivery: async () => true, failSave: false, failNative: false, saveHold: undefined as Promise<void> | undefined,
 }));
 vi.mock('@barocss/shared', async () => await import('../../../packages/shared/src/document-save/product-host'));
@@ -25,13 +26,14 @@ vi.mock('@barocss/office-ui', async () => {
     DocumentMenu: Box, EditorHeader: ({ children, actions }: BoxProps) => React.createElement('div', {}, children, actions), StatusIndicator: Box, StatusNotice: Box };
 });
 vi.mock('@barocss/office-note/view', () => ({ NoteEditor: ({ registerBeforeSnapshot, editor }: { registerBeforeSnapshot: (flush: () => Promise<boolean>) => () => void; editor: { id: string } }) => {
-  useEffect(() => registerBeforeSnapshot(() => f.delivery()), [registerBeforeSnapshot, editor]);
+  useEffect(() => { const off = registerBeforeSnapshot(() => f.delivery()); f.onMount(editor.id); return off; }, [registerBeforeSnapshot, editor]);
   return <div data-native-note={editor.id} />;
 } }));
 vi.mock('@barocss/office-note', () => ({
   noteTreeOf: (store: { getNode: (id: string) => { content: unknown[] } }) => ({ stype: 'note', content: store.getNode('root').content }),
   openNoteTree: (note: NoteDocument, options: { onChange: (blocks: unknown[]) => void }) => {
     if (f.failNative) throw new Error('native load failed');
+    f.onConstruct();
     const node = { ...note, content: structuredClone(note.content) }; let epoch = 1;
     const editor = { id: String(f.sessions.length), getRootId: () => 'root', setEditable: vi.fn(), on: vi.fn(), off: vi.fn(),
       dataStore: { getNode: () => node, getDocumentEpoch: () => epoch } };
@@ -55,11 +57,11 @@ const opened = (id: string, snapshotText = serializeNoteFile(note(id))) => {
 };
 let root: Root, container: HTMLDivElement;
 const render = (role: 'editor' | 'viewer' = 'editor', subject = 'A') => flushSync(() => root.render(<ServerNoteWorkspace tenantId={tenantId} workspaceId={workspaceId}
-  issuer="https://idp.example.test" subject={subject} initialDocumentId={a} authorizedFetch={transport} role={role} />));
+  issuer="https://idp.example.test" subject={subject} initialDocumentId={a} authorizedFetch={transport} role={role} onNavigate={f.navigate} />));
 const transport: typeof fetch = vi.fn();
 async function mounted() { await vi.waitFor(() => expect(productDocumentHost()?.id()).toBe(a)); }
 beforeEach(async () => {
-  localStorage.clear(); f.sessions = []; f.delivery = async () => true; f.failSave = false; f.failNative = false; f.saveHold = undefined;
+  localStorage.clear(); f.sessions = []; f.onConstruct = () => {}; f.onMount = () => {}; f.navigate.mockClear(); f.delivery = async () => true; f.failSave = false; f.failNative = false; f.saveHold = undefined;
   f.client = { list: vi.fn(async () => [opened(a).document, opened(b).document]), open: vi.fn(async (id: string) => opened(id)),
     receipt: vi.fn(async () => { const { ServerNoteError } = await import('./server-documents'); throw new ServerNoteError(404, 'missing'); }),
     save: vi.fn(async (attempt: NoteSaveAttempt) => { if (f.saveHold) await f.saveHold; if (f.failSave) throw new Error('lost acknowledgement'); return attempt; }),
@@ -156,4 +158,59 @@ it('preserves the original native session when target native construction fails'
   const native = f.sessions[0]; f.failNative = true;
   expect(await captureProductNavigation()!.open!(b)).toBe(false);
   expect(productDocumentHost()?.id()).toBe(a); expect(f.sessions).toHaveLength(1); expect(f.sessions[0]).toBe(native);
+});
+it('retires a held writer target-open token and permits a fresh viewer open before the old response', async () => {
+  let finish!: (value: ReturnType<typeof opened>) => void;
+  f.client.open.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const old = captureProductNavigation()!, held = old.open!(b);
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+  render('viewer'); await mounted();
+  const next = await captureProductNavigation()!.open!(b);
+  expect(next).toMatchObject({ id: b });
+  expect(next && next.isCurrent()).toBe(true);
+  finish(opened(b)); expect(await held).toBe(false);
+  expect(productDocumentHost()?.id()).toBe(b);
+});
+
+it('rechecks parent intent after held target loading before native installation', async () => {
+  let finish!: (value: ReturnType<typeof opened>) => void, current = true;
+  f.client.open.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  f.navigate.mockClear();
+  const task = captureProductNavigation()!.open!(b, () => current);
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+  current = false; finish(opened(b)); expect(await task).toBe(false);
+  expect(productDocumentHost()?.id()).toBe(a); expect(f.sessions).toHaveLength(1); expect(f.navigate).not.toHaveBeenCalled();
+});
+it('rechecks parent intent after native construction and preserves the installed original', async () => {
+  let current = true; f.onConstruct = () => { current = false; }; f.navigate.mockClear();
+  expect(await captureProductNavigation()!.open!(b, () => current)).toBe(false);
+  expect(productDocumentHost()?.id()).toBe(a); expect(f.sessions[1].close).toHaveBeenCalled(); expect(f.navigate).not.toHaveBeenCalled();
+});
+it('rechecks standalone parent intent at installation completion before navigation callback', async () => {
+  let current = true; f.navigate.mockClear(); f.onMount = id => { if (id !== '0') current = false; };
+  expect(await captureProductNavigation()!.open!(b, () => current)).toBe(false);
+  expect(f.navigate).not.toHaveBeenCalled();
+});
+it('does not publish navigation when parent intent retires after witness resolution', async () => {
+  let current = true; f.navigate.mockClear();
+  f.onMount = id => { if (id !== '0') queueMicrotask(() => { current = false; }); };
+  expect(await captureProductNavigation()!.open!(b, () => current)).toBe(false);
+  expect(productDocumentHost()?.id()).toBe(b); expect(f.navigate).not.toHaveBeenCalled();
+});
+it('role retirement preserves the separate in-flight save and its frozen recovery envelope', async () => {
+  f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'fixed pending input' }] }]);
+  let finish!: () => void; f.saveHold = new Promise<void>(resolve => { finish = resolve; });
+  const old = captureProductNavigation()!.open!(b);
+  await vi.waitFor(() => expect(f.client.save).toHaveBeenCalledTimes(1));
+  const records = Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!));
+  expect(records.some(value => value?.includes('fixed pending input'))).toBe(true);
+  render('viewer'); await mounted();
+  let settled = false;
+  const fresh = captureProductNavigation()!.open!(b); void fresh.then(() => { settled = true; });
+  await Promise.resolve(); await Promise.resolve();
+  expect(settled).toBe(false);
+  expect(f.client.save).toHaveBeenCalledTimes(1); expect(f.client.open).toHaveBeenCalledTimes(1);
+  expect(Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!))).toEqual(records);
+  finish(); expect(await old).toBe(false); expect(await fresh).toBe(false); expect(f.client.confirm).not.toHaveBeenCalled();
+  expect(productDocumentHost()?.id()).toBe(a);
 });

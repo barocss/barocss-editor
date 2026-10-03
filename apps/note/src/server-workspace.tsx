@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import './style.css';
 import { flushSync } from 'react-dom';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
@@ -75,16 +75,26 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const savePending = useRef<Promise<void> | undefined>(undefined);
   const nativeHost = useRef<ProductDocumentHost | undefined>(undefined);
   const stagedSession = useRef<{ client: object; generation: string; value: NoteSession; deliver?: (blocks: unknown[]) => void } | undefined>(undefined);
-  const opening = useRef<symbol | undefined>(undefined);
-  const openingCompletion = useRef<{ client: object; generation: string; documentId: string; authority: object; resolve: (guard: ProductNavigationGuard | false) => void } | undefined>(undefined);
+  const opening = useRef<{ token: symbol; client: object; authority: object; phase: 'preparing' | 'loading' | 'installing' } | undefined>(undefined);
+  const openingCompletion = useRef<{ client: object; generation: string; documentId: string; authority: object; operation: symbol; intentCurrent: () => boolean; resolve: (guard: ProductNavigationGuard | false) => void } | undefined>(undefined);
   const beforeNavigate = useRef<(isCurrent?: () => boolean) => Promise<boolean>>(async () => false);
-  const requestOpen = useRef<(documentId: string, isCurrent: () => boolean) => Promise<ProductNavigationGuard | false>>(async () => false);
+  const requestOpen = useRef<(documentId: string, isCurrent: () => boolean, intentCurrent?: () => boolean) => Promise<ProductNavigationGuard | false>>(async () => false);
   const roleOwner = useMemo(() => ({}), [role]);
   const roleRef = useRef(roleOwner); roleRef.current = roleOwner;
   const pendingRef = useRef(pending); pendingRef.current = pending;
   const problemRef = useRef(problem); problemRef.current = problem;
   const protectionRef = useRef(protection); protectionRef.current = protection;
   const [openingError, setOpeningError] = useState('');
+  useLayoutEffect(() => {
+    const held = opening.current;
+    if (!held || (held.client === client && held.authority === roleOwner)) return;
+    opening.current = undefined;
+    const completion = openingCompletion.current;
+    if (completion?.operation === held.token) { openingCompletion.current = undefined; completion.resolve(false); }
+    // Only this token's target load owns this busy flag. Native save/recovery
+    // has a separate pending promise and must remain protected until it settles.
+    if (held.phase === 'loading' || held.phase === 'installing') setBusy(false);
+  }, [client, roleOwner]);
   const currentOpen = open?.owner === client ? open : undefined;
   const currentOpenRef = useRef(currentOpen);
   currentOpenRef.current = currentOpen;
@@ -561,18 +571,19 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         protection.version === versionRef.current && final.confirmedText !== null && nativeSnapshot(final, owner.native) === final.confirmedText;
     } catch { return false; }
   };
-  requestOpen.current = async (documentId, intentCurrent) => {
-    const owner = captureOwner(intentCurrent);
+  requestOpen.current = async (documentId, intentCurrent, parentIntent = () => true) => {
+    const parentCurrent = () => { try { return parentIntent(); } catch { return false; } };
+    const owner = captureOwner(() => intentCurrent() && parentCurrent());
     if (!owner || !owner.owns() || opening.current || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(documentId)) return false;
     if (documentId === owner.one.documentId) return captureProductNavigation() ?? false;
-    const operation = Symbol('note-open'); opening.current = operation;
+    const operation = { token: Symbol('note-open'), client, authority: owner.authority, phase: 'preparing' as 'preparing' | 'loading' | 'installing' }; opening.current = operation;
     let prepared: string | undefined;
     const owns = () => owner.owns() && opening.current === operation && (!prepared || nativeSnapshot(access.current.open!, owner.native) === prepared);
     try {
       if (!await beforeNavigate.current(owns) || !owns()) return false;
       prepared = access.current.open!.confirmedText ?? undefined;
       if (!prepared || !owns()) return false;
-      setOpeningError(''); setBusy(true);
+      operation.phase = 'loading'; setOpeningError(''); setBusy(true);
       const result = await client.open(documentId);
       if (!owns()) return false;
       if (result.mode !== 'snapshot') { setOpeningError('이 문서는 공동 편집 모드입니다. 현재 문서는 유지됩니다.'); return false; }
@@ -586,11 +597,14 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       stagedSession.current = staged;
       const completion = new Promise<ProductNavigationGuard | false>(resolve => {
         // Native session and host registration resolve this exact installation.
-        openingCompletion.current = { client, generation, documentId, authority: owner.authority, resolve };
+        openingCompletion.current = { client, generation, documentId, authority: owner.authority, operation: operation.token, intentCurrent: parentCurrent, resolve };
       });
+      if (!owns()) { stagedSession.current = undefined; staged.value.close(); openingCompletion.current?.resolve(false); openingCompletion.current = undefined; return false; }
+      operation.phase = 'installing';
       flushSync(() => showOpened(result, generation));
       const installed = await completion;
-      if (installed && installed.isCurrent()) navigate.current?.(documentId);
+      if (!installed || !installed.isCurrent() || !parentCurrent() || activeClient.current !== client || roleRef.current !== owner.authority || opening.current !== operation) return false;
+      navigate.current?.(documentId);
       return installed;
     } catch (error) {
       if (owns()) setOpeningError(error instanceof Error ? error.message : '문서를 열지 못했습니다. 현재 문서는 유지됩니다.');
@@ -606,7 +620,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       product: 'note', id: () => activeClient.current === client && access.current.session === native ? access.current.open?.documentId ?? '' : '',
       identityEpoch: () => native.editor.dataStore.getDocumentEpoch(),
       beforeNavigate: () => activeClient.current === client ? beforeNavigate.current() : Promise.resolve(false),
-      requestOpen: (id, isCurrent) => activeClient.current === client ? requestOpen.current(id, isCurrent) : Promise.resolve(false)
+      requestOpen: (id, isCurrent, intentCurrent) => activeClient.current === client ? requestOpen.current(id, isCurrent, intentCurrent) : Promise.resolve(false)
     };
     nativeHost.current = host;
     const unregister = registerProductDocumentHost(host);
@@ -614,7 +628,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     if (completion && completion.client === client && completion.documentId === currentOpen.documentId) {
       openingCompletion.current = undefined;
       const guard = captureProductNavigation();
-      completion.resolve(completion.authority === roleRef.current && completion.generation === generation && guard?.isCurrent() ? guard : false);
+      completion.resolve(completion.authority === roleRef.current && completion.generation === generation && completion.intentCurrent() && guard?.isCurrent() ? guard : false);
     }
     return () => { unregister(); if (nativeHost.current === host) nativeHost.current = undefined; };
   }, [client, currentOpen?.generation, currentSession, roleOwner, currentProblem?.kind === 'denied']);
