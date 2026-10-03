@@ -194,10 +194,13 @@ export function App({ mount, server }: {
    */
   const [outlining, setOutlining] = useState(false);
   const togglePanel = useCallback((side: 'navigation' | 'inspector') => {
+    const shown = compact ? activePanel === side : side === 'navigation' ? outlining : commenting;
+    const closingFromPanel = shown && document.getElementById(`${panelId}-${side}`)?.contains(document.activeElement);
     if (compact) setActivePanel(current => current === side ? null : side);
-    else if (side === 'navigation') setOutlining(shown => !shown);
-    else setCommenting(shown => !shown);
-  }, [compact]);
+    else if (side === 'navigation') setOutlining(value => !value);
+    else setCommenting(value => !value);
+    if (closingFromPanel) requestAnimationFrame(() => restorePanelFocus(side));
+  }, [compact, activePanel, outlining, commenting, panelId, restorePanelFocus]);
   const outlineShown = compact ? activePanel === 'navigation' : outlining;
   const commentsShown = compact ? activePanel === 'inspector' : commenting;
 
@@ -484,7 +487,7 @@ export function App({ mount, server }: {
                   pressed={commentsShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('inspector')}><Icon name="comments" /></Button></Tip>
                 <Tip label="요구·결정"><Button square tone="quiet" ariaLabel="요구·결정" pressed={businessOpen}
                   onMouseDown={event => event.preventDefault()}
-                  onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); }}><Icon name="resolve" /></Button></Tip>
+                  onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); if (!compact) setOutlining(true); }}><Icon name="resolve" /></Button></Tip>
                 {!readOnly && <span ref={detailAnchor}>
                   <Tip label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'}>
                     <Button square tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded}
@@ -532,9 +535,9 @@ export function App({ mount, server }: {
         showPanelControls={false} restorePanelFocus={restorePanelFocus}
         panelIds={{ navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
-        {instance ? <WorkspaceSidePanel side="navigation" width={server?.navigation || compact || outlining || businessOpen ? 240 : 40}>{server?.navigation}<OutlinePane
+        {instance ? <WorkspaceSidePanel side="navigation" width={240} hidden={!outlineShown}>{server?.navigation}<OutlinePane
             editor={instance.editor}
-            open={compact || outlining}
+            open={outlineShown}
             onToggle={() => togglePanel('navigation')}
             /* 어느 요소에 문서가 그려졌는지는 조립하는 쪽이 안다 — `#editor` 는 이 파일의 id 다. */
             host={host.current}
@@ -606,10 +609,10 @@ export function App({ mount, server }: {
         </div>
 
         {instance ? (
-          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane readOnly={authorityReadOnly}
+          <WorkspaceSidePanel side="inspector" width={280} hidden={!commentsShown}><CommentsPane readOnly={authorityReadOnly}
             editor={instance.editor}
             view={instance.view}
-            open={compact || commenting}
+            open={commentsShown}
             onToggle={() => togglePanel('inspector')}
           /></WorkspaceSidePanel>
         ) : null}
