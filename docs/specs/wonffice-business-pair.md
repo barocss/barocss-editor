@@ -10,6 +10,20 @@ Each item has an opaque UUID, positive contiguous item versions, and a unique pa
 
 Each version holds a complete native Word file, including rich text, marks, resources, and referenced content. The existing file codec removes session identifiers. Only the pair's own payload is excluded to prevent recursively embedding previous pins. No original authored field is discarded. Historic pin bytes remain unchanged after creation. The panel displays readable paragraph text; **전체 원본과 서식 데이터** exposes the complete rich source. The text preview is not a rich-layout renderer and does not fetch external media.
 
+## Explicit standalone lifecycle (#450)
+
+The original `schemaVersion: 1` contract remains a complete pair: exactly one requirement, one decision and one directed relation. Existing files are not migrated on read. Explicit `schemaVersion: 2` adds a required `lifecycle` discriminant. `unlinked` has exactly one requirement and no relations. `linked` has exactly one requirement, one decision and one `supported_by` relation. A bare v2 without the discriminant remains unsupported; an explicit unknown lifecycle or invalid cardinality is invalid. Other versions remain unsupported.
+
+`createStandaloneRequirement(document, bookmarkId)` records the manual requirement with a new durable UUID, version 1 and the complete original native file pin. It does not create a decision, relation, confirmation or verification. A normal unlinked document is valid authored content. It is not a missing-decision error.
+
+`linkBusinessDecision(document, decisionBookmarkId, requirementVersion)` requires an explicit available requirement version and a uniquely resolved separately authored decision paragraph. A second bookmark in the same requirement paragraph is refused. The existing requirement UUID and every historic pin byte remain unchanged. Only the new decision UUID, its version-1 pin and the directed relation are added. The relation uses the selected requirement version and decision version 1. Linking a stale requirement or choosing a historic version keeps that state visible as review needed; it does not copy current text into a historic pin or confer confirmation.
+
+`appendRequirementVersion` also supports an unlinked requirement. It retains all historic pins and leaves relations empty. For linked documents, it advances the relation's requirement endpoint while retaining its exact decision endpoint. `appendDecisionVersion` refuses unlinked documents. Independent derivation preserves the lifecycle and every item version, allocates new item UUIDs and remaps only existing relation endpoints. Originals remain unchanged.
+
+Confirmation and executable verification remain separate from authored lifecycle validity. `captureCriterionContext` explicitly refuses unlinked content before reading decision or relation fields. A linked context still requires current uniquely resolved native content and the current requirement endpoint; a historic selected requirement relation cannot be confirmed as current.
+
+These pure native APIs do not write editor state, history, storage or authority. The UI must apply each authored delta through the existing frozen native transaction and explicit save paths. Focused domain tests prove payload and pin preservation, compatibility and refusal. They do not establish actual UI history, authenticated persistence, unknown-ACK recovery or release readiness; those require the integrated candidate checks.
+
 ## Changes and independent identity
 
 An ordinary paragraph or resource change requires re-review. Existing Word numbering, reference, style, table, spacing, and border readers also detect changed effective native context. Deleted or ambiguous locators and unresolved references are unavailable. Shared legitimate bookmark range fragments remain supported; duplicate external point anchors and point/range collisions cannot silently select a reference. Missing payload, unsupported payload version, and malformed payload are distinct states. Refusal preserves the original payload and native source.

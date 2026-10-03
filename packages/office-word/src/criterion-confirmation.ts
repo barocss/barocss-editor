@@ -24,6 +24,7 @@ export function captureCriterionContext(snapshotText: string): CriterionContext 
   if ('error' in file) throw new CriterionConfirmationError('A valid full native Word file is required');
   const read = readBusinessPair(file.document);
   if (read.status !== 'valid') throw new CriterionConfirmationError('A valid requirement and decision pair is required');
+  if (read.lifecycle !== 'linked') throw new CriterionConfirmationError('An explicitly linked requirement and decision are required');
   if (read.items.some(({ state }) => state !== 'current')) throw new CriterionConfirmationError('Current uniquely resolved criterion content is required');
   const requirement = read.payload.items.find(item => item.kind === 'requirement')!;
   const decision = read.payload.items.find(item => item.kind === 'decision')!;
