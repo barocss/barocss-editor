@@ -1,0 +1,159 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { useEffect, type ReactNode } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { captureProductNavigation, productDocumentHost } from '@barocss/shared';
+import { serializeNoteFile, readNoteSnapshotFile } from '@barocss/office-note/file';
+import type { NoteDocument } from '@barocss/office-note/file';
+import type { NoteSaveAttempt } from './server-documents';
+import { ServerNoteWorkspace } from './server-workspace';
+
+type BoxProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; actions?: ReactNode };
+type NativeFixture = { editor: { id: string }; change: (content: unknown[]) => void; retireRoot: () => void };
+type ClientFixture = { list: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn>; receipt: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn>; confirm: ReturnType<typeof vi.fn> };
+const f = vi.hoisted(() => ({
+  sessions: [] as NativeFixture[], client: undefined as unknown as ClientFixture,
+  delivery: async () => true, failSave: false, failNative: false, saveHold: undefined as Promise<void> | undefined,
+}));
+vi.mock('@barocss/shared', async () => await import('../../../packages/shared/src/document-save/product-host'));
+vi.mock('@barocss/office-ui', async () => {
+  const React = await import('react');
+  const Box = ({ children }: BoxProps) => React.createElement('div', {}, children);
+  return { AdaptiveWorkspace: Box, WorkspaceSidePanel: Box, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
+    Button: ({ children, ...props }: BoxProps) => React.createElement('button', { onClick: props.onClick, disabled: props.disabled }, children),
+    DocumentMenu: Box, EditorHeader: ({ children, actions }: BoxProps) => React.createElement('div', {}, children, actions), StatusIndicator: Box, StatusNotice: Box };
+});
+vi.mock('@barocss/office-note/view', () => ({ NoteEditor: ({ registerBeforeSnapshot, editor }: { registerBeforeSnapshot: (flush: () => Promise<boolean>) => () => void; editor: { id: string } }) => {
+  useEffect(() => registerBeforeSnapshot(() => f.delivery()), [registerBeforeSnapshot, editor]);
+  return <div data-native-note={editor.id} />;
+} }));
+vi.mock('@barocss/office-note', () => ({
+  noteTreeOf: (store: { getNode: (id: string) => { content: unknown[] } }) => ({ stype: 'note', content: store.getNode('root').content }),
+  openNoteTree: (note: NoteDocument, options: { onChange: (blocks: unknown[]) => void }) => {
+    if (f.failNative) throw new Error('native load failed');
+    const node = { ...note, content: structuredClone(note.content) }; let epoch = 1;
+    const editor = { id: String(f.sessions.length), getRootId: () => 'root', setEditable: vi.fn(), on: vi.fn(), off: vi.fn(),
+      dataStore: { getNode: () => node, getDocumentEpoch: () => epoch } };
+    const session = { editor, rootId: 'root', session: editor.id, flush: () => options.onChange(node.content), close: vi.fn(),
+      change: (content: unknown[]) => { node.content = content; }, retireRoot: () => { epoch++; } };
+    f.sessions.push(session); return session;
+  }
+}));
+vi.mock('./server-documents', async original => {
+  const actual = await original<typeof import('./server-documents')>();
+  return { ...actual, createServerNoteClient: () => f.client };
+});
+vi.mock('./server-local-copy', () => ({ ServerLocalNoteCopy: () => null }));
+const tenantId = '11111111-1111-4111-8111-111111111111', workspaceId = '22222222-2222-4222-8222-222222222222';
+const a = '33333333-3333-4333-8333-333333333333', b = '44444444-4444-4444-8444-444444444444';
+const note = (id: string) => ({ stype: 'note' as const, attributes: { title: id, pageId: id },
+  content: [{ stype: 'paragraph', attributes: { custom: 'preserved' }, content: [{ stype: 'inline-text', text: 'before', marks: [{ type: 'bold' }] }] }] });
+const opened = (id: string, snapshotText = serializeNoteFile(note(id))) => {
+  const read = readNoteSnapshotFile(snapshotText); if ('error' in read) throw new Error(read.error);
+  return { mode: 'snapshot', document: { documentId: id, tenantId, workspaceId, product: 'note', title: id, revision: 1, pageId: id }, note: read.document, snapshotText };
+};
+let root: Root, container: HTMLDivElement;
+const render = (role: 'editor' | 'viewer' = 'editor', subject = 'A') => flushSync(() => root.render(<ServerNoteWorkspace tenantId={tenantId} workspaceId={workspaceId}
+  issuer="https://idp.example.test" subject={subject} initialDocumentId={a} authorizedFetch={transport} role={role} />));
+const transport: typeof fetch = vi.fn();
+async function mounted() { await vi.waitFor(() => expect(productDocumentHost()?.id()).toBe(a)); }
+beforeEach(async () => {
+  localStorage.clear(); f.sessions = []; f.delivery = async () => true; f.failSave = false; f.failNative = false; f.saveHold = undefined;
+  f.client = { list: vi.fn(async () => [opened(a).document, opened(b).document]), open: vi.fn(async (id: string) => opened(id)),
+    receipt: vi.fn(async () => { const { ServerNoteError } = await import('./server-documents'); throw new ServerNoteError(404, 'missing'); }),
+    save: vi.fn(async (attempt: NoteSaveAttempt) => { if (f.saveHold) await f.saveHold; if (f.failSave) throw new Error('lost acknowledgement'); return attempt; }),
+    confirm: vi.fn(async (attempt: NoteSaveAttempt) => opened(attempt.operation === 'update' ? attempt.documentId : a, attempt.snapshotText)) };
+  container = document.createElement('div'); document.body.append(container); root = createRoot(container); render(); await mounted();
+});
+afterEach(() => { flushSync(() => root.unmount()); container.remove(); vi.restoreAllMocks(); });
+
+it('returns the exact mounted target witness and retires the old guard', async () => {
+  const old = captureProductNavigation()!;
+  const installed = await old.open!(b);
+  expect(installed && installed.id).toBe(b); expect(installed && installed.isCurrent()).toBe(true);
+  expect(old.isCurrent()).toBe(false); expect(f.sessions).toHaveLength(2);
+});
+it('same-original aliases retain the native session without flushing or reopening', async () => {
+  const delivery = vi.fn(async () => true); f.delivery = delivery;
+  const guard = captureProductNavigation()!; const session = f.sessions[0];
+  expect(await guard.open!(a)).toMatchObject({ id: a });
+  expect(f.sessions[0]).toBe(session); expect(f.client.open).toHaveBeenCalledTimes(1); expect(delivery).not.toHaveBeenCalled();
+});
+it('awaits deepest delivery and saves full nested attributes and marks before opening', async () => {
+  let deliver!: () => void;
+  f.delivery = () => new Promise<boolean>(resolve => { deliver = () => { f.sessions[0].change([{ stype: 'paragraph', attributes: { custom: 'last' }, content: [{ stype: 'inline-text', text: 'last nested input', marks: [{ type: 'italic' }] }] }]); resolve(true); }; });
+  const task = captureProductNavigation()!.open!(b);
+  await vi.waitFor(() => expect(deliver).toBeTypeOf('function'));
+  expect(f.client.open).toHaveBeenCalledTimes(1);
+  f.delivery = async () => true; deliver();
+  expect(await task).toMatchObject({ id: b });
+  const text = f.client.save.mock.calls[0][0].snapshotText;
+  expect(text).toContain('last nested input'); expect(text).toContain('italic'); expect(text).toContain('custom');
+});
+it('refuses unfinished nested delivery and keeps the current native session', async () => {
+  f.delivery = async () => false;
+  const session = f.sessions[0]; expect(await captureProductNavigation()!.open!(b)).toBe(false);
+  expect(f.sessions).toHaveLength(1); expect(f.sessions[0]).toBe(session); expect(productDocumentHost()?.id()).toBe(a);
+});
+it('rejects a changed native epoch during a delayed deepest delivery', async () => {
+  let done!: (value: boolean) => void; f.delivery = () => new Promise(resolve => { done = resolve; });
+  const task = captureProductNavigation()!.open!(b); await vi.waitFor(() => expect(done).toBeTypeOf('function'));
+  f.sessions[0].retireRoot(); done(true); expect(await task).toBe(false); expect(f.client.open).toHaveBeenCalledTimes(1);
+});
+it('rejects duplicate in-flight opens and a retired account ABA callback', async () => {
+  let done!: (value: boolean) => void; f.delivery = () => new Promise(resolve => { done = resolve; });
+  const old = captureProductNavigation()!, first = old.open!(b);
+  await vi.waitFor(() => expect(done).toBeTypeOf('function'));
+  expect(await old.open!(b)).toBe(false);
+  render('editor', 'B'); await mounted(); render('editor', 'A'); await mounted(); done(true);
+  expect(await first).toBe(false); expect(await old.open!(b)).toBe(false);
+});
+it('retains a failed fixed request and retries the same key and bytes', async () => {
+  f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'durable' }] }]);
+  f.failSave = true; expect(await captureProductNavigation()!.open!(b)).toBe(false);
+  const first = f.client.save.mock.calls[0][0]; expect(productDocumentHost()?.id()).toBe(a);
+  f.failSave = false; expect(await captureProductNavigation()!.open!(b)).toMatchObject({ id: b });
+  expect(f.client.save.mock.calls[1][0]).toEqual(first); expect(f.client.receipt).toHaveBeenCalled();
+});
+it('refuses viewer native changes without writing', async () => {
+  render('viewer'); await mounted(); f.sessions.at(-1)!.change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'unexpected' }] }]);
+  expect(await captureProductNavigation()!.open!(b)).toBe(false); expect(f.client.save).not.toHaveBeenCalled();
+});
+
+it('does not send or navigate when pending protection fails', async () => {
+  f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'unprotected' }] }]);
+  const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('quota', 'QuotaExceededError'); });
+  expect(await captureProductNavigation()!.open!(b)).toBe(false);
+  expect(f.client.save).not.toHaveBeenCalled(); expect(productDocumentHost()?.id()).toBe(a);
+  expect(f.sessions).toHaveLength(1); write.mockRestore();
+});
+it('awaits an actual pending save before proceeding to target load', async () => {
+  f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'held save' }] }]);
+  let finish!: () => void; f.saveHold = new Promise<void>(resolve => { finish = resolve; });
+  const task = captureProductNavigation()!.open!(b);
+  await vi.waitFor(() => expect(f.client.save).toHaveBeenCalledTimes(1));
+  expect(f.client.open).toHaveBeenCalledTimes(1); expect(productDocumentHost()?.id()).toBe(a);
+  finish(); expect(await task).toMatchObject({ id: b });
+});
+it('refuses target installation after authority ABA during delayed load', async () => {
+  let finish!: (value: ReturnType<typeof opened>) => void;
+  f.client.open.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const old = captureProductNavigation()!, task = old.open!(b);
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+  render('viewer'); await mounted(); render('editor'); await mounted(); finish(opened(b));
+  expect(await task).toBe(false); expect(productDocumentHost()?.id()).toBe(a); expect(old.isCurrent()).toBe(false);
+});
+it('refuses a target when native bytes change after preparation', async () => {
+  let finish!: (value: ReturnType<typeof opened>) => void;
+  f.client.open.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const task = captureProductNavigation()!.open!(b); await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+  f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'later native input' }] }]);
+  finish(opened(b)); expect(await task).toBe(false); expect(productDocumentHost()?.id()).toBe(a);
+});
+
+it('preserves the original native session when target native construction fails', async () => {
+  const native = f.sessions[0]; f.failNative = true;
+  expect(await captureProductNavigation()!.open!(b)).toBe(false);
+  expect(productDocumentHost()?.id()).toBe(a); expect(f.sessions).toHaveLength(1); expect(f.sessions[0]).toBe(native);
+});
