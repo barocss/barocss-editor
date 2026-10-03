@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import type { INode } from '../../../packages/datastore/src/types';
+import { createStarterDocument } from '../../../packages/office-word/src/starter-document';
 import { createSampleDocument } from '../../../packages/office-word/src/sample-document';
 import { wordFileText } from '../../../packages/office-word/src/word-file';
 import { privateControl, launchPrivateProfile, stopPrivateProfile, type Inspection, type RealStatus } from './helpers/real-recovery-control';
@@ -184,6 +185,36 @@ interface ConfirmationReceipt {
 const frozenRequest = (capture: Capture, idempotencyKey: string) => ({ schemaVersion: 1, expectedRevision: capture.documentRevision,
   snapshotHash: capture.snapshotHash, snapshotText: capture.snapshotText, context: capture.context, authorityEpoch: capture.authorityEpoch, idempotencyKey });
 
+async function ensureBusinessPanel(page: Page) {
+  if (!await panel(page).isVisible()) await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+  await expect(panel(page)).toBeVisible();
+}
+async function installDigestGate(page: Page) {
+  await page.evaluate(() => {
+      const host = window as typeof window & { __criterionGate?: { entered: boolean; release: () => void; restore: () => void } };
+      const digest = crypto.subtle.digest.bind(crypto.subtle);
+      let release!: () => void;
+      const wait = new Promise<void>(resolve => { release = resolve; });
+      const gate = { entered: false, release, restore: () => { crypto.subtle.digest = digest; delete host.__criterionGate; } };
+      host.__criterionGate = gate;
+      crypto.subtle.digest = async (algorithm, data) => {
+        // Controlled browser scheduling only; the real digest still executes.
+        // No product hook, fake authority or network response is supplied.
+        if (new TextDecoder().decode(data).startsWith('["criterion-confirmation-v1"')) { gate.entered = true; await wait; }
+        return digest(algorithm, data);
+      };
+  });
+}
+async function releaseDigestGate(page: Page, restore = false) {
+  return page.evaluate(restore => {
+    const gate = (window as typeof window & { __criterionGate?: { release: () => void; restore: () => void } }).__criterionGate;
+    gate?.release(); if (restore) gate?.restore(); return !!gate;
+  }, restore);
+}
+async function enteredDigestGate(page: Page) {
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { __criterionGate?: { entered: boolean } }).__criterionGate?.entered === true)).toBe(true);
+}
+
 // Root serially owns the protected services, runtime and actual execution.
 // Automation confirms a fictional fixture; it is not an independent human approval exercise.
 test('explicit exact native criterion confirmation is durable, idempotent and private without changing source', async () => {
@@ -215,7 +246,7 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     };
     expect(await records()).toEqual([]); // Ordinary save and imported authored claims are not confirmation.
     phase = 'native-ui-authoring'; checkpoint();
-    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+    await ensureBusinessPanel(page);
     await caret(page, requirementText); await panel(page).getByRole('button', { name: '요구사항 문단 지정', exact: true }).click();
     await expect(panel(page)).toContainText('요구사항 지정됨');
     await caret(page, decisionText); await panel(page).getByRole('button', { name: '결정 문단 지정', exact: true }).click();
@@ -248,40 +279,60 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
       decision: { itemId: pair.items[1].id, version: 1, currentVersion: 1, locator: expectedPair.items[1].locator, snapshotText: pin, currentSnapshotText: pin },
       relation: expectedPair.relations[0] });
     expect(basis.actorIdentityId).not.toBe('forged-native-actor');
-    await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
+    await ensureBusinessPanel(page); await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
     await expect(confirmation(page)).toContainText(/미실행|실행하지 않음|not.run/i);
     await expect(confirmation(page)).toContainText(requirementText);
     await expect(confirmation(page)).toContainText(decisionText);
     phase = 'controlled-await-dom-selection-aba'; checkpoint();
     await caret(page, requirementText);
     const beforePostCount = requests.timeline.filter(event => event.kind === 'request' && event.method === 'POST' && String(event.path).endsWith('/criterion-confirmations')).length;
-    await page.evaluate(() => {
-      const host = window as typeof window & { __criterionGate?: { entered: boolean; release: () => void; restore: () => void } };
-      const digest = crypto.subtle.digest.bind(crypto.subtle);
-      let release!: () => void;
-      const wait = new Promise<void>(resolve => { release = resolve; });
-      const gate = { entered: false, release, restore: () => { crypto.subtle.digest = digest; delete host.__criterionGate; } };
-      host.__criterionGate = gate;
-      crypto.subtle.digest = async (algorithm, data) => {
-        // Controlled browser scheduling only; the real digest still executes.
-        // No product hook, fake authority or network response is supplied.
-        if (new TextDecoder().decode(data).startsWith('["criterion-confirmation-v1"')) { gate.entered = true; await wait; }
-        return digest(algorithm, data);
-      };
-    });
+    await installDigestGate(page);
     try {
       await confirmCriterion(page).click();
-      await expect.poll(() => page.evaluate(() => (window as typeof window & { __criterionGate?: { entered: boolean } }).__criterionGate?.entered === true)).toBe(true);
+      await enteredDigestGate(page);
       await caret(page, decisionText); await caret(page, requirementText);
-      await page.evaluate(() => (window as typeof window & { __criterionGate?: { release: () => void } }).__criterionGate!.release());
+      await releaseDigestGate(page);
       await expect(confirmCriterion(page)).toBeEnabled();
       expect(requests.timeline.filter(event => event.kind === 'request' && event.method === 'POST' && String(event.path).endsWith('/criterion-confirmations'))).toHaveLength(beforePostCount);
       expect(await records()).toEqual([]); expect(await exported(page)).toStrictEqual(expectedAuthored);
       expect((await inspect(source.documentId)).document).toStrictEqual(committed.document);
     } finally {
-      await page.evaluate(() => { const gate = (window as typeof window & { __criterionGate?: { release: () => void; restore: () => void } }).__criterionGate; gate?.release(); gate?.restore(); });
+      await releaseDigestGate(page, true);
     }
-    await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
+    await ensureBusinessPanel(page); await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
+    phase = 'controlled-await-root-retirement'; checkpoint();
+    await caret(page, requirementText); await installDigestGate(page);
+    try {
+      await confirmCriterion(page).click(); await enteredDigestGate(page);
+      await workspace(page).getByRole('button', { name: '새 Word', exact: true }).click();
+      const starter = JSON.parse(wordFileText(createStarterDocument(), '')).document as INode;
+      await expect.poll(async () => await exported(page)).toStrictEqual(starter);
+      await releaseDigestGate(page);
+      expect(requests.timeline.filter(event => event.kind === 'request' && event.method === 'POST' && String(event.path).endsWith('/criterion-confirmations'))).toHaveLength(beforePostCount);
+      expect(await records()).toEqual([]); expect(await exported(page)).toStrictEqual(starter);
+      expect((await inspect(source.documentId)).document).toStrictEqual(committed.document);
+    } finally { await releaseDigestGate(page, true); }
+    page.once('dialog', dialog => { void dialog.accept(); });
+    await page.goto(documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
+    expect(await exported(page)).toStrictEqual(expectedAuthored);
+    await ensureBusinessPanel(page); await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
+    phase = 'controlled-await-authenticated-account-retirement'; checkpoint();
+    await caret(page, requirementText); await installDigestGate(page);
+    try {
+      await confirmCriterion(page).click(); await enteredDigestGate(page);
+      await page.getByRole('button', { name: '로그아웃', exact: true }).click();
+      await expect(workspace(page)).not.toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole('button', { name: '일반 사용자로 들어가기', exact: true })).toBeVisible({ timeout: 30_000 });
+      // A full OIDC redirect destroys the held JavaScript context. In an SPA
+      // return, releasing the real digest must still not revive the old account.
+      const survived = await releaseDigestGate(page);
+      evidence.push({ kind: 'account-retirement', controlledDigestContextSurvived: survived });
+      expect(requests.timeline.filter(event => event.kind === 'request' && event.method === 'POST' && String(event.path).endsWith('/criterion-confirmations'))).toHaveLength(beforePostCount);
+      expect((await inspect(source.documentId)).document).toStrictEqual(committed.document);
+    } finally { await releaseDigestGate(page, true); }
+    await login(page, 'alpha-editor', documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
+    expect(await records()).toEqual([]); expect(await exported(page)).toStrictEqual(expectedAuthored);
+    await ensureBusinessPanel(page); await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
     phase = 'lost-ack-explicit-ui-confirmation'; checkpoint();
     let lostBody: ReturnType<typeof frozenRequest> | undefined, lostReceipt: ConfirmationReceipt | undefined;
     let lost = false;
@@ -309,6 +360,19 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     expect(await exported(page)).toStrictEqual(expectedAuthored);
     expect((await canonical(page, root, requests.bearer, source.documentId, expectedAuthored)).document).toStrictEqual(committed.document);
     await page.screenshot({ path: join(directory, 'criterion-confirmed-native.png'), animations: 'disabled' });
+    phase = 'native-input-and-whole-history-after-confirmation'; checkpoint();
+    await caret(page, decisionText, 'End'); await page.keyboard.insertText(decisionAddition);
+    const ordinaryEdit = structuredClone(expectedAuthored);
+    const ordinaryRun = nativeParagraph(ordinaryEdit, decisionText).content!.find(node => typeof node !== 'string' && node.stype === 'inline-text') as INode;
+    ordinaryRun.text = decisionText + decisionAddition; ordinaryRun.marks = [];
+    expect(await exported(page)).toStrictEqual(ordinaryEdit);
+    await caret(page, decisionText + decisionAddition, 'End'); await page.keyboard.press('Meta+z');
+    expect(await exported(page)).toStrictEqual(expectedAuthored);
+    await caret(page, decisionText, 'End'); await page.keyboard.press('Meta+Shift+z');
+    expect(await exported(page)).toStrictEqual(ordinaryEdit);
+    await caret(page, decisionText + decisionAddition, 'End'); await page.keyboard.press('Meta+z');
+    expect(await exported(page)).toStrictEqual(expectedAuthored);
+    expect(await records()).toStrictEqual([receipt]); expect((await inspect(source.documentId)).document).toStrictEqual(committed.document);
     phase = 'duplicate-conflict-forgery'; checkpoint();
     const duplicate = await Promise.all([page.request.post(endpoint, { headers: headers(), data: lostBody }), page.request.post(endpoint, { headers: headers(), data: lostBody })]);
     for (const response of duplicate) { expect([200, 201]).toContain(response.status()); expect(await response.json()).toStrictEqual(receipt); }
@@ -326,11 +390,11 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     const restarted = await privateControl<RealStatus>({ action: 'db-start' });
     expect(restarted.databaseIdentity).toBe(initial.databaseIdentity); expect(restarted.databaseGeneration).toBe(initial.databaseGeneration);
     expect(restarted.postgresPid).not.toBe(initial.postgresPid);
-    await page.reload(); await expect(status(page)).toHaveText('서버 저장 확인됨'); await refreshConfirmation(page).click();
+    await page.reload(); await expect(status(page)).toHaveText('서버 저장 확인됨'); await ensureBusinessPanel(page); await refreshConfirmation(page).click();
     await expect(confirmation(page)).toContainText('확인됨'); expect(await records()).toStrictEqual([receipt]);
     expect((await canonical(page, root, requests.bearer, source.documentId, expectedAuthored)).document).toStrictEqual(committed.document);
     phase = 'new-decision-version'; checkpoint();
-    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+    await ensureBusinessPanel(page);
     await caret(page, decisionText, 'End'); await page.keyboard.insertText(decisionAddition);
     const expectedEdited = structuredClone(expectedAuthored);
     const run = nativeParagraph(expectedEdited, decisionText).content!.find(node => typeof node !== 'string' && node.stype === 'inline-text') as INode;
@@ -349,7 +413,7 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     const next = await capture(); expect(next.context.decision.version).toBe(1); expect(next.context.decision.currentVersion).toBe(2);
     expect(next.context.decision.snapshotText).toBe(pin); expect(next.context.decision.currentSnapshotText).toBe(pinV2);
     expect(await records()).toStrictEqual([receipt]); expect((await inspect(source.documentId)).document).toStrictEqual(nextCommitted.document);
-    await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
+    await ensureBusinessPanel(page); await refreshConfirmation(page).click(); await expect(confirmCriterion(page)).toBeEnabled();
     phase = 'ambiguous-canonical-source'; checkpoint();
     const ambiguousNative = structuredClone(expectedV2);
     const surface = ambiguousNative.content!.find((node): node is INode => typeof node !== 'string' && node.stype === 'surface')!;
@@ -397,7 +461,7 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     await expect(status(other)).toHaveText('서버 저장 확인됨');
     const betaEndpoint = `${root}/documents/${betaCreated.document.documentId}/criterion-confirmations`;
     expect(await records(betaEndpoint, otherRequests.bearer)).toEqual([]);
-    await refreshConfirmation(other).click(); await expect(confirmCriterion(other)).toBeEnabled(); await confirmCriterion(other).click();
+    await ensureBusinessPanel(other); await refreshConfirmation(other).click(); await expect(confirmCriterion(other)).toBeEnabled(); await confirmCriterion(other).click();
     await expect(confirmation(other)).toContainText('확인됨');
     const betaReceipts = await records(betaEndpoint, otherRequests.bearer); expect(betaReceipts).toHaveLength(1); expect(betaReceipts[0].actorIdentityId).not.toBe(receipt.actorIdentityId);
     const betaCaptureResponse = await other.request.get(`${betaEndpoint}/context`, { headers: { Authorization: otherRequests.bearer } });
