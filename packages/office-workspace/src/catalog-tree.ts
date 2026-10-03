@@ -33,10 +33,10 @@ export function buildLocalCatalogTree(
   projects: readonly ProjectSnapshot[],
   options: LocalCatalogOptions
 ): LocalCatalogTree {
-  const needle = options.query.trim().toLowerCase();
+  const needle = options.query.trim().normalize('NFC').toLocaleLowerCase();
   const current = rows.filter(row => row.trashedAt === null);
   const visible = current.filter(row => (options.product === 'all' || row.product === options.product)
-    && (!needle || `${row.title}\n${row.searchText}`.toLowerCase().includes(needle)));
+    && (!needle || `${row.title}\n${row.searchText}`.normalize('NFC').toLocaleLowerCase().includes(needle)));
   const groups: LocalCatalogGroup[] = [];
   const entry = (row: WorkspaceDocument, groupId: string, projectId?: string): LocalCatalogEntry => ({
     id: JSON.stringify(['placement', groupId, row.key]), row,
