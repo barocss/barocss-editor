@@ -42,7 +42,7 @@ test('mixed controls apply once, and a folded group resets only its declared pro
 
 test('Slides shows mixed opacity and lock, and resets rotation/opacity in one undo', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Slides 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Slides 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('속성 패널 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await page.getByRole('tab', { name: '레이어', exact: true }).click();

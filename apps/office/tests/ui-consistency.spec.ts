@@ -11,7 +11,7 @@ test('shared chrome works across the four editors', async ({ page }) => {
   const frames: unknown[] = [];
   await page.goto('/');
   for (const product of ['Note', 'Word', 'Slides', 'Site']) {
-    await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
+    await page.getByRole('button', { name: `${product} 새 자료 만들기`, exact: true }).click();
     await page.getByRole('textbox', { name: '새 자료 이름' }).fill('분기 계획');
     await page.getByRole('button', { name: '만들기', exact: true }).click();
     const nav = page.getByRole('navigation', { name: 'Wonffice 작업 공간' });

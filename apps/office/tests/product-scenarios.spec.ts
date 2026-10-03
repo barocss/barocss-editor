@@ -3,7 +3,7 @@ import { openLocalLibrary } from './helpers/local-library';
 
 async function create(page: Page, product: 'Word' | 'Slides' | 'Site', title: string) {
   await openLocalLibrary(page);
-  await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
+  await page.getByRole('button', { name: `${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill(title);
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   // Slides loads a separate entry before its mounted editor starts persistence.
@@ -39,7 +39,7 @@ for (const product of ['Slides', 'Site'] as const) {
     await home(page);
     await create(page, 'Word', `${product} 이동 대상`);
     await home(page);
-    await page.getByRole('button', { name: `${product[0]} ${title}`, exact: true }).click();
+    await page.getByRole('button', { name: `${product} ${title}`, exact: true }).click();
     await expect(page).toHaveURL(originalUrl);
     if (product === 'Slides') {
       // A matching URL precedes async native restore. Confirm the restored graph before disclosure.

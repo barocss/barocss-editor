@@ -21,7 +21,7 @@ test('four product menus use the same trigger and keyboard interaction', async (
 
 test('Site view controls stay in the header in editing and disappear in management', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Site 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Site 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('보기 도구 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await page.getByRole('button', { name: '편집', exact: true }).click();

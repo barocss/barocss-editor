@@ -83,7 +83,7 @@ test('modal chrome shares both themes and ignores composition Escape', async ({ 
 
 test('Slides theme editing closes its colour picker before cancelling the dialog', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Slides 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Slides 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('테마 창 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await page.locator('.sl-properties [data-theme-edit]').click();

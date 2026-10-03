@@ -25,7 +25,7 @@
   */
 import type { ReactElement } from 'react';
 import {
-  Star, History, House, Files, FolderKanban,
+  Star, History, House, Files, FolderKanban, NotebookPen, FileText, Presentation, PanelsTopLeft,
   Search, FileCog, ArrowDownUp, ArrowUpRight, FilePlus2, Printer, LogOut, Download, Play, ChevronLeft,
   AlignCenter,
   Network,
@@ -628,6 +628,10 @@ const ICONS: Record<string, LucideIcon> = {
   'dialog-launch': ArrowUpRight,
   'document-search': Search,
   'recent-documents': History,
+  'product-note': NotebookPen,
+  'product-word': FileText,
+  'product-slides': Presentation,
+  'product-site': PanelsTopLeft,
   'workspace-home': House,
   'workspace-files': Files,
   'workspace-projects': FolderKanban,

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dialog, Icon, SearchSelect, StatusNotice, TextField } from '@barocss/office-ui';
+import { Button, Dialog, Icon, SearchSelect, StatusNotice, TextField, useOfficeLocale } from '@barocss/office-ui';
 import { setProjectWorkPaused, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
 import { products, type Product, plainText } from './products';
 import './project-ui.css';
+import { WorkspaceHeading } from './workspace-heading';
 import { ConnectedWorkControl } from './connected-work-control';
 import type { ProductFeedbackTarget } from '@barocss/shared';
 
@@ -60,8 +61,9 @@ export function PinnedSource({ pin }: { pin: Pin & { sourceState?: 'current' | '
     <pre>{sourceText(pin)}</pre><details><summary>저장한 원본 데이터</summary><pre>{pin.text}</pre></details></section>;
 }
 
-export function ProjectHome({ repository, onOpen, onLibrary }: { repository: ProjectRepository;
+export function ProjectHome({ repository, onOpen, onLibrary, embedded = false }: { embedded?: boolean; repository: ProjectRepository;
   onOpen(project: string, document: ProjectDocument): Promise<void>; onLibrary(): void }) {
+  const { t } = useOfficeLocale();
   const [projects, setProjects] = useState<ProjectSnapshot[]>([]), [selected, setSelected] = useState<ProjectSnapshot | null>(null);
   const [documents, setDocuments] = useState<ProjectDocument[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false), [name, setName] = useState(''), [goal, setGoal] = useState('');
@@ -110,13 +112,17 @@ export function ProjectHome({ repository, onOpen, onLibrary }: { repository: Pro
   const resultDocuments = new Set(record?.results.map(one => `${one.document.product}:${one.document.id}`));
   const available = documents.filter(one => !one.unavailable && !resultDocuments.has(`${one.product}:${one.id}`));
   const findDocument = (key: string) => documents.find(one => `${one.product}:${one.id}` === key);
-  return <div className="ow-project-home">
-    <header className="ow-project-nav"><a href="/">wonffice</a><Button disabled={busy} onClick={onLibrary}>자료함</Button></header>
+  return <div className={`ow-project-home${embedded ? ' ow-project-embedded' : ''}`}>
+    {embedded ? <WorkspaceHeading workspaceLabel={t('workspace.heading.localWorkspace')} location={t('workspace.heading.projects')} title={record?.title ?? t('workspace.heading.projects')} actions={<>
+      {record && <Button disabled={busy} tone="quiet" onClick={() => void choose(null)}><Icon name="back" />{t('workspace.heading.projects')}</Button>}
+      <Button tone="quiet" disabled={busy} onClick={onLibrary}>{t('workspace.heading.library')}</Button>
+      {!record && <Button tone="accent" disabled={!repository.writable || busy || !ready} onClick={() => { setName(''); setGoal(''); setCreating(true); }}>{t('workspace.heading.createProject')}</Button>}
+    </>} /> : <header className="ow-project-nav"><a href="/">wonffice</a><Button disabled={busy} onClick={onLibrary}>자료함</Button></header>}
     <main className="ow-project-main">
-      <header className="ow-project-heading"><div>{record && <Button disabled={busy} tone="quiet" onClick={() => void choose(null)}><Icon name="back" />프로젝트</Button>}
+      {embedded ? record && <p className="ow-project-goal">{record.goal}</p> : <header className="ow-project-heading"><div>{record && <Button disabled={busy} tone="quiet" onClick={() => void choose(null)}><Icon name="back" />프로젝트</Button>}
         <h1>{record?.title ?? '프로젝트'}</h1>{record && <p className="ow-project-goal">{record.goal}</p>}</div>
         {!record && <Button tone="accent" disabled={!repository.writable || busy || !ready} onClick={() => { setName(''); setGoal(''); setCreating(true); }}>프로젝트 만들기</Button>}
-      </header>
+      </header>}
       {error && <StatusNotice tone="danger" title="작업을 완료하지 못했습니다" actions={<Button disabled={busy} onClick={() => void perform(() => refresh())}>다시 불러오기</Button>}>{error} 입력한 내용은 유지합니다.</StatusNotice>}
       {!record ? <section className="ow-project-list" aria-label="프로젝트 목록">
         {!projects.length && <p>목표를 정하고 기존 결과물을 연결하세요. 자동으로 문서나 작업을 만들지 않습니다.</p>}

@@ -2680,9 +2680,12 @@ test.describe('the exported page', () => {
      * gestures, the panel's rows, the menubar's greying, and the command a chord would run.
      */
     await ready(page);
-    await page.locator('[aria-label^="글만 고칩니다"]').click();
-    await page.waitForTimeout(900);
-    await expect(page.locator('[data-writing-toggle]')).toHaveCount(1);
+    const documentMenu = page.getByRole('menuitem', { name: '문서 메뉴', exact: true });
+    await documentMenu.focus(); await page.keyboard.press('Enter');
+    await page.getByRole('menuitemcheckbox', { name: '글 고치기', exact: true }).click();
+    await documentMenu.click();
+    await expect(page.getByRole('menuitemcheckbox', { name: '글 고치기', exact: true })).toBeChecked();
+    await page.keyboard.press('Escape');
 
     /*
      * **The board's gestures are gone** — not greyed. A writer is put in the mode where a press puts
@@ -2714,8 +2717,7 @@ test.describe('the exported page', () => {
 
     // And the menubar greys what the mode refuses, because a mode a reader leaves through a menu is
     // not a mode.
-    await page.locator('[data-menu="edit"]').click();
-    await page.waitForTimeout(300);
+    await documentMenu.click();
     await expect(menuItem(page, '모두 선택')).toBeDisabled();
     await expect(menuItem(page, '복제')).toBeDisabled();
     /*

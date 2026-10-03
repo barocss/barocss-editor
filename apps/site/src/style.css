@@ -874,3 +874,12 @@ body {
 .st-detail-slot { width: 280px; }
 .st-navigation-slot[hidden], .st-detail-slot[hidden] { display: none; }
 .st-body .office-workspace-panel-controls button { min-height: 32px; }
+
+
+/* One native header: title first, compact document actions, then the view group. */
+.st-documentbar[data-compact] .office-editor-title { flex: 1 1 auto; min-width: 120px; }
+.st-header-actions, .st-header-view { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+.st-header-actions { padding-left: 6px; border-left: 1px solid var(--ou-line); }
+.st-header-view { padding-left: 6px; border-left: 1px solid var(--ou-line); }
+/* File/open remains in the document menu. Keep its native picker and task feedback mounted. */
+.st-documentbar .st-file-picker { display: none; }

@@ -50,3 +50,5 @@
 .ow-tree-group-heading>.ow-tree-group{flex:1;min-width:0}
 .ow-tree-group-heading>button[aria-current=page]{color:var(--ou-accent);background:var(--ou-accent-soft)}
 .ow-tree-footer{flex-direction:column}
+
+.ow-tree-product svg{display:block;width:16px;height:16px}

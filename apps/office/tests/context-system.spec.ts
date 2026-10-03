@@ -61,7 +61,7 @@ test('Escape closes a tooltip before its contextual toolbar and tools keep worki
 
 test('Note waits for a completed drag, preserves dismissed selection through resize, and applies formatting', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'N Note 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Note 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('문맥 도구 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   const paragraph = page.locator('.on-doc > p').first();

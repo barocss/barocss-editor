@@ -90,10 +90,10 @@ test('closing a Site original restores the library product, query and opaque fol
   const library = page.locator('.ow-library-embedded');
   await library.locator('.ow-filters').getByRole('button', { name: 'Site', exact: true }).click();
   await library.getByRole('textbox', { name: '자료 검색', exact: true }).fill('Shell site');
-  await library.getByRole('navigation', { name: '폴더', exact: true }).getByRole('button', { name: 'Web work', exact: true }).click();
+  await library.getByRole('combobox', { name: '폴더', exact: true }).selectOption('Web work');
   const row = library.locator(`[data-document="site:${ids.site}"]`);
   await expect(library.locator('[data-document]')).toHaveCount(1);
-  await row.getByRole('button', { name: 'S Shell site', exact: true }).click();
+  await row.getByRole('button', { name: 'Site Shell site', exact: true }).click();
   await expect(tree(page).locator(`[data-original="site:${ids.site}"]`)).toHaveAttribute('aria-pressed', 'true');
   await tree(page).getByRole('button', { name: '자료함', exact: true }).click();
   await expect(library.getByRole('textbox', { name: '자료 검색', exact: true })).toHaveValue('Shell site');
@@ -315,4 +315,50 @@ test('a failed native startup replaces the loading cover with an accessible erro
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: '전체 자료', exact: true })).toBeVisible();
   await expect(tree(page).locator('[data-original]')).toHaveCount(4);
+});
+
+test('populated project trees keep long names discoverable and embedded library actions keyboard reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 1170, height: 900 });
+  const ids = await seed(page);
+  const projectTitle = 'Quarterly launch — research, product delivery and customer adoption';
+  const fileTitle = 'Customer adoption review — detailed findings and next-quarter recommendations';
+  await page.evaluate(async ({ module, projectTitle, fileTitle, id }) => {
+    const { OfficeWorkspace, workspaceIdentity } = await import(module) as typeof import('@barocss/office-workspace');
+    const workspace = new OfficeWorkspace(workspaceIdentity());
+    const project = await workspace.createProject(projectTitle, 'Prepare the customer adoption review');
+    project.record.results.push({ id: crypto.randomUUID(), name: 'Original report', document: { product: 'word', id }, inputs: [] });
+    for (let index = 0; index < 22; index++) {
+      const document = await workspace.create('word', `${fileTitle} ${index + 1}`);
+      project.record.results.push({ id: crypto.randomUUID(), name: `Report ${index + 1}`, document: { product: 'word', id: document }, inputs: [] });
+    }
+    await workspace.saveProject(project.record, project.revision);
+  }, { module: workspaceModule, projectTitle, fileTitle, id: ids.word });
+  const group = tree(page).getByRole('button', { name: projectTitle, exact: true });
+  await expect(group).toHaveAttribute('title', projectTitle);
+  await expect(tree(page).locator('[data-original]')).toHaveCount(26);
+  await open(page, 'word', ids.word);
+  const native = await wordNative(page);
+  for (const width of [1170, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: theme });
+      const geometry = await tree(page).locator('.ow-file-tree').evaluate(el => ({ scroll: el.scrollHeight > el.clientHeight, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }));
+      expect(geometry.scroll).toBe(true); expect(geometry.overflow).toBeLessThanOrEqual(1);
+      const longRow = tree(page).getByRole('button', { name: `${fileTitle} 22 열기`, exact: true });
+      await longRow.scrollIntoViewIfNeeded();
+      await expect(longRow).toHaveAttribute('title', `${fileTitle} 22`);
+      await page.screenshot({ path: test.info().outputPath(`populated-${theme}-${width}.png`), animations: 'disabled' });
+    }
+  }
+  expect(await wordNative(page)).toBe(native);
+  await tree(page).getByRole('button', { name: '자료함', exact: true }).click();
+  const library = page.locator('.ow-library-embedded');
+  await expect(library.locator('.ow-workspace-heading')).toBeVisible();
+  const backup = library.getByRole('button', { name: '백업 및 가져오기', exact: true });
+  await backup.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: '백업 및 가져오기', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '전체 자료 백업', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(backup).toBeFocused();
+  await expect(library.getByRole('combobox', { name: '자료 보기', exact: true })).toBeVisible();
 });
