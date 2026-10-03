@@ -104,7 +104,7 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
       {status && <StatusIndicator tone="success">{status}</StatusIndicator>}
       {problem && <StatusNotice tone="danger" title="작업을 완료하지 못했습니다">{problem}</StatusNotice>}
     </Dialog>
-    <DocumentSaveStatus status={autoStatus} title={problem || (autoStatus === 'save-error' ? t('document.save.error.save') : autoStatus === 'restore-error' ? t('document.save.error.restore') : undefined)} data-word-save-status />
+    <Tip label={t(`document.save.status.${autoStatus}`)}><DocumentSaveStatus tabIndex={0} className="office-save-status" data-icon-only status={autoStatus} title={problem || (autoStatus === 'save-error' ? t('document.save.error.save') : autoStatus === 'restore-error' ? t('document.save.error.restore') : undefined)} data-word-save-status /></Tip>
     {recoveryRequired && !open && <>
       <StatusNotice tone="danger" title="복구 필요">문서 화면이 저장본과 다를 수 있어 자동 저장을 멈췄습니다. 저장본을 다시 열기 전에 필요한 내용을 보관하세요.</StatusNotice>
       {recoveryButton}

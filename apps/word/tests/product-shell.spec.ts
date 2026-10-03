@@ -1,3 +1,4 @@
+import { openWordDocumentAction } from './helpers';
 import { test, expect } from '@playwright/test';
 import { placeCaret } from './helpers';
 
@@ -47,14 +48,14 @@ test('ribbon groups stay focused and switching preserves the insertion target', 
 test('file actions remain reachable through the grouped document dialog', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
-  await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+  await openWordDocumentAction(page, '문서 작업');
   const actions = page.getByRole('dialog', { name: '문서 작업', exact: true });
   await expect(actions.getByRole('button', { name: 'DOCX 가져오기', exact: true })).toBeVisible();
   await expect(actions.getByRole('button', { name: 'DOCX 내보내기', exact: true })).toBeVisible();
   await actions.getByRole('button', { name: '보관함에 사본 저장', exact: true }).click();
   await expect(actions.getByRole('status')).toContainText('보관함에 저장됨');
   await actions.getByRole('button', { name: '닫기', exact: true }).click();
-  await page.getByRole('button', { name: '문서 보관함', exact: true }).click();
+  await openWordDocumentAction(page, '문서 보관함');
   await expect(page.getByRole('dialog', { name: '문서 보관함', exact: true })).toBeVisible();
 });
 

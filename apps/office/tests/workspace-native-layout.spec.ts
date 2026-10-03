@@ -92,8 +92,16 @@ for (const product of products) for (const width of [1170, 1440]) for (const the
       await expect(title.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveValue(fullTitle(product));
       await expect(title.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveAttribute('title', fullTitle(product));
       await expect.poll(() => page.locator('.w-sheet').count()).toBeGreaterThan(1);
+      const slot = (await page.locator('.w-document-slot').boundingBox())!, nativeViewport = (await page.locator('.w-shell-document').boundingBox())!, capsule = (await page.getByRole('toolbar', { name: '보기 도구', exact: true }).boundingBox())!;
+      expect(nativeViewport.height).toBe(slot.height);
+      expect(capsule.width).toBeLessThanOrEqual(320); expect(capsule.height).toBeLessThanOrEqual(48);
+      expect(capsule.x).toBeGreaterThanOrEqual(slot.x); expect(capsule.x + capsule.width).toBeLessThanOrEqual(slot.x + slot.width);
+      expect(await page.locator('.w-view-utilities').evaluate(el => getComputedStyle(el).position)).toBe('absolute');
+      expect(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x + 10, y + 10)?.closest('.w-shell-document'), slot)).toBe(true);
+      await test.info().attach('native-view-overlay', { body: JSON.stringify({ slot, nativeViewport, capsule }), contentType: 'application/json' });
     } else await expect(title).toContainText(fullTitle(product));
     const before = await savedNative(page, product, original.id);
+    await page.screenshot({ path: test.info().outputPath(`${product}-${theme}-${width}-default.png`), animations: 'disabled' });
     await openPanels(page, product);
     const geometry = await page.evaluate(() => {
       const header = document.querySelector('.office-editor-header')!, name = header.querySelector('[data-document-identity]')!;
@@ -212,4 +220,63 @@ test('Word desktop panels retain the native selection and unsubmitted comment th
   await inspector.press('Enter'); await expect(draft).toHaveValue('Review this original, not a copy.');
   await page.setViewportSize({ width: 1440, height: 1000 }); await expect(draft).toBeVisible();
   expect(await native()).toEqual(before); await expect(page.locator('.ow-file-navigation')).toBeVisible();
+});
+
+test('Note nested input and native block properties survive Workspace navigation and reopen', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const original = await populated(page, 'note'); await page.goto(original.url);
+  const block = page.locator('.on-doc .w-callout').first();
+  await expect(block).toBeVisible();
+  const paragraph = block.locator('p').first();
+  await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Last nested input');
+  await expect(paragraph).toContainText('Last nested input');
+  const before = await savedNative(page, 'note', original.id);
+  await paragraph.click();
+  const sid = await block.getAttribute('data-bc-sid'), grip = page.locator('[data-note-grip]');
+  await expect(grip).toHaveAttribute('data-note-grip', sid!); await grip.click();
+  await page.getByRole('menuitem', { name: '블록 설정', exact: true }).click();
+  const properties = page.locator('[data-note-properties]'), field = properties.locator('[data-note-field="type"]');
+  await expect(properties).toBeVisible(); await expect(field).toHaveValue('note');
+  expect(await field.evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
+  await properties.getByRole('button', { name: '속성 닫기', exact: true }).click(); await expect(properties).toHaveCount(0);
+  await page.locator('.ow-file-navigation').getByRole('button', { name: '내 파일', exact: true }).click();
+  expect(await savedNative(page, 'note', original.id)).toBe(before);
+  await page.reload(); await expect(paragraph).toContainText('Last nested input');
+  expect(await savedNative(page, 'note', original.id)).toBe(before);
+});
+
+test('Site canvas capsules retain native history and keep advanced tools keyboard reachable', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const original = await populated(page, 'site'); await page.goto(original.url);
+  const insertion = page.getByRole('toolbar', { name: '사이트 삽입 도구', exact: true }), view = page.getByRole('toolbar', { name: '사이트 보기', exact: true });
+  await expect(insertion).toBeVisible(); await expect(view).toBeVisible();
+  const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
+  const before = await native();
+  for (const capsule of [insertion, view]) {
+    const box = (await capsule.boundingBox())!; expect(box.width).toBeLessThanOrEqual(480); expect(box.height).toBeLessThanOrEqual(48);
+    const hits = await capsule.locator('button,input').evaluateAll(nodes => nodes.filter(el => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0).map(el => { const r = el.getBoundingClientRect(); return { width: r.width, height: r.height, hit: el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)) }; }));
+    await test.info().attach('capsule-hit-targets', { body: JSON.stringify({ box, hits }), contentType: 'application/json' });
+    expect(hits.length).toBeGreaterThan(3);
+    for (const hit of hits) { expect(hit.width).toBeGreaterThanOrEqual(32); expect(hit.height).toBeGreaterThanOrEqual(32); expect(hit.hit).toBe(true); }
+  }
+  const more = insertion.getByRole('button', { name: '모든 도구', exact: true });
+  await more.focus(); await more.press('Enter');
+  const full = page.locator('.st-all-tools-popup'); await expect(full).toBeVisible();
+  expect(await native()).toEqual(before);
+  const tooltip = page.getByRole('tooltip'), owned = await tooltip.isVisible();
+  await page.keyboard.press('Escape');
+  if (owned) { await expect(tooltip).toHaveCount(0); await page.keyboard.press('Escape'); }
+  await expect(full).toBeHidden(); await expect(more).toBeFocused();
+  expect(await native()).toEqual(before);
+  const preview = view.locator('.st-preview-toggle'); await preview.click();
+  await expect(preview).toHaveAttribute('aria-pressed', 'true'); expect((await native()).document).toEqual(before.document);
+  await preview.click(); await expect(preview).toHaveAttribute('aria-pressed', 'false');
+  expect((await native()).document).toEqual(before.document);
+  await insertion.getByRole('button', { name: '제목을 넣습니다', exact: true }).click();
+  await expect.poll(async () => (await native()).document).not.toEqual(before.document);
+  await page.getByRole('button', { name: '명령 검색', exact: true }).click();
+  const search = page.getByRole('combobox', { name: '명령 검색어', exact: true });
+  await search.fill('실행 취소'); await search.press('Enter');
+  await expect(search).toHaveCount(0);
+  await expect.poll(async () => (await native()).document).toEqual(before.document);
 });

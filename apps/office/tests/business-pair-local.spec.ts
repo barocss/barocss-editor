@@ -1,3 +1,4 @@
+import { openWordDocumentAction } from '../../word/tests/helpers';
 import { expect, test, type Page } from '@playwright/test';
 import type { INode } from '../../../packages/datastore/src/types';
 import type { BusinessPairPayload } from '../../../packages/office-word/src/business-pair';
@@ -180,7 +181,7 @@ test('actual local Word authors the rich pair then copy, restore, move and reope
   await expect(page.locator('.w-business-pair')).toContainText(copyIds[0]); await home(page);
   expect(await read(page, seeded.id)).toStrictEqual(original);
   await open(page, title);
-  await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+  await openWordDocumentAction(page, '문서 작업');
   const actions = page.getByRole('dialog', { name: '문서 작업', exact: true });
   await actions.getByRole('button', { name: '보관함에 사본 저장', exact: true }).click();
   await expect.poll(async () => (await snapshots(page)).length).toBe(4);
@@ -195,7 +196,7 @@ test('actual local Word authors the rich pair then copy, restore, move and reope
     const { wordDrafts } = await import(`/@fs${root}/apps/word/src/autosave.ts`);
     await wordDrafts.keep({ name: 'fictional-business-draft', title: 'Fictional pair recovery', count: 1, savedAt: 100 }, text);
   }, { root: sourceRoot!, text: wordFileText(authored, '') });
-  await page.getByRole('button', { name: '문서 보관함', exact: true }).click();
+  await openWordDocumentAction(page, '문서 보관함');
   const library = page.getByRole('dialog', { name: '문서 보관함', exact: true });
   await library.getByRole('button', { name: 'Fictional pair recovery 초안 복구', exact: true }).click();
   await expect.poll(async () => (await snapshots(page)).length).toBe(5);
