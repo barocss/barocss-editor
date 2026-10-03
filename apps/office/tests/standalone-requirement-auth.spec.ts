@@ -170,6 +170,7 @@ test('authors a standalone rich requirement before an explicit decision link and
   const profileA = mkdtempSync(join(directory, 'standalone-requirement-a-')), profileB = mkdtempSync(join(directory, 'standalone-requirement-b-'));
   let a: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined, b: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined;
   let requests: ReturnType<typeof track> | undefined, phase = 'entry', passed = false;
+  let profileASafe = true, profileBSafe = true;
   const evidence: Array<Record<string, unknown>> = [], cleanupSteps: Array<{ name: string; ok: boolean }> = [];
   const checkpoint = () => writeFileSync(evidenceFile, JSON.stringify({ status: passed ? 'checks-passed-cleanup-pending' : 'incomplete', phase,
     evidence, timeline: requests?.timeline ?? [], cleanupSteps }, null, 2), { mode: 0o600 });
@@ -177,7 +178,7 @@ test('authors a standalone rich requirement before an explicit decision link and
   try {
     const initial = await privateControl<RealStatus>({ action: 'status' });
     const root = `${origin}/api/v1/tenants/${initial.tenantId}`;
-    a = await launchPrivateProfile(profileA);
+    profileASafe = false; a = await launchPrivateProfile(profileA);
     const page = await a.context.newPage(); requests = track(page, checkpoint);
     await login(page, 'alpha-editor');
     const source = await seedAndOpen(page), documentUrl = page.url();
@@ -186,6 +187,13 @@ test('authors a standalone rich requirement before an explicit decision link and
     await caret(page, requirementText);
     await panel(page).getByRole('button', { name: '요구사항 문단 지정', exact: true }).click();
     await expect(panel(page)).toContainText('요구사항 지정됨');
+    const capturedNative = await exported(page);
+    const editable = workspace(page).locator('[contenteditable=true]').first();
+    await editable.dispatchEvent('compositionstart');
+    await panel(page).getByRole('button', { name: '요구사항 기록', exact: true }).click();
+    await expect(panel(page).getByRole('alert')).toContainText('입력이 끝난 뒤');
+    expect(await exported(page)).toStrictEqual(capturedNative);
+    await editable.dispatchEvent('compositionend');
     await panel(page).getByRole('button', { name: '요구사항 기록', exact: true }).click();
     await expect(panel(page)).toContainText('요구사항');
     const authored = await exported(page), pair = authored.metadata!.wonfficeBusinessPair as Pair;
@@ -207,6 +215,17 @@ test('authors a standalone rich requirement before an explicit decision link and
     const expectedStandalone: INode = { ...expectedAnchors, metadata: { ...expectedAnchors.metadata,
       wonfficeBusinessPair: { schemaVersion: 2, lifecycle: 'unlinked', items: [expectedRequirement], relations: [] } } };
     expect(authored).toStrictEqual(expectedStandalone);
+    await expect(panel(page)).toContainText('결정 미연결');
+    await expect(panel(page).getByRole('button', { name: '서버 확인 기록 읽기', exact: true })).toHaveCount(0);
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe(theme);
+      await page.screenshot({ path: join(directory, `standalone-${theme}.png`), animations: 'disabled' });
+    }
+    await page.evaluate(() => { delete document.documentElement.dataset.theme; });
+    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+    expect(await exported(page)).toStrictEqual(expectedStandalone);
+    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
     expect(requests.timeline.filter(event => typeof event.path === 'string' && /\/(?:works|work-requests|models|inference|confirmations|verifications)(?:\/|$)/.test(event.path))).toHaveLength(0);
     await caret(page, requirementText); await page.keyboard.press('Meta+z');
     expect(await exported(page)).toStrictEqual(expectedAnchors);
@@ -218,9 +237,26 @@ test('authors a standalone rich requirement before an explicit decision link and
     expect(await exported(page)).toStrictEqual(expectedStandalone);
 
     phase = 'standalone-independent-copy'; checkpoint();
+    const standaloneCopyIds: string[] = [];
+    for (const sourceKind of ['file', 'local']) {
+      if (sourceKind === 'file') {
     await workspace(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({
       name: 'fictional-standalone.word.json', mimeType: 'application/json', buffer: Buffer.from(wordFileText(expectedStandalone, '')),
     });
+      } else {
+        await page.evaluate(({ text }) => new Promise<void>((resolve, reject) => {
+          const request = indexedDB.open('barocss-word', 1);
+          request.onupgradeneeded = () => request.result.createObjectStore('documents', { keyPath: 'name' });
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            const db = request.result, tx = db.transaction('documents', 'readwrite');
+            tx.objectStore('documents').put({ name: 'fictional-standalone-copy', title: 'Fictional standalone copy', text, count: 1, savedAt: 100 });
+            tx.oncomplete = () => { db.close(); resolve(); }; tx.onabort = () => reject(tx.error);
+          };
+        }), { text: wordFileText(expectedStandalone, '') });
+        await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
+        await workspace(page).getByRole('button', { name: 'Fictional standalone copy · 새 서버 사본 준비', exact: true }).click();
+      }
     const copyResponse = page.waitForResponse(response => response.request().method() === 'POST' && /\/documents$/.test(new URL(response.url()).pathname));
     await save(page).click(); const copyCreated = await copyResponse; expect(copyCreated.status()).toBe(201);
     const copyRaw = await copyCreated.json() as { document: { documentId: string }; snapshotText: string };
@@ -228,6 +264,7 @@ test('authors a standalone rich requirement before an explicit decision link and
     const copiedStandalone = JSON.parse(copyRaw.snapshotText).document as INode;
     const derivedRequirement = (copiedStandalone.metadata!.wonfficeBusinessPair as Pair).items[0];
     expect(derivedRequirement.id).not.toBe(expectedRequirement.id);
+    expect(standaloneCopyIds).not.toContain(derivedRequirement.id); standaloneCopyIds.push(derivedRequirement.id);
     expect(derivedRequirement.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     const expectedStandaloneCopy = structuredClone(expectedStandalone);
     const copiedItem = (expectedStandaloneCopy.metadata!.wonfficeBusinessPair as Pair).items[0];
@@ -237,9 +274,31 @@ test('authors a standalone rich requirement before an explicit decision link and
     await canonical(page, root, requests.bearer, copyRaw.document.documentId, expectedStandaloneCopy);
     expect((await inspect(source.documentId)).document).toStrictEqual(standaloneCommitted.document);
     await page.goto(documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
-    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+    }
 
+    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
     phase = 'later-explicit-decision-link'; checkpoint();
+    await panel(page).getByLabel('연결할 요구사항 버전', { exact: true }).selectOption('1');
+    await panel(page).getByRole('button', { name: '연결 취소', exact: true }).click();
+    await expect(workspace(page).locator('[contenteditable=true]').first()).toBeFocused();
+    expect(await exported(page)).toStrictEqual(expectedStandalone);
+    // Store a second authored version, then deliberately link the historical v1.
+    const revisionSuffix = ' Fictional authored revision.';
+    await caret(page, requirementText, 'End'); await page.keyboard.insertText(revisionSuffix);
+    const revisedRun = nativeParagraph(expectedStandalone, requirementText).content!.find((node): node is INode => typeof node !== 'string' && node.text === requirementText)!;
+    revisedRun.text = requirementText + revisionSuffix;
+    // Appending plain text outside the original bold range preserves that range.
+    expect(await exported(page)).toStrictEqual(expectedStandalone);
+    const secondPinSource = structuredClone(expectedStandalone); delete secondPinSource.metadata!.wonfficeBusinessPair;
+    const expectedSecondPin = JSON.parse(wordFileText(secondPinSource, ''));
+    await panel(page).getByRole('button', { name: '현재 요구사항 내용을 새 버전으로 보관', exact: true }).click();
+    await expect(panel(page)).toContainText('요구사항 · v2');
+    expectedRequirement.currentVersion = 2;
+    const storedSecondPin = ((await exported(page)).metadata!.wonfficeBusinessPair as Pair).items[0].versions[1].snapshotText;
+    expect(JSON.parse(storedSecondPin)).toStrictEqual(expectedSecondPin);
+    expectedRequirement.versions.push({ version: 2, snapshotText: storedSecondPin });
+    expect(await exported(page)).toStrictEqual(expectedStandalone);
+    expect(expectedRequirement.versions[0].snapshotText).toBe(pinV1);
     await caret(page, decisionText);
     await panel(page).getByRole('button', { name: '연결할 결정 문단 지정', exact: true }).click();
     await expect(panel(page).getByRole('button', { name: '결정 연결', exact: true })).toBeDisabled();
@@ -250,7 +309,17 @@ test('authors a standalone rich requirement before an explicit decision link and
     expect(decisionAnchor.attributes?.id).not.toBe(requirementAnchor.attributes!.id);
     nativeParagraph(expectedBeforeLink, decisionText).content!.unshift({ stype: 'bookmarkAnchor', attributes: { id: decisionAnchor.attributes!.id } });
     expect(beforeLink).toStrictEqual(expectedBeforeLink);
-    await panel(page).getByRole('button', { name: '결정 연결', exact: true }).click();
+    const versionSelect = panel(page).getByLabel('연결할 요구사항 버전', { exact: true });
+    expect((await versionSelect.boundingBox())!.height).toBeGreaterThanOrEqual(32);
+    const linkButton = panel(page).getByRole('button', { name: '결정 연결', exact: true });
+    expect((await linkButton.boundingBox())!.height).toBeGreaterThanOrEqual(32);
+    await workspace(page).locator('[contenteditable=true]').first().dispatchEvent('compositionstart');
+    await linkButton.click();
+    await expect(panel(page).getByRole('alert')).toContainText('입력이 끝난 뒤');
+    expect(await exported(page)).toStrictEqual(expectedBeforeLink);
+    await expect(versionSelect).toHaveValue('1');
+    await workspace(page).locator('[contenteditable=true]').first().dispatchEvent('compositionend');
+    await linkButton.click();
     await expect(panel(page)).toContainText('supported_by');
     const linked = await exported(page), linkedPair = linked.metadata!.wonfficeBusinessPair as Pair;
     const decision = linkedPair.items.find(item => item.kind === 'decision')!;
@@ -263,6 +332,8 @@ test('authors a standalone rich requirement before an explicit decision link and
         versions: [{ version: 1, snapshotText: decision.versions[0].snapshotText }],
       }], relations: [{ kind: 'supported_by', source: { itemId: expectedRequirement.id, version: 1 }, target: { itemId: decision.id, version: 1 } }] } } };
     expect(linked).toStrictEqual(expectedV2); expect(linkedPair.items[0]).toStrictEqual(expectedRequirement);
+    await expect(panel(page)).toContainText('다시 검토해야 합니다');
+    await expect(panel(page).getByRole('button', { name: '이 요구사항 버전을 직접 확인', exact: true })).toBeDisabled();
     for (let repeat = 0; repeat < 2; repeat++) {
       await caret(page, decisionText); await page.keyboard.press('Meta+z');
       expect(await exported(page)).toStrictEqual(expectedBeforeLink);
@@ -273,21 +344,33 @@ test('authors a standalone rich requirement before an explicit decision link and
     await page.screenshot({ path: join(directory, 'standalone-explicit-linked.png'), animations: 'disabled' });
     phase = 'lost-save-ack'; checkpoint();
     let dropped = false;
+    let frozen: { method: string; path: string; body: Record<string, unknown> } | undefined;
     await page.route('**/api/v1/**/snapshot', async route => {
       if (route.request().method() !== 'PUT' || dropped) { await route.continue(); return; }
       dropped = true;
+      frozen = { method: 'PUT', path: new URL(route.request().url()).pathname, body: route.request().postDataJSON() as Record<string, unknown> };
       const response = await route.fetch(); expect(response.status()).toBe(200);
       await route.abort('connectionfailed');
     });
     const writesBefore = requests.writes.length;
     await save(page).click();
     await expect(save(page)).toHaveText('저장 확인·재시도');
-    const frozen = requests.writes.slice(writesBefore).find(write => write.method === 'PUT');
-    expect(frozen).toBeDefined();
-    await save(page).click(); await expect(status(page)).toHaveText('서버 저장 확인됨');
+    await expect.poll(() => !!frozen).toBe(true);
+    expect(JSON.parse(String(frozen!.body.snapshotText)).document).toStrictEqual(expectedV2);
+    await page.reload(); await expect(workspace(page)).toBeVisible();
+    await expect.poll(async () => await status(page).textContent() === '서버 저장 확인됨' || await save(page).textContent() === '저장 확인·재시도').toBe(true);
+    if (await status(page).textContent() !== '서버 저장 확인됨') await save(page).click();
+    await expect(status(page)).toHaveText('서버 저장 확인됨');
     const retried = requests.writes.slice(writesBefore).filter(write => write.method === 'PUT');
     // A receipt GET is also permitted. If PUT is retried it must preserve the complete frozen envelope.
     retried.forEach(write => expect(write).toStrictEqual(frozen));
+    const receiptPath = `/receipts/update/${String(frozen!.body.idempotencyKey)}`;
+    expect(requests.timeline.some(event => event.kind === 'request' && event.method === 'GET' && String(event.path).endsWith(receiptPath))).toBe(true);
+    const unchanged = (await inspect(source.documentId)).document;
+    const conflicting = JSON.parse(String(frozen!.body.snapshotText));
+    conflicting.document.metadata = { ...conflicting.document.metadata, conflictProbe: 'fictional' };
+    const conflict = await page.request.put(`${root}/documents/${source.documentId}/snapshot`, { headers: { Authorization: requests.bearer }, data: { ...frozen!.body, snapshotText: JSON.stringify(conflicting) } });
+    expect(conflict.status()).toBe(409); expect((await inspect(source.documentId)).document).toStrictEqual(unchanged);
     await page.unroute('**/api/v1/**/snapshot');
     expect((await inspect(source.documentId)).document!.revision).toBe(standaloneCommitted.document!.revision + 1);
     phase = 'canonical-save'; checkpoint();
@@ -296,9 +379,25 @@ test('authors a standalone rich requirement before an explicit decision link and
     await page.reload(); await expect(workspace(page)).toBeVisible({ timeout: 30_000 });
     await expect(status(page)).toHaveText('서버 저장 확인됨');
     expect(await exported(page)).toStrictEqual(expectedV2);
+    phase = 'stale-review-original-pin'; checkpoint();
+    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+    await caret(page, requirementText, 'End'); await page.keyboard.insertText(' Fictional later change.');
+    await expect(panel(page)).toContainText('다시 검토해야 합니다');
+    const changedNative = await exported(page);
+    expect((changedNative.metadata!.wonfficeBusinessPair as Pair).items[0]).toStrictEqual(expectedRequirement);
+    await panel(page).getByRole('button', { name: '보관된 v1 내용', exact: true }).first().click();
+    const pinView = panel(page).locator('section').filter({ has: page.getByRole('button', { name: '보관 내용 닫기', exact: true }) });
+    await pinView.getByText('전체 원본과 서식 데이터', { exact: true }).click();
+    expect(await pinView.locator('pre').textContent()).toBe(pinV1);
+    await panel(page).getByRole('button', { name: '보관 내용 닫기', exact: true }).click();
+    await caret(page, requirementText, 'End'); await page.keyboard.press('Meta+z');
+    expect(await exported(page)).toStrictEqual(expectedV2);
     phase = 'database-restart'; checkpoint();
+    await privateControl({ action: 'api-stop' });
     const stopped = await privateControl<RealStatus>({ action: 'db-stop' }); expect(stopped.databaseRunning).toBe(false);
-    const restarted = await privateControl<RealStatus>({ action: 'db-start' });
+    await privateControl({ action: 'db-start' });
+    const restarted = await privateControl<RealStatus>({ action: 'api-start' });
+    expect(restarted.apiPid).not.toBe(initial.apiPid);
     expect(restarted.databaseIdentity).toBe(initial.databaseIdentity);
     expect(restarted.databaseGeneration).toBe(initial.databaseGeneration);
     expect(restarted.postgresPid).not.toBe(initial.postgresPid);
@@ -353,7 +452,7 @@ test('authors a standalone rich requirement before an explicit decision link and
     }
     await page.goto(documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
     phase = 'independent-authority'; checkpoint();
-    b = await launchPrivateProfile(profileB); expect(b.pid).not.toBe(a.pid);
+    profileBSafe = false; b = await launchPrivateProfile(profileB); expect(b.pid).not.toBe(a.pid);
     const other = await b.context.newPage(), otherRequests = track(other, checkpoint);
     await login(other, 'beta-viewer', documentUrl);
     await expect(workspace(other)).toBeVisible({ timeout: 30_000 });
@@ -392,11 +491,12 @@ test('authors a standalone rich requirement before an explicit decision link and
       checkpoint();
     };
     await clean('database-running', () => privateControl({ action: 'db-start' }));
+    await clean('api-running', () => privateControl({ action: 'api-start' }));
     await clean('viewer-active', () => privateControl({ action: 'beta-active', active: true }));
     await clean('viewer-role', () => privateControl({ action: 'beta-role', role: 'viewer' }));
-    if (a) await clean('profile-a-stopped', () => stopPrivateProfile(a!.context, a!.pid));
-    if (b) await clean('profile-b-stopped', () => stopPrivateProfile(b!.context, b!.pid));
-    const cleanup = cleanupSteps.every(step => step.ok);
+    if (a) await clean('profile-a-stopped', async () => { await stopPrivateProfile(a!.context, a!.pid); profileASafe = true; });
+    if (b) await clean('profile-b-stopped', async () => { await stopPrivateProfile(b!.context, b!.pid); profileBSafe = true; });
+    const cleanup = profileASafe && profileBSafe && cleanupSteps.every(step => step.ok);
     if (cleanup) [profileA, profileB].forEach(path => rmSync(path, { recursive: true, force: true }));
     writeFileSync(evidenceFile, JSON.stringify({ status: passed && cleanup ? 'passed' : 'incomplete', phase,
       evidence, timeline: requests?.timeline ?? [], cleanupSteps, cleanup,
