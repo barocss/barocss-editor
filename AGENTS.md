@@ -1,5 +1,7 @@
 # Wonffice — Codex 작업 규칙
 
+2026-10-04 사용자 승인 운영 계약: [작업 선택·인계·완료 규칙](docs/operations/wonffice-workflow.md)과 [연구 카테고리 등록부](docs/operations/research-categories.md)를 우선 읽는다. 현재 운영은 Research / Planner / Execute 세 역할이며, 제품 우선순위와 배정은 Planner가 GitHub 이슈의 현재 기록으로 관리한다. 사용자의 최신 직접 지시가 언제나 우선한다. 아래 GitHub 흐름의 routine PR·main 기준 설명은 최종 출시 절차와 역사적 기본값이다. 릴리즈 전 제품 개발은 기존 사용자 결정대로 로컬 `develop` 직렬 통합을 따른다. 별도 상시 Review 승인을 요구하지 않는다.
+
 ## 응답과 작업 시작
 
 - 사용자의 언어로 답한다. ASD-STE100 원칙에 따라 짧고 명확한 문장을 쓴다.

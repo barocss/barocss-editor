@@ -1,6 +1,12 @@
 # Agent Roles and Orchestration
 
-## Current connected Works — owner decision, 2026-10-01
+## Current connected Works — owner decision, 2026-10-04
+
+The current model is **Research → Planner → Execute**, with one Planner priority order and one active product implementation owner. See [the operating contract](operations/wonffice-workflow.md) and [research category registry](operations/research-categories.md). Specialist Research Works are temporary, question-scoped resources under Research coordination. Research proposals do not expand a release or dispatch Execute. GitHub Issue current records carry state, priority, readiness and acceptance; milestones group goals; local Git and tests provide execution evidence. The 2026-10-01 two-Work wording below is retained historical context and is superseded by this decision. The existing no-routine-Review and local-only development decisions remain.
+
+---
+
+## Previous operating decision — 2026-10-01
 
 The active barocss-editor operating model is **Planner → Execute**. Planner uses `gpt-6.1-sol` with `high` reasoning and directly owns GitHub Issues, Wiki, Discussions, priorities, new feature Issues, acceptance criteria and release planning. Execute uses `gpt-6.1-sol` with `medium` reasoning and owns one highest-priority ready Issue at a time: implementation, mandatory tests/preflight, local commit, serial local branch merge, integration verification, then the next ready Issue. Execute alone owns local integration; record its designated branch and exact base/candidate/integration SHAs. Preserve active branches and uncommitted work; report material blockers without repeated routine approval requests.
 
