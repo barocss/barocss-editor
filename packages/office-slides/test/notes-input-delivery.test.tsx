@@ -5,7 +5,8 @@ import { registerPreCommitGuard } from '@barocss/model';
 import { createSlidesEditor } from '../src/slides-kit';
 import { deckSlides, noteFor } from '../src/deck';
 import { emptyNotesDraft, NotesDraftInput } from '../src/notes-draft-input';
-import { NotesPane } from '../src/notes';
+import { NotesPane, type NotesPaneProps } from '../src/notes';
+import { registerSlidesRenderers } from '../src/renderers';
 let editor: ReturnType<typeof createSlidesEditor>, host: HTMLElement, root: Root;
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -85,4 +86,65 @@ it('refuses an unfinished retained draft after changing slides instead of silent
   expect(await delivery!(() => true)).toBe(false); expect(text(a.sid)).toBeUndefined(); expect(text(b.sid)).toBeUndefined();
   await act(async () => root.render(<NotesPane editor={editor} slideSid={a.sid} revision={0} onInputDeliveryReady={register} />));
   expect(host.querySelector('textarea')!.value).toBe('old slide draft');
+});
+
+
+type NotesRecovery = NonNullable<Parameters<NonNullable<NotesPaneProps['onInputRecoveryReady']>>[0]>;
+const richNoteFailure = async () => {
+  registerSlidesRenderers();
+  const slide = slides()[0].sid;
+  expect(await editor.run('addSlideNote', { slideId: slide, initialText: 'Original note' })).toBe(true);
+  let recovery: NotesRecovery | null = null, delivery: ((isCurrent: () => boolean) => Promise<boolean>) | null = null;
+  const registerRecovery = (next: NotesRecovery | null) => { recovery = next; };
+  const registerDelivery = (next: typeof delivery) => { delivery = next; };
+  await act(async () => root.render(<NotesPane editor={editor} slideSid={slide} revision={0}
+    onInputRecoveryReady={registerRecovery} onInputDeliveryReady={registerDelivery} />));
+  const rich = host.querySelector('.sl-notes-host [data-bc-layer="content"]') as HTMLElement;
+  expect(rich).not.toBeNull();
+  const walker = document.createTreeWalker(rich, NodeFilter.SHOW_TEXT);
+  let leaf = walker.nextNode() as Text;
+  while (leaf && leaf.data !== 'Original note') leaf = walker.nextNode() as Text;
+  expect(leaf?.data).toBe('Original note');
+  const sid = leaf.parentElement!.closest('[data-bc-sid]')!.getAttribute('data-bc-sid')!;
+  const error = new Error('rich note input refused');
+  vi.spyOn(editor, 'executeCommand').mockRejectedValueOnce(error);
+  await act(async () => {
+    leaf.data += '!'; const range = document.createRange(); range.setStart(leaf, leaf.length); range.collapse(true);
+    window.getSelection()!.removeAllRanges(); window.getSelection()!.addRange(range);
+    editor.setRange({ type: 'range', startNodeId: sid, endNodeId: sid, startOffset: leaf.length, endOffset: leaf.length, collapsed: true });
+    expect(await delivery!(() => true)).toBe(false);
+  });
+  expect(recovery).not.toBeNull();
+  expect(recovery!.failed()).toBe(true); expect(recovery!.matches(error)).toBe(true);
+  expect(recovery!.matches(new Error('rich note input refused'))).toBe(false);
+  expect(text(slide)).toBe('Original note');
+  return { slide, error, recovery: recovery!, registerRecovery, registerDelivery };
+};
+
+it('exposes a real rich-note failure and performs only an explicit owned correlated retry', async () => {
+  const failed = await richNoteFailure();
+  expect(await failed.recovery.retry(() => false)).toBe(false);
+  expect(failed.recovery.failed()).toBe(true);
+  await act(async () => expect(await failed.recovery.retry(() => true)).toBe(true));
+  expect(text(failed.slide)).toBe('Original note!');
+  expect(failed.recovery.failed()).toBe(false); expect(failed.recovery.matches(failed.error)).toBe(false);
+  expect(await failed.recovery.retry(() => true)).toBe(false);
+  await act(async () => expect(await editor.undo()).toBe(true)); expect(text(failed.slide)).toBe('Original note');
+  await act(async () => expect(await editor.redo()).toBe(true)); expect(text(failed.slide)).toBe('Original note!');
+});
+
+it.each(['slide change', 'editable ABA', 'same-root replacement', 'disconnection', 'unmount'])('refuses stale rich-note recovery after %s', async mode => {
+  const failed = await richNoteFailure();
+  await act(async () => {
+    if (mode === 'slide change') root.render(<NotesPane editor={editor} slideSid={slides()[1].sid} revision={0}
+      onInputRecoveryReady={failed.registerRecovery} onInputDeliveryReady={failed.registerDelivery} />);
+    else if (mode === 'editable ABA') { editor.setEditable(false); editor.setEditable(true); }
+    else if (mode === 'same-root replacement') editor.loadDocument(editor.exportDocument());
+    else if (mode === 'disconnection') host.remove();
+    else root.render(null);
+  });
+  const before = JSON.stringify(editor.exportDocument()), history = JSON.stringify(editor.historyManager.getHistory());
+  expect(failed.recovery.failed()).toBe(false); expect(failed.recovery.matches(failed.error)).toBe(false);
+  expect(await failed.recovery.retry(() => true)).toBe(false);
+  expect(JSON.stringify(editor.exportDocument())).toBe(before); expect(JSON.stringify(editor.historyManager.getHistory())).toBe(history);
 });
