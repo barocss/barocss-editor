@@ -325,9 +325,22 @@ body {
 /* Observe owned reselection before the native range settles; expose no pending actions. */
 [data-slides-formatting][data-slides-selection-pending="true"] { display: none; }
 
-/* Content-width clusters reserve space above the stage without a full-width band. */
-.sl-utilities { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 16px; flex: 0 0 auto; background: var(--sl-ground); }
+/* Global commands occupy the header; the native selection owner stays beside the stage. */
+.sl-header-edit-tools { flex: 0 0 auto; }
 .sl-insertion-chrome { min-width:0; position:relative; z-index:var(--ou-z-popover); }
+.sl-header-edit-tools .sl-insertion-chrome > .office-toolbar,
+.sl-header-view-tools.office-toolbar {
+  height:36px; min-height:36px; padding:2px 6px; gap:2px;
+  border:0; border-radius:18px; background:transparent; box-shadow:none;
+}
+.sl-header-edit-tools .sl-insertion-chrome > .office-toolbar :is(button,input):not([data-floating-surface] *),
+.sl-header-view-tools :is(button,input) { height:32px; min-height:32px; min-width:32px; border-radius:8px; flex-shrink:0; }
+.sl-header-edit-tools .sl-insertion-chrome > .office-toolbar svg,
+.sl-header-view-tools svg { width:16px; height:16px; }
+.sl-header-edit-tools [data-secondary-trigger] { width:auto; padding-inline:8px; }
+.sl-insert-trigger { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+.sl-header-view-tools .office-zoom { gap:2px; }
+.sl-header-view-tools [data-zoom-value] { width:48px; }
 .sl-document-detail { width: min(880px, calc(100vw - 24px)); max-height: min(65vh, 560px); overflow: auto; }
 .sl-workspace-navigation[hidden] { display: none; }
 
@@ -340,4 +353,3 @@ body {
 .sl-stage-region { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .sl-stage-region > .sl-map { position: absolute; inset: 0; z-index: 20; }
 .sl-insertion-chrome[hidden] { display: none; }
-.sl-utilities > .office-toolbar { margin-left: auto; }

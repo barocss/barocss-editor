@@ -10,7 +10,7 @@ import {
   type LocalDocumentActions,
   type DocumentFileActions
 } from '@barocss/office-editor-ui';
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
@@ -31,7 +31,6 @@ import {
 
 import {
   siteMenusIn,
-  siteControlsIn,
   widthsOf,
   datasetNamed,
   datasetsOf,
@@ -392,9 +391,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const [narrowWorkspace, setNarrowWorkspace] = useState(false);
   const panelId = useId();
   const panelIds = { navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` };
+  const panelMenuActive = useRef(false);
+  const toolsMenuHost = useRef<HTMLSpanElement>(null);
   const navigationTrigger = useRef<HTMLButtonElement>(null);
   const inspectorTrigger = useRef<HTMLButtonElement>(null);
-  const [utilityInsets, setUtilityInsets] = useState({ left: 0, right: 0 });
   const restorePanelFocus = (side: 'navigation' | 'inspector') => {
     const trigger = side === 'navigation' ? navigationTrigger.current : inspectorTrigger.current;
     if (trigger?.isConnected) trigger.focus({ preventScroll: true });
@@ -410,20 +410,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     return { ...previous, inspector: next, ...(narrowWorkspace ? { navigation: false, active: next ? 'inspector' as const : null } : {}) };
   });
   const workspaceCompactChanged = useCallback((compact: boolean) => setNarrowWorkspace(compact), []);
-  useLayoutEffect(() => {
-    const navigation = document.getElementById(panelIds.navigation);
-    const inspector = document.getElementById(panelIds.inspector);
-    const measure = () => {
-      const left = narrowWorkspace && navigationOpen && navigation && !navigation.hidden ? navigation.getBoundingClientRect().width : 0;
-      const right = narrowWorkspace && detailOpen && inspector && !inspector.hidden ? inspector.getBoundingClientRect().width : 0;
-      setUtilityInsets(previous => previous.left === left && previous.right === right ? previous : { left, right });
-    };
-    const observer = new ResizeObserver(measure);
-    if (navigation) observer.observe(navigation);
-    if (inspector) observer.observe(inspector);
-    measure();
-    return () => observer.disconnect();
-  }, [narrowWorkspace, navigationOpen, detailOpen, railW, panelIds.navigation, panelIds.inspector]);
   const [selectedBoard, setSelectedBoard] = useState<BreakpointId>('desktop');
 
   const editor = instance?.editor ?? null;
@@ -1506,7 +1492,24 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   useEffect(() => { setFullTools(false); }, [toolOwnerKey]);
   const completeTools = editor && !admin ? (
             <Ribbon key={toolOwnerKey}
-              surface={toolbar => <SecondaryPopup triggerLabel="모든 도구" label="사이트 모든 도구" open={fullTools} onOpenChange={setFullTools} keepMounted className="st-all-tools-popup">{toolbar}</SecondaryPopup>}
+              surface={toolbar => <SecondaryPopup triggerLabel={t('office.header.tools')} label="사이트 모든 도구" open={fullTools} onOpenChange={setFullTools} keepMounted className="st-all-tools-popup" align="start"
+                style={{ maxWidth: `calc(100vw - ${pane.current?.closest('.st-shell')?.getBoundingClientRect().left ?? 0}px - 16px)` }}
+                trigger={changeTools => <span ref={node => {
+                  const trigger = node?.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]') ?? null;
+                  toolsMenuHost.current = node;
+                  navigationTrigger.current = trigger;
+                  inspectorTrigger.current = trigger;
+                }}><DocumentMenu onOpenChange={open => { panelMenuActive.current = open; }} portalContainer={toolsMenuHost} label={t('office.header.panels')} icon={<Icon name="outline" size={16} />} menus={[{
+                  id: 'panels', label: t('office.header.panels'), blocks: [{ id: 'panels', items: [
+                    { id: 'panel.navigation', label: '페이지 및 구조', checked: navigationOpen },
+                    { id: 'panel.inspector', label: '자세한 속성', checked: detailOpen },
+                    { id: 'panel.tools', label: t('office.header.tools'), checked: fullTools }
+                  ] }]
+                }]} onPick={id => {
+                  if (id === 'panel.navigation') { setNavigationOpen(value => !value); if (navigationOpen) restorePanelFocus('navigation'); }
+                  else if (id === 'panel.inspector') { setDetailOpen(value => !value); if (detailOpen) restorePanelFocus('inspector'); }
+                  else if (id === 'panel.tools') changeTools(!fullTools);
+                }} /></span>}>{toolbar}</SecondaryPopup>}
               editor={given ?? editor}
               mode={mode}
               onMode={setMode}
@@ -1626,9 +1629,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           </Ribbon>
   ) : null;
 
-  const frequentInserts = siteControlsIn('insert')
-    .filter(entry => ['insertHeading', 'insertBodyText', 'insertPicture'].includes(entry.command))
-    .map(entry => ({ entry, menu: searchEntries.find(item => item.command === entry.command) }));
+  const historyItems = searchEntries.filter(item => item.command === 'undo' || item.command === 'redo');
 
   return (
     <AppShell className="st-shell">
@@ -1639,13 +1640,26 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       <AppChrome className="st-chrome">
         <EditorHeader compact product="Site" className="st-documentbar"
           fallbackNavigation={<ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
-          title={editor ? `${siteTitle(editor.dataStore as never) || '제목 없는 사이트'}${definition ? ` · ${definition.name} · ${definition.uses}곳에서 사용 중` : !admin ? ` · ${pages.find(one => one.sid === page)?.name ?? ''}` : ''}` : '불러오는 중'}
-          menus={<span ref={documentMenuHost}><DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={documentMenus} onPick={onMenu} /></span>}
+          title={editor ? siteTitle(editor.dataStore as never) || '제목 없는 사이트' : '불러오는 중'}
+          menus={<span ref={documentMenuHost}><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} onPick={onMenu} /></span>}
+          tools={editor ? <Toolbar variant="compact" className="st-header-tools" label={t('site.header.insertTools')}>
+            {historyItems.map(item => <IconButton key={item.command} label={item.label} preserveFocus
+              disabled={!!menuItems.find(entry => entry.id === item.id)?.disabled}
+              onClick={() => onMenu(item.id)}><Icon name={item.command === 'undo' ? 'undo' : 'redo'} size={16} /></IconButton>)}
+            {!admin && !datasetAt && !preview && <Button tone="quiet" ariaLabel={t('office.header.insert')} onMouseDown={event => event.preventDefault()} disabled={writing || !root}
+              onClick={() => { setAddAt(null); setAdding(true); }}><Icon name="add" size={16} /><span>{t('office.header.insert')}</span></Button>}
+          </Toolbar> : undefined}
+          view={editor && !admin ? <Toolbar variant="compact" className="st-header-tools st-view-tools" label={t('site.header.viewTools')}>
+            {!datasetAt && <>
+              <IconButton className="st-preview-toggle" label={t(preview ? 'site.header.edit' : 'site.header.preview')}
+                data={{ preview: preview ? 'true' : undefined }} pressed={preview} preserveFocus onClick={() => setPreview(one => !one)}>
+                <Icon name={preview ? 'edit' : 'shown'} size={16} />
+              </IconButton>
+              <ZoomControl zoom={zoom} ladder={SITE_ZOOM_LADDER} onChange={next => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
+            </>}
+          </Toolbar> : undefined}
           actions={<><LocalDocuments ref={recentDocuments} showTrigger={false} persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
-          <div className="st-header-actions">{editor && !admin ? <>
-            <IconButton label="페이지 및 구조" pressed={navigationOpen} controls={panelIds.navigation} expanded={navigationOpen} elementRef={navigationTrigger} data={{ 'workspace-toggle': 'navigation' }} preserveFocus onClick={() => setNavigationOpen(value => !value)}><Icon name="outline" /></IconButton>
-            <IconButton label="자세한 속성" pressed={detailOpen} controls={panelIds.inspector} expanded={detailOpen} elementRef={inspectorTrigger} data={{ 'workspace-toggle': 'inspector' }} preserveFocus onClick={() => setDetailOpen(value => !value)}><Icon name="expand" /></IconButton>
-          </> : null}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
+          <div className="st-header-actions">{completeTools}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
 
 
 
@@ -1674,7 +1688,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           */}
         {editor && !admin && navigationOpen && !narrowWorkspace ? <Grip at={railW} onWidth={setRailW} /> : null}
         {editor && !admin ? (
-          <WorkspaceSidePanel id={panelIds.navigation} side="navigation" width={railW} className="st-navigation-slot" onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }} hidden={!navigationOpen} inert={!navigationOpen}><Rail
+          <WorkspaceSidePanel id={panelIds.navigation} side="navigation" width={railW} className="st-navigation-slot" onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }} hidden={!navigationOpen} inert={!navigationOpen}><Rail
             width={railW}
             editor={given ?? editor}
             panel={panel}
@@ -1695,25 +1709,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         ) : null}
 
         <AppMain className="st-main" data={{ 'workspace-main': '' }}>
-          {editor && !admin && !datasetAt && <div className="st-utilities" data-site-utilities data-workspace-utility style={{ left: 12 + utilityInsets.left, right: 12 + utilityInsets.right }}>
-            <Toolbar variant="compact" surface="floating" label={t('site.header.insertTools')}>
-              {!preview && <>
-              <IconButton label="넣을 것 고르기" preserveFocus disabled={writing || !root} onClick={() => { setAddAt(null); setAdding(true); }}><Icon name="add" /></IconButton>
-              {frequentInserts.map(({ entry, menu }) => menu && <IconButton key={entry.command} label={entry.title ?? entry.label} preserveFocus
-                disabled={writing || preview || !root || !!menuItems.find(item => item.id === menu.id)?.disabled}
-                onClick={() => onMenu(menu.id)}><Icon name={entry.icon ?? 'add'} /></IconButton>)}
-              </>}
-              {completeTools}
-            </Toolbar>
-            <Toolbar variant="compact" surface="floating" className="st-view-tools" label={t('site.header.viewTools')}>
-              <IconButton className="st-preview-toggle" label={t(preview ? 'site.header.edit' : 'site.header.preview')}
-                data={{ preview: preview ? 'true' : undefined }} pressed={preview} preserveFocus onClick={() => setPreview(one => !one)}>
-                <Icon name={preview ? 'edit' : 'shown'} />
-              </IconButton>
-              <ZoomControl zoom={zoom} ladder={SITE_ZOOM_LADDER} onChange={next => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
-            </Toolbar>
-          </div>}
-
           {/*
             **관리** — the surface a reader opens into, filling the same regions with a different
             answer: the left is the five things a site is made of, the middle is a table, and there
@@ -1747,7 +1742,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             the reader last asked for, and nothing else in the window changes.
           */}
           {datasetAt ? (
-            <><Toolbar variant="compact" surface="floating" label="데이터 도구">{completeTools}</Toolbar><DataTable
+            <DataTable
               editor={editor!}
               run={(name, payload) => editor ? editor.executeCommand(name, payload as never) : false}
               can={(name, payload) =>
@@ -1760,7 +1755,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               sid={datasetAt.sid}
               onClose={() => setDataset(undefined)}
               onOpenRow={(one) => setRowOpen({ sid: datasetAt.sid, row: one, label: datasetAt.label })}
-            /></>
+            />
           ) : (
           <Canvas
             paneRef={pane}
@@ -1986,7 +1981,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           *아무것도 선택되지 않았습니다*.
         */}
         {editor && !admin ? (
-          <WorkspaceSidePanel id={panelIds.inspector} side="inspector" width={280} className="st-detail-slot" hidden={!detailOpen} inert={!detailOpen} onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}><Inspector key={toolOwnerKey}
+          <WorkspaceSidePanel id={panelIds.inspector} side="inspector" width={280} className="st-detail-slot" hidden={!detailOpen} inert={!detailOpen} onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}><Inspector key={toolOwnerKey}
             onInputDeliveryReady={propertiesReady}
             editor={given ?? editor}
             writing={writing}

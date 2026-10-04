@@ -164,5 +164,11 @@
   "workspace.route.failed": "Could not open this address",
   "workspace.route.loading": "Opening workspace",
   "workspace.route.preparing": "Checking the original and preparing the editor.",
-  "workspace.route.listUnavailable": "The document list is unavailable. The open original passed its individual access check."
+  "workspace.route.listUnavailable": "The document list is unavailable. The open original passed its individual access check.",
+  "office.header.undo": "Undo",
+  "office.header.redo": "Redo",
+  "office.header.insert": "Insert",
+  "office.header.editing": "Document editing",
+  "office.header.tools": "All tools",
+  "office.header.panels": "Panels"
 }

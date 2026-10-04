@@ -2,21 +2,25 @@ import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, type
 import { createPortal } from 'react-dom';
 import type { Editor } from '@barocss/editor-core';
 import { isCollapsedSelection, selectedNodeIds } from '@barocss/editor-core';
-import { Icon, Button, FloatingSurface, Toolbar } from '@barocss/office-ui';
-import { ContextToolbar, useEditorContextVisibility, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
+import { Icon, Button, FloatingSurface, Toolbar, MenuAction, SecondaryPopup, onApple, useOfficeLocale } from '@barocss/office-ui';
+import { ControlRows, ContextToolbar, useEditorContextVisibility, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import type { Slide } from './deck';
 import { SlidesSelectionTools, type SlidesToolContext } from './selection-tools';
 import { boxAt } from './selection';
 import { readSelectedObjectText } from './selected-object-text';
 import { Ribbon } from './ribbon';
-import { SLIDES_PRIMARY_CONTROL_IDS, SlidesInsertDropdown } from './insert-dropdown';
+import { keyLabel, shortcutOf } from './keymap';
+import { slidesControlActions, type SlidesControlContext } from './toolbar-actions';
+import { SLIDES_TOOLBAR } from './toolbar-model';
+import './insert-dropdown.css';
 import { captureSlidesSelectionOwner, changeSlidesSelectionContext, createSlidesSelectionLifetime, ownsSlidesSelection, selectedSlidesTable, trackSlidesSelectionLifetime } from './selection-owner';
 
 /** Product chrome keeps the canvas and rich notes as two owners of one native editor. */
-export function SlidesDocumentChrome({ editor, slides, current, scope, inspectorHost, onInspectorEscape, onInspect, active = true }: {
+export function SlidesDocumentChrome({ editor, slides, current, scope, headerHost, inspectorHost, onInspectorEscape, onInspect, active = true }: {
   editor: Editor; slides: Slide[]; current?: string; scope: RefObject<HTMLElement | null>;
-  active?: boolean; inspectorHost?: HTMLElement | null; onInspectorEscape?: () => void; onInspect: (origin?: HTMLElement) => void;
+  active?: boolean; headerHost?: HTMLElement | null; inspectorHost?: HTMLElement | null; onInspectorEscape?: () => void; onInspect: (origin?: HTMLElement) => void;
 }) {
+  const { t } = useOfficeLocale();
   const revision = useEditorRevision(editor);
   const lifetime = useMemo(() => createSlidesSelectionLifetime(editor, current), [editor]);
   const [, refreshLifetime] = useReducer((value: number) => value + 1, 0);
@@ -69,6 +73,15 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, inspector
   const groups = ['character', 'paragraph', 'list', ...(table ? ['table'] : ['order', 'align', 'group'])];
   void revision;
   const inspectorOwner = useRef<HTMLDivElement>(null);
+  const insertion = <div ref={globalChrome} className="sl-insertion-chrome" hidden={!active} inert={!active}>
+    <Toolbar variant="compact" label={t('office.header.editing')}>
+      <Ribbon inline key={`${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
+        directControls groupIds={['history']} portalContainer={globalChrome}
+        canRunIntent={() => active && ownsSlidesSelection(owner)} captureIntent={captureIntent} />
+      <HeaderInsertMenu key={`insert:${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
+        canRunIntent={() => active && ownsSlidesSelection(owner)} captureIntent={captureIntent} />
+    </Toolbar>
+  </div>;
   return <>
     {active && inspectorHost && editor.isEditable && (textRange || target) && createPortal(
       <div ref={inspectorOwner} key={`${lifetime.generation}:${current}:${region}:${JSON.stringify(editor.selection)}`} className="sl-inspector-commands"
@@ -81,15 +94,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, inspector
           groupIds={textRange ? ['character', 'paragraph', 'list'] : groups}
           portalContainer={inspectorOwner} canRunIntent={() => active && ownsSlidesSelection(owner)} captureIntent={captureIntent} />
       </div>, inspectorHost)}
-    <div ref={globalChrome} className="sl-insertion-chrome" hidden={!active} inert={!active}>
-      <Toolbar variant="compact" surface="floating" label="Slides 삽입 도구">
-        <Ribbon inline key={`${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
-          directControls groupIds={['history', 'slide', 'insert']} controlIds={SLIDES_PRIMARY_CONTROL_IDS}
-          portalContainer={globalChrome} canRunIntent={() => active && ownsSlidesSelection(owner)} captureIntent={captureIntent} />
-        <SlidesInsertDropdown key={`insert:${lifetime.generation}:${current}:${region}`} editor={editor} slides={slides} current={current}
-          canRunIntent={() => active && ownsSlidesSelection(owner)} captureIntent={captureIntent} />
-      </Toolbar>
-    </div>
+    {headerHost ? createPortal(insertion, headerHost) : insertion}
     <ContextToolbar compact editor={editor} scope={scope} relatedChrome={inspectorScope} onRelatedChromeEscape={onInspectorEscape} portalRoot={scope.current} active={active && editor.isEditable}
       controls={[]} label="선택한 Slides 도구" data-slides-formatting data-slides-selection-pending={!textRange}>
       {(selection, chrome) => {
@@ -111,4 +116,33 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, inspector
       </div>
     </FloatingSurface>}
   </>;
+}
+
+/** The complete native insertion model shares the selection owner's captured intent. */
+function HeaderInsertMenu({ editor, slides, current, canRunIntent, captureIntent }: SlidesControlContext & { slides: Slide[] }) {
+  const { t } = useOfficeLocale();
+  const [open, setOpen] = useState(false);
+  const apple = useMemo(() => onApple(), []);
+  const here = slides.find(slide => slide.sid === current);
+  const actions = slidesControlActions({ editor, current, number: here?.number, canRunIntent, captureIntent });
+  return <div data-slides-more-owner={open || undefined}>
+    <SecondaryPopup triggerLabel={t('office.header.insert')} triggerIcon={<span className="sl-insert-trigger"><Icon name="add" size={16} /><span>{t('office.header.insert')}</span></span>}
+      label="Slides 삽입 및 슬라이드 메뉴" variant="menu" open={open} onOpenChange={setOpen} disabled={!editor.isEditable} className="sl-insert-dropdown">
+      {['insert', 'slide'].map((id, index) => {
+        const group = SLIDES_TOOLBAR.find(group => group.id === id)!;
+        return <div key={id} role="group" aria-label={id === 'insert' ? '삽입' : '슬라이드'}>
+          {index > 0 && <div className="sl-insert-dropdown-separator" role="separator" />}
+          <ControlRows editor={editor} controls={group.controls} options={{ apple, ...actions,
+            state: control => control.slideFlag === 'hidden' && here?.hidden ? 'on' : 'off'
+          }}>{rows => rows.map(row => <MenuAction key={row.key} data-control={row.key} disabled={row.disabled}
+            role={row.control.slideFlag ? 'menuitemcheckbox' : 'menuitem'} aria-checked={row.control.slideFlag ? row.state === 'on' : undefined}
+            onClick={() => { row.run(); setOpen(false); }}>
+            {row.control.icon && <Icon name={row.control.icon} size={16} />}
+            <span className="sl-insert-dropdown-label">{row.label}</span>
+            {row.state === 'on' ? <Icon name="chosen" size={14} /> : <span className="sl-insert-dropdown-shortcut">{keyLabel(shortcutOf(row.control.command), apple)}</span>}
+          </MenuAction>)}</ControlRows>
+        </div>;
+      })}
+    </SecondaryPopup>
+  </div>;
 }

@@ -1508,3 +1508,22 @@ textarea.office-field[readonly] {
 
 /* Tooltip portals must not cover adjacent command hit targets. */
 [data-radix-popper-content-wrapper]:has(>[data-office-tooltip]),[data-office-tooltip]{pointer-events:none}
+
+/* One compact document header; products retain ownership of every command. */
+.office-editor-header[data-compact] > .office-document-bar { height:48px;min-height:48px;max-height:48px;padding:6px 8px;gap:6px;display:flex;flex-wrap:nowrap;box-sizing:border-box;background:var(--ou-panel);border-bottom:1px solid var(--ou-line); }
+.office-editor-header[data-compact] .office-editor-identity { flex:1 1 160px;min-width:88px;gap:4px; }
+.office-editor-header[data-compact] .office-editor-title-stack { flex:0 1 auto;height:32px;width:max-content;max-width:320px; }
+.office-editor-header[data-compact] .office-editor-title { position:static;line-height:32px;height:32px; }
+.office-editor-header[data-compact] :is(.office-editor-tools,.office-editor-actions,.office-editor-view) { display:flex;flex:0 0 auto;align-items:center;flex-wrap:nowrap;max-width:none;gap:2px; }
+.office-editor-header[data-compact] .office-editor-actions:empty { display:none; }
+.office-editor-header[data-compact] :is(.office-toolbar,.office-toolbar-group):not([data-floating-surface],[data-floating-surface] *,[data-context-menu],[data-context-menu] *) { min-height:36px;height:36px;display:flex;align-items:center;flex-wrap:nowrap;gap:2px;box-sizing:border-box; }
+.office-editor-header[data-compact] .office-toolbar:not([data-floating-surface],[data-floating-surface] *,[data-context-menu],[data-context-menu] *) { padding:2px 6px;border-radius:18px;box-shadow:none;border:0;background:var(--ou-ground); }
+.office-editor-header[data-compact] .office-toolbar-group:not([data-floating-surface],[data-floating-surface] *,[data-context-menu],[data-context-menu] *) { padding:0; }
+.office-editor-header[data-compact] :is(.office-menubar,.office-product-menu):not([data-floating-surface],[data-floating-surface] *,[data-context-menu],[data-context-menu] *) { display:flex;align-items:center;flex-wrap:nowrap; }
+.office-editor-header[data-compact] :is(button,input,select):not([data-floating-surface],[data-floating-surface] *,[data-context-menu],[data-context-menu] *) { height:32px;min-height:32px;box-sizing:border-box;border-radius:8px; }
+.office-editor-header[data-compact] button:not([data-floating-surface],[data-floating-surface] *,[data-context-menu],[data-context-menu] *) { min-width:32px;display:inline-flex;align-items:center;justify-content:center;box-shadow:none; }
+.office-editor-header[data-compact] .office-product-menu [data-menu],.office-editor-header[data-compact] .office-editor-menus [data-menu] { width:32px;padding:0; }
+.office-editor-header[data-compact] .office-product-menu [data-menu]::after { content:none; }
+.office-editor-header[data-compact] svg:not([data-floating-surface],[data-floating-surface] *,[data-context-menu],[data-context-menu] *) { width:18px;height:18px;flex:none; }
+.office-editor-header[data-compact] .office-product-label { gap:0; }
+.office-editor-header[data-compact] .office-editor-view { margin:0; }

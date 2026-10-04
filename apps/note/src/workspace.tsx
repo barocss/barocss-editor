@@ -474,7 +474,7 @@ export function Workspace() {
     event.preventDefault(); openNavigation('find');
   }}>
       <EditorHeader compact product="Note" className="nw-header" title={title || '제목 없는 노트'}
-        menus={<DocumentMenu label="노트 메뉴" icon={<Icon name="more" />} menus={[
+        menus={<DocumentMenu label="노트 메뉴" icon={<Icon name="disclosed" />} menus={[
           { id: 'file', label: '파일', blocks: [{ id: 'file', items: [
             { id: 'template', label: '새 페이지', disabled: !ready },
             { id: 'open', label: '파일 열기', disabled: !ready },

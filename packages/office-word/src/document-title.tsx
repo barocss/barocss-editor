@@ -108,6 +108,7 @@ export function DocumentTitle({ editor, compact = false }: DocumentTitleProps) {
           key={piece.sid}
           className={`doc-title-field doc-title-${piece.stype}`}
           value={piece.text}
+          size={compact ? Math.min(40, Math.max(8, piece.text.length + 1)) : undefined}
           title={piece.text}
           aria-label={LABELS[piece.stype] ?? piece.stype}
           placeholder={LABELS[piece.stype] ?? piece.stype}

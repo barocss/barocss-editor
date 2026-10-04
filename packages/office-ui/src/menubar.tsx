@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject, type ReactNode } from 'react';
 import { cn } from './cn';
 import { Tip } from './tip';
 import { Menu, type MenuBlock } from './menu';
@@ -56,6 +56,7 @@ export interface MenuBarMenu {
 export function MenuBar({
   menus,
   onPick,
+  onOpenChange,
   label,
   className,
   portalContainer,
@@ -64,6 +65,8 @@ export function MenuBar({
   menus: MenuBarMenu[];
   /** The entry a reader chose. Which command that is, is the product's business. */
   onPick: (id: string) => void;
+  /** Notify the owning product before menu focus can blur its pending fields. */
+  onOpenChange?: (open: boolean) => void;
   /** What the row is, for a reader who cannot see it. */
   label: string;
   className?: string;
@@ -73,6 +76,10 @@ export function MenuBar({
 }) {
   const [open, setOpen] = useState<string | undefined>(undefined);
   const host = useRef<HTMLDivElement>(null);
+  const openChange = useRef(onOpenChange);
+  openChange.current = onOpenChange;
+  useLayoutEffect(() => { onOpenChange?.(open !== undefined); }, [open, onOpenChange]);
+  useLayoutEffect(() => () => { openChange.current?.(false); }, []);
 
   /** Where the open menu hangs: under its own trigger, left edges aligned. */
   const at = (id: string): { x: number; y: number } => {

@@ -5,7 +5,7 @@ import { captureProductNavigation, productDocumentHost, registerProductDocumentH
 import { NoteEditor } from '@barocss/office-note/view';
 import { readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
 import { noteTreeOf, openNoteTree, type NoteDocument, type NoteSession } from '@barocss/office-note';
-import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, StatusIndicator, StatusNotice, useOfficeLocale } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, Icon, StatusIndicator, StatusNotice, useOfficeLocale } from '@barocss/office-ui';
 import { pageTemplate } from './workspace-library';
 import { ServerLocalNoteCopy } from './server-local-copy';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
@@ -730,12 +730,12 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     setNavigationRequest(previous => ({ mode: 'find', id: (previous?.id ?? 0) + 1, generation: currentOpen.generation }));
   }}>
     <EditorHeader compact product="Note" className="nw-header" title={currentOpen?.note.attributes.title || '서버 노트'} fallbackNavigation={headerNavigation}
-      menus={<span ref={documentMenuAnchor}><DocumentMenu label={t('note.header.documentMenu')} menus={[
+      menus={<span ref={documentMenuAnchor}><DocumentMenu label={t('note.header.documentMenu')} icon={<Icon name="disclosed" />} menus={[
         ...(workspaceNavigation ? [{ id: 'file', label: t('workspace.document.actions'), blocks: [{ id: 'file', items: [{ id: 'document-actions', label: t('workspace.document.actions'), checked: documentActionsOpen }] }] }] : []),
         { id: 'edit', label: '편집', blocks: [{ id: 'edit', items: [{ id: 'find', label: '찾기', disabled: navigationDisabled }] }] },
         { id: 'view', label: '보기', blocks: [{ id: 'view', items: [{ id: 'outline', label: '목차', disabled: navigationDisabled }] }] }
       ]} onPick={id => { if (id === 'find' || id === 'outline') openNavigation(id); else if (id === 'document-actions') setDocumentActionsOpen(value => !value); }} /></span>}
-      actions={<><StatusIndicator data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
+      actions={<><StatusIndicator className="office-save-status" data-icon-only tabIndex={0} title={status} data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
         {canEdit && <Button disabled={!currentOpen || busy || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict' || (!isDirty && !currentPending)}
           onClick={() => void save()}>{currentPending ? '저장 확인·재시도' : '저장'}</Button>}
         {onLeave && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={onLeave}>나가기</Button>}</>} />

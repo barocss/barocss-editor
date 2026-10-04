@@ -8,7 +8,7 @@ import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
 import type { ReactNode } from 'react';
-import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, Toolbar, onApple, useRevision, useOfficeLocale } from '@barocss/office-ui';
+import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, onApple, useRevision, useOfficeLocale } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
   captureCaptionSession, type CaptionSession,
@@ -482,7 +482,7 @@ export function App({ mount, server }: {
         {instance && <>
           <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<span ref={documentMenuAnchor}><DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={server?.nativeExport ? menus.map(menu => menu.id !== 'file' ? menu : { ...menu,
+            menus={<span ref={documentMenuAnchor}><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={server?.nativeExport ? menus.map(menu => menu.id !== 'file' ? menu : { ...menu,
               blocks: [...menu.blocks, { id: 'native-export', items: [{ id: 'server.native-export', label: t('word.file.nativeExport'), disabled: !server.nativeExport!.available }] }]
             }) : server || proposalSample ? menus : [...menus, {
               id: 'local-library', label: '문서 작업', blocks: [{ id: 'local-library', items: [
@@ -490,26 +490,32 @@ export function App({ mount, server }: {
               ] }]
             }]} onPick={onMenu} /></span>}
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
+            tools={<div className="w-header-editing-group" role="group" aria-label={t('office.header.editing')}>
+              {([{ command: 'historyUndo', label: t('office.header.undo'), icon: 'undo' }, { command: 'historyRedo', label: t('office.header.redo'), icon: 'redo' }] as const).map(action =>
+                <Tip key={action.command} label={action.label}><Button square tone="quiet" ariaLabel={action.label}
+                  disabled={readOnly || !instance.editor.canExecuteCommand(action.command)}
+                  onMouseDown={event => event.preventDefault()} onClick={() => runEntry({ command: action.command })}>
+                  <Icon name={action.icon} size={16} />
+                </Button></Tip>)}
+              <span className="w-header-insert"><DocumentMenu label={t('office.header.insert')} icon={<><Icon name="add" size={16} /><span>{t('office.header.insert')}</span></>}
+                menus={menus.filter(menu => menu.id === 'insert')} onPick={onMenu} /></span>
+            </div>}
+            view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />}
             actions={<>
               <div className="w-header-command-group">
-                <span ref={panelMenuAnchor}><DocumentMenu label={t('word.header.panels')} icon={<Icon name="outline" />} menus={[{
+                <span ref={detailAnchor}><span ref={panelMenuAnchor}><DocumentMenu label={t('word.header.panels')} icon={<Icon name="outline" />} menus={[{
                   id: 'panels', label: t('word.header.panels'), blocks: [{ id: 'panels', items: [
                     { id: 'panel.outline', label: t('word.header.outline'), checked: outlineShown },
                     { id: 'panel.comments', label: t('word.header.comments'), checked: commentsShown },
-                    { id: 'panel.business', label: t('word.header.requirements'), checked: businessOpen }
+                    { id: 'panel.business', label: t('word.header.requirements'), checked: businessOpen },
+                    { id: 'panel.tools', label: t('office.header.tools'), checked: ribbonExpanded, disabled: readOnly }
                   ] }]
                 }]} onPick={id => {
                   if (id === 'panel.outline') togglePanel('navigation');
                   else if (id === 'panel.comments') togglePanel('inspector');
+                  else if (id === 'panel.tools' && !readOnly) setRibbonExpanded(value => !value);
                   else if (id === 'panel.business') { setBusinessOpen(value => !value); setActivePanel('navigation'); if (!compact) setOutlining(true); }
-                }} /></span>
-                {!readOnly && <span ref={detailAnchor}>
-                  <Tip label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'}>
-                    <Button square tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded}
-                      ariaLabel={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'}
-                      onClick={() => setRibbonExpanded(value => !value)}><Icon name="frame-grid" /></Button>
-                  </Tip>
-                </span>}
+                }} /></span></span>
                 <CommandSearchTrigger iconOnly onClick={openCommandSearch} />
               </div>
               {server ? server.headerActions : proposalSample ? null : <DocumentLibrary menuOnly ref={library} editor={instance.editor} native={instance} />}
@@ -624,11 +630,6 @@ export function App({ mount, server }: {
           */}
           {instance && !readOnly ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
         </AppMain>
-        {instance && <div className="w-view-utilities" data-workspace-utility data-comments-overlay={compact && activePanel === 'inspector' || undefined}>
-          <Toolbar variant="compact" surface="floating" label="보기 도구">
-            <ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />
-          </Toolbar>
-        </div>}
         </div>
 
         {instance ? (

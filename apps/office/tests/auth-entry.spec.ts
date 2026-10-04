@@ -491,6 +491,11 @@ test('a lost save response survives repeated reloads and retries the exact origi
   await expect(page.getByRole('button', { name: '저장 확인·재시도' })).toBeEnabled();
   for (let reload = 0; reload < 2; reload++) {
     await page.reload();
+    const native = page.locator('[data-server-note-workspace]');
+    await expect(paragraph).toHaveText('Mock body');
+    await native.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+    await expect(native.getByRole('complementary', { name: '문서 작업', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /초안 복구 Alpha Note/ })).toHaveCount(1);
     await page.getByRole('button', { name: /초안 복구 Alpha Note/ }).click();
     await expect(paragraph).toContainText('receipt-recovery');

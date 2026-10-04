@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
 
 /** Panels may shorten above the thumbnail tray; the canvas never resizes. */
-export function useFloatingPanelBounds(host: RefObject<HTMLElement | null>, enabled: boolean) {
+export function useFloatingPanelBounds(host: RefObject<HTMLElement | null>, enabled: boolean, navigationTrigger?: RefObject<HTMLElement | null>) {
   const [narrow, setNarrow] = useState(false);
   useLayoutEffect(() => {
     if (!enabled) return;
@@ -15,7 +15,8 @@ export function useFloatingPanelBounds(host: RefObject<HTMLElement | null>, enab
       const inspector = body.querySelector<HTMLElement>('#slides-details');
       // Transfer focus before the width policy makes a focused panel inert.
       if (narrow && inspector && !inspector.hidden && navigation?.contains(document.activeElement)) {
-        body.closest('.sl-shell')?.querySelector<HTMLElement>('[aria-controls="slides-objects"]')?.focus({ preventScroll: true });
+        (navigationTrigger?.current?.querySelector<HTMLElement>('[data-menu]') ??
+          body.closest('.sl-shell')?.querySelector<HTMLElement>('[aria-controls="slides-objects"]'))?.focus({ preventScroll: true });
       }
       setNarrow(narrow);
       const bottom = tray ? Math.min(tray.getBoundingClientRect().top, viewport.getBoundingClientRect().bottom) : viewport.getBoundingClientRect().bottom;
@@ -26,6 +27,6 @@ export function useFloatingPanelBounds(host: RefObject<HTMLElement | null>, enab
     if (tray) observer.observe(tray);
     measure();
     return () => { observer.disconnect(); body.style.removeProperty('--sl-panel-bottom'); };
-  }, [host, enabled]);
+  }, [host, enabled, navigationTrigger]);
   return narrow;
 }

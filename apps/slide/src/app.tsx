@@ -126,6 +126,9 @@ export function App({
   const { t } = useOfficeLocale();
   const host = useRef<HTMLDivElement>(null);
   const documentMenuHost = useRef<HTMLSpanElement>(null);
+  const panelMenuActive = useRef(false);
+  const panelMenuHost = useRef<HTMLSpanElement>(null);
+  const [headerTools, setHeaderTools] = useState<HTMLDivElement | null>(null);
   const recentDocuments = useRef<LocalDocumentActions>(null);
   const childDeliveries = useRef(new Map<string, (isCurrent: () => boolean) => Promise<boolean>>());
   const notesRecovery = useRef<Parameters<NonNullable<React.ComponentProps<typeof NotesPane>['onInputRecoveryReady']>>[0]>(null);
@@ -172,7 +175,7 @@ export function App({
     if ((pending.side === 'navigation' ? sidebarOpen : inspectorOpen) || pending.generation !== lifetime.current ||
       pending.root !== instance?.editor.dataStore.getNode(instance.editor.getRootId()!)) return;
     // The panel is already hidden. Return before BODY focus can retire the primary tools.
-    const fallback = host.current?.closest('.sl-shell')?.querySelector<HTMLElement>(`[aria-controls="${pending.side === 'navigation' ? 'slides-objects' : 'slides-details'}"]`);
+    const fallback = panelMenuHost.current?.querySelector<HTMLElement>('[data-menu]');
     (pending.origin?.isConnected && !pending.origin.closest('[hidden],[inert]') ? pending.origin : fallback)?.focus({ preventScroll: true });
   });
   const [rulerShown, setRulerShown] = useState(false);
@@ -442,7 +445,7 @@ export function App({
    * would mean two drawings of one deck that could disagree.
    */
   const [presenting, setPresenting] = useState(false);
-  const narrowPanels = useFloatingPanelBounds(host, !!instance && !presenting);
+  const narrowPanels = useFloatingPanelBounds(host, !!instance && !presenting, panelMenuHost);
   const navigationVisible = sidebarOpen && (!narrowPanels || !inspectorOpen);
 
   /**
@@ -1928,24 +1931,28 @@ export function App({
       <EditorHeader compact product="Slides" className="sl-topbar"
         fallbackNavigation={server ? server.headerNavigation : <ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<span ref={documentMenuHost}><DocumentMenu key={`${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="more" />} menus={menus} onPick={pickDocumentMenu} /></span>}
+        menus={<span ref={documentMenuHost}><DocumentMenu key={`${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} onPick={pickDocumentMenu} /></span>}
+        tools={<div ref={setHeaderTools} className="sl-header-edit-tools" />}
+        view={!presenting && <Toolbar variant="compact" label="Slides 보기 도구" className="sl-header-view-tools">
+          <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
+            onFit={() => setZoom(undefined)} fitLabel="화면에 맞춤" />
+          <Tip label="처음부터 발표"><Button square tone="quiet" ariaLabel="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}><Icon name="present" /></Button></Tip>
+        </Toolbar>}
         actions={<>
-          <Tip label="레이어 · 개체 순서와 컴포넌트">
-            <Button square tone="quiet" ariaLabel="레이어" aria-controls="slides-objects"
-              aria-expanded={navigationVisible} pressed={navigationVisible} onMouseDown={event => event.preventDefault()} onClick={() => {
-                if (narrowPanels && inspectorOpen) { setInspectorOpen(false); setSidebarOpen(true); }
-                else setSidebarOpen(value => !value);
-              }}>
-              <Icon name="outline" />
-            </Button>
-          </Tip>
-          <Tip label="속성 · 크기, 위치, 모양">
-            <Button square tone="quiet" ariaLabel="속성" aria-controls="slides-details"
-              aria-expanded={inspectorOpen} pressed={inspectorOpen}
-              onMouseDown={event => event.preventDefault()} onClick={event => { inspectorOrigin.current = event.currentTarget; setInspectorOpen(value => !value); }}>
-              <Icon name="expand" />
-            </Button>
-          </Tip>
+          <span ref={panelMenuHost}><DocumentMenu onOpenChange={open => { panelMenuActive.current = open; }} label={t('office.header.panels')} icon={<Icon name="outline" />} menus={[{ id: 'panels', label: t('office.header.panels'), blocks: [{ id: 'panels', items: [
+            { id: 'layers', label: '레이어 · 개체 순서와 컴포넌트', checked: navigationVisible },
+            { id: 'properties', label: '속성 · 크기, 위치, 모양', checked: inspectorOpen }
+          ] }] }]} onPick={id => {
+            const opener = panelMenuHost.current?.querySelector<HTMLElement>('[data-menu]');
+            if (opener?.isConnected) opener.focus({ preventScroll: true });
+            if (id === 'layers') {
+              if (narrowPanels && inspectorOpen) { setInspectorOpen(false); setSidebarOpen(true); }
+              else setSidebarOpen(value => !value);
+            } else if (id === 'properties') {
+              inspectorOrigin.current = panelMenuHost.current?.querySelector<HTMLElement>('[data-menu]') ?? null;
+              setInspectorOpen(value => !value);
+            }
+          }} /></span>
           <CommandSearchTrigger iconOnly disabled={!editor || presenting} onClick={openCommandSearch} />
           {!server && <SlideDocuments ref={recentDocuments} showTrigger={false} iconOnly persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
@@ -1982,19 +1989,14 @@ export function App({
         {server.navigation}
       </FloatingSurface>}
 
-      {!presenting && <div className="sl-utilities" data-slides-utilities>
+      {!presenting && <>
         {editor && <SlidesDocumentChrome key={focused ? 'single' : 'canvas'} active={!mapping} editor={editor} slides={slides} current={current} scope={toolScope}
-          inspectorHost={inspectorTools} onInspectorEscape={() => closePanel('inspector')} onInspect={origin => { inspectorOrigin.current = origin ?? null; focusInspector.current = true; setInspectorOpen(true); if (inspectorOpen) { focusInspector.current = false; inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true }); } }} />}
-        <Toolbar variant="compact" surface="floating" label="Slides 보기 도구">
-          <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
-            onFit={() => setZoom(undefined)} fitLabel="화면에 맞춤" />
-          <Tip label="처음부터 발표"><Button square tone="accent" ariaLabel="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}><Icon name="present" /></Button></Tip>
-        </Toolbar>
-      </div>}
+          headerHost={headerTools} inspectorHost={inspectorTools} onInspectorEscape={() => closePanel('inspector')} onInspect={origin => { inspectorOrigin.current = origin ?? null; focusInspector.current = true; setInspectorOpen(true); if (inspectorOpen) { focusInspector.current = false; inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true }); } }} />}
+      </>}
 
       <AdaptiveWorkspace className="sl-body" enabled={false}>
         <WorkspaceSidePanel id="slides-objects" side="navigation"
-          onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}
+          onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}
           onKeyDown={event => {
             if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
               (event.target instanceof Element && event.target.closest('input,textarea,[role="menu"],[role="listbox"],[data-floating-surface]'))) return;
@@ -2287,7 +2289,7 @@ export function App({
          * position, which is the whole difference between a slide and a page.
          */}
         <WorkspaceSidePanel id="slides-details" side="inspector" tabIndex={-1}
-          onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}
+          onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}
           onKeyDown={event => {
             if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
               (event.target instanceof Element && event.target.closest('input,textarea,[role="menu"],[role="listbox"],[data-floating-surface]'))) return;

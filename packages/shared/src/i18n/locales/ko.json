@@ -164,5 +164,11 @@
   "workspace.route.failed": "자료를 열지 못했습니다.",
   "workspace.route.loading": "작업 공간을 여는 중",
   "workspace.route.preparing": "원본을 확인하고 편집 화면을 준비하고 있습니다.",
-  "workspace.route.listUnavailable": "문서 목록을 확인하지 못했습니다. 열린 원본은 개별 접근 검사로 확인했습니다."
+  "workspace.route.listUnavailable": "문서 목록을 확인하지 못했습니다. 열린 원본은 개별 접근 검사로 확인했습니다.",
+  "office.header.undo": "실행 취소",
+  "office.header.redo": "다시 실행",
+  "office.header.insert": "삽입",
+  "office.header.editing": "문서 편집",
+  "office.header.tools": "전체 도구",
+  "office.header.panels": "패널"
 }

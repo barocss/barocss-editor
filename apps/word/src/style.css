@@ -338,7 +338,7 @@ body {
 .w-library-row strong { display: block; font-size: 13px; font-weight: 500; }
 .w-library-row small { display: block; margin-top: 4px; color: var(--ou-muted); }
 
-/* Product chrome: file identity above commands, formatting above the paper. */
+/* One header holds document commands; selection formatting stays native-owned. */
 .w-shell > .w-chrome { padding: 0; border:0; background: var(--ou-panel); color: var(--ou-ink); }
 .w-document-header .doc-title-bar { width: 100%; min-width: 0; padding: 0; align-items: center; flex-wrap: nowrap; }
 .w-document-header .doc-title-docTitle { height: 32px; padding: 0; line-height: 30px; font-size: 13px; font-weight: 600; min-width: 8ch; max-width: 100%; flex: 1 1 auto; }
@@ -385,19 +385,18 @@ body {
 .w-business-item-excerpt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Document commands stay compact; the native paper and panel geometry are unchanged. */
-.w-header-command-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.w-header-command-group, .w-header-editing-group { display:flex; align-items:center; gap:2px; flex-shrink:0; height:36px; padding-inline:6px; border-radius:18px; }
+.w-header-editing-group { background:var(--ou-ground); box-sizing:border-box; }
+.w-header-editing-group > span, .w-header-insert { display:inline-flex; }
+.w-header-insert .office-menubar > button { display:inline-flex; align-items:center; gap:4px; width:auto; min-width:64px; padding-inline:6px; }
+.w-document-header :is(.w-header-command-group,.w-header-editing-group,.w-zoom-control) button { border-radius:8px; min-width:32px; min-height:32px; }
+.w-document-header .w-zoom-control { height:36px; padding-inline:6px; border-radius:18px; background:var(--ou-ground); box-sizing:border-box; }
+.w-document-header .w-zoom-control input { width:48px; border-radius:8px; }
+.w-document-header .w-zoom-control svg { width:16px; height:16px; }
 .w-header-command-group > span { display: inline-flex; }
 
-/* The capsule overlays only the native document slot, not adjacent comments. */
+/* Native paper keeps its existing document slot. */
 .w-document-slot { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
-.w-view-utilities { position: absolute; top: 10px; right: 16px; z-index: 20; width: max-content; max-width: calc(100% - 32px); pointer-events: none; }
-.w-view-utilities > .office-toolbar { pointer-events: auto; }
-.w-view-utilities .w-zoom-control button { width: 32px; height: 32px; }
-.w-view-utilities .w-zoom-control input { height: 32px; }
-
-/* Keep the view capsule outside the compact comments overlay. */
-.w-view-utilities[data-comments-overlay] { right: 296px; max-width: calc(100% - 312px); }
-
 /* The host reserves scroll room behind comments. Width-fit then measures the
    unobscured padding box; paper layout and the current zoom stay unchanged. */
 .w-shell-body[data-compact]:has(> [data-workspace-panel="inspector"]:not([hidden])) .w-shell-document {

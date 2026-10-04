@@ -47,6 +47,10 @@ async function wordPanel(page: Page, name: string) {
   await page.getByRole('menuitem', { name: '문서 패널', exact: true }).click();
   await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
 }
+async function nativePanel(page: Page, name: string) {
+  await page.locator('.office-editor-header').getByRole('menuitem', { name: '패널', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+}
 async function openPanels(page: Page, product: Product) {
   if (product === 'word') {
     await wordPanel(page, '개요');
@@ -55,21 +59,21 @@ async function openPanels(page: Page, product: Product) {
     await expect(page.locator('.w-comment-text').first()).toBeVisible();
   } else if (product === 'note') {
     await page.getByRole('button', { name: '노트 페이지 관리', exact: true }).click();
-    await page.locator('.office-document-menu [data-menu]').click();
+    await page.locator('.office-editor-menus').getByRole('menuitem', { name: '노트 메뉴', exact: true }).click();
     await page.getByRole('menuitem', { name: '목차', exact: true }).click();
     await expect(page.getByRole('region', { name: '문서 탐색', exact: true })).toBeVisible();
   } else if (product === 'slides') {
-    await page.getByRole('button', { name: '레이어', exact: true }).click();
-    await page.getByRole('button', { name: '속성', exact: true }).click();
+    await nativePanel(page, '레이어 · 개체 순서와 컴포넌트');
+    await nativePanel(page, '속성 · 크기, 위치, 모양');
     await expect(page.locator('#slides-details')).toBeVisible();
     if ((await page.locator('.sl-body').boundingBox())!.width < 960) await expect(page.locator('#slides-objects')).toBeHidden();
     else await expect(page.locator('#slides-objects')).toBeVisible();
     await page.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true }).click();
     await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(6);
   } else {
-    await page.getByRole('button', { name: '페이지 및 구조', exact: true }).click();
+    await nativePanel(page, '페이지 및 구조');
     await expect(page.locator('.st-navigation-slot')).toBeVisible();
-    await page.getByRole('button', { name: '자세한 속성', exact: true }).click();
+    await nativePanel(page, '자세한 속성');
     await expect(page.locator('.st-detail-slot')).toBeVisible();
     if (await page.locator('.st-body[data-compact]').count()) await expect(page.locator('.st-navigation-slot')).toBeHidden();
     else await expect(page.locator('.st-navigation-slot')).toBeVisible();
@@ -84,18 +88,19 @@ for (const product of products) for (const width of [1170, 1440]) for (const the
     await page.goto(original.url);
     await expect(page.locator('.ow-entry-status')).toHaveCount(0);
     await expect(page.locator('.ow-file-navigation')).toBeVisible();
-    await expect(page.locator('[data-document-context]')).toContainText('Customer adoption — delivery review');
+    await expect(page.locator('[data-document-context]')).toHaveCount(0);
     const title = page.locator('[data-document-identity]');
     await expect(title).toBeVisible();
     if (product === 'word') {
       await expect(title.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveValue(fullTitle(product));
       await expect(title.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveAttribute('title', fullTitle(product));
       await expect.poll(() => page.locator('.w-sheet').count()).toBeGreaterThan(1);
-      const slot = (await page.locator('.w-document-slot').boundingBox())!, nativeViewport = (await page.locator('.w-shell-document').boundingBox())!, capsule = (await page.getByRole('toolbar', { name: '보기 도구', exact: true }).boundingBox())!;
+      const slot = (await page.locator('.w-document-slot').boundingBox())!, nativeViewport = (await page.locator('.w-shell-document').boundingBox())!, capsule = (await page.locator('.office-editor-view').boundingBox())!;
       expect(nativeViewport.height).toBe(slot.height);
       expect(capsule.width).toBeLessThanOrEqual(320); expect(capsule.height).toBeLessThanOrEqual(48);
-      expect(capsule.x).toBeGreaterThanOrEqual(slot.x); expect(capsule.x + capsule.width).toBeLessThanOrEqual(slot.x + slot.width);
-      expect(await page.locator('.w-view-utilities').evaluate(el => getComputedStyle(el).position)).toBe('absolute');
+      const header = (await page.locator('.office-editor-header').boundingBox())!;
+      expect(capsule.x).toBeGreaterThanOrEqual(header.x); expect(capsule.x + capsule.width).toBeLessThanOrEqual(header.x + header.width);
+      await expect(page.locator('.w-view-utilities')).toHaveCount(0);
       expect(await page.evaluate(({ x, y }) => !!document.elementFromPoint(x + 10, y + 10)?.closest('.w-shell-document'), slot)).toBe(true);
       await test.info().attach('native-view-overlay', { body: JSON.stringify({ slot, nativeViewport, capsule }), contentType: 'application/json' });
     } else await expect(title).toContainText(fullTitle(product));
@@ -109,7 +114,7 @@ for (const product of products) for (const width of [1170, 1440]) for (const the
       const geometry = await page.evaluate(product => {
         const body = document.querySelector(product === 'word' ? '.w-shell-body' : '.st-body')!;
         const header = document.querySelector('.office-editor-header')!;
-        const capsules = [...document.querySelectorAll(product === 'word' ? '.w-view-utilities' : '.st-utilities')];
+        const capsules = [...document.querySelectorAll('.office-editor-view')];
         const panels = [...body.querySelectorAll('[data-workspace-panel]')].filter(el => !el.hasAttribute('hidden'));
         const controls = [...capsules.flatMap(el => [...el.querySelectorAll('button')]), ...panels.flatMap(el => [...el.querySelectorAll('header button,.office-panel-header button,input[aria-label="속성 찾기"]')])]
           .filter(el => { const rect = el.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && !el.closest('[hidden]'); });
@@ -124,11 +129,11 @@ for (const product of products) for (const width of [1170, 1440]) for (const the
       expect(geometry.targets.length).toBeGreaterThan(3);
       for (const target of geometry.targets) expect(target.hit, target.name || 'panel or capsule control').toBe(true);
       // Capsule buttons remain full targets even when a native panel is open.
-      const capsuleTargets = await page.locator(product === 'word' ? '.w-view-utilities button' : '.st-utilities > .office-toolbar button').evaluateAll(els =>
+      const capsuleTargets = await page.locator('.office-editor-view button').evaluateAll(els =>
         els.filter(el => el.getBoundingClientRect().width > 0).map(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height })));
       expect(capsuleTargets.length).toBeGreaterThan(1);
       for (const target of capsuleTargets) { expect(target.width).toBeGreaterThanOrEqual(32); expect(target.height).toBeGreaterThanOrEqual(32); }
-      const utility = page.locator(product === 'word' ? '.w-view-utilities' : '.st-utilities');
+      const utility = page.locator('.office-editor-view');
       const inspector = page.locator(`[data-workspace-panel="inspector"]`);
       await utility.locator('[data-zoom-in]').click(); await expect(inspector).toBeVisible();
       await utility.locator('[data-zoom-out]').click(); await expect(inspector).toBeVisible();
@@ -198,26 +203,48 @@ for (const storedForm of ['NFC', 'NFD'] as const) {
 test('Slides narrow floating panels preserve stage, selection, history and numeric draft', async ({ page }) => {
   await page.setViewportSize({ width: 1170, height: 1000 });
   const original = await populated(page, 'slides'); await page.goto(original.url);
+  // Absence alone can pass before the Workspace frame mounts its native-entry cover.
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
   await expect(page.locator('.ow-entry-status')).toHaveCount(0);
-  await expect(page.locator('[data-document-context]')).toContainText('Customer adoption — delivery review');
+  await expect(page.locator('[data-document-context]')).toHaveCount(0);
   await expect.poll(async () => (await visibleBoxes(page, '.sl-text-frame')).length).toBeGreaterThan(0);
+  const [candidate] = await visibleBoxes(page, '.sl-text-frame');
+  // Initial fit/fonts can move the frame after the first visible box appears.
+  // Measure the actual stable frame before clicking; do not bypass its overlay or set selection.
+  const point = await page.evaluate(async sid => {
+    await document.fonts.ready;
+    let previous = '', stable = 0, point = { x: 0, y: 0 };
+    while (stable < 3) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      const frame = document.querySelector<HTMLElement>(`.sl-stage .sl-text-frame[data-bc-sid="${CSS.escape(sid)}"]`)!;
+      const box = frame.getBoundingClientRect();
+      point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      const signature = JSON.stringify({ ...point, width: box.width, height: box.height });
+      stable = signature === previous && box.width > 20 && box.height > 10 ? stable + 1 : 0;
+      previous = signature;
+    }
+    return point;
+  }, candidate.sid);
+  await page.mouse.click(point.x, point.y);
+  await expect.poll(() => page.evaluate(() => (window as { editor?: { selection?: { nodeIds?: string[] } } }).editor?.selection?.nodeIds)).toEqual([candidate.sid]);
   const [title] = await visibleBoxes(page, '.sl-text-frame');
-  await page.mouse.click(title.x, title.y);
   const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
   const geometry = () => page.locator('.sl-stage,.sl-overlay').evaluateAll(nodes => nodes.map(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, transform: getComputedStyle(el).transform }; }));
   const before = await native(), stage = await geometry();
-  const header = page.locator('.sl-topbar'), navigation = header.getByRole('button', { name: '레이어', exact: true }), inspector = header.getByRole('button', { name: '속성', exact: true });
-  await navigation.click(); await expect(page.locator('#slides-objects')).toBeVisible();
-  await inspector.click(); await expect(page.locator('#slides-objects')).toBeHidden();
+  const header = page.locator('.sl-topbar'), navigation = header.getByRole('menuitem', { name: '패널', exact: true });
+  const toggleNavigation = () => nativePanel(page, '레이어 · 개체 순서와 컴포넌트'), toggleInspector = () => nativePanel(page, '속성 · 크기, 위치, 모양');
+  await toggleNavigation(); await expect(page.locator('#slides-objects')).toBeVisible();
+  await toggleInspector(); await expect(page.locator('#slides-objects')).toBeHidden();
   const width = page.locator('#slides-details').getByRole('spinbutton', { name: '너비', exact: true });
   const initial = await width.inputValue(); await width.fill('99');
-  await inspector.click(); await expect(page.locator('#slides-details')).toBeHidden(); await expect(page.locator('#slides-objects')).toBeVisible();
+  await toggleInspector(); await expect(page.locator('#slides-details')).toBeHidden(); await expect(page.locator('#slides-objects')).toBeVisible();
+  await expect(navigation).toBeFocused();
   const hit = await page.evaluate(({ x, y }) => { const element = document.elementFromPoint(x, y); return { html: element?.outerHTML, nativeCanvas: !!element?.closest('.sl-overlay') }; }, title);
   await test.info().attach('selected-content-point', { body: JSON.stringify(hit), contentType: 'application/json' });
   expect(hit.nativeCanvas).toBe(true);
   await page.mouse.click(title.x, title.y);
   expect(await native()).toEqual(before);
-  await inspector.click(); await expect(width).toHaveValue('99'); await width.press('Escape'); await expect(width).toHaveValue(initial);
+  await toggleInspector(); await expect(width).toHaveValue('99'); await width.press('Escape'); await expect(width).toHaveValue(initial);
   expect(await native()).toEqual(before); expect(await geometry()).toEqual(stage);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.locator('#slides-objects')).toBeVisible(); await expect(page.locator('#slides-details')).toBeVisible();
@@ -274,7 +301,7 @@ test('Word panel menu owns checked routes and keyboard return without changing t
   const outline = page.getByRole('menuitemcheckbox', { name: '개요', exact: true });
   const business = page.getByRole('menuitemcheckbox', { name: '요구·결정', exact: true });
   await expect(outline).toHaveAttribute('aria-checked', 'false'); await expect(outline).toBeFocused();
-  await outline.press('End'); await expect(business).toBeFocused();
+  await outline.press('End'); await expect(page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true })).toBeFocused();
   await business.press('Home'); await expect(outline).toBeFocused();
   await outline.press('Enter'); await expect(page.locator('.w-outline [data-outline-sid]').first()).toBeVisible();
   await opener.click(); await expect(outline).toHaveAttribute('aria-checked', 'true');
@@ -286,8 +313,10 @@ test('Word panel menu owns checked routes and keyboard return without changing t
   await opener.press('Enter'); await expect(page.getByRole('menuitemcheckbox', { name: '댓글', exact: true })).toHaveAttribute('aria-checked', 'false');
   await outline.press('Escape'); await expect(page.getByRole('menu', { name: '문서 패널', exact: true })).toHaveCount(0);
   await expect(opener).toBeFocused(); expect(await native()).toEqual(before);
-  const full = page.getByRole('button', { name: '전체 도구 펼치기', exact: true });
-  await full.focus(); await full.press('Enter'); await expect(page.getByRole('button', { name: '전체 도구 접기', exact: true })).toBeVisible();
+  await opener.focus(); await opener.press('Enter');
+  const full = page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true });
+  await full.press('Enter'); await expect(page.getByRole('group', { name: '전체 Word 도구', exact: true })).toBeVisible();
+  await expect(page.getByRole('toolbar', { name: '문서 편집 도구', exact: true })).toBeVisible();
   expect(await native()).toEqual(before);
 });
 
@@ -378,6 +407,49 @@ test('Note nested input and native block properties survive Workspace navigation
   expect(await savedNative(page, 'note', original.id)).toBe(before);
 });
 
+test('Word common header history and title preserve the original across reopen', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const original = await populated(page, 'word'); await page.goto(original.url);
+  const header = page.locator('.office-editor-header');
+  const title = header.getByRole('textbox', { name: '문서 제목', exact: true });
+  await expect(title).toHaveValue(fullTitle('word'));
+  const native = () => page.evaluate(() => (window as { editor?: { exportDocument(): unknown } }).editor!.exportDocument());
+  const before = await native();
+  const paragraph = page.locator('.w-paragraph').last();
+  await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Header history proof');
+  await expect(paragraph).toContainText('Header history proof'); const typed = await native();
+  await header.getByRole('button', { name: '실행 취소', exact: true }).click();
+  await expect.poll(native).toEqual(before);
+  await header.getByRole('button', { name: '다시 실행', exact: true }).click();
+  await expect.poll(native).toEqual(typed);
+  await title.fill('Original renamed through its native header'); await title.press('Enter');
+  await expect(title).toHaveValue('Original renamed through its native header');
+  const saved = await savedNative(page, 'word', original.id);
+  await page.reload(); await expect(title).toHaveValue('Original renamed through its native header');
+  await expect(page.locator('.w-paragraph').last()).toContainText('Header history proof');
+  expect(await savedNative(page, 'word', original.id)).toBe(saved);
+  expect(page.url()).toBe(new URL(original.url, page.url()).href);
+});
+
+test('Slides common header insertion and history operate on the mounted original', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const original = await populated(page, 'slides'); await page.goto(original.url);
+  await expect(page.locator('[data-document-identity]')).toContainText(fullTitle('slides'));
+  const root = await page.locator('.ow-native-slot > #root').elementHandle();
+  const header = page.locator('.office-editor-header');
+  const native = () => page.evaluate(() => (window as { editor?: { exportDocument(): unknown } }).editor!.exportDocument());
+  const before = await native();
+  await header.getByRole('button', { name: '삽입', exact: true }).click();
+  await page.getByRole('menuitem', { name: '사각형', exact: true }).click();
+  await expect.poll(native).not.toEqual(before); const inserted = await native();
+  await header.locator('[data-control="undo"]').click(); await expect.poll(native).toEqual(before);
+  await header.locator('[data-control="redo"]').click(); await expect.poll(native).toEqual(inserted);
+  expect(await root!.evaluate(node => node.isConnected)).toBe(true);
+  const saved = await savedNative(page, 'slides', original.id); await page.reload();
+  await expect(page.locator('[data-document-identity]')).toContainText(fullTitle('slides'));
+  expect(await savedNative(page, 'slides', original.id)).toBe(saved);
+});
+
 test('Site canvas capsules retain native history and keep advanced tools keyboard reachable', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const original = await populated(page, 'site'); await page.goto(original.url);
@@ -385,15 +457,19 @@ test('Site canvas capsules retain native history and keep advanced tools keyboar
   await expect(insertion).toBeVisible(); await expect(view).toBeVisible();
   const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
   const before = await native();
+  for (const label of ['실행 취소', '다시 실행', '삽입']) await expect(insertion.getByRole('button', { name: label, exact: true })).toBeVisible();
+  for (const label of ['확대', '축소']) await expect(view.getByRole('button', { name: label, exact: true })).toBeVisible();
+  await expect(view.locator('.st-preview-toggle')).toBeVisible();
   for (const capsule of [insertion, view]) {
     const box = (await capsule.boundingBox())!; expect(box.width).toBeLessThanOrEqual(480); expect(box.height).toBeLessThanOrEqual(48);
     const hits = await capsule.locator('button,input').evaluateAll(nodes => nodes.filter(el => el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0).map(el => { const r = el.getBoundingClientRect(); return { width: r.width, height: r.height, hit: el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)) }; }));
     await test.info().attach('capsule-hit-targets', { body: JSON.stringify({ box, hits }), contentType: 'application/json' });
-    expect(hits.length).toBeGreaterThan(3);
+    expect(hits.length).toBe(capsule === insertion ? 3 : 5);
     for (const hit of hits) { expect(hit.width).toBeGreaterThanOrEqual(32); expect(hit.height).toBeGreaterThanOrEqual(32); expect(hit.hit).toBe(true); }
   }
-  const more = insertion.getByRole('button', { name: '모든 도구', exact: true });
+  const more = page.getByRole('menuitem', { name: '패널', exact: true });
   await more.focus(); await more.press('Enter');
+  await page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
   const full = page.locator('.st-all-tools-popup'); await expect(full).toBeVisible();
   expect(await native()).toEqual(before);
   const tooltip = page.getByRole('tooltip'), owned = await tooltip.isVisible();
@@ -405,8 +481,12 @@ test('Site canvas capsules retain native history and keep advanced tools keyboar
   await expect(preview).toHaveAttribute('aria-pressed', 'true'); expect((await native()).document).toEqual(before.document);
   await preview.click(); await expect(preview).toHaveAttribute('aria-pressed', 'false');
   expect((await native()).document).toEqual(before.document);
-  await insertion.getByRole('button', { name: '제목을 넣습니다', exact: true }).click();
+  await insertion.getByRole('button', { name: '삽입', exact: true }).click();
+  await page.getByRole('button', { name: '제목', exact: true }).click();
   await expect.poll(async () => (await native()).document).not.toEqual(before.document);
+  const inserted = (await native()).document;
+  await insertion.getByRole('button', { name: '실행 취소', exact: true }).click(); await expect.poll(async () => (await native()).document).toEqual(before.document);
+  await insertion.getByRole('button', { name: '다시 실행', exact: true }).click(); await expect.poll(async () => (await native()).document).toEqual(inserted);
   await page.getByRole('button', { name: '명령 검색', exact: true }).click();
   const search = page.getByRole('combobox', { name: '명령 검색어', exact: true });
   await search.fill('실행 취소'); await search.press('Enter');
@@ -419,7 +499,7 @@ test('Site compact panel close exposes the right-edge original without committin
   const original = await populated(page, 'site'); await page.goto(original.url);
   const picture = page.locator('[data-frame="desktop"] img.st-picture[alt="문서와 덱과 페이지가 한 화면에 놓인 그림"]');
   await expect(picture).toBeVisible();
-  await page.locator('.st-utilities [data-zoom-fit]').click();
+  await page.locator('.office-editor-view [data-zoom-fit]').click();
   const pictureSid = await picture.evaluate(el => el.closest('[data-bc-sid]')?.getAttribute('data-bc-sid')?.split('~').pop());
   expect(pictureSid).toBeTruthy();
   const selectedPicture = () => page.evaluate(() => (window as any).editor.selection?.nodeIds);
@@ -429,18 +509,18 @@ test('Site compact panel close exposes the right-edge original without committin
   expect(await hit()).toBe(true);
   await page.keyboard.down('Meta'); await page.mouse.click(point.x, point.y); await page.keyboard.up('Meta');
   await expect.poll(selectedPicture).toEqual([pictureSid]);
-  const detail = page.getByRole('button', { name: '자세한 속성', exact: true }); await detail.click();
+  const detail = page.getByRole('menuitem', { name: '패널', exact: true }); await nativePanel(page, '자세한 속성');
   const panel = page.locator('.office-properties'); await panel.getByRole('tab', { name: '모양', exact: true }).click();
   const input = panel.getByRole('spinbutton', { name: '기울기', exact: true });
   const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
   const before = await native(); await input.fill('12'); expect(await native()).toEqual(before);
   // Explicit close exposes the original; toggling never silently changes zoom, history or the draft.
-  await detail.click(); await expect(page.locator('.st-detail-slot')).toBeHidden();
+  await nativePanel(page, '자세한 속성'); await expect(page.locator('.st-detail-slot')).toBeHidden();
   expect(await native()).toEqual(before); expect(await hit()).toBe(true); await expect(detail).toBeFocused();
   await page.keyboard.down('Meta'); await page.mouse.click(point.x, point.y); await page.keyboard.up('Meta');
   await expect.poll(selectedPicture).toEqual([pictureSid]);
   expect((await native()).document).toEqual(before.document);
-  await detail.click(); await expect(input).toHaveValue('12'); expect(await native()).toEqual(before);
+  await nativePanel(page, '자세한 속성'); await expect(input).toHaveValue('12'); expect(await native()).toEqual(before);
   await input.press('Escape'); expect(await native()).toEqual(before);
 });
 

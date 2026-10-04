@@ -867,7 +867,7 @@ body {
 .st-body[data-compact] > .office-workspace-side-panel > :first-child { width:100% !important; }
 
 /* Compact tools leave the page in view and expand only on request. */
-.st-all-tools-popup { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow: auto; }
+.st-all-tools-popup { width: max-content; max-width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow: auto; }
 .st-all-tools-popup .office-ribbon-toolbar { flex-wrap: wrap; border: 0; }
 .st-all-tools-popup [data-ribbon-group='page-navigation'] { margin-left: 0; }
 .st-navigation-slot, .st-detail-slot { flex-shrink: 0; min-height: 0; }
@@ -877,15 +877,19 @@ body {
 
 
 /* One native header: title first, compact document actions, then the view group. */
-.st-documentbar[data-compact] .office-editor-title { flex: 1 1 auto; min-width: 120px; }
-.st-header-actions { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
-.st-header-actions { padding-left: 6px; border-left: 1px solid var(--ou-line); }
+.st-documentbar[data-compact] .office-editor-title { flex: 1 1 auto; min-width: 0; }
+.st-header-actions { display: flex; align-items: center; height: 36px; padding: 2px 6px; gap: 2px; flex-wrap: nowrap; border-left: 1px solid var(--ou-line); }
+.st-documentbar .st-header-tools { height: 36px; min-height: 36px; padding: 2px 6px; gap: 2px; flex-wrap: nowrap; border: 0; border-radius: 18px; background: transparent; box-shadow: none; }
+.st-documentbar .st-header-tools > button,
+.st-documentbar .st-header-tools > .office-secondary-owner > button,
+.st-documentbar .st-header-tools > .office-zoom > button { min-width: 32px; min-height: 32px; }
+.st-documentbar .st-header-tools > button svg,
+.st-documentbar .st-header-tools > .office-secondary-owner > button svg,
+.st-documentbar .st-header-tools > .office-zoom > button svg { width: 16px; height: 16px; }
+.st-documentbar .st-view-tools { margin-left: 2px; padding-left: 8px; border-left: 1px solid var(--ou-line); border-radius: 0; }
 
 /* File/open remains in the document menu. Keep its native picker and task feedback mounted. */
 .st-documentbar .st-file-picker { display: none; }
 
-/* Canvas tools do not participate in the native plane's measurement or pan/zoom. */
+/* Selection tools remain on the native plane; common tools belong to the header. */
 .st-main { position: relative; }
-.st-utilities { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 30; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; pointer-events: none; }
-.st-utilities > * { pointer-events: auto; }
-.st-utilities .st-view-tools { margin-left: auto; }

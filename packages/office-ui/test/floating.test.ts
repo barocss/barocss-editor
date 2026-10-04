@@ -3,9 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { FloatingSurface, FloatingPanelHeader, type FloatingSurfaceProps } from '../src/floating';
+import { SecondaryPopup } from '../src/secondary-popup';
 import { IconButton } from '../src/controls';
 import { MenuAction } from '../src/menu-action';
 import { Dialog } from '../src/dialog';
+import { DocumentMenu } from '../src/document-bar';
 
 let root: Root;
 let width: number;
@@ -42,6 +44,26 @@ afterEach(() => {
 });
 
 describe('a shared floating surface', () => {
+  it('releases panel focus ownership when its menu is removed, so normal field blur commits again', () => {
+    vi.stubGlobal('CSS', { escape: (value: string) => value });
+    let menuOwnsFocus = false, commits = 0;
+    const menus = [{ id: 'panels', label: 'Panels', blocks: [{ id: 'panels', items: [{ id: 'properties', label: 'Properties' }] }] }];
+    const draw = (shown: boolean) => act(() => root.render(createElement('div', null,
+      createElement('input', { 'aria-label': 'Width', onBlur: () => { if (!menuOwnsFocus) commits++; } }),
+      shown && createElement(DocumentMenu, { label: 'Panels', menus, onPick: () => {}, onOpenChange: open => { menuOwnsFocus = open; } }),
+      createElement('button', { id: 'outside' }, 'Outside')
+    )));
+    draw(true);
+    const input = document.querySelector<HTMLInputElement>('input')!;
+    act(() => input.focus());
+    act(() => document.querySelector<HTMLButtonElement>('[data-menu]')!.click());
+    expect(commits).toBe(0);
+    draw(false);
+    act(() => input.focus());
+    act(() => document.querySelector<HTMLButtonElement>('#outside')!.focus());
+    expect(commits).toBe(1);
+  });
+
   it('keeps an uncommitted field draft and its DOM identity across an opted-in close and reopen', () => {
     function Draft() {
       const [value, setValue] = useState('Original');
@@ -60,6 +82,32 @@ describe('a shared floating surface', () => {
     render({ ...kept, at, children });
     expect(surface().querySelector('input')).toBe(field);
     expect(field.value).toBe('Unaccepted link');
+  });
+
+  it('returns Escape to a named custom trigger and retains its native field draft', () => {
+    const committed = vi.fn();
+    function OwnedTools() {
+      const [open, setOpen] = useState(false);
+      return createElement(SecondaryPopup, { triggerLabel: 'All tools', label: 'Native tools', open,
+        onOpenChange: setOpen, keepMounted: true,
+        trigger: change => createElement('button', { 'aria-haspopup': 'menu', onClick: () => change(true) }, 'Panels'),
+        children: createElement('input', { defaultValue: 'Original', 'aria-label': 'Pending value', onBlur: committed }) });
+    }
+    act(() => root.render(createElement(OwnedTools)));
+    const opener = document.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')!;
+    act(() => opener.click());
+    const field = surface().querySelector('input')!;
+    field.value = 'Uncommitted';
+    act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(surface().hidden).toBe(true);
+    expect(document.activeElement).toBe(opener);
+    act(() => opener.click());
+    expect(surface().querySelector('input')).toBe(field);
+    expect(field.value).toBe('Uncommitted');
+    committed.mockClear();
+    act(() => { field.focus(); opener.focus(); });
+    expect(committed).toHaveBeenCalledOnce();
+    expect(document.querySelectorAll('[data-secondary-trigger]')).toHaveLength(0);
   });
 
   it('hides and inerts retained fields without measuring, focusing or dismissing while closed', () => {

@@ -586,7 +586,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     } else { history.replaceState(null, '', '/'); await checkAccess('user', current.tenant); }
   };
   const headerNavigation = view.phase === 'note' ? <div className="office-editor-product office-auth-native-navigation">
-    <ProductLabel name={view.context.product === 'slides' ? 'Slides' : view.context.product === 'word' ? 'Word' : 'Note'} />
+    <ProductLabel iconOnly name={view.context.product === 'slides' ? 'Slides' : view.context.product === 'word' ? 'Word' : 'Note'} />
     {noteIntent.current?.projectId && activeDocument && feedbackRepository && <ProjectFeedback key={`${noteAccount.current}:${noteIntent.current.projectId}:${activeDocument}`} repository={feedbackRepository} projectId={noteIntent.current.projectId} beforeLeave={feedbackBeforeLeave}
       document={{ product: view.context.product, id: activeDocument }} />}
   </div> : null;
