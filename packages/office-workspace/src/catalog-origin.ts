@@ -28,5 +28,5 @@ export function saveLibraryOrigin(workspace: string, value: LibraryOrigin): void
   sessionStorage.setItem(key(workspace), JSON.stringify(value));
 }
 export function workspaceReturnURL(workspace: string, project?: string | null): string {
-  return `/?${new URLSearchParams({ workspace, ...(project ? { project } : { view: 'library' }) })}`;
+  return `/?${new URLSearchParams({ workspace, ...(project ? { view: 'projects', project } : { view: 'library' }) })}`;
 }

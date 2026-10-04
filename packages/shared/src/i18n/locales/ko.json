@@ -143,5 +143,19 @@
   "workspace.tree.serverProjectsUnavailable": "프로젝트를 불러오지 못했습니다. 접근 가능한 원본 자료는 사용할 수 있습니다.",
   "workspace.tree.nativeUnavailable": "이 편집기는 아직 안전한 이동을 준비하지 못했습니다. 현재 문서를 유지합니다.",
   "workspace.document.actions": "문서 작업",
-  "workspace.tree.workspace": "작업 공간"
+  "workspace.tree.workspace": "작업 공간",
+  "workspace.rail.returnProject": "프로젝트로 돌아가기",
+  "workspace.rail.returnLibrary": "자료함으로 돌아가기",
+  "workspace.rail.logout": "로그아웃",
+  "word.file.nativeExport": "Word 파일 내보내기",
+  "word.header.panels": "문서 패널",
+  "word.header.requirements": "요구·결정",
+  "note.header.documentMenu": "문서 메뉴",
+  "workspace.feedback.menu": "프로젝트 메뉴",
+  "workspace.feedback.section": "프로젝트 의견",
+  "workspace.feedback.add": "프로젝트 의견 남기기",
+  "workspace.feedback.count": "의견 {count}",
+  "workspace.feedback.view": "보기",
+  "workspace.feedback.edit": "직접 편집",
+  "workspace.feedback.read": "읽기"
 }

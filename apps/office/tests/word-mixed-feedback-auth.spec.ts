@@ -1,3 +1,4 @@
+import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -206,24 +207,24 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     await linking.getByRole('button', { name: '연결하기', exact: true }).click(); await expect(linking).toBeHidden();
     const initial = await readDocument(); expect(initial.snapshotText).toBe(guide.text);
     await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible();
-    await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+    await (await projectFeedbackAction(page, '직접 편집')).click();
     for (const mode of ['forward', 'backward', 'keyboard'] as const) {
       requests.phase = `capture-${mode}`; checkpoint();
       await selectMixed(page, mode);
-      await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+      await (await projectFeedbackAction(page, '프로젝트 의견 남기기')).click();
       await expect(feedback(page).locator('blockquote')).toHaveText(sentence);
       await expect(feedback(page).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true })).toBeVisible();
       await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).click();
       await expect(feedback(page)).toBeHidden();
       expect((await readDocument()).snapshotText).toBe(initial.snapshotText); expect((await readProject()).project.record.comments).toHaveLength(0);
     }
-    await selectMixed(page, 'forward'); await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await selectMixed(page, 'forward'); await (await projectFeedbackAction(page, '프로젝트 의견 남기기')).click();
     const input = feedback(page).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
     await input.fill(opinion); await input.dispatchEvent('compositionstart');
     for (const key of ['Enter', 'Escape']) await input.dispatchEvent('keydown', { key, code: key, isComposing: true, keyCode: 229, bubbles: true });
     await expect(feedback(page)).toBeVisible(); expect((await readProject()).project.record.comments).toHaveLength(0);
     await input.dispatchEvent('compositionend'); await page.keyboard.press('Escape'); await expect(feedback(page)).toBeHidden();
-    await page.getByRole('button', { name: '의견 0', exact: true }).click(); await expect(input).toHaveValue(opinion);
+    await (await projectFeedbackAction(page, '의견 0')).click(); await expect(input).toHaveValue(opinion);
     await feedback(page).screenshot({ path: test.info().outputPath('mixed-long-opinion.png') });
     await page.emulateMedia({ colorScheme: 'dark' });
     await feedback(page).screenshot({ path: test.info().outputPath('mixed-rich-opinion-dark.png') });
@@ -255,7 +256,7 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     await expect(feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true })).toBeHidden();
     await expect(input).toHaveValue(opinion); expect((await readDocument()).snapshotText).toBe(initial.snapshotText);
     await page.unroute(projectApi);
-    await selectMixed(page, 'forward'); await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await selectMixed(page, 'forward'); await (await projectFeedbackAction(page, '프로젝트 의견 남기기')).click();
     await expect(feedback(page).locator('blockquote')).toHaveText(sentence); await expect(input).toHaveValue(opinion);
     requests.phase = 'lost-native-save-ack'; checkpoint();
     const beforeNativeReceipts = await privateControl<Inspection<'word'>>({ action: 'inspect', product: 'word', documentId: guide.id });
@@ -308,7 +309,7 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     await page.reload(); await expect(word(page)).toBeVisible(); await expect(input).toHaveValue(opinion);
     await feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true }).click();
     await expect(feedback(page).getByRole('button', { name: '저장 응답 확인', exact: true })).toBeHidden();
-    await expect(page.getByRole('button', { name: '의견 1', exact: true })).toBeVisible();
+    await expect((await projectFeedbackAction(page, '의견 1'))).toBeVisible();
     current = await readProject(); const comment = current.project.record.comments[0];
     expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
     const commentPayloads = requests.projectWrites.filter(payload => (payload.action as { type?: string })?.type === 'comment');
@@ -360,8 +361,8 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     const executionRead = await page.request.get(executionApi, { headers: headers() });
     const held = await executionRead.json() as { execution: { id: string; provenance?: unknown } };
     expect(held.execution.provenance).toBeUndefined();
-    await page.reload(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
-    await page.getByRole('button', { name: '의견 1', exact: true }).click();
+    await page.reload(); await expect(word(page)).toBeVisible(); await (await projectFeedbackAction(page, '직접 편집')).click();
+    await (await projectFeedbackAction(page, '의견 1')).click();
     await feedback(page).getByRole('button', { name: '대상 영역', exact: true }).click();
     await expect.poll(() => page.evaluate(() => {
       const selection = getSelection(); const owner = selection?.anchorNode?.parentElement?.closest('.w-paragraph');
@@ -387,7 +388,7 @@ test('mixed Word opinion preserves ordered native runs, frozen receipts and actu
     expect(afterRestart.databaseIdentity).toBe(beforeRestart.databaseIdentity); expect(afterRestart.postgresPid).not.toBe(beforeRestart.postgresPid); expect(afterRestart.apiPid).not.toBe(beforeRestart.apiPid);
     expect(await readProject()).toEqual(frozenProject); expect((await readDocument()).snapshotText).toBe(frozenDocument.snapshotText);
     const restoredExecution = await page.request.get(executionApi, { headers: headers() }); expect(await restoredExecution.json()).toEqual(held);
-    await page.reload(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '의견 1', exact: true }).click();
+    await page.reload(); await expect(word(page)).toBeVisible(); await (await projectFeedbackAction(page, '의견 1')).click();
     await feedback(page).getByRole('button', { name: '대상 영역', exact: true }).click(); await expect.poll(() => page.evaluate(() => getSelection()?.toString())).toBe(sentence);
     await page.screenshot({ path: test.info().outputPath('mixed-opinion-reopened.png') });
     evidence.projectId = projectId; evidence.commentId = comment.id; evidence.workId = workId; evidence.nativeBeforeHash = hash(initial.snapshotText); evidence.nativeAfterHash = hash(frozenDocument.snapshotText);

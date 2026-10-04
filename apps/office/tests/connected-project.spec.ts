@@ -1,9 +1,11 @@
+import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 const workspaceModule = `/@fs${fileURLToPath(new URL('../../../packages/office-workspace/src/index.ts', import.meta.url))}`;
 
 async function createProject(page: Page) {
   await page.goto('/');
+  await page.getByRole('banner').getByRole('button', { name: '프로젝트', exact: true }).click();
   await page.getByRole('button', { name: '프로젝트 만들기', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '프로젝트 만들기' });
   await dialog.getByRole('textbox', { name: '프로젝트 이름' }).fill('Windows 베타 공개');
@@ -24,7 +26,7 @@ async function newResult(page: Page, name: string, product: string) {
 }
 async function project(page: Page) {
   const navigation = page.getByRole('navigation', { name: 'Wonffice 작업 공간', exact: true });
-  await navigation.locator('[data-menu]').click();
+  await navigation.locator('[data-menu="workspace"]').click();
   await page.getByRole('menuitem', { name: '프로젝트로 돌아가기', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Windows 베타 공개', exact: true })).toBeVisible();
 }
@@ -44,7 +46,7 @@ test('real project goal, four existing original editors, final input, source rev
     await page.getByRole('button', { name, exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Wonffice 작업 공간' })).toBeVisible();
     if (name === '고객 설치 안내') {
-      const edit = page.getByRole('button', { name: '직접 편집', exact: true });
+      const edit = (await projectFeedbackAction(page, '직접 편집'));
       await expect(edit).toBeVisible(); await edit.click();
       await page.locator('.w-paragraph').last().click();
       await page.keyboard.press('End'); await page.keyboard.insertText(' 실제 마지막 입력');
@@ -84,7 +86,7 @@ test('project source evidence retains exact bytes after human changes and metada
   }, workspaceModule);
   expect(captured.exact).toBe(true); expect(captured.refused).toBe(true); expect(captured.goal).toBe('중간 사용자 변경');
   await page.getByRole('button', { name: '고객 설치 안내', exact: true }).click();
-  const edit = page.getByRole('button', { name: '직접 편집', exact: true }); await expect(edit).toBeVisible(); await edit.click();
+  const edit = (await projectFeedbackAction(page, '직접 편집')); await expect(edit).toBeVisible(); await edit.click();
   await page.locator('.w-paragraph').last().click(); await page.keyboard.press('End'); await page.keyboard.insertText(' 사람의 후속 변경'); await project(page);
   await page.locator('.ow-project-result').filter({ hasText: '팀 교육자료' }).getByText('요청과 참고 자료', { exact: true }).click();
   await page.getByRole('button', { name: `고객 설치 안내 · 버전 ${captured.pin.revision}`, exact: true }).click();

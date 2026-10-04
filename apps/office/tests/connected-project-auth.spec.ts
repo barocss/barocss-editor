@@ -1,3 +1,4 @@
+import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -214,13 +215,13 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     const initialGuide = await readDocument(guide.id, 'word'), initialTraining = await readDocument(training.id, 'slides');
     requests.phase = 'open-guide'; await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible();
     await notePhase(page, requests, 'before-direct-edit');
-    await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+    await (await projectFeedbackAction(page, '직접 편집')).click();
     await expect.poll(() => paragraph(page).evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
-    await expect(page.getByRole('button', { name: '읽기', exact: true })).toBeVisible();
+    await expect((await projectFeedbackAction(page, '읽기'))).toBeVisible();
     await notePhase(page, requests, 'direct-edit-ready');
     await selectGuide(page); requests.phase = 'native-quote-selected';
     requests.timeline.push({ kind: 'ui', phase: requests.phase, selectionLength: 4, selectionHash: hash('This') });
-    await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await (await projectFeedbackAction(page, '프로젝트 의견 남기기')).click();
     await expect(feedback(page)).toBeVisible(); await notePhase(page, requests, 'opinion-opened'); const input = feedback(page).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
     await input.fill('초안 보관'); await input.dispatchEvent('compositionstart');
     await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, bubbles: true });
@@ -229,7 +230,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await input.dispatchEvent('compositionend'); await input.fill(opinion);
     await feedback(page).getByRole('button', { name: '의견 닫기', exact: true }).click();
     await expect(feedback(page)).toBeHidden();
-    await page.getByRole('button', { name: '의견 0', exact: true }).click(); await expect(input).toHaveValue(opinion);
+    await (await projectFeedbackAction(page, '의견 0')).click(); await expect(input).toHaveValue(opinion);
     let dropped = false, originalPayload: unknown;
     await page.route(projectApi, async route => {
       if (route.request().method() !== 'PATCH' || route.request().postDataJSON()?.action?.type !== 'comment' || dropped) { await route.continue(); return; }
@@ -246,7 +247,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     expect(dropped).toBe(true); current = await readProject(); expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
     await notePhase(page, requests, 'same-comment-retry');
     await feedback(page).getByRole('button', { name: '댓글만 남기기', exact: true }).click();
-    await expect(page.getByRole('button', { name: '의견 1', exact: true })).toBeVisible();
+    await expect((await projectFeedbackAction(page, '의견 1'))).toBeVisible();
     current = await readProject(); expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
     expect(current.project.record.goal).toBe('서버에서 먼저 저장한 프로젝트 목표를 유지한다.');
     const commentRequests = requests.projectWrites.filter(payload => (payload.action as { type?: string })?.type === 'comment');
@@ -289,7 +290,7 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     await page.locator('.ow-project-work summary').click(); await page.getByRole('button', { name: '같은 작업 재개', exact: true }).click();
     await expect(page.locator('.ow-project-work').getByRole('button', { name: '일시 정지', exact: true })).toBeEnabled();
     current = await readProject(); expect(current.project.record.works).toHaveLength(1); expect(current.project.record.works[0].id).toBe(workId); expect(current.project.record.works[0].state).toBe('unconnected');
-    await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible(); await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+    await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible(); await (await projectFeedbackAction(page, '직접 편집')).click();
     requests.phase = 'human-edit'; const p = paragraph(page); await expect.poll(() => p.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
     await p.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Human correction.'); await expect(p).toContainText('Human correction.');
     await page.keyboard.press('Meta+z'); await expect(p).not.toContainText('Human correction.'); await page.keyboard.press('Meta+Shift+z'); await expect(p).toContainText('Human correction.');
@@ -316,12 +317,12 @@ test('real Windows beta project preserves originals, recorded opinions, exact pi
     expect(foreignTenant.status()).toBe(403); expect(await foreignTenant.json()).toEqual({ status: 'forbidden' });
     await privateControl({ action: 'beta-role', role: 'editor' }); roleChanged = true; await viewerPage.reload();
     await expect(viewerPage.getByRole('button', { name: '결과물 연결', exact: true })).toBeEnabled();
-    await viewerPage.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(viewerPage)).toBeVisible(); await viewerPage.getByRole('button', { name: '직접 편집', exact: true }).click();
-    await selectGuide(viewerPage); await viewerPage.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await viewerPage.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(viewerPage)).toBeVisible(); await (await projectFeedbackAction(viewerPage, '직접 편집')).click();
+    await selectGuide(viewerPage); await (await projectFeedbackAction(viewerPage, '프로젝트 의견 남기기')).click();
     await feedback(viewerPage).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true }).fill('권한 회수 후 제출하면 안 되는 초안');
     const oldButton = await feedback(viewerPage).getByRole('button', { name: '댓글만 남기기', exact: true }).elementHandle(); expect(oldButton).not.toBeNull();
     await privateControl({ action: 'beta-role', role: 'viewer' }); await viewerPage.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(viewerPage.getByRole('button', { name: '프로젝트 의견 남기기', exact: true })).toBeDisabled();
+    await expect((await projectFeedbackAction(viewerPage, '프로젝트 의견 남기기'))).toBeDisabled();
     const beforeRevoked = await readProject(); await oldButton!.evaluate(button => (button as HTMLButtonElement).click()); expect((await readProject()).project).toEqual(beforeRevoked.project);
     expect((await readDocument(guide.id, 'word')).snapshotText).toBe(edited.snapshotText);
     await privateControl({ action: 'beta-active', active: false }); await viewerPage.evaluate(() => window.dispatchEvent(new Event('focus')));

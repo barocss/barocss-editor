@@ -1,3 +1,4 @@
+import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -249,11 +250,11 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await linkResult(page, guideTitle, 'word', guide.id); await linkResult(page, trainingTitle, 'slides', training.id);
     const initialTraining = await readDocument(training.id, 'slides');
     await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible();
-    await page.getByRole('button', { name: '직접 편집', exact: true }).click(); await selectCompleteGuide(page);
-    await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+    await (await projectFeedbackAction(page, '직접 편집')).click(); await selectCompleteGuide(page);
+    await (await projectFeedbackAction(page, '프로젝트 의견 남기기')).click();
     await feedback(page).getByRole('textbox', { name: '프로젝트 의견 입력', exact: true }).fill(opinion);
     requests.phase = 'comment-only'; await feedback(page).getByRole('button', { name: '댓글만 남기기', exact: true }).click();
-    await expect(page.getByRole('button', { name: '의견 1', exact: true })).toBeVisible();
+    await expect((await projectFeedbackAction(page, '의견 1'))).toBeVisible();
     let current = await readProject(); expect(current.project.record.comments).toHaveLength(1); expect(current.project.record.works).toHaveLength(0);
     const comment = current.project.record.comments[0]; expect(comment.target.quote).toBe(guideText); expect(comment.target.kind).toBe('word-comment');
     requests.phase = 'explicit-revision-request'; await feedback(page).getByRole('button', { name: '수정 작업 연결', exact: true }).click();
@@ -274,8 +275,8 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     await page.locator('.ow-project-work summary').first().click();
     await page.getByRole('button', { name: '같은 작업 재개', exact: true }).click(); expect(await readExecution()).toBeNull();
     await page.getByRole('button', { name: guideTitle, exact: true }).click(); await expect(word(page)).toBeVisible();
-    await page.getByRole('button', { name: '직접 편집', exact: true }).click();
-    await page.getByRole('button', { name: '의견 1', exact: true }).click();
+    await (await projectFeedbackAction(page, '직접 편집')).click();
+    await (await projectFeedbackAction(page, '의견 1')).click();
     diagnosticPage = page; diagnosticRequests = requests;
     const preCall = await readDocument(guide.id, 'word'); expect(preCall.snapshotText).toBe(comment.pin.text);
     requests.phase = 'live-inference'; await notePhase(page, requests, requests.phase);

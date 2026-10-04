@@ -93,6 +93,7 @@ export interface WordServerHost {
   feedbackDocumentId: () => string;
   canComment: () => boolean;
   onFileAction: (action: 'new' | 'open' | 'save') => void;
+  nativeExport?: { available: boolean; run: () => void };
 }
 
 export function App({ mount, server }: {
@@ -108,10 +109,9 @@ export function App({ mount, server }: {
   const [businessOpen, setBusinessOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
   const panelId = useId();
-  const outlineButton = useRef<HTMLButtonElement>(null);
-  const commentsButton = useRef<HTMLButtonElement>(null);
-  const restorePanelFocus = useCallback((side: 'navigation' | 'inspector') => {
-    (side === 'navigation' ? outlineButton : commentsButton).current?.focus({ preventScroll: true });
+  const panelMenuAnchor = useRef<HTMLSpanElement>(null);
+  const restorePanelFocus = useCallback((_side: 'navigation' | 'inspector') => {
+    panelMenuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   }, []);
   const host = useRef<HTMLDivElement>(null);
   const detailAnchor = useRef<HTMLSpanElement>(null);
@@ -420,6 +420,10 @@ export function App({ mount, server }: {
   /** A pick in the menubar, which is `runEntry` with the entry looked up. */
   const onMenu = useCallback(
     (id: string) => {
+      if (id === 'server.native-export') {
+        if (server?.nativeExport?.available) server.nativeExport.run();
+        return;
+      }
       if (!server && !proposalSample && (id === 'local.library' || id === 'local.actions')) {
         library.current?.open(id === 'local.library' ? 'library' : 'actions');
         return;
@@ -478,7 +482,9 @@ export function App({ mount, server }: {
         {instance && <>
           <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<span ref={documentMenuAnchor}><DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={server || proposalSample ? menus : [...menus, {
+            menus={<span ref={documentMenuAnchor}><DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={server?.nativeExport ? menus.map(menu => menu.id !== 'file' ? menu : { ...menu,
+              blocks: [...menu.blocks, { id: 'native-export', items: [{ id: 'server.native-export', label: t('word.file.nativeExport'), disabled: !server.nativeExport!.available }] }]
+            }) : server || proposalSample ? menus : [...menus, {
               id: 'local-library', label: '문서 작업', blocks: [{ id: 'local-library', items: [
                 { id: 'local.library', label: '문서 보관함' }, { id: 'local.actions', label: '문서 작업' }
               ] }]
@@ -486,15 +492,17 @@ export function App({ mount, server }: {
             fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
             actions={<>
               <div className="w-header-command-group">
-                <Tip label={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}><Button ref={outlineButton} square tone="quiet" ariaLabel={t(compact && server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline')}
-                  aria-controls={!compact && server?.navigation && !server.workspaceNavigation ? `${panelId}-outline` : `${panelId}-navigation`} aria-expanded={outlineShown} data-workspace-toggle="navigation"
-                  pressed={outlineShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('navigation')}><Icon name="outline" /></Button></Tip>
-                <Tip label={t('word.header.comments')}><Button ref={commentsButton} square tone="quiet" ariaLabel={t('word.header.comments')}
-                  aria-controls={`${panelId}-inspector`} aria-expanded={commentsShown} data-workspace-toggle="inspector"
-                  pressed={commentsShown} onMouseDown={event => event.preventDefault()} onClick={() => togglePanel('inspector')}><Icon name="comments" /></Button></Tip>
-                <Tip label="요구·결정"><Button square tone="quiet" ariaLabel="요구·결정" pressed={businessOpen}
-                  onMouseDown={event => event.preventDefault()}
-                  onClick={() => { setBusinessOpen(value => !value); setActivePanel('navigation'); if (!compact) setOutlining(true); }}><Icon name="resolve" /></Button></Tip>
+                <span ref={panelMenuAnchor}><DocumentMenu label={t('word.header.panels')} icon={<Icon name="outline" />} menus={[{
+                  id: 'panels', label: t('word.header.panels'), blocks: [{ id: 'panels', items: [
+                    { id: 'panel.outline', label: t('word.header.outline'), checked: outlineShown },
+                    { id: 'panel.comments', label: t('word.header.comments'), checked: commentsShown },
+                    { id: 'panel.business', label: t('word.header.requirements'), checked: businessOpen }
+                  ] }]
+                }]} onPick={id => {
+                  if (id === 'panel.outline') togglePanel('navigation');
+                  else if (id === 'panel.comments') togglePanel('inspector');
+                  else if (id === 'panel.business') { setBusinessOpen(value => !value); setActivePanel('navigation'); if (!compact) setOutlining(true); }
+                }} /></span>
                 {!readOnly && <span ref={detailAnchor}>
                   <Tip label={ribbonExpanded ? '전체 도구 접기' : '전체 도구 펼치기'}>
                     <Button square tone="quiet" onMouseDown={event => event.preventDefault()} pressed={ribbonExpanded}

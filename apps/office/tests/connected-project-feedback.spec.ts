@@ -1,3 +1,4 @@
+import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -46,6 +47,7 @@ async function createResult(page: Page, name: string, product: 'Word' | 'Slides'
 }
 async function openGuide(page: Page, education = false) {
   await page.goto('/');
+  await page.getByRole('banner').getByRole('button', { name: '프로젝트', exact: true }).click();
   await page.getByRole('button', { name: '프로젝트 만들기', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '프로젝트 만들기' });
   await dialog.getByRole('textbox', { name: '프로젝트 이름' }).fill('고객 안내 검토');
@@ -55,8 +57,8 @@ async function openGuide(page: Page, education = false) {
   await createResult(page, '고객 설치 안내', 'Word');
   if (education) await createResult(page, '팀 교육자료', 'Slides');
   await page.getByRole('button', { name: '고객 설치 안내', exact: true }).click();
-  await page.getByRole('button', { name: '직접 편집', exact: true }).click();
-  await expect(page.getByRole('button', { name: '읽기', exact: true })).toBeVisible();
+  await (await projectFeedbackAction(page, '직접 편집')).click();
+  await expect((await projectFeedbackAction(page, '읽기'))).toBeVisible();
   const paragraph = page.locator('.w-paragraph').last();
   await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(guideText);
   await expect(paragraph).toContainText(guideText);
@@ -82,7 +84,7 @@ async function selectGuide(page: Page) {
 }
 async function compose(page: Page) {
   await selectGuide(page);
-  await page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+  await (await projectFeedbackAction(page, '프로젝트 의견 남기기')).click();
   const panel = page.getByRole('complementary', { name: '프로젝트 의견', exact: true });
   await expect(panel.getByRole('textbox', { name: '프로젝트 의견 입력' })).toBeVisible();
   await expect(panel.locator('blockquote')).toHaveText(selectedQuote);
@@ -90,7 +92,7 @@ async function compose(page: Page) {
 }
 async function returnProject(page: Page) {
   const navigation = page.getByRole('navigation', { name: 'Wonffice 작업 공간', exact: true });
-  await navigation.locator('[data-menu]').click();
+  await navigation.locator('[data-menu="workspace"]').click();
   await page.getByRole('menuitem', { name: '프로젝트로 돌아가기', exact: true }).click();
   await expect(page.getByRole('heading', { name: '고객 안내 검토', exact: true })).toBeVisible();
 }
@@ -108,6 +110,36 @@ async function delayNativeComment(page: Page) {
     };
   }, modules.shared);
 }
+
+for (const openerKey of ['Enter', 'Space']) test(`keyboard ${openerKey} opens feedback from owned native text and restores the menu focus`, async ({ page }) => {
+  await openGuide(page);
+  await (await projectFeedbackAction(page, '읽기')).click();
+  await selectGuide(page);
+  const before = await state(page, true);
+  const trigger = page.getByRole('menuitem', { name: '프로젝트 메뉴', exact: true });
+  // Navigate from the actual selected native text, without assigning focus or a model range.
+  for (let step = 0; step < 40 && !await trigger.evaluate(element => element === document.activeElement); step++) {
+    await page.keyboard.press('Shift+Tab');
+  }
+  await expect(trigger).toBeFocused();
+  await page.keyboard.press(openerKey);
+  const menu = page.getByRole('menu', { name: '프로젝트 메뉴', exact: true });
+  await expect(menu.getByRole('menuitem', { name: '프로젝트 의견 남기기', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  const panel = page.getByRole('complementary', { name: '프로젝트 의견', exact: true });
+  await expect(panel.locator('blockquote')).toHaveText(selectedQuote);
+  const textarea = panel.getByRole('textbox', { name: '프로젝트 의견 입력' });
+  await textarea.fill('키보드로 작성한 의견 초안');
+  await textarea.press('Escape');
+  await expect(panel).toHaveCount(0); await expect(trigger).toBeFocused();
+  await page.keyboard.press(openerKey);
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitemcheckbox', { name: '의견 0', exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(textarea).toHaveValue('키보드로 작성한 의견 초안');
+  const after = await state(page, true);
+  expect(after.text).toBe(before.text); expect(after.record.comments).toEqual([]);
+});
 
 test('selected native opinion, exact undo/redo, explicit same-thread work and pinned follow-up survive reload', async ({ page }) => {
   await openGuide(page, true);
@@ -133,7 +165,7 @@ test('selected native opinion, exact undo/redo, explicit same-thread work and pi
   await expect.poll(async () => (await state(page, true)).native).toEqual(before.native);
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+Shift+z');
   await expect.poll(async () => (await state(page, true)).native).toEqual(commented.native);
-  await page.getByRole('button', { name: '의견 1', exact: true }).click();
+  await (await projectFeedbackAction(page, '의견 1')).click();
   await panel.getByRole('button', { name: '수정 작업 연결', exact: true }).click();
   await expect(panel.getByRole('button', { name: '작업에 연결됨', exact: true })).toBeDisabled();
   await expect(panel).toContainText('실행기 미연결 · 원본은 자동 변경되지 않습니다.');
@@ -190,7 +222,9 @@ test('draft survives close and reload; Korean composition Enter and Escape neith
   expect((await state(page)).record.comments).toEqual([]);
   await textarea.dispatchEvent('compositionend', { data: '한' });
   await panel.getByRole('button', { name: '의견 닫기', exact: true }).click();
-  await expect(panel).toHaveCount(0); await page.getByRole('button', { name: '의견 0', exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: '프로젝트 메뉴', exact: true })).toBeFocused();
+  await (await projectFeedbackAction(page, '의견 0')).click();
   await expect(textarea).toHaveValue('검토 의견 한글 조합');
   await panel.getByRole('button', { name: '의견 닫기', exact: true }).click(); await page.reload();
   panel = await compose(page); await expect(panel.getByRole('textbox', { name: '프로젝트 의견 입력' })).toHaveValue('검토 의견 한글 조합');
@@ -229,11 +263,13 @@ test('an in-flight Korean composition stays mounted when an earlier opinion fini
   const composingElement = await textarea.elementHandle(); expect(composingElement).not.toBeNull();
   await page.evaluate(() => document.dispatchEvent(new Event('release-native-feedback')));
   await expect(panel.locator('.ow-feedback-thread')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: '프로젝트 의견 남기기', exact: true })).toBeEnabled();
   await expect(textarea).toBeVisible(); await expect(textarea).toHaveValue(newer);
   expect(await composingElement!.evaluate(element => element.isConnected)).toBe(true);
   await expect(textarea).toBeFocused();
   await textarea.dispatchEvent('compositionend', { data: '견' });
+  // Inspect the new menu after composition, so the inspection cannot move its focus.
+  await expect((await projectFeedbackAction(page, '프로젝트 의견 남기기'))).toBeEnabled();
+  await page.keyboard.press('Escape');
   await panel.getByRole('button', { name: '의견 닫기', exact: true }).click(); await page.reload();
   await compose(page); await expect(page.getByRole('textbox', { name: '프로젝트 의견 입력' })).toHaveValue(newer);
   const saved = await state(page); expect(saved.record.comments).toHaveLength(1); expect(saved.record.comments[0]!.body).toBe(opinion);
@@ -298,7 +334,7 @@ test('same-mounted repository and project ABA retires an awaited native submissi
   }, { modules, react, client, sourceRoot });
   const mounted = page.locator('[data-feedback-ownership-fixture]');
   await expect(mounted).toHaveAttribute('data-owner', 'A');
-  await selectGuide(page); await mounted.getByRole('button', { name: '프로젝트 의견 남기기', exact: true }).click();
+  await selectGuide(page); await (await projectFeedbackAction(mounted, '프로젝트 의견 남기기')).click();
   const textarea = mounted.getByRole('textbox', { name: '프로젝트 의견 입력' });
   await textarea.fill(opinion); await delayNativeComment(page);
   await mounted.getByRole('button', { name: '댓글만 남기기', exact: true }).click();
@@ -333,7 +369,7 @@ test('same-mounted repository and project ABA retires an awaited native submissi
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await expect(mounted).toHaveAttribute('data-pin-calls', pinCalls!);
   await expect(textarea).toHaveValue(newDraft);
-  await expect(mounted.getByRole('button', { name: '프로젝트 의견 남기기', exact: true })).toBeEnabled();
+  await expect((await projectFeedbackAction(mounted, '프로젝트 의견 남기기'))).toBeEnabled();
   const after = await readProjects();
   expect(after.a.comments).toEqual([]); expect(after.a.works).toEqual([]); expect(after.a.drafts[key]).toBe(newDraft);
   expect(after.b.comments).toEqual([]); expect(after.b.works).toEqual([]); expect(after.b.drafts[key]).toBe(draftB);

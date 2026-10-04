@@ -9,6 +9,7 @@ export const messagesKo = ko satisfies Record<MessageKey, string>;
 /** JSON values widen to string, so placeholder contracts are declared explicitly. */
 export const messageParameters = {
   'workspace.tree.openOriginal': ['title'],
+  'workspace.feedback.count': ['count'],
   'workspace.tree.openProject': ['title'],
   'site.inspector.selectionCount': ['count'],
   'document.library.draftLabel': ['title'],

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Icon, IconButton, StatusNotice } from '@barocss/office-ui';
+import { Button, DocumentMenu, Icon, IconButton, StatusNotice, useOfficeLocale } from '@barocss/office-ui';
 import { createProjectComment, requestProjectWork, productDocumentHost, productFeedbackHost, prepareProductNavigation,
   type ProductFeedbackTarget, type ProductFeedbackHost, type Pin, type ProjectComment } from '@barocss/shared';
 import type { Product } from './products';
@@ -10,6 +10,9 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   repository: ProjectRepository; projectId: string; document: { product: Product; id: string };
   beforeLeave?: { current?: () => Promise<boolean> }; actor?: { kind: 'local' | 'human'; id: string; label: string }
 }) {
+  const { t } = useOfficeLocale();
+  const menuAnchor = useRef<HTMLSpanElement>(null);
+  const restoreMenuFocus = () => menuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   const [snapshot, setSnapshot] = useState<ProjectSnapshot | null>(null), [open, setOpen] = useState(false), [error, setError] = useState('');
   const [draft, setDraft] = useState(''), [target, setTarget] = useState<ProductFeedbackTarget>(), [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(new URLSearchParams(location.search).get('mode') === 'read');
@@ -34,6 +37,14 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   const key = `feedback:${address.product}:${address.id}`;
   const owns = () => mounted.current && hostEpochRef.current === generation.hostEpoch && currentGeneration.current === generation && owner.current === identity && (productDocumentHost() === mountedHost && (!mountedHost || (mountedHost.product === address.product && mountedHost.id() === address.id)));
   const requireOwn = () => { if (!owns()) throw new Error('문서 또는 계정이 바뀌었습니다. 이전 작업을 이어가지 않습니다.'); };
+  const menuCapture = useRef<{ host: ProductFeedbackHost; target: ProductFeedbackTarget | null | undefined; generation: typeof generation } | undefined>(undefined);
+  // Capture before the menu moves keyboard focus away from the native selection.
+  const captureMenuSelection = () => {
+    menuCapture.current = undefined;
+    const host = productFeedbackHost();
+    if (!owns() || !host || host.product !== address.product || host.id() !== address.id || !host.editable()) return;
+    menuCapture.current = { host, target: host.capture(), generation };
+  };
   const perform = async (action: () => Promise<void>) => {
     if (lock.current || !owns()) return;
     lock.current = true; setBusy(true); setError('');
@@ -113,7 +124,9 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     if (recovery) throw new Error('이전 저장 응답을 먼저 확인하세요. 의견 초안은 유지합니다.');
     const host = productFeedbackHost();
     if (host && (host.product !== address.product || host.id() !== address.id || !host.editable())) throw new Error('현재 문서에 의견을 남길 권한이 없습니다.');
-    const captured = host ? host.capture() : { kind: 'document' as const, id: address.id, quote: '' };
+    const prepared = menuCapture.current; menuCapture.current = undefined;
+    if (prepared && (prepared.host !== host || prepared.generation !== generation || !owns())) throw new Error('문서 또는 선택 영역이 바뀌었습니다. 대상 영역을 다시 선택하세요.');
+    const captured = host ? prepared ? prepared.target : host.capture() : { kind: 'document' as const, id: address.id, quote: '' };
     if (!captured) throw new Error('이 선택 영역은 아직 의견 연결을 지원하지 않습니다. 한 문단의 텍스트를 선택하세요.');
     if (!await prepareProductNavigation() || !owns()) throw new Error('마지막 입력을 저장하지 못했습니다.');
     await refresh();
@@ -215,18 +228,33 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   };
   const comments = snapshot?.record.comments.filter(one => one.resultId === result?.id) ?? [];
   return <>
-    {result && <div className="ow-project-feedback-controls">
-      <Button square ariaLabel="프로젝트 의견 남기기" onMouseDown={event => event.preventDefault()} onClick={() => void perform(start)} disabled={busy || !repository.writable || !!snapshot?.record.archived}><Icon name="comment-new" /></Button>
-      <Button tone="quiet" onClick={() => setOpen(value => !value)}>의견 {comments.length}</Button>
-      {hasReading && <Button tone="quiet" pressed={reading} disabled={busy} onClick={() => void perform(async () => {
+    {result && <span ref={menuAnchor} className="ow-project-feedback-controls" onPointerDownCapture={event => {
+      const trigger = (event.target as HTMLElement).closest('[data-menu="document"]');
+      if (event.button === 0 && trigger?.getAttribute('aria-expanded') === 'false') captureMenuSelection();
+    }} onKeyDownCapture={event => {
+      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+      const trigger = (event.target as HTMLElement).closest('[data-menu="document"]');
+      if (['Enter', ' ', 'ArrowDown'].includes(event.key) && trigger?.getAttribute('aria-expanded') === 'false') captureMenuSelection();
+    }}><DocumentMenu label={t('workspace.feedback.menu')} icon={<Icon name="comments" />} menus={[
+      { id: 'feedback', label: t('workspace.feedback.section'), blocks: [{ id: 'feedback', items: [
+        { id: 'feedback.add', label: t('workspace.feedback.add'), disabled: busy || !repository.writable || !!snapshot?.record.archived },
+        { id: 'feedback.list', label: t('workspace.feedback.count', { count: comments.length }), checked: open }
+      ] }] },
+      ...(hasReading ? [{ id: 'view', label: t('workspace.feedback.view'), blocks: [{ id: 'view', items: [
+        { id: 'feedback.reading', label: t(reading ? 'workspace.feedback.edit' : 'workspace.feedback.read'), disabled: busy, checked: reading }
+      ] }] }] : [])
+    ]} onPick={id => {
+      if (id === 'feedback.add') void perform(start);
+      else if (id === 'feedback.list') setOpen(value => !value);
+      else if (id === 'feedback.reading') void perform(async () => {
         const host = productFeedbackHost(); if (host?.product !== address.product || host.id() !== address.id) return;
         if (reading && !await prepareProductNavigation()) throw new Error('직접 편집 전에 원본 저장을 확인하지 못했습니다.');
         requireOwn(); if (host !== productFeedbackHost()) throw new Error('문서가 바뀌었습니다. 다시 여세요.');
         const next = !reading; host.reading?.(next); setReading(next);
-      })}> {reading ? '직접 편집' : '읽기'}</Button>}
-    </div>}
+      });
+    }} /></span>}
     {error && !open && <span role="alert">{error}</span>}
-    {open && <aside className="ow-feedback-panel" aria-label="프로젝트 의견"><header><h2>프로젝트 의견</h2><IconButton label="의견 닫기" onClick={() => void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); })}><Icon name="close" /></IconButton></header>
+    {open && <aside className="ow-feedback-panel" aria-label="프로젝트 의견"><header><h2>프로젝트 의견</h2><IconButton label="의견 닫기" onClick={() => void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); restoreMenuFocus(); })}><Icon name="close" /></IconButton></header>
       {recovery && <div className="ow-feedback-recovery"><StatusNotice tone="warning" title="저장 응답을 확인해야 합니다">원래 댓글과 같은 요청만 확인합니다. 초안은 유지합니다.</StatusNotice><Button disabled={busy || !repository.writable} onClick={() => void perform(recover)}>저장 응답 확인</Button>{recovery.phase === 'native' && !recovery.nativeHash && !recovery.commentId && repository.feedbackRecovery?.cancel && <Button disabled={busy || !repository.writable} onClick={() => void perform(cancelRecovery)}>이전 요청 취소하고 대상 다시 선택</Button>}</div>}
       {error && <StatusNotice tone="danger" title="의견을 저장하지 못했습니다">{error}</StatusNotice>}
       {!target && draft && <p className="ow-feedback-note">작성 중인 의견을 보관했습니다. 문서의 대상 영역을 선택한 뒤 의견 남기기를 누르세요.</p>}
@@ -234,7 +262,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
         {target && capturedPin.current && <small className="ow-feedback-note">{capturedPin.current.title} · 버전 {capturedPin.current.revision}</small>}
         <textarea aria-label="프로젝트 의견 입력" value={draft} onChange={event => { const text = event.target.value; inputVersion.current++; latest.current = text; setDraft(text); void saveDraft().catch(cause => owns() && setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.')); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
           if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) { if (event.key === 'Enter' || event.key === 'Escape') event.stopPropagation(); return; }
-          if (event.key === 'Escape') { event.stopPropagation(); void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); }); }
+          if (event.key === 'Escape') { event.stopPropagation(); void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); restoreMenuFocus(); }); }
         }} />
         <div className="ow-actions"><Button disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(false))}>댓글만 남기기</Button><Button tone="accent" disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(true))}>수정 요청</Button></div><p className="ow-feedback-note">수정 요청은 작업을 연결합니다. 모델 실행과 원본 변경 승인은 별도 단계입니다.</p>
       </div>}

@@ -3,6 +3,7 @@
 .ow-workspace-rail button{width:40px;height:40px;min-height:40px;border-radius:12px}
 .ow-workspace-rail button[aria-pressed=true]{background:var(--ou-accent-soft);color:var(--ou-accent)}
 .ow-workspace-rail hr{width:24px;border:0;border-top:1px solid var(--ou-line);margin:4px 0}
+.ow-workspace-rail-footer{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:12px}
 .ow-file-navigation{width:224px;flex:none;display:flex;flex-direction:column;gap:8px;padding:0 12px 12px;border-right:1px solid var(--ou-line);background:var(--ou-panel)}
 .ow-file-navigation[hidden]{display:none}
 .ow-tree-header{height:48px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -52,3 +53,8 @@
 .ow-tree-footer{flex-direction:column}
 
 .ow-tree-product svg{display:block;width:16px;height:16px}
+
+.ow-tree-children{list-style:none;margin:0 0 0 14px;padding:0 0 0 7px;border-left:1px solid var(--ou-line)}
+.ow-tree-children>li{min-width:0}
+.ow-tree-group svg:first-child{width:10px;height:10px}
+.ow-tree-group[aria-expanded=false] svg:not(:first-child){transform:none}

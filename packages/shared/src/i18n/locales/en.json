@@ -143,5 +143,19 @@
   "workspace.tree.serverProjectsUnavailable": "Projects could not be loaded. Authorized source files remain available.",
   "workspace.tree.nativeUnavailable": "This editor is not ready for safe navigation. The current document stays open.",
   "workspace.document.actions": "Document actions",
-  "workspace.tree.workspace": "Workspace"
+  "workspace.tree.workspace": "Workspace",
+  "workspace.rail.returnProject": "Return to project",
+  "workspace.rail.returnLibrary": "Return to library",
+  "workspace.rail.logout": "Sign out",
+  "word.file.nativeExport": "Export native Word file",
+  "word.header.panels": "Document panels",
+  "word.header.requirements": "Requirements and decisions",
+  "note.header.documentMenu": "Document menu",
+  "workspace.feedback.menu": "Project menu",
+  "workspace.feedback.section": "Project feedback",
+  "workspace.feedback.add": "Add project feedback",
+  "workspace.feedback.count": "Feedback {count}",
+  "workspace.feedback.view": "View",
+  "workspace.feedback.edit": "Edit directly",
+  "workspace.feedback.read": "Reading"
 }

@@ -30,6 +30,8 @@ export interface WorkspaceFrameLabels {
 }
 export interface WorkspaceFramePresentationProps<Row extends WorkspaceFrameRow, Perspective extends string = string> {
   children?: ReactNode;
+  /** Optional host-owned account/navigation controls; no authorization logic here. */
+  railFooter?: ReactNode;
   nativeSlotRef?: Ref<HTMLDivElement>;
   treeRef?: Ref<HTMLElement>;
   groups: readonly WorkspaceFrameGroup<Row>[];
@@ -75,6 +77,7 @@ export function WorkspaceFramePresentation<Row extends WorkspaceFrameRow, Perspe
       <Button square tone="quiet" ariaLabel={labels.recent} title={labels.recent} disabled={busy || capabilities.recent === false} onClick={() => onNavigate('recent')}><Icon name="recent-documents" size={20} /></Button>
       <hr />
       <Button square tone="quiet" ariaLabel={labels.projects} title={labels.projects} pressed={perspective === projectPerspective && !focused} onClick={() => { onPerspectiveChange(projectPerspective); onFocusChange(false); }}><Icon name="workspace-projects" size={20} /></Button>
+      {props.railFooter && <div className="ow-workspace-rail-footer">{props.railFooter}</div>}
     </nav>
     <aside className="ow-file-navigation" aria-label={labels.treeNavigation} hidden={focused}>
       <div className="ow-tree-header"><strong title={labels.source}>{labels.workspace}</strong><Button tone="quiet" ariaLabel={labels.focus} onClick={() => onFocusChange(true)}><Icon name="close" /></Button></div>
@@ -91,11 +94,11 @@ export function WorkspaceFramePresentation<Row extends WorkspaceFrameRow, Perspe
         {ready && catalogState !== 'error' && !groups.some(group => group.entries.length) && <p className="ow-tree-empty">{labels.empty}</p>}
         {groups.map(group => <section key={group.id} data-tree-group={group.id}>
           <div className="ow-tree-group-heading"><Button className="ow-tree-group" tone="quiet" title={group.title === null ? undefined : (group.title ?? group.label) || undefined} aria-expanded={!view.collapsed.includes(group.id)} onClick={() => changeView({ collapsed: view.collapsed.includes(group.id) ? view.collapsed.filter(id => id !== group.id) : [...view.collapsed, group.id] })}>
-            <Icon name="disclosed" /><span>{group.label || labels.files}</span>
+            <Icon name="disclosed" /><Icon name={group.projectId ? 'workspace-projects' : 'workspace-files'} /><span>{group.label || labels.files}</span>
           </Button>{group.projectId && <Button square tone="quiet" ariaLabel={labels.openProject(group.title === null ? '' : group.title ?? group.label)} title={labels.openProject(group.title === null ? '' : group.title ?? group.label)} aria-current={projectContext === group.projectId ? 'page' : undefined} disabled={busy || capabilities.projects === false} onClick={() => onNavigate('projects', group.projectId)}><Icon name="dialog-launch" size={15} /></Button>}</div>
-          {!view.collapsed.includes(group.id) && group.entries.map(entry => <Button key={entry.id} className="ow-tree-file" tone="quiet" ariaLabel={labels.openOriginal(entry.row.title)} title={entry.row.title} pressed={active === entry.row.key} disabled={busy || catalogState === 'error' || capabilities.openOriginal === false || entry.disabled === true} onMouseDown={event => event.preventDefault()} onClick={() => onOpen(entry.row, entry.projectId)} data-original={entry.row.key}>
+          {!view.collapsed.includes(group.id) && <ul className="ow-tree-children">{group.entries.map(entry => <li key={entry.id}><Button className="ow-tree-file" tone="quiet" ariaLabel={labels.openOriginal(entry.row.title)} title={entry.row.title} pressed={active === entry.row.key} disabled={busy || catalogState === 'error' || capabilities.openOriginal === false || entry.disabled === true} onMouseDown={event => event.preventDefault()} onClick={() => onOpen(entry.row, entry.projectId)} data-original={entry.row.key}>
             <span className="ow-tree-product" aria-hidden><Icon name={productOptions.find(option => option.id === entry.row.product)?.icon ?? 'workspace-files'} /></span><span>{entry.row.title}</span>
-          </Button>)}
+          </Button></li>)}</ul>}
         </section>)}
       </nav>
       {error && <div className="ow-tree-error"><p role="alert">{error}</p><Button onClick={onRetry}>{labels.retry}</Button></div>}

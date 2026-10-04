@@ -56,8 +56,14 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     [issuer, subject, tenantId, workspaceId]);
   const workspace = useRef<HTMLDivElement>(null);
   const documentActionsId = useId();
-  const documentActionsToggle = useRef<HTMLButtonElement>(null);
+  const documentMenuAnchor = useRef<HTMLSpanElement>(null);
+  const restoreDocumentMenuFocus = () => documentMenuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   const [documentActionsOpen, setDocumentActionsOpen] = useState(false);
+  useEffect(() => {
+    if (workspaceNavigation && documentActionsOpen) {
+      workspace.current?.querySelector<HTMLElement>('[data-workspace-panel="navigation"] button:not(:disabled)')?.focus({ preventScroll: true });
+    }
+  }, [workspaceNavigation, documentActionsOpen]);
   const activeClient = useRef(client);
   activeClient.current = client;
   const navigate = useRef(onNavigate);
@@ -694,7 +700,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const navigationDisabled = !currentSession || !currentOpen || currentProblem?.kind === 'denied';
   return <div ref={workspace} className="nw-shell" data-server-note-workspace onKeyDown={event => {
     if (workspaceNavigation && documentActionsOpen && event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) {
-      event.preventDefault(); event.stopPropagation(); setDocumentActionsOpen(false); documentActionsToggle.current?.focus({ preventScroll: true }); return;
+      event.preventDefault(); event.stopPropagation(); setDocumentActionsOpen(false); restoreDocumentMenuFocus(); return;
     }
     if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f' || !currentSession || !currentOpen || currentProblem?.kind === 'denied') return;
     if (!(event.target instanceof Element) || event.target.closest('[data-note-editor], [data-document-navigation], [role="dialog"]')) return;
@@ -702,12 +708,12 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     setNavigationRequest(previous => ({ mode: 'find', id: (previous?.id ?? 0) + 1, generation: currentOpen.generation }));
   }}>
     <EditorHeader compact product="Note" className="nw-header" title={currentOpen?.note.attributes.title || '서버 노트'} fallbackNavigation={headerNavigation}
-      menus={<DocumentMenu label="서버 노트 메뉴" menus={[
+      menus={<span ref={documentMenuAnchor}><DocumentMenu label={t('note.header.documentMenu')} menus={[
+        ...(workspaceNavigation ? [{ id: 'file', label: t('workspace.document.actions'), blocks: [{ id: 'file', items: [{ id: 'document-actions', label: t('workspace.document.actions'), checked: documentActionsOpen }] }] }] : []),
         { id: 'edit', label: '편집', blocks: [{ id: 'edit', items: [{ id: 'find', label: '찾기', disabled: navigationDisabled }] }] },
         { id: 'view', label: '보기', blocks: [{ id: 'view', items: [{ id: 'outline', label: '목차', disabled: navigationDisabled }] }] }
-      ]} onPick={id => { if (id === 'find' || id === 'outline') openNavigation(id); }} />}
-      actions={<>{workspaceNavigation && <Button ref={documentActionsToggle} tone="quiet" aria-controls={documentActionsId} aria-expanded={documentActionsOpen}
-          onClick={() => setDocumentActionsOpen(value => !value)}>{t('workspace.document.actions')}</Button>}<StatusIndicator data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
+      ]} onPick={id => { if (id === 'find' || id === 'outline') openNavigation(id); else if (id === 'document-actions') setDocumentActionsOpen(value => !value); }} /></span>}
+      actions={<><StatusIndicator data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
         {canEdit && <Button disabled={!currentOpen || busy || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict' || (!isDirty && !currentPending)}
           onClick={() => void save()}>{currentPending ? '저장 확인·재시도' : '저장'}</Button>}
         {onLeave && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={onLeave}>나가기</Button>}</>} />
@@ -716,7 +722,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       showPanelControls={!workspaceNavigation} panelIds={{ navigation: documentActionsId }}
       activePanel={workspaceNavigation ? documentActionsOpen ? 'navigation' : null : undefined}
       onActivePanelChange={workspaceNavigation ? side => setDocumentActionsOpen(side === 'navigation') : undefined}
-      restorePanelFocus={workspaceNavigation ? () => documentActionsToggle.current?.focus({ preventScroll: true }) : undefined}>
+      restorePanelFocus={workspaceNavigation ? restoreDocumentMenuFocus : undefined}>
       <WorkspaceSidePanel side="navigation" width={240} floating={workspaceNavigation} hidden={workspaceNavigation && !documentActionsOpen}>
       <aside className="nw-sidebar" aria-label={workspaceNavigation ? t('workspace.document.actions') : '서버 노트 목록'}>
         {canEdit && <Button disabled={loading || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'} onClick={create}>새 노트</Button>}

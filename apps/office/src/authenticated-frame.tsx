@@ -9,9 +9,9 @@ import { readAuthorizedWorkspaceCatalog, serverCatalogGroups, type AuthorizedWor
 const emptyView = (): WorkspaceTreeView => ({ query: '', product: 'all', collapsed: [], scroll: 0 });
 
 /** The authenticated host supplies authority and transitions; the tree never opens local storage. */
-export function AuthenticatedWorkspaceFrame({ children, tenantId, workspaceId, workspaceName, role, authorityEpoch, authorized,
+export function AuthenticatedWorkspaceFrame({ children, railFooter, tenantId, workspaceId, workspaceName, role, authorityEpoch, authorized,
   active, projectId, busy, error, onOpen, onNavigate, onAccessFailure }: {
-  children: ReactNode; tenantId: string; workspaceId: string; workspaceName: string; role: TenantRole;
+  children: ReactNode; railFooter?: ReactNode; tenantId: string; workspaceId: string; workspaceName: string; role: TenantRole;
   authorityEpoch: number; authorized: boolean; active: string; projectId?: string; busy: boolean; error: string;
   onOpen: (row: ServerCatalogRow, projectId?: string) => void;
   onNavigate: (destination: 'projects' | 'library', projectId?: string) => void;
@@ -72,7 +72,7 @@ export function AuthenticatedWorkspaceFrame({ children, tenantId, workspaceId, w
     openOriginal: title => t('workspace.tree.openOriginal', { title })
   };
   const viewChange = (patch: Partial<WorkspaceTreeView>) => setViews(previous => ({ ...previous, [perspective]: { ...previous[perspective], ...patch } }));
-  return <WorkspaceFramePresentation treeRef={tree} groups={groups} labels={labels}
+  return <WorkspaceFramePresentation treeRef={tree} groups={groups} labels={labels} railFooter={railFooter}
     productOptions={Object.entries(products).map(([id, value]) => ({ id: id as ServerCatalogRow['product'], ...value }))}
     perspectives={[{ id: 'project', label: t('workspace.tree.project') }, { id: 'sources', label: t('workspace.tree.sources') }]}
     projectPerspective="project" perspective={perspective} views={authorized ? views : { project: emptyView(), sources: emptyView() }}

@@ -1057,8 +1057,16 @@ test('authenticated Note tree saves pending native input before switching origin
   await expect(page).toHaveURL(new RegExp(`document=${otherId}`));
   await expect(paragraph).toContainText('Second native body');
   expect(writes).toHaveLength(1); expect(text).toContain('immediate Note input');
-  await native.getByRole('button', { name: '문서 작업', exact: true }).click();
+  const installedNode = await paragraph.elementHandle();
+  const beforeMenu = await paragraph.innerHTML();
+  const beforeWrites = writes.length;
+  await native.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
   await expect(native.getByRole('button', { name: '새 노트', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(native.getByRole('button', { name: '문서 작업', exact: true })).toBeFocused();
+  await expect(native.getByRole('complementary', { name: '문서 작업' })).toBeHidden();
+  await expect(native.getByRole('menuitem', { name: '문서 메뉴', exact: true })).toBeFocused();
+  expect(await installedNode!.evaluate(element => element.isConnected)).toBe(true);
+  expect(await paragraph.innerHTML()).toBe(beforeMenu);
+  expect(writes).toHaveLength(beforeWrites);
 });

@@ -9,7 +9,7 @@ import type { NoteDocument } from '@barocss/office-note/file';
 import type { NoteSaveAttempt } from './server-documents';
 import { ServerNoteWorkspace } from './server-workspace';
 
-type BoxProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; actions?: ReactNode };
+type BoxProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; actions?: ReactNode; menus?: ReactNode };
 type NativeFixture = { editor: { id: string }; close: ReturnType<typeof vi.fn>; change: (content: unknown[]) => void; retireRoot: () => void };
 type ClientFixture = { list: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn>; receipt: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn>; confirm: ReturnType<typeof vi.fn> };
 const f = vi.hoisted(() => ({
@@ -22,10 +22,11 @@ vi.mock('@barocss/office-ui', async () => {
   const React = await import('react');
   const { useOfficeLocale } = await import('../../../packages/office-ui/src/locale');
   const { AdaptiveWorkspace, WorkspaceSidePanel } = await import('../../../packages/office-ui/src/adaptive-workspace');
+  const { DocumentMenu } = await import('../../../packages/office-ui/src/document-bar');
   const Box = ({ children }: BoxProps) => React.createElement('div', {}, children);
   return { useOfficeLocale, AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
     Button: ({ children, ...props }: React.ComponentPropsWithRef<'button'>) => React.createElement('button', props, children),
-    DocumentMenu: Box, EditorHeader: ({ children, actions }: BoxProps) => React.createElement('div', {}, children, actions), StatusIndicator: Box, StatusNotice: Box };
+    DocumentMenu, EditorHeader: ({ children, actions, menus }: BoxProps) => React.createElement('div', {}, children, menus, actions), StatusIndicator: Box, StatusNotice: Box };
 });
 vi.mock('@barocss/office-note/view', () => ({ NoteEditor: ({ registerBeforeSnapshot, editor }: { registerBeforeSnapshot: (flush: () => Promise<boolean>) => () => void; editor: { id: string } }) => {
   useEffect(() => { const off = registerBeforeSnapshot(() => f.delivery()); f.onMount(editor.id); return off; }, [registerBeforeSnapshot, editor]);
@@ -63,6 +64,10 @@ const render = (role: 'editor' | 'viewer' = 'editor', subject = 'A', workspaceNa
 const transport: typeof fetch = vi.fn();
 async function mounted() { await vi.waitFor(() => expect(productDocumentHost()?.id()).toBe(a)); }
 beforeEach(async () => {
+  // jsdom lacks CSS.escape. This fixture uses only the fixed ASCII menu id.
+  vi.stubGlobal('CSS', { escape: (value: string) => { if (!/^[a-z0-9_-]+$/i.test(value)) throw new Error('unsupported test selector'); return value; } });
+  // Layout is verified in Chromium; this fixture only exercises menu ownership.
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   localStorage.clear(); f.sessions = []; f.onConstruct = () => {}; f.onMount = () => {}; f.navigate.mockClear(); f.delivery = async () => true; f.failSave = false; f.failNative = false; f.saveHold = undefined;
   f.client = { list: vi.fn(async () => [opened(a).document, opened(b).document]), open: vi.fn(async (id: string) => opened(id)),
     receipt: vi.fn(async () => { const { ServerNoteError } = await import('./server-documents'); throw new ServerNoteError(404, 'missing'); }),
@@ -70,7 +75,7 @@ beforeEach(async () => {
     confirm: vi.fn(async (attempt: NoteSaveAttempt) => opened(attempt.operation === 'update' ? attempt.documentId : a, attempt.snapshotText)) };
   container = document.createElement('div'); document.body.append(container); root = createRoot(container); render(); await mounted();
 });
-afterEach(() => { flushSync(() => root.unmount()); container.remove(); vi.restoreAllMocks(); });
+afterEach(() => { flushSync(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('returns the exact mounted target witness and retires the old guard', async () => {
   const old = captureProductNavigation()!;
@@ -223,17 +228,22 @@ it.each([1200, 600])('keeps optional native document actions closed at width %s 
   flushSync(() => window.dispatchEvent(new Event('resize')));
   expect(container.querySelector('.office-adaptive-workspace')?.hasAttribute('data-compact')).toBe(width < 960);
   const panel = container.querySelector<HTMLElement>('[data-workspace-panel="navigation"]')!;
-  const toggle = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '문서 작업')!;
+  const toggle = container.querySelector<HTMLButtonElement>('[data-menu="document"]')!;
   expect(panel.hidden).toBe(true); expect(toggle.getAttribute('aria-expanded')).toBe('false');
   expect(container.querySelector('[aria-label="서버 문서 목록"]')).toBeNull();
   expect(container.textContent).not.toContain('목록 새로고침');
   expect(container.querySelector('[aria-label="문서 작업"]')?.textContent).toContain('새 노트');
   expect(container.querySelector('.office-workspace-panel-controls')).toBeNull();
-  flushSync(() => toggle.click()); expect(panel.hidden).toBe(false);
-  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  const openActions = () => {
+    flushSync(() => toggle.click());
+    const item = document.querySelector<HTMLButtonElement>('[data-menu-item="document-actions"]')!;
+    expect(item.textContent).toContain('문서 작업'); expect(item.getAttribute('aria-checked')).toBe('false');
+    flushSync(() => item.click());
+  };
+  openActions(); expect(panel.hidden).toBe(false);
   flushSync(() => panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   expect(panel.hidden).toBe(true); expect(document.activeElement).toBe(toggle);
-  flushSync(() => toggle.click());
+  openActions();
   const newNote = [...panel.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '새 노트')!;
   flushSync(() => newNote.click());
   await vi.waitFor(() => expect(panel.hidden).toBe(true));

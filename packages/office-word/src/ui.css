@@ -115,6 +115,10 @@
   color: #1a1a1a;
 }
 
+/* Editable endnotes, bibliography and index follow the pages in native flow.
+   Give their default ink paper to paint on, independent of the studio theme. */
+.w-back-matter { background-color: #fff; }
+
 /*
  * A section renders as the page it describes; its box comes from page setup.
  *

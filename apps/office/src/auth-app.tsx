@@ -522,8 +522,6 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     } else { history.replaceState(null, '', '/'); await checkAccess('user', current.tenant); }
   };
   const headerNavigation = view.phase === 'note' ? <div className="office-editor-product office-auth-native-navigation">
-    <IconButton label={noteIntent.current?.projectId ? '프로젝트로 돌아가기' : '자료함으로 돌아가기'} onClick={() => void returnToProject()}><Icon name="back" /></IconButton>
-    <IconButton label="로그아웃" onClick={() => void logout()}><Icon name="logout" /></IconButton>
     <ProductLabel name={view.context.product === 'slides' ? 'Slides' : view.context.product === 'word' ? 'Word' : 'Note'} />
     {noteIntent.current?.projectId && activeDocument && feedbackRepository && <ProjectFeedback key={`${noteAccount.current}:${noteIntent.current.projectId}:${activeDocument}`} repository={feedbackRepository} projectId={noteIntent.current.projectId} beforeLeave={feedbackBeforeLeave}
       document={{ product: view.context.product, id: activeDocument }} />}
@@ -609,6 +607,12 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     role={scope.role} authorityEpoch={generation.current} authorized={view.phase === 'project' || view.phase === 'library' || (view.phase === 'note' && noteAccess.current)}
     active={activeDocument && mountedNote ? JSON.stringify([scope.tenant.tenantId, scope.workspace.id, mountedNote.context.product, activeDocument]) : ''}
     projectId={noteIntent.current?.projectId} busy={treeBusy} error={treeError}
+    railFooter={<>
+      {view.phase === 'note' && <IconButton disabled={treeBusy || !noteAccess.current} label={t(noteIntent.current?.projectId ? 'workspace.rail.returnProject' : 'workspace.rail.returnLibrary')}
+        onClick={() => void returnToProject()}><Icon name="back" /></IconButton>}
+      <IconButton disabled={treeBusy || !['note', 'project', 'library'].includes(view.phase)} label={t('workspace.rail.logout')}
+        onClick={() => void logout()}><Icon name="logout" /></IconButton>
+    </>}
     onOpen={(row, project) => void openTreeOriginal(row, project)} onNavigate={(destination, project) => void navigateTree(destination, project)}
     onAccessFailure={error => { noteAccess.current = false; ++generation.current; setView({ phase: 'error', error }); }}>
     {content}

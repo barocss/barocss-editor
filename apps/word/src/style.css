@@ -350,13 +350,13 @@ body {
 .w-menubar { padding-inline: var(--ou-command-inset); }
 .w-file-actions .w-file-picker { display: none; }
 .w-file-actions .w-file-problem { display: block; padding: 6px 20px; }
-.w-shell-document { background: var(--ou-studio); padding: 28px; }
+.w-shell-document { --w-document-inset: 28px; background: var(--ou-studio); padding: var(--w-document-inset); }
 .w-file-action-list { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 4px 0; }
 .w-file-action-list > button { justify-content: flex-start; min-height: 36px; }
 @media(max-width: 760px) {
   .w-document-header .doc-title-docTitle { max-width: none; }
   .w-menubar { padding-inline: 12px; }
-  .w-shell-document { padding: 16px; }
+  .w-shell-document { --w-document-inset: 16px; }
 }
 
 .w-furniture-editing { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px; background: #eef4ff; color: #244d87; border-bottom: 1px solid #ccd9ef; font-size: 13px; }
@@ -395,8 +395,14 @@ body {
 .w-view-utilities .w-zoom-control button { width: 32px; height: 32px; }
 .w-view-utilities .w-zoom-control input { height: 32px; }
 
-/* Compact comments overlay the existing canvas; only the view capsule steps aside. */
+/* Keep the view capsule outside the compact comments overlay. */
 .w-view-utilities[data-comments-overlay] { right: 296px; max-width: calc(100% - 312px); }
+
+/* The host reserves scroll room behind comments. Width-fit then measures the
+   unobscured padding box; paper layout and the current zoom stay unchanged. */
+.w-shell-body[data-compact]:has(> [data-workspace-panel="inspector"]:not([hidden])) .w-shell-document {
+  padding-right: calc(var(--w-document-inset) + 280px);
+}
 
 /* Server document actions remain visible; the outline has its own disclosure. */
 .w-outline-slot { display: flex; flex: 1; min-width: 0; min-height: 0; }

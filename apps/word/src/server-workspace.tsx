@@ -533,7 +533,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       }
     };
   }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject]);
-  const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}<Button disabled={!current || nestedInput} onClick={exportNative}>Word 파일 내보내기</Button></>;
+  const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}</>;
   const navigation = <aside aria-label={workspaceNavigation ? t('workspace.document.actions') : '서버 Word 목록'}>
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverWordFileText(createStarterDocument(), ''))}>새 Word</Button>}
       {!workspaceNavigation && heads.map(head => <Button key={head.documentId} disabled={busy || !protectedInput || nestedInput} onClick={() => void (current ? requestOpen.current(head.documentId) : openDocument(head.documentId))}>{head.title}</Button>)}
@@ -557,6 +557,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       canComment: () => active.current === client && currentRef.current?.generation === current.generation && authority.current &&
         !busyRef.current && !nestedRef.current && problemRef.current?.kind !== 'conflict' && protectedRef.current,
       readOnly: !canEdit || busy || !!(draft.current?.source && draft.current.status !== 'confirmed'), onRuntime,
+      nativeExport: { available: !!current && !nestedInput, run: exportNative },
       onFileAction: action => { if (action === 'save') void save(); else if (action === 'new') void prepare(serverWordFileText(createStarterDocument(), '')); else shell.current?.querySelector('aside')?.scrollIntoView(); } }} />}
   </div>;
 }

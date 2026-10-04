@@ -43,16 +43,15 @@ async function savedNative(page: Page, product: Product, id: string) {
     return saved.text;
   }, { workspaceModule, sharedModule, product, id });
 }
+async function wordPanel(page: Page, name: string) {
+  await page.getByRole('menuitem', { name: '문서 패널', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+}
 async function openPanels(page: Page, product: Product) {
   if (product === 'word') {
-    const narrow = page.locator('.w-shell-body[data-compact]');
-    if (await narrow.count()) {
-      await page.locator('[data-workspace-toggle="navigation"]').click();
-      await expect(page.locator('.w-outline [data-outline-sid]').first()).toBeVisible();
-      await page.locator('[data-workspace-toggle="inspector"]').click();
-    } else {
-      await page.locator('[data-workspace-toggle="navigation"]').click(); await page.locator('[data-workspace-toggle="inspector"]').click();
-    }
+    await wordPanel(page, '개요');
+    await expect(page.locator('.w-outline [data-outline-sid]').first()).toBeVisible();
+    await wordPanel(page, '댓글');
     await expect(page.locator('.w-comment-text').first()).toBeVisible();
   } else if (product === 'note') {
     await page.getByRole('button', { name: '노트 페이지 관리', exact: true }).click();
@@ -240,17 +239,120 @@ test('Word desktop panels retain the native selection and unsubmitted comment th
   await expect.poll(() => page.evaluate(() => (window as any).editor.selection?.collapsed)).toBe(false);
   const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
   const before = await native();
-  await page.locator('[data-workspace-toggle="inspector"]').click();
+  await wordPanel(page, '댓글');
   const draft = page.getByRole('textbox', { name: 'New comment', exact: true });
   await draft.fill('Review this original, not a copy.');
   await page.setViewportSize({ width: 1170, height: 1000 }); await expect(draft).toBeHidden();
-  const inspector = page.locator('[data-workspace-toggle="inspector"]');
-  await inspector.click(); await expect(draft).toHaveValue('Review this original, not a copy.');
+  const inspector = page.getByRole('menuitem', { name: '문서 패널', exact: true });
+  await wordPanel(page, '댓글'); await expect(draft).toHaveValue('Review this original, not a copy.');
   expect(await native()).toEqual(before);
+  await expect(page.locator('.w-shell-body')).toHaveAttribute('data-compact', 'true');
+  await draft.click(); await expect(page.getByRole('tooltip')).toHaveCount(0);
+  const close = page.getByRole('button', { name: '댓글 닫기', exact: true });
+  await page.mouse.move(20, 500); await close.focus();
+  await expect(page.getByRole('tooltip', { name: '댓글 닫기', exact: true })).toBeVisible();
+  await close.press('Escape'); await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await expect(draft).toBeVisible(); await expect(draft).toHaveValue('Review this original, not a copy.');
+  expect(await native()).toEqual(before);
+  await close.press('Escape'); await expect(draft).toBeHidden(); await expect(inspector).toBeFocused();
+  await wordPanel(page, '댓글'); await expect(draft).toHaveValue('Review this original, not a copy.');
+  await draft.click(); await expect(page.getByRole('tooltip')).toHaveCount(0);
   await draft.press('Escape'); await expect(draft).toBeHidden(); await expect(inspector).toBeFocused();
-  await inspector.press('Enter'); await expect(draft).toHaveValue('Review this original, not a copy.');
+  await inspector.press('Enter'); await page.getByRole('menuitemcheckbox', { name: '댓글', exact: true }).click(); await expect(draft).toHaveValue('Review this original, not a copy.');
   await page.setViewportSize({ width: 1440, height: 1000 }); await expect(draft).toBeVisible();
   expect(await native()).toEqual(before); await expect(page.locator('.ow-file-navigation')).toBeVisible();
+});
+
+test('Word panel menu owns checked routes and keyboard return without changing the original', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const original = await populated(page, 'word'); await page.goto(original.url);
+  await expect(page.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveValue(fullTitle('word'));
+  await expect.poll(() => page.locator('.w-sheet').count()).toBeGreaterThan(1);
+  const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
+  const before = await native(), opener = page.getByRole('menuitem', { name: '문서 패널', exact: true });
+  await opener.focus(); await opener.press('Enter');
+  const outline = page.getByRole('menuitemcheckbox', { name: '개요', exact: true });
+  const business = page.getByRole('menuitemcheckbox', { name: '요구·결정', exact: true });
+  await expect(outline).toHaveAttribute('aria-checked', 'false'); await expect(outline).toBeFocused();
+  await outline.press('End'); await expect(business).toBeFocused();
+  await business.press('Home'); await expect(outline).toBeFocused();
+  await outline.press('Enter'); await expect(page.locator('.w-outline [data-outline-sid]').first()).toBeVisible();
+  await opener.click(); await expect(outline).toHaveAttribute('aria-checked', 'true');
+  await business.click(); await expect(page.locator('.w-business-pair')).toBeVisible();
+  await opener.click(); await expect(business).toHaveAttribute('aria-checked', 'true');
+  await business.click(); await expect(page.locator('.w-business-pair')).toHaveCount(0);
+  await wordPanel(page, '댓글'); await expect(page.locator('.w-comment-text').first()).toBeVisible();
+  await page.getByRole('button', { name: '댓글 닫기', exact: true }).click(); await expect(opener).toBeFocused();
+  await opener.press('Enter'); await expect(page.getByRole('menuitemcheckbox', { name: '댓글', exact: true })).toHaveAttribute('aria-checked', 'false');
+  await outline.press('Escape'); await expect(page.getByRole('menu', { name: '문서 패널', exact: true })).toHaveCount(0);
+  await expect(opener).toBeFocused(); expect(await native()).toEqual(before);
+  const full = page.getByRole('button', { name: '전체 도구 펼치기', exact: true });
+  await full.focus(); await full.press('Enter'); await expect(page.getByRole('button', { name: '전체 도구 접기', exact: true })).toBeVisible();
+  expect(await native()).toEqual(before);
+});
+
+for (const { width, theme } of [{ width: 1170, theme: 'light' }, { width: 1170, theme: 'dark' }, { width: 1440, theme: 'light' }] as const) {
+  test(`Word width fit exposes the original beside comments at ${width} ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 }); await page.emulateMedia({ colorScheme: theme });
+    const original = await populated(page, 'word'); await page.goto(original.url);
+    await expect(page.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveValue(fullTitle('word'));
+    await expect.poll(() => page.locator('.w-sheet').count()).toBeGreaterThan(1);
+    const native = () => page.evaluate(() => { const e = (window as any).editor; return { document: e.exportDocument(), history: e.getHistoryStats(), selection: e.selection }; });
+    const paragraph = page.locator('.w-paragraph').first();
+    await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.press('Shift+Home');
+    await expect.poll(async () => (await native()).selection?.collapsed).toBe(false);
+    const before = await native(), initialZoom = await page.locator('.w-zoom-frame').getAttribute('data-zoom');
+    const paperWidth = await page.locator('.w-sheet').first().evaluate(el => (el as HTMLElement).offsetWidth);
+    await wordPanel(page, '댓글');
+    await expect(page.getByRole('textbox', { name: 'New comment', exact: true })).toBeVisible();
+    await expect(page.locator('.w-zoom-frame')).toHaveAttribute('data-zoom', initialZoom!);
+    await page.getByRole('button', { name: '너비에 맞춤', exact: true }).click();
+    const bounds = () => page.evaluate(() => {
+      const pane = document.querySelector<HTMLElement>('.w-shell-document')!, sheet = document.querySelector<HTMLElement>('.w-sheet')!, panel = document.querySelector<HTMLElement>('[data-workspace-panel="inspector"]')!;
+      const p = pane.getBoundingClientRect(), s = sheet.getBoundingClientRect(), c = panel.getBoundingClientRect();
+      return { left: p.left, right: Math.min(p.left + pane.clientWidth, c.left), pageLeft: s.left, pageRight: s.right, pageWidth: sheet.offsetWidth };
+    });
+    await expect.poll(async () => { const b = await bounds(); return b.pageRight - b.right; }).toBeLessThanOrEqual(1);
+    const fitted = await bounds(); expect(fitted.pageLeft).toBeGreaterThanOrEqual(fitted.left);
+    expect(await native()).toEqual(before);
+    const nested = page.locator('.w-surface td').filter({ hasText: /^C2$/ });
+    await expect(nested).toHaveCount(1);
+    expect(await nested.evaluate(el => !!el.closest('table') && !!el.closest('.w-surface'))).toBe(true);
+    for (const target of [nested, page.locator('.w-paragraph').last()]) {
+      await target.scrollIntoViewIfNeeded();
+      expect(await target.evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.right - 2, r.top + r.height / 2)); })).toBe(true);
+    }
+    expect(await native()).toEqual(before); expect((await bounds()).pageWidth).toBe(paperWidth);
+    await test.info().attach('width-fit-visible-area', { body: JSON.stringify(fitted), contentType: 'application/json' });
+    await page.screenshot({ path: test.info().outputPath(`word-fit-${width}-${theme}.png`), animations: 'disabled' });
+  });
+}
+
+test('Word dark two-column native ink stays readable before and after width fit', async ({ page }) => {
+  await page.setViewportSize({ width: 1170, height: 1000 }); await page.emulateMedia({ colorScheme: 'dark' });
+  const original = await populated(page, 'word'); await page.goto(original.url);
+  await expect(page.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveValue(fullTitle('word'));
+  await expect.poll(() => page.locator('.w-sheet').count()).toBeGreaterThan(1);
+  const body = page.locator('.w-paragraph').filter({ hasText: /^8\. Text in a section/ });
+  await expect(body).toHaveCount(1); await body.scrollIntoViewIfNeeded();
+  const paint = () => body.evaluate(el => {
+    const style = getComputedStyle(el), sheet = document.querySelector<HTMLElement>('.w-sheet:last-child');
+    const heading = [...document.querySelectorAll<HTMLElement>('.w-surface h1,.w-surface h2')].find(node => node.textContent === 'Two columns');
+    let opacity = 1; for (let parent: Element | null = el; parent; parent = parent.parentElement) opacity *= Number(getComputedStyle(parent).opacity);
+    return { text: el.textContent, foreground: style.color, background: sheet ? getComputedStyle(sheet).backgroundColor : null, opacity,
+      headingForeground: heading ? getComputedStyle(heading).color : null,
+      resources: [...document.querySelectorAll<HTMLElement>('.w-endnotes,.w-bibliography')].map(node => ({ name: node.className, foreground: getComputedStyle(node).color, background: getComputedStyle(node).backgroundColor })) };
+  });
+  const before = await paint();
+  expect(before.foreground).toBe('rgb(26, 26, 26)'); expect(before.background).toBe('rgb(255, 255, 255)'); expect(before.opacity).toBe(1);
+  expect(before.headingForeground).toBe('rgb(26, 54, 93)');
+  expect(before.resources).toHaveLength(2);
+  for (const resource of before.resources) expect(resource.background, resource.name).toBe('rgb(255, 255, 255)');
+  await wordPanel(page, '댓글'); await page.getByRole('button', { name: '너비에 맞춤', exact: true }).click();
+  await body.scrollIntoViewIfNeeded(); await expect(body).toBeVisible();
+  expect(await paint()).toEqual(before);
+  await test.info().attach('dark-native-paint-before-after', { body: JSON.stringify(before), contentType: 'application/json' });
+  console.log('dark-native-paint', JSON.stringify(before));
 });
 
 test('Note nested input and native block properties survive Workspace navigation and reopen', async ({ page }) => {

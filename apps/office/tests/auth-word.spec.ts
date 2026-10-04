@@ -1,4 +1,6 @@
+import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
 import { createStarterDocument } from '../../../packages/office-word/src/starter-document';
 import { wordFileText } from '../../../packages/office-word/src/word-file';
@@ -84,6 +86,14 @@ test('Word discovery mounts full editor and confirms native save without bootstr
   await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
   expect(state.writes).toHaveLength(1); expect(state.revision()).toBe(2);
   expect(state.text()).toContain('Word typed input');
+  await expect(shell(page).locator('.office-document-bar').getByRole('button', { name: 'Word 파일 내보내기', exact: true })).toHaveCount(0);
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Word 파일 내보내기', exact: true }).click();
+  const file = await downloaded, path = await file.path();
+  expect(path).not.toBeNull();
+  expect(JSON.parse(await readFile(path!, 'utf8')).document).toEqual(JSON.parse(state.text()).document);
+  expect(state.writes).toHaveLength(1);
 });
 
 test('lost acknowledgement retains fixed request and confirms receipt without duplicate write', async ({ page }) => {
@@ -132,9 +142,16 @@ test('quota failure retains latest visible input and blocks Office exit until du
   });
   await type(page, 'Protected latest input');
   await expect(shell(page).locator('[data-save-status]')).toHaveText('복구 저장 실패');
+  const before = page.url();
+  await page.getByRole('button', { name: '편집 집중 보기', exact: true }).click();
+  await expect(page.getByRole('complementary', { name: '작업 공간 파일 탐색' })).toBeHidden();
   await page.getByRole('button', { name: '자료함으로 돌아가기' }).click();
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Protected latest input');
   await expect(page.getByText('현재 입력을 복구 가능한 저장소에 보관하지 못했습니다.', { exact: false })).toBeVisible();
+  expect(state.writes).toHaveLength(0);
+  await page.getByRole('navigation', { name: '작업 공간 도구' }).getByRole('button', { name: '로그아웃', exact: true }).click();
+  expect(page.url()).toBe(before);
+  await expect(shell(page).locator('.w-paragraph').first()).toContainText('Protected latest input');
   expect(state.writes).toHaveLength(0);
   await page.evaluate(() => (window as unknown as { restoreWordStorage: () => void }).restoreWordStorage());
   await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
@@ -419,8 +436,12 @@ test('retired Word role loading cannot lock or replace a newer viewer opening', 
 
 test('authenticated workspace tree retains native Word and Project context across aliases and perspectives', async ({ page }) => {
   const state = await setup(page, { tree: true });
-  await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+  await (await projectFeedbackAction(page, '직접 편집')).click();
   const navigation = page.getByRole('complementary', { name: '작업 공간 파일 탐색' });
+  const header = shell(page).locator('.office-document-bar');
+  await expect(header.getByRole('button', { name: '로그아웃', exact: true })).toHaveCount(0);
+  await expect(header.getByRole('button', { name: '프로젝트로 돌아가기', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: '작업 공간 도구' }).getByRole('button', { name: '로그아웃', exact: true })).toBeVisible();
   await expect(navigation.getByRole('button', { name: 'Server Word 열기' })).toHaveCount(3);
   await expect(navigation.getByText('Stale alias')).toHaveCount(0);
   const paragraph = shell(page).locator('.w-paragraph').first();
@@ -441,7 +462,7 @@ test('authenticated workspace tree retains native Word and Project context acros
 
 test('authenticated workspace tree saves immediate input before opening another Word original', async ({ page }) => {
   const state = await setup(page, { tree: true, second: true });
-  await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+  await (await projectFeedbackAction(page, '직접 편집')).click();
   const tree = page.locator('.ow-file-navigation');
   await expect(tree.getByRole('button', { name: 'Second server Word 열기' })).toBeVisible();
   await type(page, 'Immediate tree input');
@@ -462,7 +483,7 @@ for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const
   await page.waitForLoadState('networkidle');
   await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
   await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
-  await page.getByRole('button', { name: '직접 편집', exact: true }).click();
+  await (await projectFeedbackAction(page, '직접 편집')).click();
   await type(page, 'Wonffice workspace product overview');
   const paragraph = shell(page).locator('.w-paragraph').first();
   await expect(paragraph).toContainText('Wonffice workspace product overview');
@@ -483,10 +504,26 @@ for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const
     expect(control.ownsHit, control.name ?? '').toBe(true);
   }
   expect(geometry!.x).toBeGreaterThan(250); expect(geometry!.x + geometry!.width).toBeLessThanOrEqual(width);
+  const footer = page.locator('.ow-workspace-rail-footer');
+  const footerHits = await footer.locator('button').evaluateAll(elements => elements.map(element => {
+    const rect = element.getBoundingClientRect(), hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return { width: rect.width, height: rect.height, x: rect.x, y: rect.y, bottom: rect.bottom, ownsHit: !!hit && (element === hit || element.contains(hit)) };
+  }));
+  expect(footerHits).toHaveLength(2);
+  for (const hit of footerHits) { expect(hit.width).toBeGreaterThanOrEqual(32); expect(hit.height).toBeGreaterThanOrEqual(32);
+    expect(hit.x).toBeGreaterThanOrEqual(0); expect(hit.y).toBeGreaterThanOrEqual(0); expect(hit.bottom).toBeLessThanOrEqual(1000); expect(hit.ownsHit).toBe(true); }
   await expect(shell(page).getByRole('complementary', { name: '서버 Word 목록' })).toHaveCount(0);
   await expect(shell(page).getByRole('complementary', { name: '문서 작업' })).toBeHidden();
   await page.screenshot({ path: testInfo.outputPath(`authenticated-word-${width}-${theme}.png`) });
   const node = await paragraph.elementHandle();
+  await page.getByRole('button', { name: '편집 집중 보기', exact: true }).click();
+  await expect(page.getByRole('complementary', { name: '작업 공간 파일 탐색' })).toBeHidden();
+  const rail = page.getByRole('navigation', { name: '작업 공간 도구' });
+  await rail.getByRole('button', { name: '로그아웃', exact: true }).focus();
+  await expect(rail.getByRole('button', { name: '로그아웃', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(rail.getByRole('button', { name: '프로젝트로 돌아가기', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: '작업 공간 파일 펼치기', exact: true }).click();
   await openWordActions(page);
   await page.getByRole('region', { name: '문서 작업', exact: true }).getByRole('button', { name: '닫기', exact: true }).click();
   await expect(shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true })).toBeFocused();

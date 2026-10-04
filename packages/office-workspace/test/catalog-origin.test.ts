@@ -11,7 +11,7 @@ describe('Workspace library return context', () => {
     expect(readLibraryOrigin('one')).toEqual(origin);
     expect(readLibraryOrigin('two')).toEqual(emptyLibraryOrigin());
     expect(workspaceReturnURL('one')).toBe('/?workspace=one&view=library');
-    expect(workspaceReturnURL('one', 'p')).toBe('/?workspace=one&project=p');
+    expect(workspaceReturnURL('one', 'p')).toBe('/?workspace=one&view=projects&project=p');
   });
   it('rejects malformed or unknown presentation state and tolerates unavailable storage', () => {
     vi.stubGlobal('sessionStorage', { getItem: () => '{"query":5,"view":"admin","product":"private","scroll":-1,"folder":{}}' });
