@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
-import { DocumentSession, ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type MouseEvent, type Ref } from 'react';
+import { DocumentSession, captureProductNavigation, ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
 import { Button, Dialog, StatusNotice, Tip } from '@barocss/office-ui';
 import { Icon } from '@barocss/office-icons';
 import { DocumentSaveStatus } from './document-save-status';
@@ -19,9 +19,12 @@ export function useLocalDocuments(options: DocumentSessionOptions | null) {
   return { session, status, beforeReplace };
 }
 
+/** The mounted library owns reads, drafts and recovery; menus only request its existing action. */
+export interface LocalDocumentActions { open(origin?: HTMLElement | null): void; }
+
 /** Local storage and recovery controls shared by product shells. */
-export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly = false }: {
-  persistence: ReturnType<typeof useLocalDocuments>; title: string; prefix: string; onOpened: () => void; iconOnly?: boolean;
+export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly = false, showTrigger = true, ref }: {
+  persistence: ReturnType<typeof useLocalDocuments>; title: string; prefix: string; onOpened: () => void; iconOnly?: boolean; showTrigger?: boolean; ref?: Ref<LocalDocumentActions>;
 }) {
   const { status } = persistence;
   const { t } = useOfficeLocale();
@@ -34,11 +37,11 @@ export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly 
     : t(`document.library.${problem.code}`));
   const [confirmRecovery, setConfirmRecovery] = useState(false);
   const lock = useRef(false);
-  const opener = useRef<HTMLButtonElement | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
   const recent = useRef<HTMLButtonElement | null>(null);
   const restoreFocus = () => {
     const target = opener.current;
-    (target?.isConnected && !target.disabled ? target : recent.current)?.focus();
+    (target?.isConnected && !target.hasAttribute('disabled') ? target : recent.current)?.focus();
   };
   const recoveryButtonRef = useRef<HTMLButtonElement>(null);
   const recoveryRequired = status === 'recovery-required';
@@ -55,19 +58,26 @@ export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly 
   const show = async () => {
     const session = persistence.session.current;
     if (!session) return;
+    const id = session.id, navigation = captureProductNavigation();
+    const owns = () => persistence.session.current === session && session.id === id &&
+      (!navigation || navigation.id !== id || navigation.isCurrent());
     const savedCurrent = await session.flush();
+    if (!owns()) throw new Error('Library owner changed');
     if (!savedCurrent && !session.recoveryRequired)
       setProblem({ code: 'saveUnconfirmed' });
     const [saved, recovered] = await Promise.all([session.options.documents.rows(), session.options.drafts.rows()]);
     const available = await Promise.all(saved.map(async row => !await isProductDocumentTrashed(session.options.key, row.name)));
+    if (!owns()) throw new Error('Library owner changed');
     setRows(saved.filter((_, index) => available[index])); setDrafts(recovered); setOpen(true);
   };
-  const openLibrary = (event: MouseEvent<HTMLButtonElement>) => {
+  const requestLibrary = (origin?: HTMLElement | null) => {
     if (lock.current) return;
     // Disabling the trigger can blur it before the asynchronous library read finishes.
-    opener.current = event.currentTarget;
+    opener.current = origin ?? null;
     void perform(show);
   };
+  const openLibrary = (event: MouseEvent<HTMLButtonElement>) => requestLibrary(event.currentTarget);
+  useImperativeHandle(ref, () => ({ open: requestLibrary }));
   const failure = status === 'save-error' || status === 'restore-error' || recoveryRequired;
   const reopenSaved = () => void perform(async () => {
     const session = persistence.session.current;
@@ -95,7 +105,7 @@ export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly 
         } else await session.flush();
       })}>{t(status === 'restore-error' ? 'document.save.action.retryRestore' : 'document.save.action.retrySave')}</Button>}
     {status === 'conflict' && <Button disabled={busy} onClick={openLibrary}>{t('document.save.action.openDraft')}</Button>}
-    <Tip label={iconOnly ? (busy && !open ? t('document.library.recentLoading') : t('document.library.recent')) : undefined}><Button ref={recent} square={iconOnly} tone={iconOnly ? 'quiet' : 'plain'} ariaLabel={iconOnly ? t('document.library.recent') : undefined} aria-busy={busy || undefined} onClick={openLibrary} disabled={busy}>{iconOnly ? <Icon name="recent-documents" /> : busy && !open ? t('document.library.processing') : t('document.library.recent')}</Button></Tip>
+    {showTrigger && <Tip label={iconOnly ? (busy && !open ? t('document.library.recentLoading') : t('document.library.recent')) : undefined}><Button ref={recent} square={iconOnly} tone={iconOnly ? 'quiet' : 'plain'} ariaLabel={iconOnly ? t('document.library.recent') : undefined} aria-busy={busy || undefined} onClick={openLibrary} disabled={busy}>{iconOnly ? <Icon name="recent-documents" /> : busy && !open ? t('document.library.processing') : t('document.library.recent')}</Button></Tip>}
     {problem && !open && <span role="alert">{problemText}</span>}
     <Dialog open={open} onClosed={restoreFocus} onOpenChange={value => { if (!busy) { setOpen(value); if (!value) setProblem(null); } }} title={title}
       description={t('document.library.description')}>

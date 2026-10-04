@@ -157,5 +157,8 @@
   "workspace.feedback.count": "의견 {count}",
   "workspace.feedback.view": "보기",
   "workspace.feedback.edit": "직접 편집",
-  "workspace.feedback.read": "읽기"
+  "workspace.feedback.read": "읽기",
+  "document.input.failed": "입력을 반영하지 못했습니다",
+  "document.input.retained": "현재 입력을 유지합니다. 저장하거나 다른 문서를 열기 전에 다시 시도하세요.",
+  "document.input.retry": "입력 다시 시도"
 }

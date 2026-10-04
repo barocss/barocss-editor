@@ -6,6 +6,7 @@ import {
   SlashMenu,
   useDocumentRevision,
   useEditorRevision,
+  type LocalDocumentActions,
   type DocumentFileActions
 } from '@barocss/office-editor-ui';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -646,6 +647,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * invent one.
    */
   const rowForm = rowOpen;
+  const rowOwner = useRef(rowOpen);
+  rowOwner.current = rowOpen;
+  const closingRow = useRef<object | null>(null);
+  const [rowCloseFailed, setRowCloseFailed] = useState(false);
+  useEffect(() => { setRowCloseFailed(false); }, [rowOpen]);
 
   /*
    * **The bar, built from the document's widths.** One entry per board, so a width a reader adds
@@ -747,14 +753,61 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * **문서에 대한 사실**이라 패키지가 답한다 — Word 가 `createStarterDocument` 로 답한 것과 같다.
    */
   const files = useRef<DocumentFileActions>(null);
+  const documentMenuHost = useRef<HTMLSpanElement>(null);
+  const recentDocuments = useRef<LocalDocumentActions>(null);
+  const composing = useRef(new Set<EventTarget>());
+  useEffect(() => {
+    const shell = pane.current?.closest('.st-shell');
+    if (!shell) return;
+    const start = (event: Event) => { if (event.target) composing.current.add(event.target); };
+    const end = (event: Event) => { if (event.target) composing.current.delete(event.target); };
+    shell.addEventListener('compositionstart', start, true); shell.addEventListener('compositionend', end, true);
+    return () => { composing.current.clear(); shell.removeEventListener('compositionstart', start, true); shell.removeEventListener('compositionend', end, true); };
+  }, [instance]);
+  const propertyDelivery = useRef<((isCurrent: () => boolean) => Promise<boolean>) | null>(null);
+  const propertiesReady = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => { propertyDelivery.current = deliver; }, []);
+  const [failedInput, setFailedInput] = useState(false);
+  useEffect(() => { setFailedInput(false); }, [instance]);
+  const retryInput = async () => {
+    if (!instance?.view.hasFailedInputDelivery) return;
+    const root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const owns = () => pane.current?.isConnected === true && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
+    if (await instance.view.retryInputDelivery(owns) && owns()) setFailedInput(false);
+  };
   const bodyFlushes = useRef(new Set<() => Promise<void>>());
   const registerBodyFlush = useCallback<RegisterBodyFlush>((flush) => {
     bodyFlushes.current.add(flush);
     return () => { bodyFlushes.current.delete(flush); };
   }, []);
   const flushBodies = useCallback(async () => {
-    for (const flush of [...bodyFlushes.current].reverse()) await flush();
-  }, []);
+    if (!instance || composing.current.size) throw new Error('마지막 입력을 완료한 뒤 다시 시도하세요.');
+    const root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const editable = instance.editor.isEditable;
+    const owns = () => instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch &&
+      instance.editor.isEditable === editable && !composing.current.size;
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused.matches('input,textarea,select') && focused.closest('.office-properties') &&
+      pane.current?.closest('.st-shell')?.contains(focused)) focused.blur();
+    if (!owns() || !await instance.view.deliverInput(owns)) { setFailedInput(instance.view.hasFailedInputDelivery); throw new Error('마지막 입력을 반영하지 못했습니다. 현재 입력은 유지합니다.'); }
+    setFailedInput(false);
+    if (propertyDelivery.current && !await propertyDelivery.current(owns)) throw new Error('속성 입력을 반영하지 못했습니다. 다시 시도하세요.');
+    for (const flush of [...bodyFlushes.current].reverse()) {
+      if (!owns()) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
+      await flush();
+      if (!owns()) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
+    }
+  }, [instance]);
+  const closeRow = async () => {
+    if (!instance || !rowOwner.current || closingRow.current) return;
+    const captured = rowOwner.current, root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const token = {}; closingRow.current = token;
+    const owns = () => rowOwner.current === captured && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
+    try {
+      await flushBodies();
+      if (owns()) { setRowCloseFailed(false); setRowOpen(undefined); }
+    } catch { if (owns()) setRowCloseFailed(true); }
+    finally { if (closingRow.current === token) closingRow.current = null; }
+  };
   const sessionOptions = useMemo(() => editor ? siteSessionOptions(editor, flushBodies) : null, [editor, flushBodies]);
   const persistence = useLocalDocuments(sessionOptions);
   const workspaceEntry = new URLSearchParams(location.search).get('workspace');
@@ -891,7 +944,6 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             const guard = () => { if (exportEditor.current !== editor || editor.getRootId() !== exportRoot) throw new Error('문서가 변경되었습니다. 현재 문서의 파일 메뉴에서 다시 내보내세요.'); };
             guard();
             await flushBodies();
-            await new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
             guard();
             let downloaded = '';
             const ok = await editor.executeCommand(entry.command!, {
@@ -949,11 +1001,15 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const onMenu = useCallback(
     (id: string) => {
+      if (id === 'workspace.recent') { recentDocuments.current?.open(documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')); return; }
       const entry = siteMenuEntry(id, menus);
       if (entry) runEntry(entry);
     },
     [runEntry]
   );
+  const documentMenus = bar.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks,
+    { id: 'original-library', items: [{ id: 'workspace.recent', label: t('document.library.recent'), disabled: !editor || preview }] }
+  ] } : menu);
   /**
    * What the pointer treats as the outermost thing.
    *
@@ -1576,24 +1632,27 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   return (
     <AppShell className="st-shell">
       <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPickIntent={prepareSearchCommandPick} onPick={id => void pickSearchCommand(id)} />
+      {rowCloseFailed && <TaskStatusRegion label={t('document.input.failed')}><TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button onClick={() => void closeRow()}>{t('document.input.retry')}</Button>} /></TaskStatusRegion>}
+      {failedInput && <TaskStatusRegion label={t('document.input.failed')}><TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button onClick={() => void retryInput()}>{t('document.input.retry')}</Button>} /></TaskStatusRegion>}
       {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
       <AppChrome className="st-chrome">
         <EditorHeader compact product="Site" className="st-documentbar"
           fallbackNavigation={<ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
           title={editor ? `${siteTitle(editor.dataStore as never) || '제목 없는 사이트'}${definition ? ` · ${definition.name} · ${definition.uses}곳에서 사용 중` : !admin ? ` · ${pages.find(one => one.sid === page)?.name ?? ''}` : ''}` : '불러오는 중'}
-          menus={<DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={bar} onPick={onMenu} />}
-          actions={<><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
-          <div className="st-header-actions">{datasetAt && completeTools}{editor && !admin ? <>
+          menus={<span ref={documentMenuHost}><DocumentMenu label="문서 메뉴" icon={<Icon name="more" />} menus={documentMenus} onPick={onMenu} /></span>}
+          actions={<><LocalDocuments ref={recentDocuments} showTrigger={false} persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
+          <div className="st-header-actions">{editor && !admin ? <>
             <IconButton label="페이지 및 구조" pressed={navigationOpen} controls={panelIds.navigation} expanded={navigationOpen} elementRef={navigationTrigger} data={{ 'workspace-toggle': 'navigation' }} preserveFocus onClick={() => setNavigationOpen(value => !value)}><Icon name="outline" /></IconButton>
             <IconButton label="자세한 속성" pressed={detailOpen} controls={panelIds.inspector} expanded={detailOpen} elementRef={inspectorTrigger} data={{ 'workspace-toggle': 'inspector' }} preserveFocus onClick={() => setDetailOpen(value => !value)}><Icon name="expand" /></IconButton>
           </> : null}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
-          {editor ? <FileActions ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
+
 
 
         </>} />
 
       </AppChrome>
 
+          {editor ? <FileActions showTrigger={false} ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
           {exportTask && <TaskStatusRegion label="사이트 출력 상태"><TaskStatus title={exportTask.title} phase={exportTask.phase} description={exportTask.description}
             onDismiss={() => { setExportTask(undefined); setExportRetry(undefined); }}
             actions={exportTask.phase === 'error' && exportRetry ? <Button onClick={exportRetry}>다시 시도</Button> : undefined} /></TaskStatusRegion>}
@@ -1687,7 +1746,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             the reader last asked for, and nothing else in the window changes.
           */}
           {datasetAt ? (
-            <DataTable
+            <><Toolbar variant="compact" surface="floating" label="데이터 도구">{completeTools}</Toolbar><DataTable
               editor={editor!}
               run={(name, payload) => editor ? editor.executeCommand(name, payload as never) : false}
               can={(name, payload) =>
@@ -1700,7 +1759,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               sid={datasetAt.sid}
               onClose={() => setDataset(undefined)}
               onOpenRow={(one) => setRowOpen({ sid: datasetAt.sid, row: one, label: datasetAt.label })}
-            />
+            /></>
           ) : (
           <Canvas
             paneRef={pane}
@@ -1927,6 +1986,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         */}
         {editor && !admin ? (
           <WorkspaceSidePanel id={panelIds.inspector} side="inspector" width={280} className="st-detail-slot" hidden={!detailOpen} inert={!detailOpen} onBlurCapture={event => { if (event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}><Inspector key={toolOwnerKey}
+            onInputDeliveryReady={propertiesReady}
             editor={given ?? editor}
             writing={writing}
             at={at}
@@ -1972,7 +2032,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             run={(name, payload) => editor ? editor.executeCommand(name, payload as never) : false}
             revision={revision}
             at={{ sid: rowForm.sid, row: rowForm.row }}
-            onClose={() => setRowOpen(undefined)}
+            onClose={() => void closeRow()}
           />
         ) : null}
       </AdaptiveWorkspace>

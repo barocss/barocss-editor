@@ -9,7 +9,7 @@ import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Controls, SlashMenu, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import { noteRegistry } from './renderers';
 import { Icon } from '@barocss/office-icons';
-import { Button, FilePick, Tip, TipProvider, FloatingSurface, IconButton, TextField, Choice, MenuAction, Field, FloatingPanelHeader } from '@barocss/office-ui';
+import { Button, FilePick, Tip, TipProvider, FloatingSurface, IconButton, TextField, Choice, MenuAction, Field, FloatingPanelHeader, TaskStatus, useOfficeLocale } from '@barocss/office-ui';
 import {
   WORD_ENV_KEY,
   createTextEnv,
@@ -96,7 +96,9 @@ export function NoteEditor({
   const deliveries = useRef(new Set<() => Promise<boolean>>());
   const mutable = writeAllowed ?? editor.isEditable;
   const composing = useRef(new Set<EventTarget>());
-  const owner = useMemo(() => ({ editor, rootId, documentRootId: editor.dataStore.getRootNodeId(), sessionId: editor.dataStore.getSessionId() }), [editor, rootId, editor.dataStore.getSessionId()]);
+  useEditorRevision(editor);
+  const documentEpoch = editor.dataStore.getDocumentEpoch();
+  const owner = useMemo(() => ({ editor, rootId, documentEpoch, documentRootId: editor.dataStore.getRootNodeId(), sessionId: editor.dataStore.getSessionId() }), [editor, rootId, documentEpoch, editor.dataStore.getSessionId()]);
   const lifetime = useRef(owner);
   lifetime.current = owner;
   useLayoutEffect(() => {
@@ -109,10 +111,8 @@ export function NoteEditor({
   }, [owner]);
   const flushDocument = useCallback(async () => {
     const capturedOwner = lifetime.current;
-    const capturedRoot = editor.dataStore.getNode(rootId);
-    const current = () => lifetime.current === capturedOwner && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && editor.dataStore.getNode(rootId) === capturedRoot;
+    const current = () => lifetime.current === capturedOwner && editor.dataStore.getDocumentEpoch() === capturedOwner.documentEpoch && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && !!editor.dataStore.getNode(rootId);
     if (composing.current.size) return false;
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
     for (const flush of [...deliveries.current].reverse()) {
       try { if (!current() || composing.current.size || !await flush()) return false; }
       catch { return false; }
@@ -294,6 +294,7 @@ export function NoteEditor({
           editor={editor}
           rootId={rootId}
           chromeHost={body}
+          registerDelivery={registerBodyDelivery}
           editable={mutable}
           picked={picked}
           onPicked={(sid, at) => {
@@ -849,7 +850,8 @@ function NoteBody({
   editable,
   picked,
   onPicked,
-  onWriting
+  onWriting,
+  registerDelivery
 }: {
   editor: Editor;
   rootId: string;
@@ -866,9 +868,20 @@ function NoteBody({
    * 자리가 있다). 그려진 것은 늘 지금이다.
    */
   onWriting?: (sid: string | undefined) => void;
+  registerDelivery?: (flush: () => Promise<boolean>) => () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
+  const { t } = useOfficeLocale();
+  const [failedInput, setFailedInput] = useState(false);
+  useEffect(() => { setFailedInput(false); }, [editor, rootId]);
+  const retryInput = async () => {
+    const live = view.current, element = host.current;
+    if (!live?.hasFailedInputDelivery || !element) return;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+    const owns = () => element.isConnected && view.current === live && editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch;
+    if (await live.retryInputDelivery(owns) && owns()) setFailedInput(false);
+  };
   const cells = useRef<CellSelectionHandle | null>(null);
   const box = useRef<HTMLDivElement>(null);
   /**
@@ -881,6 +894,7 @@ function NoteBody({
    * time there is a new one.
    */
   const revision = useEditorRevision(editor);
+  const documentEpoch = editor.dataStore.getDocumentEpoch();
 
   useEffect(() => {
     if (box.current) return installNoteInputRules(editor, box.current);
@@ -933,6 +947,21 @@ function NoteBody({
     view.current.render(undefined, { sync: true });
     view.current.contentEditableElement.contentEditable = editor.isEditable ? 'true' : 'false';
   }, [editor, rootId]);
+
+  useEffect(() => {
+    const live = view.current, element = host.current;
+    if (!live || !element) return;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+    let active = true;
+    const owns = () => active && element.isConnected && view.current === live &&
+      editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch;
+    const unregister = registerDelivery?.(async () => {
+      const accepted = await live.deliverInput(owns);
+      if (owns()) setFailedInput(!accepted && live.hasFailedInputDelivery);
+      return accepted && owns();
+    });
+    return () => { active = false; unregister?.(); };
+  }, [editor, rootId, documentEpoch, registerDelivery]);
 
   useLayoutEffect(() => {
     if (view.current) view.current.contentEditableElement.contentEditable = editable ? 'true' : 'false';
@@ -1152,6 +1181,7 @@ function NoteBody({
 
   return (
     <div className="on-body" ref={box}>
+      {failedInput && <TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button ariaLabel={t('document.input.retry')} disabled={!editable} onClick={() => void retryInput()}>{t('document.input.retry')}</Button>} />}
       <div ref={host} data-note-body={rootId} />
     </div>
   );

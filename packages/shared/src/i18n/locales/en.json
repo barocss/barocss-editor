@@ -157,5 +157,8 @@
   "workspace.feedback.count": "Feedback {count}",
   "workspace.feedback.view": "View",
   "workspace.feedback.edit": "Edit directly",
-  "workspace.feedback.read": "Reading"
+  "workspace.feedback.read": "Reading",
+  "document.input.failed": "Input was not applied",
+  "document.input.retained": "The current input is retained. Retry before saving or opening another document.",
+  "document.input.retry": "Retry input"
 }

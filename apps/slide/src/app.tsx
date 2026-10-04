@@ -1,6 +1,6 @@
 import { useFloatingPanelBounds } from './floating-panel-bounds';
 import { documentTitle } from '@barocss/office-text';
-import { EditorHeader, ProductMenu, DocumentMenu, SecondaryPopup, Toolbar, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
+import { EditorHeader, ProductMenu, DocumentMenu, Toolbar, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion, useOfficeLocale, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { selectedNodeIds } from '@barocss/editor-core';
@@ -87,6 +87,7 @@ import { Present, SelectionOverlay, Stage, TimelinePane, createSlidePrint, Slide
 import { LibraryDialog } from '@barocss/office-slides/ui';
 import { libraryDeck, libraryRows } from '@barocss/office-slides';
 import { useDeck, useRevision, useSlidePersistence, SlideDocuments } from '@barocss/office-slides/ui';
+import { type LocalDocumentActions } from '@barocss/office-editor-ui';
 import { useEditorRevision } from '@barocss/office-editor-ui';
 import { useSlideMenuSearch, type SlideMenuFileAction, type SlideMenuViewAction } from './use-slide-menu-search';
 
@@ -97,6 +98,8 @@ export interface SlidesServerHost {
   navigation?: ReactNode;
   readOnly?: boolean;
   onRuntime: (runtime: SlidesRuntime) => void;
+  onInputDeliveryReady?: (runtime: SlidesRuntime, deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
+  nativeExport?: { available: boolean; run: () => void };
   onFileAction: (action: 'save' | 'new' | 'open' | 'library') => void;
 }
 function ReadOnlyControls({ enabled, children }: { enabled: boolean; children: ReactNode }) {
@@ -120,7 +123,21 @@ export function App({
   server?: SlidesServerHost;
   localPersistence?: boolean;
 }) {
+  const { t } = useOfficeLocale();
   const host = useRef<HTMLDivElement>(null);
+  const documentMenuHost = useRef<HTMLSpanElement>(null);
+  const recentDocuments = useRef<LocalDocumentActions>(null);
+  const childDeliveries = useRef(new Map<string, (isCurrent: () => boolean) => Promise<boolean>>());
+  const notesRecovery = useRef<Parameters<NonNullable<React.ComponentProps<typeof NotesPane>['onInputRecoveryReady']>>[0]>(null);
+  const recoveryReady = useCallback((recovery: typeof notesRecovery.current) => { notesRecovery.current = recovery; }, []);
+  const notesDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    if (deliver) childDeliveries.current.set('notes', deliver); else childDeliveries.current.delete('notes');
+  }, []);
+  const propertyDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    if (deliver) childDeliveries.current.set('properties', deliver); else childDeliveries.current.delete('properties');
+  }, []);
+  const composingFields = useRef(new Set<EventTarget>());
+  const [failedInput, setFailedInput] = useState(false);
   /**
    * 무대의 요소 자체 — 조립의 일이다.
    *
@@ -191,7 +208,66 @@ export function App({
   const view = instance?.view ?? null;
   const printer = useMemo(() => editor ? createSlidePrint(editor) : null, [editor]);
   useEffect(() => printer?.attach(), [printer]);
-  const persistence = useSlidePersistence(editor, localPersistence && !server);
+  useEffect(() => {
+    const shell = host.current?.closest('.sl-shell');
+    if (!shell) return;
+    const start = (event: Event) => { if (event.target) composingFields.current.add(event.target); };
+    const end = (event: Event) => { if (event.target) composingFields.current.delete(event.target); };
+    shell.addEventListener('compositionstart', start, true); shell.addEventListener('compositionend', end, true);
+    return () => { composingFields.current.clear(); shell.removeEventListener('compositionstart', start, true); shell.removeEventListener('compositionend', end, true); };
+  }, [instance]);
+  const deliverInput = useCallback(async (isCurrent: () => boolean = () => true): Promise<boolean> => {
+    if (!instance || !host.current?.isConnected || composingFields.current.size) return false;
+    const root = editor!.getRootId(), epoch = editor!.dataStore.getDocumentEpoch(), generation = lifetime.current;
+    const editable = editor!.isEditable;
+    const owns = () => isCurrent() && host.current?.isConnected === true && lifetime.current === generation &&
+      editor!.getRootId() === root && editor!.dataStore.getDocumentEpoch() === epoch && editor!.isEditable === editable && !composingFields.current.size;
+    try {
+      if (!owns()) return false;
+      const focused = document.activeElement;
+      if (focused instanceof HTMLElement && focused.matches('input,textarea,select') && focused.closest('.sl-properties') &&
+        host.current?.closest('.sl-shell')?.contains(focused)) focused.blur();
+      if (!owns() || !await instance.view.deliverInput(owns)) {
+        if (owns()) setFailedInput(instance.view.hasFailedInputDelivery);
+        return false;
+      }
+      setFailedInput(false);
+      for (const [key, deliver] of [...childDeliveries.current]) {
+        if (!owns() || childDeliveries.current.get(key) !== deliver || !await deliver(owns) || !owns()) {
+          if (owns()) setFailedInput(instance.view.hasFailedInputDelivery || notesRecovery.current?.failed() === true);
+          return false;
+        }
+      }
+      return owns() && await instance.settleCommands(owns) && owns();
+    } catch { return false; }
+  }, [instance, editor]);
+  useEffect(() => {
+    if (!instance) return;
+    const owner = serverRef.current;
+    owner?.onInputDeliveryReady?.(instance, deliverInput);
+    return () => { owner?.onInputDeliveryReady?.(instance, null); };
+  }, [instance, deliverInput]);
+  useEffect(() => { setFailedInput(false); }, [instance]);
+  const retryInput = async () => {
+    if (!instance || (!instance.view.hasFailedInputDelivery && !notesRecovery.current?.failed())) return;
+    const generation = lifetime.current, root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const owns = () => host.current?.isConnected === true && lifetime.current === generation &&
+      instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
+    const failure = instance.commandFailure();
+    const recovery = notesRecovery.current;
+    const nativeFailed = instance.view.hasFailedInputDelivery;
+    const correlated = !!failure && (nativeFailed ? instance.view.hasFailedInputDeliveryError(failure.error) : recovery?.matches(failure.error));
+    const retryOwns = () => owns() && (nativeFailed || notesRecovery.current === recovery);
+    const accepted = nativeFailed ? await instance.view.retryInputDelivery(retryOwns) : await recovery?.retry(retryOwns);
+    if (accepted && retryOwns()) {
+      if (correlated) failure!.acknowledge(owns);
+      setFailedInput(instance.view.hasFailedInputDelivery || notesRecovery.current?.failed() === true);
+    }
+  };
+  const beforeSnapshot = useCallback(async () => {
+    if (!await deliverInput()) throw new Error('마지막 입력을 반영하지 못했습니다. 현재 입력을 유지합니다.');
+  }, [deliverInput]);
+  const persistence = useSlidePersistence(editor, localPersistence && !server, beforeSnapshot);
   const slides = useDeck(editor);
   const revision = useRevision(editor);
   /**
@@ -1050,14 +1126,14 @@ export function App({
   }, [current, moveBy, stretches, readOnly, focused]);
 
   const {
-    menus: nativeMenus, menuLifetimeKey, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
     dismissCommandError, openCommandSearch, pickSearchCommand, prepareSearchCommandPick, onMenu, runEntry
   } = useSlideMenuSearch({
     editor, view, current, slideNumber: here?.number, answers, moveBy,
     auditing, mapping, focused, onFileAction, onViewAction
   });
 
-  const menus = useMemo(() => nativeMenus.map(menu => ({ ...menu, blocks: menu.blocks.map(block => ({
+  const nativeDocumentMenus = useMemo(() => nativeMenus.map(menu => ({ ...menu, blocks: menu.blocks.map(block => ({
     ...block, items: block.items.map(item => {
       const entry = slidesMenuEntry(item.id);
       const disabled = item.disabled || (Boolean(server) && entry?.view === 'template')
@@ -1065,6 +1141,18 @@ export function App({
       return { ...item, disabled, ...(entry?.view === 'map' ? { label: '슬라이드 이동 지도' } : {}), ...(entry?.view === 'ruler' ? { checked: rulerShown } : {}) };
     })
   })) })), [nativeMenus, readOnly, server, rulerShown]);
+
+  const menus = nativeDocumentMenus.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks,
+    { id: 'original-library', items: [{ id: 'workspace.recent', label: server ? '서버 Slides 목록' : t('document.library.recent'), disabled: !editor || presenting }] },
+    ...(server?.nativeExport ? [{ id: 'native-export', items: [{ id: 'workspace.export', label: 'Slides 파일 내보내기', disabled: !server.nativeExport.available }] }] : [])
+  ] } : menu);
+  const pickDocumentMenu = (id: string) => {
+    if (id === 'workspace.recent') {
+      if (server) setServerLibraryOpen(true);
+      else recentDocuments.current?.open(documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]'));
+    } else if (id === 'workspace.export') { if (serverRef.current?.nativeExport?.available) serverRef.current.nativeExport.run(); }
+    else onMenu(id);
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1835,11 +1923,12 @@ export function App({
       }}
     >
       <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} onPickIntent={prepareSearchCommandPick} />
+      {failedInput && <TaskStatusRegion label={t('document.input.failed')}><TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button onClick={() => void retryInput()}>{t('document.input.retry')}</Button>} /></TaskStatusRegion>}
       {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
       <EditorHeader compact product="Slides" className="sl-topbar"
         fallbackNavigation={server ? server.headerNavigation : <ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<DocumentMenu key={menuLifetimeKey} label="문서 메뉴" icon={<Icon name="more" />} menus={menus} onPick={onMenu} />}
+        menus={<span ref={documentMenuHost}><DocumentMenu key={`${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="more" />} menus={menus} onPick={pickDocumentMenu} /></span>}
         actions={<>
           <Tip label="레이어 · 개체 순서와 컴포넌트">
             <Button square tone="quiet" ariaLabel="레이어" aria-controls="slides-objects"
@@ -1857,11 +1946,17 @@ export function App({
               <Icon name="expand" />
             </Button>
           </Tip>
-          <CommandSearchTrigger iconOnly disabled={!editor || presenting} onClick={openCommandSearch} />{!server && <SlideDocuments iconOnly persistence={persistence} onOpened={() => {
+          <CommandSearchTrigger iconOnly disabled={!editor || presenting} onClick={openCommandSearch} />
+          {!server && <SlideDocuments ref={recentDocuments} showTrigger={false} iconOnly persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
           }} />}
+          {server?.headerActions}
+        </>} />
+
           {!server && <FileActions
+            showTrigger={false}
             beforeReplace={persistence.beforeReplace}
+            beforeSave={() => deliverInput()}
             ref={files}
             editor={editor}
             onOpened={() => {
@@ -1879,9 +1974,13 @@ export function App({
               setLibraryName(undefined);
             }}
           />}
-          {server?.navigation && <SecondaryPopup open={serverLibraryOpen} onOpenChange={setServerLibraryOpen} triggerLabel="서버 Slides 목록" label="서버 Slides 목록" keepMounted>{server.navigation}</SecondaryPopup>}
-          {server?.headerActions}
-        </>} />
+      {server?.navigation && <FloatingSurface open={serverLibraryOpen} keepMounted at={documentMenuHost.current?.getBoundingClientRect() ?? null}
+        prefer="below" align="start" variant="panel" focusOnOpen portalRoot={host.current?.closest('.sl-shell') as HTMLElement | null}
+        ownedElements={[documentMenuHost]} role="region" aria-label="서버 Slides 목록" style={{ width: 320, maxWidth: 'calc(100vw - 24px)' }}
+        onDismiss={reason => { setServerLibraryOpen(false); if (reason === 'escape') documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')?.focus({ preventScroll: true }); }}>
+        <FloatingPanelHeader title="서버 Slides 목록" onClose={() => { setServerLibraryOpen(false); documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')?.focus({ preventScroll: true }); }} />
+        {server.navigation}
+      </FloatingSurface>}
 
       {!presenting && <div className="sl-utilities" data-slides-utilities>
         {editor && <SlidesDocumentChrome key={focused ? 'single' : 'canvas'} active={!mapping} editor={editor} slides={slides} current={current} scope={toolScope}
@@ -2175,7 +2274,7 @@ export function App({
             onViewModeChange={mode => { if (mapping || focused !== (mode === 'single')) setZoom(undefined); setMapping(false); setFocused(mode === 'single'); }}
             lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
             readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
-            renderNotes={(close, open) => <NotesPane active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}
+            renderNotes={(close, open) => <NotesPane onInputRecoveryReady={recoveryReady} onInputDeliveryReady={notesDelivery} active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}
             onSelect={sid => { setCurrent(sid); leaveSelection(); }}
             onRename={(sid, name) => !readOnly && void editor.executeCommand('setSlideInfo', { slideId: sid, name })} />}
 
@@ -2195,6 +2294,7 @@ export function App({
             event.preventDefault(); event.stopPropagation(); closePanel('inspector');
           }} floating width={280} hidden={!inspectorOpen || presenting} inert={!inspectorOpen || presenting}>
           <Properties
+            onInputDeliveryReady={propertyDelivery}
             inspectorToolsRef={setInspectorTools}
             readOnly={readOnly}
             editor={editor}

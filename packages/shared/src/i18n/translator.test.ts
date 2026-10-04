@@ -12,7 +12,7 @@ describe('the centralized host-owned message catalogs', () => {
       expect(messagesEn[key].length, key).toBeGreaterThan(0);
       expect(messagesKo[key].length, key).toBeGreaterThan(0);
     }
-    expect(Object.keys(messagesEn)).toHaveLength(159);
+    expect(Object.keys(messagesEn)).toHaveLength(162);
   });
 
   it.each([['ko', 'ko'], ['ko-KR', 'ko'], ['KO-kr', 'ko'], ['en-US', 'en'], ['fr-FR', 'en'], ['', 'en']])(
@@ -27,6 +27,9 @@ describe('the centralized host-owned message catalogs', () => {
     expect(korean('document.save.status.save-error')).toBe('저장 실패');
     expect(english('document.save.status.save-error')).toBe('Save failed');
     expect(fallback('document.save.action.retryRestore')).toBe('Retry restore');
+    expect(korean('document.input.retry')).toBe('입력 다시 시도');
+    expect(english('document.input.retry')).toBe('Retry input');
+    expect(fallback('document.input.retained')).toBe(messagesEn['document.input.retained']);
     expect(korean('context.historyCanUndo.description')).toBe('Undo가 가능한지 여부');
     expect(english('context.historyCanUndo.description')).toBe('Whether undo is available');
     expect(korean('document.save.action.openDraft')).toBe('복구 초안 보기');
