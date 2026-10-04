@@ -1118,6 +1118,9 @@ export function SelectionOverlay({
     const paints = paintsOf(node?.attributes as never);
     const paint = paints[paintEdit];
     if (!paint) return;
+    // A genuine canvas gesture owns the next key, rather than the inspector
+    // trigger that opened this paint. Keep menu and field key guards intact.
+    if (layer.current?.isConnected) layer.current.focus({ preventScroll: true });
 
     /**
      * The line is the one that must *not* take the press.
@@ -2252,15 +2255,6 @@ export function SelectionOverlay({
    */
   useEffect(() => {
     if (!cropping) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !chromeOwnsKey(event)) setCropping(undefined);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [cropping]);
-
-  useEffect(() => {
-    if (!cropping) return;
     const chosen = selectedNodeIds(editor?.selection);
     /**
      * Another box, not *no* box.
@@ -2441,7 +2435,10 @@ export function SelectionOverlay({
 
       if (event.key === 'Escape') {
         event.preventDefault();
+        // Exit this inner canvas mode before clearing its selected picture.
+        // A second bubbling handler would observe our prevented event too late.
         if (drag) { settle(); setDrag(null); return; }
+        if (cropping) { event.stopPropagation(); setCropping(undefined); return; }
         /**
          * Out of the container first, and only then out of the selection.
          *
@@ -2488,6 +2485,7 @@ export function SelectionOverlay({
   }, [
     editor,
     editing,
+    cropping,
     drag,
     settle,
     select,
@@ -2660,6 +2658,7 @@ export function SelectionOverlay({
     <div
       ref={layer}
       className="sl-overlay"
+      tabIndex={-1}
       data-slide-overlay={slideSid}
       data-editing={editing ? 'true' : undefined}
       data-cropping={cropping ?? undefined}

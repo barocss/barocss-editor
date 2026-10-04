@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { DOMRenderer } from '@barocss/renderer-dom';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { getGlobalRegistry, type RendererRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY } from '@barocss/office-text';
 import { twipToPx } from '@barocss/shared';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
@@ -49,13 +49,15 @@ import { createDeckEnv } from './layout-format';
 /** What one small drawing of a slide is told. */
 export interface ThumbnailProps {
   editor: Editor | null;
+  /** The same renderer owner as the native stage. */
+  registry?: RendererRegistry;
   slideSid: string;
   width: number;
   /** Bumped when the deck changes, so the picture is redrawn. */
   revision: number;
 }
 
-export function Thumbnail({ editor, slideSid, width, revision }: ThumbnailProps) {
+export function Thumbnail({ editor, registry, slideSid, width, revision }: ThumbnailProps) {
   const host = useRef<HTMLDivElement>(null);
   const renderer = useRef<DOMRenderer | null>(null);
   /**
@@ -78,6 +80,12 @@ export function Thumbnail({ editor, slideSid, width, revision }: ThumbnailProps)
   const natural = { width: twipToPx(size.width), height: twipToPx(size.height) };
   const scale = width / Math.max(1, natural.width);
 
+  useEffect(() => () => {
+    renderer.current?.destroy();
+    renderer.current = null;
+    drawn.current = null;
+  }, [editor, store, registry]);
+
   useEffect(() => {
     if (!editor || !store || !host.current) return;
 
@@ -86,7 +94,7 @@ export function Thumbnail({ editor, slideSid, width, revision }: ThumbnailProps)
         getNode: (id: string) => store.getNode(id) as never,
         rootId: editor.getRootId()
       };
-      renderer.current = new DOMRenderer(getGlobalRegistry(), {
+      renderer.current = new DOMRenderer(registry ?? getGlobalRegistry(), {
         env: { [WORD_ENV_KEY]: createDeckEnv(doc as never) }
       } as never);
     }
@@ -99,7 +107,7 @@ export function Thumbnail({ editor, slideSid, width, revision }: ThumbnailProps)
     drawn.current = snapshot;
 
     renderer.current.render(host.current, JSON.parse(snapshot));
-  }, [editor, store, slideSid, revision]);
+  }, [editor, store, registry, slideSid, revision]);
 
   return (
     <span

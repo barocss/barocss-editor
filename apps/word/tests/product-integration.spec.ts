@@ -1,3 +1,4 @@
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { settled, placeCaret } from './helpers';
 
@@ -30,12 +31,14 @@ test('reviewed report with a long table survives reopen and prints each row once
     ] }] });
   });
   await settled(page);
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await expect(page.getByRole('toolbar', { name: '문서 편집 도구' })).toBeVisible();
   await page.getByRole('tab', { name: '검토', exact: true }).click();
   await page.getByRole('button', { name: '변경 내용 추적', exact: true }).click();
   const statusText = page.locator('#editor .w-paragraph').filter({ hasText: /^Status: draft/ });
-  await statusText.click(); await page.keyboard.press('End'); await page.keyboard.type(' Reviewed.');
+  await placeCaret(page, '#editor .w-paragraph', await statusText.evaluate(el =>
+    Array.from(document.querySelectorAll('#editor .w-paragraph')).indexOf(el)));
+  await page.keyboard.press('End'); await page.keyboard.type(' Reviewed.');
   await expect(statusText).toContainText('Reviewed.');
   await expect(page.locator('#editor .w-insertion')).not.toHaveCount(0);
   await page.getByRole('tab', { name: '검토', exact: true }).click();

@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, setPanel, pickInsert } from './helpers';
 import { bindPropertyVariable } from './property-variable-helpers';
 
 const prepare = async (page: import('@playwright/test').Page) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '속성', exact: true }).click();
+  await setPanel(page, 'properties', true);
   await page.locator('.sl-properties').getByLabel('단위', { exact: true }).selectOption('px');
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+  await pickInsert(page, '사각형');
   return page.evaluate(async () => {
     const editor = (window as any).editor;
     const sid = editor.selection.nodeIds[0];
@@ -59,7 +59,7 @@ for (const theme of ['light', 'dark']) test(`field-attached variable search reso
 test('mixed binding stays truthful and one choice applies to the complete selection', async ({ page }, info) => {
   const first = await prepare(page);
   await bindPropertyVariable(page, '너비', '카드 너비');
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+  await pickInsert(page, '사각형');
   const second = await page.evaluate(() => (window as any).editor.selection.nodeIds[0] as string);
   await page.evaluate(async ids => (window as any).editor.executeCommand('setNode', { nodeIds: ids }), [first, second]);
   const mixed = page.getByRole('button', { name: '너비 변수 서로 다름', exact: true });
@@ -87,10 +87,10 @@ test('escape retires field picker and selection replacement cannot apply stale c
 
 test('component part text attaches through its definition and preserves native part content', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '레이어', exact: true }).click();
+  await setPanel(page, 'layers', true);
   await page.getByRole('tab', { name: '컴포넌트', exact: true }).click();
   await page.locator('.sl-components [data-component-id="metric-card"]').click();
-  await page.getByRole('button', { name: '속성', exact: true }).click();
+  await setPanel(page, 'properties', true);
   const part = await page.evaluate(async () => {
     const editor = (window as any).editor, store = editor.dataStore;
     const library = store.getNode(editor.getRootId()).content.map((sid: string) => store.getNode(sid)).find((node: any) => node.stype === 'components');

@@ -135,13 +135,13 @@
 
 /* Shared controls use office-ui tokens; --sl-* remains the slide canvas palette. */
 
-html,
-body,
-#root {
+html:not(:has(.office-auth)),
+body:not(:has(.office-auth)),
+#root:not(:has(.office-auth)) {
   height: 100%;
 }
 
-body {
+body:not(:has(.office-auth)) {
   margin: 0;
   background: var(--sl-ground);
   color: var(--sl-ink);
@@ -353,3 +353,10 @@ body {
 .sl-stage-region { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .sl-stage-region > .sl-map { position: absolute; inset: 0; z-index: 20; }
 .sl-insertion-chrome[hidden] { display: none; }
+
+/* Keep definition controls reachable beside floating panels without resizing the stage. */
+.sl-body:has(> #slides-details:not([hidden])) .sl-editing { padding-inline-end:308px; }
+.sl-body:has(> #slides-objects:not([hidden])) .sl-editing { padding-inline-start:268px; }
+.sl-editing { flex-wrap:nowrap; }
+.sl-editing > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sl-editing > button { flex-shrink:0; }

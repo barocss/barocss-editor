@@ -22,6 +22,12 @@ test.skip(!process.env.OFFICE_AUTH_REAL_FILE || !process.env.OFFICE_AUTH_CONTROL
   'Word acceptance requires the protected synthetic OIDC fixture and disposable PostgreSQL supervisor.');
 
 async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | 'Beta' = 'Alpha') {
+  const fixture = JSON.parse(readFileSync(process.env.OFFICE_AUTH_REAL_FILE!, 'utf8')) as {
+    issuer: string; users: Record<Alias, { id: string; username?: string; password: string }>;
+  };
+  const account = fixture.users[alias];
+  expect(typeof fixture.issuer === 'string' && typeof account?.id === 'string',
+    'Protected identity fixture must provide the requested account.').toBe(true);
   await page.goto(url);
   await expect.poll(async () => await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible() ||
     await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() || await workspace(page).isVisible()).toBe(true);
@@ -29,11 +35,12 @@ async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | '
   if (await button.isVisible()) {
     await button.click();
     const username = page.locator('#username');
-    if (await username.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
-      const fixture = JSON.parse(readFileSync(process.env.OFFICE_AUTH_REAL_FILE!, 'utf8')) as {
-        users: Record<string, { username?: string; password: string }>;
-      };
-      const account = fixture.users[alias]!;
+    // An existing host is only a navigation state. The fresh server identity
+    // witness below must still prove that it belongs to the requested account.
+    await expect.poll(async () => await username.isVisible() ||
+      await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() ||
+      await workspace(page).isVisible(), { timeout: 30_000 }).toBe(true);
+    if (await username.isVisible()) {
       await username.fill(account.username ?? alias);
       await page.locator('#password').fill(account.password);
       await page.locator('#kc-login').click();
@@ -41,6 +48,30 @@ async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | '
   }
   await expect.poll(async () => await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() ||
     await workspace(page).isVisible()).toBe(true);
+  const status = await privateControl<RealStatus>({ action: 'status' });
+  const tenantId = tenant === 'Alpha' ? status.tenantId : status.betaTenantId;
+  // Match the exact tenant memberships seeded by office-auth-ui.local.mjs.
+  const expectedRole = {
+    Alpha: { 'alpha-editor': 'owner', 'beta-viewer': 'viewer' },
+    Beta: { 'alpha-editor': null, 'beta-viewer': 'owner' },
+  }[tenant][alias];
+  expect(expectedRole !== null, 'Requested fixture account must have seeded tenant access.').toBe(true);
+  // Read through the application's actual session. These calls use fresh,
+  // server-verified reads; no token decoding or visible-host shortcut is used.
+  // Keep both expected and actual private identities out of assertion diffs.
+  await expect.poll(async () => {
+    try {
+      const verified = await page.evaluate(async ({ source, tenantId }) => {
+        const client = await import(source);
+        const identity = await client.loadIdentity();
+        const role = await client.confirmTenant(tenantId);
+        return { issuer: identity.issuer, subject: identity.subject, role,
+          listedRole: identity.tenants.find((item: { tenantId: string }) => item.tenantId === tenantId)?.role };
+      }, { source: '/src/auth-client.ts', tenantId });
+      return verified.issuer === fixture.issuer && verified.subject === account.id &&
+        verified.role === expectedRole && verified.listedRole === expectedRole;
+    } catch { return false; }
+  }, { timeout: 30_000, message: 'Fresh server identity and role must match the requested fixture account.' }).toBe(true);
   if (!(await workspace(page).isVisible())) {
     await page.getByRole('button', { name: new RegExp(`Synthetic ${tenant}`) }).click();
     await page.getByRole('button', { name: `${tenant} workspace`, exact: true }).click();
@@ -383,7 +414,22 @@ test('same physical profile preserves Word source and A recovery across actual B
       record.snapshotText.includes('A-private-recovery-input'))!;
     expect(pendingA.attempt).toBeDefined();
     const retained = await records(page), before = await inspect(documentId), writesBeforeB = requests.writes.length;
+    evidence.push({ kind: 'before-logout-publication-boundary',
+      serverContainsPrivateMarker: !!before.document?.snapshotText.includes('A-private-recovery-input'),
+      pendingRecordPresent: retained.some(record => record.draftId === pendingA.draftId && record.status === 'pending'),
+    });
     await logout(page);
+    const afterLogout = await inspect(documentId), retainedAfterLogout = await records(page);
+    const logoutWriteDelta = requests.writes.length - writesBeforeB;
+    evidence.push({ kind: 'logout-publication-boundary',
+      beforeServerContainsPrivateMarker: !!before.document?.snapshotText.includes('A-private-recovery-input'),
+      afterServerContainsPrivateMarker: !!afterLogout.document?.snapshotText.includes('A-private-recovery-input'),
+      noWriteDuringLogout: logoutWriteDelta === 0,
+      exactlyOneWriteDuringLogout: logoutWriteDelta === 1,
+      writesIncreasedDuringLogout: logoutWriteDelta > 0,
+      retainedRecordsUnchanged: JSON.stringify(retainedAfterLogout) === JSON.stringify(retained),
+      retainedPendingAttemptUnchanged: JSON.stringify(retainedAfterLogout.find(record => record.draftId === pendingA.draftId)?.attempt) === JSON.stringify(pendingA.attempt),
+    });
     await login(page, 'beta-viewer', documentUrl);
     await expect(workspace(page)).not.toContainText('A-private-recovery-input');
     await expect(workspace(page).getByRole('button', { name: /^저장된 Word 초안 복구/ })).toHaveCount(0);

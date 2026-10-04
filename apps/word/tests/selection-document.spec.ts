@@ -1,6 +1,6 @@
+import { setWordWholeTools, expectWordWholeTools, wordPanelTrigger } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { settled } from './helpers';
-import { resolve } from 'node:path';
 
 const prefix = 'This paragraph takes its ';
 const prose = (page: Page) => page.locator('#editor .w-paragraph, #editor .w-heading, #editor .w-list-item').filter({ hasText: prefix }).first();
@@ -59,12 +59,12 @@ async function reachableTools(page: Page, label = '선택한 Word 글 서식') {
 async function open(page: Page) {
   await page.goto('/?sample'); await settled(page);
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
-  await expect(page.getByRole('button', { name: '전체 도구 펼치기', exact: true })).toBeVisible();
+  await expectWordWholeTools(page, false);
 }
 
 for (const theme of ['light', 'dark']) test(`continuous writer selection and dismissal preserve native document (${theme})`, async ({ page }, info) => {
   await open(page); await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
-  await expect(page.getByRole('button', { name: '전체 도구 펼치기', exact: true })).toHaveCSS('color', theme === 'dark' ? 'rgb(238, 241, 245)' : 'rgb(32, 37, 45)');
+  await expect(wordPanelTrigger(page)).toHaveCSS('color', theme === 'dark' ? 'rgb(238, 241, 245)' : 'rgb(32, 37, 45)');
   const before = await native(page);
   await expect(tools(page)).toHaveCount(0);
   await expect(page.locator('.w-ribbon-quick, .w-ruler')).toHaveCount(0);
@@ -83,9 +83,9 @@ for (const theme of ['light', 'dark']) test(`continuous writer selection and dis
   await page.screenshot({ path: info.outputPath(`${theme}-dismissed-tools.png`) });
   await selectProse(page); await expect(tools(page)).toBeVisible();
   expect(await native(page)).toBe(before);
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await expect(page.getByRole('tab', { name: '홈', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '전체 도구 접기', exact: true }).click();
+  await setWordWholeTools(page, false);
   expect(await native(page)).toBe(before);
 });
 
@@ -98,11 +98,11 @@ test('selected text formatting is a real undoable edit and selection-only gestur
   await expect.poll(() => page.evaluate(() => window.editor.selection?.endOffset)).toBe(6);
   await expect(tools(page)).toBeVisible();
   const before = await native(page);
-  const expectedSaved = await page.evaluate(async ({ snapshot, fileSource }) => {
-    // File export intentionally removes session SIDs. Preserve all other native fields.
-    const file = await import(fileSource);
-    return JSON.parse(file.wordFileText(JSON.parse(snapshot), ''));
-  }, { snapshot: before, fileSource: '/@fs' + resolve(process.cwd(), 'packages/office-word/src/word-file.ts') });
+  // Canonical native saves replay edits over the original source, including
+  // its load metadata. Keep the full runtime Undo witness above separately.
+  const initialSaved = await savedText(page);
+  expect(initialSaved).toHaveLength(1);
+  const expectedSaved = JSON.parse(initialSaved[0]);
   await tools(page).getByRole('button', { name: 'Bold', exact: true }).click();
   await expect(prose(page).locator('.mark-bold')).toContainText('Normal');
   const bold = await native(page); expect(bold).not.toBe(before);

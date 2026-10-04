@@ -1,5 +1,13 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { projectFeedbackAction } from './project-feedback-menu.helpers';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { createSampleDocument } from '../../../packages/office-word/src/sample-document';
+import { wordFileText } from '../../../packages/office-word/src/word-file';
+import { createSampleDeck } from '../../../packages/office-slides/src/sample-deck';
+import { deckFileText } from '../../../packages/office-slides/src/deck-file';
+import { noteTreeOf, openNoteTree } from '../../../packages/office-note/src/session';
+import { serializeNoteFile } from '../../../packages/office-note/src/note-file-codec';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const workspaceId = '00000000-0000-4000-8000-000000000002';
@@ -1208,4 +1216,601 @@ for (const outcome of ['recover', 'denied', 'mismatched-page'] as const) test(`c
   expect(exactReads).toBeGreaterThan(readsBeforeRecovery);
   expect(await records()).toEqual(persisted);
   expect(writes).toBe(0);
+});
+
+
+// Controlled OIDC/API responses exercise the shipped native editors and actual tree UI.
+// This is not real OIDC/PostgreSQL acceptance evidence.
+test('controlled mixed tree Note to Word holds the source original until the verified target installs', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  const wordId = '00000000-0000-4000-8000-000000000011';
+  const slidesId = '00000000-0000-4000-8000-000000000012';
+  const wordDocument = createSampleDocument();
+  wordDocument.metadata = { originalOwner: 'synthetic-A', loadedAt: 'original-native-loadedAt' };
+  const wordText = wordFileText(wordDocument, '2026-10-01T00:00:00.000Z');
+  const slidesText = deckFileText(createSampleDeck(), '2026-10-01T00:00:00.000Z');
+  const hash = (text: string) => createHash('sha256').update(text).digest('hex');
+  const wordHead = { ...documentHead, documentId: wordId, product: 'word', title: 'Mixed rich Word', pageId: null,
+    documentKey: `wonffice-${id}-${wordId}`, fileFormat: 'barocss-word', fileVersion: JSON.parse(wordText).version, snapshotHash: hash(wordText) };
+  const slidesHead = { ...documentHead, documentId: slidesId, product: 'slides', title: 'Mixed rich Slides', pageId: null,
+    documentKey: `wonffice-${id}-${slidesId}`, fileFormat: 'barocss-slides', fileVersion: JSON.parse(slidesText).version, snapshotHash: hash(slidesText) };
+  let sourceHead = { ...documentHead }, sourceText = snapshotText;
+  const writes: Array<{ documentId: string; snapshotText: string; expectedRevision: number; idempotencyKey: string }> = [];
+  const receipts = new Map<string, unknown>();
+  const json = (value: unknown) => ({ contentType: 'application/json', body: JSON.stringify(value) });
+  await page.unroute(`**/api/v1/tenants/${id}/documents?**`);
+  await page.route(`**/api/v1/tenants/${id}/documents?**`, route => {
+    const product = new URL(route.request().url()).searchParams.get('product');
+    return route.fulfill(json({ documents: [sourceHead, wordHead, slidesHead].filter(head => !product || head.product === product), nextCursor: null }));
+  });
+  await page.unroute(`**/api/v1/tenants/${id}/documents/${documentId}`);
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => route.fulfill(json({ document: sourceHead, snapshotText: sourceText })));
+  await page.route(`**/api/v1/tenants/${id}/receipts/**`, route => {
+    const key = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1)!);
+    return route.fulfill(receipts.has(key) ? json(receipts.get(key)) : { status: 404, ...json({ status: 'not_found' }) });
+  });
+  await page.route(`**/api/v1/tenants/${id}/documents/*/snapshot`, route => {
+    const savedId = new URL(route.request().url()).pathname.split('/').at(-2)!;
+    expect(savedId).toBe(documentId);
+    const body = route.request().postDataJSON();
+    expect(body.expectedRevision).toBe(sourceHead.revision);
+    expect(body.idempotencyKey).toEqual(expect.any(String));
+    const provided = JSON.parse(snapshotText).document;
+    provided.content[0].content[0].text += ' mixed-tree-source-draft';
+    expect(JSON.parse(body.snapshotText).document).toMatchObject(provided);
+    writes.push({ documentId: savedId, ...body });
+    sourceText = body.snapshotText;
+    sourceHead = { ...sourceHead, revision: sourceHead.revision + 1, snapshotHash: hash(sourceText) };
+    const receipt = { operation: 'update', idempotencyKey: body.idempotencyKey,
+      requestHash: hash(JSON.stringify(['update', savedId, body.expectedRevision, body.snapshotText])), document: sourceHead, snapshotText: sourceText };
+    receipts.set(body.idempotencyKey, receipt);
+    return route.fulfill(json(receipt));
+  });
+  let targetReads = 0, release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route(`**/api/v1/tenants/${id}/documents/${wordId}`, async route => {
+    targetReads++;
+    await held;
+    await route.fulfill(json({ document: wordHead, snapshotText: wordText }));
+  });
+  await page.route(`**/api/v1/tenants/${id}/documents/${slidesId}`, route => route.fulfill(json({ document: slidesHead, snapshotText: slidesText })));
+  try {
+    await page.goto(`/?tenant=${id}&workspace=${workspaceId}&document=${documentId}&product=note`);
+    await page.getByRole('button', { name: '일반 사용자로 들어가기', exact: true }).click();
+    const note = page.locator('[data-server-note-workspace]'), word = page.locator('[data-server-word-workspace]');
+    const paragraph = note.locator('.on-doc > p').first();
+    await expect(paragraph).toContainText('Mock body');
+    await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${documentId}\\?tenant=${id}(?:&|$)`));
+    await expect(page.locator('.ow-file-navigation')).toBeVisible();
+    await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+    await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' mixed-tree-source-draft');
+    await expect(paragraph).toContainText('Mock body mixed-tree-source-draft');
+    const sourceURL = page.url();
+    const tree = page.locator('.ow-file-navigation');
+    await expect(tree.getByRole('button', { name: 'Mixed rich Slides 열기', exact: true })).toBeVisible();
+    await tree.getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    // Baseline refusal must fail here. A denial is not an accepted transition.
+    await expect.poll(() => targetReads).toBeGreaterThan(0);
+    await expect(page).toHaveURL(sourceURL);
+    await expect(note).toBeVisible(); await expect(paragraph).toContainText('Mock body mixed-tree-source-draft');
+    await expect(word).toHaveCount(0);
+    expect(writes).toHaveLength(1); expect(writes[0]!.documentId).toBe(documentId);
+    expect(sourceHead.revision).toBe(documentHead.revision + 1); expect(sourceText).toBe(writes[0]!.snapshotText);
+    const savedSource = sourceText;
+    release();
+    await expect(word.locator('.w-paragraph').first()).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${wordId}\\?tenant=${id}(?:&|$)`));
+    await expect(note).toHaveCount(0); await expect(word.locator('.office-editor-header')).toHaveCount(1);
+    await word.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    const downloaded = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: 'Word 파일 내보내기', exact: true }).click();
+    const path = await (await downloaded).path(); expect(path).not.toBeNull();
+    expect(JSON.parse(await readFile(path!, 'utf8')).document).toEqual(JSON.parse(wordText).document);
+    expect(sourceText).toBe(savedSource); expect(writes).toHaveLength(1);
+    expect(wordHead.revision).toBe(1); expect(wordHead.snapshotHash).toBe(hash(wordText));
+  } finally { release(); }
+});
+
+type MixedProduct = 'note' | 'word' | 'slides';
+async function controlledMixedWorkspace(page: Page, role: 'editor' | 'viewer', options: { project?: boolean } = {}) {
+  await mockLogin(page, { role });
+  const wordId = '00000000-0000-4000-8000-000000000021';
+  const slidesId = '00000000-0000-4000-8000-000000000022';
+  const siteId = '00000000-0000-4000-8000-000000000023';
+  // Same rich Note structure as the real recovery schedule: marks, self-reference, code and table.
+  const note = { stype: 'note', attributes: { title: 'Mixed rich Note', pageId }, content: [
+    { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Matrix structured body', marks: [{ stype: 'bold', range: [0, 6] }] },
+      { stype: 'pageReference', attributes: { pageId, title: 'Self' } }] },
+    { stype: 'codeBlock', attributes: { language: 'javascript' }, content: [{ stype: 'inline-text', text: 'const matrix = true;' }] },
+    { stype: 'bTable', content: [{ stype: 'bTableBody', content: [{ stype: 'bTableRow', content: [
+      { stype: 'bTableCell', content: [{ stype: 'inline-text', text: 'Matrix cell' }] }
+    ] }] }] }
+  ] };
+  // Produce the server bytes through the same native Note session serializer.
+  // Its full node fields must already match the viewer's read-only native body.
+  const noteSession = openNoteTree(note);
+  let noteText: string;
+  try {
+    const nativeNote = noteTreeOf({ getNode: sid => noteSession.editor.dataStore.getNode(sid) as never }, noteSession.rootId)!;
+    const canonicalNote = { ...note, stype: 'note' as const, content: nativeNote.content as unknown[] };
+    expect(canonicalNote).toMatchObject(note);
+    noteText = serializeNoteFile(canonicalNote, { savedAt: '2026-10-01T00:00:00Z' });
+  } finally { noteSession.close(); }
+  const word = createSampleDocument(), slides = createSampleDeck();
+  for (const native of [word, slides]) native.metadata = { originalOwner: 'synthetic-A', loadedAt: 'original-native-loadedAt' };
+  const texts = {
+    note: noteText,
+    word: wordFileText(word, '2026-10-01T00:00:00.000Z'),
+    slides: deckFileText(slides, '2026-10-01T00:00:00.000Z')
+  };
+  const hash = (text: string) => createHash('sha256').update(text).digest('hex');
+  const originals = new Map((['note', 'word', 'slides'] as const).map(product => {
+    const originalId = product === 'note' ? documentId : product === 'word' ? wordId : slidesId;
+    return [originalId, { product, text: texts[product], head: { ...documentHead, documentId: originalId,
+      product, title: `Mixed rich ${product === 'note' ? 'Note' : product === 'word' ? 'Word' : 'Slides'}`,
+      pageId: product === 'note' ? pageId : null, documentKey: `wonffice-${id}-${originalId}`,
+      fileFormat: `barocss-${product}`, fileVersion: JSON.parse(texts[product]).version, snapshotHash: hash(texts[product]) } }];
+  }));
+  // Site is only an authorized catalog head. This test supplies no native Site body or editor contract.
+  const siteHead = { ...documentHead, documentId: siteId, product: 'site', title: 'Unsupported Site original', pageId: null,
+    documentKey: `wonffice-${id}-${siteId}`, fileFormat: 'barocss-site', snapshotHash: hash('controlled unsupported Site head') };
+  const writes: Array<{ product: MixedProduct; documentId: string; expectedRevision: number; snapshotText: string; idempotencyKey: string }> = [];
+  const reads: string[] = [], servedSnapshots: Array<{ documentId: string; snapshotText: string }> = [], receipts = new Map<string, unknown>();
+  const gates = new Map<string, { read: number; pending: Promise<void> }>();
+  let deniedTarget = false;
+  let sourceWriteGate: { write: number; pending: Promise<void> } | undefined;
+  const holdSourceWrite = (nextWrite = 1) => {
+    let release!: () => void;
+    sourceWriteGate = { write: writes.filter(write => write.product === 'note').length + nextWrite, pending: new Promise<void>(resolve => { release = resolve; }) };
+    return () => { sourceWriteGate = undefined; release(); };
+  };
+  const json = (value: unknown) => ({ contentType: 'application/json', body: JSON.stringify(value) });
+  await page.unroute(`**/api/v1/tenants/${id}/documents?**`);
+  await page.route(`**/api/v1/tenants/${id}/documents?**`, route => {
+    const product = new URL(route.request().url()).searchParams.get('product');
+    return route.fulfill(json({ documents: [...[...originals.values()].map(value => value.head), ...(product === null ? [siteHead] : [])]
+      .filter(head => !product || head.product === product), nextCursor: null }));
+  });
+  await page.unroute(`**/api/v1/tenants/${id}/documents/${documentId}`);
+  for (const [originalId, original] of originals) {
+    await page.route(`**/api/v1/tenants/${id}/documents/${originalId}`, async route => {
+      reads.push(originalId);
+      const gate = gates.get(originalId);
+      if (gate?.read === reads.filter(value => value === originalId).length) await gate.pending;
+      if (originalId === wordId && deniedTarget) return route.fulfill({ status: 403, ...json({ status: 'forbidden' }) });
+      servedSnapshots.push({ documentId: originalId, snapshotText: original.text });
+      return route.fulfill(json({ document: original.head, snapshotText: original.text }));
+    });
+    await page.route(`**/api/v1/tenants/${id}/documents/${originalId}/snapshot`, async route => {
+      const body = route.request().postDataJSON();
+      expect(role).toBe('editor'); expect(body.expectedRevision).toBe(original.head.revision);
+      expect(body.idempotencyKey).toEqual(expect.any(String));
+      writes.push({ product: original.product, documentId: originalId, ...body });
+      const gate = sourceWriteGate;
+      if (original.product === 'note' && gate?.write === writes.filter(write => write.product === 'note').length) await gate.pending;
+      original.text = body.snapshotText;
+      original.head = { ...original.head, revision: original.head.revision + 1, snapshotHash: hash(original.text) };
+      const receipt = { operation: 'update', idempotencyKey: body.idempotencyKey,
+        requestHash: hash(JSON.stringify(['update', originalId, body.expectedRevision, body.snapshotText])), document: original.head, snapshotText: original.text };
+      receipts.set(body.idempotencyKey, receipt);
+      return route.fulfill(json(receipt));
+    });
+  }
+  await page.route(`**/api/v1/tenants/${id}/documents/${siteId}`, route => {
+    reads.push(siteId); return route.fulfill({ status: 403, ...json({ status: 'forbidden' }) });
+  });
+  await page.route(`**/api/v1/tenants/${id}/receipts/**`, route => {
+    const key = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1)!);
+    return route.fulfill(receipts.has(key) ? json(receipts.get(key)) : { status: 404, ...json({ status: 'not_found' }) });
+  });
+  const projectId = '00000000-0000-4000-8000-000000000031', projectActor = 'synthetic-member';
+  const feedbackKey = `${projectActor}:feedback:note:${documentId}`;
+  let projectRevision = 1;
+  const projectRecord = { id: projectId, title: 'Mixed native Project', goal: '', archived: false,
+    comments: [], works: [], activities: [], drafts: { [feedbackKey]: 'Initial controlled project draft' } as Record<string, string>,
+    results: [{ id: 'mixed-note-result', name: 'Mixed rich Note', document: { product: 'note', id: documentId }, inputs: [] }] };
+  const projectWrites: Array<{ expectedRevision: number; idempotencyKey: string; action: { type: string; key: string; text: string } }> = [];
+  if (options.project) {
+    const projectValue = () => ({ tenantId: id, workspaceId, actor: { kind: 'human', id: projectActor }, project: { revision: projectRevision, record: projectRecord } });
+    await page.route(`**/api/v1/tenants/${id}/projects?**`, route => route.fulfill(json({ projects: [projectValue()], nextCursor: null })));
+    await page.route(`**/api/v1/tenants/${id}/projects/${projectId}`, route => {
+      if (route.request().method() === 'PATCH') {
+        const body = route.request().postDataJSON();
+        expect(body.expectedRevision).toBe(projectRevision); expect(body.idempotencyKey).toEqual(expect.any(String));
+        expect(body.action.type).toBe('draft'); expect(body.action.key).toBe(`feedback:note:${documentId}`);
+        projectWrites.push(body); projectRecord.drafts[feedbackKey] = body.action.text; projectRevision++;
+      }
+      return route.fulfill(json(projectValue()));
+    });
+  }
+  await page.goto(`/?tenant=${id}&workspace=${workspaceId}&document=${documentId}&product=note${options.project ? `&project=${projectId}` : ''}`);
+  await page.getByRole('button', { name: '일반 사용자로 들어가기', exact: true }).click();
+  const shell = (product: MixedProduct) => page.locator(`[data-server-${product}-workspace]`);
+  await expect(shell('note').locator('.on-doc > p').first()).toContainText('Matrix structured body');
+  await expect(page.locator('.ow-file-navigation')).toBeVisible(); await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  const hold = (originalId: string, nextRead = 1) => {
+    let release!: () => void;
+    const read = reads.filter(value => value === originalId).length + nextRead;
+    gates.set(originalId, { read, pending: new Promise<void>(resolve => { release = resolve; }) });
+    return () => { gates.delete(originalId); release(); };
+  };
+  return { wordId, slidesId, siteId, originals, texts, writes, reads, servedSnapshots, shell, hold, holdSourceWrite, projectRecord, projectWrites, feedbackKey, projectId, denyWord: (denied: boolean) => { deniedTarget = denied; } };
+}
+// Change only the declared editable text. All canonical native fields stay in
+// the expected document, including marks, reference, code, table and attributes.
+function expectedMixedNote(text: string, ...suffixes: string[]) {
+  const expected = JSON.parse(text).document;
+  expect(expected.content[0].content[0].stype).toBe('inline-text');
+  expected.content[0].content[0].text += suffixes.join('');
+  return expected;
+}
+async function expectProtectedMixedNote(page: Page, status: 'draft' | 'confirmed', expected: unknown) {
+  await expect.poll(() => page.evaluate(({ status, expected }) => Object.keys(localStorage)
+    .filter(key => key.startsWith('wonffice.note.pending.v1:')).some(key => {
+      const record = JSON.parse(localStorage.getItem(key)!);
+      return record.status === status && JSON.stringify(JSON.parse(record.snapshotText).document) === JSON.stringify(expected);
+    }), { status, expected })).toBe(true);
+}
+// Hit the last editable glyph, before the atomic Self reference. A paragraph
+// center click followed by End can instead move the caret to the later table.
+async function appendMixedNoteInput(page: Page, paragraph: Locator, text: string) {
+  const glyph = await paragraph.evaluate(element => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let last: Text | undefined;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.textContent && !node.parentElement?.closest('[contenteditable="false"]')) last = node as Text;
+    }
+    if (!last) throw new Error('Expected an editable native Note text leaf');
+    const range = document.createRange();
+    range.setStart(last, last.length - 1); range.setEnd(last, last.length);
+    const rect = range.getBoundingClientRect();
+    if (!rect.width || !rect.height) throw new Error('Expected a visible native Note glyph');
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, leaf: last.data };
+  });
+  await page.mouse.click(glyph.x, glyph.y);
+  const remaining = await paragraph.evaluate((element, leaf) => {
+    const selection = getSelection(), node = selection?.anchorNode;
+    if (!selection?.isCollapsed || !node || node.nodeType !== Node.TEXT_NODE || !element.contains(node)
+      || node.parentElement?.closest('[contenteditable="false"]') || node.textContent !== leaf) {
+      throw new Error('The real glyph hit did not place an editable Note caret');
+    }
+    return leaf.length - selection.anchorOffset;
+  }, glyph.leaf);
+  expect(remaining).toBeGreaterThanOrEqual(0); expect(remaining).toBeLessThanOrEqual(1);
+  if (remaining) await page.keyboard.press('ArrowRight');
+  await expect.poll(() => paragraph.evaluate((element, leaf) => {
+    const selection = getSelection(), node = selection?.anchorNode;
+    return Boolean(selection?.isCollapsed && node?.nodeType === Node.TEXT_NODE && element.contains(node)
+      && !node.parentElement?.closest('[contenteditable="false"]') && node.textContent === leaf && selection.anchorOffset === leaf.length);
+  }, glyph.leaf)).toBe(true);
+  await page.keyboard.insertText(text);
+  await expect(paragraph).toContainText(text.trim());
+}
+async function assertMixedHeader(page: Page, product: MixedProduct) {
+  const header = page.locator(`[data-server-${product}-workspace] .office-editor-header`);
+  await expect(header).toHaveCount(1); const bounds = await header.boundingBox(); expect(bounds).not.toBeNull(); expect(bounds!.height).toBe(48);
+  await expect(page.locator('.ow-native-slot .office-editor-header')).toHaveCount(1);
+}
+async function exportedMixedNative(page: Page, product: 'word' | 'slides') {
+  await page.locator(`[data-server-${product}-workspace]`).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: `${product === 'word' ? 'Word' : 'Slides'} 파일 내보내기`, exact: true }).click();
+  const path = await (await downloaded).path(); expect(path).not.toBeNull();
+  return JSON.parse(await readFile(path!, 'utf8')).document;
+}
+for (const theme of ['light', 'dark'] as const) for (const role of ['editor', 'viewer'] as const) test(`controlled mixed tree ${role} ${theme} preserves rich originals through Note Word Slides Note`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: theme });
+  const capture = (product: MixedProduct, checkpoint: string) => page.screenshot({ path: testInfo.outputPath(`controlled-mixed-${theme}-${role}-${product}-${checkpoint}-1440x900.png`) });
+  const state = await controlledMixedWorkspace(page, role), sourceURL = page.url();
+  const tree = page.locator('.ow-file-navigation');
+  await expect(tree.getByRole('button', { name: 'Unsupported Site original 열기', exact: true })).toBeDisabled();
+  await assertMixedHeader(page, 'note');
+  const paragraph = state.shell('note').locator('.on-doc > p').first();
+  if (role === 'editor') {
+    await appendMixedNoteInput(page, paragraph, ' mixed-cycle-latest-input');
+    await expect(paragraph).toContainText('mixed-cycle-latest-input');
+  } else {
+    await expect(state.shell('note').getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    await expect(state.shell('note').locator('[data-note-editor]').first()).toHaveAttribute('data-note-editable', 'false');
+  }
+  await capture('note', 'initial');
+  const beforeTargetReads = state.reads.filter(value => value === state.wordId).length, release = state.hold(state.wordId);
+  try {
+    await tree.getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect.poll(() => state.reads.filter(value => value === state.wordId).length).toBeGreaterThan(beforeTargetReads);
+    await expect(page).toHaveURL(sourceURL); await expect(state.shell('note')).toBeVisible(); await expect(state.shell('word')).toHaveCount(0);
+    await expect(paragraph).toContainText(role === 'editor' ? 'mixed-cycle-latest-input' : 'Matrix structured body');
+    expect(state.originals.get(state.wordId)!.text).toBe(state.texts.word);
+    expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
+    if (role === 'editor') {
+      const expectedFirst = expectedMixedNote(state.texts.note, ' mixed-cycle-latest-input');
+      expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(expectedFirst);
+      await expectProtectedMixedNote(page, 'confirmed', expectedFirst);
+      const retained = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:')).map(key => JSON.parse(localStorage.getItem(key)!)));
+      expect(retained.some(record => record.status === 'confirmed' && record.snapshotText.includes('mixed-cycle-latest-input'))).toBe(true);
+      const frozenSource = state.originals.get(documentId)!.text;
+      await appendMixedNoteInput(page, paragraph, ' mixed-cycle-during-target-load');
+      await expect(paragraph).toContainText('mixed-cycle-during-target-load');
+      await expectProtectedMixedNote(page, 'draft', expectedMixedNote(state.texts.note, ' mixed-cycle-latest-input', ' mixed-cycle-during-target-load'));
+      await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+        .some(key => { const record = JSON.parse(localStorage.getItem(key)!); return record.status === 'draft' && record.snapshotText.includes('mixed-cycle-during-target-load'); }))).toBe(true);
+      expect(state.originals.get(documentId)!.text).toBe(frozenSource); await expect(page).toHaveURL(sourceURL);
+    } else expect(state.writes).toHaveLength(0);
+    release();
+    await expect(state.shell('word').locator('.w-paragraph').first()).toBeVisible(); await assertMixedHeader(page, 'word');
+    expect(state.writes.filter(write => write.product === 'word')).toHaveLength(0);
+    expect(state.originals.get(state.wordId)!.text).toBe(state.texts.word); expect(state.originals.get(state.wordId)!.head.revision).toBe(1);
+    await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${state.wordId}\\?tenant=${id}(?:&|$)`));
+    expect(await exportedMixedNative(page, 'word')).toEqual(JSON.parse(state.texts.word).document);
+    if (role === 'viewer') await expect(state.shell('word').getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    // A visible model node alone is insufficient for a populated desktop capture.
+    await expect(state.shell('word').getByText('Contents', { exact: true }).first()).toBeInViewport();
+    await capture('word', 'installed');
+    await tree.getByRole('button', { name: 'Mixed rich Slides 열기', exact: true }).click();
+    await expect(state.shell('slides').locator('.sl-stage')).toBeVisible(); await assertMixedHeader(page, 'slides');
+    expect(state.writes.filter(write => write.product === 'slides')).toHaveLength(0);
+    expect(state.originals.get(state.slidesId)!.text).toBe(state.texts.slides); expect(state.originals.get(state.slidesId)!.head.revision).toBe(1);
+    await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${state.slidesId}\\?tenant=${id}(?:&|$)`));
+    expect(await exportedMixedNative(page, 'slides')).toEqual(JSON.parse(state.texts.slides).document);
+    if (role === 'viewer') await expect(state.shell('slides').getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
+    await capture('slides', 'installed');
+    await tree.getByRole('button', { name: 'Mixed rich Note 열기', exact: true }).click();
+    await expect(state.shell('note').locator('.on-doc > p').first()).toContainText(role === 'editor' ? 'mixed-cycle-latest-input' : 'Matrix structured body');
+    if (role === 'editor') {
+      await expect(state.shell('note').locator('.on-doc > p').first()).toContainText('mixed-cycle-during-target-load');
+      expect(state.originals.get(documentId)!.text).toContain('mixed-cycle-during-target-load');
+      expect(state.writes.filter(write => write.product === 'note')).toHaveLength(2);
+    }
+    await assertMixedHeader(page, 'note'); await expect(page).toHaveURL(sourceURL);
+    await expect(state.shell('note').locator('.on-doc')).toContainText('const matrix = true;');
+    await expect(state.shell('note').locator('.on-doc')).toContainText('Matrix cell');
+    const expectedNote = expectedMixedNote(state.texts.note, ...(role === 'editor' ? [' mixed-cycle-latest-input', ' mixed-cycle-during-target-load'] : []));
+    const note = JSON.parse(state.originals.get(documentId)!.text).document;
+    expect(note).toEqual(expectedNote);
+    const reopened = state.servedSnapshots.filter(read => read.documentId === documentId).at(-1)!;
+    expect(JSON.parse(reopened.snapshotText).document).toEqual(expectedNote);
+    if (role === 'editor') await expectProtectedMixedNote(page, 'confirmed', expectedNote);
+    else expect(state.originals.get(documentId)!.text).toBe(state.texts.note);
+    expect(note.attributes.pageId).toBe(pageId); expect(note.content[0].content.some((node: { attributes?: { pageId?: string } }) => node.attributes?.pageId === pageId)).toBe(true);
+    if (role === 'viewer') expect(state.writes).toHaveLength(0);
+    expect(state.reads).not.toContain(state.siteId);
+    await capture('note', 'reopened');
+  } finally { release(); }
+});
+test('controlled mixed target denial retains protected Note input and permits explicit tree retry', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor'), sourceURL = page.url(), tree = page.locator('.ow-file-navigation');
+  const paragraph = state.shell('note').locator('.on-doc > p').first();
+  await appendMixedNoteInput(page, paragraph, ' retained-after-target-denial');
+  await expect(paragraph).toContainText('retained-after-target-denial');
+  state.denyWord(true); const release = state.hold(state.wordId);
+  try {
+    await tree.getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect.poll(() => state.reads.includes(state.wordId)).toBe(true);
+    await expect(page).toHaveURL(sourceURL); await expect(state.shell('word')).toHaveCount(0);
+    const expectedFirst = expectedMixedNote(state.texts.note, ' retained-after-target-denial');
+    expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(expectedFirst);
+    await expectProtectedMixedNote(page, 'confirmed', expectedFirst);
+    const retainedSource = state.originals.get(documentId)!.text, sourceRevision = state.originals.get(documentId)!.head.revision;
+    release();
+    await expect(tree.getByRole('alert')).toBeVisible(); await expect(page).toHaveURL(sourceURL);
+    await expect(state.shell('note')).toBeVisible(); await expect(paragraph).toContainText('retained-after-target-denial');
+    await expect(state.shell('word')).toHaveCount(0); await assertMixedHeader(page, 'note');
+    expect(state.originals.get(state.wordId)!.text).toBe(state.texts.word);
+    expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
+    const records = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:')).map(key => ({ key, raw: localStorage.getItem(key)! })));
+    expect(records.some(record => JSON.parse(record.raw).snapshotText === retainedSource)).toBe(true);
+    await appendMixedNoteInput(page, paragraph, ' explicit-retry-latest-input');
+    await expect(paragraph).toContainText('explicit-retry-latest-input');
+    const expectedLatest = expectedMixedNote(state.texts.note, ' retained-after-target-denial', ' explicit-retry-latest-input');
+    await expectProtectedMixedNote(page, 'draft', expectedLatest);
+    await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+      .some(key => JSON.parse(localStorage.getItem(key)!).snapshotText.includes('explicit-retry-latest-input')))).toBe(true);
+    expect(state.originals.get(documentId)!.text).toBe(retainedSource);
+    state.denyWord(false);
+    await tree.getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect(state.shell('word').locator('.w-paragraph').first()).toBeVisible(); await assertMixedHeader(page, 'word');
+    expect(state.writes.filter(write => write.product === 'word')).toHaveLength(0);
+    expect(state.originals.get(state.wordId)!.text).toBe(state.texts.word); expect(state.originals.get(state.wordId)!.head.revision).toBe(1);
+    await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${state.wordId}\\?tenant=${id}(?:&|$)`));
+    expect(await exportedMixedNative(page, 'word')).toEqual(JSON.parse(state.texts.word).document);
+    expect(state.originals.get(documentId)!.text).toContain('retained-after-target-denial');
+    expect(state.originals.get(documentId)!.text).toContain('explicit-retry-latest-input');
+    expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(expectedLatest);
+    await expectProtectedMixedNote(page, 'confirmed', expectedLatest);
+    expect(state.originals.get(documentId)!.head.revision).toBe(sourceRevision + 1);
+    expect(state.writes.filter(write => write.product === 'note')).toHaveLength(2);
+    expect(await page.evaluate(keys => keys.map(key => ({ key, raw: localStorage.getItem(key)! })), records.map(record => record.key))).toEqual(records);
+  } finally { release(); }
+});
+
+// Hold the native target's own second read, after its module/CSS has loaded.
+// These cases exercise an inactive mounted target, rather than only a fetch gate.
+for (const theme of ['light', 'dark'] as const) test(`controlled staged Word preserves active Note styles and lifecycle in ${theme}`, async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: theme });
+  const state = await controlledMixedWorkspace(page, 'editor'), sourceURL = page.url();
+  const source = state.shell('note'), paragraph = source.locator('.on-doc > p').first();
+  await appendMixedNoteInput(page, paragraph, ' staged-source-protected');
+  const sourceNode = await source.locator('.on-doc').elementHandle(); expect(sourceNode).not.toBeNull();
+  const describe = () => source.evaluate(element => {
+    const body = element.querySelector('.on-doc')!, header = element.querySelector('.office-editor-header')!, main = element.querySelector('.nw-main')!;
+    const describeElement = (one: Element) => {
+      const box = one.getBoundingClientRect(), style = getComputedStyle(one);
+      return { x: box.x, y: box.y, width: box.width, height: box.height, color: style.color,
+        background: style.backgroundColor, font: style.font, display: style.display };
+    };
+    return { text: body.textContent, ids: [...body.querySelectorAll('[data-bc-sid]')].map(one => one.getAttribute('data-bc-sid')),
+      body: describeElement(body), header: describeElement(header), main: describeElement(main) };
+  });
+  const before = await describe(), previousReads = state.reads.filter(value => value === state.wordId).length;
+  const release = state.hold(state.wordId, 2);
+  try {
+    await page.locator('.ow-file-navigation').getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect.poll(() => state.reads.filter(value => value === state.wordId).length).toBe(previousReads + 2);
+    const staged = page.locator('[data-native-entry="preparing"]');
+    await expect(staged).toHaveCount(1); await expect(staged).toHaveAttribute('aria-hidden', 'true'); await expect(staged).toHaveAttribute('inert', '');
+    await expect(page).toHaveURL(sourceURL); await expect(source).toBeVisible();
+    expect(await source.locator('.on-doc').evaluate((node, original) => node === original, sourceNode!)).toBe(true);
+    expect(await describe()).toEqual(before);
+    const firstExpected = expectedMixedNote(state.texts.note, ' staged-source-protected');
+    expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(firstExpected);
+    await expectProtectedMixedNote(page, 'confirmed', firstExpected);
+    await appendMixedNoteInput(page, paragraph, ' staged-lifecycle-latest');
+    const latestExpected = expectedMixedNote(state.texts.note, ' staged-source-protected', ' staged-lifecycle-latest');
+    await expectProtectedMixedNote(page, 'draft', latestExpected);
+    const sourceBeforeEvents = await describe();
+    const allowed = await page.evaluate(() => {
+      const allowed = window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+      window.dispatchEvent(new Event('beforeprint'));
+      return allowed;
+    });
+    expect(allowed).toBe(true);
+    await expect(page.locator('.w-print-pages, .sl-print-pages')).toHaveCount(0);
+    expect(await describe()).toEqual(sourceBeforeEvents);
+    expect(await source.locator('.on-doc').evaluate((node, original) => node === original, sourceNode!)).toBe(true);
+    await expect(page).toHaveURL(sourceURL); await expectProtectedMixedNote(page, 'draft', latestExpected);
+    expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(firstExpected);
+    expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
+    await expect(page.locator('.office-editor-header:visible')).toHaveCount(1);
+    expect((await source.locator('.office-editor-header').boundingBox())!.height).toBe(48);
+  } finally { release(); await sourceNode!.dispose(); }
+});
+
+test('controlled staged target cancellation keeps late Word response out of the newer Slides intent', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor'), sourceURL = page.url();
+  const source = state.shell('note'), paragraph = source.locator('.on-doc > p').first(), tree = page.locator('.ow-file-navigation');
+  await appendMixedNoteInput(page, paragraph, ' cancelled-target-source');
+  const sourceNode = await source.locator('.on-doc').elementHandle(); expect(sourceNode).not.toBeNull();
+  const wordReads = state.reads.filter(value => value === state.wordId).length;
+  const releaseA = state.hold(state.wordId, 2), releaseB = state.hold(state.slidesId);
+  try {
+    await tree.getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect.poll(() => state.reads.filter(value => value === state.wordId).length).toBe(wordReads + 2);
+    await expect(page.locator('[data-native-entry="preparing"]')).toHaveCount(1);
+    await page.getByRole('button', { name: '취소', exact: true }).click();
+    await expect(page.locator('[data-native-entry="preparing"]')).toHaveCount(0);
+    await expect(page).toHaveURL(sourceURL); await expect(source).toBeVisible();
+    expect(await source.locator('.on-doc').evaluate((node, original) => node === original, sourceNode!)).toBe(true);
+    await appendMixedNoteInput(page, paragraph, ' newer-slides-intent-input');
+    const expected = expectedMixedNote(state.texts.note, ' cancelled-target-source', ' newer-slides-intent-input');
+    await expectProtectedMixedNote(page, 'draft', expected);
+    await tree.getByRole('button', { name: 'Mixed rich Slides 열기', exact: true }).click();
+    await expect.poll(() => state.reads.includes(state.slidesId)).toBe(true);
+    await expectProtectedMixedNote(page, 'confirmed', expected);
+    const servedA = state.servedSnapshots.filter(read => read.documentId === state.wordId).length;
+    releaseA();
+    await expect.poll(() => state.servedSnapshots.filter(read => read.documentId === state.wordId).length).toBe(servedA + 1);
+    await expect(page).toHaveURL(sourceURL); await expect(source).toBeVisible();
+    await expect(state.shell('word')).toHaveCount(0); await expect(state.shell('slides')).toHaveCount(0);
+    expect(await source.locator('.on-doc').evaluate((node, original) => node === original, sourceNode!)).toBe(true);
+    await expect(paragraph).toContainText('newer-slides-intent-input');
+    expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(expected);
+    expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
+    releaseB();
+    await expect(state.shell('slides').locator('.sl-stage')).toBeVisible(); await assertMixedHeader(page, 'slides');
+    await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${state.slidesId}\\?tenant=${id}(?:&|$)`));
+    await expect(state.shell('word')).toHaveCount(0);
+    expect(state.originals.get(state.wordId)!.text).toBe(state.texts.word);
+    expect(state.originals.get(state.slidesId)!.text).toBe(state.texts.slides);
+    expect(await exportedMixedNative(page, 'slides')).toEqual(JSON.parse(state.texts.slides).document);
+    expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
+    await expectProtectedMixedNote(page, 'confirmed', expected);
+  } finally { releaseA(); releaseB(); await sourceNode!.dispose(); }
+});
+
+for (const invalidation of ['role-revoked', 'account-replaced'] as const) test(`controlled staged Word retires when ${invalidation}`, async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor'), sourceURL = page.url();
+  const source = state.shell('note'), paragraph = source.locator('.on-doc > p').first();
+  await appendMixedNoteInput(page, paragraph, ' authority-bound-source');
+  const sourceNode = await source.locator('.on-doc').elementHandle(); expect(sourceNode).not.toBeNull();
+  const previousReads = state.reads.filter(value => value === state.wordId).length, release = state.hold(state.wordId, 2);
+  try {
+    await page.locator('.ow-file-navigation').getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect.poll(() => state.reads.filter(value => value === state.wordId).length).toBe(previousReads + 2);
+    await expect(page.locator('[data-native-entry="preparing"]')).toHaveCount(1);
+    const expected = expectedMixedNote(state.texts.note, ' authority-bound-source');
+    await expectProtectedMixedNote(page, 'confirmed', expected);
+    const protectedRecords = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+      .map(key => ({ key, raw: localStorage.getItem(key)! })));
+    const writesBefore = state.writes.length;
+    await page.route('**/api/v1/me', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ issuer,
+      subject: invalidation === 'account-replaced' ? 'other-controlled-user' : 'synthetic-user',
+      tenants: [{ tenantId: id, name: 'Alpha Company', role: invalidation === 'role-revoked' ? 'viewer' : 'editor' }], nextCursor: null }) }));
+    await page.route(`**/api/v1/tenants/${id}/access`, route => route.fulfill({ contentType: 'application/json',
+      body: JSON.stringify({ tenantId: id, role: invalidation === 'role-revoked' ? 'viewer' : 'editor' }) }));
+    const rechecked = page.waitForResponse(response => response.url().endsWith('/api/v1/me'));
+    await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await rechecked;
+    await expect(page.getByRole('heading', { name: '접근 권한이 없습니다', exact: true })).toBeVisible();
+    await expect(page.locator('[data-native-entry="preparing"]')).toHaveCount(0);
+    await expect(source).toBeHidden();
+    if (invalidation === 'account-replaced') expect(await sourceNode!.evaluate(node => node.isConnected)).toBe(false);
+    // Note's current editor-to-viewer policy denies this retained writable host.
+    // The source is hidden; the test does not demand unsafe writable UI retention.
+    const servedBefore = state.servedSnapshots.filter(read => read.documentId === state.wordId).length;
+    release();
+    await expect.poll(() => state.servedSnapshots.filter(read => read.documentId === state.wordId).length).toBe(servedBefore + 1);
+    await expect(state.shell('word')).toHaveCount(0); await expect(page).toHaveURL(sourceURL);
+    expect(state.writes).toHaveLength(writesBefore);
+    expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(expected);
+    expect(state.originals.get(state.wordId)!.text).toBe(state.texts.word);
+    expect(await page.evaluate(keys => keys.map(key => ({ key, raw: localStorage.getItem(key)! })), protectedRecords.map(record => record.key))).toEqual(protectedRecords);
+    await expect(page.getByRole('heading', { name: '접근 권한이 없습니다', exact: true })).toBeVisible();
+  } finally { release(); await sourceNode!.dispose(); }
+});
+
+// Controlled DOM composition lifecycle plus real textarea input. This verifies
+// the product guard witness; it does not claim operating-system IME coverage.
+for (const latest of ['input', 'composition'] as const) test(`controlled Project latest feedback ${latest} during final native save refuses stale promotion`, async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { project: true }), sourceURL = page.url();
+  const source = state.shell('note'), paragraph = source.locator('.on-doc > p').first(), tree = page.locator('.ow-file-navigation');
+  await (await projectFeedbackAction(page, '의견 0')).click();
+  const composer = page.getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
+  await expect(composer).toHaveValue('Initial controlled project draft');
+  const composerNode = await composer.elementHandle(); expect(composerNode).not.toBeNull();
+  const originalProject = structuredClone(state.projectRecord);
+  await appendMixedNoteInput(page, paragraph, ' project-source-first');
+  const previousReads = state.reads.filter(value => value === state.wordId).length, releaseTarget = state.hold(state.wordId, 2);
+  let releaseSave: (() => void) | undefined;
+  try {
+    await tree.getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect.poll(() => state.reads.filter(value => value === state.wordId).length).toBe(previousReads + 2);
+    await expect(page.locator('[data-native-entry="preparing"]')).toHaveCount(1);
+    await appendMixedNoteInput(page, paragraph, ' project-source-final-save');
+    const expectedNote = expectedMixedNote(state.texts.note, ' project-source-first', ' project-source-final-save');
+    await expectProtectedMixedNote(page, 'draft', expectedNote);
+    releaseSave = state.holdSourceWrite();
+    const previousWrites = state.writes.filter(write => write.product === 'note').length;
+    releaseTarget();
+    await expect.poll(() => state.writes.filter(write => write.product === 'note').length).toBe(previousWrites + 1);
+    await expect(page).toHaveURL(sourceURL); await expect(source).toBeVisible();
+    await composer.click(); await page.keyboard.press('End');
+    if (latest === 'composition') await composer.dispatchEvent('compositionstart', { data: '' });
+    await page.keyboard.insertText(' latest feedback after preparation');
+    const expectedFeedback = 'Initial controlled project draft latest feedback after preparation';
+    await expect(composer).toHaveValue(expectedFeedback);
+    await expect.poll(() => state.projectRecord.drafts[state.feedbackKey]).toBe(expectedFeedback);
+    if (latest === 'composition') {
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('complementary', { name: '프로젝트 의견', exact: true })).toBeVisible();
+      await expect(composer).toHaveValue(expectedFeedback);
+    }
+    releaseSave();
+    await expect(tree.getByRole('alert')).toBeVisible();
+    await expect(page.locator('[data-native-entry="preparing"]')).toHaveCount(0);
+    await expect(page).toHaveURL(sourceURL); await expect(source).toBeVisible(); await expect(state.shell('word')).toHaveCount(0);
+    expect(await composerNode!.evaluate(node => node.isConnected)).toBe(true);
+    await expect(composer).toHaveValue(expectedFeedback);
+    expect(JSON.parse(state.originals.get(documentId)!.text).document).toEqual(expectedNote);
+    await expectProtectedMixedNote(page, 'confirmed', expectedNote);
+    expect(state.projectRecord).toEqual({ ...originalProject, drafts: { ...originalProject.drafts, [state.feedbackKey]: expectedFeedback } });
+    expect(state.projectWrites).toHaveLength(1);
+    expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
+    if (latest === 'composition') await composer.dispatchEvent('compositionend', { data: ' latest feedback after preparation' });
+    await tree.getByRole('button', { name: 'Mixed rich Word 열기', exact: true }).click();
+    await expect(state.shell('word').locator('.w-paragraph').first()).toBeVisible(); await assertMixedHeader(page, 'word');
+    expect(await exportedMixedNative(page, 'word')).toEqual(JSON.parse(state.texts.word).document);
+    expect(state.projectRecord).toEqual({ ...originalProject, drafts: { ...originalProject.drafts, [state.feedbackKey]: expectedFeedback } });
+    expect(state.projectWrites).toHaveLength(1); expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
+  } finally { releaseTarget(); releaseSave?.(); await composerNode!.dispose(); }
 });

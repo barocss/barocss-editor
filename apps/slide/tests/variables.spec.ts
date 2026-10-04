@@ -1,7 +1,14 @@
 import { bindPropertyVariable } from './property-variable-helpers';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck as openNativeDeck, setPanel, pickInsert, openFilmstrip } from './helpers';
+
+// Expose the actual current panels before selecting an object; menu entry can retire selection.
+const openDeck = async (page: Page) => {
+  await openNativeDeck(page);
+  await openFilmstrip(page);
+  await setPanel(page, 'properties', true);
+};
 
 /**
  * The document's own variables, pressed rather than called.
@@ -17,6 +24,7 @@ import { openDeck } from './helpers';
  * problem a variable exists to solve, so the test changes one value and reads the slide.
  */
 const panel = async (page: Page) => {
+  await setPanel(page, 'layers', true);
   await page.getByRole('tab', { name: '컴포넌트' }).click();
   await expect(page.locator('.sl-components')).toHaveCount(1);
   // The list is drawn from the document, so it arrives with the next render rather than the click.
@@ -256,7 +264,7 @@ test.describe('the deck’s own variables', () => {
     await page.waitForTimeout(500);
 
     // A rectangle of the reader's own.
-    await page.getByRole('button', { name: '사각형' }).click();
+    await pickInsert(page, '사각형');
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.nodeIds?.[0] ?? null))
       .not.toBeNull();
@@ -325,7 +333,7 @@ test.describe('the deck’s own variables', () => {
     await value.press('Enter');
     await page.waitForTimeout(500);
 
-    await page.getByRole('button', { name: '사각형' }).click();
+    await pickInsert(page, '사각형');
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.nodeIds?.[0] ?? null))
       .not.toBeNull();
@@ -424,7 +432,7 @@ test.describe('the deck’s own variables', () => {
     await value.press('Enter');
     await page.waitForTimeout(500);
 
-    await page.getByRole('button', { name: '사각형' }).click();
+    await pickInsert(page, '사각형');
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.nodeIds?.[0] ?? null))
       .not.toBeNull();

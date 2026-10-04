@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
-import { boxCounts, currentSlide, openDeck, pickMenu } from './helpers';
+import { boxCounts, currentSlide, openDeck, pickMenu, pickInsert, editingTools } from './helpers';
 
-const trigger = (page: Page) => page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true })
-  .getByRole('button', { name: '추가 Slides 도구', exact: true });
+const trigger = (page: Page) => editingTools(page)
+  .getByRole('button', { name: '삽입', exact: true });
 const menu = (page: Page) => page.getByRole('menu', { name: 'Slides 삽입 및 슬라이드 메뉴', exact: true });
 const native = (page: Page) => page.evaluate(() => {
   const editor = (window as any).editor;
@@ -18,13 +18,13 @@ for (const [width, height] of [[1440, 900], [1280, 800]]) for (const theme of ['
     await expect(menu(page)).toHaveAttribute('data-floating-ready', 'true');
     await menu(page).evaluate(async node => { await Promise.all(node.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {}))); });
     const items = menu(page).locator('[role^="menuitem"]');
-    await expect(items).toHaveCount(11);
+    await expect(items).toHaveCount(16);
     for (const name of ['타원', '선', '프레임', '연결선', '동영상 삽입', '오디오 삽입', '슬라이드 복제', '앞으로 이동', '뒤로 이동', '발표에서 숨기기', '슬라이드 삭제']) {
       await expect(menu(page).getByText(name, { exact: true })).toBeVisible();
     }
     for (const name of ['텍스트 상자','사각형','표 삽입','그림 삽입','새 슬라이드']) {
-      await expect(menu(page).getByText(name,{exact:true})).toHaveCount(0);
-      await expect(page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true}).getByRole('button',{name,exact:true})).toBeVisible();
+      await expect(menu(page).getByText(name,{exact:true})).toBeVisible();
+      await expect(editingTools(page).getByRole('button',{name,exact:true})).toHaveCount(0);
     }
     const geometry = await menu(page).evaluate(node => {
       const rect = node.getBoundingClientRect();
@@ -51,9 +51,9 @@ for (const [width, height] of [[1440, 900], [1280, 800]]) for (const theme of ['
     }
     await info.attach('dropdown-geometry.json', { body: JSON.stringify(geometry), contentType: 'application/json' });
     await page.screenshot({ path: info.outputPath('insertion-dropdown.png'), animations: 'disabled' });
-    await expect(menu(page).getByRole('menuitem', { name: '타원', exact: true })).toBeFocused();
+    await expect(menu(page).getByRole('menuitem', { name: '텍스트 상자', exact: true })).toBeFocused();
     await page.keyboard.press('ArrowDown');
-    await expect(menu(page).getByRole('menuitem', { name: '선', exact: true })).toBeFocused();
+    await expect(menu(page).getByRole('menuitem', { name: '사각형', exact: true })).toBeFocused();
     await page.keyboard.press('End');
     await expect(menu(page).getByRole('menuitem', { name: '슬라이드 삭제', exact: true })).toBeFocused();
     await page.keyboard.press('Escape'); await expect(menu(page)).toHaveCount(0);
@@ -90,7 +90,7 @@ for (const change of ['none', 'slide', 'authority', 'view', 'map'] as const) {
         this.addEventListener('loadend', () => { (window as any).insertReadComplete = true; }, { once: true });
       };
     });
-    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true}).getByRole('button', { name: '그림 삽입', exact: true }).click()]);
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), pickInsert(page, '그림 삽입')]);
     await chooser.setFiles({ name: 'pixel.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="4"><rect width="8" height="4" fill="red"/></svg>') });
     await expect.poll(() => page.evaluate(() => typeof (window as any).resumeInsertRead)).toBe('function');
     if (change === 'slide') {

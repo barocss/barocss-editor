@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { nativeEditor, nativeFrame } from './helpers/native-editor';
 import { fileURLToPath } from 'node:url';
 
 const workspaceModule = `/@fs${fileURLToPath(new URL('../../../packages/office-workspace/src/index.ts', import.meta.url))}`;
@@ -20,13 +21,39 @@ async function seed(page: Page) {
 }
 async function expectOriginal(page: Page, product: typeof kinds[number], id: string) {
   await expect(page.locator(`.ow-file-navigation [data-original="${product}:${id}"]`)).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.ow-native-slot > #root')).toBeVisible();
+  await expect(page.locator('iframe[data-local-native-frame="active"]')).toBeVisible();
+  await expect(nativeEditor(page).locator('#root')).toBeVisible();
   await expect(page.locator('.ow-entry-status')).toHaveCount(0);
   await expect.poll(() => page.evaluate(async module => {
     const { productDocumentHost } = await import(module) as typeof import('@barocss/shared');
     const host = productDocumentHost(); return host ? [host.product, host.id()] : null;
   }, sharedModule)).toEqual([product, id]);
 }
+
+// Failure evidence is limited to the synthetic originals seeded in these tests.
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus || !/a retired startup address|held Note startup/.test(info.title)) return;
+  const parent = await page.evaluate(async ({ module, shared }) => {
+    const { OfficeWorkspace, productKeys, productStore, workspaceIdentity } = await import(module) as typeof import('@barocss/office-workspace');
+    const { productDocumentHost } = await import(shared) as typeof import('@barocss/shared');
+    const workspace = new OfficeWorkspace(workspaceIdentity()), host = productDocumentHost();
+    const originals = await Promise.all(productKeys.map(async product => Promise.all((await productStore(product).rows()).map(async row => ({
+      product, id: row.name, text: (await productStore(product).read(row.name))?.text,
+      meta: await workspace.meta(`${product}:${row.name}`)
+    })))));
+    const frame = document.querySelector('iframe[data-local-native-frame="active"]');
+    return { url: location.href, host: host ? [host.product, host.id()] : null,
+      inert: !!frame?.closest('[inert]'), originals: originals.flat() };
+  }, { module: workspaceModule, shared: sharedModule });
+  const child = await nativeFrame(page);
+  const native = await child.evaluate(async shared => {
+    const { productDocumentHost } = await import(shared) as typeof import('@barocss/shared');
+    const host = productDocumentHost();
+    return { url: location.href, host: host ? [host.product, host.id()] : null,
+      noteDocuments: document.querySelectorAll('.nw-document').length };
+  }, sharedModule);
+  await info.attach('synthetic-retired-startup-state', { body: JSON.stringify({ parent, native }, null, 2), contentType: 'application/json' });
+});
 
 test('all four compact direct addresses and reloads retain the exact originals and stored native bytes', async ({ page }) => {
   const fixture = await seed(page);
@@ -57,7 +84,7 @@ test('a compact project direct link opens its existing project and keeps the Wor
   const fixture = await seed(page);
   await page.goto(`/${fixture.workspace}/${fixture.project}`);
   await expect(page.getByRole('heading', { name: 'Routing project', exact: true })).toBeVisible();
-  await expect(page.locator('.ow-native-slot > #root')).toHaveCount(0);
+  await expect(page.locator('iframe[data-local-native-frame]')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Routing project', exact: true })).toBeVisible();
 });
@@ -71,7 +98,7 @@ test('colliding product identities refuse both compact and legacy links without 
   for (const path of [`/${fixture.workspace}/${original.id}`, `/products/note/index.html?workspace=${fixture.workspace}#${original.id}`]) {
     await page.goto(path);
     await expect(page.getByRole('alert')).toContainText('ambiguous');
-    await expect(page.locator('.ow-native-slot > #root')).toHaveCount(0);
+    await expect(page.locator('iframe[data-local-native-frame]')).toHaveCount(0);
   }
   expect(await page.evaluate(async module => {
     const { productKeys, productStore } = await import(module) as typeof import('@barocss/office-workspace');
@@ -83,7 +110,7 @@ test('missing, foreign Workspace and malformed addresses do not mount another na
   const fixture = await seed(page);
   for (const path of [`/${fixture.workspace}/missing`, `/foreign/${fixture.documents[0].id}`, `/${fixture.workspace}/invalid%2Fid`]) {
     await page.goto(path); await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.locator('.ow-native-slot > #root')).toHaveCount(0);
+    await expect(page.locator('iframe[data-local-native-frame]')).toHaveCount(0);
   }
 });
 
@@ -96,11 +123,11 @@ test('a delayed native module keeps a styled loading surface before the editor a
   try {
     await page.goto(`/${fixture.workspace}/${original.id}`, { waitUntil: 'domcontentloaded' });
     await requestSeen;
-    await expect(page.locator('[data-entry-state="loading"]')).toBeVisible();
-    await expect(page.getByRole('status')).toContainText('원본을 확인');
-    const style = await page.locator('.office-entry-status > header').evaluate(element => ({ height: element.getBoundingClientRect().height, background: getComputedStyle(element).backgroundColor }));
+    await expect(nativeEditor(page).locator('[data-entry-state="loading"]')).toBeVisible();
+    await expect(nativeEditor(page).getByRole('status')).toContainText('원본을 확인');
+    const style = await nativeEditor(page).locator('.office-entry-status > header').evaluate(element => ({ height: element.getBoundingClientRect().height, background: getComputedStyle(element).backgroundColor }));
     expect(style.height).toBe(48); expect(style.background).not.toBe('rgba(0, 0, 0, 0)');
-    await expect(page.locator('.ow-native-slot > #root')).toHaveCount(0);
+    await expect(nativeEditor(page).locator('.w-shell')).toHaveCount(0);
     release(); await expectOriginal(page, original.product, original.id);
   } finally { release(); await page.unrouteAll({ behavior: 'wait' }); }
 });
@@ -117,7 +144,7 @@ test('a retired startup address cannot install or mark either Word original as r
   await page.route(/\/word\/src\/main\.tsx/, async route => { await held; await route.continue(); });
   try {
     await page.goto(`/${fixture.workspace}/${original.id}`, { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('[data-entry-state="loading"]')).toBeVisible();
+    await expect(nativeEditor(page).locator('[data-entry-state="loading"]')).toBeVisible();
     await page.evaluate(path => history.replaceState(history.state, '', path), `/${fixture.workspace}/${other}`);
     release();
     await expect(page.getByRole('alert')).toBeVisible();
@@ -141,27 +168,35 @@ for (const change of ['address', 'missing', 'trash'] as const) test(`held Note s
     const library = new OfficeWorkspace(workspace), id = await library.create('note', 'Other original must stay closed');
     return { id, text: (await library.require('note', id)).text };
   }, { module: workspaceModule, workspace: fixture.workspace });
-  await page.addInitScript(() => {
-    const state = window as typeof window & { __heldNote?: boolean; __releaseNote?: () => void };
-    const getAll = IDBObjectStore.prototype.getAll;
+  await page.addInitScript(({ originalId }) => {
+    const state = window as typeof window & { __heldNoteReads?: number; __releaseNote?: () => void };
+    const get = IDBObjectStore.prototype.get;
     const complete = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete')!;
-    IDBObjectStore.prototype.getAll = function (...args) {
-      const request = getAll.apply(this, args);
-      if (this.transaction.db.name === 'barocss-note' && document.querySelector('.nw-shell') && !state.__heldNote) {
-        state.__heldNote = true;
-        const transaction = this.transaction;
-        Object.defineProperty(transaction, 'oncomplete', {
-          configurable: true, get() { return complete.get!.call(transaction); },
-          set(callback) { complete.set!.call(transaction, (event: Event) => { state.__releaseNote = () => callback?.call(transaction, event); }); }
-        });
+    IDBObjectStore.prototype.get = function (key) {
+      const request = get.call(this, key);
+      // The child first reads its archive discovery row, then refreshes this
+      // single requested original. Hold completion of the actual fresh read.
+      if (window.frameElement && this.transaction.db.name === 'barocss-note' && this.name === 'documents' &&
+          key === originalId && document.querySelector('.nw-shell')) {
+        state.__heldNoteReads = (state.__heldNoteReads ?? 0) + 1;
+        if (state.__heldNoteReads === 2) {
+          const transaction = this.transaction;
+          Object.defineProperty(transaction, 'oncomplete', {
+            configurable: true, get() { return complete.get!.call(transaction); },
+            set(callback) { complete.set!.call(transaction, (event: Event) => { state.__releaseNote = () => callback?.call(transaction, event); }); }
+          });
+        }
       }
       return request;
     };
-  });
+  }, { originalId: original.id });
   await page.goto(`/${fixture.workspace}/${original.id}`);
-  await expect.poll(() => page.evaluate(() => typeof (window as typeof window & { __releaseNote?: () => void }).__releaseNote)).toBe('function');
+  const child = await nativeFrame(page);
+  await expect.poll(() => child.evaluate(() => typeof (window as typeof window & { __releaseNote?: () => void }).__releaseNote)).toBe('function');
+  expect(await child.evaluate(() => (window as typeof window & { __heldNoteReads?: number }).__heldNoteReads)).toBe(2);
   await expect(page.locator('.ow-entry-status')).toBeVisible();
-  await expect(page.locator('.ow-native-slot > #root')).toHaveAttribute('inert', '');
+  expect(await page.locator('iframe[data-local-native-frame="active"]').evaluate(element => !!element.closest('[inert]'))).toBe(true);
+  await expect(nativeEditor(page).locator('.nw-document')).toHaveCount(0);
   await page.evaluate(async ({ module, workspace, id, change }) => {
     if (change === 'address') history.replaceState(history.state, '', `/${workspace}/different-note`);
     else {
@@ -169,10 +204,17 @@ for (const change of ['address', 'missing', 'trash'] as const) test(`held Note s
       if (change === 'missing') await productStore('note').drop(id);
       else await new OfficeWorkspace(workspace).update(`note:${id}`, { trashedAt: Date.now() });
     }
-    (window as typeof window & { __releaseNote?: () => void }).__releaseNote!();
   }, { module: workspaceModule, workspace: fixture.workspace, id: original.id, change });
-  await expect(page.locator('.ow-entry-status')).toHaveAttribute('role', 'alert');
-  await expect(page.locator('.ow-native-slot > #root')).toHaveAttribute('inert', '');
+  await child.evaluate(() => (window as typeof window & { __releaseNote?: () => void }).__releaseNote!());
+  await expect(page.getByRole('alert')).toBeVisible();
+  expect(await page.locator('iframe[data-local-native-frame="active"]').evaluate(element => !!element.closest('[inert]'))).toBe(true);
+  await expect(nativeEditor(page).locator('#root')).toBeHidden();
+  await expect(nativeEditor(page).getByRole('textbox')).toHaveCount(0);
+  expect(await page.evaluate(async shared => {
+    const { productDocumentHost } = await import(shared) as typeof import('@barocss/shared');
+    return productDocumentHost() !== undefined;
+  }, sharedModule)).toBe(false);
+  await expect(page).toHaveURL(new URL(change === 'address' ? `/${fixture.workspace}/different-note` : `/${fixture.workspace}/${original.id}`, page.url()).href);
   expect(await page.evaluate(async ({ module, workspace, id }) => {
     const { OfficeWorkspace } = await import(module) as typeof import('@barocss/office-workspace');
     return (await new OfficeWorkspace(workspace).meta(`note:${id}`)).openedAt;

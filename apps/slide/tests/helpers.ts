@@ -1,4 +1,32 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+
+/** Native common commands share the document header; selection tools stay owned. */
+export const editingTools = (page: Page) => page.getByRole('toolbar', { name: '문서 편집', exact: true });
+export const insertTrigger = (page: Page) => editingTools(page).getByRole('button', { name: '삽입', exact: true });
+export const insertMenu = (page: Page) => page.getByRole('menu', { name: 'Slides 삽입 및 슬라이드 메뉴', exact: true });
+export async function openInsertMenu(page: Page) {
+  await insertTrigger(page).click();
+  await expect(insertMenu(page)).toBeVisible();
+  await expect(insertMenu(page)).toHaveAttribute('data-floating-ready', 'true');
+  return insertMenu(page);
+}
+export async function pickInsert(page: Page, label: string) {
+  const menu = await openInsertMenu(page);
+  // A command can also expose its platform shortcut in the accessible name.
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await menu.getByRole('menuitem', { name: new RegExp(`^${escaped}(?:\\s|$)`) }).click();
+}
+export const panelTrigger = (page: Page) => page.getByRole('menuitem', { name: '패널', exact: true });
+/** Read actual checked state; do not blindly toggle an already-open panel. */
+export async function setPanel(page: Page, panel: 'layers' | 'properties', open: boolean) {
+  await panelTrigger(page).click();
+  const item = page.getByRole('menuitemcheckbox', { name: panel === 'layers' ? '레이어 · 개체 순서와 컴포넌트' : '속성 · 크기, 위치, 모양', exact: true });
+  await expect(item).toBeVisible();
+  if ((await item.getAttribute('aria-checked') === 'true') !== open) await item.click();
+  else await item.press('Escape');
+  const target = page.locator(panel === 'layers' ? '#slides-objects' : '#slides-details');
+  if (open) await expect(target).toBeVisible(); else await expect(target).toBeHidden();
+}
 
 /**
  * What every test here needs, and the mistakes it exists to stop.

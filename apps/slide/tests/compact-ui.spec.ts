@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Locator, type TestInfo } from '@playwright/test';
-import { openDeck, visibleBoxes, currentSlide, openFilmstrip, pickMenu } from './helpers';
+import { openDeck, visibleBoxes, currentSlide, openFilmstrip, pickMenu, editingTools } from './helpers';
 
 const tools = (page: Page) => page.locator('[data-slides-formatting]');
 const native = (page: Page) => page.evaluate(() => {
@@ -51,7 +51,7 @@ async function selectTitle(page: Page) {
   await expect.poll(() => page.evaluate(() => (window as any).editor.selection?.collapsed)).toBe(false);
   await expect.poll(() => page.evaluate(() => ({start:(window as any).editor.selection?.startOffset,end:(window as any).editor.selection?.endOffset}))).toEqual({start:0,end:7});
 }
-async function measure(surface: Locator, info: TestInfo, name: string) {
+async function measure(surface: Locator, info: TestInfo, name: string, headerGroup = false) {
   await expect(surface).toBeVisible();
   await surface.evaluate(async node => { await Promise.all(node.getAnimations({subtree:true}).map(animation => animation.finished.catch(() => {}))); });
   const result = await surface.evaluate(node => {
@@ -61,8 +61,10 @@ async function measure(surface: Locator, info: TestInfo, name: string) {
       controls: controls.map(control => { const box=control.getBoundingClientRect(), hit=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2); return {name:control.getAttribute('aria-label')??control.textContent,rect:box.toJSON(),hit:!!hit&&control.contains(hit)}; }) };
   });
   await info.attach(`${name}-geometry.json`, {body:JSON.stringify(result),contentType:'application/json'});
-  expect(result.rect.height).toBeLessThanOrEqual(48); expect(result.rect.height).toBeGreaterThanOrEqual(40);
-  expect(result.rect.width).toBeLessThanOrEqual(480); expect(result.radius).toBe(result.shape === 'pill' ? '999px' : '20px');
+  expect(result.rect.height).toBeLessThanOrEqual(48);
+  if (headerGroup) { expect(result.rect.height).toBe(36); expect(result.radius).toBe('18px'); }
+  else { expect(result.rect.height).toBeGreaterThanOrEqual(40); expect(result.radius).toBe(result.shape === 'pill' ? '999px' : '20px'); }
+  expect(result.rect.width).toBeLessThanOrEqual(480);
   expect(result.rect.x).toBeGreaterThanOrEqual(0); expect(result.rect.y).toBeGreaterThanOrEqual(0);
   const viewport=surface.page().viewportSize()!;
   expect(result.rect.right).toBeLessThanOrEqual(viewport.width); expect(result.rect.bottom).toBeLessThanOrEqual(viewport.height);
@@ -71,25 +73,27 @@ async function measure(surface: Locator, info: TestInfo, name: string) {
   for (const control of result.controls) {
     expect(control.rect.width,control.name??'control').toBeGreaterThanOrEqual(32); expect(control.rect.height).toBeGreaterThanOrEqual(32);
     expect(control.hit,control.name??'control').toBe(true);
-    expect(control.rect.x).toBeGreaterThanOrEqual(result.rect.x+11); expect(control.rect.right).toBeLessThanOrEqual(result.rect.right-11);
+    const inset = headerGroup ? 6 : 11;
+    expect(control.rect.x).toBeGreaterThanOrEqual(result.rect.x+inset); expect(control.rect.right).toBeLessThanOrEqual(result.rect.right-inset);
     expect(control.rect.y).toBeGreaterThanOrEqual(result.rect.y); expect(control.rect.bottom).toBeLessThanOrEqual(result.rect.bottom);
   }
   return result;
 }
 
 for (const [width,height] of [[1440,900],[1280,800]]) for (const theme of ['light','dark']) {
-  test(`compact ${width} ${theme} deck has floating clusters, anchored selection and reserved folded navigation`, async ({page},info) => {
+  test(`compact ${width} ${theme} deck has one header, anchored selection and reserved folded navigation`, async ({page},info) => {
     await page.setViewportSize({width,height}); await openDeck(page);
     await page.evaluate(value=>{document.documentElement.dataset.theme=value;},theme);
     const header=page.locator('.sl-topbar'); await expect(header).toHaveAttribute('data-compact','true');
-    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(56);
-    // FilePick's clipped sr-only input is activated by the real document menu; measure visible targets.
+    expect((await header.boundingBox())!.height).toBe(48);
+    await expect(page.locator('.sl-utilities')).toHaveCount(0);
+    // The hidden native input is activated by the real document menu; measure visible targets.
     const headerHits=await header.evaluate(node=>Array.from(node.querySelectorAll<HTMLElement>('button,input,[role=menuitem]')).filter(control=>control.getClientRects().length && !control.matches('.sr-only') && !control.closest('[hidden],[inert]')).map(control=>{const box=control.getBoundingClientRect(),hit=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);return{name:control.getAttribute('aria-label')??control.textContent,box:box.toJSON(),hit:!!hit&&control.contains(hit)};}));
     await info.attach('header-targets.json',{body:JSON.stringify(headerHits),contentType:'application/json'});
     for(const control of headerHits){expect(control.box.width,control.name??'header').toBeGreaterThanOrEqual(32);expect(control.box.height).toBeGreaterThanOrEqual(32);expect(control.hit,control.name??'header').toBe(true);expect(control.box.right).toBeLessThanOrEqual(width);}
     await expect(page.locator('#slides-objects')).toBeHidden(); await expect(tools(page)).toHaveCount(0);
-    await measure(page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true}),info,'insertion');
-    await measure(page.getByRole('toolbar',{name:'Slides 보기 도구',exact:true}),info,'view');
+    await measure(editingTools(page),info,'editing',true);
+    await measure(page.getByRole('toolbar',{name:'Slides 보기 도구',exact:true}),info,'view',true);
     await measure(page.getByRole('toolbar',{name:'슬라이드 페이지 도구',exact:true}),info,'navigator');
     await expect(page.locator('[data-filmstrip-panel]')).toBeHidden();
     const initial=await native(page), sid=await currentSlide(page);
@@ -129,7 +133,7 @@ for (const [width,height] of [[1440,900],[1280,800]]) for (const theme of ['ligh
     for(const zoom of ['75%','100%','125%']) {
       const field=page.getByLabel('확대/축소',{exact:true}); await field.fill(zoom); await field.press('Enter'); await expect(field).toHaveValue(zoom);
       expect(await field.evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
-      await measure(page.getByRole('toolbar',{name:'Slides 보기 도구',exact:true}),info,`view-${zoom}`);
+      await measure(page.getByRole('toolbar',{name:'Slides 보기 도구',exact:true}),info,`view-${zoom}`,true);
     }
     await pickMenu(page,'file.document.2');
   });
@@ -149,9 +153,9 @@ test('folded thumbnail navigation retains unfinished rename, current SID and exa
   await openFilmstrip(page); await expect(field).toHaveValue(' Unaccepted rename ');
   await field.press('Enter'); await expect(thumb).toHaveAttribute('aria-label','1 · Unaccepted rename');
   const renamed=(await native(page)).document;
-  await page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true}).getByRole('button',{name:'실행 취소',exact:true}).click();
+  await editingTools(page).getByRole('button',{name:'실행 취소',exact:true}).click();
   expect((await native(page)).document).toBe(before.document);
-  await page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true}).getByRole('button',{name:'다시 실행',exact:true}).click();
+  await editingTools(page).getByRole('button',{name:'다시 실행',exact:true}).click();
   expect((await native(page)).document).toBe(renamed);
   const [download]=await Promise.all([page.waitForEvent('download'),pickMenu(page,'file.document.2')]);
   const path=info.outputPath('renamed.slides.json');await download.saveAs(path);
@@ -197,7 +201,7 @@ test('canvas PageDown and PageUp retain deliberate slide navigation without a na
 });
 
 
-test('visible document Open menu activates the clipped native file input by keyboard', async ({page}) => {
+test('visible document Open menu activates the hidden native file input by keyboard', async ({page}) => {
   await openDeck(page); const before=await native(page);
   await page.getByRole('menuitem',{name:'문서 메뉴',exact:true}).click();
   const open=page.locator('[data-menu-item="file.document.1"]');
@@ -205,7 +209,10 @@ test('visible document Open menu activates the clipped native file input by keyb
   const box=(await open.boundingBox())!; expect(box.width).toBeGreaterThanOrEqual(32); expect(box.height).toBeGreaterThanOrEqual(32);
   const [chooser]=await Promise.all([page.waitForEvent('filechooser'),page.keyboard.press('Enter')]);
   expect(await chooser.element().getAttribute('aria-label')).toBe('슬라이드 파일');
-  expect(await chooser.element().getAttribute('class')).toMatch(/sr-only/);
+  // With its standalone trigger removed, the native input is hidden. The named
+  // visible menu action still opens the actual chooser through keyboard Enter.
+  expect(await chooser.element().getAttribute('hidden')).not.toBeNull();
+  expect(await chooser.element().isVisible()).toBe(false);
   await chooser.setFiles([]);
   expect((await native(page)).document).toBe(before.document); expect((await native(page)).history).toEqual(before.history);
 });

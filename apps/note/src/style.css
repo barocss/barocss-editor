@@ -27,7 +27,7 @@
 @import "@barocss/office-text/text.css";
 @import "@barocss/office-note/note.css";
 
-body {
+body:not(:has(.office-auth)) {
   --ou-field-line: var(--ou-line);
   margin: 0;
   background: var(--ou-ground);
@@ -35,6 +35,8 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-size: var(--ou-text);
 }
+
+.nw-shell { --ou-field-line: var(--ou-line); }
 
 .an-shell { max-width: 68rem; margin: 0 auto; padding: 32px 24px 64px; }
 

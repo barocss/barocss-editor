@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, setPanel, pickInsert } from './helpers';
 
 test('property arrow keys leave the shape unchanged until commit and undo restores it once', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   const id = await page.evaluate(() => (window as any).editor.selection.nodeIds[0]);
   const attrs = () => page.evaluate(id => ({ ...(window as any).editor.dataStore.getNode(id).attributes }), id);
   const before = await attrs();
@@ -19,7 +20,7 @@ test('property arrow keys leave the shape unchanged until commit and undo restor
   await page.getByRole('button', { name: '실행 취소', exact: true }).click();
   await expect.poll(attrs).toEqual(before);
 
-  const trigger = page.getByRole('button', { name: '선 색', exact: true });
+  const trigger = page.locator('.sl-properties').getByRole('button', { name: '선 색', exact: true });
   await trigger.press('Enter');
   const popup = page.locator('[data-color-panel="선 색"]');
   await expect(popup.getByRole('textbox', { name: '색상 코드' })).toBeFocused();

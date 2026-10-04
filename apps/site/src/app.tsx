@@ -744,15 +744,45 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const recentDocuments = useRef<LocalDocumentActions>(null);
   const composing = useRef(new Set<EventTarget>());
   useEffect(() => {
-    const shell = pane.current?.closest('.st-shell');
+    const shell = host.current?.closest('.st-shell');
     if (!shell) return;
-    const start = (event: Event) => { if (event.target) composing.current.add(event.target); };
+    const start = (event: Event) => { if (event.target) composing.current.add(event.target); for (const check of [...inputWaiters.current]) check(); };
     const end = (event: Event) => { if (event.target) composing.current.delete(event.target); };
     shell.addEventListener('compositionstart', start, true); shell.addEventListener('compositionend', end, true);
     return () => { composing.current.clear(); shell.removeEventListener('compositionstart', start, true); shell.removeEventListener('compositionend', end, true); };
   }, [instance]);
-  const propertyDelivery = useRef<((isCurrent: () => boolean) => Promise<boolean>) | null>(null);
-  const propertiesReady = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => { propertyDelivery.current = deliver; }, []);
+  const inputRoot = instance?.editor.getRootId(), inputEpoch = instance?.editor.dataStore.getDocumentEpoch();
+  const inputOwner = useMemo(() => instance ? { instance, root: inputRoot, epoch: inputEpoch } : null,
+    [instance, inputRoot, inputEpoch]);
+  const activeInput = useRef(instance); activeInput.current = instance;
+  const committedInput = useRef<typeof inputOwner>(null);
+  const inputWaiters = useRef(new Set<() => void>());
+  const propertyDelivery = useRef<{ owner: typeof inputOwner; deliver: (isCurrent: () => boolean) => Promise<boolean> } | null>(null);
+  const propertiesReady = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    if (deliver) propertyDelivery.current = { owner: inputOwner, deliver };
+    else if (propertyDelivery.current?.owner === inputOwner) propertyDelivery.current = null;
+    for (const check of [...inputWaiters.current]) check();
+  }, [inputOwner]);
+  useEffect(() => {
+    committedInput.current = inputOwner;
+    for (const check of [...inputWaiters.current]) check();
+    return () => {
+      if (committedInput.current === inputOwner) committedInput.current = null;
+      for (const check of [...inputWaiters.current]) check();
+    };
+  }, [inputOwner]);
+  useEffect(() => {
+    if (!instance) return;
+    const changed = () => { for (const check of [...inputWaiters.current]) check(); };
+    instance.editor.on('editor:content.change', changed);
+    instance.editor.on('editor:editable.change', changed);
+    return () => {
+      instance.editor.off('editor:content.change', changed);
+      instance.editor.off('editor:editable.change', changed);
+      if (activeInput.current === instance) activeInput.current = null;
+      changed();
+    };
+  }, [instance]);
   const [failedInput, setFailedInput] = useState(false);
   useEffect(() => { setFailedInput(false); }, [instance]);
   const retryInput = async () => {
@@ -770,14 +800,25 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     if (!instance || composing.current.size) throw new Error('마지막 입력을 완료한 뒤 다시 시도하세요.');
     const root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
     const editable = instance.editor.isEditable;
-    const owns = () => instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch &&
+    const owns = () => activeInput.current === instance && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch &&
       instance.editor.isEditable === editable && !composing.current.size;
+    // A replacement can notify its host before the new inspector commits.
+    const currentOwner = (owner: typeof inputOwner) => owner?.instance === instance && owner.root === root && owner.epoch === epoch;
+    const ready = () => currentOwner(committedInput.current) && (!propertyDelivery.current || currentOwner(propertyDelivery.current.owner));
+    if (!ready() && !await new Promise<boolean>(resolve => {
+      const check = () => {
+        if (!owns()) { inputWaiters.current.delete(check); resolve(false); }
+        else if (ready()) { inputWaiters.current.delete(check); resolve(true); }
+      };
+      inputWaiters.current.add(check); check();
+    })) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
+    const properties = propertyDelivery.current;
     const focused = document.activeElement;
     if (focused instanceof HTMLElement && focused.matches('input,textarea,select') && focused.closest('.office-properties') &&
       pane.current?.closest('.st-shell')?.contains(focused)) focused.blur();
     if (!owns() || !await instance.view.deliverInput(owns)) { setFailedInput(instance.view.hasFailedInputDelivery); throw new Error('마지막 입력을 반영하지 못했습니다. 현재 입력은 유지합니다.'); }
     setFailedInput(false);
-    if (propertyDelivery.current && !await propertyDelivery.current(owns)) throw new Error('속성 입력을 반영하지 못했습니다. 다시 시도하세요.');
+    if (properties && (propertyDelivery.current !== properties || !currentOwner(properties.owner) || !await properties.deliver(owns) || !owns() || propertyDelivery.current !== properties)) throw new Error('속성 입력을 반영하지 못했습니다. 다시 시도하세요.');
     for (const flush of [...bodyFlushes.current].reverse()) {
       if (!owns()) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
       await flush();

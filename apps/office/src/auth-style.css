@@ -2,9 +2,9 @@
 .office-auth[data-editor-open] { padding: 0; }
 .office-auth[data-editor-open] > .office-auth-note-host { margin: 0; }
 /* Mounted Word and Slides workspaces fills the available height below visible alerts. */
-.office-auth[data-editor-open]:has(:is([data-server-word-workspace], [data-server-slides-workspace])) { height:100dvh; display:flex; flex-direction:column; }
-.office-auth[data-editor-open]:has(:is([data-server-word-workspace], [data-server-slides-workspace])) > .office-auth-note-host { flex:1; min-height:0; display:flex; flex-direction:column; }
-.office-auth[data-editor-open]:has(:is([data-server-word-workspace], [data-server-slides-workspace])) .office-auth-editor { flex:1; min-height:0; }
+.office-auth[data-editor-open]:has(> [data-native-entry="active"] :is([data-server-word-workspace], [data-server-slides-workspace])) { height:100dvh; display:flex; flex-direction:column; }
+.office-auth[data-editor-open]:has(> [data-native-entry="active"] :is([data-server-word-workspace], [data-server-slides-workspace])) > .office-auth-note-host { flex:1; min-height:0; display:flex; flex-direction:column; }
+.office-auth[data-editor-open]:has(> [data-native-entry="active"] :is([data-server-word-workspace], [data-server-slides-workspace])) .office-auth-editor { flex:1; min-height:0; }
 .office-auth-brand *, .office-auth-panel *, .office-auth-actions * { box-sizing: border-box; }
 .office-auth-brand { display: flex; justify-content: space-between; gap: 20px; align-items: baseline; border-bottom: 1px solid #d8dad7; padding-bottom: 22px; }
 .office-auth-brand span { font-size: 24px; font-weight: 700; letter-spacing: -.04em; }

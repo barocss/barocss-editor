@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openDeck, currentSlide, pickMenu } from './helpers';
+import { openDeck, currentSlide, pickMenu, editingTools, setPanel } from './helpers';
 
 const mode = (page: Page, multi: boolean) => page.getByRole('button', { name: multi ? '멀티 슬라이드 보기' : '슬라이드 보기', exact: true });
 const nativeState = (page: Page) => page.evaluate(() => ({ document: (window as any).editor.exportDocument(), history: (window as any).editor.getHistoryStats() }));
@@ -20,7 +20,7 @@ test('bottom multi-slide control opens the live editable canvas instead of the d
   await expect(page.locator('.sl-stage')).toBeVisible();
   await expect(page.locator('.sl-map')).toHaveCount(0);
   await expect(page.locator('.sl-stage-owner')).not.toHaveAttribute('inert', '');
-  await expect(page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true })).toBeVisible();
+  await expect(editingTools(page)).toBeVisible();
   await expect(page.locator('.sl-overlay')).toBeVisible();
   await expect(page.locator('[data-filmstrip-panel]')).toBeHidden();
   await expect(page.locator('[data-notes-panel]')).toBeHidden();
@@ -166,7 +166,7 @@ test('canvas panning, zoom and return to a single slide do not change the native
 test('floating panels own their wheel and middle-drag input above Canvas', async ({ page }) => {
   await openCanvas(page);
   const first = await stageSlide(page, 0), before = await first.node.boundingBox(), native = await nativeState(page);
-  await page.getByRole('button', { name: '속성', exact: true }).click();
+  await setPanel(page, 'properties', true);
   const panel = page.locator('[data-floating-panel][data-workspace-panel="inspector"]');
   await expect(panel).toBeVisible();
   const bounds = (await panel.boundingBox())!;

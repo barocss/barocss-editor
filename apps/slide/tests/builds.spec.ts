@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { drawnFill, openDeck, pinZoom, visibleBoxes } from './helpers';
+import { drawnFill, openDeck, pinZoom, visibleBoxes, setPanel, pickInsert, openFilmstrip } from './helpers';
 
 /**
  * Builds: what happens *on* a slide, in the order a presenter clicks through.
@@ -66,6 +66,7 @@ const giveBuild = async (page: Page, effect: string) => {
 test.describe('a build on a shape', () => {
   test('names the shape, and the name is what the step holds', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
     await giveBuild(page, 'fade');
 
@@ -96,6 +97,7 @@ test.describe('a build on a shape', () => {
    */
   test('lists the shape’s effects in the motion tab', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await selectFirstBox(page);
     await giveBuild(page, 'grow');
 
@@ -109,6 +111,7 @@ test.describe('a build on a shape', () => {
    */
   test('is not on the slide until a press brings it on', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
     await giveBuild(page, 'fade');
 
@@ -131,6 +134,7 @@ test.describe('a build on a shape', () => {
   /** The press that plays the last build is not the press that leaves. */
   test('holds the presenter on the slide until its builds have played', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await selectFirstBox(page);
     await giveBuild(page, 'fade');
 
@@ -168,6 +172,7 @@ test.describe('a build on a shape', () => {
    */
   test('gives every shape back when the show ends', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
     await giveBuild(page, 'wipe');
 
@@ -198,6 +203,7 @@ test.describe('a build on a shape', () => {
 
   test('is taken off again with the row’s delete', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
     await giveBuild(page, 'fade');
     await panel(page).getByLabel('1번 삭제').click();
@@ -238,7 +244,8 @@ test.describe('a build on a shape', () => {
 test.describe('a build on a turned shape', () => {
   test('keeps the turn, while it animates and after it', async ({ page }) => {
     await openDeck(page);
-    await page.getByRole('button', { name: '사각형' }).click();
+    await setPanel(page, 'properties', true);
+    await pickInsert(page, '사각형');
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
       .not.toBeNull();
@@ -306,6 +313,7 @@ test.describe('the preset gallery', () => {
 
   test('writes every value the tile promised, in one command', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
 
     await panel(page).locator('[data-tab="motion"]').click();
@@ -331,6 +339,7 @@ test.describe('the preset gallery', () => {
    */
   test('reports which preset a step is, and stops when it is not', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await selectFirstBox(page);
 
     await panel(page).locator('[data-tab="motion"]').click();
@@ -359,6 +368,7 @@ test.describe('the preset gallery', () => {
   /** And choosing a preset for a step that exists replaces all five values. */
   test('retimes a step that already exists', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
     await giveBuild(page, 'fade');
 
@@ -400,6 +410,7 @@ test.describe('a build on the letters of a title', () => {
 
   test('splits into letters, staggers them, and leaves no trace', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     /*
      * The scale pinned, because this measures the same line twice.
      *
@@ -478,6 +489,7 @@ test.describe('a build on the letters of a title', () => {
    */
   test('animates the box whole while the caret is inside it', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     // Pinned: this compares the drawn box before and after, and the pane opening
     // for the new motion re-fits the slide. See `pinZoom`.
     await pinZoom(page);
@@ -489,9 +501,24 @@ test.describe('a build on the letters of a title', () => {
     await panel(page).locator('[data-preset="letterByLetter"]').click();
     await page.waitForTimeout(400);
 
-    // Enter the box: a double click puts a caret in its text.
-    await page.mouse.dblclick(box.x, box.y);
-    await page.waitForTimeout(300);
+    // Enter at a real glyph, not the frame's potentially empty centre.
+    const glyph = await page.locator(`.sl-stage [data-bc-sid="${box.sid}"]`).evaluate(element => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let text: Node | null;
+      while ((text = walker.nextNode())) {
+        if (!text.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.setStart(text, 0); range.setEnd(text, 1);
+        const rect = range.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+      }
+      throw new Error('Selected title has no visible glyph');
+    });
+    await page.mouse.dblclick(glyph.x, glyph.y);
+    await expect.poll(() => page.locator(`.sl-stage [data-bc-sid="${box.sid}"]`).evaluate(element => {
+      const focus = document.getSelection()?.focusNode;
+      return !!focus && element.contains(focus);
+    })).toBe(true);
 
     await page.locator('[data-timeline] [data-timeline-preview]').click();
     await page.waitForTimeout(250);
@@ -529,6 +556,7 @@ test.describe('a motion path', () => {
     page
   }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await selectFirstBox(page);
 
     await panel(page).locator('[data-tab="motion"]').click();
@@ -596,16 +624,11 @@ test.describe('a motion path', () => {
 
   test('travels, and leaves nothing behind when it is over', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     // Pinned: the shape's resting position is compared against where it lands,
     // and the pane opening for the path would re-fit the slide between the two.
     await pinZoom(page);
     const box = await selectFirstBox(page);
-    const rest = await page.evaluate((sid) => {
-      const r = document
-        .querySelector(`.sl-stage [data-bc-sid="${CSS.escape(sid)}"]`)!
-        .getBoundingClientRect();
-      return { x: Math.round(r.x), y: Math.round(r.y) };
-    }, box.sid);
 
     await panel(page).locator('[data-tab="motion"]').click();
     await panel(page).getByLabel('모션 추가').click();
@@ -614,6 +637,13 @@ test.describe('a motion path', () => {
     await page.waitForTimeout(400);
 
     await page.evaluate(() => (window as any).editor.executeCommand('setNode', { nodeIds: [] }));
+    // Authoring opens the timeline; compare playback with this settled editor layout.
+    const rest = await page.evaluate((sid) => {
+      const r = document
+        .querySelector(`.sl-stage [data-bc-sid="${CSS.escape(sid)}"]`)!
+        .getBoundingClientRect();
+      return { x: Math.round(r.x), y: Math.round(r.y) };
+    }, box.sid);
     await page.locator('[data-timeline] [data-timeline-preview]').click();
 
     // Mid-flight: off its rest position, with the style the stage wrote.
@@ -672,8 +702,10 @@ test.describe('a motion path', () => {
 test.describe('a motion on several shapes', () => {
   test('gives each one its own bar, a beat apart', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     // The slide of shapes: three rectangles, which is what a group gesture is for.
-    await page.locator('.sl-filmstrip button').nth(2).click();
+    await openFilmstrip(page);
+    await page.locator('.sl-filmstrip button[data-slide]').nth(2).click();
     await page.waitForTimeout(500);
 
     const shapes = await visibleBoxes(page, '.sl-shape, .sl-text-frame');
@@ -743,6 +775,7 @@ test.describe('a motion on several shapes', () => {
 test.describe('a combination of motions', () => {
   test('writes both steps at one moment, and undoes as one', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
 
     await panel(page).locator('[data-tab="motion"]').click();
@@ -813,6 +846,7 @@ test.describe('authoring a path', () => {
 
   test('places points where the reader clicks, and ends on Escape', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await selectFirstBox(page);
 
     await panel(page).locator('[data-tab="motion"]').click();
@@ -857,6 +891,7 @@ test.describe('authoring a path', () => {
 
   test('turns sharply when the reader says so', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await selectFirstBox(page);
 
     await panel(page).locator('[data-tab="motion"]').click();
@@ -918,8 +953,10 @@ test.describe('authoring a path', () => {
 test.describe('animating what is inside a box', () => {
   test('offers the contents, and gives each one its own bar', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     // The slide with a frame that holds boxes.
-    await page.locator('.sl-filmstrip button').nth(2).click();
+    await openFilmstrip(page);
+    await page.locator('.sl-filmstrip button[data-slide]').nth(2).click();
     await page.waitForTimeout(500);
 
     // A container: the panel offers its contents only where there are some.
@@ -994,6 +1031,7 @@ test.describe('animating what is inside a box', () => {
 test.describe('filters as motion', () => {
   test('takes a colour, and animates an SVG filter it makes itself', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
 
     await panel(page).locator('[data-tab="motion"]').click();
@@ -1115,6 +1153,7 @@ test.describe('a deck for a reader who asked for less motion', () => {
      */
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
     expect(
       await page.evaluate(
@@ -1225,6 +1264,7 @@ test.describe('a filter that animates itself', () => {
 
   test('melts, freezes with the transport, and leaves nothing behind', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
 
     await page.evaluate(
@@ -1298,6 +1338,7 @@ test.describe('a filter that animates itself', () => {
   /** The other one: a channel split, which is `feOffset` on two colour matrices. */
   test('splits the colour channels', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const box = await selectFirstBox(page);
 
     await page.evaluate(
@@ -1369,6 +1410,7 @@ test.describe('a shape that is a button', () => {
 
   test('fires what watches it, and does not advance the deck', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const boxes = await visibleBoxes(page, '.sl-text-frame');
     expect(boxes.length).toBeGreaterThan(1);
 
@@ -1467,6 +1509,7 @@ test.describe('a shape that is a button', () => {
    */
   test('says when the shape a trigger waits for can be clicked', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const boxes = await visibleBoxes(page, '.sl-text-frame');
 
     const build = async (sid: string) => {
@@ -1556,6 +1599,7 @@ test.describe('a shape that is a button', () => {
 test.describe('a motion over a shape that is already styled', () => {
   test('keeps the shape’s own filter while it runs, and gives it back after', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const boxes = await visibleBoxes(page, '.sl-text-frame');
     const sid = boxes[0].sid;
 
@@ -1631,6 +1675,7 @@ test.describe('a motion over a shape that is already styled', () => {
    */
   test('turns a gradient through its track, which a keyframe could not', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const boxes = await visibleBoxes(page, '.sl-text-frame');
     const sid = boxes[0].sid;
 
@@ -1791,6 +1836,7 @@ test.describe('a motion aimed at one item of a list', () => {
 
   test('turns the second gradient and leaves the first alone', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const [box] = await visibleBoxes(page, '.sl-text-frame');
     await stackUp(page, box.sid);
     await page.waitForTimeout(400);
@@ -1828,6 +1874,7 @@ test.describe('a motion aimed at one item of a list', () => {
 
   test('grows the second shadow and leaves the first alone', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const [box] = await visibleBoxes(page, '.sl-text-frame');
     await stackUp(page, box.sid);
     await page.waitForTimeout(400);
@@ -1864,6 +1911,7 @@ test.describe('a motion aimed at one item of a list', () => {
   /** And the reader can say which, which is the row that makes it reachable. */
   test('offers the target’s fills by name, and only where it means something', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const [box] = await visibleBoxes(page, '.sl-text-frame');
     await stackUp(page, box.sid);
     await page.waitForTimeout(400);
@@ -1939,6 +1987,7 @@ test.describe('a motion that moves the fill', () => {
    */
   test('brings one picture closer and leaves the other where it is', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const [box] = await visibleBoxes(page, '.sl-text-frame');
     await twoPictures(page, box.sid);
     await page.waitForTimeout(400);
@@ -1980,6 +2029,7 @@ test.describe('a motion that moves the fill', () => {
    */
   test('fades the top picture and reveals the one under it', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const [box] = await visibleBoxes(page, '.sl-text-frame');
     await twoPictures(page, box.sid);
     await page.waitForTimeout(400);
@@ -2056,6 +2106,7 @@ test.describe('stepping back through a show', () => {
 
   test('un-plays one press at a time, and settles rather than replaying', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const { first, second } = await story(page);
 
     await page.locator('[data-present]').click();
@@ -2099,6 +2150,7 @@ test.describe('stepping back through a show', () => {
 
   test('comes back into a slide with everything on it', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const { first, second } = await story(page);
 
     await page.locator('[data-present]').click();
@@ -2144,7 +2196,9 @@ test.describe('stepping back through a show', () => {
 test.describe('a motion that recolours a fill', () => {
   test('turns the shape a colour and leaves it as the document drew it', async ({ page }) => {
     await openDeck(page);
-    await page.locator('.sl-filmstrip button').nth(2).click();
+    await setPanel(page, 'properties', true);
+    await openFilmstrip(page);
+    await page.locator('.sl-filmstrip button[data-slide]').nth(2).click();
     await page.waitForTimeout(500);
 
     const sid = await page.evaluate(() => {

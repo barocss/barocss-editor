@@ -42,24 +42,31 @@ for (const original of originals) for (const width of [1170, 1440]) for (const t
     await expect(page.locator('.ow-entry-status')).toHaveCount(0);
     await expect(page.locator('.ow-file-navigation')).toBeVisible();
     await expect(page.locator(`.ow-file-navigation [data-original="${original.product}:${original.id}"]`)).toHaveAttribute('aria-pressed', 'true');
-    const header = page.locator('.ow-native-slot .office-editor-header');
+    const frameElement = page.locator('.ow-native-slot iframe[data-local-native-frame="active"]');
+    await expect(frameElement).toHaveCount(1);
+    await expect(frameElement).toHaveAttribute('title', `${original.product} native editor`);
+    await expect(page.locator('iframe[data-local-native-frame="staged"]')).toHaveCount(0);
+    const frameHandle = (await frameElement.elementHandle())!;
+    const native = (await frameHandle.contentFrame())!;
+    expect(native, 'the active editor has a child document').not.toBeNull();
+    const header = native.locator('.office-editor-header');
     await expect(header).toHaveCount(1);
     if (original.product === 'word') await expect(header.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveValue(original.title);
     else await expect(header.locator('[data-document-identity]')).toContainText(original.title);
-    await expect(page.locator('.ow-native-slot > #root')).toContainText(original.marker);
-    const nativeRoot = await page.locator('.ow-native-slot > #root').elementHandle();
+    await expect(native.locator('#root')).toContainText(original.marker);
+    const nativeRoot = (await native.locator('#root').elementHandle())!;
     if (original.longPanel) {
       if (original.product === 'word' || original.product === 'slides' || original.product === 'site') {
         await header.getByRole('menuitem', { name: original.product === 'word' ? '문서 패널' : '패널', exact: true }).click();
-        await page.getByRole('menuitemcheckbox', { name: original.product === 'word' ? '댓글' : original.product === 'slides' ? '속성 · 크기, 위치, 모양' : '자세한 속성', exact: true }).click();
+        await native.getByRole('menuitemcheckbox', { name: original.product === 'word' ? '댓글' : original.product === 'slides' ? '속성 · 크기, 위치, 모양' : '자세한 속성', exact: true }).click();
       } else {
         const trigger = header.getByRole('button', { name: '노트 페이지 관리', exact: true });
         if (await trigger.getAttribute('aria-pressed') !== 'true') await trigger.click();
       }
-      await expect(page.locator(`.ow-native-slot [data-workspace-panel="${original.product === 'note' ? 'navigation' : 'inspector'}"]`)).toBeVisible();
+      await expect(native.locator(`[data-workspace-panel="${original.product === 'note' ? 'navigation' : 'inspector'}"]`)).toBeVisible();
     }
-    const geometry = await page.evaluate(() => {
-      const header = document.querySelector<HTMLElement>('.ow-native-slot .office-editor-header')!, box = header.getBoundingClientRect();
+    const geometry = await native.evaluate(() => {
+      const header = document.querySelector<HTMLElement>('.office-editor-header')!, box = header.getBoundingClientRect();
       const controls = [...header.querySelectorAll<HTMLElement>('button,input:not([hidden]),select')].filter(node => !node.closest('[hidden]') && node.getBoundingClientRect().height > 0).map(node => {
         const b = node.getBoundingClientRect(), hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
         return { name: node.getAttribute('aria-label') ?? node.textContent ?? node.tagName, width: b.width, height: b.height, centerY: b.y + b.height / 2, hit: !!hit && (hit === node || node.contains(hit)), left: b.left, right: b.right };
@@ -69,7 +76,18 @@ for (const original of originals) for (const width of [1170, 1440]) for (const t
         contextRows: header.querySelectorAll('[data-document-context]').length,
         permanentStrips: [...document.querySelectorAll<HTMLElement>('.w-view-utilities,.sl-utilities,.st-utilities')].filter(node => node.getBoundingClientRect().height > 0).length };
     });
-    await writeFile(info.outputPath('geometry.json'), JSON.stringify(geometry, null, 2));
+    // Header/control hit tests use the child viewport. The frame itself must fill the
+    // host's editing slot, whose coordinates are in the parent viewport.
+    const frameBox = (await frameElement.boundingBox())!, slotBox = (await page.locator('.ow-native-slot').boundingBox())!;
+    const childViewport = await native.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+    expect(frameBox.x).toBeCloseTo(slotBox.x, 0);
+    expect(frameBox.y).toBeCloseTo(slotBox.y, 0);
+    expect(frameBox.width).toBeCloseTo(slotBox.width, 0);
+    expect(frameBox.height).toBeCloseTo(slotBox.height, 0);
+    expect(geometry.header.x).toBe(0);
+    expect(geometry.header.y).toBe(0);
+    expect(geometry.header.width).toBe(childViewport.width);
+    await writeFile(info.outputPath('geometry.json'), JSON.stringify({ ...geometry, frame: frameBox, slot: slotBox, childViewport }, null, 2));
     await page.screenshot({ path: info.outputPath('populated-native.png'), animations: 'disabled' });
     expect(geometry.header.height).toBe(48);
     expect(geometry.bodyTop).toBeGreaterThanOrEqual(geometry.header.bottom - 1);
@@ -87,7 +105,7 @@ for (const original of originals) for (const width of [1170, 1440]) for (const t
     }
     const menu = header.getByRole('menuitem', { name: original.product === 'note' ? '노트 메뉴' : '문서 메뉴', exact: true });
     await menu.focus(); await page.keyboard.press('Enter');
-    const documentMenu = page.getByRole('menu', { name: original.product === 'note' ? '노트 메뉴' : '문서 메뉴', exact: true });
+    const documentMenu = native.getByRole('menu', { name: original.product === 'note' ? '노트 메뉴' : '문서 메뉴', exact: true });
     await expect(documentMenu).toBeVisible();
     const commands = documentMenu.locator('button[role="menuitem"]:not(:disabled),button[role="menuitemcheckbox"]:not(:disabled)');
     await page.keyboard.press('Home'); await expect(commands.first()).toBeFocused();
@@ -97,8 +115,8 @@ for (const original of originals) for (const width of [1170, 1440]) for (const t
     if (original.product === 'site') {
       const panels = header.getByRole('menuitem', { name: '패널', exact: true });
       await panels.click();
-      await page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
-      const tools = page.locator('.st-all-tools-popup');
+      await native.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
+      const tools = native.locator('.st-all-tools-popup');
       await expect(tools).toBeVisible();
       const toolbar = tools.locator('.office-ribbon-toolbar');
       await expect(toolbar).toBeVisible();
@@ -115,12 +133,14 @@ for (const original of originals) for (const width of [1170, 1440]) for (const t
       await expect(panels).toBeFocused();
       await expect(header).toHaveCSS('height', '48px');
       // A checked menu item closes its owned popup once; it must not outside-dismiss then reopen.
-      await panels.click(); await page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
+      await panels.click(); await native.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
       await expect(tools).toBeVisible();
-      await panels.click(); await page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
+      await panels.click(); await native.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
       await expect(tools).toBeHidden();
     }
-    expect(await nativeRoot!.evaluate(node => node.isConnected)).toBe(true);
+    expect(await nativeRoot.evaluate(node => node.isConnected)).toBe(true);
+    expect(await frameHandle.evaluate(node => node.isConnected)).toBe(true);
+    expect(await frameHandle.contentFrame()).toBe(native);
     await expect(page).toHaveURL(new URL(`/header-workspace/${original.id}`, page.url()).href);
   });
 }

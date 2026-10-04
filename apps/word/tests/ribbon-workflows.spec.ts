@@ -1,3 +1,5 @@
+import { openWordDocumentMenu } from './helpers';
+import { setWordWholeTools, expectWordWholeTools } from './helpers';
 import { test, expect } from '@playwright/test';
 import type { Editor } from '@barocss/editor-core';
 import { placeCaret } from './helpers';
@@ -7,7 +9,7 @@ const tab = (page: import('@playwright/test').Page, name: string) => page.getByR
 
 test('ribbon style previews and keyboard commands change the document once', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('A visible heading');
   await page.getByRole('button', { name: '제목 1 적용', exact: true }).click();
@@ -40,8 +42,7 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Previous document');
   await expect(status).toHaveText('저장됨');
-  await page.getByRole('menubar', { name: '문서 메뉴', exact: true })
-    .getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await openWordDocumentMenu(page);
   const confirmation = page.waitForEvent('dialog');
   const create = page.getByRole('menuitem', { name: '새 문서', exact: true }).click();
   const prompt = await confirmation;
@@ -55,7 +56,7 @@ test('layout actions open real settings and table insertion accepts dimensions',
   const created = page.url();
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Table follows');
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await tab(page, '레이아웃').click();
   await page.getByRole('button', { name: '용지·여백', exact: true }).click();
   const pageSetup = page.getByRole('dialog', { name: '페이지 설정', exact: true });
@@ -78,7 +79,7 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await expect(page.locator('.w-document table')).toHaveCount(1);
   await expect(page.locator('.w-document table tr')).toHaveCount(2);
   await expect(page.locator('.w-document table td, .w-document table th')).toHaveCount(8);
-  await expect(page.getByRole('button', { name: '전체 도구 펼치기', exact: true })).toBeVisible();
+  await expectWordWholeTools(page, false);
   await placeCaret(page, '.w-cell', 0);
   await page.keyboard.type('CELL A1');
   await placeCaret(page, '.w-cell', 1);
@@ -102,7 +103,7 @@ test('layout actions open real settings and table insertion accepts dimensions',
 
 test('review tracking reports its state and menu toggles show the open pane', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await placeCaret(page, '.w-paragraph');
   await tab(page, '검토').click();
   const tracking = page.locator('[data-control=track-changes]');
@@ -113,7 +114,7 @@ test('review tracking reports its state and menu toggles show the open pane', as
   await expect(tracking).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('button', { name: '댓글', exact: true }).click();
   await expect(page.locator('.w-comments-pane')).toBeVisible();
-  await page.locator('.w-menubar [data-menu=view]').click();
+  await openWordDocumentMenu(page);
   await expect(page.locator('[data-menu-item="view.panes.1"]')).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
 });
@@ -121,7 +122,7 @@ test('review tracking reports its state and menu toggles show the open pane', as
 
 test('starts document-first and preserves selected formatting when full tools open and close', async ({ page }) => {
   await page.goto('/');
-  const selected = page.getByRole('toolbar', { name: '선택한 Word 글 서식', exact: true });
+  const selected = page.getByRole('group', { name: '선택한 Word 글 서식', exact: true });
   await expect(selected).toHaveCount(0);
   await expect(page.getByRole('tablist', { name: '도구 모음 선택' })).toHaveCount(0);
   await placeCaret(page, '.w-paragraph');
@@ -135,9 +136,9 @@ test('starts document-first and preserves selected formatting when full tools op
   await selected.locator('.w-toolbar-style').click();
   await page.getByRole('option', { name: 'Heading 1', exact: true }).click();
   await expect(page.locator('h1.w-heading')).toContainText('Compact document');
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await expect(page.locator('[data-control=style-heading1]')).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: '전체 도구 접기', exact: true }).click();
+  await setWordWholeTools(page, false);
   await page.locator('#editor [contenteditable="true"]').first().focus();
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
   await expect(page.locator('h1.w-heading')).toHaveCount(0);

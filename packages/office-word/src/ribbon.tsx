@@ -445,7 +445,10 @@ export function Ribbon({ editor, view, fonts, panes, zoom, onZoom, externalZoom 
           <RibbonGroup id="frames" label="콘텐츠 배치">{controls('layout', true)}</RibbonGroup>
           <RibbonGroup id="math" label="수식">
             <RibbonAction id="math-inplace" label="본문 수식" icon={<Icon name="math" />}
-              disabled={!mathInplace.available || mathInplace.active} onActivate={mathInplace.open} />
+              disabled={!mathInplace.available || mathInplace.active} onActivate={() => {
+                if (documentPresentation) setExpanded(false);
+                mathInplace.open();
+              }} />
             <div className="w-ribbon-stack w-math-secondary-actions"><WordMathEditor editor={editor} ribbon />
             <RibbonAction id="math-linear" label="수식 표시" icon={<Icon name="math" />}
               disabled={!editor.canRun('toggleMathLinear')} onActivate={() => void editor.run('toggleMathLinear')} />

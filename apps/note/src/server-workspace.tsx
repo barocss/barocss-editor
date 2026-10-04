@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import './style.css';
+import { matchesConfirmedNoteNative } from './confirmed-native';
 import { flushSync } from 'react-dom';
-import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
+import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { NoteEditor } from '@barocss/office-note/view';
 import { readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
 import { noteTreeOf, openNoteTree, type NoteDocument, type NoteSession } from '@barocss/office-note';
@@ -24,6 +25,8 @@ export interface ServerNoteWorkspaceProps {
   onNavigate?: (documentId: string) => void;
   onLeave?: () => void;
   headerNavigation?: ReactNode;
+  hostSlot?: NativeHostSlot;
+  onNativeFailure?: (message: string) => void;
   /** The authenticated Workspace owns discovery; native tools stay optional. */
   workspaceNavigation?: boolean;
   onUnsafeChange?: (unsafe: boolean) => void;
@@ -48,7 +51,7 @@ function saveProblem(error: unknown): Omit<Problem, 'owner'> {
 
 /** Office supplies an authorized fetch only after it has verified the protected workspace context. */
 export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, authorizedFetch,
-  issuer, subject, role, onNavigate, onLeave, onUnsafeChange, headerNavigation, workspaceNavigation = false }: ServerNoteWorkspaceProps) {
+  issuer, subject, role, onNavigate, onLeave, onUnsafeChange, headerNavigation, hostSlot, onNativeFailure, workspaceNavigation = false }: ServerNoteWorkspaceProps) {
   const { t } = useOfficeLocale();
   const client = useMemo(() => createServerNoteClient({ tenantId, workspaceId, authorizedFetch }),
     [tenantId, workspaceId, authorizedFetch, issuer, subject]);
@@ -114,6 +117,9 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   currentOpenRef.current = currentOpen;
   const currentPending = pending?.owner === client ? pending : undefined;
   const currentHeads = heads?.owner === client ? heads.rows : [];
+  useEffect(() => {
+    if (hostSlot && !isNativeHostSlotActive(hostSlot) && problem?.owner === client) onNativeFailure?.(problem.message);
+  }, [hostSlot, problem, client, onNativeFailure]);
   const currentSession = session?.owner === client && session.generation === currentOpen?.generation && session.documentId === currentOpen?.documentId &&
     session.editable === (role !== 'viewer') ? session.value : undefined;
   const currentProblem = problem?.owner === client ? problem : undefined;
@@ -128,6 +134,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   useEffect(() => {
     const find = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f' || event.target !== document.body) return;
+      if (hostSlot && !isNativeHostSlotActive(hostSlot)) return;
       const current = access.current;
       if (activeClient.current !== client || current.client !== client || !current.session || !current.open || current.denied) return;
       const anchor = document.getSelection()?.anchorNode;
@@ -315,7 +322,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
 
 
   const openDocument = async (documentId: string) => {
-    if (currentOpen) { const guard = captureProductNavigation(); if (guard?.product === 'note') await guard.open?.(documentId); return; }
+    if (currentOpen) { const guard = captureProductNavigation(hostSlot); if (guard?.product === 'note') await guard.open?.(documentId); return; }
     if (busy || isDirty || currentPending) return;
     setBusy(true);
     setProblem(undefined);
@@ -550,10 +557,10 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
           })() : previous);
         setPending(undefined);
       });
-      const installed = captureProductNavigation();
+      const installed = captureProductNavigation(hostSlot);
       if (confirmedNavigation.current === notice && !opening.current && activeClient.current === client &&
         access.current.open?.generation === notice.generation && roleRef.current === notice.authority &&
-        productDocumentHost() === nativeHost.current && installed?.isCurrent() && installed.product === 'note' && installed.id === notice.documentId) {
+        productDocumentHost(hostSlot) === nativeHost.current && installed?.isCurrent() && installed.product === 'note' && installed.id === notice.documentId) {
         confirmedNavigation.current = undefined;
         navigate.current?.(notice.documentId);
       }
@@ -586,13 +593,51 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     if (!one?.documentId || !native || !host) return undefined;
     const rootId = native.editor.getRootId(), root = native.editor.dataStore.getNode(rootId!), epoch = native.editor.dataStore.getDocumentEpoch();
     const owns = () => {
-      try { return intentCurrent() && productDocumentHost() === host && activeClient.current === client && access.current.client === client &&
+      try { return intentCurrent() && productDocumentHost(hostSlot) === host && activeClient.current === client && access.current.client === client &&
         access.current.open?.generation === one.generation && access.current.open.documentId === one.documentId && access.current.session === native &&
         roleRef.current === authority && !access.current.denied && native.editor.getRootId() === rootId &&
         native.editor.dataStore.getNode(rootId!) === root && native.editor.dataStore.getDocumentEpoch() === epoch; }
       catch { return false; }
     };
     return { one, native, authority, owns };
+  };
+  const beforeAccountExit = useRef<() => Promise<boolean>>(async () => false);
+  beforeAccountExit.current = async () => {
+    const owner = captureOwner();
+    if (!owner || !owner.owns()) return false;
+    const inFlight = savePending.current, fixed = pendingRef.current;
+    try {
+      if (!await flushSnapshot() || !owner.owns()) return false;
+      flushSync(() => owner.native.flush());
+      if (!owner.owns()) return false;
+      // An admitted request can already have committed. Settle its existing
+      // promise, but do not issue a receipt lookup, retry or new save on exit.
+      if (inFlight) await inFlight;
+      if (!owner.owns() || access.current.busy || savePending.current && savePending.current !== inFlight) return false;
+      if (!await flushSnapshot() || !owner.owns()) return false;
+      flushSync(() => owner.native.flush());
+      if (!owner.owns()) return false;
+      const latest = access.current.open!, text = nativeSnapshot(latest, owner.native);
+      if (!text) return false;
+      const confirmedNative = latest.confirmedText !== null && matchesConfirmedNoteNative(text, latest.confirmedText);
+      const existing = draftRef.current;
+      if (!confirmedNative && (!existing || existing.owner !== pendingStore ||
+        existing.generation !== latest.generation || existing.record.snapshotText !== text)) {
+        if (!access.current.canEdit || latest.revision === null) return false;
+        flushSync(() => { persistDraft(text, { operation: 'update', documentId: latest.documentId!, expectedRevision: latest.revision! },
+          String(latest.note.attributes.pageId), latest.generation); });
+      }
+      const records = pendingStore.list(), draft = draftRef.current, protection = protectionRef.current;
+      if (fixed?.owner === client && !records.some(record => record.status !== 'draft' &&
+        JSON.stringify(record.attempt) === JSON.stringify(fixed.attempt))) return false;
+      const protectedText = confirmedNative || !!draft && draft.owner === pendingStore &&
+        draft.generation === latest.generation && draft.record.snapshotText === text &&
+        records.some(record => record.draftId === draft.record.draftId && JSON.stringify(record) === JSON.stringify(draft.record));
+      const protectedVersion = !!protection && protection.owner === client &&
+        protection.generation === latest.generation && protection.protected && protection.version === versionRef.current;
+      return owner.owns() && !access.current.busy && (confirmedNative || protectedVersion) &&
+        nativeSnapshot(access.current.open!, owner.native) === text && protectedText;
+    } catch { return false; }
   };
   beforeNavigate.current = async (intentCurrent = () => true) => {
     const owner = captureOwner(intentCurrent);
@@ -623,7 +668,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     const parentCurrent = () => { try { return parentIntent(); } catch { return false; } };
     const owner = captureOwner(() => intentCurrent() && parentCurrent());
     if (!owner || !owner.owns() || opening.current || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(documentId)) return false;
-    if (documentId === owner.one.documentId) return captureProductNavigation() ?? false;
+    if (documentId === owner.one.documentId) return captureProductNavigation(hostSlot) ?? false;
     const operation = { token: Symbol('note-open'), client, authority: owner.authority, phase: 'preparing' as 'preparing' | 'loading' | 'installing' }; opening.current = operation;
     let prepared: string | undefined;
     const owns = () => owner.owns() && opening.current === operation && (!prepared || nativeSnapshot(access.current.open!, owner.native) === prepared);
@@ -668,30 +713,31 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       product: 'note', id: () => activeClient.current === client && access.current.session === native ? access.current.open?.documentId ?? '' : '',
       identityEpoch: () => native.editor.dataStore.getDocumentEpoch(),
       beforeNavigate: () => activeClient.current === client ? beforeNavigate.current() : Promise.resolve(false),
+      beforeAccountExit: () => activeClient.current === client ? beforeAccountExit.current() : Promise.resolve(false),
       requestOpen: (id, isCurrent, intentCurrent) => activeClient.current === client ? requestOpen.current(id, isCurrent, intentCurrent) : Promise.resolve(false)
     };
     nativeHost.current = host;
-    const unregister = registerProductDocumentHost(host);
+    const unregister = registerProductDocumentHost(host, hostSlot);
     // First-create confirmation changes the document identity before its native
     // session is installed. Publish only from that exact confirmed host.
     const notice = confirmedNavigation.current;
     if (notice) {
-      const installed = captureProductNavigation();
+      const installed = captureProductNavigation(hostSlot);
       confirmedNavigation.current = undefined;
       if (!opening.current && notice.client === client && notice.generation === generation &&
         notice.authority === roleRef.current && notice.documentId === currentOpen.documentId &&
-        activeClient.current === client && productDocumentHost() === host && installed?.isCurrent() && installed.product === 'note' && installed.id === notice.documentId) {
+        activeClient.current === client && productDocumentHost(hostSlot) === host && installed?.isCurrent() && installed.product === 'note' && installed.id === notice.documentId) {
         navigate.current?.(notice.documentId);
       }
     }
     const completion = openingCompletion.current;
     if (completion && completion.client === client && completion.documentId === currentOpen.documentId) {
       openingCompletion.current = undefined;
-      const guard = captureProductNavigation();
+      const guard = captureProductNavigation(hostSlot);
       completion.resolve(completion.authority === roleRef.current && completion.generation === generation && completion.intentCurrent() && guard?.isCurrent() ? guard : false);
     }
     return () => { unregister(); if (nativeHost.current === host) nativeHost.current = undefined; };
-  }, [client, currentOpen?.generation, currentSession, roleOwner, currentProblem?.kind === 'denied']);
+  }, [client, currentOpen?.generation, currentSession, roleOwner, currentProblem?.kind === 'denied', hostSlot]);
 
   const copyConflictedDraft = async () => {
     if (currentProblem?.kind !== 'conflict' || !currentOpen) return;

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, visibleBoxes, attr } from './helpers';
+import { openDeck, visibleBoxes, attr, pickInsert, setPanel } from './helpers';
 
 /**
  * Where the text sits inside its box.
@@ -44,13 +44,14 @@ const cssOf = (page: Page, sid: string) =>
 test.describe('the text inside a box', () => {
   test('is moved to the middle, and to the bottom, from the panel', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const frame = await selectFrame(page);
 
-    await panel(page).getByLabel('세로 맞춤').selectOption('middle');
+    await panel(page).getByRole('combobox', { name: '세로 맞춤', exact: true }).selectOption('middle');
     await expect.poll(async () => (await cssOf(page, frame.sid)).justifyContent).toBe('center');
     expect(await attr(page, frame.sid, 'verticalAlign')).toBe('middle');
 
-    await panel(page).getByLabel('세로 맞춤').selectOption('bottom');
+    await panel(page).getByRole('combobox', { name: '세로 맞춤', exact: true }).selectOption('bottom');
     await expect.poll(async () => (await cssOf(page, frame.sid)).justifyContent).toBe('flex-end');
   });
 
@@ -65,6 +66,7 @@ test.describe('the text inside a box', () => {
    */
   test('is given room without making its box any wider', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const frame = await selectFrame(page);
 
     const before = await cssOf(page, frame.sid);
@@ -86,11 +88,12 @@ test.describe('the text inside a box', () => {
    */
   test('is not asked of a shape that holds no text', async ({ page }) => {
     await openDeck(page);
-    await page.getByRole('button', { name: '사각형' }).click();
+    await setPanel(page, 'properties', true);
+    await pickInsert(page, '사각형');
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
       .not.toBeNull();
 
-    await expect(panel(page).getByLabel('세로 맞춤')).toHaveCount(0);
+    await expect(panel(page).getByRole('combobox', { name: '세로 맞춤', exact: true })).toHaveCount(0);
   });
 });

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { openDeck, pickMenu } from './helpers';
+import { openDeck, pickMenu, pickInsert } from './helpers';
 
 test.use({ screenshot: 'only-on-failure', trace: 'retain-on-failure' });
 test.describe.configure({ retries: 0 });
@@ -166,8 +166,7 @@ for (const deck of ['sample', 'blank'] as const) {
       const originalIds = new Set(original.slides.map(slide => slide.sid));
       await recordInputDiagnostics(page);
 
-      await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true })
-        .getByRole('button', { name: '새 슬라이드', exact: true }).click();
+      await pickInsert(page, '새 슬라이드');
       // Only the explicitly delayed scenario waits. No click, focus call, or model command follows insertion.
       if (delay) await page.waitForTimeout(delay);
       await page.keyboard.type(marker, { delay: 50 });

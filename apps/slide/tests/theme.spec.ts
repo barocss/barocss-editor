@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, openFilmstrip, pickInsert, setPanel } from './helpers';
 
 /**
  * A theme, on screen.
@@ -24,6 +24,7 @@ const colourOf = (page: Page, selector: string) =>
 test.describe('a deck designed in a theme', () => {
   test('paints a shape the colour its slot names', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     // The rectangle on the shapes slide says `theme:accent1`.
     await page.locator('.sl-filmstrip button').nth(2).click();
     await page.waitForTimeout(500);
@@ -33,6 +34,7 @@ test.describe('a deck designed in a theme', () => {
 
   test('keeps the slot in the document rather than the colour', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
 
     const written = await page.evaluate(() => {
       const store = (window as any).editor.dataStore;
@@ -59,6 +61,7 @@ test.describe('a deck designed in a theme', () => {
    */
   test('sets a title in the face the theme names, through the master’s slot', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
 
     const usesSlots = await page.evaluate(() => {
       const store = (window as any).editor.dataStore;
@@ -114,10 +117,12 @@ test.describe('applying a theme', () => {
   const shapesSlide = async (page: Page) => {
     await page.locator('.sl-filmstrip button').nth(2).click();
     await page.waitForTimeout(500);
+    await setPanel(page, 'properties', true);
   };
 
   test('re-colours every shape that follows the deck', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await shapesSlide(page);
     expect(await rectangleColour(page)).toBe('rgb(37, 99, 235)');
 
@@ -136,6 +141,7 @@ test.describe('applying a theme', () => {
 
   test('leaves alone a shape that chose its own colour', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await shapesSlide(page);
 
     // Give one shape a colour of its own, through the panel a reader uses.
@@ -190,7 +196,9 @@ test.describe('applying a theme', () => {
    */
   test('lets a reader put a shape on a slot from the panel', async ({ page }) => {
     await openDeck(page);
-    await page.getByRole('button', { name: '사각형' }).click();
+    await openFilmstrip(page);
+    await pickInsert(page, '사각형');
+    await setPanel(page, 'properties', true);
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
       .not.toBeNull();
@@ -246,6 +254,7 @@ test.describe('the theme’s own colours', () => {
   const shapesSlide = async (page: Page) => {
     await page.locator('.sl-filmstrip button').nth(2).click();
     await page.waitForTimeout(500);
+    await setPanel(page, 'properties', true);
   };
 
   const openDialog = async (page: Page) => {
@@ -255,6 +264,7 @@ test.describe('the theme’s own colours', () => {
 
   test('are typed in, and every shape on the slot follows', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await shapesSlide(page);
     expect(await rectangle(page)).toBe('rgb(37, 99, 235)');
 
@@ -310,6 +320,7 @@ test.describe('the theme’s own colours', () => {
    */
   test('stop claiming the preset they came from', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await shapesSlide(page);
 
     // Something to be a preset first, so the change is what makes the difference.
@@ -351,6 +362,7 @@ test.describe('the theme’s own colours', () => {
 
   test('are put back by choosing a preset in the dialog', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await shapesSlide(page);
     await openDialog(page);
 
@@ -381,6 +393,7 @@ test.describe('the theme’s own colours', () => {
 
   test('are left alone by 취소', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await shapesSlide(page);
     await openDialog(page);
 

@@ -24,7 +24,7 @@ function readView(workspace: string, perspective: Perspective): TreeView {
 }
 
 /** A local catalog surrounds the existing native root, without taking over its editor. */
-export function WorkspaceFrame({ children, nativeRoot, expected, projectId }: { children?: ReactNode; nativeRoot?: HTMLElement; expected?: { product: Product; id: string }; projectId?: string }) {
+export function WorkspaceFrame({ children, nativeRoot, expected, projectId, navigate, entryRecovery }: { children?: ReactNode; nativeRoot?: HTMLElement; expected?: { product: Product; id: string }; projectId?: string; navigate?: (url: string) => Promise<boolean>; entryRecovery?: ReactNode }) {
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const { t } = useOfficeLocale();
   const [perspective, setPerspective] = useState<Perspective>(() => sessionStorage.getItem(`wonffice.tree-perspective:${workspace.id}`) === 'my' ? 'my' : 'project');
@@ -39,7 +39,7 @@ export function WorkspaceFrame({ children, nativeRoot, expected, projectId }: { 
   const view = views[perspective];
   const changeView = (patch: Partial<TreeView>) => setViews(previous => ({ ...previous, [perspective]: { ...previous[perspective], ...patch } }));
   useLayoutEffect(() => { if (nativeRoot && slot.current) slot.current.append(nativeRoot); }, [nativeRoot]);
-  useLayoutEffect(() => { if (nativeRoot) nativeRoot.inert = busy || entry !== 'ready'; }, [nativeRoot, busy, entry]);
+  useLayoutEffect(() => { if (nativeRoot) nativeRoot.inert = busy && !navigate || entry !== 'ready'; }, [nativeRoot, busy, entry, navigate]);
   useEffect(() => {
     let live = true, request = 0;
     const refresh = async () => {
@@ -85,9 +85,9 @@ export function WorkspaceFrame({ children, nativeRoot, expected, projectId }: { 
     const intent = ++generation.current, guard = captureProductNavigation();
     const current = () => intent === generation.current && (nativeRoot ? guard?.isCurrent() === true : true);
     try {
-      if (nativeRoot) nativeRoot.inert = true;
+      if (nativeRoot && !navigate) nativeRoot.inert = true;
       if (!await prepareWorkspaceBeforeLeave()) throw new Error(t('workspace.tree.flushFailed'));
-      if (nativeRoot && !await guard?.prepare()) throw new Error(t('workspace.tree.flushFailed'));
+      if (nativeRoot && !navigate && !await guard?.prepare()) throw new Error(t('workspace.tree.flushFailed'));
       if (!current()) throw new Error(t('workspace.tree.changed'));
       if (row) {
         const source = await workspace.require(row.product, row.id);
@@ -99,8 +99,10 @@ export function WorkspaceFrame({ children, nativeRoot, expected, projectId }: { 
       }
       if (!current()) throw new Error(t('workspace.tree.changed'));
       if (destination === 'recent') saveLibraryOrigin(workspace.id, { ...readLibraryOrigin(workspace.id), view: 'recent', product: 'all', query: '', folder: '', scroll: 0 });
-      location.assign(row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id, ...(project ? { project } : {}) })
-        : destination === 'projects' ? formatWorkspaceRoute(project ? { kind: 'item', workspaceId: workspace.id, itemId: project, view: 'projects' } : { kind: 'workspace', workspaceId: workspace.id, view: 'projects' }) : workspaceReturnURL(workspace.id, project));
+      const destinationURL = row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id, ...(project ? { project } : {}) })
+        : destination === 'projects' ? formatWorkspaceRoute(project ? { kind: 'item', workspaceId: workspace.id, itemId: project, view: 'projects' } : { kind: 'workspace', workspaceId: workspace.id, view: 'projects' }) : workspaceReturnURL(workspace.id, project);
+      if (navigate) { if (!await navigate(destinationURL)) throw new Error(t('workspace.tree.changed')); }
+      else location.assign(destinationURL);
     } catch (failure) { setError(failure instanceof Error ? failure.message : t('workspace.tree.unavailable')); }
     finally { if (nativeRoot) nativeRoot.inert = entry !== 'ready'; lock.current = false; setBusy(false); release(); }
   };
@@ -111,12 +113,12 @@ export function WorkspaceFrame({ children, nativeRoot, expected, projectId }: { 
     changeView({ query: '', product: 'all', collapsed: [] });
     requestAnimationFrame(() => tree.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' }));
   };
-  return <WorkspaceFramePresentation children={children} nativeSlotRef={slot} treeRef={tree}
+  return <WorkspaceFramePresentation children={entryRecovery ?? children} nativeSlotRef={slot} treeRef={tree}
     groups={catalog.groups.map(group => ({ ...group, title: group.label || null, label: group.label || t(group.kind === 'unlinked' ? 'workspace.tree.unlinked' : 'workspace.tree.files') }))}
     perspectives={[{ id: 'project', label: t('workspace.tree.project') }, { id: 'my', label: t('workspace.tree.my') }]}
     projectPerspective="project" perspective={perspective} views={views}
     productOptions={Object.entries(products).map(([id, product]) => ({ id: id as Product, ...product }))}
-    labels={frameLabels(t)} ready={ready} catalogState={catalogState} entry={entry}
+    labels={frameLabels(t)} ready={ready} catalogState={catalogState} entry={entryRecovery ? 'ready' : entry}
     entryReturnHref={workspaceReturnURL(workspace.id)} error={error} busy={busy} focused={focused}
     active={active} projectContext={projectContext} canRevealCurrent={!!nativeRoot && rows.some(row => row.key === active)}
     onViewChange={changeView} onPerspectiveChange={choose} onFocusChange={setFocused}

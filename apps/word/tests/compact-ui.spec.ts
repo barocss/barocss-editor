@@ -1,3 +1,4 @@
+import { setWordWholeTools, wordPanelTrigger } from './helpers';
 import {
   test,
   expect,
@@ -7,6 +8,7 @@ import {
 } from "@playwright/test";
 import { settled } from "./helpers";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const prefix = "This paragraph takes its ";
 const tools = (page: Page) =>
@@ -64,7 +66,7 @@ async function open(page: Page, width: number, height: number, theme: string) {
     document.documentElement.dataset.theme = value;
   }, theme);
   await expect(
-    page.getByRole("button", { name: "전체 도구 펼치기", exact: true })
+    wordPanelTrigger(page)
   ).toHaveCSS(
     "color",
     theme === "dark" ? "rgb(238, 241, 245)" : "rgb(32, 37, 45)"
@@ -220,9 +222,7 @@ for (const viewport of [
       await open(page, viewport.width, viewport.height, theme);
       const before = await state(page);
       const bodyBefore = await page.locator(".w-shell-body").boundingBox();
-      await page
-        .getByRole("button", { name: "전체 도구 펼치기", exact: true })
-        .click();
+      await setWordWholeTools(page, true);
       await expect(
         page.getByRole("tab", { name: "홈", exact: true })
       ).toBeVisible();
@@ -262,13 +262,23 @@ test("More closes as an owned layer and its real underline edit survives undo an
   page,
 }, info) => {
   await open(page, 1440, 900, "light");
-  // Export through the actual file menu. The initial stored row can predate its runtime restore.
+  // Native saves retain the original source metadata. The restored editing
+  // document has its own load metadata; assert both complete representations.
+  const initialSaved = await savedFiles(page);
+  expect(initialSaved).toHaveLength(1);
+  const sourceBefore = JSON.parse(initialSaved[0]) as { document: Awaited<ReturnType<typeof state>>['document'] };
+  const expectedDownload = await page.evaluate(async ({ snapshot, fileSource }) => {
+    const file = await import(fileSource);
+    return JSON.parse(file.wordFileText(JSON.parse(snapshot), '')).document;
+  }, { snapshot: await native(page), fileSource: '/@fs' + resolve(process.cwd(), 'packages/office-word/src/word-file.ts') });
+  // Export through the actual file menu and preserve every native field.
   await page.getByRole("menuitem", { name: "문서 메뉴", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("menuitem", { name: "저장", exact: true }).click();
   const path = await (await download).path();
   if (!path) throw new Error("Native Word file download unavailable");
   const currentFile = JSON.parse(readFileSync(path, "utf8"));
+  expect(currentFile.document).toEqual(expectedDownload);
   await prose(page).locator(".mark-code").dblclick();
   await expect
     .poll(() => page.evaluate(() => getSelection()?.toString()))
@@ -277,7 +287,6 @@ test("More closes as an owned layer and its real underline edit survives undo an
     .poll(() => page.evaluate(() => window.editor.selection?.endOffset))
     .toBe(6);
   const before = await state(page);
-  const sourceBefore = currentFile as { document: typeof before.document };
   await info.attach("exported-current-before-edit-native.json", {
     body: JSON.stringify(sourceBefore.document),
     contentType: "application/json",
@@ -513,9 +522,7 @@ test("whole tools preserve space and show the actual ruler only by explicit choi
   await open(page, 1440, 900, "light");
   const before = await native(page);
   const body = await page.locator(".w-shell-body").boundingBox();
-  await page
-    .getByRole("button", { name: "전체 도구 펼치기", exact: true })
-    .click();
+  await setWordWholeTools(page, true);
   const detail = page.getByLabel("전체 Word 도구", { exact: true });
   await expect(detail).toBeVisible();
   expect(await page.locator(".w-shell-body").boundingBox()).toEqual(body);
@@ -539,6 +546,31 @@ test("whole tools preserve space and show the actual ruler only by explicit choi
   });
 });
 
+test('header panel popup owns pointer and first Escape without retiring whole tools', async ({ page }) => {
+  await open(page, 1440, 900, 'light');
+  const before = await page.evaluate(() => ({ document: window.editor.exportDocument(), history: window.editor.getHistoryStats() }));
+  await setWordWholeTools(page);
+  const detail = page.locator('[data-word-detail]'), retained = await detail.elementHandle();
+  expect(retained).not.toBeNull();
+  await wordPanelTrigger(page).click();
+  const choice = page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true });
+  await expect(choice).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu', { name: '문서 패널', exact: true })).toHaveCount(0);
+  await expect(detail).toBeVisible();
+  await wordPanelTrigger(page).click();
+  await expect(choice).toHaveAttribute('aria-checked', 'true');
+  await choice.click();
+  await expect(detail).toBeHidden();
+  expect(await retained!.evaluate(element => element.isConnected)).toBe(true);
+  await wordPanelTrigger(page).click();
+  await expect(choice).toHaveAttribute('aria-checked', 'false');
+  await choice.click();
+  await expect(detail).toBeVisible();
+  expect(await detail.evaluate((element, original) => element === original, retained)).toBe(true);
+  expect(await page.evaluate(() => ({ document: window.editor.exportDocument(), history: window.editor.getHistoryStats() }))).toEqual(before);
+});
+
 test("retired full-tool font completion cannot edit after close and reopen", async ({
   page,
 }, info) => {
@@ -557,9 +589,7 @@ test("retired full-tool font completion cannot edit after close and reopen", asy
   const before = await page.evaluate(() =>
     JSON.stringify(window.editor.exportDocument())
   );
-  await page
-    .getByRole("button", { name: "전체 도구 펼치기", exact: true })
-    .click();
+  await setWordWholeTools(page, true);
   const detail = page.getByLabel("전체 Word 도구", { exact: true });
   await expect(detail).toBeVisible();
   await page.evaluate(() => {
@@ -580,13 +610,9 @@ test("retired full-tool font completion cannot edit after close and reopen", asy
   });
   await detail.locator(".w-toolbar-font-family").click();
   await page.getByRole("option", { name: "Arial", exact: true }).click();
-  await page
-    .getByRole("button", { name: "전체 도구 접기", exact: true })
-    .click();
+  await setWordWholeTools(page, false);
   await expect(detail).not.toBeVisible();
-  await page
-    .getByRole("button", { name: "전체 도구 펼치기", exact: true })
-    .click();
+  await setWordWholeTools(page, true);
   await expect(detail).toBeVisible();
   const retained = await page.evaluate(() =>
     JSON.stringify(window.editor.exportDocument())

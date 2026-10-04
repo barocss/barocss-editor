@@ -1,14 +1,16 @@
+import { toggleWordPanel, expectWordPanel } from './helpers';
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { settled, placeCaret } from './helpers';
 
 async function showRuler(page: Page) {
   if (await page.locator('.w-ruler').count()) return;
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   const detail = page.getByLabel('전체 Word 도구', { exact: true });
   await detail.getByRole('tab', { name: '보기', exact: true }).click();
   await detail.getByRole('button', { name: '눈금자', exact: true }).click();
   await expect(page.locator('.w-ruler')).toBeVisible();
-  await page.getByRole('button', { name: '전체 도구 접기', exact: true }).click();
+  await setWordWholeTools(page, false);
 }
 
 
@@ -59,7 +61,7 @@ test('the outline lists every heading, indented by its level', async ({ page }) 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="navigation"]').click();
+  await toggleWordPanel(page, '개요');
 
 
   const items = page.locator('.w-outline [data-outline-sid]');
@@ -85,7 +87,7 @@ test('the outline goes deeper than the contents page does', async ({ page }) => 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="navigation"]').click();
+  await toggleWordPanel(page, '개요');
 
 
   // A contents page lists 1–3 by default; a map that hid the rest would
@@ -108,7 +110,7 @@ test('clicking an entry takes the reader and the caret there', async ({ page }) 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="navigation"]').click();
+  await toggleWordPanel(page, '개요');
 
 
   const items = page.locator('.w-outline [data-outline-sid]');
@@ -153,13 +155,13 @@ test('closes to a strip, and opens again', async ({ page }) => {
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="navigation"]').click();
+  await toggleWordPanel(page, '개요');
 
 
   await page.getByRole('button', { name: '개요 닫기', exact: true }).click();
   await expect(page.locator('.w-outline')).toHaveCount(0);
   // A pane with no way back is a pane a reader closes once
-  await page.locator('[data-workspace-toggle="navigation"]').click();
+  await toggleWordPanel(page, '개요');
   await expect(page.locator('.w-outline')).toHaveCount(1);
 });
 
@@ -174,7 +176,7 @@ test('the comments pane closes without reserving a strip and keeps its thread co
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="inspector"]').click();
+  await toggleWordPanel(page, '댓글');
 
 
   const openWidth = (await page.locator('.w-comments-pane').boundingBox())!.width;
@@ -185,14 +187,14 @@ test('the comments pane closes without reserving a strip and keeps its thread co
 
   const strip = page.locator('.w-comments-closed');
   await expect(strip).toBeHidden();
-  await expect(page.locator('[data-workspace-toggle="inspector"]')).toHaveAttribute('aria-expanded', 'false');
+  await expectWordPanel(page, '댓글', false);
 
   // It counted the document's threads while closed, which it could not do while
   // it only read them when open
   const counted = Number(await strip.getAttribute('data-comment-count'));
   expect(Number.isFinite(counted)).toBe(true);
 
-  await page.locator('[data-workspace-toggle="inspector"]').click();
+  await toggleWordPanel(page, '댓글');
   await expect(page.locator('.w-comments-pane')).toHaveCount(1);
 });
 
@@ -201,7 +203,7 @@ test('closing the pane puts the discussion away, not the sign of it', async ({ p
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="inspector"]').click();
+  await toggleWordPanel(page, '댓글');
 
 
   // Create a current thread through the pane instead of depending on sample anchors.
@@ -238,9 +240,9 @@ test('the ribbon turns each pane on and off, and says which is on', async ({ pag
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="navigation"]').click();
-  await page.locator('[data-workspace-toggle="inspector"]').click();
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await toggleWordPanel(page, '개요');
+  await toggleWordPanel(page, '댓글');
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '보기', exact: true }).click();
 
 
@@ -273,12 +275,12 @@ test('the pane and its own close button say the same thing', async ({ page }) =>
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('[data-workspace-toggle="navigation"]').click();
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await toggleWordPanel(page, '개요');
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '보기', exact: true }).click();
 
 
-  await page.getByRole('button', { name: '전체 도구 접기', exact: true }).click();
+  await setWordWholeTools(page, false);
   await expect(page.getByLabel('전체 Word 도구', { exact: true })).not.toBeVisible();
 
   // Closed from inside the pane, the ribbon has to agree — two switches for one
@@ -286,7 +288,7 @@ test('the pane and its own close button say the same thing', async ({ page }) =>
   await page.getByRole('button', { name: '개요 닫기', exact: true }).click();
   await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'off');
 
-  await page.locator('[data-workspace-toggle="navigation"]').click();
+  await toggleWordPanel(page, '개요');
   await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'on');
 });
 

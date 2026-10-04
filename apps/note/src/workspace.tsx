@@ -1,8 +1,9 @@
 import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice } from '@barocss/office-ui';
 import { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from '@barocss/office-note';
+import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Choice, Icon, TextField, Dialog, IconButton, useOfficeLocale } from '@barocss/office-ui';
-import { documentLocationId, documentLocationURL, documentLocationWorkspace, documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, type LibraryRow } from '@barocss/shared';
+import { documentLocationId, documentLocationURL, documentLocationWorkspace, documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, captureProductNavigation, captureProductReplacementPreparation, assertProductDocumentOpen, type ProductNavigationGuard, type LibraryRow } from '@barocss/shared';
 import { NoteEditor } from '@barocss/office-note/view';
 import { noteLibrary, noteFileText, noteFileName, readNoteFile, openNoteTree, noteTreeOf, type NoteDocument, type NoteSession } from '@barocss/office-note';
 
@@ -94,6 +95,27 @@ export function Workspace() {
   const [referenceDestination, setReferenceDestination] = useState<ReferenceItem>();
   const navigationFlushes = useRef(new Set<() => Promise<boolean>>());
   const navigating = useRef(false);
+  const lifetime = useRef({ mounted: true });
+  const snapshotDelivery = useRef<{ session: NonNullable<typeof session>; flush: () => Promise<boolean> } | undefined>(undefined);
+  const stagedSession = useRef<{ id: string; value: NoteSession; deliver?: (blocks: unknown[]) => void } | undefined>(undefined);
+  const openingCompletion = useRef<{ id: string; value: NoteSession; current: () => boolean; resolve: (guard: ProductNavigationGuard | false) => void } | undefined>(undefined);
+  useEffect(() => {
+    const owner = { mounted: true }; lifetime.current = owner;
+    return () => { owner.mounted = false; openingCompletion.current?.resolve(false); openingCompletion.current = undefined; stagedSession.current?.value.close(); stagedSession.current = undefined; };
+  }, []);
+  const registerBeforeSnapshot = useCallback((flush: () => Promise<boolean>) => {
+    const native = currentSession.current;
+    if (!native || native.id !== selectedPage.current) return () => {};
+    const delivery = { session: native, flush }; snapshotDelivery.current = delivery;
+    window.dispatchEvent(new Event('wonffice:host-change'));
+    const completion = openingCompletion.current;
+    if (completion?.id === native.id && completion.value === native.value) {
+      openingCompletion.current = undefined;
+      const guard = captureProductNavigation();
+      completion.resolve(completion.current() && guard?.isCurrent() && guard.product === 'note' && guard.id === native.id ? guard : false);
+    }
+    return () => { if (snapshotDelivery.current === delivery) snapshotDelivery.current = undefined; };
+  }, [session]);
   const registerBeforeNavigate = useCallback((flush: () => Promise<boolean>) => {
     navigationFlushes.current.add(flush);
     return () => { navigationFlushes.current.delete(flush); };
@@ -107,18 +129,8 @@ export function Workspace() {
     return true;
   };
   const navigatePage = async (id: string, push = true, item?: ReferenceItem, keepSearch = false): Promise<boolean> => {
-    if (!documents.current.has(id) || navigating.current || archiveBusy.current) return false;
-    navigating.current = true;
-    try {
-      if (!await flushNavigation()) return false;
-      setNavigationRequest(undefined);
-      setReferenceDestination(item);
-      setView(pageInTrash(id, metadata.current) ? 'trash' : 'all'); if (!keepSearch) setQuery('');
-      if (push && id !== selected) history.pushState({ noteItem: item }, '', documentLocationURL('note', id));
-      setSelected(id);
-      return true;
-    } catch { setProblem('마지막 입력을 저장하지 못해 페이지 이동을 멈췄습니다. 다시 시도하세요.'); return false; }
-    finally { navigating.current = false; }
+    const installed = await openFreshPage(id, push, item, keepSearch);
+    return !!installed || (selectedPage.current === id && pageInTrash(id, metadata.current));
   };
   const navigate = useRef(navigatePage); navigate.current = navigatePage;
   useEffect(() => {
@@ -190,7 +202,24 @@ export function Workspace() {
     let requested: string;
     try { requested = pageInHash(); }
     catch (error) { setProblem(error instanceof Error ? error.message : '노트 주소를 확인할 수 없습니다.'); setReady(true); return; }
-    void loadNotes().then(({ notes: rows, unreadable }) => {
+    void loadNotes().then(async ({ notes: cachedRows, unreadable }) => {
+      if (cancelled) return;
+      // The archive cache is a discovery hint. Refresh only the original this
+      // mounted workspace will install, including a previously cached child.
+      let rows = cachedRows;
+      const initialStates = new Map(rows.map(row => [row.id, row.meta]));
+      const initial = requested && rows.some(row => row.id === requested) && !pageInTrash(requested, initialStates)
+        ? requested : rows.find(row => !pageInTrash(row.id, initialStates))?.id;
+      if (initial) {
+        await assertProductDocumentOpen('note', initial);
+        const fresh = await noteLibrary.read(initial);
+        if (cancelled) return;
+        if (!fresh) throw new Error('보관한 노트를 읽을 수 없습니다.');
+        const parsed = readNoteFile(fresh.text); if ('error' in parsed) throw new Error(parsed.error);
+        const current = { id: initial, document: { ...parsed.document, attributes: { ...parsed.document.attributes, pageId: initial } },
+          meta: pageMeta(fresh.row.metadata, fresh.row.savedAt), revision: fresh.row.revision ?? 0 };
+        rows = rows.some(row => row.id === initial) ? rows.map(row => row.id === initial ? current : row) : [...rows, current];
+      }
       if (cancelled) return;
       if (requestedWorkspace) {
         const states = new Map(rows.map(row => [row.id, row.meta]));
@@ -217,15 +246,17 @@ export function Workspace() {
     if (!selected || selectedTrashed) { setSession(undefined); return; }
     const document = documents.current.get(selected);
     if (!document) return;
-    const one = openNoteTree(document, {
-      onChange: blocks => {
+    const prepared = stagedSession.current?.id === selected ? stagedSession.current : undefined;
+    if (prepared) stagedSession.current = undefined;
+    const deliver = (blocks: unknown[]) => {
         const current = documents.current.get(selected);
         if (!current) return;
         documents.current.set(selected, { ...current, content: blocks });
         showNotes();
         persist(selected);
-      }, after: 150
-    });
+    };
+    const one = prepared?.value ?? openNoteTree(document, { onChange: deliver, after: 150 });
+    if (prepared) prepared.deliver = deliver;
     const changed = () => {
       const tree = noteTreeOf({ getNode: id => one.editor.dataStore.getNode(id) as never }, one.rootId);
       const current = documents.current.get(selected);
@@ -234,7 +265,7 @@ export function Workspace() {
     };
     one.editor.on('editor:content.change' as never, changed);
     setSession({ id: selected, value: one, generation: ++sessionGeneration.current });
-    history.replaceState(history.state, '', documentLocationURL('note', selected));
+    if (!prepared) history.replaceState(history.state, '', documentLocationURL('note', selected));
     return () => {
       one.editor.off('editor:content.change' as never, changed);
       one.close();
@@ -339,19 +370,90 @@ export function Workspace() {
       if (deferred) moveFromHistory.current?.(deferred);
     }
   };
+  const captureSource = (intentCurrent = () => true) => {
+    const native = currentSession.current, owner = lifetime.current, id = selectedPage.current, selection = selectionEpoch.current;
+    if (!owner.mounted || !id || (native ? native.id !== id || snapshotDelivery.current?.session !== native : !pageInTrash(id, metadata.current))) return undefined;
+    const rootId = native?.value.editor.getRootId(), root = rootId ? native?.value.editor.dataStore.getNode(rootId) : undefined, epoch = native?.value.editor.dataStore.getDocumentEpoch();
+    const current = () => {
+      try { return owner.mounted && lifetime.current === owner && intentCurrent() && currentSession.current === native && selectedPage.current === id &&
+        selectionEpoch.current === selection && (!native || (snapshotDelivery.current?.session === native && native.value.editor.getRootId() === rootId &&
+        native.value.editor.dataStore.getNode(rootId!) === root && native.value.editor.dataStore.getDocumentEpoch() === epoch)); }
+      catch { return false; }
+    };
+    return { native, current };
+  };
   const flushArchive = async () => {
-    if (!await flushNavigation()) throw new Error('마지막 입력을 반영하지 못했습니다. 다시 시도하세요.');
-    currentSession.current?.value.flush();
+    const owner = captureSource();
+    if (!owner || !owner.current() || (owner.native && !await snapshotDelivery.current!.flush()) || !owner.current() || !await flushNavigation() || !owner.current())
+      throw new Error('마지막 입력을 반영하지 못했습니다. 다시 시도하세요.');
+    owner.native?.value.flush();
+    if (!owner.current()) throw new Error('현재 노트가 바뀌었습니다. 다시 시도하세요.');
     for (const id of pending.current) persist(id);
     await queue.current;
-    if (pending.current.size) throw new Error('마지막 입력을 보관하지 못했습니다. 저장을 다시 시도한 뒤 진행하세요.');
+    if (!owner.current() || pending.current.size) throw new Error('마지막 입력을 보관하지 못했습니다. 저장을 다시 시도한 뒤 진행하세요.');
+  };
+  const openFreshPage = async (id: string, push = true, item?: ReferenceItem, keepSearch = false,
+    sourceCurrent = () => true, parentCurrent = sourceCurrent, requireNative = false): Promise<ProductNavigationGuard | false> => {
+    const owner = captureSource(() => sourceCurrent() && parentCurrent());
+    if (!owner || !owner.current() || navigating.current || archiveBusy.current || !documents.current.has(id)) return false;
+    if (id === selectedPage.current) return captureProductNavigation() ?? false;
+    navigating.current = true;
+    let candidate: { id: string; value: NoteSession; deliver?: (blocks: unknown[]) => void } | undefined;
+    let installed = false;
+    const preparation = captureProductReplacementPreparation();
+    try {
+      if (!await preparation.prepare() || !owner.current()) return false;
+      await flushArchive(); if (!owner.current()) return false;
+      await assertProductDocumentOpen('note', id); if (!owner.current()) return false;
+      const fresh = await noteLibrary.read(id); if (!owner.current()) return false;
+      if (!fresh) throw new Error('보관한 노트를 읽을 수 없습니다.');
+      const parsed = readNoteFile(fresh.text); if ('error' in parsed) throw new Error(parsed.error);
+      const meta = pageMeta(fresh.row.metadata, fresh.row.savedAt);
+      const document = { ...parsed.document, attributes: { ...parsed.document.attributes, pageId: id } };
+      const trashed = pageInTrash(id, new Map(metadata.current).set(id, meta));
+      if (trashed && requireNative) return false;
+      if (!trashed) candidate = { id, value: openNoteTree(document, { onChange: blocks => candidate?.deliver?.(blocks), after: 150 }) };
+      if (!owner.current()) return false;
+      await assertProductDocumentOpen('note', id); if (!owner.current()) return false;
+      // Source input can change while storage or the target reader waits.
+      if (!await preparation.prepare() || !owner.current()) return false;
+      await flushArchive();
+      if (!owner.current() || !preparation.isPrepared()) return false;
+      if (!candidate) {
+        documents.current.set(id, document); metadata.current.set(id, meta); storageRevisions.current.set(id, fresh.row.revision ?? 0);
+        flushSync(() => { showNotes(); setView('trash'); setSelected(id); setReferenceDestination(item); setNavigationRequest(undefined); });
+        if (push) history.pushState({ noteItem: item }, '', documentLocationURL('note', id));
+        return false;
+      }
+      const target = candidate, mounted = lifetime.current;
+      const completion = new Promise<ProductNavigationGuard | false>(resolve => {
+        openingCompletion.current = { id, value: target.value, current: () => mounted.mounted && lifetime.current === mounted && parentCurrent() &&
+          currentSession.current?.value === target.value && selectedPage.current === id, resolve };
+      });
+      stagedSession.current = target;
+      documents.current.set(id, document); metadata.current.set(id, meta); storageRevisions.current.set(id, fresh.row.revision ?? 0);
+      installed = true;
+      flushSync(() => {
+        setNavigationRequest(undefined); setReferenceDestination(item); setView(pageInTrash(id, metadata.current) ? 'trash' : 'all'); if (!keepSearch) setQuery('');
+        showNotes(); setSelected(id);
+      });
+      const guard = await completion;
+      if (!guard || !guard.isCurrent() || !parentCurrent()) return false;
+      if (push) history.pushState({ noteItem: item }, '', documentLocationURL('note', id));
+      return guard;
+    } catch (error) {
+      if (owner.current()) setProblem(error instanceof Error ? error.message : '마지막 입력을 저장하지 못해 페이지 이동을 멈췄습니다. 다시 시도하세요.');
+      return false;
+    } finally { if (!installed) candidate?.value.close(); navigating.current = false; }
   };
   const hostFlush = useRef(flushArchive); hostFlush.current = flushArchive;
+  const hostOpen = useRef(openFreshPage); hostOpen.current = openFreshPage;
   useEffect(() => {
     if (!ready) return;
-    return registerProductDocumentHost({ product: 'note', id: () => selectedPage.current, identityEpoch: () => selectionEpoch.current + sessionGeneration.current, beforeNavigate: async () => {
-      try { await hostFlush.current(); return true; } catch { return false; }
-    } });
+    return registerProductDocumentHost({ product: 'note', id: () => snapshotDelivery.current?.session === currentSession.current ? selectedPage.current : '',
+      identityEpoch: () => selectionEpoch.current + sessionGeneration.current, beforeNavigate: async () => {
+        try { await hostFlush.current(); return true; } catch { return false; }
+      }, requestOpen: (id, isCurrent, intentCurrent = () => true) => hostOpen.current(id, false, undefined, false, isCurrent, intentCurrent, true) });
   }, [ready]);
   useEffect(() => { if (ready) window.dispatchEvent(new Event('wonffice:host-change')); }, [ready, selected, session?.generation]);
   const backupWorkspace = () => withArchive(async () => {
@@ -554,7 +656,7 @@ export function Workspace() {
           </button>)}</div>
         </details>}
         {!selectedTrashed && <p className="nw-hint">/ 로 블록을 추가하고, [[ 로 다른 페이지를 연결하세요.</p>}
-        {!selectedTrashed && session?.id === selected && <NoteEditor writeAllowed={!selectedTrashed} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
+        {!selectedTrashed && session?.id === selected && <NoteEditor writeAllowed={!selectedTrashed} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
       </section>}
     </main>
     </AdaptiveWorkspace>

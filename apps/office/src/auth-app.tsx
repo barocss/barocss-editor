@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, Component, type ReactNode } from 'react';
 import {
   AuthError, beginLogin, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
   isLogoutEvent, loadIdentity, providerLogout, consumeLogoutReturn, consumeResumeIntent,
@@ -6,8 +6,8 @@ import {
   type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext, type VerifiedSnapshotContext, type SnapshotProduct,
 } from './auth-client';
 import { Icon, IconButton, ProductLabel } from '@barocss/office-ui';
-import { productDocumentHost, prepareProductNavigation, captureProductNavigation } from '@barocss/shared';
-import { ProjectFeedback } from '@barocss/office-workspace/feedback';
+import { productDocumentHost, prepareProductNavigation, prepareProductAccountExit, captureProductNavigation, createNativeHostSlot, disposeNativeHostSlot, promoteProductNavigation, type NativeHostSlot, type ProductNavigationGuard } from '@barocss/shared';
+import { ProjectFeedback, type FeedbackBeforeLeave } from '@barocss/office-workspace/feedback';
 import { AuthenticatedWorkspaceFrame } from './authenticated-frame';
 import type { ServerCatalogRow } from './server-catalog';
 import { authRouteRequest, resolveAuthenticatedRouteItem, snapshotIntentURL } from './auth-route';
@@ -30,6 +30,16 @@ type View =
   | { phase: 'operator-denied' }
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
   | { phase: 'error'; error: AuthError };
+
+type NativeView = Extract<View, { phase: 'note' }>;
+type NativeSlot = { token: symbol; key: string; session: ReturnType<typeof captureAuthorizedSession>; hostSlot?: NativeHostSlot };
+export type NativeEntryBinding = { hostSlot?: NativeHostSlot; onNativeFailure?: (message: string) => void };
+class NativeEntryBoundary extends Component<{ children: ReactNode; onFailure: (message: string) => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error: Error) { this.props.onFailure(error.message); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 const productName = (product: SnapshotProduct) => ({ note: 'Note', word: 'Word', slides: 'Slides' })[product];
 
@@ -54,13 +64,22 @@ function asAuthError(error: unknown) {
 }
 
 export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (context: VerifiedSnapshotContext, principal: Pick<Identity, 'issuer' | 'subject'>,
-  onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void, headerNavigation: ReactNode) => ReactNode; noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
+  onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void, headerNavigation: ReactNode, binding?: NativeEntryBinding) => ReactNode; noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
   onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode } = {}) {
   const { t } = useOfficeLocale();
   const [treeBusy, setTreeBusy] = useState(false);
   const [treeError, setTreeError] = useState('');
   const [activeDocument, setActiveDocument] = useState<string | null>(null);
-  const nativeSlot = useRef<{ token: symbol; session: ReturnType<typeof captureAuthorizedSession> } | null>(null);
+  const nativeSlot = useRef<NativeSlot | null>(null);
+  const [stagedNative, setStagedNative] = useState<{ value: NativeView; slot: NativeSlot; fail: (message: string) => void } | null>(null);
+  const pendingNative = useRef<{ slot: NativeSlot; cancel: () => void } | null>(null);
+  function cancelStagedNative(expected?: NativeSlot) {
+    if (expected && pendingNative.current?.slot !== expected) return;
+    const pending = pendingNative.current; pendingNative.current = null;
+    if (pending) { pending.cancel(); if (pending.slot.hostSlot) disposeNativeHostSlot(pending.slot.hostSlot); }
+    setStagedNative(null);
+  }
+  useEffect(() => () => { pendingNative.current?.cancel(); if (pendingNative.current?.slot.hostSlot) disposeNativeHostSlot(pendingNative.current.slot.hostSlot); }, []);
   const treeOperation = useRef<symbol | null>(null);
   const [view, setView] = useState<View>({ phase: 'checking' });
   const selected = useRef<TenantAccess | null>(null);
@@ -79,10 +98,12 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   const verifiedIdentity = useRef<Identity | null>(null);
   const [mountedNote, setMountedNote] = useState<Extract<View, { phase: 'note' }> | null>(null);
   const [leaveBlocked, setLeaveBlocked] = useState(false);
-  const feedbackBeforeLeave = useRef<(() => Promise<boolean>) | undefined>(undefined);
+  const feedbackBeforeLeave = useRef<FeedbackBeforeLeave | undefined>(undefined);
   const feedbackRepository = useMemo(() => mountedNote ? serverProjectRepository(mountedNote.context.tenantId, mountedNote.context.workspaceId, mountedNote.role) : null,
     [mountedNote?.context, mountedNote?.role]);
   const forgetNote = () => {
+    cancelStagedNative();
+    if (nativeSlot.current?.hostSlot) disposeNativeHostSlot(nativeSlot.current.hostSlot);
     nativeSlot.current = null; treeOperation.current = null;
     setTreeBusy(false); setTreeError('');
     setActiveDocument(null);
@@ -95,7 +116,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   };
   const rememberNote = (next: Omit<Extract<View, { phase: 'note' }>, 'principal'>, identity: Identity) => {
     const account = `${identity.issuer}\0${identity.subject}`;
-    const slot = { token: Symbol('native mount'), session: captureAuthorizedSession() };
+    const slot: NativeSlot = { token: Symbol('native mount'), key: crypto.randomUUID(), session: captureAuthorizedSession() };
     nativeSlot.current = slot;
     const guardedContext = { ...next.context, authorizedFetch: ((...args: Parameters<typeof fetch>) => {
       if (nativeSlot.current !== slot || !slot.session.isCurrent() || noteAccount.current !== account) {
@@ -130,6 +151,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
 
   async function checkAccess(intent = chosenIntent.current ?? currentIntent(), tenant = selected.current) {
     const run = ++generation.current;
+    cancelStagedNative();
     treeOperation.current = null; setTreeBusy(false);
     const retainedNote = rememberedNote.current;
     noteAccess.current = false;
@@ -376,11 +398,12 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   async function logout() {
     const started = generation.current, originalView = currentView.current, account = noteAccount.current, originalNote = rememberedNote.current;
     const ownsLogout = () => started === generation.current && currentView.current === originalView && noteAccount.current === account && rememberedNote.current === originalNote;
-    if (rememberedNote.current && !canLeaveNote()) return;
-    if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
+    const feedback = feedbackBeforeLeave.current;
+    if (feedback && !await feedback()) return;
     if (!ownsLogout()) return;
-    if ((rememberedNote.current || productDocumentHost()) && !await prepareProductNavigation()) { if (ownsLogout()) setLeaveBlocked(true); return; }
+    if ((rememberedNote.current || productDocumentHost()) && !await prepareProductAccountExit()) { if (ownsLogout()) setLeaveBlocked(true); return; }
     if (!ownsLogout()) return;
+    if (feedbackBeforeLeave.current !== feedback || (feedback && !feedback.isPrepared?.())) { setLeaveBlocked(true); return; }
     noteUnsafe.current = false;
     setLeaveBlocked(false);
     forgetNote();
@@ -511,19 +534,83 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         if (!owns() || !same?.isCurrent() || same.product !== row.product || same.id !== row.documentId) throw new Error(t('workspace.tree.nativeUnavailable'));
         return; // A placement alias preserves the current Project, feedback draft and native selection.
       }
-      if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
+      const feedback = feedbackBeforeLeave.current;
+      if (feedback && !await feedback()) return;
+      const feedbackInput = feedback?.capturePreparedInput?.();
       if (!owns()) return;
       if (native) {
-        const guard = captureProductNavigation();
+        const guard = captureProductNavigation(slot?.hostSlot);
         if (!guard || guard.product !== native.context.product || guard.id !== rememberedDocumentId.current) throw new Error(t('workspace.tree.nativeUnavailable'));
         if (row.product !== native.context.product) {
-          // Cross-product replacement needs an installed native witness as well. Keep the current runtime until that contract is available.
-          throw new Error(t('workspace.tree.nativeUnavailable'));
+          if (!await guard.prepare() || !owns()) throw new Error(t('workspace.tree.nativeUnavailable'));
+          const identity = await loadIdentity();
+          if (!owns()) return;
+          if (`${identity.issuer}\0${identity.subject}` !== noteAccount.current ||
+            !identity.tenants.some(item => item.tenantId === scope.tenant.tenantId)) throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
+          const role = await confirmTenant(scope.tenant.tenantId);
+          if (!owns()) return;
+          if (role !== native.role) throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
+          const context = await openVerifiedSnapshot(scope.tenant.tenantId, scope.workspace.id, row.documentId, role, row.product, session.requestFetch);
+          if (!owns()) return;
+          await readProductDocument(row.product, context.snapshotText!);
+          if (!owns()) return;
+          let ready!: (guard: ProductNavigationGuard | false) => void;
+          const installed = new Promise<ProductNavigationGuard | false>(resolve => { ready = resolve; });
+          const target: NativeSlot = { token: Symbol('native target'), key: crypto.randomUUID(), session,
+            hostSlot: createNativeHostSlot(value => { if (!value) { ready(false); return; } if (value.product === row.product && value.id === row.documentId) ready(value); }) };
+          const targetFetch = ((...args: Parameters<typeof fetch>) => {
+            if (!session.isCurrent() || !noteAccess.current || noteAccount.current !== `${identity.issuer}\0${identity.subject}` ||
+              (nativeSlot.current !== target && !owns())) throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
+            return session.requestFetch(...args);
+          }) as typeof fetch;
+          const targetView: NativeView = { phase: 'note', tenant: scope.tenant, workspace: scope.workspace, role,
+            principal: { issuer: identity.issuer, subject: identity.subject }, context: { ...context, authorizedFetch: targetFetch } };
+          const fail = (message: string) => { if (pendingNative.current?.slot === target) { setTreeError(message); ready(false); } };
+          pendingNative.current = { slot: target, cancel: () => ready(false) };
+          setStagedNative({ value: targetView, slot: target, fail });
+          try {
+            const targetGuard = await installed;
+            if (!targetGuard || !owns() || !targetGuard.isCurrent()) throw new Error(t('workspace.tree.nativeUnavailable'));
+            const currentRole = await confirmTenant(scope.tenant.tenantId);
+            if (!owns() || currentRole !== role || !targetGuard.isCurrent()) throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
+            const feedback = feedbackBeforeLeave.current;
+            if (feedback && !await feedback()) throw new Error(t('workspace.tree.nativeUnavailable'));
+            if (!owns() || !targetGuard.isCurrent()) throw new Error(t('workspace.tree.nativeUnavailable'));
+            // The source may receive more input while the target loads. Drain it
+            // again while its exact host, DOM, history and authority still own it.
+            if (!await guard.prepare() || !owns() || !targetGuard.isCurrent() || feedbackBeforeLeave.current !== feedback || (feedback && !feedback.isPrepared?.())) throw new Error(t('workspace.tree.nativeUnavailable'));
+            const promoted = promoteProductNavigation(guard, targetGuard);
+            if (!promoted || !promoted.isCurrent()) throw new Error(t('workspace.tree.nativeUnavailable'));
+            pendingNative.current = null;
+            nativeSlot.current = target; rememberedNote.current = targetView; verifiedIdentity.current = identity;
+            noteUnsafe.current = false; rememberedDocumentId.current = row.documentId;
+            setMountedNote(targetView); setView(targetView); setStagedNative(null);
+            commitNativeLocation(row.documentId, projectId ?? null);
+          } finally {
+            if (nativeSlot.current !== target) cancelStagedNative(target);
+          }
+          return;
         }
         if (!guard.open) throw new Error(t('workspace.tree.nativeUnavailable'));
-        const installed = await guard.open(row.documentId, owns);
+        let feedbackPrepared = false, targetWitness: ProductNavigationGuard | undefined;
+        const openIntentCurrent = () => {
+          if (!owns()) return false;
+          if (guard.isCurrent()) {
+            feedbackPrepared = feedbackBeforeLeave.current === feedback && (!feedback || feedback.isPrepared?.() === true && feedbackInput?.isCurrent() === true);
+            return feedbackPrepared;
+          }
+          // Native installation retires the source feedback owner synchronously.
+          // Admit only the first exact target lifetime after a prepared source check.
+          if (!feedbackPrepared || guard.id === row.documentId) return false;
+          if (!targetWitness) {
+            const target = captureProductNavigation(slot?.hostSlot);
+            if (target?.isCurrent() && target.product === row.product && target.id === row.documentId) targetWitness = target;
+          }
+          return targetWitness?.isCurrent() === true && (!feedback || feedbackInput?.isCurrent() === true);
+        };
+        const installed = await guard.open(row.documentId, openIntentCurrent);
         if (!owns()) return;
-        if (!installed || !installed.isCurrent()) throw new Error(t('workspace.tree.nativeUnavailable'));
+        if (!installed || !installed.isCurrent() || !openIntentCurrent()) throw new Error(t('workspace.tree.nativeUnavailable'));
         commitNativeLocation(row.documentId, projectId ?? null);
         return;
       }
@@ -545,23 +632,31 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     if (!scope) return;
     const run = generation.current, slot = nativeSlot.current, session = captureAuthorizedSession(), token = Symbol('tree destination');
     const owns = () => treeOperation.current === token && run === generation.current && nativeSlot.current === slot && session.isCurrent() && (!slot || (noteAccess.current && slot.session.isCurrent()));
+    const feedback = feedbackBeforeLeave.current, guard = rememberedNote.current ? captureProductNavigation() : undefined;
+    const feedbackPrepared = () => feedbackBeforeLeave.current === feedback && (!feedback || !!feedback.isPrepared?.());
     treeOperation.current = token; setTreeBusy(true); setTreeError('');
     try {
-      if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
+      if (feedback && !await feedback()) return;
       if (!owns()) return;
       if (rememberedNote.current) {
-        const guard = captureProductNavigation();
         if (!guard || !await guard.prepare()) { if (owns()) setLeaveBlocked(true); return; }
         if (!owns()) return;
       }
       if (destination === 'library') {
         const page = await listSnapshotDocuments(scope.tenant.tenantId, scope.workspace.id, 'note');
         if (!owns()) return;
+        if (!feedbackPrepared()) { setLeaveBlocked(true); return; }
+        // Input can change while the catalog read awaits. Prepare the exact
+        // native owner again before retiring its still-interactive source.
+        if (guard && (!guard.isCurrent() || !await guard.prepare())) { if (owns()) setLeaveBlocked(true); return; }
+        if (!owns()) return;
+        if (!feedbackPrepared() || (guard && !guard.isCurrent())) { setLeaveBlocked(true); return; }
         forgetNote(); noteIntent.current = null;
         history.replaceState(null, '', formatWorkspaceRoute({ kind: 'workspace', tenantId: scope.tenant.tenantId, workspaceId: scope.workspace.id, view: 'library' }));
         setView({ phase: 'library', tenant: scope.tenant, role: scope.role, workspace: scope.workspace, product: 'note', documents: page.items, cursor: page.nextCursor });
       } else {
         if (!owns()) return;
+        if (!feedbackPrepared() || (guard && !guard.isCurrent())) { setLeaveBlocked(true); return; }
         forgetNote(); noteIntent.current = null;
         history.replaceState(null, '', formatWorkspaceRoute(projectId ? { kind: 'item', tenantId: scope.tenant.tenantId, workspaceId: scope.workspace.id, itemId: projectId } : { kind: 'workspace', tenantId: scope.tenant.tenantId, workspaceId: scope.workspace.id, view: 'projects' }));
         setView({ phase: 'project', tenant: scope.tenant, role: scope.role, workspace: scope.workspace });
@@ -575,10 +670,12 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     if (view.phase !== 'note' || !canLeaveNote()) return;
     const started = generation.current, current = view, account = noteAccount.current, originalNote = rememberedNote.current, project = noteIntent.current?.projectId;
     const ownsReturn = () => started === generation.current && currentView.current === current && account === noteAccount.current && rememberedNote.current === originalNote;
-    if (feedbackBeforeLeave.current && !await feedbackBeforeLeave.current()) return;
+    const feedback = feedbackBeforeLeave.current;
+    if (feedback && !await feedback()) return;
     if (!ownsReturn()) return;
     if ((rememberedNote.current || productDocumentHost()) && !await prepareProductNavigation()) { if (ownsReturn()) setLeaveBlocked(true); return; }
     if (!ownsReturn()) return;
+    if (feedbackBeforeLeave.current !== feedback || (feedback && !feedback.isPrepared?.())) { setLeaveBlocked(true); return; }
     forgetNote(); noteIntent.current = null;
     if (project) {
       history.replaceState(null, '', formatWorkspaceRoute({ kind: 'item', tenantId: current.tenant.tenantId, workspaceId: current.context.workspaceId, itemId: project }));
@@ -586,6 +683,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     } else { history.replaceState(null, '', '/'); await checkAccess('user', current.tenant); }
   };
   const headerNavigation = view.phase === 'note' ? <div className="office-editor-product office-auth-native-navigation">
+    {treeBusy && <IconButton label={t('document.library.cancel')} onClick={() => { treeOperation.current = null; cancelStagedNative(); setTreeBusy(false); }}><Icon name="close" /></IconButton>}
     <ProductLabel iconOnly name={view.context.product === 'slides' ? 'Slides' : view.context.product === 'word' ? 'Word' : 'Note'} />
     {noteIntent.current?.projectId && activeDocument && feedbackRepository && <ProjectFeedback key={`${noteAccount.current}:${noteIntent.current.projectId}:${activeDocument}`} repository={feedbackRepository} projectId={noteIntent.current.projectId} beforeLeave={feedbackBeforeLeave}
       document={{ product: view.context.product, id: activeDocument }} />}
@@ -632,18 +730,25 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       {view.role !== 'viewer' && <button onClick={() => void createSnapshot(view)}>새 {productName(view.product)} 만들기</button>}
       <div className="office-auth-actions"><button onClick={() => void checkAccess('user', view.tenant)}>자료함 목록</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
-    {mountedNote && <section className="office-auth-note-host" hidden={view.phase !== 'note'} aria-hidden={view.phase !== 'note'} inert={view.phase !== 'note'}>
-      {view.phase === 'note' && !compactEditor && <div className="office-auth-actions"><button onClick={() => { if (!canLeaveNote()) return; forgetNote(); noteIntent.current = null; history.replaceState(null, '', '/'); void checkAccess('user', view.tenant); }}>자료함으로 돌아가기</button><button onClick={() => void logout()}>로그아웃</button></div>}
-      <div className="office-auth-editor">{(editorRenderer ?? (mountedNote.context.product === 'note' ? noteRenderer : undefined)) ? (editorRenderer ?? noteRenderer)!(mountedNote.context, mountedNote.principal, unsafe => {
-        if (nativeSlot.current === renderedSlot && renderedSlot?.session.isCurrent() &&
-          noteAccess.current && renderedAuthority === generation.current) noteUnsafe.current = unsafe;
-      }, documentId => {
-        if (treeOperation.current || nativeSlot.current !== renderedSlot || !renderedSlot?.session.isCurrent() || !noteAccess.current || renderedAuthority !== generation.current) return;
-        const native = captureProductNavigation();
-        if (!native?.isCurrent() || native.product !== mountedNote.context.product || native.id !== documentId) return;
-        commitNativeLocation(documentId);
-      }, headerNavigation) : <p role="status">{productName(mountedNote.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}</div>
-    </section>}
+    {[(mountedNote && renderedSlot ? { value: mountedNote, slot: renderedSlot, staged: false, fail: undefined } : null),
+      (stagedNative ? { ...stagedNative, staged: true } : null)].map(entry => entry && <section key={entry.slot.key}
+      className="office-auth-note-host" data-native-entry={entry.staged ? 'preparing' : 'active'}
+      hidden={!entry.staged && view.phase !== 'note'} aria-hidden={entry.staged || view.phase !== 'note'} inert={entry.staged || view.phase !== 'note'}
+      style={entry.staged ? { position: 'absolute', inset: 0, visibility: 'hidden', pointerEvents: 'none' } : undefined}>
+      <NativeEntryBoundary onFailure={message => { if (entry.staged) entry.fail?.(message); else setTreeError(message); }}>
+      <div className="office-auth-editor">{(editorRenderer ?? (entry.value.context.product === 'note' ? noteRenderer : undefined)) ?
+        (editorRenderer ?? noteRenderer)!(entry.value.context, entry.value.principal, unsafe => {
+          if (!entry.staged && nativeSlot.current === entry.slot && entry.slot.session.isCurrent() &&
+            noteAccess.current && renderedAuthority === generation.current) noteUnsafe.current = unsafe;
+        }, documentId => {
+          if (entry.staged || treeOperation.current || nativeSlot.current !== entry.slot || !entry.slot.session.isCurrent() || !noteAccess.current || renderedAuthority !== generation.current) return;
+          const native = captureProductNavigation(entry.slot.hostSlot);
+          if (!native?.isCurrent() || native.product !== entry.value.context.product || native.id !== documentId) return;
+          commitNativeLocation(documentId);
+        }, entry.staged ? null : headerNavigation, { hostSlot: entry.slot.hostSlot, onNativeFailure: entry.fail }) :
+        <p role="status">{productName(entry.value.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}</div>
+      </NativeEntryBoundary>
+    </section>)}
     {view.phase === 'operator-opened' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
       <p>서버에서 현재 서비스 운영 권한을 확인했습니다.</p>
       <p className="office-auth-note">운영 업무 화면은 아직 연결되지 않았습니다. 이 권한으로 회사 문서를 열 수 없습니다.</p>

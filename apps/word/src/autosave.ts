@@ -6,8 +6,26 @@ import { readWordFile, wordFileText, wordTitle } from '@barocss/office-word';
 
 export const wordStore = documentLibrary({ db: 'barocss-word', store: 'documents' });
 export const wordDrafts = documentLibrary({ db: 'barocss-word-recovery', store: 'drafts' });
+type AutosaveNative = Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'> &
+  Partial<Pick<WordRuntime, 'view' | 'flushCommands' | 'captureInputIntent'>>;
 export class WordAutosave extends DocumentSession {
-  constructor(editor: Editor, notify: (status: DocumentSessionStatusCode) => void, native?: Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'>) {
+  private inputLifetime: { active: boolean };
+  constructor(editor: Editor, notify: (status: DocumentSessionStatusCode) => void, native?: AutosaveNative) {
+    const lifetime = { active: true };
+    const beforeSnapshot = native?.view ? async () => {
+      const view = native.view!, root = editor.getRootId(), store = editor.dataStore, epoch = store.getDocumentEpoch();
+      const inputOwner = view.captureInputOwner();
+      const owns = () => lifetime.active && view.editor === editor && inputOwner() &&
+        editor.getRootId() === root && editor.dataStore === store && store.getDocumentEpoch() === epoch;
+      if (!native.flushCommands || !native.captureInputIntent || !owns() || !await view.deliverInput(owns) || !owns())
+        throw new Error('Finish the current Word input before saving.');
+      // Delivery can legitimately commit text and history. Capture the settled
+      // input only now, then refuse any newer input during the command drain.
+      const intent = native.captureInputIntent();
+      if (!intent || !intent()) throw new Error('The Word input is not ready for its snapshot.');
+      await native.flushCommands();
+      if (!owns() || !intent()) throw new Error('The Word input changed while preparing its snapshot.');
+    } : undefined;
     // Only a local "new document" recovery derives identity. Server pending
     // records and retries use their separate unchanged frozen-byte store.
     const recoveryDrafts = { ...wordDrafts, async read(name: string) {
@@ -18,7 +36,7 @@ export class WordAutosave extends DocumentSession {
       return { ...snapshot, text: wordFileText(deriveBusinessPair(parsed.document), '') };
     } };
     super({
-      key: 'word', documents: wordStore, drafts: recoveryDrafts,
+      key: 'word', documents: wordStore, drafts: recoveryDrafts, beforeSnapshot,
       snapshot: () => ({ text: wordFileText(native ? native.exportNativeDocument() : editor.exportDocument(), ''), title: wordTitle(editor.dataStore) || '제목 없는 문서', count: 1 }),
       replace: text => {
         const parsed = readWordFile(text);
@@ -32,5 +50,10 @@ export class WordAutosave extends DocumentSession {
         return () => { editor.off('editor:content.change', listener); };
       }
     }, notify);
+    this.inputLifetime = lifetime;
+  }
+  override stop() {
+    this.inputLifetime.active = false;
+    super.stop();
   }
 }

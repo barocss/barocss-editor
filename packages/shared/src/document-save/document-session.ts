@@ -1,6 +1,6 @@
 import type { documentLibrary, LibraryEntry, LibraryRow } from '../document-library/document-library';
 import { DocumentSaveQueue } from './document-save';
-import { assertProductDocumentOpen, registerProductDocumentHost } from './product-host';
+import { assertProductDocumentOpen, captureProductReplacementPreparation, registerProductDocumentHost, type ProductReplacementPreparation } from './product-host';
 import { captureDocumentLocation, documentLocationId, documentLocationURL } from './document-location';
 
 /** Product state is independent of the display language. Translate only in UI. */
@@ -143,13 +143,22 @@ export class DocumentSession {
       return saved;
     } catch { if (!this.stopped) this.notify('save-error'); return false; }
   }
-  async beforeReplace() {
-    if (this.replacing || this.quarantined) return false;
-    // Flushing child input can legitimately change the host revision.
-    try { await this.options.beforeSnapshot?.(); }
+  private async prepareReplacement(preparation: ProductReplacementPreparation) {
+    if (this.stopped || this.replacing || this.quarantined) return false;
+    const id = this.id, epoch = this.navigationEpoch;
+    const owns = () => !this.stopped && this.id === id && this.navigationEpoch === epoch;
+    try {
+      if (!await preparation.prepare() || !owns() || this.replacing || this.quarantined || !preparation.isPrepared()) return false;
+      // Flushing child input can legitimately change the host revision.
+      await this.options.beforeSnapshot?.();
+    }
     catch { this.notify('save-error'); return false; }
+    if (!owns() || !preparation.isPrepared()) return false;
     const version = this.version;
-    return await this.flush() && !this.stopped && this.version === version;
+    return await this.flush() && owns() && this.version === version && preparation.isPrepared();
+  }
+  async beforeReplace() {
+    return this.prepareReplacement(captureProductReplacementPreparation());
   }
   async open(id: string, preserveCurrentOnFailure = false, ownsLocation: () => boolean = () => true): Promise<boolean> {
     const ticket = ++this.opening;
@@ -159,7 +168,11 @@ export class DocumentSession {
       this.notify('recovery-required');
       throw new Error('Reopen the current saved document before switching documents');
     }
-    if (!wasQuarantined && !await this.beforeReplace()) return false;
+    const preparation = captureProductReplacementPreparation();
+    if (wasQuarantined) {
+      // Recovery must not flush a partially replaced native model.
+      if (!await preparation.prepare() || this.stopped || !preparation.isPrepared()) return false;
+    } else if (!await this.prepareReplacement(preparation)) return false;
     this.notify('loading');
     const version = this.version;
     let snapshot;
@@ -168,6 +181,7 @@ export class DocumentSession {
     if (this.stopped || ticket !== this.opening || version !== this.version) return false;
     if (!ownsLocation()) { this.notify('restore-error'); return false; }
     if (!snapshot) { this.notify(wasQuarantined ? 'recovery-required' : preserveCurrentOnFailure ? this.settled : 'restore-error'); throw new Error('Missing document'); }
+    if (!preparation.isPrepared()) { this.notify(wasQuarantined ? 'recovery-required' : this.settled); return false; }
     this.replacing = true;
     let loadedText: string;
     try {
@@ -194,14 +208,16 @@ export class DocumentSession {
     return true;
   }
   async recover(row: LibraryRow) {
-    if (!await this.beforeReplace()) return false;
+    const preparation = captureProductReplacementPreparation();
+    if (!await this.prepareReplacement(preparation)) return false;
     const version = this.version;
     const snapshot = await this.options.drafts.read(row.name);
     if (!snapshot) throw new Error('Missing draft');
-    if (version !== this.version || this.stopped) return false;
+    if (version !== this.version || this.stopped || !preparation.isPrepared()) return false;
     const id = crypto.randomUUID();
     const entry: LibraryEntry = { name: id, title: `${row.title || '자료'} (복구)`, count: row.count };
     await this.options.documents.keep(entry, snapshot.text, { expectedRevision: null });
+    if (version !== this.version || this.stopped || !preparation.isPrepared()) return false;
     return this.open(id);
   }
   stop() {

@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickInsert } from './helpers';
 
 test('shared handles resize the slide shape and preserve undo', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+  await pickInsert(page, '사각형');
   const handle = page.locator('.sl-handles [data-handle="se"]');
   await expect(handle).toBeVisible();
   const sid = await page.evaluate(() => (window as any).editor.selection.nodeIds[0]);
@@ -35,7 +35,7 @@ test('shared handles resize the slide shape and preserve undo', async ({ page })
 
 test('tiny shape exposes a distinct resize target and restores its dimensions with undo', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+  await pickInsert(page, '사각형');
   const sid = await page.evaluate(async () => {
     const editor = (window as any).editor, sid = editor.selection.nodeIds[0];
     await editor.transaction([{ type: 'setAttrs', payload: { nodeId: sid, attrs: { width: 150, height: 150 } } }]).commit(); return sid;

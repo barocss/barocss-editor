@@ -1,3 +1,4 @@
+import { openWordDocumentMenu, setWordWholeTools } from './helpers';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -13,11 +14,11 @@ import type { Page } from '@playwright/test';
  * `menu-model.test.ts` holds what the model claims. What only a browser shows is that the entries do
  * what they say.
  */
-const bar = (page: Page) => page.locator('.w-menubar');
+const menu = (page: Page) => page.getByRole('menu', { name: '문서 메뉴', exact: true });
 
 const openWord = async (page: Page) => {
   await page.goto('/?sample');
-  await page.waitForSelector('.w-toolbar');
+  await expect(page.locator('.w-document-header')).toBeVisible();
   await page.waitForTimeout(600);
 };
 
@@ -44,18 +45,22 @@ const mod = async (page: import('@playwright/test').Page): Promise<string> =>
   });
 
 test.describe('the menubar', () => {
-  test('stands beside the ribbon rather than instead of it', async ({ page }) => {
+  test('keeps document commands in one header and selection tools available on demand', async ({ page }) => {
     await openWord(page);
 
-    // Both, because they answer different questions: a menubar holds what acts on the document and
-    // the application, a ribbon holds what acts on the selection.
-    await expect(bar(page).getByRole('menuitem', { name: '파일' })).toBeVisible();
+    const header = page.locator('.w-document-header');
+    await expect(header).toHaveCount(1);
+    expect((await header.boundingBox())!.height).toBe(48);
+    await expect(header.getByRole('menuitem', { name: '문서 메뉴', exact: true })).toBeVisible();
+    await expect(page.getByRole('group', { name: '전체 Word 도구', exact: true })).toBeHidden();
+    await setWordWholeTools(page);
     await expect(page.locator('[data-control="bold"]')).toBeVisible();
+    expect((await header.boundingBox())!.height).toBe(48);
   });
 
   test('teaches the shortcuts, which had nowhere to be read', async ({ page }) => {
     await openWord(page);
-    await bar(page).locator('[data-menu="edit"]').click();
+    await openWordDocumentMenu(page);
 
     const key = await mod(page);
     await expect(page.locator('[data-menu-item="edit.history.0"]')).toContainText(`${key}Z`);
@@ -66,7 +71,7 @@ test.describe('the menubar', () => {
     await openWord(page);
     await expect(page.locator('.w-find-panel')).toHaveCount(0);
 
-    await bar(page).locator('[data-menu="edit"]').click();
+    await openWordDocumentMenu(page);
     await page.locator('[data-menu-item="edit.find.0"]').click();
     await page.waitForTimeout(300);
 
@@ -79,7 +84,7 @@ test.describe('the menubar', () => {
     const outline = page.locator('.w-outline');
     await expect(outline).toHaveCount(0);
 
-    await bar(page).locator('[data-menu="view"]').click();
+    await openWordDocumentMenu(page);
     await page.locator('[data-menu-item="view.panes.0"]').click();
     await page.waitForTimeout(300);
 
@@ -89,26 +94,34 @@ test.describe('the menubar', () => {
      * not.
      */
     await expect(outline).toHaveCount(1);
-    await bar(page).locator('[data-menu="view"]').click();
+    await openWordDocumentMenu(page);
     await page.locator('[data-menu-item="view.panes.0"]').click();
     await expect(outline).toHaveCount(0);
   });
 
   test('greys what the document cannot do right now', async ({ page }) => {
     await openWord(page);
-    await bar(page).locator('[data-menu="edit"]').click();
+    await openWordDocumentMenu(page);
 
     // Nothing has been typed, so there is nothing to undo.
     await expect(page.locator('[data-menu-item="edit.history.0"]')).toBeDisabled();
   });
 
-  test('walks between menus with the arrows', async ({ page }) => {
+  test('walks the grouped document menu with arrows, Home, End and Escape', async ({ page }) => {
     await openWord(page);
-    await bar(page).locator('[data-menu="file"]').click();
+    const before = await page.evaluate(() => ({ document: window.editor.exportDocument(), history: window.editor.getHistoryStats() }));
+    const trigger = page.getByRole('menuitem', { name: '문서 메뉴', exact: true });
+    await trigger.focus(); await trigger.press('Enter');
     await expect(page.locator('[data-menu-item="file.print.0"]')).toBeVisible();
-
-    await page.keyboard.press('ArrowRight');
-    await page.waitForTimeout(200);
     await expect(page.locator('[data-menu-item="edit.history.0"]')).toBeVisible();
+    const items = menu(page).locator('[data-menu-item]:not(:disabled)');
+    await page.keyboard.press('Home'); await expect(items.first()).toBeFocused();
+    await page.keyboard.press('ArrowDown'); await expect(items.nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowUp'); await expect(items.first()).toBeFocused();
+    await page.keyboard.press('End'); await expect(items.last()).toBeFocused();
+    await page.keyboard.press('ArrowUp'); await expect(items.nth(await items.count() - 2)).toBeFocused();
+    await page.keyboard.press('Escape'); await expect(menu(page)).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: '문서 메뉴', exact: true })).toBeFocused();
+    expect(await page.evaluate(() => ({ document: window.editor.exportDocument(), history: window.editor.getHistoryStats() }))).toEqual(before);
   });
 });

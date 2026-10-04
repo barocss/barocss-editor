@@ -72,13 +72,13 @@
  * So the shell fills the viewport and does not scroll; the document scrolls
  * inside its own pane, and the chrome stays where the reader left it.
  */
-html,
-body,
-#root {
+html:not(:has(.office-auth)),
+body:not(:has(.office-auth)),
+#root:not(:has(.office-auth)) {
   height: 100%;
 }
 
-body {
+body:not(:has(.office-auth)) {
   margin: 0;
   background: var(--ou-ground);
   font-family: system-ui, sans-serif;
@@ -377,6 +377,7 @@ body {
 .w-business-pair summary { cursor: pointer; font-weight: 600; }
 .w-business-pair p { margin: 8px 0; overflow-wrap: anywhere; }
 .w-business-pair section { margin-block: 12px; }
+.w-business-pair button { max-width: 100%; min-height: 32px; height: auto; white-space: normal; overflow-wrap: anywhere; }
 
 .w-business-pair label { display: flex; align-items: center; gap: 8px; margin-block: 8px; }
 .w-business-pair select { min-height: 32px; min-width: 104px; padding: 4px 8px; border: 0; border-radius: var(--ou-radius, 7px); background: var(--ou-panel); color: inherit; font: inherit; }
