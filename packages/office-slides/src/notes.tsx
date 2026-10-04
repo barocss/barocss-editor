@@ -57,9 +57,10 @@ export interface NotesPaneProps {
   revision: number;
   onClose?: () => void;
   active?: boolean;
+  onInputDeliveryReady?: (deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
 }
 
-export function NotesPane({ editor, slideSid, revision, onClose, active = true }: NotesPaneProps) {
+export function NotesPane({ editor, slideSid, revision, onClose, active = true, onInputDeliveryReady }: NotesPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
   const drafts = useRef(new Map<string, NotesInputDraft>());
@@ -78,6 +79,30 @@ export function NotesPane({ editor, slideSid, revision, onClose, active = true }
     editor.on('editor:content.change', retire); editor.on('editor:editable.change', permission);
     return () => { currentIntent.current = {}; editor.off('editor:content.change', retire); editor.off('editor:editable.change', permission); };
   }, [editor]);
+  useEffect(() => {
+    if (!editor || !onInputDeliveryReady) return;
+    const root = editor.getRootId();
+    const store = editor.dataStore;
+    const documentEpoch = store.getDocumentEpoch();
+    let mounted = true;
+    const deliver = async (isCurrent: () => boolean) => {
+      const owns = () => mounted && !!host.current?.isConnected && isCurrent() &&
+        editor.getRootId() === root && editor.dataStore === store && store.getDocumentEpoch() === documentEpoch;
+      if (!owns()) return false;
+      // Include drafts retained for other slides; an inactive/unowned draft refuses navigation.
+      for (const held of drafts.current.values()) {
+        if (held.composing) return false;
+        if (held.deliverInput) {
+          if (!await held.deliverInput(owns) || !owns()) return false;
+        } else if (held.pending || held.text || held.error) return false;
+      }
+      if (view.current && (view.current.editor !== editor || !await view.current.deliverInput(owns) || !owns())) return false;
+      return owns();
+    };
+    onInputDeliveryReady(deliver);
+    return () => { mounted = false; onInputDeliveryReady(null); };
+  }, [editor, rootId, epoch, onInputDeliveryReady]);
+
   /**
    * Only the content, because notes are a document and not a selection: a caret
    * moving changes nothing here, and rebuilding on every keystroke of the *slide*

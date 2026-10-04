@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type Ref } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
@@ -167,6 +167,7 @@ export interface PropertiesProps {
   editor: Editor | null;
   /** Viewing preferences and tabs remain available; document controls are disabled. */
   readOnly?: boolean;
+  onInputDeliveryReady?: (deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
   slides: Slide[];
   current?: string;
   paintEdit?: number | null;
@@ -205,6 +206,7 @@ export function Properties({
   inspectorToolsRef,
   editor,
   readOnly = false,
+  onInputDeliveryReady,
   slides,
   current,
   /** Which fill's editor is open, so the overlay can draw its axis. */
@@ -521,6 +523,15 @@ export function Properties({
   const propertyContext = `${propertyRoot}:${current}:${targets.join(',')}:${unit}`;
   const commands = usePropertyCommand(editor, propertyContext);
   const { run } = commands;
+  const latestCommands = useRef(commands); latestCommands.current = commands;
+  const propertyDocumentEpoch = editor?.dataStore.getDocumentEpoch();
+  useEffect(() => {
+    if (!onInputDeliveryReady) return;
+    let mounted = true;
+    // The app must deliver/blur actual field drafts before asking for queue settlement.
+    onInputDeliveryReady(isCurrent => latestCommands.current.settle(() => mounted && isCurrent()));
+    return () => { mounted = false; onInputDeliveryReady(null); };
+  }, [onInputDeliveryReady, editor, propertyRoot, propertyContext, propertyDocumentEpoch]);
 
   const variableField = (attr: string, label: string, control: React.ReactNode) => {
     const binding = propertyBinding(editor, targets, attr);

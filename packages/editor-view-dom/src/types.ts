@@ -147,6 +147,8 @@ export interface IEditorViewDOM {
     custom: HTMLElement;
   };
   
+  captureInputOwner?(): () => boolean;
+
   // DOM event handling
   handleInput(event: InputEvent): void;
   handleKeydown(event: KeyboardEvent): void;

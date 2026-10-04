@@ -6,7 +6,7 @@ import { deleteOp, transaction } from '@barocss/model';
 import { deleteRangeOperations } from './range-delete';
 
 /** Inline objects have no text range. Block/canvas selections keep their own commands. */
-function hasSelectedInlineObjects(editor: Editor, payload?: { selection?: ModelSelection }): boolean {
+function hasSelectedInlineObjects(editor: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }): boolean {
   const selection = payload?.selection ?? editor.selection;
   if (selection?.type !== 'node' || !editor.isEditable) return false;
   const ids = selectedNodeIds(selection);
@@ -55,8 +55,8 @@ export class DeleteExtension implements Extension {
     // 1. Delete entire node
     editor.registerCommand({
       name: 'deleteNode',
-      execute: async (editor: any, payload: { nodeId: string }) => {
-        return await this._executeDeleteNode(editor, payload.nodeId);
+      execute: async (editor: any, payload: { nodeId: string; canApply?: () => boolean }) => {
+        return await this._executeDeleteNode(editor, payload.nodeId, payload?.canApply);
       },
       /**
        * A node that is **there**, and one the document has not said may not be removed.
@@ -80,8 +80,8 @@ export class DeleteExtension implements Extension {
     // 2. Cross-node text deletion
     editor.registerCommand({
       name: 'deleteCrossNode',
-      execute: async (editor: any, payload: { range: ModelSelection }) => {
-        return await this._executeDeleteCrossNode(editor, payload.range);
+      execute: async (editor: any, payload: { range: ModelSelection; canApply?: () => boolean }) => {
+        return await this._executeDeleteCrossNode(editor, payload.range, payload?.canApply);
       },
       canExecute: (_editor: any, payload?: any) => {
         return payload?.range != null && 
@@ -92,8 +92,8 @@ export class DeleteExtension implements Extension {
     // 3. Single node text deletion
     editor.registerCommand({
       name: 'deleteText',
-      execute: async (editor: any, payload: { range: ModelSelection }) => {
-        return await this._executeDeleteText(editor, payload.range);
+      execute: async (editor: any, payload: { range: ModelSelection; canApply?: () => boolean }) => {
+        return await this._executeDeleteText(editor, payload.range, payload?.canApply);
       },
       canExecute: (_editor: any, payload?: any) => {
         return payload?.range != null && 
@@ -105,7 +105,7 @@ export class DeleteExtension implements Extension {
     // Use selection from payload if available, otherwise use editor.selection
     editor.registerCommand({
       name: 'backspace',
-      execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
+      execute: async (editor: any, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         // Use selection from payload if available (explicitly passed)
         // Otherwise use editor.selection (default)
         const selection = payload?.selection || editor.selection;
@@ -113,9 +113,9 @@ export class DeleteExtension implements Extension {
           console.warn('[DeleteExtension] backspace: No selection available');
           return false;
         }
-        return await this._executeBackspace(editor, selection);
+        return await this._executeBackspace(editor, selection, payload?.canApply);
       },
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload) || hasSelectedInlineObjects(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => hasRange(ed, payload) || hasSelectedInlineObjects(ed, payload)
     });
 
     // 5. Word deletion (Option/Ctrl + Backspace or Delete)
@@ -125,37 +125,37 @@ export class DeleteExtension implements Extension {
     // job stops at reporting that the user asked to delete one.
     editor.registerCommand({
       name: 'deleteWordBackward',
-      execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
+      execute: async (editor: any, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         if (!selection) {
           console.warn('[DeleteExtension] deleteWordBackward: No selection available');
           return false;
         }
-        return await this._executeDeleteWord(editor, selection, 'backward');
+        return await this._executeDeleteWord(editor, selection, 'backward', payload?.canApply);
       },
       // A range, for the reason `backspace` above gives: a word is text between two points.
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => hasRange(ed, payload)
     });
 
     editor.registerCommand({
       name: 'deleteWordForward',
-      execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
+      execute: async (editor: any, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         if (!selection) {
           console.warn('[DeleteExtension] deleteWordForward: No selection available');
           return false;
         }
-        return await this._executeDeleteWord(editor, selection, 'forward');
+        return await this._executeDeleteWord(editor, selection, 'forward', payload?.canApply);
       },
       // A range, for the reason `backspace` above gives: a word is text between two points.
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => hasRange(ed, payload)
     });
 
     // 6. Delete key handling (Forward Delete, symmetric with Backspace)
     // Use selection from payload if available, otherwise use editor.selection
     editor.registerCommand({
       name: 'deleteForward',
-      execute: async (editor: any, payload?: { selection?: ModelSelection }) => {
+      execute: async (editor: any, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         // Use selection from payload if available (explicitly passed)
         // Otherwise use editor.selection (default)
         const selection = payload?.selection || editor.selection;
@@ -163,9 +163,9 @@ export class DeleteExtension implements Extension {
           console.warn('[DeleteExtension] deleteForward: No selection available');
           return false;
         }
-        return await this._executeDeleteForward(editor, selection);
+        return await this._executeDeleteForward(editor, selection, payload?.canApply);
       },
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload) || hasSelectedInlineObjects(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => hasRange(ed, payload) || hasSelectedInlineObjects(ed, payload)
     });
   }
 
@@ -180,7 +180,8 @@ export class DeleteExtension implements Extension {
    * @param nodeId Node ID to delete
    * @returns Success status
    */
-  private async _executeDeleteNode(editor: Editor, nodeId: string): Promise<boolean> {
+  private async _executeDeleteNode(editor: Editor, nodeId: string, canApply?: () => boolean): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     const operations: unknown[] = this._buildDeleteNodeOperations(nodeId);
 
     /**
@@ -212,7 +213,7 @@ export class DeleteExtension implements Extension {
       });
     }
 
-    const result = await transaction(editor, operations as never).commit();
+    const result = await transaction(editor, operations as never, { validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit();
     return result.success;
   }
 
@@ -223,14 +224,15 @@ export class DeleteExtension implements Extension {
    * @param range Range to delete (spans multiple nodes)
    * @returns Success status
    */
-  private async _executeDeleteCrossNode(editor: Editor, range: ModelSelection): Promise<boolean> {
+  private async _executeDeleteCrossNode(editor: Editor, range: ModelSelection, canApply?: () => boolean): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     /*
      * **The third copy.** This built a bare `deleteRange` — the runs and nothing else — where the
      * path a reader's Backspace takes now also joins the blocks. One of the three had the walk, one
      * had a bare range, and one deleted inside the start run; all three were spelled *delete between
      * two points*.
      */
-    const result = await transaction(editor, deleteRangeOperations(range, editor) as never).commit();
+    const result = await transaction(editor, deleteRangeOperations(range, editor) as never, { validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit();
     return result.success;
   }
 
@@ -241,9 +243,10 @@ export class DeleteExtension implements Extension {
    * @param range 삭제할 범위 (단일 노드 내)
    * @returns 성공 여부
    */
-  private async _executeDeleteText(editor: Editor, range: ModelSelection): Promise<boolean> {
+  private async _executeDeleteText(editor: Editor, range: ModelSelection, canApply?: () => boolean): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     const operations = this._buildDeleteTextOperations(range, editor);
-    const result = await transaction(editor, operations).commit();
+    const result = await transaction(editor, operations, { validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit();
     return result.success;
   }
 
@@ -293,11 +296,13 @@ export class DeleteExtension implements Extension {
   private async _executeDeleteWord(
     editor: Editor,
     selection: ModelSelection,
-    direction: 'backward' | 'forward'
+    direction: 'backward' | 'forward',
+    canApply?: () => boolean
   ): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     // A selection already says what to delete; the word boundary is irrelevant.
     if (!selection.collapsed) {
-      return await this._executeDeleteText(editor, selection);
+      return await this._executeDeleteText(editor, selection, canApply);
     }
 
     const dataStore = (editor as any).dataStore;
@@ -306,8 +311,8 @@ export class DeleteExtension implements Extension {
 
     if (text === null || text.length === 0) {
       return direction === 'backward'
-        ? await this._executeBackspace(editor, selection)
-        : await this._executeDeleteForward(editor, selection);
+        ? await this._executeBackspace(editor, selection, canApply)
+        : await this._executeDeleteForward(editor, selection, canApply);
     }
 
     const offset = selection.startOffset;
@@ -315,12 +320,12 @@ export class DeleteExtension implements Extension {
     let boundary = offset;
 
     if (direction === 'backward') {
-      if (offset === 0) return await this._executeBackspace(editor, selection);
+      if (offset === 0) return await this._executeBackspace(editor, selection, canApply);
       while (boundary > 0 && !isWordChar(text[boundary - 1])) boundary -= 1;
       while (boundary > 0 && isWordChar(text[boundary - 1])) boundary -= 1;
       if (boundary === offset) return false;
     } else {
-      if (offset >= text.length) return await this._executeDeleteForward(editor, selection);
+      if (offset >= text.length) return await this._executeDeleteForward(editor, selection, canApply);
       while (boundary < text.length && !isWordChar(text[boundary])) boundary += 1;
       while (boundary < text.length && isWordChar(text[boundary])) boundary += 1;
       if (boundary === offset) return false;
@@ -335,25 +340,26 @@ export class DeleteExtension implements Extension {
       endOffset: end,
       collapsed: false,
       direction: 'forward'
-    } as ModelSelection);
+    } as ModelSelection, canApply);
   }
 
-  private async _executeBackspace(editor: Editor, selection: ModelSelection): Promise<boolean> {
+  private async _executeBackspace(editor: Editor, selection: ModelSelection, canApply?: () => boolean): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     // 1. Whole nodes selected: remove all of them, not the span between the
     //    first and the last. A node selection is a set, and it can have holes.
     const selectedNodes = selectedNodeIds(selection);
     if (selectedNodes.length > 0) {
-      return await this._executeDeleteNodes(editor, selectedNodes);
+      return await this._executeDeleteNodes(editor, selectedNodes, canApply);
     }
 
     // 2. Handle Range Selection
     if (!selection.collapsed) {
-      return await this._executeDeleteText(editor, selection);
+      return await this._executeDeleteText(editor, selection, canApply);
     }
 
     // 2. Handle Offset 0
     if (selection.startOffset === 0) {
-      return await this._handleBackspaceAtOffsetZero(editor, selection);
+      return await this._handleBackspaceAtOffsetZero(editor, selection, canApply);
     }
 
     // 3. Delete one grapheme, keeping UTF-16 pairs and combining sequences intact.
@@ -369,7 +375,7 @@ export class DeleteExtension implements Extension {
       direction: 'forward'
     };
 
-    return await this._executeDeleteText(editor, deleteRange);
+    return await this._executeDeleteText(editor, deleteRange, canApply);
   }
 
   /**
@@ -384,9 +390,10 @@ export class DeleteExtension implements Extension {
    * @param selection Current Model Selection
    * @returns Success status
    */
-  private async _executeDeleteForward(editor: Editor, selection: ModelSelection): Promise<boolean> {
+  private async _executeDeleteForward(editor: Editor, selection: ModelSelection, canApply?: () => boolean): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     const selectedNodes = selectedNodeIds(selection);
-    if (selectedNodes.length) return await this._executeDeleteNodes(editor, selectedNodes);
+    if (selectedNodes.length) return await this._executeDeleteNodes(editor, selectedNodes, canApply);
     const dataStore = (editor as any).dataStore;
     if (!dataStore) {
       console.error('[DeleteExtension] dataStore not found');
@@ -395,7 +402,7 @@ export class DeleteExtension implements Extension {
 
     // 1. Handle Range Selection (same as Backspace)
     if (!selection.collapsed) {
-      return await this._executeDeleteText(editor, selection);
+      return await this._executeDeleteText(editor, selection, canApply);
     }
 
     const currentNode = dataStore.getNode(selection.startNodeId);
@@ -418,7 +425,7 @@ export class DeleteExtension implements Extension {
         collapsed: false,
         direction: 'forward'
       };
-      return await this._executeDeleteText(editor, deleteRange);
+      return await this._executeDeleteText(editor, deleteRange, canApply);
     }
 
     // 3. Delete at text end (Offset == text.length)
@@ -458,7 +465,7 @@ export class DeleteExtension implements Extension {
       }
 
       // Perform block merge (current block + next block)
-      return await this._executeMergeBlockNodes(editor, currentParent.sid!, nextParent.sid!);
+      return await this._executeMergeBlockNodes(editor, currentParent.sid!, nextParent.sid!, canApply);
     }
 
     // Case A′/B′/C′: Handle within the same parent
@@ -476,11 +483,11 @@ export class DeleteExtension implements Extension {
           collapsed: false,
           direction: 'forward'
         };
-        return await this._executeDeleteText(editor, deleteRange);
+        return await this._executeDeleteText(editor, deleteRange, canApply);
       } else {
         // Case B′: Merge empty text nodes
         if (typeof currentNode.text === 'string') {
-          return await this._executeMergeTextNodes(editor, selection.startNodeId, nextEditableNodeId);
+          return await this._executeMergeTextNodes(editor, selection.startNodeId, nextEditableNodeId, canApply);
         }
 
         console.warn('[DeleteExtension] _executeDeleteForward: Cannot merge non-text nodes', {
@@ -491,7 +498,7 @@ export class DeleteExtension implements Extension {
       }
     } else {
       // Case C′: Delete entire next node (no .text field)
-      return await this._executeDeleteNode(editor, nextEditableNodeId);
+      return await this._executeDeleteNode(editor, nextEditableNodeId, canApply);
     }
   }
 
@@ -511,8 +518,10 @@ export class DeleteExtension implements Extension {
    */
   private async _handleBackspaceAtOffsetZero(
     editor: Editor,
-    selection: ModelSelection
+    selection: ModelSelection,
+    canApply?: () => boolean
   ): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     const dataStore = (editor as any).dataStore;
     if (!dataStore) {
       console.error('[DeleteExtension] dataStore not found');
@@ -596,7 +605,7 @@ export class DeleteExtension implements Extension {
             anchor: { nodeId: selection.startNodeId, offset: 0 },
             head: { nodeId: selection.startNodeId, offset: 0 }
           } }
-        ], { applySelectionToView: true }).commit()).success;
+        ], { applySelectionToView: true, validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit()).success;
       }
 
       // Check if blocks are of the same type
@@ -610,7 +619,7 @@ export class DeleteExtension implements Extension {
 
       // Where the caret lands is decided by the operation, which is the only
       // place that sees the junction before the two blocks become one.
-      return await this._executeMergeBlockNodes(editor, prevParent.sid!, currentParent.sid!);
+      return await this._executeMergeBlockNodes(editor, prevParent.sid!, currentParent.sid!, canApply);
     }
 
     // Handle cases A, B, C (within the same parent)
@@ -629,12 +638,12 @@ export class DeleteExtension implements Extension {
           collapsed: false,
           direction: 'forward'
         };
-        return await this._executeDeleteText(editor, deleteRange);
+        return await this._executeDeleteText(editor, deleteRange, canApply);
       } else {
         // Case B: Merge empty nodes
         // Check if both are text nodes (.text field exists means text node)
         if (currentNode.text !== undefined && typeof currentNode.text === 'string') {
-          return await this._executeMergeTextNodes(editor, prevEditableNodeId, selection.startNodeId);
+          return await this._executeMergeTextNodes(editor, prevEditableNodeId, selection.startNodeId, canApply);
         } else {
           // Do not merge if not text nodes
           console.warn('[DeleteExtension] _handleBackspaceAtOffsetZero: Cannot merge non-text nodes', {
@@ -646,7 +655,7 @@ export class DeleteExtension implements Extension {
       }
     } else {
       // Case C: Delete entire previous node (no .text field)
-      return await this._executeDeleteNode(editor, prevEditableNodeId);
+      return await this._executeDeleteNode(editor, prevEditableNodeId, canApply);
     }
   }
 
@@ -665,7 +674,8 @@ export class DeleteExtension implements Extension {
    * and a document that is briefly missing two of three selected shapes is a
    * state no reader should be able to observe.
    */
-  private async _executeDeleteNodes(editor: Editor, nodeIds: string[]): Promise<boolean> {
+  private async _executeDeleteNodes(editor: Editor, nodeIds: string[], canApply?: () => boolean): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     const operations: unknown[] = nodeIds.map((nodeId) => deleteOp(nodeId));
     if (hasSelectedInlineObjects(editor)) {
       const store = editor.dataStore;
@@ -684,22 +694,24 @@ export class DeleteExtension implements Extension {
       }
       if (caret) operations.push({ type: 'setSelection', payload: { anchor: { nodeId: caret, offset }, head: { nodeId: caret, offset } } });
     }
-    const result = await transaction(editor, operations as never, { applySelectionToView: true }).commit();
+    const result = await transaction(editor, operations as never, { applySelectionToView: true, validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit();
     return result.success;
   }
 
   private async _executeMergeTextNodes(
     editor: Editor,
     leftNodeId: string,
-    rightNodeId: string
+    rightNodeId: string,
+    canApply?: () => boolean
   ): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     const operations = [
       {
         type: 'mergeTextNodes',
         payload: { leftNodeId, rightNodeId }
       }
     ];
-    const result = await transaction(editor, operations).commit();
+    const result = await transaction(editor, operations, { validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit();
     return result.success;
   }
 
@@ -714,15 +726,17 @@ export class DeleteExtension implements Extension {
   private async _executeMergeBlockNodes(
     editor: Editor,
     leftBlockId: string,
-    rightBlockId: string
+    rightBlockId: string,
+    canApply?: () => boolean
   ): Promise<boolean> {
+    if (canApply && !canApply()) return false;
     const operations = [
       {
         type: 'mergeBlockNodes',
         payload: { leftNodeId: leftBlockId, rightNodeId: rightBlockId }
       }
     ];
-    const result = await transaction(editor, operations).commit();
+    const result = await transaction(editor, operations, { validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit();
     return result.success;
   }
 }

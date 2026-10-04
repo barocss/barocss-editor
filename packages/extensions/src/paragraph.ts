@@ -61,8 +61,8 @@ export class ParagraphExtension implements Extension {
     // Enter key: insertParagraph (Model-first, transaction-based)
     (editor as any).registerCommand({
       name: 'insertParagraph',
-      execute: async (ed: Editor, payload?: { selection?: ModelSelection }) => {
-        return await this._executeInsertParagraph(ed, payload?.selection ?? (ed as { selection?: ModelSelection }).selection);
+      execute: async (ed: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
+        return await this._executeInsertParagraph(ed, payload?.selection ?? (ed as { selection?: ModelSelection }).selection, payload?.canApply);
       },
       /*
        * The **editor's** selection when the caller did not pass one — which the `execute` beside this
@@ -71,7 +71,7 @@ export class ParagraphExtension implements Extension {
        * every render. Ten commands were in this state and the conformance run counted them all as
        * unaskable; see `heading.ts` for the note.
        */
-      canExecute: (ed: Editor, payload?: { selection?: ModelSelection }) => hasRange(ed, payload)
+      canExecute: (ed: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => hasRange(ed, payload)
     });
 
     // Keyboard shortcut registration is not yet directly handled by ParagraphExtension.
@@ -149,9 +149,10 @@ export class ParagraphExtension implements Extension {
    */
   private async _executeInsertParagraph(
     editor: Editor,
-    selection?: ModelSelection
+    selection?: ModelSelection,
+    canApply?: () => boolean
   ): Promise<boolean> {
-    if (!selection || selection.type !== 'range') {
+    if (canApply && !canApply() || !selection || selection.type !== 'range') {
       return false;
     }
 
@@ -162,7 +163,7 @@ export class ParagraphExtension implements Extension {
 
     // Use the visible caret supplied by keydown after block-only undo.
     editor.selectionManager.setSelection(selection);
-    const result = await transaction(editor, ops, { applySelectionToView: true }).commit();
+    const result = await transaction(editor, ops, { applySelectionToView: true, validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined }).commit();
     return result.success;
   }
 
