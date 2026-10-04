@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, setPanel, pickInsert } from './helpers';
 
 test('multi-selection size retries the original converted value and preserves lock rules', async ({ page }) => {
   await openDeck(page);
+    await setPanel(page, 'properties', true);
   const ids: string[] = [];
   for (let i = 0; i < 2; i++) {
-    await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await pickInsert(page, '사각형');
     ids.push(await page.evaluate(() => (window as any).editor.selection.nodeIds[0]));
   }
   await page.evaluate(async ids => { await (window as any).editor.executeCommand('setNode', { nodeIds: ids }); }, ids);
@@ -56,9 +57,10 @@ test('multi-selection size retries the original converted value and preserves lo
 
 test('changing selection during a pending property edit isolates feedback and the next write', async ({ page }) => {
   await openDeck(page);
+    await setPanel(page, 'properties', true);
   const ids: string[] = [];
   for (let i = 0; i < 2; i++) {
-    await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await pickInsert(page, '사각형');
     ids.push(await page.evaluate(() => (window as any).editor.selection.nodeIds[0]));
   }
   await page.evaluate(async id => (window as any).editor.executeCommand('setNode', { nodeIds: [id] }), ids[0]);

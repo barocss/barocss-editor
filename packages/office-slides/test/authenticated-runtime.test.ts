@@ -6,6 +6,106 @@ import { assertSlidesNativeDocument, createSlidesRuntime } from '../../../apps/s
 const native = (value: unknown) => JSON.parse(deckFileText(value, '')).document;
 
 describe('authenticated Slides runtime', () => {
+  it('exports actual selected-object formatting without changing native selection or history', async () => {
+    type Node = { stype: string; attributes?: Record<string, unknown>; text?: string;
+      marks?: Array<{ stype: string; range: number[]; attrs?: Record<string, unknown> }>; content?: Node[] };
+    const document = native(createSampleDeck()) as Node;
+    const expected = structuredClone(document);
+    const title = (node: Node): Node | undefined => node.stype === 'textFrame' && node.attributes?.role === 'title'
+      ? node : node.content?.map(title).find(Boolean);
+    const frame = title(expected), paragraph = frame?.content?.[0], text = paragraph?.content?.[0];
+    if (!paragraph || !text?.text) throw new Error('Missing selected text fixture');
+    paragraph.attributes = { ...paragraph.attributes, bold: false };
+    text.marks = ['italic', 'underline', 'strikethrough'].map(stype => ({ stype, range: [0, text.text!.length] }));
+    text.marks.push({ stype: 'fontFamily', range: [0, text.text.length], attrs: { family: 'Georgia' } },
+      { stype: 'fontSize', range: [0, text.text.length], attrs: { size: 36 } });
+    const runtime = createSlidesRuntime(window.document.createElement('div'), { initialDocument: document, editable: true });
+    try {
+      const selected = [...runtime.editor.dataStore.getNodes().values()].find(node => node.stype === 'textFrame' && node.attributes?.role === 'title');
+      if (!selected?.sid) throw new Error('Missing selected native object');
+      runtime.editor.setNode({ nodeIds: [selected.sid] });
+      const selection = structuredClone(runtime.editor.selection), original = runtime.exportNativeDocument();
+      for (const mark of ['bold', 'italic', 'underline', 'strikethrough']) {
+        expect(await runtime.editor.executeCommand('toggleSelectedObjectTextMark', { mark })).toBe(true);
+      }
+      for (const [mark, value] of [['fontFamily', 'Georgia'], ['fontSize', '36']]) {
+        expect(await runtime.editor.executeCommand('setSelectedObjectTextFormat', { mark, value })).toBe(true);
+      }
+      expect(await runtime.settleCommands(() => true)).toBe(true);
+      const italic = [...runtime.editor.dataStore.getNodes().values()].flatMap(node => node.marks ?? []).find(mark => mark.stype === 'italic');
+      expect(!!italic && Object.hasOwn(italic, 'attrs') && italic.attrs === undefined).toBe(true);
+      const history = runtime.editor.getHistoryStats();
+      expect(runtime.exportNativeDocument()).toStrictEqual(expected);
+      expect(Object.hasOwn(italic!, 'attrs') && italic!.attrs === undefined).toBe(true);
+      expect(runtime.editor.selection).toStrictEqual(selection);
+      expect(runtime.editor.getHistoryStats()).toStrictEqual(history);
+      for (let index = 0; index < 6; index++) expect(await runtime.editor.undo()).toBe(true);
+      expect(runtime.exportNativeDocument()).toStrictEqual(original);
+      expect(runtime.editor.selection).toStrictEqual(selection);
+      for (let index = 0; index < 6; index++) expect(await runtime.editor.redo()).toBe(true);
+      expect(runtime.exportNativeDocument()).toStrictEqual(expected);
+      expect(runtime.editor.selection).toStrictEqual(selection);
+      expect(runtime.editor.getHistoryStats()).toStrictEqual(history);
+    } finally { runtime.dispose(); }
+  });
+
+  it('retains defined mark attrs and rejects undefined outside the optional exported attrs field', async () => {
+    const document = native(createSampleDeck());
+    const runtime = createSlidesRuntime(window.document.createElement('div'), { initialDocument: document, editable: true });
+    try {
+      const original = runtime.exportNativeDocument(), history = runtime.editor.getHistoryStats();
+      const withMark = (attrs: unknown, extra?: Record<string, unknown>) => {
+        const candidate = structuredClone(document);
+        const visit = (node: { text?: string; marks?: unknown[]; content?: unknown[] }): boolean => {
+          if (typeof node.text === 'string' && node.text.length) {
+            node.marks = [{ stype: 'italic', range: [0, node.text.length], attrs, ...extra }]; return true;
+          }
+          return !!node.content?.some(child => visit(child as typeof node));
+        };
+        if (!visit(candidate)) throw new Error('Missing portable mark fixture');
+        return candidate;
+      };
+      for (const candidate of [withMark(undefined), withMark({}, { unexpected: undefined }),
+        withMark({ unexpected: undefined }), { ...document, metadata: { resource: [undefined] } }]) {
+        expect(() => runtime.loadNativeDocument(candidate)).toThrow();
+        expect(runtime.exportNativeDocument()).toStrictEqual(original);
+        expect(runtime.editor.getHistoryStats()).toStrictEqual(history);
+      }
+      for (const attrs of [{}, { retained: 'native' }]) {
+        const candidate = withMark(attrs);
+        runtime.loadNativeDocument(candidate);
+        expect(runtime.exportNativeDocument()).toStrictEqual(candidate);
+      }
+      const findRun = (node: { sid?: string; marks?: unknown[]; content?: unknown[] }): string | undefined =>
+        node.marks?.length ? node.sid : node.content?.map(child => findRun(child as typeof node)).find(Boolean);
+      const id = findRun(runtime.editor.exportDocument());
+      const run = id && runtime.editor.dataStore.getNode(id);
+      if (!run || !run.marks?.[0]) throw new Error('Missing current loaded native mark');
+      const valid = run.marks[0];
+      const invalidMarks = [
+        { ...valid, attrs: undefined, unexpected: undefined },
+        { ...valid, attrs: undefined, range: [undefined, 1] },
+        Object.assign(Object.create({ inherited: true }), valid, { attrs: undefined }),
+        Object.defineProperty({ ...valid, attrs: undefined }, 'hidden', { value: true }),
+        Object.assign({ ...valid, attrs: undefined }, { [Symbol('invalid')]: true }),
+      ];
+      for (const mark of invalidMarks) {
+        run.marks = [mark];
+        expect(() => runtime.exportNativeDocument()).toThrow();
+      }
+      for (const marks of [
+        Object.assign([valid], { unexpected: undefined }),
+        Object.assign([valid], { [Symbol('invalid')]: true }),
+        Object.defineProperty([valid], 'hidden', { value: true }),
+        Object.defineProperty([valid], '0', { get: () => valid }),
+      ]) {
+        run.marks = marks;
+        expect(() => runtime.exportNativeDocument()).toThrow();
+      }
+      run.marks = [valid];
+    } finally { runtime.dispose(); }
+  });
+
   it('preserves native metadata, durable references and order across editor load and export', () => {
     const document = native(createSampleDeck());
     document.metadata = { loadedAt: 'original-native-date', author: 'synthetic-owner' };

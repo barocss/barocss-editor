@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickInsert, setPanel } from './helpers';
 
 test('colour notation switches without editing, channels preserve alpha and undo, including neutral hue', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   const id = await page.evaluate(async () => {
     const editor = (window as any).editor, id = editor.selection.nodeIds[0];
     await editor.executeCommand('setBoxStyle', { nodeIds: [id], fills: [{ kind: 'solid', color: 'rgba(255, 0, 0, 0.4)' }] });

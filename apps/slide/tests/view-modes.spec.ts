@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openDeck, openFilmstrip, currentSlide, pickMenu } from './helpers';
+import { openDeck, openFilmstrip, currentSlide, pickMenu, editingTools } from './helpers';
 
 const mode = (page: Page, multi: boolean) => page.getByRole('button', { name: multi ? '멀티 슬라이드 보기' : '슬라이드 보기', exact: true });
 const state = (page: Page) => page.evaluate(() => ({ document: (window as any).editor.exportDocument(), history: (window as any).editor.getHistoryStats() }));
@@ -24,7 +24,7 @@ for (const theme of ['light', 'dark']) test(`single/multi icons preserve the dec
   await expect(page.locator('.sl-stage')).toBeVisible();
   await expect(page.locator('.sl-stage-owner')).not.toHaveAttribute('inert','');
   await expect(page.locator('.sl-overlay')).toBeVisible();
-  await expect(page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true})).toBeVisible();
+  await expect(editingTools(page)).toBeVisible();
   expect(await geometry(page)).toEqual(bounds);
   expect(await state(page)).toEqual(before); expect(await currentSlide(page)).toBe(current);
   const button=await mode(page,true).boundingBox(), main=await page.locator('.sl-main').boundingBox();
@@ -73,7 +73,7 @@ test('view controls keep map navigation, canvas and icon presentation available'
   const before=await state(page), selection=await page.evaluate(()=>(window as any).editor.selection);
   await pickMenu(page,'view.panes.1');
   await expect(page.locator('[data-slides-formatting]')).toHaveCount(0);
-  await expect(page.getByRole('toolbar',{name:'Slides 삽입 도구',exact:true})).toHaveCount(0);
+  await expect(editingTools(page)).toHaveCount(0);
   expect(await state(page)).toEqual(before);
   expect(await page.evaluate(()=>(window as any).editor.selection)).toEqual(selection);
   await mode(page,false).click(); await expect(page.locator('.sl-overlay')).toBeVisible();

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createStarterDeck, deckFileName, deckTitle } from '@barocss/office-slides';
 import { slideDocuments } from '../../../packages/office-slides/src/deck-autosave';
 import { Button, useOfficeLocale } from '@barocss/office-ui';
-import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
+import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { App } from './app';
 import './style.css';
 import { assertSlidesNativeDocument, mountSlidesRuntime, type SlidesRuntime } from './runtime';
@@ -17,6 +17,8 @@ export interface ServerSlidesWorkspaceProps {
   onNavigate?: (documentId: string) => void;
   onUnsafeChange?: (unsafe: boolean) => void;
   headerNavigation?: ReactNode;
+  hostSlot?: NativeHostSlot;
+  onNativeFailure?: (message: string) => void;
 }
 type Open = { owner: object; generation: string; documentRef: string; documentId: string | null;
   head: ServerSlidesHead | null; initial: SlidesDocument; text: string; confirmed: string | null };
@@ -36,7 +38,7 @@ function documentOf(text: string) {
 
 /** Full native Slides runtime, with authenticated snapshot authority and scoped recovery. */
 export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, initialDocumentId,
-  authorizedFetch, role, onNavigate, onUnsafeChange, headerNavigation }: ServerSlidesWorkspaceProps) {
+  authorizedFetch, role, onNavigate, onUnsafeChange, headerNavigation, hostSlot, onNativeFailure }: ServerSlidesWorkspaceProps) {
   const client = useMemo(() => createServerSlidesClient({ tenantId, workspaceId, authorizedFetch }), [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const store = useMemo(() => createServerPendingStore({ tenantId, workspaceId, issuer, subject }), [tenantId, workspaceId, issuer, subject]);
   const active = useRef(client); active.current = client;
@@ -88,6 +90,9 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
   const nestedRef = useRef(false);
   const [, refresh] = useState(0);
   const [sources, setSources] = useState<{ name: string; title?: string }[]>();
+  useEffect(() => {
+    if (hostSlot && !isNativeHostSlotActive(hostSlot) && problem) onNativeFailure?.(problem.message);
+  }, [hostSlot, problem, onNativeFailure]);
   const [sourceError, setSourceError] = useState('');
   const [copied, setCopied] = useState<string>();
   const shell = useRef<HTMLDivElement>(null);
@@ -213,8 +218,8 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
       callbacks.current.onUnsafeChange?.(pending || !protectedRef.current);
     });
     if (shell.current) observer.observe(shell.current, { childList: true, subtree: true });
-    const unload = (event: BeforeUnloadEvent) => { capture(); if (!protectedRef.current || nestedRef.current) { event.preventDefault(); event.returnValue = ''; } };
-    const hide = () => { capture(); };
+    const unload = (event: BeforeUnloadEvent) => { if (hostSlot && !isNativeHostSlotActive(hostSlot)) return; capture(); if (!protectedRef.current || nestedRef.current) { event.preventDefault(); event.returnValue = ''; } };
+    const hide = () => { if (!hostSlot || isNativeHostSlotActive(hostSlot)) capture(); };
     window.addEventListener('beforeunload', unload); window.addEventListener('pagehide', hide);
     return () => { observer.disconnect(); window.removeEventListener('beforeunload', unload); window.removeEventListener('pagehide', hide); };
   }, [capture]);
@@ -341,18 +346,60 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
       return confirmed !== null && stableSlidesSnapshotText(serverSlidesFileText(live.value.exportNativeDocument(), '')) === stableSlidesSnapshotText(confirmed);
     } catch { return false; }
   };
+  const beforeAccountExit = useRef<(isCurrent?: () => boolean) => Promise<boolean>>(async () => false);
+  beforeAccountExit.current = async (intentCurrent = () => true) => {
+    const one = currentRef.current, live = runtime.current, registered = nativeHost.current;
+    const delivery = inputDelivery.current, capturedRole = roleOwner.current;
+    const sourceEpoch = nativeEpoch.current;
+    const inFlight = savePending.current, retainedFixed = fixed.current;
+    if (!one || one.owner !== client || !live || !registered || live.generation !== one.generation ||
+      nestedRef.current || !protectedRef.current || problemRef.current?.kind === 'denied' || (busyRef.current && !inFlight)) return false;
+    if (!delivery || delivery.value !== live.value) return false;
+    const root = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
+    const owns = () => intentCurrent() && active.current === client && productDocumentHost(hostSlot) === registered &&
+      currentRef.current?.generation === one.generation && currentRef.current.documentRef === one.documentRef &&
+      currentRef.current.documentId === one.documentId && runtime.current === live &&
+      nativeEpoch.current === sourceEpoch && roleOwner.current === capturedRole && inputDelivery.current === delivery &&
+      live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch &&
+      problemRef.current?.kind !== 'denied';
+    try {
+      if (!owns() || !await delivery.deliver(owns) || !owns()) return false;
+      if (!owns() || nestedRef.current || !protectedRef.current) return false;
+      // Account exit may settle an entered request. It must not retry or publish one.
+      if (inFlight) await inFlight;
+      if (!owns() || busyRef.current || (savePending.current && savePending.current !== inFlight)) return false;
+      if (!await delivery.deliver(owns) || !owns()) return false;
+      if (!owns() || nestedRef.current || !protectedRef.current) return false;
+      const text = capture(), latest = currentRef.current;
+      if (!text || !latest || !owns() || !protectedRef.current) return false;
+      const durable = store.list();
+      const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
+      const fixedRecord = (value: Fixed) => durable.some(record => record.draftId === value.record.draftId &&
+        record.scope.documentRef === value.record.scope.documentRef && record.status !== 'draft' &&
+        record.snapshotText === value.attempt.snapshotText && same(record.attempt, value.attempt) &&
+        same(record.base, value.record.base) && same(record.source, value.record.source));
+      // A confirmed in-flight request keeps its original lineage; later edits need their own draft.
+      if ((retainedFixed && !fixedRecord(retainedFixed)) || (fixed.current && !fixedRecord(fixed.current))) return false;
+      const confirmed = latest.confirmed !== null && stableSlidesSnapshotText(text) === stableSlidesSnapshotText(latest.confirmed);
+      const protectedLatest = durable.some(record => record.scope.documentRef === latest.documentRef &&
+        record.snapshotText === text && same(record.base, baseOf(latest)) &&
+        (record.status === 'draft' || !!fixed.current && record.draftId === fixed.current.record.draftId));
+      return owns() && !nestedRef.current && protectedRef.current && (confirmed || protectedLatest) &&
+        stableSlidesSnapshotText(serverSlidesFileText(live.value.exportNativeDocument(), '')) === stableSlidesSnapshotText(text);
+    } catch { return false; }
+  };
   requestOpen.current = async (documentId, intentCurrent = () => true, parentCurrent = () => true) => {
     const one = currentRef.current, live = runtime.current, delivery = inputDelivery.current, registered = nativeHost.current, capturedRole = roleOwner.current;
     if (one && (!one.documentId || !live || !delivery || !registered || live.generation !== one.generation)) return false;
     const root = live?.value.editor.getRootId(), epoch = live?.value.editor.dataStore.getDocumentEpoch(), sourceEpoch = nativeEpoch.current;
     let preparedText: string | undefined;
-    const owns = () => { try { return intentCurrent() && parentCurrent() && active.current === client && (!registered || productDocumentHost() === registered) && nativeEpoch.current === sourceEpoch &&
+    const owns = () => { try { return intentCurrent() && parentCurrent() && active.current === client && (!registered || productDocumentHost(hostSlot) === registered) && nativeEpoch.current === sourceEpoch &&
       currentRef.current?.generation === one?.generation && runtime.current === live && inputDelivery.current === delivery && roleOwner.current === capturedRole &&
       (!live || (live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch)) && problemRef.current?.kind !== 'denied' &&
       (!preparedText || (!nestedRef.current && protectedRef.current && !fixed.current &&
         stableSlidesSnapshotText(serverSlidesFileText(live!.value.exportNativeDocument(), '')) === preparedText)); } catch { return false; } };
     if (!owns()) return false;
-    if (documentId === one?.documentId) { const guard = captureProductNavigation(); return guard?.isCurrent() ? guard : false; }
+    if (documentId === one?.documentId) { const guard = captureProductNavigation(hostSlot); return guard?.isCurrent() ? guard : false; }
     if (openPending.current?.isCurrent() || transition.current?.owns() || busyRef.current) return false;
     const lease = { isCurrent: owns }; openPending.current = lease;
     try {
@@ -384,19 +431,20 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
     if (!one || !live || !delivery || live.generation !== readyGeneration || delivery.value !== live.value) return;
     const host: ProductDocumentHost = { product: 'slides', id: () => active.current === client ? currentRef.current?.documentId ?? '' : '',
       identityEpoch: () => nativeEpoch.current + roleOwner.current.epoch,
-      beforeNavigate: () => beforeNavigate.current(), requestOpen: (id, isCurrent, parentCurrent) => requestOpen.current(id, isCurrent, parentCurrent) };
+      beforeNavigate: () => beforeNavigate.current(),
+      beforeAccountExit: () => active.current === client ? beforeAccountExit.current() : Promise.resolve(false), requestOpen: (id, isCurrent, parentCurrent) => requestOpen.current(id, isCurrent, parentCurrent) };
     nativeHost.current = host;
-    const unregister = registerProductDocumentHost(host);
+    const unregister = registerProductDocumentHost(host, hostSlot);
     const installed = opening.current;
     if (installed?.owner === client && installed.generation === one.generation) {
       opening.current = undefined;
-      const guard = captureProductNavigation();
+      const guard = captureProductNavigation(hostSlot);
       if (installed.role === roleOwner.current && installed.parentCurrent() && guard?.id === installed.documentId && guard.isCurrent()) {
         callbacks.current.onNavigate?.(installed.documentId); installed.resolve(guard);
       } else installed.resolve(false);
     }
     return () => { unregister(); if (nativeHost.current === host) nativeHost.current = undefined; };
-  }, [client, readyGeneration]);
+  }, [client, readyGeneration, hostSlot]);
   useEffect(() => {
     const capturedRole = roleOwner.current;
     return () => { const pending = opening.current;
@@ -449,7 +497,7 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => void openLatest()}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Slides 자료를 확인하는 중입니다.</p>}
-    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} localPersistence={false} server={{ headerActions: actions, headerNavigation, navigation,
+    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} localPersistence={false} server={{ headerActions: actions, headerNavigation, active: !hostSlot || isNativeHostSlotActive(hostSlot), isActive: () => !hostSlot || isNativeHostSlotActive(hostSlot), navigation,
       readOnly: !canEdit || busy || !!(draft.current?.source && draft.current.status !== 'confirmed'), onRuntime, onInputDeliveryReady,
       nativeExport: { available: !!current && !nestedInput, run: () => void exportNative() },
       onFileAction: action => { if (action === 'save') void save(); else if (action === 'new') void prepare(serverSlidesFileText(createStarterDeck(), '')); else shell.current?.querySelector('aside')?.scrollIntoView(); } }} />}

@@ -1,3 +1,4 @@
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { placeCaret } from './helpers';
 
@@ -5,14 +6,14 @@ async function prepare(page: Page) {
   await page.goto('/');
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
   await placeCaret(page, '.w-paragraph');
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.getByRole('button', { name: '본문 수식', exact: true }).click();
   await page.locator('.w-math-draft .me-input').fill('x+2');
   await page.locator('.w-math-draft .me-input').press('Enter');
   await expect(page.locator('.w-math-draft')).toHaveCount(0);
   await page.keyboard.type(' after');
-  await page.getByRole('tab', { name: '홈', exact: true }).click();
+  await setWordWholeTools(page, false);
 }
 
 test('caret toolbar opens inline editing and stays hidden while editing and after commit', async ({ page }) => {

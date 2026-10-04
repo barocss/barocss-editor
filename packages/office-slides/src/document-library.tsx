@@ -21,12 +21,13 @@ export function useSlidePersistence(editor: Editor | null, enabled = true, befor
   return { session, status, beforeReplace };
 }
 
-export function SlideDocuments({ persistence, onOpened, iconOnly = false, showTrigger = true, ref }: {
+export function SlideDocuments({ persistence, onOpened, iconOnly = false, showTrigger = true, onBusyChange, ref }: {
   persistence: ReturnType<typeof useSlidePersistence>;
   onOpened: () => void;
   iconOnly?: boolean;
   showTrigger?: boolean;
+  onBusyChange?: (busy: boolean) => void;
   ref?: Ref<LocalDocumentActions>;
 }) {
-  return <LocalDocuments persistence={persistence} title="최근 발표 자료" prefix="slide" onOpened={onOpened} iconOnly={iconOnly} showTrigger={showTrigger} ref={ref} />;
+  return <LocalDocuments persistence={persistence} title="최근 발표 자료" prefix="slide" onOpened={onOpened} iconOnly={iconOnly} showTrigger={showTrigger} onBusyChange={onBusyChange} ref={ref} />;
 }

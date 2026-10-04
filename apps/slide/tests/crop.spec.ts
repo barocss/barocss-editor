@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, attr } from './helpers';
+import { openDeck, attr, pickInsert, setPanel } from './helpers';
 
 /**
  * Cropping a picture.
@@ -157,7 +157,8 @@ test.describe('cropping a picture', () => {
     expect(Number(await attr(page, sid, 'cropLeft'))).toBeGreaterThan(0);
 
     await page.evaluate((id) => (window as any).editor.executeCommand('setNode', { nodeIds: [id] }), sid);
-    await page.locator('.sl-properties').getByLabel('자르기 원래대로').click();
+    await setPanel(page, 'properties', true);
+    await page.locator('.sl-properties').getByLabel('자르기 원래대로', { exact: true }).click();
     await page.waitForTimeout(400);
 
     expect(Number(await attr(page, sid, 'cropLeft') ?? 0)).toBe(0);
@@ -169,7 +170,7 @@ test.describe('cropping a picture', () => {
   /** A shape has no source to show part of; the mode is a picture's alone. */
   test('is not entered by double-clicking a shape', async ({ page }) => {
     await openDeck(page);
-    await page.getByRole('button', { name: '사각형' }).click();
+    await pickInsert(page, '사각형');
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
       .not.toBeNull();

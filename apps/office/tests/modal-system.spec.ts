@@ -1,3 +1,5 @@
+import { nativeEditor } from './helpers/native-editor';
+import { openLocalLibrary } from './helpers/local-library';
 import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 const output = '../../.dev/artifacts/design-system';
@@ -83,11 +85,15 @@ test('modal chrome shares both themes and ignores composition Escape', async ({ 
 
 test('Slides theme editing closes its colour picker before cancelling the dialog', async ({ page }) => {
   await page.goto('/');
+  await openLocalLibrary(page);
   await page.getByRole('button', { name: 'Slides 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('테마 창 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
-  await page.locator('.sl-properties [data-theme-edit]').click();
-  const dialog = page.getByRole('dialog', { name: '테마 색', exact: true });
+  const ui = nativeEditor(page);
+  await ui.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await ui.getByRole('menuitemcheckbox', { name: '속성 · 크기, 위치, 모양', exact: true }).click();
+  await ui.locator('.sl-properties [data-theme-edit]').click();
+  const dialog = ui.getByRole('dialog', { name: '테마 색', exact: true });
   const color = dialog.locator('[data-color-field="강조 1"]');
   await color.click();
   const picker = dialog.locator('[data-color-panel]');
@@ -97,7 +103,7 @@ test('Slides theme editing closes its colour picker before cancelling the dialog
   await expect(color).toHaveAttribute('data-value', '#c0392b');
   await dialog.getByRole('button', { name: '취소', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await page.locator('.sl-properties [data-theme-edit]').click();
+  await ui.locator('.sl-properties [data-theme-edit]').click();
   await expect(dialog.locator('[data-color-field="강조 1"]')).not.toHaveAttribute('data-value', '#c0392b');
   await dialog.screenshot({ animations: 'disabled', path: `${output}/modal-slides-theme.png` });
 });

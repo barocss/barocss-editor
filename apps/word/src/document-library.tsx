@@ -13,7 +13,7 @@ import { wordLibraryRows, keepWordDocument, wordFileText, type WordLibraryRow } 
 
 /** The host owns document navigation; shared UI and Word's file/library adapters do the work. */
 export interface DocumentLibraryHandle { open: (kind: 'library' | 'actions') => void }
-export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Editor; native?: Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'>; menuOnly?: boolean }>(function DocumentLibrary({ editor, native, menuOnly = false }, ref) {
+export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Editor; native?: Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'> & Partial<Pick<WordRuntime, 'flushCommands' | 'captureInputIntent' | 'view'>>; menuOnly?: boolean }>(function DocumentLibrary({ editor, native, menuOnly = false }, ref) {
   const { t } = useOfficeLocale();
   const [actions, setActions] = useState(false);
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
@@ -39,7 +39,7 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
     const controller = new WordAutosave(editor, status => { setAutoStatus(status); setProblem(''); }, native);
     autosave.current = controller;
     void controller.start();
-    return () => { controller.stop(); autosave.current = null; };
+    return () => { controller.stop(); if (autosave.current === controller) autosave.current = null; };
   }, [editor, native]);
   const save = async () => {
     if (!await autosave.current?.flush()) throw new Error('Unsaved work');
@@ -99,7 +99,10 @@ export const DocumentLibrary = forwardRef<DocumentLibraryHandle, { editor: Edito
       <div className="w-file-action-list">
         <Button disabled={busy || recoveryRequired} onClick={() => void perform(async () => { await save(); })}>보관함에 사본 저장</Button>
         <DocxExport editor={editor} />
-        <DocxImport editor={editor} onOpened={() => setActions(false)} beforeOpen={async () => { if (!await autosave.current?.flush()) throw new Error('저장 실패'); }} />
+        <DocxImport editor={editor} native={native} onOpened={() => setActions(false)} beforeOpen={async () => {
+          const controller = autosave.current;
+          if (!controller || !await controller.beforeReplace() || autosave.current !== controller) throw new Error('저장 실패');
+        }} />
       </div>
       {status && <StatusIndicator tone="success">{status}</StatusIndicator>}
       {problem && <StatusNotice tone="danger" title="작업을 완료하지 못했습니다">{problem}</StatusNotice>}

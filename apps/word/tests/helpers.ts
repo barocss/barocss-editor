@@ -27,6 +27,10 @@ import type { Page } from '@playwright/test';
  * and silently do nothing.
  */
 export async function placeCaret(page: Page, selector: string, index = 0) {
+  // Floating full tools can cover the paragraph. Use the actual panel route to
+  // expose it, then restore the same tools and native focus after the real click.
+  const restoreTools = await page.getByRole('group', { name: '전체 Word 도구', exact: true }).isVisible();
+  if (restoreTools) await setWordWholeTools(page, false);
   const target = page.locator(selector).nth(index);
   await target.click();
 
@@ -71,10 +75,27 @@ export async function placeCaret(page: Page, selector: string, index = 0) {
           const above = el.parentElement?.closest('[data-bc-sid]');
           if (above) sids.add(above.getAttribute('data-bc-sid')!);
         }
-        return sids.has(sel.startNodeId);
+        if (!sids.has(sel.startNodeId)) return false;
+        // A second click in the same run must wait for its new offset too.
+        const dom = window.getSelection(), anchor = dom?.anchorNode;
+        const run = anchor instanceof Element ? anchor.closest('[data-bc-sid]') : anchor?.parentElement?.closest('[data-bc-sid]');
+        const id = run?.getAttribute('data-bc-sid');
+        if (id && window.editor.dataStore.getNode(id)?.stype === 'inline-text' && anchor) {
+          const range = document.createRange(); range.setStart(run!, 0); range.setEnd(anchor, dom!.anchorOffset);
+          const content = range.cloneContents();
+          content.querySelectorAll('[data-bc-filler]').forEach(filler => filler.remove());
+          return sel.startNodeId === id && sel.startOffset === (content.textContent?.length ?? 0) && sel.collapsed && dom!.isCollapsed;
+        }
+        return true;
       })
     )
     .toBe(true);
+  if (restoreTools) {
+    const selection = await page.evaluate(() => structuredClone(window.editor.selection));
+    await setWordWholeTools(page);
+    await target.locator('xpath=ancestor-or-self::*[@contenteditable="true"][1]').focus();
+    await expect.poll(() => page.evaluate(() => window.editor.selection)).toEqual(selection);
+  }
 }
 
 /**
@@ -270,6 +291,51 @@ export async function changes<T>(
 
 /** File and library commands share the compact document menu. */
 export async function openWordDocumentAction(page: Page, name: '문서 작업' | '문서 보관함') {
-  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await openWordDocumentMenu(page);
   await page.getByRole('menuitem', { name, exact: true }).click();
+}
+
+export async function openWordDocumentMenu(page: Page) {
+  const trigger = page.getByRole('menuitem', { name: '문서 메뉴', exact: true });
+  await expect(trigger).toBeVisible();
+  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  await expect(page.getByRole('menu', { name: '문서 메뉴', exact: true })).toBeVisible();
+}
+
+export const wordPanelTrigger = (page: Page) => page.getByRole('menuitem', { name: '문서 패널', exact: true });
+
+async function wordPanelChoice(page: Page, name: '전체 도구' | '개요' | '댓글') {
+  const trigger = wordPanelTrigger(page);
+  await expect(trigger).toBeVisible();
+  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+  const choice = page.getByRole('menuitemcheckbox', { name, exact: true });
+  await expect(choice).toBeVisible();
+  return choice;
+}
+
+/** Use the same retained full-tool surface; opening it never creates another editor. */
+export async function setWordWholeTools(page: Page, expanded = true) {
+  const choice = await wordPanelChoice(page, '전체 도구');
+  if (await choice.getAttribute('aria-checked') !== String(expanded)) await choice.click();
+  else await page.keyboard.press('Escape');
+  const detail = page.getByRole('group', { name: '전체 Word 도구', exact: true });
+  if (expanded) await expect(detail).toBeVisible();
+  else await expect(detail).toBeHidden();
+}
+
+export async function expectWordWholeTools(page: Page, expanded: boolean) {
+  const choice = await wordPanelChoice(page, '전체 도구');
+  await expect(choice).toHaveAttribute('aria-checked', String(expanded));
+  await page.keyboard.press('Escape');
+}
+
+export async function toggleWordPanel(page: Page, name: '개요' | '댓글') {
+  const choice = await wordPanelChoice(page, name);
+  await choice.click();
+}
+
+export async function expectWordPanel(page: Page, name: '개요' | '댓글', visible: boolean) {
+  const choice = await wordPanelChoice(page, name);
+  await expect(choice).toHaveAttribute('aria-checked', String(visible));
+  await page.keyboard.press('Escape');
 }

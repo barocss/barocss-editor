@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide, pickMenu } from './helpers';
+import { openDeck, currentSlide, pickMenu, openFilmstrip, setPanel } from './helpers';
 
 /**
  * The chrome around the deck, and what it says about the deck.
@@ -19,9 +19,10 @@ test.describe('the deck around the slide', () => {
    */
   test('says the zoom the stage is actually drawing', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
 
     const check = async () => {
-      const shown = await page.locator('input[aria-label], .sl-zoom input').first().inputValue();
+      const shown = await page.getByRole('textbox', { name: '확대/축소', exact: true }).inputValue();
       const actual = await page.evaluate((sid) => {
         const el = document.querySelector(`.sl-stage .sl-slide[data-bc-sid="${sid}"]`);
         return el ? Math.round((el.getBoundingClientRect().width / 1280) * 100) : -1;
@@ -44,6 +45,7 @@ test.describe('the deck around the slide', () => {
    */
   test('shows each slide’s name in full beside its picture', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
 
     const names = await page.locator('.sl-filmstrip-name').allTextContents();
     expect(names.length).toBeGreaterThan(1);
@@ -58,6 +60,7 @@ test.describe('the deck around the slide', () => {
 
   test('draws a thumbnail at the slide’s own shape', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     const box = await page.locator('.sl-thumb').first().boundingBox();
     // 16:9, whatever the width the rail gives it.
     expect(box!.width / box!.height).toBeCloseTo(16 / 9, 1);
@@ -65,12 +68,17 @@ test.describe('the deck around the slide', () => {
 
   test('follows the slide the reader picks', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await page.locator('.sl-filmstrip button').nth(2).click();
     await page.waitForTimeout(500);
 
     await expect(page.locator('.sl-filmstrip button[data-current="true"] .sl-filmstrip-number')).toHaveText('3');
     // Six slides in the sample deck: the sixth is the one that places a component three times.
-    await expect(page.locator('.sl-count')).toHaveText('3 / 6');
+    await page.getByRole('button', { name: '슬라이드 탐색 접기', exact: true }).click();
+    await expect.poll(async () => [
+      await page.getByRole('combobox', { name: '현재 슬라이드', exact: true }).innerText(),
+      await page.locator('.sl-count').innerText()
+    ].join(' ')).toBe('3 / 6');
   });
 });
 
@@ -90,6 +98,7 @@ test.describe('the deck around the slide', () => {
  */
 test('every toolbar control draws an icon', async ({ page }) => {
   await openDeck(page);
+  await openFilmstrip(page);
 
   const withoutIcon = await page.evaluate(() =>
     Array.from(document.querySelectorAll('[data-control]'))
@@ -113,6 +122,7 @@ test('every toolbar control draws an icon', async ({ page }) => {
  */
 test('the deck loads with no complaint from the schema', async ({ page }) => {
   await openDeck(page);
+  await openFilmstrip(page);
 
   const faults = await page.evaluate(() => (window as any).editor?.documentFaults ?? []);
   expect(
@@ -150,6 +160,7 @@ test.describe('the rulers along a slide', () => {
 
   test('stay on the viewport while their origin follows the slide', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await pickMenu(page, 'view.panes.3');
     const check = async () => {
       await expect.poll(() => page.evaluate(() => {
@@ -197,6 +208,7 @@ test.describe('the rulers along a slide', () => {
    */
   test('measure the slide the deck actually has, not a 16:9 one', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await pickMenu(page, 'view.panes.3');
     await page.evaluate(() =>
       (window as any).editor.executeCommand('setDeckSize', { width: 14400, height: 10800 })
@@ -216,20 +228,24 @@ test.describe('the rulers along a slide', () => {
   /** And they follow the reader's unit, because the panel's numbers do. */
   test('are marked in millimetres when the panel is', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await pickMenu(page, 'view.panes.3');
-    await page.getByRole('button', { name: '속성', exact: true }).click();
+    await setPanel(page, 'properties', true);
     await expect(page.locator('.sl-properties')).toBeVisible();
     await page.locator('.sl-properties').getByLabel('단위').selectOption('mm');
 
-    // Fit mode keeps labels readable by using wider millimetre intervals.
-    // The same 0/50/100 labels are reproduced on the unchanged baseline.
+    // Keep the original low-scale ruler contract independent of docked panel width.
+    // The undocked canvas fits wider, so set the declared 40% scale through its real UI.
+    const zoom = page.getByRole('textbox', { name: '확대/축소', exact: true });
+    await zoom.fill('40%');
+    await zoom.press('Enter');
+    await expect(page.locator('.sl-stage-scaled')).toHaveCSS('transform', 'matrix(0.4, 0, 0, 0.4, 0, 0)');
     await expect.poll(() => page.evaluate(() =>
       [...document.querySelectorAll('[data-ruler="x"] .sl-ruler-tick[data-major="true"] i')]
         .slice(0, 3).map(tick => tick.textContent)
     )).toEqual(['0', '50', '100']);
 
     // At 125%, ten millimetres have enough screen room for the original labels.
-    const zoom = page.getByRole('textbox', { name: '확대/축소', exact: true });
     await zoom.fill('125%');
     await zoom.press('Enter');
     await expect(page.locator('.sl-stage-scaled')).toHaveCSS('transform', 'matrix(1.25, 0, 0, 1.25, 0, 0)');
@@ -258,6 +274,7 @@ test.describe('the rulers along a slide', () => {
    */
   test('mark where the pointer is', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await pickMenu(page, 'view.panes.3');
     const slide = (await box(page, '.sl-stage .sl-slide:not([style*="display: none"])'))!;
     const at = {
@@ -284,6 +301,7 @@ test.describe('the rulers along a slide', () => {
   /** Not while presenting: an audience is not measuring anything. */
   test('are gone in the show', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     await pickMenu(page, 'view.panes.3');
     await expect(page.locator('[data-ruler="x"]')).toHaveCount(1);
 
@@ -325,6 +343,7 @@ test.describe('zooming with the wheel', () => {
 
   test('keeps the point under the pointer, notch after notch', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
 
     // Off centre on purpose: anchoring at the middle is the one case that works
     // however wrongly the correction is computed.
@@ -383,6 +402,7 @@ test.describe('zooming with the wheel', () => {
 
   test('ignores a wheel with no modifier, and one outside the pane', async ({ page }) => {
     await openDeck(page);
+    await openFilmstrip(page);
     const zoom = () =>
       page.evaluate(() => Number(document.querySelector('[data-zoom]')?.getAttribute('data-zoom') ?? 0));
     const before = await zoom();

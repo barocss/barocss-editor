@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, currentSlide, openFilmstrip, pickInsert, setPanel } from './helpers';
 
 const navigation = (page: Page) => page.getByRole('complementary', { name: '슬라이드 탐색', exact: true });
 const inspector = (page: Page) => page.getByRole('complementary', { name: '속성', exact: true });
@@ -9,8 +9,11 @@ const snapshot = (page: Page) => page.evaluate(() => {
   return { document: JSON.stringify(editor.exportDocument()), selection: JSON.stringify(editor.selection), history: editor.getHistoryStats() };
 });
 async function selectShape(page: Page) {
+  await openFilmstrip(page);
   await page.locator('.sl-filmstrip button[data-slide]').nth(1).click();
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+  await pickInsert(page, '사각형');
+  await setPanel(page, 'layers', true);
+  await setPanel(page, 'properties', true);
   return page.evaluate(() => {
     const editor = (window as any).editor, sid = editor.selection.nodeIds[0];
     return { sid, width: editor.dataStore.getNode(sid).attributes.width };
@@ -18,10 +21,13 @@ async function selectShape(page: Page) {
 }
 const shapeWidth = (page: Page, sid: string) => page.evaluate(id => (window as any).editor.dataStore.getNode(id).attributes.width, sid);
 
-for (const width of [1440, 1280]) test(`desktop ${width}px starts with navigation and inspector controls without duplicate titles or clipping`, async ({ page }, testInfo) => {
+for (const width of [1440, 1280]) test(`desktop ${width}px opens owned navigation and inspector controls without duplicate titles or clipping`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width, height: 900 });
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+  await expect(navigation(page)).toBeHidden(); await expect(inspector(page)).toBeHidden();
+  await pickInsert(page, '사각형');
+  await setPanel(page, 'layers', true);
+  await setPanel(page, 'properties', true);
   const left = navigation(page), right = inspector(page);
   await expect(left).toBeVisible(); await expect(right).toBeVisible();
   // Headings and tabs have different purposes; retain the tab named Properties.
@@ -63,16 +69,18 @@ test('sidebar keyboard navigation keeps active slide, selection and full native 
   await openDeck(page);
   const shape = await selectShape(page), active = await currentSlide(page), before = await snapshot(page);
   const leftTabs = navigation(page).getByRole('tablist', { name: '탐색 방식' });
-  const slides = leftTabs.getByRole('tab', { name: '슬라이드', exact: true });
   const layers = leftTabs.getByRole('tab', { name: '레이어', exact: true });
   const components = leftTabs.getByRole('tab', { name: '컴포넌트', exact: true });
-  await slides.focus(); await slides.press('ArrowRight');
-  await expect(layers).toBeFocused(); await expect(layers).toHaveAttribute('aria-selected', 'true');
-  await layers.press('ArrowRight');
+  await layers.focus(); await layers.press('ArrowRight');
   await expect(components).toBeFocused(); await expect(components).toHaveAttribute('aria-selected', 'true');
   await expect(navigation(page).locator('.sl-components')).toBeVisible();
   await components.press('Home');
-  await expect(slides).toBeFocused(); await expect(slides).toHaveAttribute('aria-selected', 'true');
+  await expect(layers).toBeFocused(); await expect(layers).toHaveAttribute('aria-selected', 'true');
+  await layers.press('End'); await expect(components).toBeFocused();
+  await components.press('ArrowLeft'); await expect(layers).toBeFocused();
+  // Slide navigation now belongs to the thumbnail dock and the owned layer picker.
+  await expect(page.locator('.sl-filmstrip button[data-current="true"]')).toHaveAttribute('data-slide', active);
+  await expect(navigation(page).getByRole('combobox', { name: '레이어를 볼 슬라이드', exact: true })).toHaveValue(active);
   const right = inspector(page), tabs = right.getByRole('tablist', { name: '속성 탭' });
   const style = tabs.getByRole('tab', { name: '속성', exact: true }), motion = tabs.getByRole('tab', { name: '모션', exact: true });
   await style.focus(); await style.press('ArrowRight');

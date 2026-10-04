@@ -93,6 +93,8 @@ import { useSlideMenuSearch, type SlideMenuFileAction, type SlideMenuViewAction 
 
 import type { SlidesRuntime } from './runtime';
 export interface SlidesServerHost {
+  active?: boolean;
+  isActive?: () => boolean;
   headerActions?: ReactNode;
   headerNavigation?: ReactNode;
   navigation?: ReactNode;
@@ -130,15 +132,25 @@ export function App({
   const panelMenuHost = useRef<HTMLSpanElement>(null);
   const [headerTools, setHeaderTools] = useState<HTMLDivElement | null>(null);
   const recentDocuments = useRef<LocalDocumentActions>(null);
-  const childDeliveries = useRef(new Map<string, (isCurrent: () => boolean) => Promise<boolean>>());
+  const [recentDocumentsBusy, setRecentDocumentsBusy] = useState(false);
+  type InputOwner = { runtime: SlidesRuntime; root: string | undefined; epoch: number; generation: number; editable: boolean; readOnly: boolean; active: boolean | undefined };
+  const inputRuntime = useRef<SlidesRuntime | null>(null);
+  const childDeliveries = useRef(new Map<string, { deliver: (isCurrent: () => boolean) => Promise<boolean>; owner: InputOwner }>());
+  const committedInput = useRef<InputOwner | null>(null);
+  const inputWaiters = useRef(new Set<() => void>());
+  const captureInputOwner = useCallback(() => {
+    const runtime = inputRuntime.current;
+    return runtime ? { runtime, root: runtime.editor.getRootId(), epoch: runtime.editor.dataStore.getDocumentEpoch(),
+      generation: lifetime.current, editable: runtime.editor.isEditable, readOnly: !!serverRef.current?.readOnly, active: serverRef.current?.active } : null;
+  }, []);
+  const registerInput = useRef((key: string, deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    const owner = captureInputOwner();
+    if (deliver && owner) childDeliveries.current.set(key, { deliver, owner });
+    else childDeliveries.current.delete(key);
+    for (const check of [...inputWaiters.current]) check();
+  });
   const notesRecovery = useRef<Parameters<NonNullable<React.ComponentProps<typeof NotesPane>['onInputRecoveryReady']>>[0]>(null);
   const recoveryReady = useCallback((recovery: typeof notesRecovery.current) => { notesRecovery.current = recovery; }, []);
-  const notesDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
-    if (deliver) childDeliveries.current.set('notes', deliver); else childDeliveries.current.delete('notes');
-  }, []);
-  const propertyDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
-    if (deliver) childDeliveries.current.set('properties', deliver); else childDeliveries.current.delete('properties');
-  }, []);
   const composingFields = useRef(new Set<EventTarget>());
   const [failedInput, setFailedInput] = useState(false);
   /**
@@ -186,7 +198,7 @@ export function App({
   const readOnly = Boolean(server?.readOnly || instance?.editor.isEditable === false);
   const lifetime = useRef(0);
   useEffect(() => {
-    const retire = () => { panelReturn.current = null; };
+    const retire = () => { if (!serverRef.current?.isActive || serverRef.current.isActive()) panelReturn.current = null; };
     document.addEventListener('pointerdown', retire, true);
     document.addEventListener('keydown', retire, true);
     return () => { retire(); document.removeEventListener('pointerdown', retire, true); document.removeEventListener('keydown', retire, true); };
@@ -207,10 +219,42 @@ export function App({
     };
   }, [mount]);
 
+  inputRuntime.current = instance;
+  const renderedInput = captureInputOwner();
+  // Changed owner fields must rebind the actual child effects before input can
+  // pass the commit barrier, including staged activation and read-only changes.
+  const notesDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    registerInput.current('notes', deliver);
+  }, [renderedInput?.runtime, renderedInput?.root, renderedInput?.epoch, renderedInput?.generation,
+    renderedInput?.editable, renderedInput?.readOnly, renderedInput?.active]);
+  const propertyDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    registerInput.current('properties', deliver);
+  }, [renderedInput?.runtime, renderedInput?.root, renderedInput?.epoch, renderedInput?.generation,
+    renderedInput?.editable, renderedInput?.readOnly, renderedInput?.active]);
+  const sameInputOwner = useCallback((left: InputOwner | null, right: InputOwner | null) => !!left && !!right &&
+    left.runtime === right.runtime && left.root === right.root && left.epoch === right.epoch &&
+    left.generation === right.generation && left.editable === right.editable && left.readOnly === right.readOnly && left.active === right.active, []);
+  // Child passive effects register their actual input owners before this parent effect.
+  useEffect(() => {
+    committedInput.current = sameInputOwner(renderedInput, captureInputOwner()) ? renderedInput : null;
+    for (const check of [...inputWaiters.current]) check();
+  });
+  useEffect(() => {
+    if (!instance) return;
+    const changed = () => { for (const check of [...inputWaiters.current]) check(); };
+    instance.editor.on('editor:content.change', changed);
+    instance.editor.on('editor:editable.change', changed);
+    return () => {
+      committedInput.current = null;
+      instance.editor.off('editor:content.change', changed);
+      instance.editor.off('editor:editable.change', changed);
+      for (const check of [...inputWaiters.current]) check();
+    };
+  }, [instance]);
   const editor = instance?.editor ?? null;
   const view = instance?.view ?? null;
-  const printer = useMemo(() => editor ? createSlidePrint(editor) : null, [editor]);
-  useEffect(() => printer?.attach(), [printer]);
+  const printer = useMemo(() => editor ? createSlidePrint(editor, document, instance?.registry) : null, [editor, instance]);
+  useEffect(() => server?.active === false ? undefined : printer?.attach(), [printer, server?.active]);
   useEffect(() => {
     const shell = host.current?.closest('.sl-shell');
     if (!shell) return;
@@ -222,10 +266,22 @@ export function App({
   const deliverInput = useCallback(async (isCurrent: () => boolean = () => true): Promise<boolean> => {
     if (!instance || !host.current?.isConnected || composingFields.current.size) return false;
     const root = editor!.getRootId(), epoch = editor!.dataStore.getDocumentEpoch(), generation = lifetime.current;
-    const editable = editor!.isEditable;
+    const editable = editor!.isEditable, readOnly = !!serverRef.current?.readOnly, active = serverRef.current?.active;
     const owns = () => isCurrent() && host.current?.isConnected === true && lifetime.current === generation &&
-      editor!.getRootId() === root && editor!.dataStore.getDocumentEpoch() === epoch && editor!.isEditable === editable && !composingFields.current.size;
+      editor!.getRootId() === root && editor!.dataStore.getDocumentEpoch() === epoch && editor!.isEditable === editable && !!serverRef.current?.readOnly === readOnly && serverRef.current?.active === active && !composingFields.current.size;
     try {
+      if (!owns()) return false;
+      const owner = captureInputOwner();
+      if (!owner) return false;
+      const ready = () => sameInputOwner(committedInput.current, owner) &&
+        [...childDeliveries.current.values()].every(child => sameInputOwner(child.owner, owner));
+      if (!ready() && !await new Promise<boolean>(resolve => {
+        const check = () => {
+          if (!owns() || !sameInputOwner(owner, captureInputOwner())) { inputWaiters.current.delete(check); resolve(false); }
+          else if (ready()) { inputWaiters.current.delete(check); resolve(true); }
+        };
+        inputWaiters.current.add(check); check();
+      })) return false;
       if (!owns()) return false;
       const focused = document.activeElement;
       if (focused instanceof HTMLElement && focused.matches('input,textarea,select') && focused.closest('.sl-properties') &&
@@ -235,15 +291,15 @@ export function App({
         return false;
       }
       setFailedInput(false);
-      for (const [key, deliver] of [...childDeliveries.current]) {
-        if (!owns() || childDeliveries.current.get(key) !== deliver || !await deliver(owns) || !owns()) {
+      for (const [key, child] of [...childDeliveries.current]) {
+        if (!owns() || childDeliveries.current.get(key) !== child || !sameInputOwner(child.owner, owner) || !await child.deliver(owns) || !owns()) {
           if (owns()) setFailedInput(instance.view.hasFailedInputDelivery || notesRecovery.current?.failed() === true);
           return false;
         }
       }
       return owns() && await instance.settleCommands(owns) && owns();
     } catch { return false; }
-  }, [instance, editor]);
+  }, [instance, editor, captureInputOwner, sameInputOwner]);
   useEffect(() => {
     if (!instance) return;
     const owner = serverRef.current;
@@ -1129,7 +1185,7 @@ export function App({
   }, [current, moveBy, stretches, readOnly, focused]);
 
   const {
-    menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    menus: nativeMenus, menuLifetimeKey, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
     dismissCommandError, openCommandSearch, pickSearchCommand, prepareSearchCommandPick, onMenu, runEntry
   } = useSlideMenuSearch({
     editor, view, current, slideNumber: here?.number, answers, moveBy,
@@ -1146,7 +1202,7 @@ export function App({
   })) })), [nativeMenus, readOnly, server, rulerShown]);
 
   const menus = nativeDocumentMenus.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks,
-    { id: 'original-library', items: [{ id: 'workspace.recent', label: server ? '서버 Slides 목록' : t('document.library.recent'), disabled: !editor || presenting }] },
+    { id: 'original-library', items: [{ id: 'workspace.recent', label: server ? '서버 Slides 목록' : t('document.library.recent'), disabled: !editor || presenting || (!server && recentDocumentsBusy) }] },
     ...(server?.nativeExport ? [{ id: 'native-export', items: [{ id: 'workspace.export', label: 'Slides 파일 내보내기', disabled: !server.nativeExport.available }] }] : [])
   ] } : menu);
   const pickDocumentMenu = (id: string) => {
@@ -1159,6 +1215,7 @@ export function App({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
       if (event.defaultPrevented) return;
       if ((event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
@@ -1872,6 +1929,7 @@ export function App({
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
       if (!(event.metaKey || event.ctrlKey)) return;
       if (event.key.toLowerCase() !== 'z') return;
 
@@ -1890,6 +1948,7 @@ export function App({
   // the one shortcut a deck cannot do without.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       // Inside the document, the arrows belong to the caret.
@@ -1931,7 +1990,7 @@ export function App({
       <EditorHeader compact product="Slides" className="sl-topbar"
         fallbackNavigation={server ? server.headerNavigation : <ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<span ref={documentMenuHost}><DocumentMenu key={`${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} onPick={pickDocumentMenu} /></span>}
+        menus={<span ref={documentMenuHost}><DocumentMenu key={`${menuLifetimeKey}:${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} onPick={pickDocumentMenu} /></span>}
         tools={<div ref={setHeaderTools} className="sl-header-edit-tools" />}
         view={!presenting && <Toolbar variant="compact" label="Slides 보기 도구" className="sl-header-view-tools">
           <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
@@ -1954,7 +2013,7 @@ export function App({
             }
           }} /></span>
           <CommandSearchTrigger iconOnly disabled={!editor || presenting} onClick={openCommandSearch} />
-          {!server && <SlideDocuments ref={recentDocuments} showTrigger={false} iconOnly persistence={persistence} onOpened={() => {
+          {!server && <SlideDocuments ref={recentDocuments} showTrigger={false} onBusyChange={setRecentDocumentsBusy} iconOnly persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
           }} />}
           {server?.headerActions}
@@ -2003,7 +2062,7 @@ export function App({
             event.preventDefault(); event.stopPropagation(); closePanel('navigation');
           }} floating width={240} hidden={!navigationVisible || presenting} inert={!navigationVisible || presenting}>
           <div className="sl-workspace-navigation">
-            <SlideSidebar objectsOnly
+            <SlideSidebar registry={instance?.registry} objectsOnly
               editor={editor}
               revision={revision}
               slides={slides}
@@ -2134,7 +2193,7 @@ export function App({
             */}
           <div className="sl-stage-region">
           {mapping && !presenting && (
-            <DeckMapView
+            <DeckMapView registry={instance?.registry}
               editor={editor}
               revision={revision}
               current={current}
@@ -2271,12 +2330,12 @@ export function App({
           </div>
           </div>
 
-          {editor && !presenting && <SlideNavigation editor={editor} slides={slides} current={current} revision={revision}
+          {editor && !presenting && <SlideNavigation registry={instance?.registry} editor={editor} slides={slides} current={current} revision={revision}
             viewMode={mapping ? 'map' : focused ? 'single' : 'multi'}
             onViewModeChange={mode => { if (mapping || focused !== (mode === 'single')) setZoom(undefined); setMapping(false); setFocused(mode === 'single'); }}
             lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
             readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
-            renderNotes={(close, open) => <NotesPane onInputRecoveryReady={recoveryReady} onInputDeliveryReady={notesDelivery} active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}
+            renderNotes={(close, open) => <NotesPane registry={instance?.registry} onInputRecoveryReady={recoveryReady} onInputDeliveryReady={notesDelivery} active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}
             onSelect={sid => { setCurrent(sid); leaveSelection(); }}
             onRename={(sid, name) => !readOnly && void editor.executeCommand('setSlideInfo', { slideId: sid, name })} />}
 
@@ -2384,7 +2443,7 @@ export function App({
         /></ReadOnlyControls>
       )}
 
-      <SlidePrintDialog editor={editor} slides={slides} revision={revision}
+      <SlidePrintDialog registry={instance?.registry} editor={editor} slides={slides} revision={revision}
         open={dialog === 'print'} onClose={() => setDialog(null)}
         onPrint={async () => { await printer?.print(); }} />
       <SlideSizeDialog
@@ -2505,7 +2564,7 @@ export function App({
         * a presenter is shown.
         */}
       {presenting && presenterView && !presenterWindow && (
-        <Presenter
+        <Presenter registry={instance?.registry}
           editor={editor}
           slides={slides}
           current={current}
@@ -2524,7 +2583,7 @@ export function App({
         onGo={advance}
         onExit={() => setPresenting(false)}
       >
-        <Presenter
+        <Presenter registry={instance?.registry}
           editor={editor}
           slides={slides}
           current={current}

@@ -23,6 +23,12 @@ test.skip(!process.env.OFFICE_AUTH_REAL_FILE || !process.env.OFFICE_AUTH_CONTROL
   'Slides acceptance requires the protected synthetic OIDC fixture and disposable PostgreSQL supervisor.');
 
 async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | 'Beta' = 'Alpha') {
+  const fixture = JSON.parse(readFileSync(process.env.OFFICE_AUTH_REAL_FILE!, 'utf8')) as {
+    issuer: string; users: Record<Alias, { id: string; username?: string; password: string }>;
+  };
+  const account = fixture.users[alias];
+  expect(typeof fixture.issuer === 'string' && typeof account?.id === 'string',
+    'Protected identity fixture must provide the requested account.').toBe(true);
   await page.goto(url);
   await expect.poll(async () => await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible() ||
     await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() || await workspace(page).isVisible()).toBe(true);
@@ -30,11 +36,12 @@ async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | '
   if (await button.isVisible()) {
     await button.click();
     const username = page.locator('#username');
-    if (await username.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) {
-      const fixture = JSON.parse(readFileSync(process.env.OFFICE_AUTH_REAL_FILE!, 'utf8')) as {
-        users: Record<string, { username?: string; password: string }>;
-      };
-      const account = fixture.users[alias]!;
+    // An existing host is only a navigation state. The fresh server identity
+    // witness below must still prove that it belongs to the requested account.
+    await expect.poll(async () => await username.isVisible() ||
+      await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() ||
+      await workspace(page).isVisible(), { timeout: 30_000 }).toBe(true);
+    if (await username.isVisible()) {
       await username.fill(account.username ?? alias);
       await page.locator('#password').fill(account.password);
       await page.locator('#kc-login').click();
@@ -42,6 +49,30 @@ async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | '
   }
   await expect.poll(async () => await page.getByRole('heading', { name: '회사를 선택하세요' }).isVisible() ||
     await workspace(page).isVisible()).toBe(true);
+  const status = await privateControl<RealStatus>({ action: 'status' });
+  const tenantId = tenant === 'Alpha' ? status.tenantId : status.betaTenantId;
+  // Match the exact tenant memberships seeded by office-auth-ui.local.mjs.
+  const expectedRole = {
+    Alpha: { 'alpha-editor': 'owner', 'beta-viewer': 'viewer' },
+    Beta: { 'alpha-editor': null, 'beta-viewer': 'owner' },
+  }[tenant][alias];
+  expect(expectedRole !== null, 'Requested fixture account must have seeded tenant access.').toBe(true);
+  // Read through the application's actual session. These calls use fresh,
+  // server-verified reads; no token decoding or visible-host shortcut is used.
+  // Keep both expected and actual private identities out of assertion diffs.
+  await expect.poll(async () => {
+    try {
+      const verified = await page.evaluate(async ({ source, tenantId }) => {
+        const client = await import(source);
+        const identity = await client.loadIdentity();
+        const role = await client.confirmTenant(tenantId);
+        return { issuer: identity.issuer, subject: identity.subject, role,
+          listedRole: identity.tenants.find((item: { tenantId: string }) => item.tenantId === tenantId)?.role };
+      }, { source: '/src/auth-client.ts', tenantId });
+      return verified.issuer === fixture.issuer && verified.subject === account.id &&
+        verified.role === expectedRole && verified.listedRole === expectedRole;
+    } catch { return false; }
+  }, { timeout: 30_000, message: 'Fresh server identity and role must match the requested fixture account.' }).toBe(true);
   if (!(await workspace(page).isVisible())) {
     await page.getByRole('button', { name: new RegExp(`Synthetic ${tenant}`) }).click();
     await page.getByRole('button', { name: `${tenant} workspace`, exact: true }).click();
@@ -439,7 +470,22 @@ test('same physical profile preserves Slides source and A recovery across actual
       record.snapshotText.includes('A-private-recovery-input'))!;
     expect(pendingA.attempt).toBeDefined();
     const retained = await records(page), before = await inspect(documentId), writesBeforeB = requests.writes.length;
+    evidence.push({ kind: 'before-logout-publication-boundary',
+      serverContainsPrivateMarker: !!before.document?.snapshotText.includes('A-private-recovery-input'),
+      pendingRecordPresent: retained.some(record => record.draftId === pendingA.draftId && record.status === 'pending'),
+    });
     await logout(page);
+    const afterLogout = await inspect(documentId), retainedAfterLogout = await records(page);
+    const logoutWriteDelta = requests.writes.length - writesBeforeB;
+    evidence.push({ kind: 'logout-publication-boundary',
+      beforeServerContainsPrivateMarker: !!before.document?.snapshotText.includes('A-private-recovery-input'),
+      afterServerContainsPrivateMarker: !!afterLogout.document?.snapshotText.includes('A-private-recovery-input'),
+      noWriteDuringLogout: logoutWriteDelta === 0,
+      exactlyOneWriteDuringLogout: logoutWriteDelta === 1,
+      writesIncreasedDuringLogout: logoutWriteDelta > 0,
+      retainedRecordsUnchanged: JSON.stringify(retainedAfterLogout) === JSON.stringify(retained),
+      retainedPendingAttemptUnchanged: JSON.stringify(retainedAfterLogout.find(record => record.draftId === pendingA.draftId)?.attempt) === JSON.stringify(pendingA.attempt),
+    });
     await login(page, 'beta-viewer', documentUrl);
     await expect(workspace(page)).not.toContainText('A-private-recovery-input');
     await expect(workspace(page).getByRole('button', { name: /^저장된 Slides 초안 복구/ })).toHaveCount(0);
@@ -543,8 +589,13 @@ test('real Canvas editing persists the same native deck and preserves current vi
     const created = await inspect(undefined, pending.attempt!.idempotencyKey, 'create');
     const documentId = created.receipt!.documentId;
     await canonical(page, root, requests.bearer, documentId, source.text);
-    const library = workspace(page).getByRole('button', { name: '서버 Slides 목록', exact: true });
-    if (await library.getAttribute('aria-expanded') === 'true') await library.click();
+    if (await workspace(page).getByRole('region', { name: '서버 Slides 목록', exact: true }).isVisible() ||
+      await workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true }).isVisible()) {
+      await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+      await page.getByRole('menuitem', { name: '서버 Slides 목록', exact: true }).click();
+      await expect(workspace(page).getByRole('region', { name: '서버 Slides 목록', exact: true })).toBeHidden();
+      await expect(workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true })).toBeHidden();
+    }
     await workspace(page).getByRole('button', { name: '멀티 슬라이드 보기', exact: true }).click();
     await expect(workspace(page).locator('.sl-stage')).toHaveAttribute('data-freeboard', 'true');
     await typeInput(page, ' Canvas authenticated first '); await page.keyboard.press('Escape');
@@ -603,7 +654,13 @@ test('real selected-object tools and inline property binding persist exact nativ
   const children = (node: INode): INode[] => node.content!.filter((child): child is INode => typeof child !== 'string');
   const titleOf = (document: INode) => children(children(document).find(node => node.stype === 'surface')!).find(node => node.stype === 'textFrame' && node.attributes?.role === 'title')!;
   const exported = async (page: Page, name: string): Promise<INode> => {
-    const [download] = await Promise.all([page.waitForEvent('download'), workspace(page).getByRole('button', { name: 'Slides 파일 내보내기', exact: true }).click()]);
+    const trigger = workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true });
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    const nativeMenu = page.getByRole('menu', { name: '문서 메뉴', exact: true });
+    const exportAction = nativeMenu.getByRole('menuitem', { name: 'Slides 파일 내보내기', exact: true });
+    await expect(exportAction).toBeEnabled();
+    const [download] = await Promise.all([page.waitForEvent('download'), exportAction.click()]);
     const path = info.outputPath(name); await download.saveAs(path);
     return JSON.parse(readFileSync(path, 'utf8')).document as INode;
   };
@@ -614,8 +671,13 @@ test('real selected-object tools and inline property binding persist exact nativ
     await page.mouse.click(bounds.x + 8, bounds.y + 8);
   };
   const hideLibrary = async (page: Page) => {
-    const trigger = workspace(page).getByRole('button', { name: '서버 Slides 목록', exact: true });
-    if (await trigger.getAttribute('aria-expanded') === 'true') await trigger.click();
+    if (await workspace(page).getByRole('region', { name: '서버 Slides 목록', exact: true }).isVisible() ||
+      await workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true }).isVisible()) {
+      await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+      await page.getByRole('menuitem', { name: '서버 Slides 목록', exact: true }).click();
+      await expect(workspace(page).getByRole('region', { name: '서버 Slides 목록', exact: true })).toBeHidden();
+      await expect(workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true })).toBeHidden();
+    }
   };
   try {
     a = await launchPrivateProfile(profileA); b = await launchPrivateProfile(profileB);

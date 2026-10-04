@@ -1,6 +1,6 @@
 import { createCommandSettlement, type NativeCommandFailure } from './command-settlement';
 import { DataStore } from '@barocss/datastore';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { RendererRegistry, intoRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createSchema } from '@barocss/schema';
 import { Editor } from '@barocss/editor-core';
@@ -11,6 +11,8 @@ import { createSlidesEditor, getSlidesSchemaDefinition, registerSlidesRenderers,
 export interface SlidesRuntime {
   editor: Editor;
   view: EditorViewDOM;
+  /** Shared by every secondary view owned by this runtime. */
+  registry: RendererRegistry;
   dispose: () => void;
   loadNativeDocument: (document: unknown) => void;
   exportNativeDocument: () => unknown;
@@ -95,6 +97,23 @@ const reconcile = (tree: unknown, shapes: Map<string, NativeSourceShape>): unkno
     // The loader/exporter materializes absent optional fields as own undefined keys.
     // Construct the portable node fields here; defined edits and explicit empties survive.
     for (const field of optionalNativeFields) if (copy[field] === undefined) delete copy[field];
+    // Native formatting commands materialize optional mark attrs as own undefined.
+    // Encode that absence without changing the model or any other mark field.
+    if (Array.isArray(copy.marks)) {
+      const descriptors: PropertyDescriptorMap = Object.getOwnPropertyDescriptors(copy.marks as object);
+      for (let index = 0; index < copy.marks.length; index++) {
+        const descriptor = descriptors[String(index)];
+        if (!descriptor || !Object.hasOwn(descriptor, 'value')) continue;
+        const mark = descriptor.value;
+        if (!mark || typeof mark !== 'object' || Array.isArray(mark)) continue;
+        const attrs = Object.getOwnPropertyDescriptor(mark, 'attrs');
+        if (!attrs || !attrs.enumerable || !Object.hasOwn(attrs, 'value') || attrs.value !== undefined) continue;
+        const encoded = Object.create(Object.getPrototypeOf(mark), Object.getOwnPropertyDescriptors(mark));
+        delete encoded.attrs;
+        descriptor.value = encoded;
+      }
+      copy.marks = Object.defineProperties(Object.setPrototypeOf([], Object.getPrototypeOf(copy.marks)), descriptors);
+    }
     if (Array.isArray(copy.content)) copy.content = copy.content.map(restore);
     return copy;
   };
@@ -133,7 +152,10 @@ export function assertSlidesNativeDocument(value: unknown): void {
 
 /** Create an owned editor lifetime without bootstrapping a page or opening a local deck. */
 export function createSlidesRuntime(container: HTMLElement, options: SlidesRuntimeOptions): SlidesRuntime {
-  registerSlidesRenderers();
+  // Supported Slides renderers stay owned by this view while another product is staged.
+  // Unknown extension types retain the DSL registry's existing global fallback.
+  const registry = new RendererRegistry({ global: false });
+  intoRegistry(registry, registerSlidesRenderers);
   const schema = createSchema('slides', getSlidesSchemaDefinition());
   const dataStore = new DataStore(undefined, schema);
   const editor = createSlidesEditor({ editable: options.editable, schema, dataStore });
@@ -187,7 +209,7 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
   catch (error) { editor.destroy(); throw error; }
   const doc = { getNode: (id: string) => dataStore.getNode(id) as never,
     get rootId() { return editor.getRootId()!; } };
-  const view = new EditorViewDOM(editor, { container, registry: getGlobalRegistry(),
+  const view = new EditorViewDOM(editor, { container, registry,
     env: { [WORD_ENV_KEY]: createDeckEnv(doc as never) } });
   view.registerLayoutPass(createConnectorPass({ doc }) as never);
   const syncEditable = () => { view.contentEditableElement.contentEditable = String(editor.isEditable); };
@@ -218,7 +240,7 @@ export function createSlidesRuntime(container: HTMLElement, options: SlidesRunti
   }
   const diagnostics = window as Window & { editor?: Editor; editorView?: EditorViewDOM };
   if (options.debug) { diagnostics.editor = editor; diagnostics.editorView = view; }
-  return { editor, view, loadNativeDocument, exportNativeDocument, settleCommands: commands.settle, commandFailure: commands.failure, dispose: () => {
+  return { editor, view, registry, loadNativeDocument, exportNativeDocument, settleCommands: commands.settle, commandFailure: commands.failure, dispose: () => {
     if (disposed) return;
     disposed = true;
     editor.off('editor:editable.change', syncEditable);

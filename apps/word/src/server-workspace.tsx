@@ -3,7 +3,7 @@ import { createCriterionClient, criterionRequest, criterionHash, type CriterionC
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-word';
 import { Button, useOfficeLocale } from '@barocss/office-ui';
-import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
+import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { App } from './app';
 import { createWordOpenGate } from './guarded-open';
 import { deriveBusinessPair, readBusinessPair } from '../../../packages/office-word/src/business-pair';
@@ -19,6 +19,8 @@ export interface ServerWordWorkspaceProps {
   initialDocumentId?: string; authorizedFetch: typeof fetch;
   role: 'owner' | 'admin' | 'editor' | 'viewer';
   headerNavigation?: ReactNode;
+  hostSlot?: NativeHostSlot;
+  onNativeFailure?: (message: string) => void;
   workspaceNavigation?: boolean;
   onNavigate?: (documentId: string) => void;
   onUnsafeChange?: (unsafe: boolean) => void;
@@ -41,7 +43,7 @@ function documentOf(text: string) {
 
 /** Full native Word runtime, with authenticated snapshot authority and scoped recovery. */
 export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, initialDocumentId,
-  authorizedFetch, role, onNavigate, onUnsafeChange, headerNavigation, workspaceNavigation = false }: ServerWordWorkspaceProps) {
+  authorizedFetch, role, onNavigate, onUnsafeChange, headerNavigation, hostSlot, onNativeFailure, workspaceNavigation = false }: ServerWordWorkspaceProps) {
   const { t } = useOfficeLocale();
   const client = useMemo(() => createServerWordClient({ tenantId, workspaceId, authorizedFetch }), [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const store = useMemo(() => createServerPendingStore({ tenantId, workspaceId, issuer, subject }), [tenantId, workspaceId, issuer, subject]);
@@ -62,10 +64,14 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     resolve: (guard: ProductNavigationGuard | false) => void } | undefined>(undefined);
   const openRole = useRef({ role, epoch: 0 });
   if (openRole.current.role !== role) openRole.current = { role, epoch: openRole.current.epoch + 1 };
+  const [readyGeneration, setReadyGeneration] = useState('');
   const [records, setRecords] = useState<PendingWordRecord[]>([]);
   const [heads, setHeads] = useState<ServerWordHead[]>([]);
   const [problem, setProblem] = useState<Problem>();
   const [openingError, setOpeningError] = useState('');
+  useEffect(() => {
+    if (hostSlot && !isNativeHostSlotActive(hostSlot) && problem) onNativeFailure?.(problem.message);
+  }, [hostSlot, problem, onNativeFailure]);
   const problemRef = useRef(problem); problemRef.current = problem;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -191,19 +197,20 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
   const mount = useCallback((host: HTMLElement, onFurniture?: (id?: string) => void) => {
     const one = currentRef.current!;
     // Same-account role changes update the live runtime; they must not reload its initial snapshot.
-    return mountWordRuntime(host, { initialDocument: one.initial, editable: authority.current }, onFurniture);
+    return mountWordRuntime(host, { initialDocument: one.initial, editable: authority.current, isActive: () => !hostSlot || isNativeHostSlotActive(hostSlot) }, onFurniture);
   }, [client, current?.generation]);
   const onRuntime = useCallback((value: WordRuntime) => {
     const generation = currentRef.current!.generation;
     const changed = () => { if (active.current === client && runtime.current?.generation === generation) capture(); };
     value.editor.on('editor:content.change', changed);
     runtime.current = { generation, value, off: () => value.editor.off('editor:content.change', changed) };
+    setReadyGeneration(generation);
     const completion = openingCompletion.current;
     if (completion?.generation === generation) {
       openingCompletion.current = undefined;
-      const installed = captureProductNavigation();
+      const installed = captureProductNavigation(hostSlot);
       completion.resolve(active.current === client && completion.owner === client &&
-        currentRef.current?.documentId === completion.documentId && productDocumentHost() === nativeHost.current && openRole.current === completion.roleOwner &&
+        currentRef.current?.documentId === completion.documentId && productDocumentHost(hostSlot) === nativeHost.current && openRole.current === completion.roleOwner &&
         criterionAuthority.current === completion.accessOwner && installed?.product === 'word' &&
         installed.id === completion.documentId && installed.isCurrent() ? installed : false);
     }
@@ -220,8 +227,8 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       callbacks.current.onUnsafeChange?.(pending || !protectedRef.current);
     });
     if (shell.current) observer.observe(shell.current, { childList: true, subtree: true });
-    const unload = (event: BeforeUnloadEvent) => { capture(); if (!protectedRef.current || nestedRef.current) { event.preventDefault(); event.returnValue = ''; } };
-    const hide = () => { capture(); };
+    const unload = (event: BeforeUnloadEvent) => { if (hostSlot && !isNativeHostSlotActive(hostSlot)) return; capture(); if (!protectedRef.current || nestedRef.current) { event.preventDefault(); event.returnValue = ''; } };
+    const hide = () => { if (!hostSlot || isNativeHostSlotActive(hostSlot)) capture(); };
     window.addEventListener('beforeunload', unload); window.addEventListener('pagehide', hide);
     return () => { observer.disconnect(); window.removeEventListener('beforeunload', unload); window.removeEventListener('pagehide', hide); };
   }, [capture]);
@@ -327,10 +334,12 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     if (!one?.documentId || one.owner !== client || !live || live.generation !== one.generation || active.current !== client || nestedRef.current || !protectedRef.current) return false;
     const rootId = live.value.editor.getRootId();
     const epoch = live.value.editor.dataStore.getDocumentEpoch();
-    const currentOwner = () => intentCurrent() && active.current === client && currentRef.current?.generation === one.generation &&
+    const roleOwner = openRole.current, accessOwner = criterionAuthority.current, registered = nativeHost.current;
+    const currentOwner = () => intentCurrent() && registered === productDocumentHost(hostSlot) && openRole.current === roleOwner && criterionAuthority.current === accessOwner && active.current === client && currentRef.current?.generation === one.generation &&
       currentRef.current.documentId === one.documentId && runtime.current === live && live.value.editor.getRootId() === rootId &&
       live.value.editor.dataStore.getDocumentEpoch() === epoch;
     try {
+      if (!await live.value.view.deliverInput(currentOwner) || !currentOwner()) return false;
       await live.value.flushCommands();
       if (!currentOwner() || nestedRef.current || !protectedRef.current) return false;
       if (savePending.current) await savePending.current;
@@ -342,10 +351,56 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
         await save();
         if (!currentOwner() || nestedRef.current || !protectedRef.current) return false;
       }
+      if (!await live.value.view.deliverInput(currentOwner) || !currentOwner()) return false;
       await live.value.flushCommands();
       if (!currentOwner() || busyRef.current || nestedRef.current || !protectedRef.current || fixed.current || problemRef.current) return false;
       const confirmed = currentRef.current!.confirmed;
       return confirmed !== null && stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), '')) === stableWordSnapshotText(confirmed);
+    } catch { return false; }
+  };
+  const beforeAccountExit = useRef<(isCurrent?: () => boolean) => Promise<boolean>>(async () => false);
+  beforeAccountExit.current = async (intentCurrent = () => true) => {
+    const one = currentRef.current, live = runtime.current, registered = nativeHost.current;
+    const capturedRole = openRole.current, capturedAccess = criterionAuthority.current;
+    const sourceEpoch = nativeIdentityEpoch.current;
+    const inFlight = savePending.current, retainedFixed = fixed.current;
+    if (!one || one.owner !== client || !live || !registered || live.generation !== one.generation ||
+      nestedRef.current || !protectedRef.current || problemRef.current?.kind === 'denied' || (busyRef.current && !inFlight)) return false;
+    const root = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
+    const owns = () => intentCurrent() && active.current === client && productDocumentHost(hostSlot) === registered &&
+      currentRef.current?.generation === one.generation && currentRef.current.documentRef === one.documentRef &&
+      currentRef.current.documentId === one.documentId && runtime.current === live &&
+      nativeIdentityEpoch.current === sourceEpoch && openRole.current === capturedRole && criterionAuthority.current === capturedAccess &&
+      live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch &&
+      problemRef.current?.kind !== 'denied';
+    try {
+      if (!owns() || !await live.value.view.deliverInput(owns) || !owns()) return false;
+      await live.value.flushCommands();
+      if (!owns() || nestedRef.current || !protectedRef.current) return false;
+      // Account exit may settle an entered request. It must not retry or publish one.
+      if (inFlight) await inFlight;
+      if (!owns() || busyRef.current || (savePending.current && savePending.current !== inFlight)) return false;
+      if (!await live.value.view.deliverInput(owns) || !owns()) return false;
+      await live.value.flushCommands();
+      const inputCurrent = live.value.captureInputIntent();
+      if (!inputCurrent || !inputCurrent()) return false;
+      if (!owns() || nestedRef.current || !protectedRef.current) return false;
+      const text = capture(), latest = currentRef.current;
+      if (!text || !latest || !owns() || !protectedRef.current) return false;
+      const durable = store.list();
+      const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
+      const fixedRecord = (value: Fixed) => durable.some(record => record.draftId === value.record.draftId &&
+        record.scope.documentRef === value.record.scope.documentRef && record.status !== 'draft' &&
+        record.snapshotText === value.attempt.snapshotText && same(record.attempt, value.attempt) &&
+        same(record.base, value.record.base) && same(record.source, value.record.source));
+      // A confirmed in-flight request keeps its original lineage; later edits need their own draft.
+      if ((retainedFixed && !fixedRecord(retainedFixed)) || (fixed.current && !fixedRecord(fixed.current))) return false;
+      const confirmed = latest.confirmed !== null && stableWordSnapshotText(text) === stableWordSnapshotText(latest.confirmed);
+      const protectedLatest = durable.some(record => record.scope.documentRef === latest.documentRef &&
+        record.snapshotText === text && same(record.base, baseOf(latest)) &&
+        (record.status === 'draft' || !!fixed.current && record.draftId === fixed.current.record.draftId));
+      return owns() && !nestedRef.current && protectedRef.current && (confirmed || protectedLatest) &&
+        stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), '')) === stableWordSnapshotText(text) && inputCurrent();
     } catch { return false; }
   };
   requestOpen.current = async (documentId: string, intentCurrent = () => true, parentCurrent = () => true) => {
@@ -355,7 +410,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     const roleOwner = openRole.current, accessOwner = criterionAuthority.current;
     let preparedText: string | undefined;
     const registeredHost = nativeHost.current;
-    const owns = () => { try { return !!registeredHost && productDocumentHost() === registeredHost && intentCurrent() && parentCurrent() && active.current === client && currentRef.current?.generation === one.generation &&
+    const owns = () => { try { return !!registeredHost && productDocumentHost(hostSlot) === registeredHost && intentCurrent() && parentCurrent() && active.current === client && currentRef.current?.generation === one.generation &&
       currentRef.current.documentId === one.documentId && runtime.current === live &&
       live.value.editor.getRootId() === rootId && live.value.editor.dataStore.getDocumentEpoch() === epoch &&
       openRole.current === roleOwner && criterionAuthority.current === accessOwner &&
@@ -363,7 +418,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
         (!nestedRef.current && protectedRef.current && !fixed.current &&
           stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), '')) === preparedText)); } catch { return false; } };
     return openGate.current({ currentId: one.documentId, targetId: documentId, isCurrent: owns,
-      same: () => { const guard = captureProductNavigation(); return guard?.product === 'word' && guard.id === documentId && guard.isCurrent() ? guard : false; },
+      same: () => { const guard = captureProductNavigation(hostSlot); return guard?.product === 'word' && guard.id === documentId && guard.isCurrent() ? guard : false; },
       prepare: async () => {
         if (!await beforeNavigate.current(owns) || !owns()) return false;
         const confirmed = currentRef.current?.confirmed;
@@ -397,17 +452,18 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     });
   };
   useEffect(() => {
-    if (!current) return;
+    if (!current || !readyGeneration || runtime.current?.generation !== current.generation) return;
     const host: ProductDocumentHost = { product: 'word',
       id: () => active.current === client && currentRef.current?.owner === client ? currentRef.current.documentId ?? '' : '',
       identityEpoch: () => nativeIdentityEpoch.current + openRole.current.epoch + criterionAuthority.current.version,
       beforeNavigate: () => active.current === client ? beforeNavigate.current() : Promise.resolve(false),
+      beforeAccountExit: () => active.current === client ? beforeAccountExit.current() : Promise.resolve(false),
       requestOpen: (documentId, isCurrent, parentCurrent) => active.current === client ? requestOpen.current(documentId, isCurrent, parentCurrent) : Promise.resolve(false)
     };
     nativeHost.current = host;
-    const unregister = registerProductDocumentHost(host);
+    const unregister = registerProductDocumentHost(host, hostSlot);
     return () => { unregister(); if (nativeHost.current === host) nativeHost.current = undefined; };
-  }, [client, !!current]);
+  }, [client, !!current, !!readyGeneration, hostSlot]);
   const exportNative = () => {
     if (shell.current?.querySelector('.w-math-draft')) return;
     const text = capture(); if (!text) return;
@@ -560,7 +616,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Word 자료를 확인하는 중입니다.</p>}
-    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ workspaceNavigation, headerActions: actions, headerNavigation, navigation, criterionConfirmation, criterionVerification,
+    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ workspaceNavigation, headerActions: actions, headerNavigation, active: !hostSlot || isNativeHostSlotActive(hostSlot), isActive: () => !hostSlot || isNativeHostSlotActive(hostSlot), navigation, criterionConfirmation, criterionVerification,
       feedbackDocumentId: () => active.current === client && currentRef.current?.generation === current.generation ? currentRef.current.documentId ?? '' : '',
       canComment: () => active.current === client && currentRef.current?.generation === current.generation && authority.current &&
         !busyRef.current && !nestedRef.current && problemRef.current?.kind !== 'conflict' && protectedRef.current,

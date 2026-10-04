@@ -4,7 +4,7 @@ import type { Editor } from '@barocss/editor-core';
 import { createSampleDeck } from '../../../packages/office-slides/src/sample-deck';
 import { deckFileText } from '../../../packages/office-slides/src/deck-file';
 import type { INode } from '../../../packages/datastore/src/types';
-import { openDeck, currentSlide, visibleBoxes, pickMenu, openFilmstrip } from './helpers';
+import { openDeck, currentSlide, visibleBoxes, pickMenu, openFilmstrip, pickInsert, openInsertMenu, setPanel } from './helpers';
 
 test.use({ actionTimeout: 10000 });
 
@@ -75,9 +75,7 @@ for (const theme of ['light', 'dark']) test(`continuous ${theme} deck has reacha
   const initialPath = info.outputPath('native-before.slides.json'); await initialDownload.saveAs(initialPath);
   const initialPortable = JSON.parse(readFileSync(initialPath, 'utf8'));
 
-  const detail = page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true });
   await expect(page.locator('.sl-topbar').getByRole('button', { name: '편집 도구', exact: true })).toHaveCount(0);
-  await expect(detail).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('complementary', { name: '속성', exact: true })).toBeHidden();
   await expect(tools(page)).toHaveCount(0);
   await page.screenshot({ path: info.outputPath(`${theme}-idle.png`), animations: 'disabled' });
@@ -88,14 +86,13 @@ for (const theme of ['light', 'dark']) test(`continuous ${theme} deck has reacha
   await expect.poll(() => page.evaluate(() => (document.activeElement as HTMLElement)?.isContentEditable)).toBe(true);
   await page.screenshot({ path: info.outputPath(`${theme}-dismissed.png`), animations: 'disabled' });
   await selectTitle(page); await reachableTools(page);
-  await detail.press('Enter');
-  await expect(detail).toHaveAttribute('aria-expanded', 'true');
+  await setPanel(page, 'properties', true);
   const right = page.getByRole('complementary', { name: '속성', exact: true });
   await expect(right.getByRole('tablist', { name: '속성 탭' })).toBeVisible();
   await expect(right.getByLabel('단위', { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath(`${theme}-inspector.png`), animations: 'disabled' });
-  await detail.press('Enter'); await expect(right).toBeHidden();
-  await page.getByRole('button', { name: '추가 Slides 도구', exact: true }).click();
+  await setPanel(page, 'properties', false); await expect(right).toBeHidden();
+  await openInsertMenu(page);
   await expect(page.getByRole('menu', { name: 'Slides 삽입 및 슬라이드 메뉴', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu', { name: 'Slides 삽입 및 슬라이드 메뉴', exact: true })).toBeHidden();
@@ -220,10 +217,10 @@ test('on-demand navigation, units and timeline retain target and native content'
   const { ids, boxes } = await independentObjects(page);
   await page.mouse.click(boxes[0].x, boxes[0].y);
   const before = await native(page), active = await currentSlide(page);
-  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
+  await setPanel(page, 'properties', true);
   const left = page.getByRole('complementary', { name: '슬라이드 탐색', exact: true });
   const tabs = left.getByRole('tablist', { name: '탐색 방식' });
-  await page.getByRole('button', { name: '레이어', exact: true }).click();
+  await setPanel(page, 'layers', true);
   await tabs.getByRole('tab', { name: '레이어', exact: true }).focus();
   await page.keyboard.press('ArrowRight'); await expect(tabs.getByRole('tab', { name: '컴포넌트', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('Home'); await expect(tabs.getByRole('tab', { name: '레이어', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -248,7 +245,7 @@ test('fresh compact insertion still runs after a header menu is dismissed withou
   expect(await native(page)).toEqual(before);
   const count = () => page.evaluate(id => (window as any).editor.dataStore.getNode(id).content.length, active);
   const original = await count();
-  await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '사각형', exact: true }).click();
+  await pickInsert(page, '사각형');
   await expect.poll(count).toBe(original + 1);
   await page.keyboard.press('Meta+z'); await expect.poll(count).toBe(original);
   expect((await native(page)).document).toBe(before.document);
@@ -302,7 +299,7 @@ test('document menu survives identical selection reports and retires actual owne
         editor.loadDocument(editor.exportDocument(), session);
       }
     }, change);
-    await expect(menu).toHaveCount(0);
+    await expect(menu, `The document menu retained its retired ${change} owner`).toHaveCount(0);
   }
 });
 

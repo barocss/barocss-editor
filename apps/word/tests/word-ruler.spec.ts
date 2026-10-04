@@ -1,14 +1,15 @@
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { settled } from './helpers';
 
 async function showRuler(page: Page) {
   if (await page.locator('.w-ruler').count()) return;
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   const detail = page.getByLabel('전체 Word 도구', { exact: true });
   await detail.getByRole('tab', { name: '보기', exact: true }).click();
   await detail.getByRole('button', { name: '눈금자', exact: true }).click();
   await expect(page.locator('.w-ruler')).toBeVisible();
-  await page.getByRole('button', { name: '전체 도구 접기', exact: true }).click();
+  await setWordWholeTools(page, false);
 }
 
 

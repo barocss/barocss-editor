@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useReducer, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { getGlobalRegistry, type RendererRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY } from '@barocss/office-text';
 import { Icon, IconButton } from '@barocss/office-ui';
 import { useDocumentRevision } from '@barocss/office-editor-ui';
@@ -52,6 +52,8 @@ import { emptyNotesDraft, NotesDraftInput, type NotesInputDraft } from './notes-
 /** What the notes pane is told. */
 export interface NotesPaneProps {
   editor: Editor | null;
+  /** The same renderer owner as the native stage. */
+  registry?: RendererRegistry;
   slideSid?: string;
   /** Bumped by the app when the deck changes, so the note is re-resolved. */
   revision: number;
@@ -65,7 +67,7 @@ export interface NotesPaneProps {
   } | null) => void;
 }
 
-export function NotesPane({ editor, slideSid, revision, onClose, active = true, onInputDeliveryReady, onInputRecoveryReady }: NotesPaneProps) {
+export function NotesPane({ editor, registry, slideSid, revision, onClose, active = true, onInputDeliveryReady, onInputRecoveryReady }: NotesPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
   const drafts = useRef(new Map<string, NotesInputDraft>());
@@ -159,7 +161,7 @@ export function NotesPane({ editor, slideSid, revision, onClose, active = true, 
       view.current = new EditorViewDOM(editor, {
         container: host.current,
         rootId: noteSid,
-        registry: getGlobalRegistry(),
+        registry: registry ?? getGlobalRegistry(),
         env: {
           // The same environment the stage has: a note's paragraphs are Word's
           // paragraphs and resolve their formatting the same way.
@@ -192,7 +194,7 @@ export function NotesPane({ editor, slideSid, revision, onClose, active = true, 
     view.current.setRootId(noteSid);
     view.current.contentEditableElement.contentEditable = String(editor.isEditable);
     view.current.render(tree, { sync: true });
-  }, [editor, noteSid, tick, revision]);
+  }, [editor, registry, noteSid, tick, revision]);
 
   useEffect(() => {
     if (!onInputRecoveryReady) return;
@@ -214,14 +216,14 @@ export function NotesPane({ editor, slideSid, revision, onClose, active = true, 
       }
     });
     return () => { mounted = false; onInputRecoveryReady(null); };
-  }, [editor, rootId, epoch, noteSid, active, intent, onInputRecoveryReady]);
+  }, [editor, registry, rootId, epoch, noteSid, active, intent, onInputRecoveryReady]);
 
   useEffect(
     () => () => {
       view.current?.destroy?.();
       view.current = null;
     },
-    []
+    [editor, registry]
   );
 
   const missing = !noteSid;

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import type { RendererRegistry } from '@barocss/dsl';
 import { TextField } from '@barocss/office-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import type { Slide } from './deck';
@@ -23,6 +24,8 @@ import { Thumbnail } from './thumbnail';
 /** What the strip down the side is told. */
 export interface FilmstripProps {
   editor: Editor | null;
+  /** The same renderer owner as the native stage. */
+  registry?: RendererRegistry;
   thumbnailWidth?: number;
   slides: Slide[];
   current?: string;
@@ -41,6 +44,7 @@ export interface FilmstripProps {
 
 export function Filmstrip({
   editor,
+  registry,
   slides,
   current,
   onSelect,
@@ -139,7 +143,7 @@ export function Filmstrip({
               }}
             >
               <span className="sl-filmstrip-number">{slide.number}</span>
-              <Thumbnail editor={editor} slideSid={slide.sid} width={thumbnailWidth} revision={revision} />
+              <Thumbnail registry={registry} editor={editor} slideSid={slide.sid} width={thumbnailWidth} revision={revision} />
               <span className="sl-filmstrip-name">
                 {/*
                  * A slide the author never named and whose title is empty gets

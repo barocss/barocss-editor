@@ -65,6 +65,37 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, headerHos
   const table = selectedSlidesTable(editor);
   const target = region === 'canvas' ? table ?? scene?.sid : undefined;
   const at = useNodeRect(editor, scope, target);
+  // The native overlay extends beyond the object (rotation, path and paint handles).
+  // Anchor chrome outside those actual hit rectangles, including live preview movement.
+  const [handleAnchor, setHandleAnchor] = useState<{ at: DOMRect; bounds: DOMRect } | null>(null);
+  useLayoutEffect(() => {
+    const host = scope.current;
+    if (!host || !at || !current || !target) { setHandleAnchor(null); return; }
+    const measure = () => {
+      const overlay = [...host.querySelectorAll<HTMLElement>('[data-slide-overlay]')]
+        .find(element => element.dataset.slideOverlay === current);
+      let top = at.top, bottom = at.bottom;
+      for (const handle of overlay?.querySelectorAll<HTMLElement>(
+        '[data-handle], [data-path-point], [data-path-add], [data-gradient-stop], [data-gradient-origin], [data-gradient-aim], [data-radial-handle], [data-magnet], [data-conn-end], [data-conn-bend]'
+      ) ?? []) {
+        const box = handle.getBoundingClientRect();
+        if (!box.width || !box.height) continue;
+        top = Math.min(top, box.top); bottom = Math.max(bottom, box.bottom);
+      }
+      setHandleAnchor(previous => previous?.at === at && previous.bounds.top === top && previous.bounds.bottom === bottom
+        ? previous : { at, bounds: new DOMRect(at.left, top, at.width, bottom - top) });
+    };
+    measure();
+    const observer = new MutationObserver(records => {
+      if (records.some(record => record.target instanceof Element &&
+        (record.target.closest('[data-slide-overlay]') || [...record.addedNodes, ...record.removedNodes]
+          .some(node => node instanceof Element && (node.matches('[data-slide-overlay]') || node.querySelector('[data-slide-overlay]')))))) measure();
+    });
+    observer.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
+    host.ownerDocument.defaultView?.addEventListener('resize', measure);
+    return () => { observer.disconnect(); host.ownerDocument.defaultView?.removeEventListener('resize', measure); };
+  }, [scope, at, current, target, nativeRoot, revision]);
+  const objectAnchor = handleAnchor?.at === at ? handleAnchor.bounds : at;
   const visibility = useEditorContextVisibility(editor, target ?? null, { scope, retainWithin: objectChrome, relatedChrome: inspectorScope, active: active && editor.isEditable });
   const canvasOwned = active && editor.isEditable && region === 'canvas' && canvasGesture?.root === nativeRoot && canvasGesture?.slide === current;
   const textRange = editor.selection?.type === 'range' && !isCollapsedSelection(editor.selection) && !table;
@@ -106,7 +137,7 @@ export function SlidesDocumentChrome({ editor, slides, current, scope, headerHos
         </div>;
       }}
     </ContextToolbar>
-    {active && !textRange && target && <FloatingSurface compact open={(visibility.open || canvasOwned) && !!at} at={at} portalRoot={scope.current}
+    {active && !textRange && target && <FloatingSurface compact open={(visibility.open || canvasOwned) && !!objectAnchor} at={objectAnchor} portalRoot={scope.current}
       aria-label="선택한 Slides 도구" data-slides-formatting onDismiss={(reason, event) => { if (reason === 'escape' && event?.target instanceof Node && inspectorScope.current?.contains(event.target)) { onInspectorEscape?.(); return; } lifetime.generation += 1; refreshLifetime(); setCanvasGesture(null); visibility.dismiss(reason); }} ownedElements={[scope, inspectorScope, globalChrome]}>
       <div ref={objectChrome} key={`${lifetime.generation}:${JSON.stringify(editor.selection)}`}>
         <Toolbar variant="compact" label={table ? '선택한 Slides 표 도구' : '선택한 Slides 개체 도구'}>

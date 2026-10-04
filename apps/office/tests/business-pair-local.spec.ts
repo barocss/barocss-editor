@@ -1,4 +1,4 @@
-import { openWordDocumentAction } from '../../word/tests/helpers';
+import { nativeEditor } from './helpers/native-editor';
 import { expect, test, type Page } from '@playwright/test';
 import type { INode } from '../../../packages/datastore/src/types';
 import type { BusinessPairPayload } from '../../../packages/office-word/src/business-pair';
@@ -67,16 +67,25 @@ async function seed(page: Page, document: INode, name: string) {
   return { id, text };
 }
 async function home(page: Page) {
-  await page.locator('.office-product-menu [data-menu]').click();
-  await page.getByRole('menuitem', { name: '자료함', exact: true }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
   await expect(page.getByRole('heading', { name: '전체 자료', exact: true })).toBeVisible();
 }
 async function open(page: Page, name: string) {
-  await page.getByRole('button', { name: `W ${name}`, exact: true }).click();
-  await expect(page.locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: `Word ${name}`, exact: true }).click();
+  await expect(nativeEditor(page).locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible({ timeout: 30_000 });
+}
+async function openBusinessPair(page: Page) {
+  const editor = nativeEditor(page);
+  await editor.getByRole('menuitem', { name: '문서 패널', exact: true }).click();
+  await editor.getByRole('menuitemcheckbox', { name: '요구·결정', exact: true }).click();
+}
+async function openDocumentAction(page: Page, name: '문서 작업' | '문서 보관함') {
+  const editor = nativeEditor(page);
+  await editor.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await editor.getByRole('menuitem', { name, exact: true }).click();
 }
 async function caret(page: Page, text: string) {
-  const node = page.locator('.w-paragraph').filter({ hasText: text }).first();
+  const node = nativeEditor(page).locator('.w-paragraph').filter({ hasText: text }).first();
   await node.scrollIntoViewIfNeeded();
   const bounds = await node.boundingBox(); expect(bounds).not.toBeNull();
   await node.click({ position: { x: 8, y: Math.min(10, bounds!.height / 2) } });
@@ -123,8 +132,8 @@ function assertDerived(original: INode, copied: INode, name: string): string[] {
 test('actual local Word authors the rich pair then copy, restore, move and reopen preserve exact evidence', async ({ page }, info) => {
   test.setTimeout(150_000);
   const native = fixture(title); const seeded = await seed(page, native, title);
-  await open(page, title); await page.getByRole('button', { name: '요구·결정', exact: true }).click();
-  const panel = page.locator('.w-business-pair'); await expect(panel).toContainText('승인 여부는 미확인');
+  await open(page, title); await openBusinessPair(page);
+  const panel = nativeEditor(page).locator('.w-business-pair'); await expect(panel).toContainText('승인 여부는 미확인');
   await caret(page, requirementText); await panel.getByRole('button', { name: '요구사항 문단 지정', exact: true }).click();
   await expect(panel).toContainText('요구사항 지정됨');
   await caret(page, decisionText); await panel.getByRole('button', { name: '결정 문단 지정', exact: true }).click();
@@ -157,7 +166,18 @@ test('actual local Word authors the rich pair then copy, restore, move and reope
       locator: { kind: 'point-bookmark', bookmarkId: bookmarks[index] }, versions: [{ version: 1, snapshotText: pin }] })),
     relations: [{ kind: 'supported_by', source: { itemId: pair.items[0].id, version: 1 }, target: { itemId: pair.items[1].id, version: 1 } }] };
   const expected = structuredClone(expectedAnchors); expected.metadata!.wonfficeBusinessPair = expectedPair;
-  expect(authored).toStrictEqual(expected); await page.screenshot({ path: info.outputPath('local-authored-pair.png'), animations: 'disabled' });
+  expect(authored).toStrictEqual(expected);
+  const actionContainment = await panel.evaluate(element => {
+    const bounds = element.getBoundingClientRect();
+    return Array.from(element.querySelectorAll('button')).filter(button => button.getClientRects().length).map(button => {
+      const box = button.getBoundingClientRect(), text = document.createRange(); text.selectNodeContents(button);
+      return { label: button.textContent, targetHeight: box.height, contained: box.left >= bounds.left && box.right <= bounds.right &&
+        Array.from(text.getClientRects()).every(rect => rect.left >= box.left && rect.right <= box.right) };
+    });
+  });
+  expect(actionContainment.length).toBeGreaterThan(0);
+  for (const action of actionContainment) { expect(action.contained, action.label ?? 'Pair action').toBe(true); expect(action.targetHeight).toBeGreaterThanOrEqual(32); }
+  await page.screenshot({ path: info.outputPath('local-authored-pair.png'), animations: 'disabled' });
   await home(page); const archive = await backup(page);
   await page.getByRole('button', { name: `${title} 관리`, exact: true }).click();
   await page.getByRole('button', { name: '독립 사본 만들기', exact: true }).click();
@@ -173,16 +193,16 @@ test('actual local Word authors the rich pair then copy, restore, move and reope
   await page.getByRole('textbox', { name: '자료 폴더', exact: true }).fill('Fictional evidence');
   await page.getByRole('button', { name: '변경 저장', exact: true }).click();
   expect(await read(page, seeded.id)).toStrictEqual(original);
-  await open(page, title); await page.getByRole('button', { name: '요구·결정', exact: true }).click();
-  await expect(page.locator('.w-business-pair')).toContainText(pair.items[0].id);
-  await page.reload(); await expect(page.locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible({ timeout: 30_000 });
+  await open(page, title); await openBusinessPair(page);
+  await expect(nativeEditor(page).locator('.w-business-pair')).toContainText(pair.items[0].id);
+  await page.reload(); await expect(nativeEditor(page).locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible({ timeout: 30_000 });
   await home(page); expect(await read(page, seeded.id)).toStrictEqual(original);
-  await open(page, `${title} 사본`); await page.getByRole('button', { name: '요구·결정', exact: true }).click();
-  await expect(page.locator('.w-business-pair')).toContainText(copyIds[0]); await home(page);
+  await open(page, `${title} 사본`); await openBusinessPair(page);
+  await expect(nativeEditor(page).locator('.w-business-pair')).toContainText(copyIds[0]); await home(page);
   expect(await read(page, seeded.id)).toStrictEqual(original);
   await open(page, title);
-  await openWordDocumentAction(page, '문서 작업');
-  const actions = page.getByRole('dialog', { name: '문서 작업', exact: true });
+  await openDocumentAction(page, '문서 작업');
+  const actions = nativeEditor(page).getByRole('dialog', { name: '문서 작업', exact: true });
   await actions.getByRole('button', { name: '보관함에 사본 저장', exact: true }).click();
   await expect.poll(async () => (await snapshots(page)).length).toBe(4);
   const manual = (await snapshots(page)).find(row => ![seeded.id, copied.row.name, restored.row.name].includes(row.row.name))!;
@@ -196,15 +216,15 @@ test('actual local Word authors the rich pair then copy, restore, move and reope
     const { wordDrafts } = await import(`/@fs${root}/apps/word/src/autosave.ts`);
     await wordDrafts.keep({ name: 'fictional-business-draft', title: 'Fictional pair recovery', count: 1, savedAt: 100 }, text);
   }, { root: sourceRoot!, text: wordFileText(authored, '') });
-  await openWordDocumentAction(page, '문서 보관함');
-  const library = page.getByRole('dialog', { name: '문서 보관함', exact: true });
+  await openDocumentAction(page, '문서 보관함');
+  const library = nativeEditor(page).getByRole('dialog', { name: '문서 보관함', exact: true });
   await library.getByRole('button', { name: 'Fictional pair recovery 초안 복구', exact: true }).click();
   await expect.poll(async () => (await snapshots(page)).length).toBe(5);
   const recovery = (await snapshots(page)).find(row => ![seeded.id, copied.row.name, restored.row.name, manual.row.name].includes(row.row.name))!;
   const recoveryIds = assertDerived(authored, JSON.parse(recovery.text).document, title);
   recoveryIds.forEach(id => { expect(copyIds).not.toContain(id); expect(restoreIds).not.toContain(id); expect(manualIds).not.toContain(id); });
   expect(await read(page, seeded.id)).toStrictEqual(original);
-  await page.reload(); await expect(page.locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible();
+  await page.reload(); await expect(nativeEditor(page).locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible();
   await home(page); expect(await read(page, recovery.row.name)).toStrictEqual(recovery);
   await info.attach('local-native-original-and-derived', { body: JSON.stringify({ original, copied, restored, manual, recovery }), contentType: 'application/json' });
 });
@@ -213,8 +233,8 @@ test('invalid authored metadata refuses actual local copy and restore without ch
   const name = 'Fictional invalid pair'; const native = fixture(name);
   native.metadata!.wonfficeBusinessPair = { schemaVersion: 1, items: [], relations: [], approved: true, actor: 'fictional-admin' };
   const seeded = await seed(page, native, name); const before = await snapshots(page);
-  await open(page, name); await page.getByRole('button', { name: '요구·결정', exact: true }).click();
-  await expect(page.locator('.w-business-pair')).toContainText('항목을 읽을 수 없습니다.'); await home(page);
+  await open(page, name); await openBusinessPair(page);
+  await expect(nativeEditor(page).locator('.w-business-pair')).toContainText('항목을 읽을 수 없습니다.'); await home(page);
   expect((await read(page, seeded.id)).text).toBe(seeded.text);
   const archive = await backup(page);
   await page.getByRole('button', { name: `${name} 관리`, exact: true }).click();

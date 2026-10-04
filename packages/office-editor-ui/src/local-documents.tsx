@@ -23,12 +23,15 @@ export function useLocalDocuments(options: DocumentSessionOptions | null) {
 export interface LocalDocumentActions { open(origin?: HTMLElement | null): void; }
 
 /** Local storage and recovery controls shared by product shells. */
-export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly = false, showTrigger = true, ref }: {
-  persistence: ReturnType<typeof useLocalDocuments>; title: string; prefix: string; onOpened: () => void; iconOnly?: boolean; showTrigger?: boolean; ref?: Ref<LocalDocumentActions>;
+export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly = false, showTrigger = true, onBusyChange, ref }: {
+  persistence: ReturnType<typeof useLocalDocuments>; title: string; prefix: string; onOpened: () => void; iconOnly?: boolean; showTrigger?: boolean; onBusyChange?: (busy: boolean) => void; ref?: Ref<LocalDocumentActions>;
 }) {
   const { status } = persistence;
   const { t } = useOfficeLocale();
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
+  useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
+  // Retire only this mounted consumer; an old pending action cannot notify it later.
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
   const [rows, setRows] = useState<LibraryRow[]>([]), [drafts, setDrafts] = useState<LibraryRow[]>([]);
   type Problem = { code: 'recoveryOpenFailed' | 'operationFailed' | 'saveUnconfirmed' | 'trashed' | 'openFailed'; title?: string };
   const [problem, setProblem] = useState<Problem | null>(null);

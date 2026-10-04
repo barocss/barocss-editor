@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, DocumentMenu, Icon, IconButton, StatusNotice, useOfficeLocale } from '@barocss/office-ui';
 import { createProjectComment, requestProjectWork, productDocumentHost, productFeedbackHost, prepareProductNavigation,
   type ProductFeedbackTarget, type ProductFeedbackHost, type Pin, type ProjectComment } from '@barocss/shared';
@@ -6,11 +6,25 @@ import type { Product } from './products';
 import { type ProjectRepository, type ProjectSnapshot, type WordFeedbackRecovery, PinnedSource } from './project-ui';
 import { ConnectedWorkControl } from './connected-work-control';
 
+export interface PreparedFeedbackInput { isCurrent(): boolean; }
+export type FeedbackBeforeLeave = (() => Promise<boolean>) & {
+  isPrepared?: () => boolean;
+  /** Input-only completion proof. It never grants native navigation authority. */
+  capturePreparedInput?: () => PreparedFeedbackInput | undefined;
+};
+interface InputPreparation {
+  matches(): boolean;
+  protectedAtRetirement?: Readonly<{ version: number; text: string; durable: string }>;
+  version: number; text: string; durable: string;
+}
+
+
 export function ProjectFeedback({ repository, projectId, document: address, beforeLeave, actor }: {
   repository: ProjectRepository; projectId: string; document: { product: Product; id: string };
-  beforeLeave?: { current?: () => Promise<boolean> }; actor?: { kind: 'local' | 'human'; id: string; label: string }
+  beforeLeave?: { current?: FeedbackBeforeLeave }; actor?: { kind: 'local' | 'human'; id: string; label: string }
 }) {
   const { t } = useOfficeLocale();
+  const inputElement = useRef<HTMLTextAreaElement>(null);
   const menuAnchor = useRef<HTMLSpanElement>(null);
   const restoreMenuFocus = () => menuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   const [snapshot, setSnapshot] = useState<ProjectSnapshot | null>(null), [open, setOpen] = useState(false), [error, setError] = useState('');
@@ -30,6 +44,32 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   const hostEpochRef = useRef(0);
   const [hostEpoch, setHostEpoch] = useState(0), mountedHost = productDocumentHost();
   useEffect(() => { const changed = () => { hostEpochRef.current++; setHostEpoch(hostEpochRef.current); }; window.addEventListener('wonffice:host-change', changed); return () => window.removeEventListener('wonffice:host-change', changed); }, []);
+  const inputLifetime = useMemo(() => ({ mounted: false, epoch: 0, retired: false,
+    sourceHost: mountedHost, sourceId: mountedHost?.id(), sourceEpoch: mountedHost?.identityEpoch?.(), preparations: new Set<InputPreparation>() }), [identity, repository]);
+  const currentInputLifetime = useRef(inputLifetime); currentInputLifetime.current = inputLifetime;
+  useLayoutEffect(() => {
+    inputLifetime.mounted = true; inputLifetime.epoch++;
+    return () => { retireInput(); inputLifetime.mounted = false; inputLifetime.epoch++; };
+  }, [inputLifetime]);
+  const retireInput = () => {
+    const sourceHost = inputLifetime.sourceHost;
+    if (currentInputLifetime.current !== inputLifetime || !inputLifetime.mounted || inputLifetime.retired || !sourceHost || (productDocumentHost() === sourceHost &&
+      sourceHost.id() === inputLifetime.sourceId && sourceHost.identityEpoch?.() === inputLifetime.sourceEpoch)) return;
+    // Freeze only input already prepared at this exact native identity retirement.
+    for (const preparation of inputLifetime.preparations) {
+      if (preparation.matches()) preparation.protectedAtRetirement = Object.freeze({ version: inputVersion.current, text: latest.current, durable: savedDraft.current });
+    }
+    inputLifetime.retired = true;
+    if (inputElement.current) inputElement.current.disabled = true;
+  };
+  useEffect(() => {
+    window.addEventListener('wonffice:host-change', retireInput);
+    window.addEventListener('wonffice:feedback-host-change', retireInput);
+    return () => {
+      window.removeEventListener('wonffice:host-change', retireInput);
+      window.removeEventListener('wonffice:feedback-host-change', retireInput);
+    };
+  }, [inputLifetime]);
   const generation = useMemo(() => ({ hostEpoch }), [identity, repository, mountedHost, hostEpoch]);
   const currentGeneration = useRef(generation); currentGeneration.current = generation;
   const owner = useRef(identity); owner.current = identity;
@@ -86,8 +126,43 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     window.addEventListener('wonffice:feedback-host-change', change);
     const unload = (event: BeforeUnloadEvent) => { if (latest.current !== savedDraft.current) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('beforeunload', unload);
-    if (beforeLeave) beforeLeave.current = async () => { try { await saveDraft(); return true; } catch (cause) { if (owns()) setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.'); return false; } };
-    return () => { mounted.current = false; window.removeEventListener('wonffice:feedback-host-change', change); window.removeEventListener('beforeunload', unload); if (beforeLeave) beforeLeave.current = undefined; };
+    let preparedVersion: number | undefined;
+    const prepare: FeedbackBeforeLeave = async () => {
+      preparedVersion = undefined;
+      const version = inputVersion.current;
+      if (composing.current || !owns()) return false;
+      try {
+        await saveDraft();
+        if (!owns() || composing.current || inputVersion.current !== version || latest.current !== savedDraft.current) return false;
+        preparedVersion = version;
+        return true;
+      } catch (cause) {
+        if (owns()) setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.');
+        return false;
+      }
+    };
+    prepare.isPrepared = () => preparedVersion !== undefined && owns() && !composing.current && inputVersion.current === preparedVersion && latest.current === savedDraft.current;
+    prepare.capturePreparedInput = () => {
+      if (!prepare.isPrepared!() || inputLifetime.retired || !inputLifetime.mounted || currentInputLifetime.current !== inputLifetime) return;
+      const version = inputVersion.current, text = latest.current, durable = savedDraft.current, epoch = inputLifetime.epoch;
+      const matchesInput = () => currentInputLifetime.current === inputLifetime && inputVersion.current === version &&
+        !composing.current && latest.current === text && savedDraft.current === durable && text === durable;
+      const preparation: InputPreparation = { version, text, durable, matches: () => matchesInput() && inputLifetime.mounted && inputLifetime.epoch === epoch && preparedVersion === version };
+      inputLifetime.sourceHost = mountedHost;
+      inputLifetime.sourceId = mountedHost?.id(); inputLifetime.sourceEpoch = mountedHost?.identityEpoch?.();
+      inputLifetime.preparations.add(preparation);
+      return { isCurrent: () => {
+        retireInput();
+        if (currentInputLifetime.current !== inputLifetime) return false;
+        if (!inputLifetime.retired) return preparation.matches();
+        const frozen = preparation.protectedAtRetirement;
+        return !!frozen && inputVersion.current === frozen.version && !composing.current &&
+          latest.current === frozen.text && savedDraft.current === frozen.durable;
+      } };
+    };
+
+    if (beforeLeave) beforeLeave.current = prepare;
+    return () => { mounted.current = false; window.removeEventListener('wonffice:feedback-host-change', change); window.removeEventListener('beforeunload', unload); if (beforeLeave?.current === prepare) beforeLeave.current = undefined; };
   }, [identity, repository, generation]);
   const refresh = async () => { const value = await repository.read(projectId); if (!owns()) throw new Error('문서가 바뀌었습니다.'); setSnapshot(value); return value; };
   const requestWork = async (commentId: string, body: string) => {
@@ -260,7 +335,8 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
       {!target && draft && <p className="ow-feedback-note">작성 중인 의견을 보관했습니다. 문서의 대상 영역을 선택한 뒤 의견 남기기를 누르세요.</p>}
       {(target || draft) && <div className="ow-feedback-composer"><p>{!target ? '보관한 초안' : target.kind === 'document' ? '문서 전체' : '선택한 텍스트 영역'}</p>{target?.quote && <blockquote>{excerpt.length ? excerpt.map((part, index) => <span key={index} style={{ fontWeight: part.bold ? 650 : undefined, fontStyle: part.italic ? 'italic' : undefined, textDecoration: part.underline || part.link ? 'underline' : undefined }} className={part.link ? 'ow-feedback-excerpt-link' : undefined}>{part.text}</span>) : target.quote}</blockquote>}
         {target && capturedPin.current && <small className="ow-feedback-note">{capturedPin.current.title} · 버전 {capturedPin.current.revision}</small>}
-        <textarea aria-label="프로젝트 의견 입력" value={draft} onChange={event => { const text = event.target.value; inputVersion.current++; latest.current = text; setDraft(text); void saveDraft().catch(cause => owns() && setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.')); }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
+        <textarea ref={inputElement} aria-label="프로젝트 의견 입력" disabled={inputLifetime.retired || !owns()} value={draft} onChange={event => { if (inputLifetime.retired || !owns()) { event.currentTarget.value = latest.current; return; } const text = event.target.value; inputVersion.current++; latest.current = text; setDraft(text); void saveDraft().catch(cause => owns() && setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.')); }} onCompositionStart={() => { if (inputLifetime.retired || !owns()) return; inputVersion.current++; composing.current = true; }} onCompositionEnd={() => { if (inputLifetime.retired || !owns()) return; composing.current = false; }} onKeyDown={event => {
+          if (inputLifetime.retired || !owns()) { event.preventDefault(); return; }
           if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) { if (event.key === 'Enter' || event.key === 'Escape') event.stopPropagation(); return; }
           if (event.key === 'Escape') { event.stopPropagation(); void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); restoreMenuFocus(); }); }
         }} />

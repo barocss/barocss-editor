@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openDeck, pickMenu, currentSlide } from './helpers';
+import { openDeck, pickMenu, currentSlide, setPanel } from './helpers';
 
 async function fixture(page: import('@playwright/test').Page) {
   await openDeck(page);
@@ -101,7 +101,7 @@ async function selectAcrossSlides(page: import('@playwright/test').Page) {
 test('selects objects across slides and edits a shared property through the inspector', async ({ page }) => {
   const f = await selectAcrossSlides(page);
   await expect.poll(() => currentSlide(page)).toBe(f.second);
-  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
+  await setPanel(page, 'properties', true);
   await expect(page.locator('.sl-properties')).toContainText('2개 선택');
   await expect(page.locator('[data-cross-slide-selected]')).toHaveAttribute('data-cross-slide-selected', f.sid!);
   const opacity = page.getByRole('spinbutton', { name: '불투명도', exact: true });

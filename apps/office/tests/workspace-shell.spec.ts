@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Frame, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { openLocalLibrary } from './helpers/local-library';
 
@@ -7,6 +7,22 @@ const kinds = ['note', 'word', 'slides', 'site'] as const;
 type Product = typeof kinds[number];
 const title = (product: Product) => `Shell ${product}`;
 const tree = (page: Page) => page.locator('.ow-file-navigation');
+const nativeElement = (page: Page) => page.locator('iframe[data-local-native-frame="active"]');
+const nativeEditor = (page: Page) => page.frameLocator('iframe[data-local-native-frame="active"]');
+async function nativeFrame(page: Page): Promise<Frame> {
+  await expect(nativeElement(page)).toHaveCount(1);
+  const element = await nativeElement(page).elementHandle();
+  const frame = await element?.contentFrame();
+  if (!frame) throw new Error('The active native editor frame is not connected.');
+  return frame;
+}
+async function openSiteTools(page: Page) {
+  if (await nativeEditor(page).locator('[data-to-admin]').isVisible()) return;
+  await nativeEditor(page).getByRole('menuitem', { name: '패널', exact: true }).click();
+  await nativeEditor(page).getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
+  await expect(nativeEditor(page).locator('[data-to-admin]')).toBeVisible();
+}
+
 const file = (page: Page, product: Product) => tree(page).getByRole('button', { name: `${title(product)} 열기`, exact: true });
 
 async function seed(page: Page) {
@@ -28,11 +44,12 @@ async function open(page: Page, product: Product, id: string) {
   await file(page, product).click();
   await expect(tree(page)).toBeVisible();
   await expect(tree(page).locator(`[data-original="${product}:${id}"]`)).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.ow-native-slot > #root')).toBeVisible();
+  await expect(nativeElement(page)).toBeVisible();
+  await expect(nativeEditor(page).locator('#root')).toBeVisible();
   await expect(page.locator('.ow-entry-status')).toHaveCount(0);
-  await expect(page.locator('.ow-native-slot > #root')).not.toHaveAttribute('inert', '');
+  expect(await nativeElement(page).evaluate(element => element.closest('[inert]') !== null)).toBe(false);
 }
-const wordNative = (page: Page) => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
+const wordNative = async (page: Page) => (await nativeFrame(page)).evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
 
 // This is local-device discovery. It does not establish authenticated ownership.
 test('zero projects retain all four native hosts and a usable tree in light and dark desktop layouts', async ({ page }) => {
@@ -43,7 +60,7 @@ test('zero projects retain all four native hosts and a usable tree in light and 
     await page.goto(directURL);
     await expect(tree(page)).toBeVisible();
     await expect(tree(page).locator(`[data-original="${product}:${ids[product]}"]`)).toHaveAttribute('aria-pressed', 'true');
-    if (product === 'site') await expect(page.locator('[data-frame="desktop"]')).toBeVisible();
+    if (product === 'site') await expect(nativeEditor(page).locator('[data-frame="desktop"]')).toBeVisible();
     await expect(tree(page).locator('[data-original]')).toHaveCount(4);
     const colors: string[] = [];
     for (const theme of ['light', 'dark'] as const) {
@@ -68,7 +85,7 @@ test('zero projects retain all four native hosts and a usable tree in light and 
     expect(colors[0]).not.toBe(colors[1]);
   }
   await open(page, 'word', ids.word);
-  const paragraph = page.locator('.w-paragraph').last();
+  const paragraph = nativeEditor(page).locator('.w-paragraph').last();
   await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Unfinished native input');
   await expect(paragraph).toContainText('Unfinished native input');
   const nativeNode = await paragraph.elementHandle(), before = await wordNative(page), url = page.url();
@@ -106,13 +123,14 @@ test('closing a Site original restores the library product, query and opaque fol
 test('tree navigation saves the last Word input and refuses a failed save without losing the draft', async ({ page }) => {
   const ids = await seed(page);
   await open(page, 'word', ids.word);
-  const paragraph = page.locator('.w-paragraph').last();
+  const paragraph = nativeEditor(page).locator('.w-paragraph').last();
   await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' FINAL TREE INPUT');
   await open(page, 'slides', ids.slides);
   await open(page, 'word', ids.word);
   await expect(paragraph).toContainText('FINAL TREE INPUT');
   const originalURL = page.url();
-  await page.evaluate(() => {
+  const sourceFrame = await nativeFrame(page);
+  await sourceFrame.evaluate(() => {
     const put = IDBObjectStore.prototype.put;
     (window as any).__restoreWorkspacePut = () => { IDBObjectStore.prototype.put = put; };
     IDBObjectStore.prototype.put = function (...args) {
@@ -123,12 +141,17 @@ test('tree navigation saves the last Word input and refuses a failed save withou
   try {
     await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' RETAINED FAILURE INPUT');
     const before = await wordNative(page);
+    const history = await sourceFrame.evaluate(() => JSON.stringify((window as unknown as { editor: { getHistoryStats(): unknown } }).editor.getHistoryStats()));
+    const originalNode = await paragraph.elementHandle();
     await file(page, 'slides').click();
-    await expect(tree(page).getByRole('alert')).toContainText('마지막 입력을 저장하지 못했습니다');
+    await expect(page.getByRole('alert').filter({ hasText: '마지막 입력을 저장하지 못했습니다' })).toContainText('현재 화면을 유지합니다');
     expect(page.url()).toBe(originalURL); expect(await wordNative(page)).toBe(before);
     await expect(paragraph).toContainText('RETAINED FAILURE INPUT');
-    await expect(page.locator('.ow-native-slot > #root')).not.toHaveAttribute('inert');
-  } finally { await page.evaluate(() => (window as any).__restoreWorkspacePut()); }
+    expect(await nativeFrame(page)).toBe(sourceFrame);
+    expect(await originalNode!.evaluate(element => element.isConnected)).toBe(true);
+    expect(await sourceFrame.evaluate(() => JSON.stringify((window as unknown as { editor: { getHistoryStats(): unknown } }).editor.getHistoryStats()))).toBe(history);
+    expect(await nativeElement(page).evaluate(element => element.closest('[inert]') !== null)).toBe(false);
+  } finally { await sourceFrame.evaluate(() => (window as any).__restoreWorkspacePut()); }
   await open(page, 'slides', ids.slides); await open(page, 'word', ids.word);
   await expect(paragraph).toContainText('RETAINED FAILURE INPUT');
 });
@@ -162,8 +185,8 @@ test('two projects and My retain the same original and native history when its a
   await expect(customer).toHaveAttribute('aria-expanded', 'true');
   await expect(file(page, 'word')).toHaveCount(2);
   await file(page, 'word').first().click();
-  await expect(page.locator('.w-paragraph').last()).toBeVisible();
-  const paragraph = page.locator('.w-paragraph').last();
+  await expect(nativeEditor(page).locator('.w-paragraph').last()).toBeVisible();
+  const paragraph = nativeEditor(page).locator('.w-paragraph').last();
   await paragraph.click(); await page.keyboard.insertText(' Shared original draft');
   const before = await wordNative(page), native = await paragraph.elementHandle(), url = page.url();
   await tree(page).getByRole('textbox', { name: '파일 검색', exact: true }).fill('does not match');
@@ -186,20 +209,20 @@ test('two projects and My retain the same original and native history when its a
 test('Site remembers the durable page across reorder and a fresh renderer without rewriting native content', async ({ page }) => {
   const ids = await seed(page);
   await open(page, 'site', ids.site);
-  await expect(page.locator('[data-frame="desktop"]')).toBeVisible();
-  if (!await page.locator('[data-to-admin]').isVisible()) await page.getByRole('button', { name: '모든 도구', exact: true }).click();
-  await page.locator('[data-to-admin]').click();
-  await page.locator('[data-admin-add="page"]').click();
-  await page.locator('[data-admin-from="blank"]').click();
-  const pages = page.locator('[data-admin-open]');
+  await expect(nativeEditor(page).locator('[data-frame="desktop"]')).toBeVisible();
+  await openSiteTools(page);
+  await nativeEditor(page).locator('[data-to-admin]').click();
+  await nativeEditor(page).locator('[data-admin-add="page"]').click();
+  await nativeEditor(page).locator('[data-admin-from="blank"]').click();
+  const pages = nativeEditor(page).locator('[data-admin-open]');
   await expect(pages).toHaveCount(2);
-  await page.locator('[data-admin-add="page"]').click();
-  await page.locator('[data-admin-from="blank"]').click();
+  await nativeEditor(page).locator('[data-admin-add="page"]').click();
+  await nativeEditor(page).locator('[data-admin-from="blank"]').click();
   await expect(pages).toHaveCount(3);
   const lastPage = await pages.nth(1).getAttribute('data-admin-open');
   expect(lastPage).toBeTruthy();
   await pages.nth(1).click();
-  await expect(page.locator('[data-frame="desktop"]')).toBeVisible();
+  await expect(nativeEditor(page).locator('[data-frame="desktop"]')).toBeVisible();
   await open(page, 'word', ids.word);
   const expected = await page.evaluate(async ({ module, id }) => {
     const { OfficeWorkspace, workspaceIdentity, productStore, readProductDocument } = await import(module) as typeof import('@barocss/office-workspace');
@@ -216,9 +239,10 @@ test('Site remembers the durable page across reorder and a fresh renderer withou
     return text;
   }, { module: workspaceModule, id: ids.site });
   await open(page, 'site', ids.site);
-  await expect(page.locator('[data-frame="desktop"]')).toBeVisible();
+  await expect(nativeEditor(page).locator('[data-frame="desktop"]')).toBeVisible();
   // Resolve the actual drawn DOM back to its native page, not a saved UI hint or list order.
-  await expect.poll(() => page.evaluate(() => {
+  const siteFrame = await nativeFrame(page);
+  await expect.poll(() => siteFrame.evaluate(() => {
     const editor = (window as any).editor;
     const ids = new Set<string>();
     for (const element of document.querySelectorAll('[data-frame-host="desktop"] [data-bc-sid]')) {
@@ -232,10 +256,10 @@ test('Site remembers the durable page across reorder and a fresh renderer withou
     }
     return [...ids];
   })).toEqual([lastPage]);
-  const remembered = await page.evaluate(() => Object.entries(sessionStorage).find(([key]) => key.startsWith('wonffice.site-page:'))?.[1]);
+  const remembered = await siteFrame.evaluate(() => Object.entries(sessionStorage).find(([key]) => key.startsWith('wonffice.site-page:'))?.[1]);
   expect(remembered).toBe(lastPage);
-  if (!await page.locator('[data-to-admin]').isVisible()) await page.getByRole('button', { name: '모든 도구', exact: true }).click();
-  await page.locator('[data-to-admin]').click();
+  await openSiteTools(page);
+  await nativeEditor(page).locator('[data-to-admin]').click();
   await expect(pages.nth(1)).toHaveAttribute('data-admin-open', lastPage!);
   await expect(pages.first()).not.toHaveAttribute('data-admin-open', lastPage!);
   const actual = await page.evaluate(async ({ module, id }) => {
@@ -269,20 +293,21 @@ test('direct Slides entry blocks temporary native controls until the requested o
     };
   });
   await file(page, 'slides').click();
-  await expect.poll(() => page.evaluate(() => typeof (window as any).__releaseRestore)).toBe('function');
-  await expect(page.locator('.ow-native-slot > #root')).toHaveAttribute('inert', '');
+  const slidesFrame = await nativeFrame(page);
+  await expect.poll(() => slidesFrame.evaluate(() => typeof (window as any).__releaseRestore)).toBe('function');
+  expect(await nativeElement(page).evaluate(element => element.closest('[inert]') !== null)).toBe(true);
   await expect(page.locator('.ow-entry-status')).toBeVisible();
-  const disclosure = page.getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true });
+  const disclosure = nativeEditor(page).getByRole('button', { name: '슬라이드 탐색 펼치기', exact: true, includeHidden: true });
   await disclosure.evaluate(element => (element as HTMLElement).focus());
   expect(await disclosure.evaluate(element => document.activeElement === element)).toBe(false);
   await page.keyboard.type('MUST NOT REACH THE TEMPORARY DOCUMENT');
-  await page.evaluate(() => (window as any).__releaseRestore());
+  await slidesFrame.evaluate(() => (window as any).__releaseRestore());
   await expect(page.locator('.ow-entry-status')).toHaveCount(0);
   await expect(tree(page).locator(`[data-original="slides:${ids.slides}"]`)).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.ow-native-slot > #root')).not.toHaveAttribute('inert', '');
+  expect(await nativeElement(page).evaluate(element => element.closest('[inert]') !== null)).toBe(false);
   await disclosure.click();
-  await expect(page.locator('[data-filmstrip-panel]')).toBeVisible();
-  await expect(page.locator('.sl-stage')).not.toContainText('MUST NOT REACH THE TEMPORARY DOCUMENT');
+  await expect(nativeEditor(page).locator('[data-filmstrip-panel]')).toBeVisible();
+  await expect(nativeEditor(page).locator('.sl-stage')).not.toContainText('MUST NOT REACH THE TEMPORARY DOCUMENT');
 });
 
 
@@ -316,10 +341,13 @@ test('a failed native startup replaces the loading cover with an accessible erro
   await seed(page);
   await page.route('**/apps/slide/src/main.tsx*', route => route.abort('failed'));
   await file(page, 'slides').click();
-  await expect(page.getByRole('heading', { name: '자료를 열지 못했습니다.', exact: true })).toBeVisible();
-  await expect(page.getByRole('alert')).toBeVisible();
+  const failure = page.locator('[data-local-native-failure]');
+  await expect(failure).toBeVisible();
+  await expect(failure).toHaveAttribute('role', 'alert');
+  await expect(failure.locator('p')).not.toHaveText('');
+  await expect(failure.getByRole('button', { name: '다시 불러오기', exact: true })).toBeVisible();
   await expect(page.locator('.ow-entry-status')).toHaveCount(0);
-  const escape = page.getByRole('button', { name: '자료함으로 돌아가기', exact: true });
+  const escape = failure.getByRole('button', { name: '자료함', exact: true });
   await escape.focus();
   await expect(escape).toBeFocused();
   await page.keyboard.press('Enter');

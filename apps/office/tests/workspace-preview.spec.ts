@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { nativeEditor, nativeFrame } from './helpers/native-editor';
+import { openLocalLibrary } from './helpers/local-library';
 import * as note from '../../../packages/office-note/src/workspace-adapter';
 import * as word from '../../../packages/office-word/src/workspace-adapter';
 import * as slides from '../../../packages/office-slides/src/workspace-adapter';
@@ -11,7 +13,7 @@ const originals = ([['note', 'barocss-note', note], ['word', 'barocss-word', wor
   .map(([product, db, codec]) => ({ product, db, id: `preview-${product}`, text: codec.text(codec.create() as never) }));
 async function seed(page: Page) {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '전체 자료', exact: true })).toBeVisible();
+  await openLocalLibrary(page);
   await page.evaluate(async ({ workspace, originals }) => {
     localStorage.setItem('wonffice.local-workspace', workspace);
     for (const original of originals) await new Promise<void>((resolve, reject) => {
@@ -29,7 +31,10 @@ async function seed(page: Page) {
 }
 async function expectOriginal(page: Page, original: typeof originals[number]) {
   await expect(page.locator('.ow-entry-status')).toHaveCount(0);
-  await expect(page.locator('.ow-native-slot > #root')).toBeVisible();
+  await expect(nativeEditor(page).locator('#root')).toBeVisible();
+  await expect(nativeEditor(page).locator('.office-editor-header')).toHaveCount(1);
+  expect(await nativeEditor(page).locator('.office-document-bar').evaluate(element => element.getBoundingClientRect().height)).toBe(48);
+  await expect(page.locator('iframe[data-local-native-frame="active"]')).not.toHaveAttribute('inert', '');
   await expect(page.locator(`[data-original="${original.product}:${original.id}"]`)).toHaveAttribute('aria-pressed', 'true');
   await expect(page).toHaveURL(new URL(`/${workspace}/${original.id}`, page.url()).href);
 }
@@ -72,26 +77,59 @@ for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const
       resources: performance.getEntriesByType('resource').map(entry => entry.toJSON()),
       layoutShifts: (window as typeof window & { __routeLayoutShifts?: unknown[] }).__routeLayoutShifts ?? [],
     }));
+    const child = await nativeFrame(page);
+    const native = await child.evaluate(() => ({
+      viewport: { width: innerWidth, height: innerHeight },
+      headers: [...document.querySelectorAll('.office-document-bar')].map(element => {
+        const rect = element.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      }),
+      resources: performance.getEntriesByType('resource').map(entry => entry.toJSON()),
+    }));
     const path = info.outputPath(`${name}.json`);
-    await writeFile(path, JSON.stringify({ width, theme, ...details, ...observed }, null, 2));
+    await writeFile(path, JSON.stringify({ width, theme, ...details, ...observed, native }, null, 2));
     await info.attach(name, { path, contentType: 'application/json' });
   };
   await page.emulateMedia({ colorScheme: theme });
   const assets = new URL('../dist/assets/', import.meta.url);
-  const styles = await readdir(assets);
-  const nativeStyle = styles.find(name => name.startsWith('main-') && name.endsWith('.css'));
-  expect(nativeStyle).toBeDefined();
-  expect(await readFile(new URL(nativeStyle!, assets), 'utf8')).toContain('.w-page');
+  const manifest = JSON.parse(await readFile(new URL('../.vite/manifest.json', assets), 'utf8')) as Record<string, { file: string; css?: string[]; imports?: string[]; dynamicImports?: string[] }>;
+  const html = await readFile(new URL('../products/word/index.html', assets), 'utf8');
+  const entry = manifest['products/word/index.html'];
+  expect(html).toContain(entry.file);
+  const seen = new Set<string>(), styles: string[] = [];
+  const collect = (key: string) => {
+    if (seen.has(key)) return; seen.add(key);
+    const chunk = manifest[key]; expect(chunk).toBeDefined(); styles.push(...chunk.css ?? []);
+    [...chunk.imports ?? [], ...chunk.dynamicImports ?? []].forEach(collect);
+  };
+  collect('products/word/index.html');
+  const wordStyles: string[] = [];
+  for (const name of new Set(styles)) if ((await readFile(new URL(`../${name}`, assets), 'utf8')).includes('.w-page')) wordStyles.push(name);
+  expect(wordStyles).toHaveLength(1);
+  const nativeStyle = wordStyles[0].slice('assets/'.length);
   let release!: () => void, requested!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; }), requestSeen = new Promise<void>(resolve => { requested = resolve; });
   await page.route(`**/assets/${nativeStyle}`, async route => { requested(); await held; await route.continue(); });
   try {
     await page.goto(`/${workspace}/preview-word`, { waitUntil: 'domcontentloaded' }); await requestSeen;
-    await expect(page.locator('[data-entry-state="loading"]')).toBeVisible();
-    const bounds = await page.locator('.office-entry-status > header').evaluate(element => ({ height: element.getBoundingClientRect().height,
-      background: getComputedStyle(element).backgroundColor, font: getComputedStyle(element).fontFamily }));
-    expect(bounds.height).toBe(48); expect(bounds.background).not.toBe('rgba(0, 0, 0, 0)'); expect(bounds.font).toContain('system-ui');
-    await expect(page.locator('.ow-native-slot > #root')).toHaveCount(0);
+    const loading = page.locator('.ow-entry-status');
+    await expect(loading).toHaveAttribute('role', 'status');
+    await expect(loading).toBeVisible();
+    await expect(loading).toContainText('파일을 불러오는 중입니다.');
+    const escape = loading.getByRole('link', { name: '자료함', exact: true });
+    await expect(escape).toBeInViewport();
+    await expect(escape).toHaveAttribute('href', `/${workspace}?view=library`);
+    const bounds = await loading.evaluate(element => {
+      const rect = element.getBoundingClientRect(), slot = element.parentElement!.getBoundingClientRect();
+      const box = (value: DOMRect) => ({ x: value.x, y: value.y, width: value.width, height: value.height });
+      return { overlay: box(rect), slot: box(slot), background: getComputedStyle(element).backgroundColor, font: getComputedStyle(element).fontFamily };
+    });
+    expect(bounds.overlay).toEqual(bounds.slot);
+    expect(bounds.overlay.height).toBe(900);
+    expect(bounds.background).not.toBe('rgba(0, 0, 0, 0)'); expect(bounds.font).toContain('system-ui');
+    // The isolated child must not install or expose its native body while CSS is held.
+    await expect(page.locator('iframe[data-local-native-frame="active"]')).toHaveAttribute('inert', '');
+    await expect(nativeEditor(page).locator('.w-page')).toHaveCount(0);
     await metrics('loading-style-metrics', { ...bounds, condition: 'Word native CSS response held; browser routing disables HTTP cache' });
     await capture('styled-loading');
     release(); await expectOriginal(page, originals[1]);

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openDeck, pickMenu, currentSlide } from './helpers';
+import { openDeck, pickMenu, currentSlide, pickInsert, setPanel } from './helpers';
 
 async function openCanvas(page: import('@playwright/test').Page) {
   await openDeck(page);
@@ -19,17 +19,25 @@ test('places slides in two dimensions and activates the slide being edited', asy
   const text = page.locator(`.sl-stage .sl-slide[data-bc-sid="${sid}"] .sl-text-frame`).first();
   await text.click();
   await expect.poll(() => currentSlide(page)).toBe(sid);
-  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
+  await setPanel(page, 'properties', true);
   await expect(page.locator('.sl-properties')).toContainText('위치');
-  await page.locator('.sl-topbar').getByRole('button', { name: '속성', exact: true }).click();
-  await text.dblclick({ force: true });
+  await setPanel(page, 'properties', false);
+  // The selected-slide overlay owns pointer input and forwards a real double
+  // click into native text. Send the pointer to its visible document location.
+  const bounds = (await text.boundingBox())!;
+  const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  expect(await page.evaluate(({ point, sid }) => {
+    const hit = document.elementFromPoint(point.x, point.y);
+    return !!hit?.closest(`.sl-slide[data-bc-sid="${sid}"], .sl-overlay[data-slide-overlay="${sid}"]`);
+  }, { point, sid })).toBe(true);
+  await page.mouse.dblclick(point.x, point.y);
   await page.keyboard.press('End');
   await page.keyboard.type(' canvas');
   await expect(text).toContainText('canvas');
   await expect.poll(() => currentSlide(page)).toBe(sid);
   const slide = page.locator(`.sl-stage .sl-slide[data-bc-sid="${sid}"]`);
   const before = await slide.locator('.sl-rectangle').count();
-  await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '사각형', exact: true }).click();
+  await pickInsert(page, '사각형');
   await expect(slide.locator('.sl-rectangle')).toHaveCount(before + 1);
 });
 

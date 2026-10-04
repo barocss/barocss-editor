@@ -1,6 +1,6 @@
 import { jumpToWordBookmark } from '@barocss/office-word/ui';
 import { DataStore } from '@barocss/datastore';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { RendererRegistry, intoRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { createSchema } from '@barocss/schema';
 import {
@@ -72,6 +72,7 @@ export interface WordRuntime {
 export interface WordRuntimeOptions {
   initialDocument: unknown;
   editable: boolean;
+  isActive?: () => boolean;
   author?: NonNullable<Parameters<typeof createWordEditor>[0]>['author'];
   /** Standalone diagnostics only; authenticated hosts leave this false. */
   debug?: boolean;
@@ -152,10 +153,15 @@ export function assertWordNativeDocument(value: unknown): void {
 
 export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOptions,
   onFurniture?: (id?: string) => void): WordRuntime {
-  registerWordRenderers();
-  registerPageBreakWidget();
-  registerTableBreakWidget();
-  registerTableHeaderRepeat();
+  // Register all supported Word nodes and decorators before another product can stage its view.
+  // Unknown extension types retain the DSL registry's existing global fallback.
+  const registry = new RendererRegistry({ global: false });
+  intoRegistry(registry, () => {
+    registerWordRenderers();
+    registerPageBreakWidget();
+    registerTableBreakWidget();
+    registerTableHeaderRepeat();
+  });
   let disposed = false;
   const listeners = new AbortController();
   const cleanups: Array<() => void> = [];
@@ -313,7 +319,7 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
    */
   const view = new EditorViewDOM(editor, {
     container,
-    registry: getGlobalRegistry(),
+    registry,
     // The instant a date field shows is the host's to supply: a renderer that
     // read the clock could not be tested and would make every layout pass look
     // like a change.
@@ -739,6 +745,7 @@ export function mountWordRuntime(container: HTMLElement, options: WordRuntimeOpt
    * for programmatically alike.
    */
   const printPages = createPrintPages(() => container.querySelector('.w-document'), document, {
+    isActive: options.isActive,
     prepare: () => {
       const wasEditing = editing;
       if (wasEditing === undefined) return;

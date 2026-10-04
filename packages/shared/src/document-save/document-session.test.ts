@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, webcrypto } from 'node:crypto';
 import { LibraryRevisionConflict } from '../document-library/document-library';
 import { DocumentSession, type DocumentSessionOptions } from './document-session';
 import { registerDocumentLocation } from './document-location';
+import { registerProductReplacementPreparation } from './product-host';
+import { createWordEditor } from '../../../office-word/src/word-kit';
+import { createSampleDocument } from '../../../office-word/src/sample-document';
 
 function setup() {
   const records = new Map<string, { row: any; text: string }>();
@@ -31,12 +34,106 @@ function setup() {
 
 describe('local document session', () => {
   const running: DocumentSession[] = [];
+  const owned: Array<() => void> = [];
   beforeEach(() => {
-    vi.useFakeTimers(); vi.stubGlobal('crypto', { randomUUID });
+    vi.useFakeTimers(); vi.stubGlobal('crypto', { randomUUID, getRandomValues: webcrypto.getRandomValues.bind(webcrypto) });
     history.replaceState(null, '', '#');
   });
-  afterEach(() => { running.splice(0).forEach(session => session.stop()); vi.useRealTimers(); vi.unstubAllGlobals(); });
+  afterEach(() => { running.splice(0).forEach(session => session.stop()); owned.splice(0).reverse().forEach(dispose => dispose()); vi.useRealTimers(); vi.unstubAllGlobals(); });
   const start = async () => { const one = setup(); running.push(one.session); await one.session.start(); await one.session.flush(); return one; };
+  const native = async () => {
+    const one = setup(), editor = createWordEditor(); editor.loadDocument(createSampleDocument());
+    owned.push(() => editor.destroy());
+    one.options.snapshot = () => ({ text: JSON.stringify({ format: 'barocss-word', version: 1, document: editor.exportDocument() }), title: 'Native Word', count: 1 });
+    one.options.replace = text => editor.loadDocument(JSON.parse(text).document);
+    one.options.subscribe = changed => {
+      const listener = (event: { transaction?: unknown }) => changed(!event.transaction);
+      editor.on('editor:content.change', listener); return () => editor.off('editor:content.change', listener);
+    };
+    running.push(one.session); await one.session.start(); await one.session.flush();
+    const run = [...editor.dataStore.getNodes().values()].find(node => node.stype === 'inline-text' && node.text &&
+      node.parentId && editor.dataStore.getNode(node.parentId)?.stype === 'paragraph')!;
+    editor.setRange({ type: 'range', startNodeId: run.sid!, endNodeId: run.sid!, startOffset: 0, endOffset: 0, collapsed: true });
+    expect(await editor.run('insertText', { text: 'Owned source edit ' })).toBe(true);
+    expect(editor.canUndo()).toBe(true); await one.session.flush();
+    const target = structuredClone(editor.exportDocument()); target.attributes = { ...target.attributes, name: 'Target original' };
+    one.records.set('target', { row: { name: 'target', revision: 1 }, text: JSON.stringify({ format: 'barocss-word', version: 1, document: target }) });
+    const original = one.session.id, tree = structuredClone(editor.exportDocument()), history = editor.getHistoryStats(), records = structuredClone([...one.records]);
+    const unchanged = () => {
+      expect(one.session.id).toBe(original); expect(editor.exportDocument()).toEqual(tree);
+      expect(editor.getHistoryStats()).toEqual(history); expect([...one.records]).toEqual(records);
+    };
+    return { ...one, editor, unchanged, original };
+  };
+  const feedback = (save: (body: string) => Promise<void> = async () => {}) => {
+    let body = 'Original feedback', composing = false, saved: string | undefined;
+    const register = () => registerProductReplacementPreparation(() => ({
+      async prepare() { if (composing) return false; const captured = body; await save(captured); saved = captured; return !composing && body === captured; },
+      isPrepared: () => !composing && saved === body
+    }));
+    const remove = register(); owned.push(remove);
+    return { edit: (value: string) => { body = value; }, compose: () => { composing = true; }, saved: () => saved, register, remove };
+  };
+
+  it('awaits actual feedback persistence before native preparation or target reading, without adding it to autosave', async () => {
+    const one = await native(); let release!: () => void, entered = false;
+    const savedSource = structuredClone(one.records.get(one.original));
+    const persistence = new Promise<void>(resolve => { release = resolve; });
+    const draft = feedback(async () => { entered = true; await persistence; });
+    const prepareNative = vi.fn(async () => {}); one.options.beforeSnapshot = prepareNative;
+    expect(await one.session.flush()).toBe(true); expect(draft.saved()).toBeUndefined(); prepareNative.mockClear();
+    const opening = one.session.open('target');
+    await vi.waitFor(() => expect(entered).toBe(true));
+    expect(prepareNative).not.toHaveBeenCalled(); expect(one.store.read).not.toHaveBeenCalled(); one.unchanged();
+    release(); expect(await opening).toBe(true); expect(draft.saved()).toBe('Original feedback');
+    expect(one.session.id).toBe('target'); expect(one.editor.exportDocument().attributes?.name).toBe('Target original');
+    expect(one.records.get(one.original)).toEqual(savedSource);
+  });
+
+  it('refuses newer feedback entered while deepest native preparation is pending and preserves the real native tree/history/store', async () => {
+    const one = await native(), draft = feedback(); let release!: () => void, entered = false;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    one.options.beforeSnapshot = async () => { entered = true; await pending; };
+    const opening = one.session.open('target'); await vi.waitFor(() => expect(entered).toBe(true));
+    draft.edit('Latest feedback during native preparation'); release();
+    expect(await opening).toBe(false); expect(one.store.read).not.toHaveBeenCalled(); one.unchanged();
+  });
+
+  it('refuses newer feedback after the target read starts and does not replace the native original', async () => {
+    const one = await native(), draft = feedback(); let release!: (value: ReturnType<typeof one.records.get>) => void;
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const opening = one.session.open('target'); await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('target'));
+    draft.edit('Latest feedback while the target loads'); release(one.records.get('target'));
+    expect(await opening).toBe(false); one.unchanged(); expect(one.notify).toHaveBeenLastCalledWith('saved');
+  });
+
+  it.each(['failed persistence', 'active composition'])('refuses %s before touching the native source or target', async reason => {
+    const one = await native();
+    const draft = feedback(reason === 'failed persistence' ? async () => { throw new Error('Feedback repository unavailable'); } : undefined);
+    if (reason === 'active composition') draft.compose();
+    one.options.beforeSnapshot = vi.fn(async () => {});
+    expect(await one.session.open('target')).toBe(false); expect(one.options.beforeSnapshot).not.toHaveBeenCalled();
+    expect(one.store.read).not.toHaveBeenCalled(); one.unchanged();
+  });
+
+  it('refuses a captured feedback registration ABA and allows an explicit owned retry', async () => {
+    const one = await native(), draft = feedback(); let release!: (value: ReturnType<typeof one.records.get>) => void;
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const opening = one.session.open('target'); await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('target'));
+    draft.remove(); const removeNext = draft.register(); owned.push(removeNext); draft.remove();
+    release(one.records.get('target')); expect(await opening).toBe(false); one.unchanged();
+    expect(await one.session.open('target')).toBe(true); expect(one.session.id).toBe('target');
+  });
+
+  it('does not create a recovery document when feedback changes during the held draft read', async () => {
+    const one = await native(), draft = feedback(); let release!: (value: ReturnType<typeof one.records.get>) => void;
+    const writes = one.store.keep.mock.calls.length;
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const recovering = one.session.recover(one.records.get('target')!.row);
+    await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('target'));
+    draft.edit('Latest feedback while recovery is loading'); release(one.records.get('target'));
+    expect(await recovering).toBe(false); expect(one.store.keep).toHaveBeenCalledTimes(writes); one.unchanged();
+  });
 
   it('reports an invalid host address without subscribing, saving a sample or replacing its route', async () => {
     const one = setup(); running.push(one.session);

@@ -84,6 +84,8 @@ function ReadOnlyControls({ enabled, children }: { enabled?: boolean; children: 
 export interface WordServerHost {
   criterionConfirmation?: CriterionConfirmationHost;
   criterionVerification?: CriterionVerificationHost;
+  active?: boolean;
+  isActive?: () => boolean;
   headerActions?: ReactNode;
   headerNavigation?: ReactNode;
   navigation?: ReactNode;
@@ -157,7 +159,7 @@ export function App({ mount, server }: {
   }, [mount]);
 
   useEffect(() => {
-    if (!instance) return;
+    if (!instance || server?.active === false) return;
     const feedback = createWordFeedbackHost({
       editor: instance.editor,
       id: () => serverRef.current ? serverRef.current.feedbackDocumentId() :
@@ -172,7 +174,7 @@ export function App({ mount, server }: {
     });
     const unregister = registerProductFeedbackHost(feedback);
     return () => { unregister(); feedback.dispose(); };
-  }, [instance]);
+  }, [instance, server?.active]);
 
   /**
    * Whether the search box is open.
@@ -436,6 +438,7 @@ export function App({ mount, server }: {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
       /*
        * The **view** bindings, which are this app's half of what Word binds.
        *
@@ -482,7 +485,7 @@ export function App({ mount, server }: {
         {instance && <>
           <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<span ref={documentMenuAnchor}><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={server?.nativeExport ? menus.map(menu => menu.id !== 'file' ? menu : { ...menu,
+            menus={<span ref={documentMenuAnchor} data-word-document-menu><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={server?.nativeExport ? menus.map(menu => menu.id !== 'file' ? menu : { ...menu,
               blocks: [...menu.blocks, { id: 'native-export', items: [{ id: 'server.native-export', label: t('word.file.nativeExport'), disabled: !server.nativeExport!.available }] }]
             }) : server || proposalSample ? menus : [...menus, {
               id: 'local-library', label: '문서 작업', blocks: [{ id: 'local-library', items: [
@@ -503,7 +506,7 @@ export function App({ mount, server }: {
             view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />}
             actions={<>
               <div className="w-header-command-group">
-                <span ref={detailAnchor}><span ref={panelMenuAnchor}><DocumentMenu label={t('word.header.panels')} icon={<Icon name="outline" />} menus={[{
+                <span ref={detailAnchor}><span ref={panelMenuAnchor}><DocumentMenu label={t('word.header.panels')} portalContainer={panelMenuAnchor} icon={<Icon name="outline" />} menus={[{
                   id: 'panels', label: t('word.header.panels'), blocks: [{ id: 'panels', items: [
                     { id: 'panel.outline', label: t('word.header.outline'), checked: outlineShown },
                     { id: 'panel.comments', label: t('word.header.comments'), checked: commentsShown },

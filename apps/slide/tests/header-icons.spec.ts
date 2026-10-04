@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, panelTrigger } from './helpers';
 
 for (const theme of ['light', 'dark']) test(`compact header icons preserve document actions in ${theme}`, async ({ page }, info) => {
   await page.setViewportSize({ width: 979, height: 1119 });
@@ -14,18 +14,18 @@ for (const theme of ['light', 'dark']) test(`compact header icons preserve docum
   const header = page.locator('.sl-topbar');
   const documentMenu = header.getByRole('menuitem', { name: '문서 메뉴', exact: true });
   const search = header.getByRole('button', { name: '명령 검색', exact: true });
-  const recent = header.getByRole('button', { name: '최근 자료', exact: true });
+  const panels = panelTrigger(page);
   const saved = header.locator('[data-slide-save-status]');
   await expect(saved).toContainText('저장됨');
   await expect(saved).toHaveAttribute('role', 'status');
   await expect(saved).toHaveAttribute('aria-live', 'polite');
-  expect((await header.boundingBox())!.height).toBeLessThanOrEqual(56);
-  for (const control of [documentMenu, search, recent, saved]) {
+  expect((await header.boundingBox())!.height).toBe(48);
+  for (const control of [documentMenu, search, panels, saved]) {
     const bounds = (await control.boundingBox())!;
     expect(bounds.width).toBe(32); expect(bounds.height).toBe(32);
     await expect(control.locator('svg')).toHaveCount(1);
   }
-  for (const control of [documentMenu, search, recent]) expect(await control.textContent()).toBe('');
+  for (const control of [documentMenu, search, panels]) expect(await control.textContent()).toBe('');
   expect(await saved.locator('span').last().evaluate(node => node.getBoundingClientRect().width)).toBe(1);
   await page.screenshot({ path: info.outputPath(`header-${theme}.png`), animations: 'disabled' });
 
@@ -46,10 +46,20 @@ for (const theme of ['light', 'dark']) test(`compact header icons preserve docum
   await page.keyboard.press('Escape'); await expect(query).toHaveCount(0);
   await expect(search).toBeFocused();
 
-  await recent.focus(); await page.keyboard.press('Enter');
+  await documentMenu.focus(); await page.keyboard.press('Enter');
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('End');
+  const entries = menu.locator('button[role^="menuitem"]:not(:disabled)');
+  await expect(entries.last()).toBeFocused();
+  const recent = menu.getByRole('menuitem', { name: '최근 자료', exact: true });
+  for (let step = 0; step < await entries.count() && !await recent.evaluate(node => node === document.activeElement); step++) {
+    await page.keyboard.press('ArrowUp');
+  }
+  await expect(recent).toBeFocused();
+  await page.keyboard.press('Enter');
   const library = page.getByRole('dialog', { name: '최근 발표 자료', exact: true });
   await expect(library).toBeVisible();
   await page.keyboard.press('Escape'); await expect(library).toHaveCount(0);
-  await expect(recent).toBeFocused();
+  await expect(documentMenu).toBeFocused();
   expect(await snapshot()).toEqual(before);
 });

@@ -95,7 +95,8 @@ function nativeParagraph(document: INode, text: string): INode {
 }
 async function exported(page: Page): Promise<INode> {
   const download = page.waitForEvent('download');
-  await workspace(page).getByRole('button', { name: 'Word 파일 내보내기', exact: true }).click();
+  await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Word 파일 내보내기', exact: true }).click();
   return JSON.parse(readFileSync((await (await download).path())!, 'utf8')).document as INode;
 }
 async function caret(page: Page, text: string, position: 'Home' | 'End' = 'Home') {
@@ -125,7 +126,7 @@ async function canonical(page: Page, root: string, bearer: string, documentId: s
   return db;
 }
 async function seedAndOpen(page: Page) {
-  await page.getByRole('button', { name: '자료함', exact: true }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
   await page.getByRole('button', { name: 'Word 자료', exact: true }).click();
   await page.getByRole('button', { name: '새 Word 만들기', exact: true }).click();
   await expect(workspace(page)).toBeVisible({ timeout: 30_000 });
@@ -183,7 +184,8 @@ test('authored native business pair retains exact evidence and identity across h
     await login(page, 'alpha-editor');
     const source = await seedAndOpen(page), documentUrl = page.url();
     phase = 'native-authoring'; checkpoint();
-    await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+    await workspace(page).getByRole('menuitem', { name: '문서 패널', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '요구·결정', exact: true }).click();
     await expect(panel(page)).toContainText('승인 여부는 미확인');
     await caret(page, requirementText);
     await panel(page).getByRole('button', { name: '요구사항 문단 지정', exact: true }).click();
@@ -282,6 +284,9 @@ test('authored native business pair retains exact evidence and identity across h
     const copyIds: string[][] = [];
     for (const kind of ['file', 'local'] as const) {
       await page.goto(documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
+      await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+      await page.getByRole('menuitem', { name: '열기…', exact: true }).click();
+      await expect(workspace(page).getByRole('region', { name: '문서 작업', exact: true })).toBeVisible();
       if (kind === 'file') {
         await workspace(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({
           name: 'fictional-pair.word.json', mimeType: 'application/json', buffer: Buffer.from(copyText),
@@ -330,7 +335,8 @@ test('authored native business pair retains exact evidence and identity across h
     await expect(workspace(other)).toBeVisible({ timeout: 30_000 });
     await expect(save(other)).toHaveCount(0);
     await expect(workspace(other).locator('[contenteditable=true]')).toHaveCount(0);
-    await other.getByRole('button', { name: '요구·결정', exact: true }).click();
+    await workspace(other).getByRole('menuitem', { name: '문서 패널', exact: true }).click();
+    await other.getByRole('menuitemcheckbox', { name: '요구·결정', exact: true }).click();
     await expect(panel(other).getByRole('button', { name: '현재 결정 내용을 새 버전으로 보관', exact: true })).toBeDisabled();
     expect(await exported(other)).toStrictEqual(expectedV2);
     const deny = async (token: string, tenantId: string, key: string, expectedStatus: number) => {
@@ -342,6 +348,39 @@ test('authored native business pair retains exact evidence and identity across h
     };
     await deny(otherRequests.bearer, initial.tenantId, 'business-pair-viewer-denied', 403);
     await deny(requests.bearer, initial.betaTenantId, 'business-pair-cross-tenant-denied', 403);
+    // Bind the denial to the currently authenticated writer and the actual authored pair.
+    const identities = JSON.parse(readFileSync(process.env.OFFICE_AUTH_REAL_FILE!, 'utf8')) as {
+      issuer: string; users: Record<Alias, { id: string }>;
+    };
+    for (const [browserPage, bearer, alias] of [[page, requests.bearer, 'alpha-editor'], [other, otherRequests.bearer, 'beta-viewer']] as const) {
+      const response = await browserPage.request.get(`${origin}/api/v1/me`, { headers: { Authorization: bearer } });
+      expect(response.status()).toBe(200);
+      const identity = await response.json() as { issuer: string; subject: string };
+      expect(identity.issuer === identities.issuer && identity.subject === identities.users[alias].id,
+        'The denial uses the current requested principal.').toBe(true);
+    }
+    const beforeDeniedRead = await inspect(source.documentId);
+    const deniedRead = await page.request.get(`${origin}/api/v1/tenants/${initial.betaTenantId}/documents/${source.documentId}`,
+      { headers: { Authorization: requests.bearer } });
+    expect(deniedRead.status()).toBe(403);
+    const privateMarkers = [requirementText, decisionText, 'wonfficeBusinessPair', ...pair.items.map(item => item.id)];
+    const deniedBody = await deniedRead.text();
+    expect(privateMarkers.some(marker => deniedBody.includes(marker)), 'Denied API response exposes no authored or pinned pair content.').toBe(false);
+    expect(await inspect(source.documentId)).toStrictEqual(beforeDeniedRead);
+    const crossTenantURL = new URL(origin);
+    crossTenantURL.search = new URLSearchParams({ tenant: initial.betaTenantId, workspace: initial.betaWorkspaceId,
+      document: source.documentId, product: 'word' }).toString();
+    await page.goto(crossTenantURL.href);
+    await expect(page.getByRole('heading', { name: '접근 권한이 없습니다', exact: true })).toBeVisible();
+    await expect(workspace(page)).toHaveCount(0);
+    await expect(page.locator('.w-business-pair')).toHaveCount(0);
+    expect(await page.evaluate(markers => markers.some(marker => document.body.textContent?.includes(marker)), privateMarkers),
+      'Denied direct UI exposes no authored or pinned pair content.').toBe(false);
+    expect(await inspect(source.documentId)).toStrictEqual(beforeDeniedRead);
+    evidence.push({ kind: 'authored-word-cross-tenant-read-denial', apiStatus: deniedRead.status(),
+      currentPrincipalsVerified: true, apiContentAbsent: true, uiContentAbsent: true,
+      canonicalTreeRevisionReceiptUnchanged: true });
+
     await privateControl({ action: 'beta-active', active: false });
     const revoked = await other.request.get(`${root}/documents/${source.documentId}`, { headers: { Authorization: otherRequests.bearer } });
     expect(revoked.status()).toBe(403);

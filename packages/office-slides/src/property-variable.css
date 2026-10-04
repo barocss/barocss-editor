@@ -20,6 +20,7 @@
 .sl-variable-value .office-field { min-height:32px; }
 .sl-property-text-preview { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--ou-muted); font-size:11px; }
 
-.sl-variable-field[data-variable-field="채우기 값"] { flex:0 1 96px; }
-.sl-variable-field[data-variable-field="채우기 값"] .sl-variable-value > button { min-width:32px; min-height:32px; }
+.sl-variable-field[data-variable-field="채우기 값"] { flex:0 0 67px; min-width:67px; }
+.sl-variable-field[data-variable-field="채우기 값"] .sl-variable-value { flex:0 0 32px; }
+.sl-variable-field[data-variable-field="채우기 값"] .sl-variable-value > button { flex:none; width:32px; min-width:32px; min-height:32px; }
 

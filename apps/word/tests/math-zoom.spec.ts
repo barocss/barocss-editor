@@ -1,10 +1,12 @@
+import { openWordDocumentMenu } from './helpers';
+import { setWordWholeTools } from './helpers';
 import { test, expect } from '@playwright/test';
 import { placeCaret } from './helpers';
 
 async function open(page: import('@playwright/test').Page) {
   await page.goto('/');
   await placeCaret(page, '.w-paragraph');
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.getByRole('button', { name: '본문 수식', exact: true }).click();
   await page.locator('.w-math-draft .me-input').fill('abc');
@@ -85,7 +87,7 @@ test('zoom percentage, menu and wheel do not commit an active draft', async ({ p
   await expect(page.locator('.w-zoom-frame')).toHaveAttribute('data-zoom', '1.50');
   await expect(draft).toBeVisible();
   expect(await source(page)).toBe(before);
-  await page.locator('[data-menu="view"]').click();
+  await openWordDocumentMenu(page);
   await page.getByRole('menuitem', { name: '실제 크기', exact: true }).click();
   await expect(page.locator('.w-zoom-frame')).toHaveAttribute('data-zoom', '1.00');
   await expect(draft).toBeVisible();
@@ -123,9 +125,10 @@ test('equation editing never draws stale drawing handles after zoom', async ({ p
 test('drawing selection frame follows document zoom without changing its model', async ({ page }) => {
   await page.goto('/');
   await placeCaret(page, '.w-paragraph');
-  await page.getByRole('button', { name: '전체 도구 펼치기', exact: true }).click();
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.locator('[data-control="insert-rectangle"]').click();
+  await setWordWholeTools(page, false);
   const shape = page.locator('.w-canvas rect').first();
   await shape.click();
   const before = await source(page);

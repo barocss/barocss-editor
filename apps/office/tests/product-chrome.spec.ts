@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { nativeEditor } from './helpers/native-editor';
 
 type MenuSize = { height: number; size: string; weight: string };
 
@@ -19,19 +20,18 @@ test('four product menus use the same trigger and keyboard interaction', async (
   expect(sizes.every(size => JSON.stringify(size) === JSON.stringify(sizes[0]))).toBe(true);
 });
 
-test('Site view controls stay in the header in editing and disappear in management', async ({ page }) => {
+for (const width of [1440, 560, 390]) test(`Site view controls stay in the header in editing and disappear in management at ${width}px`, async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Site 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('보기 도구 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
-  await page.getByRole('button', { name: '편집', exact: true }).click();
-  const view = page.locator('.office-editor-view');
+  const view = nativeEditor(page).locator('.office-editor-view');
   await expect(view.getByRole('button', { name: '미리보기', exact: true })).toBeVisible();
-  await expect(page.locator('.st-ribbon [data-zoom-value]')).toHaveCount(0);
-  for (const width of [1440, 560, 390]) {
+  await expect(nativeEditor(page).locator('.st-ribbon [data-zoom-value]')).toHaveCount(0);
+  {
     await page.setViewportSize({ width, height: 900 });
     await expect(view.getByRole('textbox', { name: '확대/축소' })).toHaveCount(1);
-    expect(await page.locator('.office-editor-header').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+    expect(await nativeEditor(page).locator('.office-editor-header').evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
     const tops = await view.locator(':scope > *').evaluateAll(nodes => nodes.map(el => el.getBoundingClientRect().top));
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(8);
     const zoom = view.getByRole('textbox', { name: '확대/축소' });
@@ -39,10 +39,12 @@ test('Site view controls stay in the header in editing and disappear in manageme
   }
   await view.getByRole('button', { name: '미리보기', exact: true }).click();
   await expect(view.locator('.st-preview-toggle')).toHaveAttribute('aria-pressed', 'true');
-  await view.getByRole('button', { name: '편집', exact: true }).click();
+  await view.getByRole('button', { name: '편집으로 돌아가기', exact: true }).click();
   await expect(view.locator('.st-preview-toggle')).toHaveAttribute('aria-pressed', 'false');
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator('[data-to-admin]').click();
+  await nativeEditor(page).getByRole('menuitem', { name: '패널', exact: true }).click();
+  await nativeEditor(page).getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
+  await nativeEditor(page).locator('[data-to-admin]').click();
   await expect(view).toHaveCount(0);
-  await expect(page.locator('.st-ribbon')).toHaveCount(0);
+  await expect(nativeEditor(page).locator('.st-ribbon')).toHaveCount(0);
 });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openDeck, openFilmstrip } from './helpers';
+import { openDeck, openFilmstrip, setPanel } from './helpers';
 
 const geometry = (page: Page) => page.evaluate(() => ({
   viewport: document.querySelector('.sl-stage-viewport')!.getBoundingClientRect().toJSON(),
@@ -91,9 +91,8 @@ test('unformatted notes restore the exact native document after typing and undo'
 test('both sidebars, notes and thumbnails overlay the unchanged editing area', async ({page}, info) => {
   await openDeck(page);
   const before = await geometry(page);
-  const header = page.locator('.sl-topbar');
-  await header.getByRole('button',{name:'레이어',exact:true}).click();
-  await header.getByRole('button',{name:'속성',exact:true}).click();
+  await setPanel(page, 'layers', true);
+  await setPanel(page, 'properties', true);
   await openFilmstrip(page);
   await page.getByRole('button',{name:'발표자 노트',exact:true}).click();
   const notes=page.locator('[data-notes-panel]');
