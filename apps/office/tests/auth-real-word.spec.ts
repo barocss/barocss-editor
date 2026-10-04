@@ -44,10 +44,13 @@ async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | '
   if (!(await workspace(page).isVisible())) {
     await page.getByRole('button', { name: new RegExp(`Synthetic ${tenant}`) }).click();
     await page.getByRole('button', { name: `${tenant} workspace`, exact: true }).click();
+    await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
     await page.getByRole('button', { name: 'Word 자료', exact: true }).click();
     await page.getByRole('button', { name: '새 Word 만들기', exact: true }).click();
   }
   await expect(workspace(page)).toBeVisible();
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
 }
 async function logout(page: Page) {
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
@@ -110,9 +113,24 @@ async function typeInput(page: Page, text: string) {
   await expect.poll(async () => (await records(page)).some(record => record.snapshotText.includes(text))).toBe(true);
   await expect(save(page)).toBeEnabled();
 }
+async function openDocumentActions(page: Page) {
+  if (await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).isVisible()) return;
+  await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '열기…', exact: true }).click();
+  await expect(workspace(page).getByRole('region', { name: '문서 작업', exact: true })).toBeVisible();
+}
 async function prepare(page: Page, title: string) {
+  const panel = workspace(page).getByRole('region', { name: '문서 작업', exact: true });
+  if (!(await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).isVisible())) {
+    await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitem', { name: '열기…', exact: true }).click();
+    await expect(panel).toBeVisible();
+  }
   await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
   await workspace(page).getByRole('button', { name: `${title} · 새 서버 사본 준비`, exact: true }).click();
+  const header = workspace(page).locator('.office-editor-header');
+  await expect(header).toHaveCount(1);
+  await expect.poll(async () => Math.round((await header.boundingBox())!.height)).toBe(48);
   await expect(save(page)).toBeEnabled();
   return (await records(page)).find(record => record.status === 'pending')!;
 }
@@ -185,6 +203,7 @@ test('real Word native copy, fixed loss recovery, durable restart and sequential
     // authenticated Word workspace before selecting its retained pending copy.
     await login(page, 'alpha-editor', page.url());
     page.once('dialog', dialog => dialog.accept());
+    await openDocumentActions(page);
     await workspace(page).getByRole('button', { name: `저장된 Word 초안 복구 · ${pending.savedAt}`, exact: true }).click();
     const createsBefore = requests.writes.length;
     await save(page).click();
@@ -212,7 +231,8 @@ test('real Word native copy, fixed loss recovery, durable restart and sequential
       const recovery = (await records(page)).find(record => record.attempt?.idempotencyKey === updateKey)!;
       await page.reload();
       page.once('dialog', dialog => dialog.accept());
-      await workspace(page).getByRole('button', { name: `저장된 Word 초안 복구 · ${recovery.savedAt}`, exact: true }).click();
+      await openDocumentActions(page);
+    await workspace(page).getByRole('button', { name: `저장된 Word 초안 복구 · ${recovery.savedAt}`, exact: true }).click();
       const retryIndex = requests.writes.length;
       await save(page).click();
       await expect(saved(page)).toHaveText('서버 저장 확인됨');
@@ -239,6 +259,7 @@ test('real Word native copy, fixed loss recovery, durable restart and sequential
     page = await a.context.newPage(); requests = track(page);
     await login(page, 'alpha-editor', documentUrl);
     page.once('dialog', dialog => dialog.accept());
+    await openDocumentActions(page);
     await workspace(page).getByRole('button', { name: `저장된 Word 초안 복구 · ${latest.savedAt}`, exact: true }).click();
     await expect(workspace(page)).toContainText('latest-input-before-process-restart');
     expect((await records(page)).find(record => record.draftId === latest.draftId)?.snapshotText).toBe(latest.snapshotText);
@@ -287,8 +308,9 @@ test('real Word native copy, fixed loss recovery, durable restart and sequential
     await expect(workspace(other).locator('[contenteditable=true]').first()).toBeVisible();
     await expect(saved(other)).toHaveText('서버 저장 확인됨');
     const beforeWriterA = await inspect(documentId);
+    await workspace(other).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
     const exportedB = other.waitForEvent('download');
-    await workspace(other).getByRole('button', { name: 'Word 파일 내보내기', exact: true }).click();
+    await other.getByRole('menuitem', { name: 'Word 파일 내보내기', exact: true }).click();
     const bFile = await exportedB;
     const bNative = JSON.parse(readFileSync((await bFile.path())!, 'utf8'));
     expect(bNative.document).toEqual(JSON.parse(beforeWriterA.document!.snapshotText).document);
@@ -375,6 +397,7 @@ test('same physical profile preserves Word source and A recovery across actual B
     await logout(page);
     await login(page, 'alpha-editor', documentUrl);
     page.once('dialog', dialog => dialog.accept());
+    await openDocumentActions(page);
     await workspace(page).getByRole('button', { name: `저장된 Word 초안 복구 · ${pendingA.savedAt}`, exact: true }).click();
     await expect(workspace(page)).toContainText('A-private-recovery-input');
     expect((await records(page)).find(record => record.draftId === pendingA.draftId)?.attempt).toEqual(pendingA.attempt);

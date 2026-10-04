@@ -45,10 +45,13 @@ async function login(page: Page, alias: Alias, url = origin, tenant: 'Alpha' | '
   if (!(await workspace(page).isVisible())) {
     await page.getByRole('button', { name: new RegExp(`Synthetic ${tenant}`) }).click();
     await page.getByRole('button', { name: `${tenant} workspace`, exact: true }).click();
+    await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
     await page.getByRole('button', { name: 'Slides 자료', exact: true }).click();
     await page.getByRole('button', { name: '새 Slides 만들기', exact: true }).click();
   }
   await expect(workspace(page)).toBeVisible();
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
 }
 async function logout(page: Page) {
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
@@ -166,16 +169,20 @@ async function typeInput(page: Page, text: string) {
   await expect(save(page)).toBeEnabled();
 }
 async function openServerLibrary(page: Page) {
-  const library = workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true });
+  if (await workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true }).isVisible()) return;
+  const library = workspace(page).getByRole('region', { name: '서버 Slides 목록', exact: true });
   if (await library.isVisible()) return;
-  const trigger = workspace(page).getByRole('button', { name: '서버 Slides 목록', exact: true });
-  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
-  await expect(workspace(page).getByRole('complementary', { name: '서버 Slides 목록', exact: true })).toBeVisible();
+  await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '서버 Slides 목록', exact: true }).click();
+  await expect(library).toBeVisible();
 }
 async function prepare(page: Page, title: string) {
   await openServerLibrary(page);
   await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
   await workspace(page).getByRole('button', { name: `${title} · 새 서버 사본 준비`, exact: true }).click();
+  const header = workspace(page).locator('.office-editor-header');
+  await expect(header).toHaveCount(1);
+  await expect.poll(async () => Math.round((await header.boundingBox())!.height)).toBe(48);
   await expect(save(page)).toBeEnabled();
   return (await records(page)).find(record => record.status === 'pending')!;
 }

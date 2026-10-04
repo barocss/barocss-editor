@@ -660,11 +660,31 @@ test('Note navigation keeps the current unsaved document through a verified acce
       content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Second body' }] }] } });
   const nextHead = { ...documentHead, documentId: nextId, pageId: nextPageId, title: 'Second Note',
     documentKey: `wonffice-${id}-${nextId}`, snapshotHash: createHash('sha256').update(nextSnapshot).digest('hex') };
+  const navigationWrites: Array<{ documentId: string; snapshotText: string }> = [];
+  const originals = new Map([
+    [documentId, { head: { ...documentHead }, text: snapshotText }],
+    [nextId, { head: { ...nextHead }, text: nextSnapshot }]
+  ]);
   await page.unroute(`**/api/v1/tenants/${id}/documents?**`);
   await page.route(`**/api/v1/tenants/${id}/documents?**`, route => route.fulfill({ contentType: 'application/json',
-    body: JSON.stringify({ documents: [documentHead, nextHead], nextCursor: null }) }));
-  await page.route(`**/api/v1/tenants/${id}/documents/${nextId}`, route => route.fulfill({ contentType: 'application/json',
-    body: JSON.stringify({ document: nextHead, snapshotText: nextSnapshot }) }));
+    body: JSON.stringify({ documents: [...originals.values()].map(value => value.head), nextCursor: null }) }));
+  for (const [originalId, original] of originals) {
+    await page.route(`**/api/v1/tenants/${id}/documents/${originalId}`, route => route.fulfill({ contentType: 'application/json',
+      body: JSON.stringify({ document: original.head, snapshotText: original.text }) }));
+    await page.route(`**/api/v1/tenants/${id}/documents/${originalId}/snapshot`, route => {
+      const body = route.request().postDataJSON();
+      expect(body.expectedRevision).toBe(original.head.revision);
+      expect(JSON.parse(body.snapshotText).document.attributes.pageId).toBe(original.head.pageId);
+      expect(body.idempotencyKey).toEqual(expect.any(String));
+      navigationWrites.push({ documentId: originalId, snapshotText: body.snapshotText });
+      original.text = body.snapshotText;
+      original.head = { ...original.head, revision: original.head.revision + 1,
+        snapshotHash: createHash('sha256').update(original.text).digest('hex') };
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ operation: 'update', idempotencyKey: body.idempotencyKey,
+        requestHash: createHash('sha256').update(JSON.stringify(['update', originalId, body.expectedRevision, body.snapshotText])).digest('hex'),
+        document: original.head, snapshotText: original.text }) });
+    });
+  }
   await page.goto('/');
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
@@ -672,8 +692,19 @@ test('Note navigation keeps the current unsaved document through a verified acce
   await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
-  await page.locator('[data-server-note-workspace]').getByRole('button', { name: 'Second Note' }).click();
+  await expect(page.locator('[data-server-note-workspace] .on-doc > p').first()).toContainText('Mock body');
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${documentId}\\?tenant=${id}(?:&|$)`));
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  await page.locator('.ow-file-navigation').getByRole('button', { name: 'Second Note 열기', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${nextId}\\?tenant=${id}(?:&|$)`));
+  await expect(paragraph).toContainText('Second body');
+  expect(navigationWrites).toHaveLength(1);
+  expect(navigationWrites[0]!.documentId).toBe(documentId);
+  expect(JSON.parse(navigationWrites[0]!.snapshotText).document).toMatchObject(JSON.parse(snapshotText).document);
+  expect(originals.get(documentId)!.head.revision).toBe(documentHead.revision + 1);
+  expect(originals.get(documentId)!.text).toBe(navigationWrites[0]!.snapshotText);
   await paragraph.click();
   await page.keyboard.press('End');
   await page.keyboard.insertText(' navigation draft');
@@ -696,6 +727,7 @@ test('Note navigation keeps the current unsaved document through a verified acce
   await page.keyboard.press('End');
   await page.keyboard.insertText(' still editable');
   await expect(paragraph).toContainText('navigation draft still editable');
+  expect(navigationWrites).toHaveLength(1);
 });
 
 test('a stale Note save requires copying the typed draft before opening the server revision', async ({ page, context }) => {

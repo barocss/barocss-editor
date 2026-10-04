@@ -1,3 +1,4 @@
+import { parseWorkspaceRoute } from '../../../packages/office-workspace/src/routes';
 import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -28,6 +29,24 @@ function accounts() {
 }
 
 // Credentials and bearer tokens stay in memory. Neither appears in artifacts or console output.
+function documentIdFromURL(url: string): string {
+  const parsed = parseWorkspaceRoute(url);
+  expect('error' in parsed).toBe(false);
+  if ('error' in parsed || parsed.route?.kind !== 'item') throw new Error('Expected saved document route');
+  expect(parsed.route.itemId).toMatch(/^[0-9a-f-]{36}$/i);
+  return parsed.route.itemId;
+}
+async function openDocumentActions(page: Page) {
+  await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  const panel = page.locator('[data-server-note-workspace] .nw-sidebar');
+  if (await panel.isVisible()) return;
+  const menu = page.locator('[data-server-note-workspace]').getByRole('menubar', { name: '문서 메뉴', exact: true });
+  await menu.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menu', { name: '문서 메뉴', exact: true }).getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+  await expect(panel).toBeVisible();
+}
 async function login(page: Page, alias: Alias, target = origin) {
   await page.goto(target);
   await expect.poll(async () => await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible() ||
@@ -63,12 +82,24 @@ async function bounded<T>(operation: Promise<T>, label: string): Promise<T> {
 async function enterNew(page: Page, tenant: 'Alpha' | 'Beta') {
   await page.getByRole('button', { name: new RegExp(`Synthetic ${tenant}`) }).click();
   await page.getByRole('button', { name: `${tenant} workspace`, exact: true }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
   await page.getByRole('button', { name: '새 Note 만들기', exact: true }).click();
+  await expect(workspace(page)).toBeVisible();
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  await openDocumentActions(page);
   await workspace(page).locator('.nw-sidebar > button').filter({ hasText: /^새 노트$/ }).click();
   await expect.poll(() => editor(page).locator(':scope > p').first().evaluate(element =>
     element.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
 }
 async function typeInput(page: Page, text: string) {
+  const actions = page.locator('[data-server-note-workspace] .nw-sidebar');
+  if (await actions.isVisible()) {
+    await page.locator('[data-server-note-workspace]').getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+    await expect(actions).toBeHidden();
+  }
+
   const paragraph = editor(page).locator(':scope > p').first();
   await expect(paragraph).toBeVisible();
   const bounds = await paragraph.boundingBox();
@@ -130,7 +161,7 @@ test('one physical profile retains latest A input across B and ignores a late A 
     await typeInput(a, 'Privacy persisted baseline');
     await save(a).click();
     await expect(a.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
-    const documentUrl = a.url(), documentId = new URL(documentUrl).searchParams.get('document')!;
+    const documentUrl = a.url(), documentId = documentIdFromURL(documentUrl);
     expect(documentId).toMatch(/^[0-9a-f-]{36}$/i);
     const before = await inspect('alpha', documentId);
     await typeInput(a, ' earlier-A-attempt');
@@ -172,6 +203,7 @@ test('one physical profile retains latest A input across B and ignores a late A 
     await login(switching, 'beta-viewer', documentUrl);
     await expect(editor(switching)).toContainText('earlier-A-attempt');
     await expect(editor(switching)).not.toContainText('latest-A-private-input');
+    await openDocumentActions(switching);
     await expect(workspace(switching).getByRole('button', { name: /^초안 복구 / })).toHaveCount(0);
     await expect(save(switching)).toHaveCount(0);
     const writesAtB = aRequests.writes.length + switchRequests.writes.length;
@@ -189,6 +221,7 @@ test('one physical profile retains latest A input across B and ignores a late A 
     unchanged(committed, await inspect('alpha', documentId));
     await logout(switching);
     await login(switching, 'alpha-editor', documentUrl);
+    await openDocumentActions(switching);
     const recover = switching.getByRole('button', { name: new RegExp(`^초안 복구 .* ${latest.record.draftId.slice(0, 8)}$`) });
     await expect(recover).toHaveCount(1);
     await recover.click();
@@ -235,7 +268,7 @@ test('cross-tenant direct UI and API reads/writes leave real PostgreSQL effects 
     await typeInput(page, 'Beta tenant private canonical body');
     await save(page).click();
     await expect(page.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
-    const url = page.url(), documentId = new URL(url).searchParams.get('document')!;
+    const url = page.url(), documentId = documentIdFromURL(url);
     const beforeBeta = await inspect('beta', documentId), beforeAlpha = await inspect('alpha');
     expect(beforeBeta.document!.snapshotText).toContain('Beta tenant private canonical body');
     await logout(page);

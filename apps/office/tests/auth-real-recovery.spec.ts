@@ -1,10 +1,11 @@
+import { parseWorkspaceRoute } from '../../../packages/office-workspace/src/routes';
 import { readFileSync, writeFileSync, statSync, mkdtempSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { privateControl, launchPrivateProfile, stopPrivateProfile, type RealStatus, type Inspection } from './helpers/real-recovery-control';
 
-const origin = 'http://127.0.0.1:5191';
+const origin = process.env.OFFICE_AUTH_ORIGIN ?? 'http://127.0.0.1:5191';
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const editor = (page: Page) => page.locator('[data-server-note-workspace] .on-doc');
 const save = (page: Page) => page.locator('[data-server-note-workspace]').getByRole('button', { name: /^(저장|저장 확인·재시도)$/ });
@@ -15,6 +16,24 @@ test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 });
 test.skip(!process.env.OFFICE_AUTH_CONTROL_FILE || !process.env.OFFICE_AUTH_REAL_FILE,
   'The same-DB matrix requires the explicit private control descriptor and synthetic fixture.');
 
+function documentIdFromURL(url: string): string {
+  const parsed = parseWorkspaceRoute(url);
+  expect('error' in parsed).toBe(false);
+  if ('error' in parsed || parsed.route?.kind !== 'item') throw new Error('Expected saved document route');
+  expect(parsed.route.itemId).toMatch(/^[0-9a-f-]{36}$/i);
+  return parsed.route.itemId;
+}
+async function openDocumentActions(page: Page) {
+  await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  const panel = page.locator('[data-server-note-workspace] .nw-sidebar');
+  if (await panel.isVisible()) return;
+  const menu = page.locator('[data-server-note-workspace]').getByRole('menubar', { name: '문서 메뉴', exact: true });
+  await menu.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menu', { name: '문서 메뉴', exact: true }).getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+  await expect(panel).toBeVisible();
+}
 async function login(page: Page, alias: string, url = origin) {
   await page.goto(url);
   await expect.poll(async () => await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible() ||
@@ -35,9 +54,13 @@ async function login(page: Page, alias: string, url = origin) {
   if (!(await page.locator('[data-server-note-workspace]').isVisible())) {
     await page.getByRole('button', { name: /Synthetic Alpha/ }).click();
     await page.getByRole('button', { name: 'Alpha workspace' }).click();
+    await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
     await page.getByRole('button', { name: '새 Note 만들기' }).click();
   }
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  await openDocumentActions(page);
 }
 
 function track(page: Page) {
@@ -87,6 +110,13 @@ async function seed(page: Page, title: string) {
   return { document, text, pageId };
 }
 async function input(page: Page, text: string) {
+  const actions = page.locator('[data-server-note-workspace] .nw-sidebar');
+  if (await actions.isVisible()) {
+    await page.locator('[data-server-note-workspace]').getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+    await expect(actions).toBeHidden();
+  }
+
   const paragraph = editor(page).locator(':scope > p').first();
   await expect.poll(() => paragraph.evaluate(node => node.closest('[contenteditable]')?.getAttribute('contenteditable'))).toBe('true');
   const bounds = await paragraph.boundingBox();
@@ -189,6 +219,7 @@ test('same database recovery matrix verifies real loss, restart, outage and two 
     for (const loss of ['database', 'before', 'after'] as const) {
       console.log(JSON.stringify({ event: 'real_note_matrix_stage', stage: 'create-' + loss }));
       const source = await seed(page, `Matrix copy ${loss}`);
+      await openDocumentActions(page);
       const originalRows = await localRows(page);
       await page.getByRole('button', { name: '로컬 노트 사본 가져오기', exact: true }).click();
       await page.getByRole('button', { name: '이 기기의 로컬 노트 목록 확인' }).click();
@@ -228,9 +259,11 @@ test('same database recovery matrix verifies real loss, restart, outage and two 
       expect(uncertain.documentCount).toBe(before.documentCount + (loss === 'after' ? 1 : 0));
       for (let reload = 0; reload < 2; reload++) {
         await login(page, 'alpha-editor', page.url());
+        await openDocumentActions(page);
         await expect(page.getByRole('button', { name: new RegExp(`초안 복구 Matrix copy ${loss}`) })).toHaveCount(1);
       }
       await restart();
+      await openDocumentActions(page);
       await page.getByRole('button', { name: new RegExp(`초안 복구 Matrix copy ${loss}`) }).click();
       await save(page).click();
       await expect(page.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
@@ -270,6 +303,7 @@ test('same database recovery matrix verifies real loss, restart, outage and two 
       expect(uncertain.receipt === null).toBe(loss === 'before');
       expect(uncertain.document!.revision).toBe(before.document!.revision + (loss === 'after' ? 1 : 0));
       await restart();
+      await openDocumentActions(page);
       await page.getByRole('button', { name: /초안 복구 Matrix copy after/ }).click();
       await save(page).click();
       await expect(page.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
@@ -350,6 +384,7 @@ test('same database recovery matrix verifies real loss, restart, outage and two 
     await page.reload(); await canonical(afterB);
     evidence.push({ kind: 'two-real-writers-conflict', writerARevision: afterA.document!.revision, writerBRevision: afterB.document!.revision });
     await privateControl({ action: 'beta-active', active: false });
+    await openDocumentActions(other);
     await other.getByRole('button', { name: /초안 복구 Matrix copy after/ }).click();
     await expect(editor(other)).toHaveCount(0);
     expect((await records(other)).some(record => record.snapshotText.includes('stale-writer-B'))).toBe(true);
@@ -388,7 +423,7 @@ test('real Note preserves immediate close input and blocks quota exit until exac
     await edit(page, 'Immediate baseline');
     await save(page).click();
     await expect(page.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
-    const url = page.url(), documentId = new URL(url).searchParams.get('document')!;
+    const url = page.url(), documentId = documentIdFromURL(url);
     const before = await privateControl<Inspection>({ action: 'inspect', documentId });
     const independentTab = await a.context.newPage();
     await login(independentTab, 'alpha-editor', url);
@@ -406,6 +441,7 @@ test('real Note preserves immediate close input and blocks quota exit until exac
     expect(tabDraft).toBeDefined();
     const tabRecovery = await a.context.newPage();
     await login(tabRecovery, 'alpha-editor', url);
+    await openDocumentActions(tabRecovery);
     await tabRecovery.getByRole('button', { name: new RegExp(`^초안 복구 .* ${tabDraft.draftId.slice(0, 8)}$`) }).click();
     await expect(editor(tabRecovery)).toContainText('independent-tab-close-input');
     await expect(editor(tabRecovery)).not.toContainText('last-input-before-browser-close');
@@ -414,6 +450,7 @@ test('real Note preserves immediate close input and blocks quota exit until exac
     const durable = (await records(page)).find(record => record.status === 'draft' && record.snapshotText.includes('last-input-before-browser-close'))!;
     expect(durable).toBeDefined();
     expect(durable.draftId).not.toBe(tabDraft.draftId);
+    await openDocumentActions(page);
     await page.getByRole('button', { name: new RegExp(`^초안 복구 .* ${durable.draftId.slice(0, 8)}$`) }).click();
     await expect(editor(page)).toContainText('last-input-before-browser-close');
     expect((await privateControl<Inspection>({ action: 'inspect', documentId })).document).toEqual(before.document);
