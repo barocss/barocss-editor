@@ -256,13 +256,29 @@ export class SiteDataExtension implements Extension {
           .map((one) => removeChild(sid, one));
         const put = blocks.map((one, at) => addChild(sid, one as never, gone.length + at));
 
-        const done = await transaction(editor, [...gone, ...put] as never).commit();
-        return done.success === true;
+        const nativeStore = editor.dataStore, root = editor.getRootId(), epoch = nativeStore.getDocumentEpoch();
+        // Overlay reads change during our own transaction; the committed node owns this input.
+        const identity = nativeStore.getNodes().get(String(held.sid));
+        const canApply = payload?.canApply as (() => boolean) | undefined;
+        let authorityCurrent = editor.isEditable;
+        const retireAuthority = () => { authorityCurrent = false; };
+        const owns = () => authorityCurrent && editor.isEditable && editor.dataStore === nativeStore &&
+          editor.getRootId() === root && nativeStore.getDocumentEpoch() === epoch &&
+          !!identity && nativeStore.getNodes().get(String(held.sid)) === identity && (!canApply || canApply());
+        if (!owns()) return false;
+        editor.on('editor:editable.change', retireAuthority);
+        try {
+          const done = await transaction(editor, [...gone, ...put] as never, {
+            validateIntent: () => owns() ? undefined : 'Stale rich-text input'
+          }).commit();
+          return done.success === true;
+        } finally { editor.off('editor:editable.change', retireAuthority); }
       },
       (payload) => {
         const store = this._store(editor);
         const sid = String(payload?.nodeId ?? '');
-        return !!sid && !!store?.getNode(sid) && Array.isArray(payload?.blocks);
+        return !!sid && !!store?.getNode(sid) && Array.isArray(payload?.blocks) &&
+          (payload?.canApply === undefined || typeof payload.canApply === 'function');
       }
     );
 
