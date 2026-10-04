@@ -6,6 +6,7 @@ import { OfficeWorkspace, readProductDocument, workspaceIdentity, type Workspace
 import { buildLocalCatalogTree } from './catalog-tree';
 import { documentURL, products, isProduct, referenceKey, type Product } from './products';
 import { readLibraryOrigin, saveLibraryOrigin, workspaceReturnURL } from './catalog-origin';
+import { formatWorkspaceRoute, parseWorkspaceRoute } from './routes';
 import type { ProjectSnapshot } from '@barocss/shared';
 import { WorkspaceFramePresentation, type WorkspaceFrameLabels, type WorkspaceTreeView } from './workspace-frame-presentation';
 
@@ -23,7 +24,7 @@ function readView(workspace: string, perspective: Perspective): TreeView {
 }
 
 /** A local catalog surrounds the existing native root, without taking over its editor. */
-export function WorkspaceFrame({ children, nativeRoot, expected }: { children?: ReactNode; nativeRoot?: HTMLElement; expected?: { product: Product; id: string } }) {
+export function WorkspaceFrame({ children, nativeRoot, expected, projectId }: { children?: ReactNode; nativeRoot?: HTMLElement; expected?: { product: Product; id: string }; projectId?: string }) {
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const { t } = useOfficeLocale();
   const [perspective, setPerspective] = useState<Perspective>(() => sessionStorage.getItem(`wonffice.tree-perspective:${workspace.id}`) === 'my' ? 'my' : 'project');
@@ -56,7 +57,10 @@ export function WorkspaceFrame({ children, nativeRoot, expected }: { children?: 
     const hostChanged = () => {
       const host = productDocumentHost();
       if (host && expected && !entered.current) {
-        if (host.product === expected.product && host.id() === expected.id) { entered.current = true; setEntry('ready'); }
+        if (host.product === expected.product && host.id() === expected.id) {
+          entered.current = true; setEntry('ready');
+          void workspace.update(referenceKey(expected), { openedAt: Date.now() }).then(refresh).catch(() => { if (live) setError(t('workspace.tree.unavailable')); });
+        }
         else setEntry('error');
       }
       if (host) { const key = referenceKey({ product: host.product, id: host.id() }); setActive(key); sessionStorage.setItem(`wonffice.tree-selection:${workspace.id}`, key); }
@@ -92,17 +96,17 @@ export function WorkspaceFrame({ children, nativeRoot, expected }: { children?: 
         if (!current()) throw new Error(t('workspace.tree.changed'));
         if ((await workspace.meta(row.key)).trashedAt !== null) throw new Error(t('workspace.tree.unavailable'));
         if (!current()) throw new Error(t('workspace.tree.changed'));
-        await workspace.update(row.key, { openedAt: Date.now() });
       }
       if (!current()) throw new Error(t('workspace.tree.changed'));
       if (destination === 'recent') saveLibraryOrigin(workspace.id, { ...readLibraryOrigin(workspace.id), view: 'recent', product: 'all', query: '', folder: '', scroll: 0 });
       location.assign(row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id, ...(project ? { project } : {}) })
-        : destination === 'projects' ? `/?${new URLSearchParams({ workspace: workspace.id, view: 'projects', ...(project ? { project } : {}) })}` : workspaceReturnURL(workspace.id, project));
+        : destination === 'projects' ? formatWorkspaceRoute(project ? { kind: 'item', workspaceId: workspace.id, itemId: project, view: 'projects' } : { kind: 'workspace', workspaceId: workspace.id, view: 'projects' }) : workspaceReturnURL(workspace.id, project));
     } catch (failure) { setError(failure instanceof Error ? failure.message : t('workspace.tree.unavailable')); }
     finally { if (nativeRoot) nativeRoot.inert = entry !== 'ready'; lock.current = false; setBusy(false); release(); }
   };
   const catalog = buildLocalCatalogTree(rows, projects, { perspective: catalogState === 'partial' ? 'my' : perspective, query: view.query, product: view.product });
-  const projectContext = new URLSearchParams(location.search).get('project');
+  const parsedRoute = parseWorkspaceRoute(location.href);
+  const projectContext = projectId ?? (!('error' in parsedRoute) && parsedRoute.route?.kind === 'item' ? parsedRoute.route.projectId : undefined) ?? null;
   const revealCurrent = () => {
     changeView({ query: '', product: 'all', collapsed: [] });
     requestAnimationFrame(() => tree.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' }));

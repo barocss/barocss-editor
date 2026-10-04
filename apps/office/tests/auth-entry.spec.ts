@@ -47,6 +47,9 @@ async function mockLogin(page: Page, options: { role?: Role; tenants?: number; a
       ? { workspaces: workspaceCount ? [{ id: workspaceId, name: 'Alpha Workspace' }] : [], nextCursor: null }
       : { status: workspacesStatus === 403 ? 'forbidden' : 'service_unavailable' }),
   }));
+  await page.route(`**/api/v1/tenants/${id}/projects?**`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: [], nextCursor: null }) }));
+  // Exact item discovery must verify project absence; list absence is not enough.
+  await page.route(`**/api/v1/tenants/${id}/projects/*`, route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ status: 'not_found' }) }));
   await page.route(`**/api/v1/tenants/${id}/documents?**`, route => route.fulfill({
     status: documentsStatus, contentType: 'application/json',
     body: JSON.stringify(documentsStatus === 200
@@ -155,7 +158,9 @@ test('a permitted workspace with documents is not reported as empty', async ({ p
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await expect(page.getByRole('button', { name: 'Alpha Note' })).toBeVisible();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Alpha Note', exact: true })).toBeVisible();
   await expect(page.getByText('이 자료함에는 저장된 Note 문서가 없습니다.')).toHaveCount(0);
 });
 
@@ -165,7 +170,11 @@ test('document list failure never becomes an empty company or empty document sta
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await expect(page.getByRole('heading', { name: '접근 권한을 확인하지 못했습니다' })).toBeVisible();
+  const currentURL = page.url();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.locator('.ow-file-navigation').getByRole('alert')).toContainText('접근 권한을 확인하지 못했습니다.');
+  await expect(page.locator('.ow-file-navigation').getByRole('button', { name: '다시 불러오기', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(currentURL);
   await expect(page.getByText('이 자료함에는 저장된 Note 문서가 없습니다.')).toHaveCount(0);
 });
 
@@ -316,7 +325,7 @@ test('a direct Note URL enters the auth gate and verifies the protected document
   await expect(page.getByRole('heading', { name: 'Wonffice에 들어가기' })).toBeVisible();
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await expect(page.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('Mock body');
-  await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${documentId}\\?tenant=${id}(?:&|$)`) );
 });
 
 test('a saved local recovery draft remains available after leaving and reopening the server Note', async ({ page }) => {
@@ -325,7 +334,9 @@ test('a saved local recovery draft remains available after leaving and reopening
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
@@ -337,7 +348,9 @@ test('a saved local recovery draft remains available after leaving and reopening
   await page.getByRole('button', { name: '자료함으로 돌아가기' }).click();
   await expect(page.getByRole('heading', { name: 'Alpha Company · 사용자' })).toBeVisible();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const recovery = page.getByRole('button', { name: /초안 복구 Alpha Note/ });
   await expect(recovery).toHaveCount(1);
   await recovery.click();
@@ -389,7 +402,9 @@ test('recovery checks current document access before exposing a saved local draf
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
@@ -423,7 +438,9 @@ test('a storage quota failure blocks navigation and names the current unprotecte
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
@@ -463,7 +480,9 @@ test('a lost save response survives repeated reloads and retries the exact origi
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
@@ -492,7 +511,9 @@ test('a mismatched protected Note head never mounts a body', async ({ page }) =>
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeVisible();
   await expect(page.locator('[data-server-note-workspace] [data-note-editor]')).toHaveCount(0);
 });
@@ -503,8 +524,10 @@ test('viewer can open a Note but cannot start a new one', async ({ page }) => {
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '새 Note 만들기' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   await expect(page.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('Mock body');
   await expect(page.locator('[data-server-note-workspace]').getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
 });
@@ -515,7 +538,9 @@ test('temporary access failure hides a mounted Note and retry restores it withou
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   await expect(page.locator('[data-server-note-workspace] [data-note-editor]')).toContainText('Mock body');
   await page.evaluate(() => {
     const marker = document.createElement('input');
@@ -541,6 +566,8 @@ test('a new Note keeps its unsaved view through a successful access recheck', as
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '새 Note 만들기' }).click();
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
   await page.evaluate(() => {
@@ -560,7 +587,9 @@ test('revoked Note access hides an actual unsaved edit and restores it only for 
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
@@ -585,7 +614,10 @@ test('revoked Note access hides an actual unsaved edit and restores it only for 
   await page.unroute(`**/api/v1/tenants/${id}/access`);
   await page.route(`**/api/v1/tenants/${id}/access`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ tenantId: id, role: 'editor' }) }));
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
-  await page.getByRole('button', { name: /초안 복구 Alpha Note/ }).click();
+  const reopened = page.locator('[data-server-note-workspace]');
+  await reopened.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+  await reopened.getByRole('button', { name: /초안 복구 Alpha Note/ }).click();
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
   await expect(paragraph).toContainText('private draft');
   expect(writes).toBe(0);
@@ -597,7 +629,9 @@ test('a different account cannot recover another account’s mounted Note draft'
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
@@ -630,7 +664,9 @@ test('Note navigation keeps the current unsaved document through a verified acce
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   await page.locator('[data-server-note-workspace]').getByRole('button', { name: 'Second Note' }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
@@ -650,7 +686,7 @@ test('Note navigation keeps the current unsaved document through a verified acce
   expect(recheckedDocuments.some(url => url.endsWith(`/documents/${documentId}`))).toBe(false);
   await expect(page.locator('[data-server-note-workspace]')).toBeVisible();
   await expect(paragraph).toContainText('navigation draft');
-  await expect(page).toHaveURL(new RegExp(`document=${nextId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${nextId}\\?tenant=${id}(?:&|$)`) );
   await paragraph.click();
   await page.keyboard.press('End');
   await page.keyboard.insertText(' still editable');
@@ -664,7 +700,9 @@ test('a stale Note save requires copying the typed draft before opening the serv
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   const paragraph = page.locator('[data-server-note-workspace] .on-doc > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
@@ -713,7 +751,9 @@ test('an authorized collaborative Note is not reported as a tenant denial or ope
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   await expect(page.getByRole('heading', { name: '공동 편집을 열 수 없습니다' })).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('공동 편집 연결이 준비되지 않았습니다');
   await expect(page.getByRole('heading', { name: '접근 권한이 없습니다' })).toHaveCount(0);
@@ -731,7 +771,9 @@ test('an initializing Note is not presented as a missing tenant grant', async ({
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await page.getByRole('button', { name: /Alpha Company/ }).click();
   await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-  await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
   await expect(page.getByRole('heading', { name: '공동 편집을 열 수 없습니다' })).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('공동 편집 문서를 준비하는 중입니다');
   await expect(page.locator('[data-server-note-workspace]')).toHaveCount(0);
@@ -894,7 +936,9 @@ for (const loss of ['none', 'before-commit', 'after-commit'] as const) {
     await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
     await page.getByRole('button', { name: /Alpha Company/ }).click();
     await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-    await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
     await expect(page.getByRole('button', { name: '서버 사본 준비 Local structured Note' })).toHaveCount(0);
     await page.getByRole('button', { name: '로컬 노트 사본 가져오기', exact: true }).click();
     await page.getByRole('button', { name: '이 기기의 로컬 노트 목록 확인' }).click();
@@ -941,7 +985,9 @@ for (const theme of ['light', 'dark'] as const) {
     await entry.click();
     await page.getByRole('button', { name: /Alpha Company/ }).click();
     await page.getByRole('button', { name: 'Alpha Workspace' }).click();
-    await page.getByRole('button', { name: 'Alpha Note' }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Alpha Workspace · Note 자료', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Alpha Note', exact: true }).click();
     const workspace = page.locator('[data-server-note-workspace]');
     const paragraph = workspace.locator('.on-doc > p').first();
     await expect(paragraph).toHaveText('Mock body');
@@ -1054,7 +1100,7 @@ test('authenticated Note tree saves pending native input before switching origin
   await page.locator('.ow-file-navigation').getByRole('button', { name: 'Alpha Note 열기' }).click();
   expect(await node!.evaluate(element => element.isConnected)).toBe(true); expect(writes).toHaveLength(0);
   await page.locator('.ow-file-navigation').getByRole('button', { name: 'Second Note 열기' }).click();
-  await expect(page).toHaveURL(new RegExp(`document=${otherId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${otherId}\\?tenant=${id}(?:&|$)`) );
   await expect(paragraph).toContainText('Second native body');
   expect(writes).toHaveLength(1); expect(text).toContain('immediate Note input');
   const installedNode = await paragraph.elementHandle();
@@ -1069,4 +1115,60 @@ test('authenticated Note tree saves pending native input before switching origin
   expect(await installedNode!.evaluate(element => element.isConnected)).toBe(true);
   expect(await paragraph.innerHTML()).toBe(beforeMenu);
   expect(writes).toHaveLength(beforeWrites);
+});
+
+
+for (const outcome of ['recover', 'denied', 'mismatched-page'] as const) test(`compact Note entry recovery with unavailable list: ${outcome}`, async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  let exactReads = 0, writes = 0, exactStatus = 200;
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => {
+    exactReads++;
+    return route.fulfill({ status: exactStatus, contentType: 'application/json', body: JSON.stringify(exactStatus === 200 ? { document: documentHead, snapshotText } : { status: 'forbidden' }) });
+  });
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}/snapshot`, route => {
+    writes++;
+    return route.fulfill({ status: 503, contentType: 'application/json', body: '{"status":"service_unavailable"}' });
+  });
+  const path = `/${workspaceId}/${documentId}?tenant=${id}`;
+  await page.goto(path);
+  await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  const native = page.locator('[data-server-note-workspace]');
+  const paragraph = native.locator('.on-doc > p').first();
+  await expect(paragraph).toContainText('Mock body');
+  await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' exact recovery marker');
+  const records = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+    .map(key => localStorage.getItem(key)!));
+  await expect.poll(records).toEqual([expect.stringContaining('exact recovery marker')]);
+  if (outcome === 'mismatched-page') await page.evaluate(() => {
+    for (const key of Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))) {
+      const record = JSON.parse(localStorage.getItem(key)!);
+      const file = JSON.parse(record.snapshotText);
+      file.document.attributes.pageId = '00000000-0000-4000-8000-000000000006';
+      record.snapshotText = JSON.stringify(file);
+      localStorage.setItem(key, JSON.stringify(record));
+    }
+  });
+  const persisted = await records();
+  await page.route(`**/api/v1/tenants/${id}/documents?**`, route => route.fulfill({ status: 503, contentType: 'application/json', body: '{"status":"service_unavailable"}' }));
+  await page.reload();
+  await expect(paragraph).toHaveText('Mock body');
+  await expect(page).toHaveURL(new URL(path, page.url()).href);
+  await native.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+  await expect(native.getByRole('complementary', { name: '문서 작업', exact: true })).toBeVisible();
+  if (outcome === 'denied') exactStatus = 403;
+  const readsBeforeRecovery = exactReads;
+  const recovery = native.getByRole('button', { name: /초안 복구 Alpha Note/ });
+  await expect(recovery).toBeVisible(); await recovery.click();
+  if (outcome === 'recover') await expect(paragraph).toContainText('exact recovery marker');
+  else if (outcome === 'denied') {
+    await expect(native.getByRole('alert').filter({ hasText: '현재 계정의 초안 접근 권한을 확인하지 못했습니다.' })).toContainText('복구 레코드는 그대로 보존합니다.');
+    await expect(native.locator('[data-note-editor]')).toHaveCount(0);
+  } else {
+    await expect(native.getByRole('alert').filter({ hasText: '저장된 초안을 읽지 못했습니다.' })).toContainText('원본 레코드는 그대로 보존합니다.');
+    await expect(paragraph).toHaveText('Mock body');
+  }
+  expect(exactReads).toBeGreaterThan(readsBeforeRecovery);
+  expect(await records()).toEqual(persisted);
+  expect(writes).toBe(0);
 });

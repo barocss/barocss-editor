@@ -1,3 +1,4 @@
+import { documentLocationWorkspace } from '@barocss/shared';
 import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Toolbar, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase } from '@barocss/office-ui';
 import {
   FileActions,
@@ -810,7 +811,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   };
   const sessionOptions = useMemo(() => editor ? siteSessionOptions(editor, flushBodies) : null, [editor, flushBodies]);
   const persistence = useLocalDocuments(sessionOptions);
-  const workspaceEntry = new URLSearchParams(location.search).get('workspace');
+  const workspaceEntry = documentLocationWorkspace();
   const workspacePage = useRef('');
   useEffect(() => {
     const id = persistence.session.current?.id;

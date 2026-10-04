@@ -54,7 +54,6 @@ export function ProductNavigation({ product }: EditorNavigationProps) {
         await readProductDocument(row.product, source.text); current();
         if ((await workspace.meta(row.key)).trashedAt !== null) throw new Error('휴지통에 있는 자료입니다. 자료함에서 복원하세요.');
         current();
-        await workspace.update(row.key, { openedAt: Date.now() });
       }
       current();
       location.assign(row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id, ...(projectId ? { project: projectId } : {}) }) : workspaceReturnURL(workspace.id, projectId));

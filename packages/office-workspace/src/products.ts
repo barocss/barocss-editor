@@ -1,4 +1,5 @@
 import { documentLibrary } from '@barocss/shared';
+import { formatWorkspaceRoute } from './routes';
 
 /** Durable product keys. No renderer is registered by the workspace catalog. */
 export const products = {
@@ -33,11 +34,8 @@ export async function productCodec(product: Product): Promise<ProductCodec> {
 
 export interface DocumentAddress { workspace: string; product: Product; id: string; project?: string; mode?: 'read' | 'edit'; }
 export function documentURL(address: DocumentAddress): string {
-  const { workspace, product, id } = address;
-  const search = new URLSearchParams({ workspace });
-  if (address.project) search.set('project', address.project);
-  if (address.mode) search.set('mode', address.mode);
-  return `/products/${product}/index.html?${search}#${product === 'note' ? '' : `${product}=`}${encodeURIComponent(id)}`;
+  return formatWorkspaceRoute({ kind: 'item', workspaceId: address.workspace, itemId: address.id,
+    ...(address.project ? { projectId: address.project } : {}), ...(address.mode ? { mode: address.mode } : {}) });
 }
 export function referenceKey(address: Pick<DocumentAddress, 'product' | 'id'>): string {
   return `${address.product}:${address.id}`;

@@ -1,3 +1,4 @@
+import { authRouteRequest } from './auth-route';
 import { createTranslator, type Translator } from '@barocss/shared';
 
 export type EntryIntent = 'user' | 'admin' | 'operator';
@@ -118,8 +119,8 @@ export async function beginLogin(intent: EntryIntent, forceAccountChoice = false
   const discovery = await discover();
   const state = randomValue();
   const verifier = randomValue();
-  const snapshot = snapshotIntentFromSearch(location.search), project = projectLocation(location.search);
-  const returnPath = intent === 'user' && (snapshot || project) ? `/?${snapshot ? snapshotIntentSearch(snapshot) : new URLSearchParams(project!)}` : undefined;
+  const request = intent === 'user' ? authRouteRequest(location.href) : null;
+  const returnPath = request ? location.pathname + location.search + location.hash : undefined;
   sessionStorage.setItem(pendingKey, JSON.stringify({ state, verifier, intent, returnPath } satisfies PendingLogin));
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set('response_type', 'code');
@@ -177,8 +178,10 @@ export async function finishLogin(): Promise<EntryIntent> {
     intent: pending.intent,
   };
   sessionStorage.setItem(resumeKey, pending.intent);
-  if (pending.returnPath?.startsWith('/?') && (snapshotIntentFromSearch(new URL(pending.returnPath, location.origin).search) || projectLocation(new URL(pending.returnPath, location.origin).search))) {
-    history.replaceState(null, '', pending.returnPath);
+  if (pending.returnPath?.startsWith('/') && !pending.returnPath.startsWith('//')) {
+    // Restore the requested identity only. Normalization waits for server metadata and current access.
+    try { if (authRouteRequest(pending.returnPath)) history.replaceState(null, '', pending.returnPath); }
+    catch { throw new AuthError('configuration', '로그인 이전 자료 주소를 확인할 수 없습니다.'); }
   }
   return pending.intent;
 }
@@ -303,6 +306,22 @@ function catalogFailure(error: unknown, t: Translator): AuthError {
   return error.kind === 'unavailable' ? catalogError(t) : error;
 }
 
+export function readCatalogHead(item: unknown, tenantId: string, workspaceId: string, t: Translator = createTranslator('ko')): CatalogDocumentHead {
+  if (!catalogRecord(item) || Object.keys(item).some(key => !catalogHeadKeys.includes(key)) ||
+      typeof item.documentId !== 'string' || !uuid.test(item.documentId) ||
+      item.tenantId !== tenantId || item.workspaceId !== workspaceId ||
+      typeof item.product !== 'string' || !Object.hasOwn(catalogFormats, item.product) ||
+      typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200 ||
+      !catalogRevision(item.revision) || !catalogRevision(item.metadataRevision) ||
+      !['snapshot', 'initializing', 'collaborative'].includes(item.mode as string) ||
+      item.fileFormat !== catalogFormats[item.product as keyof typeof catalogFormats] ||
+      (item.fileVersion !== 1 && !(item.product === 'slides' && item.fileVersion === 2)) ||
+      (item.product === 'note' ? typeof item.pageId !== 'string' || !uuid.test(item.pageId) : item.pageId !== null) ||
+      item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
+      typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash)) throw catalogError(t);
+  return item as CatalogDocumentHead;
+}
+
 /** Use one captured fetch for every page and its JSON decode. No product filter. */
 export async function listCatalogDocuments(tenantId: string, workspaceId: string, after?: string,
   requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentPage> {
@@ -327,21 +346,10 @@ export async function listCatalogDocuments(tenantId: string, workspaceId: string
   const items: CatalogDocumentHead[] = [];
   let previous = after?.toLowerCase();
   for (const item of raw.documents) {
-    if (!catalogRecord(item) || Object.keys(item).some(key => !catalogHeadKeys.includes(key)) ||
-      typeof item.documentId !== 'string' || !uuid.test(item.documentId) ||
-      item.tenantId !== tenantId || item.workspaceId !== workspaceId ||
-      typeof item.product !== 'string' || !Object.hasOwn(catalogFormats, item.product) ||
-      typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200 ||
-      !catalogRevision(item.revision) || !catalogRevision(item.metadataRevision) ||
-      !['snapshot', 'initializing', 'collaborative'].includes(item.mode as string) ||
-      item.fileFormat !== catalogFormats[item.product as keyof typeof catalogFormats] ||
-      (item.fileVersion !== 1 && !(item.product === 'slides' && item.fileVersion === 2)) ||
-      (item.product === 'note' ? typeof item.pageId !== 'string' || !uuid.test(item.pageId) : item.pageId !== null) ||
-      item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
-      typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash) ||
-      (previous !== undefined && item.documentId.toLowerCase() <= previous)) throw catalogError(t);
-    previous = item.documentId.toLowerCase();
-    items.push(item as CatalogDocumentHead);
+    const head = readCatalogHead(item, tenantId, workspaceId, t);
+    if (previous !== undefined && head.documentId.toLowerCase() <= previous) throw catalogError(t);
+    previous = head.documentId.toLowerCase();
+    items.push(head);
   }
   // The fixed service page has 50 heads when another page exists. Its cursor
   // is the last returned UUID, ordered by the same database UUID comparison.

@@ -1,4 +1,5 @@
 import { documentLibrary } from '../document-library/document-library';
+import { documentLocationWorkspace } from './document-location';
 
 export interface ProductDocumentHost {
   product: 'note' | 'word' | 'slides' | 'site';
@@ -69,7 +70,7 @@ export class ProductDocumentTrashedError extends Error {
 }
 
 export async function assertProductDocumentOpen(product: string, id: string): Promise<void> {
-  const workspace = new URLSearchParams(location.search).get('workspace');
+  const workspace = documentLocationWorkspace();
   if (!workspace) return;
   if (workspace !== localStorage.getItem('wonffice.local-workspace')) throw new Error('다른 작업 공간의 자료입니다.');
   if (await isProductDocumentTrashed(product, id)) throw new ProductDocumentTrashedError();
@@ -77,7 +78,7 @@ export async function assertProductDocumentOpen(product: string, id: string): Pr
 
 /** Lists use the catalog as a hint; opening checks the current policy again. */
 export async function isProductDocumentTrashed(product: string, id: string): Promise<boolean> {
-  const workspace = new URLSearchParams(location.search).get('workspace');
+  const workspace = documentLocationWorkspace();
   if (!workspace || workspace !== localStorage.getItem('wonffice.local-workspace')) return false;
   const catalog = documentLibrary({ db: `wonffice-workspace-${workspace}`, store: 'catalog' });
   const snapshot = await catalog.read(`${product}:${id}`);

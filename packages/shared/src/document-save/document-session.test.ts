@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { LibraryRevisionConflict } from '../document-library/document-library';
 import { DocumentSession, type DocumentSessionOptions } from './document-session';
+import { registerDocumentLocation } from './document-location';
 
 function setup() {
   const records = new Map<string, { row: any; text: string }>();
@@ -36,6 +37,38 @@ describe('local document session', () => {
   });
   afterEach(() => { running.splice(0).forEach(session => session.stop()); vi.useRealTimers(); vi.unstubAllGlobals(); });
   const start = async () => { const one = setup(); running.push(one.session); await one.session.start(); await one.session.flush(); return one; };
+
+  it('reports an invalid host address without subscribing, saving a sample or replacing its route', async () => {
+    const one = setup(); running.push(one.session);
+    const subscription = vi.spyOn(one.options, 'subscribe');
+    const remove = registerDocumentLocation({ product: 'test', workspaceId: 'w', readId: () => undefined, url: () => '/w/sample' });
+    const originalURL = location.href;
+    try {
+      await one.session.start();
+      expect(one.notify).toHaveBeenLastCalledWith('restore-error');
+      expect(subscription).not.toHaveBeenCalled(); expect(one.store.keep).not.toHaveBeenCalled();
+      expect(one.content()).toBe('initial'); expect(location.href).toBe(originalURL);
+    } finally { remove(); }
+  });
+
+  it('does not install a delayed initial original after its validated address retires', async () => {
+    const one = setup(); running.push(one.session);
+    let current = true, finish!: (value: any) => void;
+    const remove = registerDocumentLocation({ product: 'test', workspaceId: '', readId: () => 'original',
+      url: id => `/w/${id}`, isCurrent: () => current });
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      const opening = one.session.start();
+      await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('original'));
+      current = false; history.replaceState(null, '', '/w/different');
+      finish({ row: { name: 'original', revision: 1 }, text: 'original saved content' });
+      await opening;
+      expect(one.content()).toBe('initial'); expect(one.store.keep).not.toHaveBeenCalled();
+      expect(one.session.id).not.toBe('original');
+      expect(one.notify).toHaveBeenLastCalledWith('restore-error');
+      expect(location.pathname).toBe('/w/different');
+    } finally { remove(); }
+  });
 
   it('reports loading/saved through the single status-code callback without altering saved native bytes', async () => {
     const one = setup(); running.push(one.session); await one.session.start();

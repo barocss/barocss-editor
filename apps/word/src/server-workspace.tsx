@@ -163,9 +163,17 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     let alive = true; active.current = client;
     void (async () => {
       try {
-        const rows = await client.list();
+        const loadHeads = async () => {
+          try {
+            const rows = await client.list();
+            if (alive && active.current === client) setHeads(rows);
+          } catch (error) {
+            if (!initialDocumentId) throw error;
+            if (alive && active.current === client) setSourceError(t('workspace.route.listUnavailable'));
+          }
+        };
+        if (initialDocumentId) void loadHeads(); else await loadHeads();
         if (!alive || active.current !== client) return;
-        setHeads(rows);
         try { setRecords(store.list()); } catch { setSourceError('복구 목록을 읽지 못했습니다. 원본 레코드는 유지됩니다.'); }
         if (initialDocumentId) {
           const result = await client.open(initialDocumentId);

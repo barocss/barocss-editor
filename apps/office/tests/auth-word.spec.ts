@@ -34,6 +34,9 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
   await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'word-synthetic', tenants: [{ tenantId, name: 'Word Company', role: viewer ? 'viewer' : 'editor' }], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role: viewer ? 'viewer' : 'editor' })));
   await page.route(`**/api/v1/tenants/${tenantId}/workspaces**`, route => route.fulfill(json({ workspaces: [{ id: workspaceId, name: 'Word workspace' }], nextCursor: null })));
+  if (!options.tree) await page.route(`**/api/v1/tenants/${tenantId}/projects?**`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: [], nextCursor: null }) }));
+  // Exact item discovery must verify project absence; list absence is not enough.
+  await page.route(`**/api/v1/tenants/${tenantId}/projects/*`, route => route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ status: 'not_found' }) }));
   await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: ['word', null].includes(new URL(route.request().url()).searchParams.get('product')) ? [head(), ...(options.second ? [secondHead()] : [])] : [], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/documents/${documentId}`, route => route.fulfill(json({ document: head(), ...(options.mode ? {} : { snapshotText }) })));
   if (options.second) await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondDocumentId}`, route => route.fulfill(json({ document: secondHead(), snapshotText: secondText })));
@@ -289,6 +292,7 @@ test('dirty Word draft survives current viewer demotion and writer promotion', a
   const serverText = state.text();
   await type(page, 'Protected role-change draft');
   const paragraph = shell(page).locator('.w-paragraph').first();
+  await expect(paragraph).toContainText('Protected role-change draft');
   const visible = await paragraph.textContent();
   const pending = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:'))
     .sort().map(key => localStorage.getItem(key)));
@@ -304,7 +308,10 @@ test('dirty Word draft survives current viewer demotion and writer promotion', a
   await expect(save(page)).toBeVisible();
   await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(1);
   await expect(paragraph).toHaveText(visible!);
-  await paragraph.click(); await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
+  await paragraph.click();
+  await expect(shell(page).locator('[contenteditable=true]')).toBeFocused();
+  await page.keyboard.press('Home'); await page.keyboard.press('Shift+End');
+  await expect.poll(() => page.evaluate(() => document.getSelection()?.toString() ?? '')).not.toBe('');
   await expect(page.getByRole('toolbar', { name: '선택한 Word 글 서식 도구', exact: true })).toBeVisible();
   await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
   expect(state.text()).toContain('Protected role-change draft'); expect(state.writes).toHaveLength(1);
@@ -375,13 +382,13 @@ test('native Word opening saves the final input before installing another origin
   const list = page.getByRole('complementary', { name: '작업 공간 파일 탐색' });
   if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
   await list.getByRole('button', { name: 'Second server Word 열기', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${secondDocumentId}\\?tenant=${tenantId}(?:&|$)`) );
   await expect(shell(page).locator('.w-paragraph').first()).not.toContainText('Final input before native transition');
   expect(state.writes).toHaveLength(1);
   expect(state.text()).toContain('Final input before native transition');
   if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
   await list.getByRole('button', { name: 'Server Word 열기', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${documentId}\\?tenant=${tenantId}(?:&|$)`) );
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Final input before native transition');
   expect(state.writes).toHaveLength(1);
 });
@@ -394,7 +401,7 @@ test('failed native Word preparation preserves the current original and last dra
   if (!await list.isVisible()) await shell(page).locator('[data-workspace-toggle="navigation"]').click();
   await list.getByRole('button', { name: 'Second server Word 열기', exact: true }).click();
   await expect(shell(page).locator('[data-save-status]')).toHaveText('저장 확인 필요');
-  await expect(page).toHaveURL(new RegExp(`document=${documentId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${documentId}\\?tenant=${tenantId}(?:&|$)`) );
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Retained failed transition input');
   expect(state.writes).toHaveLength(1);
   const pending = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:')).map(key => JSON.parse(localStorage.getItem(key)!)));
@@ -420,7 +427,7 @@ test('retired Word role loading cannot lock or replace a newer viewer opening', 
   await expect(save(page)).toHaveCount(0);
   await expect(list.getByRole('button', { name: 'Second server Word 열기', exact: true })).toBeEnabled();
   await list.getByRole('button', { name: 'Second server Word 열기', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${secondDocumentId}\\?tenant=${tenantId}(?:&|$)`) );
   const installed = await shell(page).locator('.w-paragraph').first().elementHandle();
   expect(installed).not.toBeNull();
   const retiredResponse = page.waitForResponse(response => response.url().endsWith(`/documents/${secondDocumentId}`));
@@ -430,7 +437,7 @@ test('retired Word role loading cannot lock or replace a newer viewer opening', 
   await expect(shell(page).locator('.w-paragraph').first()).toBeVisible();
   await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
   expect(state.writes).toHaveLength(0);
-  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${secondDocumentId}\\?tenant=${tenantId}(?:&|$)`) );
 });
 
 
@@ -468,7 +475,7 @@ test('authenticated workspace tree saves immediate input before opening another 
   await type(page, 'Immediate tree input');
   await expect(shell(page).locator('.w-paragraph').first()).toContainText('Immediate tree input');
   await tree.getByRole('button', { name: 'Second server Word 열기' }).click();
-  await expect(page).toHaveURL(new RegExp(`document=${secondDocumentId}`));
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${secondDocumentId}\\?tenant=${tenantId}(?:&|$)`) );
   await expect(shell(page).locator('.w-paragraph').first()).not.toContainText('Immediate tree input');
   expect(state.writes).toHaveLength(1); expect(state.text()).toContain('Immediate tree input');
   expect(new URL(page.url()).searchParams.has('project')).toBe(false);

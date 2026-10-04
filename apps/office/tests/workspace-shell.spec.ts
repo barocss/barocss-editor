@@ -252,7 +252,7 @@ test('direct Slides entry blocks temporary native controls until the requested o
     const success = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete')!;
     IDBObjectStore.prototype.get = function (...args) {
       const request = original.apply(this, args);
-      if (this.transaction.db.name === 'barocss-slides-workspace' && document.querySelector('#ow-shell-root') && !(window as any).__heldRestore) {
+      if (this.transaction.db.name === 'barocss-slides-workspace' && document.querySelector('.sl-stage') && !(window as any).__heldRestore) {
         (window as any).__heldRestore = true;
         const transaction = this.transaction;
         Object.defineProperty(transaction, 'oncomplete', {

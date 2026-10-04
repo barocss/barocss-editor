@@ -1,4 +1,5 @@
 import { isProduct, type Product } from './products';
+import { formatWorkspaceRoute } from './routes';
 
 export interface LibraryOrigin {
   query: string;
@@ -28,5 +29,6 @@ export function saveLibraryOrigin(workspace: string, value: LibraryOrigin): void
   sessionStorage.setItem(key(workspace), JSON.stringify(value));
 }
 export function workspaceReturnURL(workspace: string, project?: string | null): string {
-  return `/?${new URLSearchParams({ workspace, ...(project ? { view: 'projects', project } : { view: 'library' }) })}`;
+  return formatWorkspaceRoute(project ? { kind: 'item', workspaceId: workspace, itemId: project, view: 'projects' }
+    : { kind: 'workspace', workspaceId: workspace, view: 'library' });
 }

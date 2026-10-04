@@ -2,7 +2,7 @@ import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, Pane
 import { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from '@barocss/office-note';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Choice, Icon, TextField, Dialog, IconButton, useOfficeLocale } from '@barocss/office-ui';
-import { documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, type LibraryRow } from '@barocss/shared';
+import { documentLocationId, documentLocationURL, documentLocationWorkspace, documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, type LibraryRow } from '@barocss/shared';
 import { NoteEditor } from '@barocss/office-note/view';
 import { noteLibrary, noteFileText, noteFileName, readNoteFile, openNoteTree, noteTreeOf, type NoteDocument, type NoteSession } from '@barocss/office-note';
 
@@ -12,7 +12,7 @@ import { planWorkspaceRestore, readWorkspaceBackup, workspaceBackupText, type Wo
 import { WorkspaceBackupControls } from './workspace-backup-ui';
 type ReferenceItem = { source: string; rowId: string; next?: ReferenceItem };
 type HistoryDestination = { id: string; item?: ReferenceItem };
-const pageInHash = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; } };
+const pageInHash = () => { try { return documentLocationId('note') ?? ''; } catch (error) { if (documentLocationWorkspace()) throw error; return ''; } };
 type StoredNote = WorkspacePage & { revision?: number };
 const recoveryLibrary = documentLibrary({ db: 'barocss-note-recovery', store: 'drafts' });
 type UnreadableNote = { id: string; title: string; reason: string; source?: string };
@@ -22,6 +22,7 @@ function loadNotes() {
   return opening ??= (async () => {
     const rows = await noteLibrary.rows();
     if (!rows.length) {
+      if (documentLocationWorkspace()) throw new Error('보관한 원본 노트가 없습니다. 자료함에서 다시 확인하세요.');
       const first = { id: crypto.randomUUID(), document: pageTemplate('meeting', true), meta: pageMeta() };
       first.document.attributes.pageId = first.id;
       const saved = await noteLibrary.keep({ name: first.id, title: first.document.attributes.title, metadata: { ...first.meta } }, noteFileText(first.document), { expectedRevision: null });
@@ -51,7 +52,7 @@ function loadNotes() {
 
 export function Workspace() {
   const { t } = useOfficeLocale();
-  const inWorkspace = !!new URLSearchParams(location.search).get('workspace');
+  const inWorkspace = !!documentLocationWorkspace();
   const [navigationOpen, setNavigationOpen] = useState(!inWorkspace);
   const [panel, setPanel] = useState<'export' | 'page' | 'template' | null>(null);
   const [exchangeFormat, setExchangeFormat] = useState<'json' | NoteExchangeFormat>('json');
@@ -113,7 +114,7 @@ export function Workspace() {
       setNavigationRequest(undefined);
       setReferenceDestination(item);
       setView(pageInTrash(id, metadata.current) ? 'trash' : 'all'); if (!keepSearch) setQuery('');
-      if (push && id !== selected) history.pushState({ noteItem: item }, '', `${location.pathname}${location.search}#${encodeURIComponent(id)}`);
+      if (push && id !== selected) history.pushState({ noteItem: item }, '', documentLocationURL('note', id));
       setSelected(id);
       return true;
     } catch { setProblem('마지막 입력을 저장하지 못해 페이지 이동을 멈췄습니다. 다시 시도하세요.'); return false; }
@@ -123,7 +124,7 @@ export function Workspace() {
   useEffect(() => {
     const move = ({ id, item }: HistoryDestination) => {
       void navigate.current(id, false, item).then(ok => {
-        if (!ok && documents.current.size) history.replaceState(null, '', `${location.pathname}${location.search}#${encodeURIComponent(selectedPage.current)}`);
+        if (!ok && documents.current.size) history.replaceState(null, '', documentLocationURL('note', selectedPage.current));
       });
     };
     moveFromHistory.current = move;
@@ -185,8 +186,18 @@ export function Workspace() {
 
   useEffect(() => {
     let cancelled = false;
+    const requestedWorkspace = documentLocationWorkspace();
+    let requested: string;
+    try { requested = pageInHash(); }
+    catch (error) { setProblem(error instanceof Error ? error.message : '노트 주소를 확인할 수 없습니다.'); setReady(true); return; }
     void loadNotes().then(({ notes: rows, unreadable }) => {
       if (cancelled) return;
+      if (requestedWorkspace) {
+        const states = new Map(rows.map(row => [row.id, row.meta]));
+        if (documentLocationWorkspace() !== requestedWorkspace || pageInHash() !== requested ||
+          !requested || !rows.some(row => row.id === requested) || pageInTrash(requested, states))
+          throw new Error('원본 노트나 주소가 바뀌었습니다. 자료함에서 다시 여세요.');
+      }
       documents.current = new Map(rows.map(row => [row.id, row.document]));
       metadata.current = new Map(rows.map(row => [row.id, row.meta]));
       storageRevisions.current = new Map(rows.map(row => [row.id, row.revision ?? 0]));
@@ -198,7 +209,7 @@ export function Workspace() {
       setSelected(active.some(row => row.id === remembered) ? remembered : active[0]?.id ?? '');
       setProblem('');
       setReady(true);
-    }).catch(error => { if (!cancelled) setProblem(error instanceof Error ? error.message : '노트 보관함을 열 수 없습니다.'); });
+    }).catch(error => { if (!cancelled) { setProblem(error instanceof Error ? error.message : '노트 보관함을 열 수 없습니다.'); if (requestedWorkspace) setReady(true); } });
     return () => { cancelled = true; };
   }, [attempt]);
 
@@ -223,7 +234,7 @@ export function Workspace() {
     };
     one.editor.on('editor:content.change' as never, changed);
     setSession({ id: selected, value: one, generation: ++sessionGeneration.current });
-    history.replaceState(history.state, '', `${location.pathname}${location.search}#${encodeURIComponent(selected)}`);
+    history.replaceState(history.state, '', documentLocationURL('note', selected));
     return () => {
       one.editor.off('editor:content.change' as never, changed);
       one.close();

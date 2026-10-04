@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import {
   AuthError, beginLogin, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
   isLogoutEvent, loadIdentity, providerLogout, consumeLogoutReturn, consumeResumeIntent,
-  listWorkspaces, listSnapshotDocuments, openVerifiedSnapshot, snapshotIntentFromSearch, snapshotIntentSearch, projectLocation, authorizedFetch, captureAuthorizedSession,
+  listWorkspaces, listSnapshotDocuments, openVerifiedSnapshot, snapshotIntentFromSearch, projectLocation, authorizedFetch, captureAuthorizedSession,
   type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext, type VerifiedSnapshotContext, type SnapshotProduct,
 } from './auth-client';
 import { Icon, IconButton, ProductLabel } from '@barocss/office-ui';
@@ -10,7 +10,8 @@ import { productDocumentHost, prepareProductNavigation, captureProductNavigation
 import { ProjectFeedback } from '@barocss/office-workspace/feedback';
 import { AuthenticatedWorkspaceFrame } from './authenticated-frame';
 import type { ServerCatalogRow } from './server-catalog';
-import { readProductDocument } from '@barocss/office-workspace';
+import { authRouteRequest, resolveAuthenticatedRouteItem, snapshotIntentURL } from './auth-route';
+import { formatWorkspaceRoute, readProductDocument } from '@barocss/office-workspace';
 import { useOfficeLocale } from '@barocss/office-ui';
 import { ConnectedWorkspace } from './connected-workspace';
 import { serverProjectRepository } from './project-client';
@@ -145,8 +146,9 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         throw new AuthError('forbidden', '계정이 바뀌었습니다. 이전 계정의 초안은 이 계정에 표시하지 않습니다.');
       }
       chosenIntent.current = intent;
-      const direct = noteIntent.current ?? snapshotIntentFromSearch(location.search);
-      const projectLink = projectLocation(location.search);
+      let direct = noteIntent.current ?? snapshotIntentFromSearch(location.search);
+      let projectLink = projectLocation(location.search);
+      const routeRequest = intent === 'user' ? authRouteRequest(location.href) : null;
       if (intent === 'operator') {
         selected.current = null;
         try { await confirmOperator(); }
@@ -165,9 +167,14 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         return;
       }
       if (identity.tenants.length === 0) { selected.current = null; setView({ phase: 'empty' }); return; }
-      if (!tenant && (direct || projectLink) && intent === 'user') tenant = identity.tenants.find(item => item.tenantId === (direct?.tenantId ?? projectLink?.tenant)) ?? null;
+      if (!tenant && intent === 'user') {
+        const requestedTenant = routeRequest?.route.tenantId ?? direct?.tenantId ?? projectLink?.tenant;
+        if (requestedTenant) tenant = identity.tenants.find(item => item.tenantId === requestedTenant) ?? null;
+        else if (routeRequest && identity.tenants.length === 1) tenant = identity.tenants[0];
+      }
+      if (routeRequest?.route.tenantId && tenant && routeRequest.route.tenantId !== tenant.tenantId) throw new AuthError('forbidden', '선택한 회사와 자료 주소가 다릅니다.');
       if (!tenant) {
-        if (direct) throw new AuthError('forbidden', '선택한 회사에 접근할 수 없습니다.');
+        if (direct || routeRequest?.route.tenantId) throw new AuthError('forbidden', '선택한 회사에 접근할 수 없습니다.');
         setView({ phase: 'choose', identity, intent }); return;
       }
       const wantedTenantId = tenant.tenantId;
@@ -180,6 +187,39 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       else {
         const workspacePage = intent === 'user' ? await listWorkspaces(fresh.tenantId) : undefined;
         if (run !== generation.current) return;
+        if (routeRequest && intent === 'user') {
+          const route = routeRequest.route;
+          let page = workspacePage!, workspace = page.items.find(item => item.id === route.workspaceId);
+          const seen = new Set<string>();
+          while (!workspace && page.nextCursor && !seen.has(page.nextCursor) && seen.size < 100) {
+            seen.add(page.nextCursor); page = await listWorkspaces(fresh.tenantId, page.nextCursor);
+            if (run !== generation.current) return;
+            workspace = page.items.find(item => item.id === route.workspaceId);
+          }
+          if (!workspace) throw new AuthError('forbidden', '선택한 작업 공간에 접근할 수 없습니다.');
+          if (route.kind === 'item') {
+            const session = captureAuthorizedSession();
+            const item = await resolveAuthenticatedRouteItem(routeRequest, fresh.tenantId, session.requestFetch,
+              () => run === generation.current && session.isCurrent());
+            if (run !== generation.current || !session.isCurrent()) return;
+            if (item.kind === 'project') { direct = null; projectLink = { tenant: fresh.tenantId, workspace: workspace.id, project: item.id }; }
+            else {
+              if (item.product === 'site') throw new AuthError('configuration', '인증된 Site 편집 연결은 아직 지원하지 않습니다.');
+              direct = { tenantId: fresh.tenantId, workspaceId: workspace.id, documentId: item.id, product: item.product,
+                ...(route.projectId ? { projectId: route.projectId } : {}), ...(route.mode ? { mode: route.mode } : {}) };
+              projectLink = null;
+            }
+          } else {
+            if (retainedNote) throw new AuthError('forbidden', '현재 원본을 종료한 뒤 작업 공간으로 이동하세요.');
+            if (route.view === 'projects') setView({ phase: 'project', tenant: fresh, role, workspace });
+            else {
+              const documents = await listSnapshotDocuments(fresh.tenantId, workspace.id, 'note');
+              if (run !== generation.current) return;
+              setView({ phase: 'library', tenant: fresh, role, workspace, product: 'note', documents: documents.items, cursor: documents.nextCursor });
+            }
+            history.replaceState(history.state, '', formatWorkspaceRoute({ ...route, tenantId: fresh.tenantId })); return;
+          }
+        }
         if (retainedNote && !rememberedDocumentId.current && !direct && intent === 'user') {
           if (role === 'viewer') throw new AuthError('forbidden', '문서 작성 권한이 취소되었습니다.');
           let page = workspacePage!;
@@ -198,14 +238,15 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           return;
         }
         if (direct && intent === 'user') {
+          const directWorkspace = direct.workspaceId;
           let page = workspacePage!;
-          let workspace = page.items.find(item => item.id === direct.workspaceId);
+          let workspace = page.items.find(item => item.id === directWorkspace);
           const seen = new Set<string>();
           while (!workspace && page.nextCursor && !seen.has(page.nextCursor) && seen.size < 100) {
             seen.add(page.nextCursor);
             page = await listWorkspaces(fresh.tenantId, page.nextCursor);
             if (run !== generation.current) return;
-            workspace = page.items.find(item => item.id === direct.workspaceId);
+            workspace = page.items.find(item => item.id === directWorkspace);
           }
           if (!workspace) throw new AuthError('forbidden', '선택한 자료함에 접근할 수 없습니다.');
           const context = await openVerifiedSnapshot(fresh.tenantId, workspace.id, direct.documentId, role, direct.product);
@@ -213,7 +254,6 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           // Silent login restores the URL after this component was mounted on the callback.
           // Retain the freshly authorized project intent before native navigation reports its document.
           noteIntent.current = direct;
-          history.replaceState(null, '', `/?${snapshotIntentSearch(direct)}`);
           const retainNativeRuntime = context.product === 'word' || context.product === 'slides';
           if (retainedNote && (retainNativeRuntime || role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
             retainedNote.context.workspaceId === context.workspaceId && retainedNote.context.product === context.product && rememberedDocumentId.current === context.documentId) {
@@ -226,19 +266,23 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
             setMountedNote(retained);
             noteAccess.current = true;
             setView(retained);
+            const installed = captureProductNavigation();
+            if (installed?.isCurrent() && installed.product === context.product && installed.id === context.documentId) commitNativeLocation(context.documentId!, direct.projectId ?? null);
             hideCurtain();
           } else if (retainedNote) throw new AuthError('forbidden', '이 초안을 다시 편집할 권한이 없습니다.');
           else rememberNote({ phase: 'note', tenant: fresh, role, workspace, context }, identity);
           return;
         }
         if (projectLink && intent === 'user') {
+          const projectWorkspace = projectLink.workspace;
           let page = workspacePage!; const seen = new Set<string>();
-          let workspace = page.items.find(one => one.id === projectLink.workspace);
+          let workspace = page.items.find(one => one.id === projectWorkspace);
           while (!workspace && page.nextCursor && !seen.has(page.nextCursor)) {
             seen.add(page.nextCursor); page = await listWorkspaces(fresh.tenantId, page.nextCursor); if (run !== generation.current) return;
-            workspace = page.items.find(one => one.id === projectLink.workspace);
+            workspace = page.items.find(one => one.id === projectWorkspace);
           }
           if (fresh.tenantId !== projectLink.tenant || !workspace) throw new AuthError('forbidden', '프로젝트의 작업 공간에 접근할 수 없습니다.');
+          history.replaceState(history.state, '', formatWorkspaceRoute({ kind: 'item', tenantId: fresh.tenantId, workspaceId: workspace.id, itemId: projectLink.project }));
           setView({ phase: 'project', tenant: fresh, role, workspace }); return;
         }
         history.replaceState(null, '', intent === 'admin' ? '/admin' : '/');
@@ -357,13 +401,18 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   }
 
   async function enterWorkspace(tenant: TenantAccess, role: TenantRole, workspace: WorkspaceAccess, product?: SnapshotProduct) {
-    if (!product) { setView({ phase: 'project', tenant, role, workspace }); return; }
+    if (!product) {
+      setView({ phase: 'project', tenant, role, workspace });
+      history.replaceState(history.state, '', formatWorkspaceRoute({ kind: 'workspace', tenantId: tenant.tenantId, workspaceId: workspace.id, view: 'projects' }));
+      return;
+    }
     const run = ++generation.current;
     showCurtain(); setView({ phase: 'checking' });
     try {
       const page = await listSnapshotDocuments(tenant.tenantId, workspace.id, product);
       if (run !== generation.current) return;
       setView({ phase: 'library', tenant, role, workspace, product, documents: page.items, cursor: page.nextCursor });
+      history.replaceState(history.state, '', formatWorkspaceRoute({ kind: 'workspace', tenantId: tenant.tenantId, workspaceId: workspace.id, view: 'library' }));
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
 
@@ -420,7 +469,6 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       const context = await openVerifiedSnapshot(current.tenant.tenantId, current.workspace.id, documentId, role, current.product);
       if (run !== generation.current) return;
       noteIntent.current = { tenantId: context.tenantId, workspaceId: context.workspaceId, documentId, product: context.product, ...(projectId ? { projectId, mode: 'read' as const } : {}) };
-      history.replaceState(null, '', `/?${snapshotIntentSearch(noteIntent.current)}`);
       if (run !== generation.current) return;
       rememberNote({ phase: 'note', tenant: current.tenant, role, workspace: current.workspace, context }, identity);
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
@@ -430,10 +478,25 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     const native = rememberedNote.current;
     if (!native) return;
     rememberedDocumentId.current = documentId; setActiveDocument(documentId);
+    const previous = noteIntent.current;
+    const sameOriginal = previous?.tenantId === native.context.tenantId && previous.workspaceId === native.context.workspaceId &&
+      previous.product === native.context.product && previous.documentId === documentId && previous.projectId === (projectId ?? undefined);
+    const mode = sameOriginal ? previous.mode : projectId ? 'read' as const : undefined;
     noteIntent.current = { tenantId: native.context.tenantId, workspaceId: native.context.workspaceId, documentId,
-      product: native.context.product, ...(projectId ? { projectId, mode: 'read' as const } : {}) };
-    history.replaceState(null, '', `/?${snapshotIntentSearch(noteIntent.current)}`);
+      product: native.context.product, ...(projectId ? { projectId } : {}), ...(mode ? { mode } : {}) };
+    history.replaceState(null, '', snapshotIntentURL(noteIntent.current));
   }
+  useEffect(() => {
+    const publishInstalled = () => {
+      const native = rememberedNote.current, slot = nativeSlot.current, guard = captureProductNavigation();
+      if (!native || treeOperation.current || !slot?.session.isCurrent() || !noteAccess.current || currentView.current.phase !== 'note' ||
+        !guard?.isCurrent() || guard.product !== native.context.product || guard.id !== rememberedDocumentId.current) return;
+      commitNativeLocation(guard.id);
+    };
+    publishInstalled();
+    window.addEventListener('wonffice:host-change', publishInstalled);
+    return () => window.removeEventListener('wonffice:host-change', publishInstalled);
+  }, [mountedNote]);
   async function openTreeOriginal(row: ServerCatalogRow, projectId?: string) {
     if (treeOperation.current || !row.nativeOpenSupported || row.product === 'site') return;
     const scope = rememberedNote.current ?? (currentView.current.phase === 'project' || currentView.current.phase === 'library' ? currentView.current : null);
@@ -470,8 +533,9 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       if (!owns()) return;
       await readProductDocument(row.product, context.snapshotText!);
       if (!owns()) return;
+      noteIntent.current = { tenantId: context.tenantId, workspaceId: context.workspaceId, documentId: row.documentId, product: context.product,
+        ...(projectId ? { projectId, mode: 'read' as const } : {}) };
       rememberNote({ phase: 'note', tenant: scope.tenant, role: scope.role, workspace: scope.workspace, context }, identity);
-      commitNativeLocation(row.documentId, projectId ?? null);
     } catch (error) { if (owns()) setTreeError(error instanceof Error ? error.message : t('workspace.tree.nativeUnavailable')); }
     finally { if (treeOperation.current === token) { treeOperation.current = null; setTreeBusy(false); } }
   }
@@ -494,12 +558,12 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         const page = await listSnapshotDocuments(scope.tenant.tenantId, scope.workspace.id, 'note');
         if (!owns()) return;
         forgetNote(); noteIntent.current = null;
-        history.replaceState(null, '', `/?${new URLSearchParams({ tenant: scope.tenant.tenantId, workspace: scope.workspace.id })}`);
+        history.replaceState(null, '', formatWorkspaceRoute({ kind: 'workspace', tenantId: scope.tenant.tenantId, workspaceId: scope.workspace.id, view: 'library' }));
         setView({ phase: 'library', tenant: scope.tenant, role: scope.role, workspace: scope.workspace, product: 'note', documents: page.items, cursor: page.nextCursor });
       } else {
         if (!owns()) return;
         forgetNote(); noteIntent.current = null;
-        history.replaceState(null, '', `/?${new URLSearchParams({ tenant: scope.tenant.tenantId, workspace: scope.workspace.id, ...(projectId ? { project: projectId } : {}) })}`);
+        history.replaceState(null, '', formatWorkspaceRoute(projectId ? { kind: 'item', tenantId: scope.tenant.tenantId, workspaceId: scope.workspace.id, itemId: projectId } : { kind: 'workspace', tenantId: scope.tenant.tenantId, workspaceId: scope.workspace.id, view: 'projects' }));
         setView({ phase: 'project', tenant: scope.tenant, role: scope.role, workspace: scope.workspace });
       }
     } catch (error) { if (owns()) setTreeError(error instanceof Error ? error.message : t('workspace.tree.nativeUnavailable')); }
@@ -517,7 +581,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     if (!ownsReturn()) return;
     forgetNote(); noteIntent.current = null;
     if (project) {
-      history.replaceState(null, '', `/?${new URLSearchParams({ tenant: current.tenant.tenantId, workspace: current.context.workspaceId, project })}`);
+      history.replaceState(null, '', formatWorkspaceRoute({ kind: 'item', tenantId: current.tenant.tenantId, workspaceId: current.context.workspaceId, itemId: project }));
       setView({ phase: 'project', tenant: current.tenant, role: current.role, workspace: current.workspace });
     } else { history.replaceState(null, '', '/'); await checkAccess('user', current.tenant); }
   };

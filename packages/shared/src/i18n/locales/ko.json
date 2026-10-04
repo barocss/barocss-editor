@@ -160,5 +160,9 @@
   "workspace.feedback.read": "읽기",
   "document.input.failed": "입력을 반영하지 못했습니다",
   "document.input.retained": "현재 입력을 유지합니다. 저장하거나 다른 문서를 열기 전에 다시 시도하세요.",
-  "document.input.retry": "입력 다시 시도"
+  "document.input.retry": "입력 다시 시도",
+  "workspace.route.failed": "자료를 열지 못했습니다.",
+  "workspace.route.loading": "작업 공간을 여는 중",
+  "workspace.route.preparing": "원본을 확인하고 편집 화면을 준비하고 있습니다.",
+  "workspace.route.listUnavailable": "문서 목록을 확인하지 못했습니다. 열린 원본은 개별 접근 검사로 확인했습니다."
 }

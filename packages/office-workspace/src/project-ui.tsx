@@ -61,7 +61,8 @@ export function PinnedSource({ pin }: { pin: Pin & { sourceState?: 'current' | '
     <pre>{sourceText(pin)}</pre><details><summary>저장한 원본 데이터</summary><pre>{pin.text}</pre></details></section>;
 }
 
-export function ProjectHome({ repository, onOpen, onLibrary, embedded = false }: { embedded?: boolean; repository: ProjectRepository;
+export function ProjectHome({ repository, onOpen, onLibrary, embedded = false, initialProjectId, onLocationChange }: { embedded?: boolean; repository: ProjectRepository;
+  initialProjectId?: string; onLocationChange?(id?: string): void;
   onOpen(project: string, document: ProjectDocument): Promise<void>; onLibrary(): void }) {
   const { t } = useOfficeLocale();
   const [projects, setProjects] = useState<ProjectSnapshot[]>([]), [selected, setSelected] = useState<ProjectSnapshot | null>(null);
@@ -71,7 +72,7 @@ export function ProjectHome({ repository, onOpen, onLibrary, embedded = false }:
   const [newDocument, setNewDocument] = useState(false), [product, setProduct] = useState<Product>('word');
   const [followup, setFollowup] = useState<string>(), [followupResult, setFollowupResult] = useState('');
   const [source, setSource] = useState<Pin>(), [pinning, setPinning] = useState<string>(), [inputKey, setInputKey] = useState('');
-  const generation = useMemo(() => ({}), [repository]);
+  const generation = useMemo(() => ({}), [repository, initialProjectId]);
   const mounted = useRef(true), [dataGeneration, setDataGeneration] = useState<object>();
   const currentGeneration = useRef(generation); currentGeneration.current = generation;
   const owns = () => mounted.current && currentGeneration.current === generation;
@@ -92,16 +93,19 @@ export function ProjectHome({ repository, onOpen, onLibrary, embedded = false }:
   useEffect(() => {
     mounted.current = true; lock.current = false; setBusy(false); setSource(undefined);
     setCreating(false); setLinking(false); setPinning(undefined); setFollowup(undefined);
-    const id = new URLSearchParams(location.search).get('project') ?? undefined; void perform(() => refresh(id));
+    const id = initialProjectId ?? new URLSearchParams(location.search).get('project') ?? undefined; void perform(() => refresh(id));
     return () => { mounted.current = false; };
-  }, [repository]);
+  }, [repository, initialProjectId]);
   const openSource = async (project: string, pin: string) => {
     const captured = await repository.readPin(project, pin); requireOwn(); setSource(captured);
   };
   const choose = async (one: ProjectSnapshot | null) => {
     requireOwn(); setSelected(one);
-    const url = new URL(location.href); if (one) url.searchParams.set('project', one.record.id); else url.searchParams.delete('project');
-    history.replaceState(null, '', url);
+    if (onLocationChange) onLocationChange(one?.record.id);
+    else {
+      const url = new URL(location.href); if (one) url.searchParams.set('project', one.record.id); else url.searchParams.delete('project');
+      history.replaceState(null, '', url);
+    }
   };
   const update = async (next: ProjectRecord) => {
     requireOwn(); if (!selected || next.id !== selected.record.id) throw new Error('프로젝트가 바뀌었습니다. 다시 여세요.');

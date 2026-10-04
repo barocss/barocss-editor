@@ -73,6 +73,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const [pending, setPending] = useState<Pending>();
   const [draftState, setDraftState] = useState<DraftState>();
   const [recoveryState, setRecoveryState] = useState<RecoveryState>();
+  const [listError, setListError] = useState<{ owner: object; message: string }>();
   const [recoveryError, setRecoveryError] = useState<{ owner: object; message: string }>();
   const [protection, setProtection] = useState<ProtectionState>();
   const [problem, setProblem] = useState<Problem>();
@@ -218,7 +219,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const load = useCallback(async () => {
     setLoading(true);
     setBusy(false);
-    setProblem(undefined);
+    setProblem(undefined); setListError(undefined);
     try {
       try {
         setRecoveryState({ owner: pendingStore, records: pendingStore.list() });
@@ -226,13 +227,21 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       } catch {
         setRecoveryError({ owner: pendingStore, message: '저장된 초안 목록을 확인하지 못했습니다. 브라우저 저장소를 확인한 뒤 목록을 다시 여세요.' });
       }
-      const rows = await client.list();
+      const loadHeads = async () => {
+        try {
+          const rows = await client.list();
+          if (activeClient.current !== client) return;
+          setHeads({ owner: client, rows });
+          if (!initialDocumentId) setOpen(previous => previous?.owner === client && previous.documentId &&
+            !rows.some(row => row.documentId === previous.documentId) ? undefined : previous);
+        } catch (error) {
+          if (!initialDocumentId) throw error;
+          if (activeClient.current === client) setListError({ owner: client, message: t('workspace.route.listUnavailable') });
+        }
+      };
+      if (initialDocumentId) void loadHeads(); else await loadHeads();
       if (activeClient.current !== client) return;
-      setHeads({ owner: client, rows });
-      setOpen(previous => previous?.owner === client && previous.documentId &&
-        !rows.some(row => row.documentId === previous.documentId) ? undefined : previous);
       if (initialDocumentId) {
-        if (!rows.some(row => row.documentId === initialDocumentId)) throw new ServerNoteError(404, 'document_not_found');
         const result = await client.open(initialDocumentId);
         if (activeClient.current !== client) return;
         if (result.mode === 'snapshot') showOpened(result);
@@ -371,34 +380,47 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     } finally { if (activeClient.current === client) setBusy(false); }
   };
 
+  const recoveryRequest = useRef<symbol | undefined>(undefined);
   const recoverRecord = async (record: PendingNoteRecord) => {
-    if (busy || !canEdit || currentProblem?.kind === 'denied') return;
+    if (busy || recoveryRequest.current || !canEdit || currentProblem?.kind === 'denied') return;
     if (isDirty && (!currentProtection?.protected || currentProtection.version !== currentOpen?.version)) {
       if (currentOpen) recordProtectionFailure(currentOpen.generation, currentOpen.version);
       return;
     }
+    const token = Symbol('recovery'), captured = access.current, authority = roleRef.current;
+    const native = captured.session, rootId = native?.editor.getRootId();
+    const root = rootId ? native?.editor.dataStore.getNode(rootId) : undefined;
+    const epoch = native?.editor.dataStore.getDocumentEpoch();
+    recoveryRequest.current = token;
+    const owns = () => recoveryRequest.current === token && activeClient.current === client &&
+      access.current.client === client && roleRef.current === authority && access.current.canEdit && !access.current.denied &&
+      access.current.session === native && access.current.open?.generation === captured.open?.generation &&
+      access.current.open?.version === captured.open?.version && native?.editor.getRootId() === rootId &&
+      (!rootId || native?.editor.dataStore.getNode(rootId) === root) && native?.editor.dataStore.getDocumentEpoch() === epoch;
+    let verifiedHead: ServerNoteHead | null = null;
     setBusy(true);
     try {
       if (record.base.operation === 'update') {
         const verified = await client.open(record.base.documentId);
-        if (activeClient.current !== client) return;
+        if (!owns()) return;
         if (verified.mode !== 'snapshot') {
           setProblem({ owner: client, kind: 'mode', message: '이 문서는 공동 편집 모드입니다. 저장된 스냅샷 초안을 편집에 연결하지 않았습니다.' });
           return;
         }
+        verifiedHead = verified.document;
       } else {
         await client.list();
-        if (activeClient.current !== client) return;
+        if (!owns()) return;
       }
     } catch (error) {
-      if (activeClient.current !== client) return;
+      if (!owns()) return;
       const denied = error instanceof ServerNoteError && [401, 403, 404].includes(error.status ?? 0);
       setProblem({ owner: client, kind: denied ? 'denied' : 'load',
         message: '현재 계정의 초안 접근 권한을 확인하지 못했습니다. 복구 레코드는 그대로 보존합니다.' });
       return;
-    } finally { if (activeClient.current === client) setBusy(false); }
+    } finally { if (recoveryRequest.current === token) { recoveryRequest.current = undefined; if (activeClient.current === client) setBusy(false); } }
     const opened = readNoteSnapshotFile(record.snapshotText);
-    if ('error' in opened) {
+    if ('error' in opened || verifiedHead && opened.document.attributes.pageId !== verifiedHead.pageId) {
       setProblem({ owner: client, kind: 'load', message: '저장된 초안을 읽지 못했습니다. 원본 레코드는 그대로 보존합니다.' });
       return;
     }
@@ -412,7 +434,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     setDraftState(nextDraft);
     setPending(record.status === 'pending' && record.attempt
       ? { owner: client, attempt: record.attempt, version: 1 } : undefined);
-    setOpen({ owner: client, generation, documentId, head: currentHeads.find(row => row.documentId === documentId) ?? null,
+    setOpen({ owner: client, generation, documentId, head: verifiedHead,
       note: opened.document, revision: record.base.operation === 'update' ? record.base.expectedRevision : null,
       version: 1, confirmedVersion: 0, confirmedText: null });
     setProtection({ owner: client, generation, version: 1, protected: true });
@@ -691,7 +713,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     currentPending ? '저장 확인 필요' : isDirty ? '저장되지 않음' : currentOpen ? '서버 저장 확인됨' : '문서 선택';
   const availableRecovery = currentProblem?.kind === 'denied' ? [] : recoveryRecords.filter(record => record.status !== 'confirmed' &&
     record.draftId !== currentDraft?.record.draftId && (record.base.operation === 'create' ||
-      currentHeads.some(head => record.base.operation === 'update' && head.documentId === record.base.documentId && head.mode === 'snapshot')));
+      [...currentHeads, ...(currentOpen?.head ? [currentOpen.head] : [])].some(head => record.base.operation === 'update' && head.documentId === record.base.documentId && head.mode === 'snapshot')));
   const openNavigation = (mode: 'find' | 'outline') => {
     const current = access.current;
     if (current.client !== client || activeClient.current !== client || !current.session || !current.open || current.denied) return;
@@ -754,6 +776,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         {!workspaceNavigation && !loading && !currentHeads.length && <p>문서가 없습니다.</p>}
       </aside></WorkspaceSidePanel>
       <main className="nw-main" data-workspace-main aria-label="서버 노트 편집">
+        {listError?.owner === client && <p role="alert">{listError.message}</p>}
         {recoveryError?.owner === pendingStore && <StatusNotice tone="danger" title="초안 목록을 확인하지 못했습니다">{recoveryError.message}</StatusNotice>}
         {currentProtection?.error && <StatusNotice tone="danger" title="현재 입력을 보관하지 못했습니다">{currentProtection.error}</StatusNotice>}
         {currentDraft?.record.source && <StatusNotice tone="warning" title={currentDraft.record.status === 'confirmed' ? '서버 사본 확인됨' : '로컬 노트 사본 확인 필요'}>

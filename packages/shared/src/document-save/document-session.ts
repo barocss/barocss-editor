@@ -1,6 +1,7 @@
 import type { documentLibrary, LibraryEntry, LibraryRow } from '../document-library/document-library';
 import { DocumentSaveQueue } from './document-save';
 import { assertProductDocumentOpen, registerProductDocumentHost } from './product-host';
+import { captureDocumentLocation, documentLocationId, documentLocationURL } from './document-location';
 
 /** Product state is independent of the display language. Translate only in UI. */
 export type DocumentSessionStatus = 'loading' | 'saving' | 'saved' | 'conflict' | 'save-error' | 'restore-error' | 'recovery-required';
@@ -83,17 +84,23 @@ export class DocumentSession {
         this.notify(status === 'error' ? 'save-error' : status);
     });
   }
-  private remember() { history.replaceState(null, '', `${location.pathname}${location.search}#${this.options.key}=${encodeURIComponent(this.id)}`); }
+  private remember() { history.replaceState(history.state, '', documentLocationURL(this.options.key, this.id)); }
+  private exposeHost() {
+    if (!this.stopped && ['note', 'word', 'slides', 'site'].includes(this.options.key))
+      this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, identityEpoch: () => this.navigationEpoch, beforeNavigate: () => this.hasCurrentDocument ? this.beforeReplace() : Promise.resolve(false) });
+  }
   async start() {
+    let id: string | undefined;
+    const ownsLocation = captureDocumentLocation(this.options.key);
+    try { id = documentLocationId(this.options.key); }
+    catch { this.notify('restore-error'); this.exposeHost(); return; }
     this.unsubscribe = this.options.subscribe(this.changed);
     window.addEventListener('beforeunload', this.leaving);
     document.addEventListener('visibilitychange', this.visibility);
-    const id = new URLSearchParams(location.hash.slice(1)).get(this.options.key);
     if (id) {
-      try { await this.open(id); } catch { if (!this.stopped) this.notify(this.quarantined ? 'recovery-required' : 'restore-error'); }
+      try { await this.open(id, false, ownsLocation); } catch { if (!this.stopped) this.notify(this.quarantined ? 'recovery-required' : 'restore-error'); }
     } else { this.remember(); this.capture(); this.schedule(); }
-    if (!this.stopped && ['note', 'word', 'slides', 'site'].includes(this.options.key))
-      this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, identityEpoch: () => this.navigationEpoch, beforeNavigate: () => this.beforeReplace() });
+    this.exposeHost();
   }
   private leaving = (event: BeforeUnloadEvent) => {
     if (this.quarantined) {
@@ -144,7 +151,7 @@ export class DocumentSession {
     const version = this.version;
     return await this.flush() && !this.stopped && this.version === version;
   }
-  async open(id: string, preserveCurrentOnFailure = false): Promise<boolean> {
+  async open(id: string, preserveCurrentOnFailure = false, ownsLocation: () => boolean = () => true): Promise<boolean> {
     const ticket = ++this.opening;
     this.navigationEpoch++;
     const wasQuarantined = this.quarantined;
@@ -159,6 +166,7 @@ export class DocumentSession {
     try { await assertProductDocumentOpen(this.options.key, id); snapshot = await this.options.documents.read(id); }
     catch (error) { if (!this.stopped) this.notify(wasQuarantined ? 'recovery-required' : preserveCurrentOnFailure ? this.settled : 'restore-error'); throw error; }
     if (this.stopped || ticket !== this.opening || version !== this.version) return false;
+    if (!ownsLocation()) { this.notify('restore-error'); return false; }
     if (!snapshot) { this.notify(wasQuarantined ? 'recovery-required' : preserveCurrentOnFailure ? this.settled : 'restore-error'); throw new Error('Missing document'); }
     this.replacing = true;
     let loadedText: string;

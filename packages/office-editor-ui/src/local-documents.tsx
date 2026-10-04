@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type MouseEvent, type Ref } from 'react';
-import { DocumentSession, captureProductNavigation, ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
+import { documentLocationId, DocumentSession, captureProductNavigation, ProductDocumentTrashedError, downloadDocumentArchive, isProductDocumentTrashed, productLibraryArchive, type ProductDocumentHost, type DocumentSessionOptions, type DocumentSessionStatus, type LibraryRow } from '@barocss/shared';
 import { Button, Dialog, StatusNotice, Tip } from '@barocss/office-ui';
 import { Icon } from '@barocss/office-icons';
 import { DocumentSaveStatus } from './document-save-status';
@@ -81,7 +81,7 @@ export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly 
   const failure = status === 'save-error' || status === 'restore-error' || recoveryRequired;
   const reopenSaved = () => void perform(async () => {
     const session = persistence.session.current;
-    const id = session && new URLSearchParams(location.hash.slice(1)).get(session.options.key);
+    const id = session && documentLocationId(session.options.key);
     if (!session || !id || !await session.open(id)) throw new Error('Saved copy is unavailable');
     setConfirmRecovery(false);
     if (open) { onOpened(); setOpen(false); }
@@ -100,7 +100,7 @@ export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly 
         const session = persistence.session.current;
         if (!session) return;
         if (status === 'restore-error') {
-          const id = new URLSearchParams(location.hash.slice(1)).get(session.options.key);
+          const id = documentLocationId(session.options.key);
           if (!id || !await session.open(id)) throw new Error('Saved copy is unavailable');
         } else await session.flush();
       })}>{t(status === 'restore-error' ? 'document.save.action.retryRestore' : 'document.save.action.retrySave')}</Button>}

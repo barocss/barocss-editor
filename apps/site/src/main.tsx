@@ -20,8 +20,6 @@ import './style.css';
 
 declare global {
   interface Window {
-    editor?: Editor;
-    editorView?: EditorViewDOM;
     /** The pages a visitor would get — see `exportSite`. For the console, and for tests. */
     exportSite?: () => { path: string; name: string; html: string }[];
   }
@@ -85,8 +83,9 @@ export function mountSite(container: HTMLElement): { editor: Editor; view: Edito
   view.render();
 
   // For the console and for tests, the same two handles the other two apps expose.
-  window.editor = editor;
-  window.editorView = view;
+  const debugWindow = window as Window & { editor?: Editor; editorView?: EditorViewDOM };
+  debugWindow.editor = editor;
+  debugWindow.editorView = view;
   /*
    * And the third, which is this product's own: what a visitor would get.
    *

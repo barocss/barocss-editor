@@ -6,6 +6,7 @@ import { ProjectHome } from './project-ui';
 import { localProjectRepository } from './project-local';
 import { WorkspaceFrame } from './workspace-frame';
 import { readLibraryOrigin, saveLibraryOrigin } from './catalog-origin';
+import { formatWorkspaceRoute, parseWorkspaceRoute } from './routes';
 import './project-ui.css';
 import { WorkspaceHeading } from './workspace-heading';
 
@@ -14,18 +15,18 @@ function download(text: string, name: string) {
   const a = document.createElement('a'); a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function WorkspaceHome() {
-  return <WorkspaceFrame><WorkspaceHomeContent /></WorkspaceFrame>;
+export function WorkspaceHome({ initialProjectId }: { initialProjectId?: string } = {}) {
+  const [projectId, setProjectId] = useState(initialProjectId);
+  return <WorkspaceFrame projectId={projectId}><WorkspaceHomeContent initialProjectId={projectId} onProjectChange={setProjectId} /></WorkspaceFrame>;
 }
-function WorkspaceHomeContent() {
+function WorkspaceHomeContent({ initialProjectId, onProjectChange }: { initialProjectId?: string; onProjectChange(id?: string): void }) {
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const repository = useMemo(() => localProjectRepository(workspace), [workspace]);
-  const [library, setLibrary] = useState(() => { const params = new URLSearchParams(location.search); return params.get('view') === 'library' || params.get('view') !== 'projects' && !params.get('project'); });
-  useEffect(() => { const url = new URL(location.href); url.searchParams.set('workspace', workspace.id); history.replaceState(null, '', url); }, [workspace]);
-  if (library) return <DocumentLibrary embedded onProjects={() => { const url = new URL(location.href); url.searchParams.set('view', 'projects'); history.replaceState(null, '', url); setLibrary(false); }} />;
-  return <ProjectHome embedded repository={repository} onLibrary={() => { const url = new URL(location.href); url.searchParams.set('view', 'library'); history.replaceState(null, '', url); setLibrary(true); }} onOpen={async (project, row) => {
+  const [library, setLibrary] = useState(() => { const parsed = parseWorkspaceRoute(location.href); return !initialProjectId && ('error' in parsed || parsed.route?.view !== 'projects'); });
+  const show = (view: 'projects' | 'library') => { onProjectChange(undefined); history.replaceState(history.state, '', formatWorkspaceRoute({ kind: 'workspace', workspaceId: workspace.id, view })); setLibrary(view === 'library'); };
+  if (library) return <DocumentLibrary embedded onProjects={() => show('projects')} />;
+  return <ProjectHome embedded repository={repository} initialProjectId={initialProjectId} onLocationChange={id => { onProjectChange(id); history.replaceState(history.state, '', formatWorkspaceRoute(id ? { kind: 'item', workspaceId: workspace.id, itemId: id } : { kind: 'workspace', workspaceId: workspace.id, view: 'projects' })); }} onLibrary={() => show('library')} onOpen={async (project, row) => {
     if ((await workspace.meta(`${row.product}:${row.id}`)).trashedAt !== null) throw new Error('휴지통에서 복원한 뒤 열 수 있습니다.');
-    await workspace.update(`${row.product}:${row.id}`, { openedAt: Date.now() });
     location.assign(documentURL({ workspace: workspace.id, product: row.product, id: row.id, project, mode: 'read' }));
   }} />;
 }
@@ -57,7 +58,6 @@ export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?:
   const open = async (row: Pick<WorkspaceDocument, 'id' | 'key' | 'product'>) => {
     const meta = await workspace.meta(row.key);
     if (meta.trashedAt !== null) throw new Error('휴지통에서 복원한 뒤 열 수 있습니다.');
-    await workspace.update(row.key, { openedAt: Date.now() });
     location.assign(documentURL({ workspace: workspace.id, product: row.product, id: row.id }));
   };
   const manage = (row: WorkspaceDocument) => { setManaging(row); setName(row.title); setDestination(row.folder); setLinkTarget(''); setProblem(''); };

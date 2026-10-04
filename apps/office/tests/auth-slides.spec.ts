@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
 import { createStarterDeck } from '../../../packages/office-slides/src/starter-deck';
+import { createProjectRecord } from '../../../packages/shared/src/index';
 import { deckFileText } from '../../../packages/office-slides/src/deck-file';
 
 const tenantId = '00000000-0000-4000-8000-000000000001';
@@ -26,7 +27,7 @@ function serverDeck(title: string) {
   run.text = title;
   return deck;
 }
-async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; empty?: boolean } = {}) {
+async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; empty?: boolean; compact?: boolean; projectStatus?: number; collision?: boolean; multiTenant?: boolean; catalogFail?: boolean } = {}) {
   let snapshotText = deckFileText(options.empty ? createStarterDeck() : serverDeck('Server Slides native title'), '');
   const secondText = deckFileText(serverDeck('Second Slides native title'), '');
   const secondHead = () => ({ ...head(), documentId: secondId, title: 'Second Slides', revision: 1, documentKey: `wonffice-${tenantId}-${secondId}`, snapshotHash: hash(secondText) });
@@ -42,11 +43,15 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
     authorization_endpoint: `${issuer}/auth`, token_endpoint: `${issuer}/token`, end_session_endpoint: `${issuer}/logout` }), headers: { 'access-control-allow-origin': '*' } }));
   await page.route(`${issuer}/auth**`, route => route.fulfill({ contentType: 'text/html', body: `<script>location.replace('${origin}/auth/callback?code=synthetic&state=${new URL(route.request().url()).searchParams.get('state')}')</script>` }));
   await page.route(`${issuer}/token`, route => route.fulfill({ ...json({ access_token: 'synthetic', token_type: 'Bearer', expires_in: 300 }), headers: { 'access-control-allow-origin': '*' } }));
-  await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'slides-synthetic', tenants: [{ tenantId, name: 'Slides Company', role: options.viewer ? 'viewer' : 'editor' }], nextCursor: null })));
+  await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'slides-synthetic', tenants: [{ tenantId, name: 'Slides Company', role: options.viewer ? 'viewer' : 'editor' }, ...(options.multiTenant ? [{ tenantId: secondId, name: 'Other Company', role: 'editor' }] : [])], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role: options.viewer ? 'viewer' : 'editor' })));
   await page.route(`**/api/v1/tenants/${tenantId}/workspaces**`, route => route.fulfill(json({ workspaces: [{ id: workspaceId, name: 'Slides workspace' }], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/projects?**`, route => route.fulfill(json({ projects: [], nextCursor: null })));
-  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: new URL(route.request().url()).searchParams.get('product') === 'slides' ? [head(), ...(options.second ? [secondHead()] : [])] : [], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/projects/${documentId}`, route => route.fulfill(options.collision
+    ? json({ tenantId, workspaceId, actor: { kind: 'human', id: 'synthetic' }, project: { revision: 1, record: { ...createProjectRecord('Collision', 'Fictional route fixture'), id: documentId } } })
+    : { status: options.projectStatus ?? 404, ...json({ status: 'not_found' }) }));
+  if (options.second) await page.route(`**/api/v1/tenants/${tenantId}/projects/${secondId}`, route => route.fulfill({ status: 404, ...json({ status: 'not_found' }) }));
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(options.catalogFail ? { status: 503, ...json({ status: 'unavailable' }) } : json({ documents: [null, 'slides'].includes(new URL(route.request().url()).searchParams.get('product')) ? [head(), ...(options.second ? [secondHead()] : [])] : [], nextCursor: null })));
   if (options.second) await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondId}`, route => route.fulfill(json({ document: secondHead(), snapshotText: secondText })));
   await page.route(`**/api/v1/tenants/${tenantId}/documents/${documentId}`, route => route.fulfill(json({ document: head(), ...(options.mode ? {} : { snapshotText }) })));
   await page.route(`**/api/v1/tenants/${tenantId}/receipts/**`, route => {
@@ -64,7 +69,7 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
     if (lose) { lose = false; return route.abort('failed'); }
     return route.fulfill(json(receipt));
   });
-  await page.goto(`/?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId}&product=slides`);
+  await page.goto(options.compact ? `/${workspaceId}/${documentId}` : `/?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId}&product=slides`);
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   return { writes, text: () => snapshotText, revision: () => revision,
     advance: () => { snapshotText = deckFileText(serverDeck('CONFLICT SERVER LATEST'), ''); revision++; } };
@@ -415,4 +420,45 @@ test('explicit conflict recovery locks the source and retains its fixed request 
     .map(key => JSON.parse(localStorage.getItem(key)!)));
   expect(retained.some(record => record.status === 'pending' && record.snapshotText.includes('RETAIN CONFLICT DRAFT'))).toBe(true);
   expect(state.writes).toHaveLength(1);
+});
+
+
+test('short authorized route uses current single-tenant membership and preserves the original on reload', async ({ page }) => {
+  await setup(page, { compact: true });
+  await expect(shell(page).locator('.sl-stage')).toContainText('Server Slides native title');
+  await expect(page).toHaveURL(`${origin}/${workspaceId}/${documentId}?tenant=${tenantId}`);
+  await page.reload();
+  await expect(shell(page).locator('.sl-stage')).toContainText('Server Slides native title');
+});
+
+test('short route asks for a company before reading any overlapping Workspace identity', async ({ page }) => {
+  const tenantReads: string[] = [];
+  page.on('request', request => { if (request.url().includes('/api/v1/tenants/')) tenantReads.push(request.url()); });
+  await setup(page, { compact: true, multiTenant: true });
+  await expect(page.getByRole('heading', { name: '회사를 선택하세요' })).toBeVisible();
+  expect(tenantReads).toEqual([]);
+  await expect(shell(page)).toHaveCount(0);
+  await page.getByRole('button', { name: /Slides Company/ }).click();
+  await expect(shell(page).locator('.sl-stage')).toContainText('Server Slides native title');
+  await expect(page).toHaveURL(`${origin}/${workspaceId}/${documentId}?tenant=${tenantId}`);
+});
+
+test('short route refuses a project/document collision without opening either original', async ({ page }) => {
+  await setup(page, { compact: true, collision: true });
+  await expect(page.getByRole('alert')).toContainText('ambiguous');
+  await expect(shell(page)).toHaveCount(0);
+  await expect(page).toHaveURL(`${origin}/${workspaceId}/${documentId}`);
+});
+
+for (const projectStatus of [403, 503]) test(`short route does not treat the other namespace failure ${projectStatus} as absence`, async ({ page }) => {
+  await setup(page, { compact: true, projectStatus });
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(shell(page)).toHaveCount(0);
+  await expect(page).toHaveURL(`${origin}/${workspaceId}/${documentId}`);
+});
+
+test('exact short route still opens when unrelated whole-tree catalog pages fail', async ({ page }) => {
+  await setup(page, { compact: true, catalogFail: true });
+  await expect(shell(page).locator('.sl-stage')).toContainText('Server Slides native title');
+  await expect(page).toHaveURL(`${origin}/${workspaceId}/${documentId}?tenant=${tenantId}`);
 });

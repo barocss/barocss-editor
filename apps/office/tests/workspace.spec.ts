@@ -93,7 +93,7 @@ test('backup restores independent copies with remapped references and preserves 
 });
 
 test('links Word and Slides through the editor shell and warns when the original is trashed', async ({ page }) => {
-  await page.goto('/'); await create(page, 'Slides', '주간 발표'); await home(page);
+  await page.goto('/'); await create(page, 'Slides', '주간 발표'); const slidesURL = page.url(); await home(page);
   await create(page, 'Word', '주간 보고');
   await page.locator('.office-product-menu [data-menu]').click();
   await page.getByRole('menuitem', { name: '연결한 자료', exact: true }).click();
@@ -102,7 +102,8 @@ test('links Word and Slides through the editor shell and warns when the original
   await page.getByRole('option', { name: '주간 발표 Slides', exact: true }).click();
   await page.getByRole('button', { name: '원본 참조 추가' }).click();
   await page.getByRole('button', { name: '주간 발표 · Slides', exact: true }).click();
-  await expect(page).toHaveURL(/products\/slides/); await home(page);
+  await expect(page).toHaveURL(slidesURL);
+  await expect(page.locator('.sl-stage')).toBeVisible(); await home(page);
   await page.getByRole('button', { name: '주간 발표 관리' }).click(); await page.getByRole('button', { name: '휴지통으로 이동' }).click();
   await page.getByRole('button', { name: 'Word 주간 보고', exact: true }).click();
   await page.locator('.office-product-menu [data-menu]').click();
@@ -122,7 +123,8 @@ test('copies Note prose into a Site body and preserves the source after native-f
   }, { workspaceModule, sharedModule });
   expect(result.same).toBe(true);
   await page.goto(`/products/site/index.html?workspace=${result.workspace}#site=${result.site}`);
-  await page.locator('[data-admin-open]').first().click();
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  await expect(page.locator('[data-frame="desktop"]')).toBeVisible();
   await expect(page.locator('[data-frame="desktop"]')).toContainText('제품 계획');
   await expect(page.locator('[data-frame="desktop"]')).toContainText('Note 본문을 Site에서도 편집합니다.');
 });
@@ -174,7 +176,7 @@ test('exports a legacy product library with its conflict draft and imports both 
 test('downloads a product backup and restores it through the shared library UI', async ({ page }, info) => {
   await page.goto('/'); await create(page, 'Word', '백업 화면 검증');
   const originalUrl = page.url();
-  const originalKey = `word:${new URL(originalUrl).hash.slice(6)}`;
+  const originalKey = `word:${decodeURIComponent(new URL(originalUrl).pathname.split('/').at(-1)!)}`;
   const originalText = 'OFFICE BACKUP ORIGINAL';
   await page.locator('.w-paragraph').last().click();
   await page.keyboard.type(originalText);
@@ -185,7 +187,7 @@ test('downloads a product backup and restores it through the shared library UI',
   const archive = JSON.parse(bytes.toString());
   expect(archive.format).toBe('wonffice-product-library');
   expect(archive.documents).toHaveLength(1);
-  expect(archive.documents[0].row.name).toBe(new URL(originalUrl).hash.slice(6));
+  expect(archive.documents[0].row.name).toBe(decodeURIComponent(new URL(originalUrl).pathname.split('/').at(-1)!));
   expect(archive.documents[0].text.match(/OFFICE BACKUP ORIGINAL/g)).toHaveLength(1);
   await info.attach('authored-product-backup', { body: bytes, contentType: 'application/json' });
   await page.keyboard.press('Escape'); await home(page);
@@ -200,8 +202,8 @@ test('downloads a product backup and restores it through the shared library UI',
   expect(copyKey).toMatch(/^word:/);
   expect(copyKey).not.toBe(originalKey);
   await copy.getByRole('button', { name: 'Word 백업 화면 검증 (복원)', exact: true }).click();
-  const copyHash = `#word=${copyKey?.slice(5)}`;
-  await expect.poll(() => new URL(page.url()).hash).toBe(copyHash);
+  const copyPath = `/${new URL(originalUrl).pathname.split('/')[1]}/${copyKey?.slice(5)}`;
+  await expect.poll(() => new URL(page.url()).pathname).toBe(copyPath);
   await expect(page.locator('.w-paragraph').last()).toHaveText(originalText);
   await page.locator('.w-paragraph').last().click();
   await page.keyboard.press('End'); await page.keyboard.type(' COPY ONLY');
@@ -213,15 +215,14 @@ test('downloads a product backup and restores it through the shared library UI',
   await expect(page.locator('.w-paragraph').last()).toHaveText(originalText);
   await home(page);
   await page.locator(`[data-document="${copyKey}"]`).getByRole('button', { name: 'Word 백업 화면 검증 (복원)', exact: true }).click();
-  await expect.poll(() => new URL(page.url()).hash).toBe(copyHash);
+  await expect.poll(() => new URL(page.url()).pathname).toBe(copyPath);
   await expect(page.locator('.w-paragraph').last()).toHaveText(`${originalText} COPY ONLY`);
-  await info.attach('independent-backup-identities', { body: JSON.stringify({ originalKey, copyKey, originalUrl, copyHash, originalText }), contentType: 'application/json' });
+  await info.attach('independent-backup-identities', { body: JSON.stringify({ originalKey, copyKey, originalUrl, copyPath, originalText }), contentType: 'application/json' });
 });
 
 test('editing a deck preserves the name assigned in the shared library', async ({ page }) => {
   await page.goto('/'); await create(page, 'Slides', '이름을 유지할 발표 자료'); const url = page.url();
-  await page.getByRole('toolbar', { name: '슬라이드 서식' }).getByRole('menuitem', { name: '슬라이드', exact: true }).click();
-  await page.getByRole('menu', { name: '슬라이드', exact: true }).getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+  await page.getByRole('toolbar', { name: 'Slides 삽입 도구', exact: true }).getByRole('button', { name: '새 슬라이드', exact: true }).click();
   await home(page);
   await page.getByRole('button', { name: 'Slides 이름을 유지할 발표 자료', exact: true }).click();
   await expect(page).toHaveURL(url);

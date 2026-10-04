@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDeck, deckFileName, deckTitle } from '@barocss/office-slides';
 import { slideDocuments } from '../../../packages/office-slides/src/deck-autosave';
-import { Button } from '@barocss/office-ui';
+import { Button, useOfficeLocale } from '@barocss/office-ui';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { App } from './app';
 import './style.css';
@@ -40,6 +40,7 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
   const client = useMemo(() => createServerSlidesClient({ tenantId, workspaceId, authorizedFetch }), [tenantId, workspaceId, authorizedFetch, issuer, subject]);
   const store = useMemo(() => createServerPendingStore({ tenantId, workspaceId, issuer, subject }), [tenantId, workspaceId, issuer, subject]);
   const active = useRef(client); active.current = client;
+  const { t } = useOfficeLocale();
   const callbacks = useRef({ onNavigate, onUnsafeChange }); callbacks.current = { onNavigate, onUnsafeChange };
   const [opened, setOpened] = useState<Open>();
   const current = opened?.owner === client ? opened : undefined;
@@ -157,9 +158,17 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
     let alive = true; active.current = client; setLoading(true); setHeads([]); setRecords([]); setSources(undefined); setProblem(undefined);
     void (async () => {
       try {
-        const rows = await client.list();
+        const loadHeads = async () => {
+          try {
+            const rows = await client.list();
+            if (alive && active.current === client) setHeads(rows);
+          } catch (error) {
+            if (!initialDocumentId) throw error;
+            if (alive && active.current === client) setSourceError(t('workspace.route.listUnavailable'));
+          }
+        };
+        if (initialDocumentId) void loadHeads(); else await loadHeads();
         if (!alive || active.current !== client) return;
-        setHeads(rows);
         try { setRecords(store.list()); } catch { setSourceError('복구 목록을 읽지 못했습니다. 원본 레코드는 유지됩니다.'); }
         if (initialDocumentId) {
           const result = await client.open(initialDocumentId);
