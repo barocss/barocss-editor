@@ -79,6 +79,92 @@ export class InputHandlerImpl implements InputHandler {
    */
   private _pendingInsertHint: InputHint | null = null;
   private _contentChangeTxSeq = 0;
+  private deliveryOwners = new Set<() => boolean>();
+  registerDeliveryOwner(owns: () => boolean): () => void { this.deliveryOwners.add(owns); return () => this.deliveryOwners.delete(owns); }
+  private inputCommands = new Set<Promise<void>>();
+  private failedInputs: { args: Parameters<Editor['executeCommand']>; revision: number | undefined; errors: unknown[] }[] = [];
+  private inputOwner?: { root: string | undefined; epoch: number | undefined };
+
+  /** Observe the original command promises, including model-first beforeinput. */
+  executeInputCommand(...args: Parameters<Editor['executeCommand']>): ReturnType<Editor['executeCommand']> {
+    const root = this.editor.getRootId?.();
+    const epoch = this.editor.dataStore?.getDocumentEpoch?.();
+    if (!this.inputOwner || this.inputOwner.root !== root || this.inputOwner.epoch !== epoch) {
+      this.inputOwner = { root, epoch };
+      this.failedInputs = [];
+    }
+    const owner = this.inputOwner;
+    const revision = this.editor.dataStore?.getEditRevision?.();
+    // No-op history/navigation/copy/format commands carry no undelivered body input.
+    const writesInput = new Set(['replaceText', 'insertText', 'insertParagraph', 'insertLineBreak',
+      'deleteText', 'deleteCrossNode', 'deleteSelection', 'backspace', 'deleteForward',
+      'deleteWordBackward', 'deleteWordForward', 'paste', 'cut']).has(args[0]);
+    const selection = args[1]?.selection ?? this.editor.selection;
+    const node = selection?.type === 'range' ? this.editor.dataStore?.getNode(selection.startNodeId) : undefined;
+    const backward = args[0] === 'backspace' || args[0] === 'deleteWordBackward';
+    const forward = args[0] === 'deleteForward' || args[0] === 'deleteWordForward';
+    const boundaryNoop = selection?.type === 'range' && selection.collapsed && typeof node?.text === 'string' && (
+      (backward && selection.startOffset === 0 && !this.editor.dataStore.getPreviousEditableNode(selection.startNodeId)) ||
+      (forward && selection.startOffset === node.text.length && !this.editor.dataStore.getNextEditableNode(selection.startNodeId)));
+    const errors: unknown[] = [];
+    const recordFailure = () => {
+      if (this.inputOwner === owner && writesInput && !boundaryNoop) this.failedInputs.push({ args, revision, errors: [...errors] });
+    };
+    const viewOwns = this.editorViewDOM.captureInputOwner?.() ?? (() => true);
+    const payloadOwns = args[1]?.canApply as (() => boolean) | undefined;
+    const canApply = () => viewOwns() && (!payloadOwns || payloadOwns()) && [...this.deliveryOwners].every(owns => owns());
+    const guardedArgs: Parameters<Editor['executeCommand']> = writesInput ? [args[0], { ...args[1], canApply }] : args;
+    // executeCommand reports caught failures as false; nested aliases preserve this exact guard.
+    const onCommandError = (event: { payload?: { canApply?: () => boolean }; error: unknown }) => {
+      if (writesInput && event.payload?.canApply === canApply && event.error !== undefined) errors.push(event.error);
+    };
+    if (writesInput) this.editor.on('error:command', onCommandError);
+    const promise = this.editor.executeCommand(...guardedArgs);
+    const tracked = Promise.resolve(promise).then(success => {
+      if (success === false) recordFailure();
+    }, error => { if (error !== undefined) errors.push(error); recordFailure(); });
+    this.inputCommands.add(tracked);
+    void tracked.then(() => {
+      this.inputCommands.delete(tracked);
+      if (writesInput) this.editor.off('error:command', onCommandError);
+    });
+    return promise;
+  }
+
+  async deliverInput(isCurrent: () => boolean): Promise<boolean> {
+    if (!isCurrent()) return false;
+    while (this.inputCommands.size) {
+      await Promise.all([...this.inputCommands]);
+      if (!isCurrent()) return false;
+    }
+    return isCurrent() && !this.failedInputs.length;
+  }
+
+  /** Explicit retry only: never replay after any intervening native edit or document replacement. */
+  async retryInputDelivery(isCurrent: () => boolean): Promise<boolean> {
+    if (!isCurrent() || this.inputCommands.size) return false;
+    if (!this.failedInputs.length) return true;
+    const owner = this.inputOwner;
+    const owns = () => isCurrent() && this.inputOwner === owner &&
+      this.editor.getRootId?.() === owner?.root && this.editor.dataStore?.getDocumentEpoch?.() === owner?.epoch;
+    for (const failed of [...this.failedInputs]) {
+      if (!owns() || this.editor.dataStore?.getEditRevision?.() !== failed.revision) return false;
+      try {
+        const viewOwns = this.editorViewDOM.captureInputOwner?.() ?? (() => true);
+        if (!await this.editor.executeCommand(failed.args[0], { ...failed.args[1], canApply: () => owns() && viewOwns() }) || !owns()) return false;
+      } catch { return false; }
+      this.failedInputs = this.failedInputs.filter(record => record !== failed);
+    }
+    return owns() && !this.failedInputs.length;
+  }
+
+  get hasFailedInputDelivery(): boolean { return this.failedInputs.length > 0; }
+
+  hasFailedInputDeliveryError(error: unknown): boolean {
+    return error !== undefined && this.failedInputs.some(failed => failed.errors.some(retained => Object.is(retained, error)));
+  }
+
+  get hasPendingInput(): boolean { return this.inputCommands.size > 0; }
 
   /**
    * Where the next character of a burst goes.
@@ -421,7 +507,7 @@ export class InputHandlerImpl implements InputHandler {
         await this.handleTextAcrossRuns(classified);
         break;
       case 'block-structure':
-        this.handleBlockStructure(classified);
+        await this.handleBlockStructure(classified);
         break;
       case 'inline-markup':
       case 'auto-correct':
@@ -561,14 +647,14 @@ export class InputHandlerImpl implements InputHandler {
         try {
           // Check if single node deletion
           if (contentRange.startNodeId === contentRange.endNodeId) {
-            const success = await this.editor.executeCommand('deleteText', { range: contentRange });
+            const success = await this.executeInputCommand('deleteText', { range: contentRange });
             if (!success) {
               console.warn('[InputHandler] handleTextInOneRun: fallback deleteText command failed', { contentRange });
               return;
             }
           } else {
             // Cross-node deletion
-            const success = await this.editor.executeCommand('deleteCrossNode', { range: contentRange });
+            const success = await this.executeInputCommand('deleteCrossNode', { range: contentRange });
             if (!success) {
               console.warn('[InputHandler] handleTextInOneRun: fallback deleteCrossNode command failed', { contentRange });
               return;
@@ -608,7 +694,7 @@ export class InputHandlerImpl implements InputHandler {
 
         // Call command
         try {
-          const success = await this.editor.executeCommand('replaceText', {
+          const success = await this.executeInputCommand('replaceText', {
             range: contentRange,
             text: change.text
           });
@@ -754,7 +840,7 @@ export class InputHandlerImpl implements InputHandler {
 
       // Call command
       try {
-        const success = await this.editor.executeCommand('replaceText', {
+        const success = await this.executeInputCommand('replaceText', {
           range: contentRange,
           text: classified.newText
         });
@@ -854,7 +940,7 @@ export class InputHandlerImpl implements InputHandler {
     if (command) {
       logger.debug(LogCategory.TEXT_INPUT, 'handleBlockStructure: executing command', { command });
       try {
-        this.editor.executeCommand(command);
+        await this.executeInputCommand(command);
         
         // Create LastInputDebug object
         const inputDebug: LastInputDebug = {
@@ -925,7 +1011,7 @@ export class InputHandlerImpl implements InputHandler {
         
         // Changed to command call
         try {
-          const success = await this.editor.executeCommand('replaceText', {
+          const success = await this.executeInputCommand('replaceText', {
             range: insertRange,
             text: classified.newText
           });
@@ -1334,7 +1420,7 @@ export class InputHandlerImpl implements InputHandler {
       // Change to command call
       let replacedText: string | null = null;
       try {
-        const success = await this.editor.executeCommand('replaceText', {
+        const success = await this.executeInputCommand('replaceText', {
           range: contentRange,
           text: editInfo.insertedText
         });
@@ -1710,7 +1796,7 @@ export class InputHandlerImpl implements InputHandler {
       } as never);
     }
 
-    this.editor.executeCommand('replaceText', { range, text }).then((success) => {
+    this.executeInputCommand('replaceText', { range, text }).then((success) => {
       if (!success) {
         console.warn('[InputHandler] tryHandleInsertViaGetTargetRanges: replaceText failed');
         return;
@@ -1945,7 +2031,7 @@ export class InputHandlerImpl implements InputHandler {
     // The command reads the selection from its payload, but the transaction
     // records `selectionBefore` from the editor, and undo needs it to be this one.
     this.editor.updateSelection(modelSelection);
-    await this.editor.executeCommand(command, { selection: modelSelection });
+    await this.executeInputCommand(command, { selection: modelSelection });
   }
 
   /**
@@ -1995,7 +2081,7 @@ export class InputHandlerImpl implements InputHandler {
       // Emit editor:command.execute event (form expected in tests)
       this.editor.emit('editor:command.execute', { command, data: undefined });
       // Actually execute command
-      void this.editor.executeCommand(command, {});
+      void this.executeInputCommand(command, {});
     } else {
       console.warn('[InputHandler] executeFormatCommand: unknown format inputType', { inputType });
     }

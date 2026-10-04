@@ -13,7 +13,7 @@ const deferred = () => {
   const promise = new Promise<boolean>((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 };
-const makeEditor = () => ({ getRootId: vi.fn(() => 'document-a'), isEditable: true,
+const makeEditor = () => ({ dataStore: { getDocumentEpoch: vi.fn(() => 1) }, getRootId: vi.fn(() => 'document-a'), isEditable: true,
   executeCommand: vi.fn(async (_name: string, _payload: Record<string, unknown>) => true) });
 function Harness({ editor, context }: { editor: ReturnType<typeof makeEditor>; context: string }) {
   commands = usePropertyCommand(editor as unknown as Editor, context);
@@ -98,3 +98,51 @@ it('does not revive a failed retry when returning to an earlier target', async (
   await act(async () => old.retry());
   expect(editor.executeCommand).toHaveBeenCalledTimes(1);
 });
+
+it('settles queued writes before they start and includes a write appended during delivery', async () => {
+  const editor = makeEditor(), first = deferred(), second = deferred();
+  editor.executeCommand.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise);
+  await render(editor);
+  let settled = false;
+  let result!: Promise<boolean>;
+  await act(async () => {
+    commands.run('first', {});
+    result = commands.settle(() => true).then(value => { settled = true; return value; });
+    commands.run('second', {});
+  });
+  expect(editor.executeCommand.mock.calls.map(call => call[0])).toEqual(['first']);
+  expect(settled).toBe(false);
+  await act(async () => first.resolve(true));
+  expect(editor.executeCommand.mock.calls.map(call => call[0])).toEqual(['first', 'second']);
+  expect(settled).toBe(false);
+  await act(async () => second.resolve(true));
+  expect(await result).toBe(true);
+});
+
+it('refuses settlement on rejection and allows an explicit successful retry', async () => {
+  const editor = makeEditor(); editor.executeCommand.mockRejectedValueOnce(new Error('failed'));
+  await render(editor);
+  await act(async () => { commands.run('width', {}); });
+  expect(await commands.settle(() => true)).toBe(false);
+  await act(async () => commands.run('unrelated-height', {}));
+  expect(await commands.settle(() => true)).toBe(false);
+  await act(async () => commands.retry());
+  expect(await commands.settle(() => true)).toBe(true);
+});
+
+for (const change of ['epoch', 'context', 'intent', 'unmount'] as const) {
+  it(`refuses settlement when ${change} retires its owner`, async () => {
+    const editor = makeEditor(), first = deferred();
+    editor.executeCommand.mockImplementationOnce(() => first.promise);
+    await render(editor);
+    let current = true;
+    let result!: Promise<boolean>;
+    await act(async () => { commands.run('first', {}); result = commands.settle(() => current); });
+    if (change === 'epoch') editor.dataStore.getDocumentEpoch.mockReturnValue(2);
+    if (change === 'context') await render(editor, 'shape-b');
+    if (change === 'intent') current = false;
+    if (change === 'unmount') await act(async () => root.render(null));
+    await act(async () => first.resolve(true));
+    expect(await result).toBe(false);
+  });
+}

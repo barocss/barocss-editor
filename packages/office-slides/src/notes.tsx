@@ -57,9 +57,15 @@ export interface NotesPaneProps {
   revision: number;
   onClose?: () => void;
   active?: boolean;
+  onInputDeliveryReady?: (deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
+  onInputRecoveryReady?: (recovery: {
+    failed(): boolean;
+    matches(error: unknown): boolean;
+    retry(isCurrent: () => boolean): Promise<boolean>;
+  } | null) => void;
 }
 
-export function NotesPane({ editor, slideSid, revision, onClose, active = true }: NotesPaneProps) {
+export function NotesPane({ editor, slideSid, revision, onClose, active = true, onInputDeliveryReady, onInputRecoveryReady }: NotesPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
   const drafts = useRef(new Map<string, NotesInputDraft>());
@@ -78,6 +84,30 @@ export function NotesPane({ editor, slideSid, revision, onClose, active = true }
     editor.on('editor:content.change', retire); editor.on('editor:editable.change', permission);
     return () => { currentIntent.current = {}; editor.off('editor:content.change', retire); editor.off('editor:editable.change', permission); };
   }, [editor]);
+  useEffect(() => {
+    if (!editor || !onInputDeliveryReady) return;
+    const root = editor.getRootId();
+    const store = editor.dataStore;
+    const documentEpoch = store.getDocumentEpoch();
+    let mounted = true;
+    const deliver = async (isCurrent: () => boolean) => {
+      const owns = () => mounted && !!host.current?.isConnected && isCurrent() &&
+        editor.getRootId() === root && editor.dataStore === store && store.getDocumentEpoch() === documentEpoch;
+      if (!owns()) return false;
+      // Include drafts retained for other slides; an inactive/unowned draft refuses navigation.
+      for (const held of drafts.current.values()) {
+        if (held.composing) return false;
+        if (held.deliverInput) {
+          if (!await held.deliverInput(owns) || !owns()) return false;
+        } else if (held.pending || held.text || held.error) return false;
+      }
+      if (view.current && (view.current.editor !== editor || !await view.current.deliverInput(owns) || !owns())) return false;
+      return owns();
+    };
+    onInputDeliveryReady(deliver);
+    return () => { mounted = false; onInputDeliveryReady(null); };
+  }, [editor, rootId, epoch, onInputDeliveryReady]);
+
   /**
    * Only the content, because notes are a document and not a selection: a caret
    * moving changes nothing here, and rebuilding on every keystroke of the *slide*
@@ -128,6 +158,7 @@ export function NotesPane({ editor, slideSid, revision, onClose, active = true }
       };
       view.current = new EditorViewDOM(editor, {
         container: host.current,
+        rootId: noteSid,
         registry: getGlobalRegistry(),
         env: {
           // The same environment the stage has: a note's paragraphs are Word's
@@ -158,9 +189,32 @@ export function NotesPane({ editor, slideSid, revision, onClose, active = true }
      */
     const proxy = editor?.getDocumentProxy(noteSid) ?? node;
     const tree = JSON.parse(JSON.stringify(proxy));
+    view.current.setRootId(noteSid);
     view.current.contentEditableElement.contentEditable = String(editor.isEditable);
     view.current.render(tree, { sync: true });
   }, [editor, noteSid, tick, revision]);
+
+  useEffect(() => {
+    if (!onInputRecoveryReady) return;
+    const ownedView = view.current;
+    if (!editor || !ownedView || !noteSid || !active) { onInputRecoveryReady(null); return; }
+    const root = editor.getRootId(), store = editor.dataStore, documentEpoch = store.getDocumentEpoch();
+    let mounted = true;
+    const owns = () => mounted && currentIntent.current === intent && !!host.current?.isConnected &&
+      editor.isEditable && view.current === ownedView && ownedView.editor === editor && ownedView.viewRootId === noteSid &&
+      editor.getRootId() === root && editor.dataStore === store && store.getDocumentEpoch() === documentEpoch;
+    onInputRecoveryReady({
+      failed: () => owns() && ownedView.hasFailedInputDelivery,
+      matches: error => owns() && ownedView.hasFailedInputDeliveryError(error),
+      retry: async isCurrent => {
+        const inputOwns = ownedView.captureInputOwner();
+        const retryOwns = () => owns() && inputOwns() && isCurrent();
+        if (!retryOwns()) return false;
+        return await ownedView.retryInputDelivery(retryOwns) && retryOwns();
+      }
+    });
+    return () => { mounted = false; onInputRecoveryReady(null); };
+  }, [editor, rootId, epoch, noteSid, active, intent, onInputRecoveryReady]);
 
   useEffect(
     () => () => {

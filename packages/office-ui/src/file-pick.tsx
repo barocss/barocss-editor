@@ -47,7 +47,8 @@ export function FilePick({
   className,
   testClass,
   data,
-  inputData
+  inputData,
+  showTrigger = true
 }: {
   /** The button's label. */
   children: React.ReactNode;
@@ -73,12 +74,14 @@ export function FilePick({
    * amount of clicking a button will hand a browser a file.
    */
   inputData?: Record<string, string | undefined>;
+  /** An existing menu supplies keyboard access; retain only its programmatic picker. */
+  showTrigger?: boolean;
 }) {
   const picker = useRef<HTMLInputElement>(null);
 
   return (
     <>
-      <Button
+      {showTrigger && <Button
         tone={tone}
         disabled={disabled}
         title={title}
@@ -88,10 +91,11 @@ export function FilePick({
         data={data}
       >
         {children}
-      </Button>
+      </Button>}
       <input
         ref={picker}
         type="file"
+        hidden={!showTrigger}
         accept={accept}
         aria-label={ariaLabel}
         disabled={disabled}
@@ -103,7 +107,7 @@ export function FilePick({
          * and cannot be reached by a keyboard or named by a screen reader, so the
          * control would exist for a pointer only.
          */
-        className="sr-only"
+        className={showTrigger ? "sr-only" : undefined}
         onChange={(event) => {
           const file = event.target.files?.[0];
           // See the header: cleared either way, so the same file twice is two

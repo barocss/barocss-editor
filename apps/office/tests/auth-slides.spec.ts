@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
 import { createStarterDeck } from '../../../packages/office-slides/src/starter-deck';
 import { deckFileText } from '../../../packages/office-slides/src/deck-file';
@@ -6,13 +8,28 @@ import { deckFileText } from '../../../packages/office-slides/src/deck-file';
 const tenantId = '00000000-0000-4000-8000-000000000001';
 const workspaceId = '00000000-0000-4000-8000-000000000002';
 const documentId = '00000000-0000-4000-8000-000000000003';
+const secondId = '00000000-0000-4000-8000-000000000004';
+const sharedModule = `/@fs${fileURLToPath(new URL('../../../packages/shared/src/index.ts', import.meta.url))}`;
 const issuer = 'http://127.0.0.1:18180/realms/wonffice-local';
 const origin = `http://127.0.0.1:${process.env.OFFICE_AUTH_TEST_PORT ?? '5191'}`;
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const shell = (page: Page) => page.locator('[data-server-slides-workspace]');
 const save = (page: Page) => shell(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ });
-async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string } = {}) {
-  let snapshotText = deckFileText(createStarterDeck(), '');
+// Server-document scenarios use a populated original; empty-placeholder first input is a separate native scenario.
+function serverDeck(title: string) {
+  const deck = createStarterDeck();
+  const slide = deck.content?.find(node => typeof node !== 'string' && node.stype === 'surface');
+  const frame = typeof slide === 'object' && slide.content?.find(node => typeof node !== 'string' && node.stype === 'textFrame');
+  const paragraph = typeof frame === 'object' && frame.content?.find(node => typeof node !== 'string' && node.stype === 'paragraph');
+  const run = typeof paragraph === 'object' && paragraph.content?.find(node => typeof node !== 'string' && node.stype === 'inline-text');
+  if (!run || typeof run === 'string') throw new Error('Starter title structure is missing');
+  run.text = title;
+  return deck;
+}
+async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; empty?: boolean } = {}) {
+  let snapshotText = deckFileText(options.empty ? createStarterDeck() : serverDeck('Server Slides native title'), '');
+  const secondText = deckFileText(serverDeck('Second Slides native title'), '');
+  const secondHead = () => ({ ...head(), documentId: secondId, title: 'Second Slides', revision: 1, documentKey: `wonffice-${tenantId}-${secondId}`, snapshotHash: hash(secondText) });
   let revision = 1;
   const writes: Record<string, unknown>[] = [];
   const receipts = new Map<string, unknown>();
@@ -28,7 +45,9 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
   await page.route('**/api/v1/me', route => route.fulfill(json({ issuer, subject: 'slides-synthetic', tenants: [{ tenantId, name: 'Slides Company', role: options.viewer ? 'viewer' : 'editor' }], nextCursor: null })));
   await page.route(`**/api/v1/tenants/${tenantId}/access`, route => route.fulfill(json({ tenantId, role: options.viewer ? 'viewer' : 'editor' })));
   await page.route(`**/api/v1/tenants/${tenantId}/workspaces**`, route => route.fulfill(json({ workspaces: [{ id: workspaceId, name: 'Slides workspace' }], nextCursor: null })));
-  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: new URL(route.request().url()).searchParams.get('product') === 'slides' ? [head()] : [], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/projects?**`, route => route.fulfill(json({ projects: [], nextCursor: null })));
+  await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, route => route.fulfill(json({ documents: new URL(route.request().url()).searchParams.get('product') === 'slides' ? [head(), ...(options.second ? [secondHead()] : [])] : [], nextCursor: null })));
+  if (options.second) await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondId}`, route => route.fulfill(json({ document: secondHead(), snapshotText: secondText })));
   await page.route(`**/api/v1/tenants/${tenantId}/documents/${documentId}`, route => route.fulfill(json({ document: head(), ...(options.mode ? {} : { snapshotText }) })));
   await page.route(`**/api/v1/tenants/${tenantId}/receipts/**`, route => {
     const key = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1)!);
@@ -47,12 +66,15 @@ async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean;
   });
   await page.goto(`/?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId}&product=slides`);
   await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
-  return { writes, text: () => snapshotText, revision: () => revision };
+  return { writes, text: () => snapshotText, revision: () => revision,
+    advance: () => { snapshotText = deckFileText(serverDeck('CONFLICT SERVER LATEST'), ''); revision++; } };
 }
 async function type(page: Page, text: string) {
   const paragraph = shell(page).locator('.sl-stage .w-paragraph').first();
   const frame = paragraph.locator('xpath=ancestor::*[contains(@class, "sl-text-frame")]').first();
-  await frame.dblclick(); await paragraph.click({ position: { x: 8, y: 8 } }); await page.keyboard.press('Home'); await page.keyboard.insertText(text);
+  const bounds = await frame.boundingBox(); if (!bounds) throw new Error('Visible title frame is missing');
+  // The native object overlay handles the real pointer gesture before text mode starts.
+  await page.mouse.dblclick(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2); await paragraph.click({ position: { x: 8, y: 8 } }); await page.keyboard.press('Home'); await page.keyboard.insertText(text);
   await expect(paragraph).toContainText(text);
 }
 
@@ -66,6 +88,18 @@ test('Slides discovery mounts full editor and confirms native save without boots
   await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
   expect(state.writes).toHaveLength(1); expect(state.revision()).toBe(2);
   expect(state.text()).toContain('Slides typed input');
+});
+
+test('empty starter accepts first input through its visible native placeholder and reopens saved input', async ({ page }) => {
+  const state = await setup(page, { empty: true });
+  await expect(shell(page).locator('.sl-stage .sl-text-frame').first()).toBeVisible();
+  await type(page, 'First empty starter title');
+  await expect(shell(page).locator('.sl-stage [contenteditable=true]')).toHaveCount(1);
+  await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  expect(state.text()).toContain('First empty starter title'); expect(state.writes).toHaveLength(1);
+  await page.reload();
+  if (await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible()) await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
+  await expect(shell(page).locator('.sl-stage')).toContainText('First empty starter title');
 });
 
 test('lost acknowledgement retains fixed request and confirms receipt without duplicate write', async ({ page }) => {
@@ -130,6 +164,8 @@ test('reload exposes a separate protected last-input draft without replacing ser
   await expect.poll(async () => await shell(page).isVisible() || await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible()).toBe(true);
   if (await page.getByRole('button', { name: '일반 사용자로 들어가기' }).isVisible()) await page.getByRole('button', { name: '일반 사용자로 들어가기' }).click();
   await expect(shell(page).locator('.sl-stage .w-paragraph').first()).not.toContainText('Reload latest input');
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '서버 Slides 목록', exact: true }).click();
   const recover = shell(page).getByRole('button', { name: /저장된 Slides 초안 복구/ });
   await expect(recover).toHaveCount(1);
   const stored = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:')).map(key => JSON.parse(localStorage.getItem(key)!)));
@@ -176,6 +212,8 @@ test('unsupported native file leaves current Slides model and source file unchan
   await setup(page); await type(page, 'Retained current Slides');
   const source = JSON.stringify({ format: 'barocss-slides', version: 1, document: { stype: 'document', content: [{ stype: 'unknownSlidesNode', text: 'Unsupported source' }] } });
   page.once('dialog', dialog => dialog.accept());
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '서버 Slides 목록', exact: true }).click();
   await shell(page).getByLabel('Slides 원본 파일로 새 서버 사본 준비').setInputFiles({ name: 'unsupported.slides.json', mimeType: 'application/json', buffer: Buffer.from(source) });
   await expect(shell(page).getByText('지원하지 않는 Slides 파일입니다.', { exact: false })).toBeVisible();
   await expect(shell(page).locator('.sl-stage .w-paragraph').first()).toContainText('Retained current Slides');
@@ -224,6 +262,8 @@ test('delayed imported Slides file cannot replace the document after viewer demo
   const held = new Promise<void>(resolve => { release = resolve; });
   const waiting = new Promise<void>(resolve => { entered = resolve; });
   await page.route(`**/api/v1/tenants/${tenantId}/documents?**`, async route => { entered(); await held; await route.fallback(); }, { times: 1 });
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '서버 Slides 목록', exact: true }).click();
   await shell(page).getByLabel('Slides 원본 파일로 새 서버 사본 준비').setInputFiles({
     name: 'delayed.slides.json', mimeType: 'application/json', buffer: Buffer.from(deckFileText(source, '')) });
   await waiting;
@@ -290,4 +330,89 @@ test('Canvas edits use the authenticated document and stop on current viewer aut
   await shell(page).getByRole('button', { name: '슬라이드 보기', exact: true }).click();
   await expect(paragraph).toContainText('Authenticated Canvas input');
   expect(state.text()).toBe(confirmed);
+});
+
+
+test('Slides owned opening preserves last stage and rich notes input then returns the installed guard', async ({ page }) => {
+  const state = await setup(page, { second: true });
+  await type(page, 'FINAL STAGE INPUT');
+  await shell(page).getByRole('button', { name: '발표자 노트', exact: true }).click();
+  const notes = shell(page).getByRole('region', { name: '발표자 노트', exact: true });
+  await notes.getByRole('textbox', { name: '발표자 노트 입력', exact: true }).fill('First presenter note');
+  const paragraph = notes.locator('.sl-notes-host .w-paragraph').first();
+  await expect(paragraph).toContainText('First presenter note');
+  await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' FINAL RICH NOTE');
+  const result = await page.evaluate(async ({ module, secondId }) => {
+    const { captureProductNavigation } = await import(module) as typeof import('@barocss/shared');
+    const source = captureProductNavigation();
+    if (!source?.open) throw new Error('Native Slides host not ready');
+    const target = await source.open(secondId);
+    return { sourceCurrent: source.isCurrent(), target: target && { product: target.product, id: target.id, current: target.isCurrent() } };
+  }, { module: sharedModule, secondId });
+  expect(result).toEqual({ sourceCurrent: false, target: { product: 'slides', id: secondId, current: true } });
+  expect(state.text()).toContain('FINAL STAGE INPUT'); expect(state.text()).toContain('FINAL RICH NOTE');
+  expect(state.writes).toHaveLength(1);
+  const reopened = await page.evaluate(async ({ module, documentId }) => {
+    const { captureProductNavigation } = await import(module) as typeof import('@barocss/shared');
+    const source = captureProductNavigation(); const target = await source?.open?.(documentId);
+    return !!target && target.id === documentId && target.isCurrent();
+  }, { module: sharedModule, documentId });
+  expect(reopened).toBe(true);
+  await expect(shell(page).locator('.sl-stage')).toContainText('FINAL STAGE INPUT');
+  expect(state.writes).toHaveLength(1);
+});
+
+test('Slides target read locks competing preparation and a stale authority response cannot replace the source', async ({ page }) => {
+  const state = await setup(page, { second: true });
+  await type(page, 'RETAIN SOURCE BEFORE TARGET'); await save(page).click();
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; }), waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents/${secondId}`, async route => { entered(); await held; await route.fallback(); }, { times: 1 });
+  await page.evaluate(({ module, secondId }) => {
+    (window as any).__targetOpening = import(module).then(({ captureProductNavigation }) => captureProductNavigation().open(secondId));
+  }, { module: sharedModule, secondId });
+  await waiting;
+  await expect(shell(page).locator('.sl-stage [contenteditable=true]')).toHaveCount(0);
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: '서버 Slides 목록', exact: true }).click();
+  await expect(shell(page).getByRole('button', { name: '새 Slides', exact: true })).toBeDisabled();
+  await changeCurrentSlidesRole(page, 'viewer'); release();
+  expect(await page.evaluate(async () => !!await (window as any).__targetOpening)).toBe(false);
+  await expect(shell(page).locator('.sl-stage')).toContainText('RETAIN SOURCE BEFORE TARGET');
+  const current = await page.evaluate(async module => (await import(module)).captureProductNavigation()?.id, sharedModule);
+  expect(current).toBe(documentId); expect(state.writes).toHaveLength(1);
+});
+
+test('Slides export is a document-menu download with the exact confirmed native content', async ({ page }) => {
+  const state = await setup(page); await type(page, 'MENU EXPORT INPUT'); await save(page).click();
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  await expect(shell(page).locator('.office-document-bar').getByRole('button', { name: 'Slides 파일 내보내기', exact: true })).toHaveCount(0);
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  const downloaded = page.waitForEvent('download'); await page.getByRole('menuitem', { name: 'Slides 파일 내보내기', exact: true }).click();
+  const file = await downloaded, path = await file.path(); expect(path).not.toBeNull();
+  expect(JSON.parse(await readFile(path!, 'utf8')).document).toEqual(JSON.parse(state.text()).document);
+  expect(state.writes).toHaveLength(1);
+});
+
+
+test('explicit conflict recovery locks the source and retains its fixed request before installing the latest native document', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const state = await setup(page); await type(page, 'RETAIN CONFLICT DRAFT'); state.advance();
+  await save(page).click();
+  await expect(shell(page).getByRole('button', { name: '충돌 초안 복사', exact: true })).toBeVisible();
+  await shell(page).getByRole('button', { name: '충돌 초안 복사', exact: true }).click();
+  let release!: () => void, entered!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; }), waiting = new Promise<void>(resolve => { entered = resolve; });
+  await page.route(`**/api/v1/tenants/${tenantId}/documents/${documentId}`, async route => { entered(); await held; await route.fallback(); }, { times: 1 });
+  await shell(page).getByRole('button', { name: '서버 최신본 열기', exact: true }).click(); await waiting;
+  await expect(shell(page).locator('.sl-stage [contenteditable=true]')).toHaveCount(0);
+  await expect(shell(page).locator('.sl-stage')).toContainText('RETAIN CONFLICT DRAFT');
+  release();
+  await expect(shell(page).locator('.sl-stage')).toContainText('CONFLICT SERVER LATEST');
+  await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const retained = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:'))
+    .map(key => JSON.parse(localStorage.getItem(key)!)));
+  expect(retained.some(record => record.status === 'pending' && record.snapshotText.includes('RETAIN CONFLICT DRAFT'))).toBe(true);
+  expect(state.writes).toHaveLength(1);
 });

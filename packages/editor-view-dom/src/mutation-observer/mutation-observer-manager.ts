@@ -11,6 +11,56 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
   private observer: MutationObserver | null = null;
   private pendingMutations: MutationRecord[] = [];
   private mutationTimer: number | null = null;
+  private root: HTMLElement | null = null;
+  private generation = 0;
+  private deliveries = new Set<Promise<void>>();
+  private failedDeliveries: { mutations: MutationRecord[]; epoch: number | undefined; revision: number | undefined; error: unknown }[] = [];
+  get hasFailedInputDelivery(): boolean { return this.failedDeliveries.length > 0; }
+  hasFailedInputDeliveryError(error: unknown): boolean {
+    return error !== undefined && this.failedDeliveries.some(failed => Object.is(failed.error, error));
+  }
+
+  async retryInputDelivery(isCurrent: () => boolean): Promise<boolean> {
+    if (!isCurrent() || this.deliveries.size || !this.root?.isConnected || !this.observer) return false;
+    for (const failed of [...this.failedDeliveries]) {
+      if (!isCurrent() || this.editor.dataStore?.getDocumentEpoch?.() !== failed.epoch ||
+        this.editor.dataStore?.getEditRevision?.() !== failed.revision) return false;
+      try { await this.inputHandler.handleDomMutations(failed.mutations); } catch { return false; }
+      if (!isCurrent()) return false;
+      this.failedDeliveries = this.failedDeliveries.filter(record => record !== failed);
+    }
+    return isCurrent() && !this.failedDeliveries.length;
+  }
+
+  private deliverPending(): void {
+    if (!this.pendingMutations.length) return;
+    const pending = this.pendingMutations;
+    this.pendingMutations = [];
+    const generation = this.generation;
+    const epoch = this.editor.dataStore?.getDocumentEpoch?.(), revision = this.editor.dataStore?.getEditRevision?.();
+    const delivery = this.inputHandler.handleDomMutations(pending).then(() => {}, error => {
+      if (this.generation === generation) this.failedDeliveries.push({ mutations: pending, epoch, revision, error });
+    });
+    this.deliveries.add(delivery);
+    void delivery.then(() => this.deliveries.delete(delivery));
+  }
+
+  /** Drain the real observer and await its actual input handlers, without a timing heuristic. */
+  async deliverInput(isCurrent: () => boolean): Promise<boolean> {
+    const generation = this.generation;
+    const owns = () => this.generation === generation && !!this.observer && !!this.root?.isConnected && isCurrent();
+    if (!owns() || this.hasFailedInputDelivery) return false;
+    do {
+      this.collect(this.observer!.takeRecords());
+      if (this.mutationTimer !== null) clearTimeout(this.mutationTimer);
+      this.mutationTimer = null;
+      this.deliverPending();
+      await Promise.all([...this.deliveries]);
+      if (!owns() || this.hasFailedInputDelivery) return false;
+      this.collect(this.observer!.takeRecords());
+    } while (this.pendingMutations.length || this.deliveries.size);
+    return owns() && !this.hasFailedInputDelivery;
+  }
 
   constructor(editor: Editor, inputHandler: InputHandlerImpl) {
     this.editor = editor;
@@ -96,7 +146,26 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     // The base manager still classifies — it is what turns a raw record into
     // `editor:node.change` and `editor:node.update` — so it is handed the
     // records instead of collecting its own.
-    this.observer = new MutationObserver((records) => {
+    this.root = contentEditableElement;
+    this.generation += 1;
+    this.failedDeliveries = [];
+    this.observer = new MutationObserver(records => this.collect(records));
+
+    // Set MutationObserver options
+    this.observer.observe(contentEditableElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['data-bc-edit', 'data-bc-value', 'data-bc-sid', 'data-bc-stype'],
+      characterDataOldValue: true,
+      attributeOldValue: true
+    });
+  }
+
+  private collect(records: MutationRecord[]): void {
+      const contentEditableElement = this.root;
+      if (!contentEditableElement || !records.length) return;
       // A nested editor renders its own draft. Only its explicit transaction changes the host.
       records = records.filter(record => {
         const element = record.target instanceof Element ? record.target : record.target.parentElement;
@@ -172,9 +241,7 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
       if (view?._isComposing === true) {
         if (this.mutationTimer !== null) clearTimeout(this.mutationTimer);
         this.mutationTimer = null;
-        const pending = this.pendingMutations;
-        this.pendingMutations = [];
-        void this.inputHandler.handleDomMutations(pending);
+        this.deliverPending();
         return;
       }
 
@@ -184,35 +251,14 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
       }
 
       this.mutationTimer = window.setTimeout(() => {
-        if (this.pendingMutations.length > 0) {
-          logger.debug(LogCategory.TEXT_INPUT, 'Processing batched mutations', {
-            count: this.pendingMutations.length
-          });
-
-          // Call handleDomMutations
-          if (this.inputHandler.handleDomMutations) {
-            this.inputHandler.handleDomMutations([...this.pendingMutations]);
-          }
-
-          this.pendingMutations = [];
-        }
         this.mutationTimer = null;
+        this.deliverPending();
       }, 0);
-    });
-
-    // Set MutationObserver options
-    this.observer.observe(contentEditableElement, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ['data-bc-edit', 'data-bc-value', 'data-bc-sid', 'data-bc-stype'],
-      characterDataOldValue: true,
-      attributeOldValue: true
-    });
   }
 
   disconnect(): void {
+    this.generation += 1;
+    this.root = null;
     this.baseManager.disconnect();
     
     if (this.observer) {

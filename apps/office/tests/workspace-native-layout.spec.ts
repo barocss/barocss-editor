@@ -443,3 +443,33 @@ test('Site compact panel close exposes the right-edge original without committin
   await detail.click(); await expect(input).toHaveValue('12'); expect(await native()).toEqual(before);
   await input.press('Escape'); expect(await native()).toEqual(before);
 });
+
+for (const product of ['slides', 'site'] as const) test(`${product} document menu owns recent-library keyboard access and restores its connected opener`, async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const original = await populated(page, product); await page.goto(original.url);
+  await expect(page.locator('[data-document-identity]')).toContainText(fullTitle(product));
+  await expect.poll(() => page.evaluate(async ({ sharedModule, id }) => {
+    const { captureProductNavigation } = await import(sharedModule) as typeof import('@barocss/shared');
+    const owner = captureProductNavigation(); return owner?.id === id && owner.isCurrent();
+  }, { sharedModule, id: original.id })).toBe(true);
+  const before = await savedNative(page, product, original.id);
+  const header = page.locator('.office-document-bar');
+  await expect(header.getByRole('button', { name: '최근 자료', exact: true })).toHaveCount(0);
+  await expect(header.locator('input[type="file"]')).toHaveCount(0);
+  const opener = header.getByRole('menuitem', { name: '문서 메뉴', exact: true });
+  await opener.focus(); await opener.press('Enter');
+  const menu = page.getByRole('menu', { name: '문서 메뉴', exact: true });
+  const commands = menu.locator('[role^="menuitem"]:not([aria-disabled="true"])');
+  await expect(commands.first()).toBeFocused();
+  await page.keyboard.press('End'); await expect(commands.last()).toBeFocused();
+  await page.keyboard.press('Home'); await expect(commands.first()).toBeFocused();
+  await page.keyboard.press('Escape'); await expect(menu).toHaveCount(0); await expect(opener).toBeFocused();
+  await opener.press('Enter');
+  await page.getByRole('menuitem', { name: '최근 자료', exact: true }).click();
+  const library = page.getByRole('dialog', { name: product === 'slides' ? '최근 발표 자료' : '최근 사이트', exact: true });
+  await expect(library).toBeVisible();
+  await expect(library.getByRole('button', { name: '보관함 전체 백업', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(library).toHaveCount(0); await expect(opener).toBeFocused();
+  expect(await savedNative(page, product, original.id)).toBe(before);
+  expect(page.url()).toBe(new URL(original.url, page.url()).href);
+});

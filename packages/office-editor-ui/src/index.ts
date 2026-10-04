@@ -67,7 +67,7 @@ export { MathInlineInput } from './math-inline-input';
 export { ColumnsEditor } from './columns-editor';
 
 export { useFormatPainter } from './format-painter';
-export { LocalDocuments, useLocalDocuments } from './local-documents';
+export { LocalDocuments, useLocalDocuments, type LocalDocumentActions } from './local-documents';
 export { DocumentSaveStatus } from './document-save-status';
 export { usePropertyCommand } from './use-property-command';
 

@@ -1,3 +1,4 @@
+import { useEditorRevision } from '@barocss/office-editor-ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
@@ -115,7 +116,7 @@ function Cell({
    * body holds no 버튼 — and that answer changes as the caret moves.
    */
   /** Where a 서식 있는 글 column's words live in the **host's** document — see `NoteField`. */
-  richAt?: { host: Editor; sid: string; onBlocks: (blocks: unknown[]) => Promise<boolean>; registerFlush?: RegisterBodyFlush };
+  richAt?: { host: Editor; sid: string; onBlocks: (blocks: unknown[], canApply: () => boolean) => Promise<boolean>; registerFlush?: RegisterBodyFlush };
   /** The document's pages, for a column that holds a page reference. */
   pages: ChoiceOption[];
   /** And its pictures, for one that holds an `asset:`. */
@@ -271,9 +272,11 @@ function NoteField({
 }: {
   host: Editor;
   sid: string;
-  onBlocks: (blocks: unknown[]) => Promise<boolean>;
+  onBlocks: (blocks: unknown[], canApply: () => boolean) => Promise<boolean>;
   registerFlush?: RegisterBodyFlush;
 }) {
+  useEditorRevision(host);
+  const documentEpoch = host.dataStore.getDocumentEpoch();
   const [held, setHeld] = useState<NoteSession | undefined>(undefined);
   const [problem, setProblem] = useState<string>();
   /*
@@ -289,19 +292,27 @@ function NoteField({
   }, [childFlushes]);
 
   useEffect(() => {
-    const store = (host as never as { dataStore: { getNode: (one: string) => never } }).dataStore;
+    const store = host.dataStore;
     const sourceRoot = host.getRootId();
+    let sourceNode = store.getNodes().get(sid);
+    let authority = 0;
+    const permission = () => { authority++; };
+    host.on('editor:editable.change', permission);
     let latest: unknown[] | undefined;
     let writing = Promise.resolve();
     let disposed = false;
     const deliver = (blocks: unknown[]) => {
       latest = blocks;
+      const capturedAuthority = authority;
+      const owns = () => !disposed && host.isEditable && authority === capturedAuthority &&
+        host.getRootId() === sourceRoot && host.dataStore.getDocumentEpoch() === documentEpoch && store.getNodes().get(sid) === sourceNode;
       writing = writing.catch(() => {}).then(async () => {
         const snapshot = latest;
         if (!snapshot) return;
         // A replaced host document must never receive a delayed body from the old session.
-        if (host.getRootId() !== sourceRoot || !store.getNode(sid)) { latest = undefined; return; }
-        if (!await told.current(snapshot)) throw new Error('마지막 본문 입력을 반영하지 못했습니다. 다시 저장하거나 내보내세요.');
+        if (!owns()) throw new Error('본문의 문서 또는 권한이 변경되었습니다. 현재 입력은 유지합니다.');
+        if (!await told.current(snapshot, owns)) throw new Error('마지막 본문 입력을 반영하지 못했습니다. 다시 저장하거나 내보내세요.');
+        if (!disposed && host.getRootId() === sourceRoot && host.dataStore.getDocumentEpoch() === documentEpoch && authority === capturedAuthority) sourceNode = store.getNodes().get(sid);
         if (latest === snapshot) latest = undefined;
         if (!disposed) setProblem(undefined);
       });
@@ -322,12 +333,14 @@ function NoteField({
     setHeld(one);
     return () => {
       disposed = true;
+      host.off('editor:editable.change', permission);
       one.close();
-      // Keep an in-flight or failed delivery registered until it is safely in the host.
-      void writing.then(() => { if (!latest) unregister?.(); }, () => {});
+      // A disposed session cannot write. Remove its delivery registration so a new owner can flush.
+      unregister?.();
+      void writing.catch(() => {});
       setHeld(undefined);
     };
-  }, [host, sid, told, registerFlush, childFlushes]);
+  }, [host, sid, documentEpoch, told, registerFlush, childFlushes]);
 
   if (!held) return <div className="on-note" data-note-loading={sid} />;
   return <><NoteEditor key={held.session} editor={held.editor} rootId={held.rootId} registerBeforeSnapshot={registerChild} />
@@ -1069,8 +1082,8 @@ export function RowForm({
                        * `setRichText` is the host's transaction — see `data-commands.ts`.
                        */
                       registerFlush,
-                      onBlocks: (blocks: unknown[]) =>
-                        editor.executeCommand('setRichText', { nodeId: String(one.sid), blocks })
+                      onBlocks: (blocks: unknown[], canApply: () => boolean) =>
+                        editor.executeCommand('setRichText', { nodeId: String(one.sid), blocks, canApply })
                     }
                   : undefined;
               })()}

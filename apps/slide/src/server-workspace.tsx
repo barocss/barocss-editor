@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createStarterDeck, deckFileName, deckTitle } from '@barocss/office-slides';
 import { slideDocuments } from '../../../packages/office-slides/src/deck-autosave';
 import { Button } from '@barocss/office-ui';
+import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { App } from './app';
 import './style.css';
 import { assertSlidesNativeDocument, mountSlidesRuntime, type SlidesRuntime } from './runtime';
@@ -43,7 +44,20 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
   const [opened, setOpened] = useState<Open>();
   const current = opened?.owner === client ? opened : undefined;
   const currentRef = useRef(current); currentRef.current = current;
-  const runtime = useRef<{ generation: string; value: SlidesRuntime; off: () => void } | undefined>(undefined);
+  const runtime = useRef<{ owner: object; generation: string; value: SlidesRuntime; off: () => void } | undefined>(undefined);
+  const inputDelivery = useRef<{ value: SlidesRuntime; deliver: (isCurrent: () => boolean) => Promise<boolean> } | undefined>(undefined);
+  const [readyGeneration, setReadyGeneration] = useState('');
+  const nativeHost = useRef<ProductDocumentHost | undefined>(undefined);
+  const nativeEpoch = useRef(0);
+  const roleOwner = useRef({ role, epoch: 0 });
+  if (roleOwner.current.role !== role) roleOwner.current = { role, epoch: roleOwner.current.epoch + 1 };
+  const opening = useRef<{ owner: object; generation: string; role: object; documentId: string; parentCurrent: () => boolean;
+    resolve: (guard: ProductNavigationGuard | false) => void } | undefined>(undefined);
+  const openPending = useRef<{ isCurrent: () => boolean } | undefined>(undefined);
+  const transition = useRef<{ owns: () => boolean } | undefined>(undefined);
+  const requestOpen = useRef<(id: string, isCurrent?: () => boolean, parentCurrent?: () => boolean) => Promise<ProductNavigationGuard | false>>(async () => false);
+  const beforeNavigate = useRef<(isCurrent?: () => boolean) => Promise<boolean>>(async () => false);
+  const savePending = useRef<Promise<void> | undefined>(undefined);
   const draft = useRef<PendingSlidesRecord | undefined>(undefined);
   const fixed = useRef<Fixed | undefined>(undefined);
   const [records, setRecords] = useState<PendingSlidesRecord[]>([]);
@@ -53,6 +67,20 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const busyOwner = useRef<{ client: object; role: object; token: object } | undefined>(undefined);
+  const startBusy = (token: object) => {
+    busyOwner.current = { client, role: roleOwner.current, token };
+    busyRef.current = true; setBusy(true);
+  };
+  const endBusy = (token: object) => {
+    if (busyOwner.current?.token !== token) return;
+    busyOwner.current = undefined; busyRef.current = false; setBusy(false);
+  };
+  useEffect(() => {
+    const owner = busyOwner.current;
+    if (owner && (owner.client !== client || owner.role !== roleOwner.current)) endBusy(owner.token);
+    savePending.current = undefined;
+  }, [client, role]);
   const [protectedInput, setProtectedInput] = useState(true);
   const protectedRef = useRef(true);
   const [nestedInput, setNestedInput] = useState(false);
@@ -100,34 +128,33 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
   const replace = useCallback((one: Open, record?: PendingSlidesRecord) => {
     // Validate before changing the current model or its mounted lifetime.
     assertSlidesNativeDocument(one.initial);
+    nativeEpoch.current++; inputDelivery.current = undefined; setReadyGeneration('');
     runtime.current?.off(); runtime.current = undefined;
     draft.current = record?.status === 'draft' ? undefined : record;
     fixed.current = record?.status === 'pending' && record.attempt ? { attempt: record.attempt, record } : undefined;
     currentRef.current = one; setOpened(one); setProblem(undefined); setCopied(undefined); signalProtection(true);
     refresh(value => value + 1);
   }, [signalProtection]);
-  const safeSwitch = () => {
-    capture();
-    if (!protectedRef.current || nestedRef.current || busyRef.current) return false;
-    const one = currentRef.current;
-    return !one || (!fixed.current && one.confirmed !== null && stableSlidesSnapshotText(one.text) === stableSlidesSnapshotText(one.confirmed)) ||
-      window.confirm('현재 초안과 저장 요청은 복구 저장소에 남습니다. 다른 문서를 여시겠습니까?');
+  const beginTransition = (preservePending = false) => {
+    if (busyRef.current || transition.current?.owns() || openPending.current?.isCurrent()) return;
+    const one = currentRef.current, live = runtime.current, capturedRole = roleOwner.current, pending = fixed.current;
+    const root = live?.value.editor.getRootId(), epoch = live?.value.editor.dataStore.getDocumentEpoch();
+    let preparedText: string | undefined;
+    const lease = { owns: () => active.current === client && transition.current === lease && roleOwner.current === capturedRole &&
+      currentRef.current?.generation === one?.generation && runtime.current === live &&
+      (!live || (live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch)) &&
+      (!preparedText || (!nestedRef.current && protectedRef.current && (preservePending ? fixed.current === pending : !fixed.current) &&
+        stableSlidesSnapshotText(serverSlidesFileText(live!.value.exportNativeDocument(), '')) === preparedText)),
+      freeze: () => { if (live) preparedText = stableSlidesSnapshotText(serverSlidesFileText(live.value.exportNativeDocument(), '')); } };
+    transition.current = lease; return lease;
   };
+  const safeSwitch = async (owns: () => boolean = () => true) => !currentRef.current ? owns() : await beforeNavigate.current(owns);
   const openDocument = async (documentId: string) => {
-    if (!safeSwitch()) return;
-    busyRef.current = true; setBusy(true);
-    try {
-      const result = await client.open(documentId);
-      if (active.current !== client) return;
-      if (result.mode !== 'snapshot') { setProblem({ kind: 'mode', message: '공동 편집 문서는 스냅샷 편집으로 열 수 없습니다.' }); return; }
-      replace({ owner: client, generation: crypto.randomUUID(), documentRef: documentId, documentId,
-        head: result.document, initial: documentOf(result.snapshotText), text: result.snapshotText, confirmed: result.snapshotText });
-      callbacks.current.onNavigate?.(documentId);
-    } catch (error) { if (active.current === client) setProblem(error instanceof ServerSlidesError ? failure(error) : { kind: 'load', message: error instanceof Error ? error.message : '문서를 열지 못했습니다.' }); }
-    finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
+    if (currentRef.current?.documentId === documentId) return;
+    await requestOpen.current(documentId);
   };
   useEffect(() => {
-    let alive = true; active.current = client;
+    let alive = true; active.current = client; setLoading(true); setHeads([]); setRecords([]); setSources(undefined); setProblem(undefined);
     void (async () => {
       try {
         const rows = await client.list();
@@ -144,7 +171,14 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
       } catch (error) { if (alive && active.current === client) setProblem(error instanceof ServerSlidesError ? failure(error) : { kind: 'load', message: '문서 목록 또는 Slides 원문을 확인하지 못했습니다.' }); }
       finally { if (alive && active.current === client) setLoading(false); }
     })();
-    return () => { alive = false; if (active.current === client) active.current = {} as typeof client; runtime.current?.off(); runtime.current = undefined; };
+    return () => {
+      alive = false;
+      if (active.current === client) active.current = {} as typeof client;
+      const owner = busyOwner.current;
+      if (owner?.client === client) endBusy(owner.token);
+      const live = runtime.current;
+      if (live?.owner === client) { live?.off(); if (runtime.current === live) runtime.current = undefined; }
+    };
     // A successful create changes the URL without reloading the same live runtime.
   }, [client, store, replace]);
   const mount = useCallback((host: HTMLElement) => {
@@ -156,10 +190,12 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
     const generation = currentRef.current!.generation;
     const changed = () => { if (active.current === client && runtime.current?.generation === generation) capture(); };
     value.editor.on('editor:content.change', changed);
-    runtime.current = { generation, value, off: () => value.editor.off('editor:content.change', changed) };
+    runtime.current = { owner: client, generation, value, off: () => value.editor.off('editor:content.change', changed) };
   }, [client, capture]);
   useEffect(() => {
-    runtime.current?.value.editor.setEditable(canEdit && !busy && !(draft.current?.source && draft.current.status !== 'confirmed'));
+    const editor = runtime.current?.value.editor;
+    const editable = canEdit && !busy && !(draft.current?.source && draft.current.status !== 'confirmed');
+    if (editor && editor.isEditable !== editable) editor.setEditable(editable);
   }, [canEdit, busy, current?.generation, records]);
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -174,13 +210,15 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
     return () => { observer.disconnect(); window.removeEventListener('beforeunload', unload); window.removeEventListener('pagehide', hide); };
   }, [capture]);
   const prepare = async (text: string, name?: string, sourceTitle?: string) => {
-    if (!authority.current || !safeSwitch()) return;
+    if (!authority.current) return;
+    const lease = beginTransition(); if (!lease) return;
+    if (!await safeSwitch(lease.owns) || !lease.owns()) { if (transition.current === lease) transition.current = undefined; return; }
     let initial: SlidesDocument;
-    try { initial = documentOf(text); } catch (error) { setSourceError(error instanceof Error ? error.message : '파일을 읽지 못했습니다.'); return; }
-    busyRef.current = true; setBusy(true);
+    try { lease.freeze(); initial = documentOf(text); } catch (error) { if (transition.current === lease) transition.current = undefined; setSourceError(error instanceof Error ? error.message : '파일을 읽지 못했습니다.'); return; }
+    startBusy(lease);
     try {
       await client.list();
-      if (active.current !== client || !authority.current) return;
+      if (!lease.owns() || !authority.current) return;
       const one: Open = { owner: client, generation: crypto.randomUUID(), documentRef: crypto.randomUUID(), documentId: null,
         head: null, initial, text, confirmed: null };
       const draftId = newPendingSlidesDraftId();
@@ -190,31 +228,41 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
         ...(attempt ? { attempt, source: { kind: 'indexeddb-slides' as const, name: name! } } : {}) });
       replace(one, record); draft.current = record; track(record); setSourceError('');
     } catch (error) { if (active.current === client) setProblem(failure(error)); }
-    finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
+    finally { if (transition.current === lease) transition.current = undefined; endBusy(lease); }
   };
   const recover = async (record: PendingSlidesRecord) => {
-    if (!authority.current || !safeSwitch()) return;
-    busyRef.current = true; setBusy(true);
+    if (!authority.current) return;
+    const lease = beginTransition(); if (!lease) return;
+    if (!await safeSwitch(lease.owns) || !lease.owns()) { if (transition.current === lease) transition.current = undefined; return; }
+    startBusy(lease);
     try {
+      lease.freeze();
       let head: ServerSlidesHead | null = null;
       if (record.base.operation === 'update') {
         const verified = await client.open(record.base.documentId);
         if (verified.mode !== 'snapshot') throw new ServerSlidesError(409, 'snapshot_mode_required');
         head = { ...verified.document, revision: record.base.expectedRevision };
       } else await client.list();
-      if (active.current !== client || !authority.current) return;
+      if (!lease.owns() || !authority.current) return;
       const initial = documentOf(record.snapshotText);
       replace({ owner: client, generation: crypto.randomUUID(), documentRef: record.scope.documentRef,
         documentId: record.base.operation === 'update' ? record.base.documentId : null, head,
         initial, text: record.snapshotText, confirmed: null }, record);
       track(record);
     } catch (error) { if (active.current === client) setProblem(error instanceof ServerSlidesError ? failure(error) : { kind: 'load', message: '이 초안을 열 수 없습니다. 원본은 유지됩니다.' }); }
-    finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
+    finally { if (transition.current === lease) transition.current = undefined; endBusy(lease); }
   };
-  const save = async () => {
+  const saveCurrent = async () => {
     if (!authority.current || busyRef.current || nestedRef.current || problemRef.current?.kind === 'conflict') return;
+    const source = currentRef.current, live = runtime.current, delivery = inputDelivery.current, capturedRole = roleOwner.current;
+    const owns = () => active.current === client && currentRef.current?.generation === source?.generation && runtime.current === live &&
+      inputDelivery.current === delivery && roleOwner.current === capturedRole && authority.current;
+    if (!source || !live || !delivery || delivery.value !== live.value || !owns() || !await delivery.deliver(owns) || !owns()) {
+      if (owns()) setProblem({ kind: 'save', message: '마지막 입력을 반영하지 못했습니다. 입력을 완료한 뒤 다시 저장하세요.' });
+      return;
+    }
     const text = capture(); const one = currentRef.current;
-    if (!text || !one) return;
+    if (!text || !one || !owns()) return;
     let pinned: Fixed;
     try {
       if (!protectedRef.current) protect(one, text);
@@ -228,17 +276,17 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
         pinned = { attempt, record: pending }; fixed.current = pinned; draft.current = pending; track(pending);
       }
     } catch { signalProtection(false); setProblem({ kind: 'save', message: '복구 저장소에 기록하지 못했습니다. 서버에 보내지 않았습니다.' }); return; }
-    busyRef.current = true; setBusy(true); setProblem(undefined);
+    const busyToken = {}; startBusy(busyToken); setProblem(undefined);
     try {
       // Recheck authority before receipt lookup or retry, including new-document requests.
       await client.list();
-      if (active.current !== client || !authority.current) return;
+      if (!owns()) return;
       let receipt;
       try { receipt = await client.receipt(pinned.attempt.operation, pinned.attempt.idempotencyKey); }
-      catch (error) { if (!(error instanceof ServerSlidesError) || error.status !== 404) throw error; if (active.current !== client || !authority.current) return; receipt = await client.save(pinned.attempt); }
-      if (active.current !== client || !authority.current) return;
+      catch (error) { if (!(error instanceof ServerSlidesError) || error.status !== 404) throw error; if (!owns()) return; receipt = await client.save(pinned.attempt); }
+      if (!owns()) return;
       const confirmed = await client.confirm(pinned.attempt, receipt);
-      if (active.current !== client || currentRef.current?.generation !== one.generation) return;
+      if (!owns() || currentRef.current?.generation !== one.generation) return;
       try {
         const record = store.write({ draftId: pinned.record.draftId, documentRef: pinned.record.scope.documentRef,
           base: pinned.record.base, status: 'confirmed', snapshotText: pinned.attempt.snapshotText, attempt: pinned.attempt,
@@ -255,16 +303,126 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
       setHeads(previous => [confirmed.document, ...previous.filter(item => item.documentId !== confirmed.document.documentId)]);
       callbacks.current.onNavigate?.(confirmed.document.documentId); refresh(value => value + 1);
     } catch (error) { if (active.current === client) setProblem(failure(error)); }
-    finally { if (active.current === client) { busyRef.current = false; setBusy(false); } }
+    finally { endBusy(busyToken); }
   };
-  const exportNative = () => {
+  const save = () => {
+    if (savePending.current) return savePending.current;
+    const pending = saveCurrent().finally(() => { if (savePending.current === pending) savePending.current = undefined; });
+    savePending.current = pending; return pending;
+  };
+  beforeNavigate.current = async (intentCurrent = () => true) => {
+    const one = currentRef.current, live = runtime.current, delivery = inputDelivery.current, capturedRole = roleOwner.current;
+    if (!one?.documentId || !live || !delivery || delivery.value !== live.value || live.generation !== one.generation || !protectedRef.current || nestedRef.current) return false;
+    const root = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
+    const owns = () => intentCurrent() && active.current === client && currentRef.current?.generation === one.generation &&
+      currentRef.current.documentId === one.documentId && runtime.current === live && inputDelivery.current === delivery &&
+      roleOwner.current === capturedRole && live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch;
+    try {
+      if (!owns() || !await delivery.deliver(owns) || !owns()) return false;
+      if (savePending.current) await savePending.current;
+      if (!owns() || busyRef.current || problemRef.current?.kind === 'conflict' || problemRef.current?.kind === 'denied') return false;
+      const text = capture(), latest = currentRef.current;
+      if (!text || !latest || !protectedRef.current) return false;
+      if (fixed.current || latest.confirmed === null || stableSlidesSnapshotText(text) !== stableSlidesSnapshotText(latest.confirmed)) {
+        if (!authority.current) return false;
+        await save(); if (!owns()) return false;
+      }
+      if (!await delivery.deliver(owns) || !owns() || busyRef.current || nestedRef.current || !protectedRef.current || fixed.current || problemRef.current) return false;
+      const confirmed = currentRef.current!.confirmed;
+      return confirmed !== null && stableSlidesSnapshotText(serverSlidesFileText(live.value.exportNativeDocument(), '')) === stableSlidesSnapshotText(confirmed);
+    } catch { return false; }
+  };
+  requestOpen.current = async (documentId, intentCurrent = () => true, parentCurrent = () => true) => {
+    const one = currentRef.current, live = runtime.current, delivery = inputDelivery.current, registered = nativeHost.current, capturedRole = roleOwner.current;
+    if (one && (!one.documentId || !live || !delivery || !registered || live.generation !== one.generation)) return false;
+    const root = live?.value.editor.getRootId(), epoch = live?.value.editor.dataStore.getDocumentEpoch(), sourceEpoch = nativeEpoch.current;
+    let preparedText: string | undefined;
+    const owns = () => { try { return intentCurrent() && parentCurrent() && active.current === client && (!registered || productDocumentHost() === registered) && nativeEpoch.current === sourceEpoch &&
+      currentRef.current?.generation === one?.generation && runtime.current === live && inputDelivery.current === delivery && roleOwner.current === capturedRole &&
+      (!live || (live.value.editor.getRootId() === root && live.value.editor.dataStore.getDocumentEpoch() === epoch)) && problemRef.current?.kind !== 'denied' &&
+      (!preparedText || (!nestedRef.current && protectedRef.current && !fixed.current &&
+        stableSlidesSnapshotText(serverSlidesFileText(live!.value.exportNativeDocument(), '')) === preparedText)); } catch { return false; } };
+    if (!owns()) return false;
+    if (documentId === one?.documentId) { const guard = captureProductNavigation(); return guard?.isCurrent() ? guard : false; }
+    if (openPending.current?.isCurrent() || transition.current?.owns() || busyRef.current) return false;
+    const lease = { isCurrent: owns }; openPending.current = lease;
+    try {
+      if ((one && !await beforeNavigate.current(owns)) || !owns()) return false;
+      if (one) preparedText = stableSlidesSnapshotText(currentRef.current!.confirmed!);
+      startBusy(lease);
+      const result = await client.open(documentId);
+      if (!owns() || openPending.current !== lease || (delivery && !await delivery.deliver(owns)) || !owns()) return false;
+      if (result.mode !== 'snapshot') { setSourceError('공동 편집 문서는 스냅샷 편집으로 열 수 없습니다.'); return false; }
+      const initial = documentOf(result.snapshotText);
+      if (!owns()) return false;
+      const generation = crypto.randomUUID();
+      const completion = new Promise<ProductNavigationGuard | false>(resolve => {
+        opening.current = { owner: client, generation, role: capturedRole, documentId, parentCurrent, resolve };
+      });
+      replace({ owner: client, generation, documentRef: documentId, documentId, head: result.document, initial,
+        text: result.snapshotText, confirmed: result.snapshotText });
+      return await completion;
+    } catch (error) { if (owns()) setSourceError(error instanceof Error ? error.message : '문서를 열지 못했습니다.'); return false; }
+    finally { if (openPending.current === lease) openPending.current = undefined; endBusy(lease); }
+  };
+  const onInputDeliveryReady = useCallback((value: SlidesRuntime, deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    if (active.current !== client || runtime.current?.value !== value) return;
+    inputDelivery.current = deliver ? { value, deliver } : undefined;
+    setReadyGeneration(deliver ? runtime.current.generation : '');
+  }, [client]);
+  useEffect(() => {
+    const one = currentRef.current, live = runtime.current, delivery = inputDelivery.current;
+    if (!one || !live || !delivery || live.generation !== readyGeneration || delivery.value !== live.value) return;
+    const host: ProductDocumentHost = { product: 'slides', id: () => active.current === client ? currentRef.current?.documentId ?? '' : '',
+      identityEpoch: () => nativeEpoch.current + roleOwner.current.epoch,
+      beforeNavigate: () => beforeNavigate.current(), requestOpen: (id, isCurrent, parentCurrent) => requestOpen.current(id, isCurrent, parentCurrent) };
+    nativeHost.current = host;
+    const unregister = registerProductDocumentHost(host);
+    const installed = opening.current;
+    if (installed?.owner === client && installed.generation === one.generation) {
+      opening.current = undefined;
+      const guard = captureProductNavigation();
+      if (installed.role === roleOwner.current && installed.parentCurrent() && guard?.id === installed.documentId && guard.isCurrent()) {
+        callbacks.current.onNavigate?.(installed.documentId); installed.resolve(guard);
+      } else installed.resolve(false);
+    }
+    return () => { unregister(); if (nativeHost.current === host) nativeHost.current = undefined; };
+  }, [client, readyGeneration]);
+  useEffect(() => {
+    const capturedRole = roleOwner.current;
+    return () => { const pending = opening.current;
+      if (pending?.owner === client && pending.role === capturedRole) { opening.current = undefined; pending.resolve(false); }
+    };
+  }, [client, role]);
+  const exportNative = async () => {
+    const live = runtime.current, delivery = inputDelivery.current, one = currentRef.current, capturedRole = roleOwner.current;
+    const owns = () => active.current === client && runtime.current === live && currentRef.current?.generation === one?.generation && inputDelivery.current === delivery && roleOwner.current === capturedRole;
+    if (!live || !delivery || delivery.value !== live.value || !await delivery.deliver(owns) || !owns()) return;
     if (shell.current?.querySelector('.w-math-draft')) return;
     const text = capture(); if (!text) return;
     const link = document.createElement('a'); const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     link.href = url; link.download = deckFileName(runtime.current ? deckTitle({ rootId: runtime.current.value.editor.getRootId()!, getNode: id => runtime.current!.value.editor.dataStore.getNode(id) }) : '초안'); link.click(); URL.revokeObjectURL(url);
   };
+  const openLatest = async () => {
+    const one = currentRef.current, live = runtime.current, delivery = inputDelivery.current;
+    if (!one?.documentId || !live || !delivery || !copied || copied !== one.text) return;
+    const lease = beginTransition(true); if (!lease) return;
+    const owns = () => lease.owns() && inputDelivery.current === delivery && protectedRef.current && !nestedRef.current;
+    try {
+      if (!owns() || !await delivery.deliver(owns) || !owns() || capture() !== copied) return;
+      lease.freeze(); startBusy(lease);
+      const result = await client.open(one.documentId);
+      if (!owns() || !await delivery.deliver(owns) || !owns() || capture() !== copied) return;
+      if (result.mode !== 'snapshot') throw new Error('공동 편집 문서는 스냅샷 편집으로 열 수 없습니다.');
+      const initial = documentOf(result.snapshotText);
+      if (!owns()) return;
+      replace({ owner: client, generation: crypto.randomUUID(), documentRef: one.documentId, documentId: one.documentId,
+        head: result.document, initial, text: result.snapshotText, confirmed: result.snapshotText });
+    } catch (error) { if (owns()) setSourceError(error instanceof Error ? error.message : '최신본을 열지 못했습니다.'); }
+    finally { if (transition.current === lease) transition.current = undefined; endBusy(lease); }
+  };
   const status = !protectedInput ? '복구 저장 실패' : nestedInput ? '수식 입력 완료 필요' : busy ? '저장 중…' : fixed.current ? '저장 확인 필요' : dirty ? '저장되지 않음' : current ? '서버 저장 확인됨' : '문서 선택';
-  const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}<Button disabled={!current || nestedInput} onClick={exportNative}>Slides 파일 내보내기</Button></>;
+  const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}</>;
   const navigation = <aside aria-label="서버 Slides 목록">
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverSlidesFileText(createStarterDeck(), ''))}>새 Slides</Button>}
       {heads.map(head => <Button key={head.documentId} disabled={busy || !protectedInput || nestedInput} onClick={() => void openDocument(head.documentId)}>{head.title}</Button>)}
@@ -280,10 +438,11 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
     {!current && navigation}
     {problem && <p role="alert">{problem.message}</p>}
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
-    {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
+    {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => void openLatest()}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Slides 자료를 확인하는 중입니다.</p>}
     {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} localPersistence={false} server={{ headerActions: actions, headerNavigation, navigation,
-      readOnly: !canEdit || busy || !!(draft.current?.source && draft.current.status !== 'confirmed'), onRuntime,
+      readOnly: !canEdit || busy || !!(draft.current?.source && draft.current.status !== 'confirmed'), onRuntime, onInputDeliveryReady,
+      nativeExport: { available: !!current && !nestedInput, run: () => void exportNative() },
       onFileAction: action => { if (action === 'save') void save(); else if (action === 'new') void prepare(serverSlidesFileText(createStarterDeck(), '')); else shell.current?.querySelector('aside')?.scrollIntoView(); } }} />}
   </div>;
 }

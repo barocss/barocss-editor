@@ -163,7 +163,7 @@ export class Editor implements ContextProvider {
     // insertText command (used by CommandChain)
     this.registerCommand({
       name: 'insertText',
-      execute: async (editor: Editor, payload?: { text: string; selection?: ModelSelection }) => {
+      execute: async (editor: Editor, payload?: { text: string; selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         if (!selection || selection.type !== 'range' || !payload?.text) {
           return false;
@@ -188,10 +188,11 @@ export class Editor implements ContextProvider {
 
         return editor.executeCommand('replaceText', {
           range: selection,
-          text: payload.text
+          text: payload.text,
+          canApply: payload.canApply
         });
       },
-      canExecute: (editor: Editor, payload?: { text?: string; selection?: ModelSelection }) => {
+      canExecute: (editor: Editor, payload?: { text?: string; selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         return !!selection && selection.type === 'range' && !!payload?.text;
       }
@@ -200,7 +201,7 @@ export class Editor implements ContextProvider {
     // deleteSelection command (used by CommandChain)
     this.registerCommand({
       name: 'deleteSelection',
-      execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
+      execute: async (editor: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         /*
          * **깃발이 아니라 `isCollapsedSelection` 에 묻는다.** payload 로 온 선택은 편집기의 문을
@@ -217,9 +218,9 @@ export class Editor implements ContextProvider {
           return false;
         }
 
-        return editor.executeCommand('backspace', { selection });
+        return editor.executeCommand('backspace', { selection, canApply: payload?.canApply });
       },
-      canExecute: (_editor: Editor, payload?: { selection?: ModelSelection }) => {
+      canExecute: (_editor: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || _editor.selection;
         return !!selection && selection.type === 'range' && !isCollapsedSelection(selection);
       }

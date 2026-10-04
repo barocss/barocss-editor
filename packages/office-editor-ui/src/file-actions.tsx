@@ -71,6 +71,7 @@ export interface FileActionsProps {
   confirmReplace?: () => boolean | Promise<boolean>;
   beforeReplace?: () => Promise<boolean>;
   ref?: Ref<DocumentFileActions>;
+  showTrigger?: boolean;
 }
 
 /**
@@ -82,7 +83,7 @@ export interface FileActionsProps {
  * reader *asks* — a menubar, a toolbar — is the product's, and that is exactly what an imperative
  * handle is for.
  */
-export function FileActions({ editor, kind, onOpened, beforeSave, confirmReplace, beforeReplace, ref }: FileActionsProps) {
+export function FileActions({ editor, kind, onOpened, beforeSave, confirmReplace, beforeReplace, ref, showTrigger = true }: FileActionsProps) {
   type Task = { phase: TaskPhase; title: string; description: string; action: 'save' | 'open' | 'create' };
   const [task, setTask] = useState<Task>();
   const [picker, setPicker] = useState<HTMLInputElement | null>(null);
@@ -166,7 +167,7 @@ export function FileActions({ editor, kind, onOpened, beforeSave, confirmReplace
   return <>
     <span className={`${prefix}-file-picker`} ref={host => setPicker(host?.querySelector('input') ?? null)}>
       <FilePick title="파일 열기" accept={kind.accept ?? '.json,application/json'} ariaLabel={kind.ariaLabel ?? '문서 파일'}
-        disabled={!editor || task?.phase === 'running'} onPick={file => void openFile(file)}>열기</FilePick>
+        showTrigger={showTrigger} disabled={!editor || task?.phase === 'running'} onPick={file => void openFile(file)}>열기</FilePick>
     </span>
     {task && <TaskStatusRegion label="파일 작업 상태">
       <TaskStatus title={task.title} phase={task.phase} description={task.description} onDismiss={() => setTask(undefined)}

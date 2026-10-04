@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { isVarRef, varNameOf, varRef, varRefAt, varWeightOf } from '@barocss/office-canvas';
 import { selectedNodeIds } from '@barocss/editor-core';
@@ -198,7 +198,8 @@ export function Inspector({
   onPage,
   onEditComponent,
   row,
-  onEditRow
+  onEditRow,
+  onInputDeliveryReady
 }: {
   editor: Editor;
   /** The width being edited. The widest is the page itself; the others say only what differs. */
@@ -231,6 +232,7 @@ export function Inspector({
   row?: { sid: string; row: number; label: string };
   /** Open that row as a form — see `RowForm`. */
   onEditRow?: () => void;
+  onInputDeliveryReady?: (deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
 }) {
   const revision = useEditorRevision(editor);
   const [tab, setTab] = useState<SitePanelTab>('block');
@@ -596,6 +598,14 @@ export function Inspector({
 
   const propertyContext = `${editor.getRootId()}:${words ? JSON.stringify(editor.selection) : shown?.ids.join(',') ?? page}:${at}:${state ?? ''}`;
   const commands = usePropertyCommand(editor, propertyContext);
+  const latestCommands = useRef(commands); latestCommands.current = commands;
+  const propertyRoot = editor.getRootId(), propertyEpoch = editor.dataStore.getDocumentEpoch();
+  useEffect(() => {
+    if (!onInputDeliveryReady) return;
+    let mounted = true;
+    onInputDeliveryReady(isCurrent => latestCommands.current.settle(() => mounted && isCurrent()));
+    return () => { mounted = false; onInputDeliveryReady(null); };
+  }, [onInputDeliveryReady, editor, propertyRoot, propertyEpoch, propertyContext]);
   const { run } = commands;
 
   /**
