@@ -14,8 +14,11 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
   private root: HTMLElement | null = null;
   private generation = 0;
   private deliveries = new Set<Promise<void>>();
-  private failedDeliveries: { mutations: MutationRecord[]; epoch: number | undefined; revision: number | undefined }[] = [];
+  private failedDeliveries: { mutations: MutationRecord[]; epoch: number | undefined; revision: number | undefined; error: unknown }[] = [];
   get hasFailedInputDelivery(): boolean { return this.failedDeliveries.length > 0; }
+  hasFailedInputDeliveryError(error: unknown): boolean {
+    return error !== undefined && this.failedDeliveries.some(failed => Object.is(failed.error, error));
+  }
 
   async retryInputDelivery(isCurrent: () => boolean): Promise<boolean> {
     if (!isCurrent() || this.deliveries.size || !this.root?.isConnected || !this.observer) return false;
@@ -35,8 +38,8 @@ export class MutationObserverManagerImpl implements MutationObserverManager {
     this.pendingMutations = [];
     const generation = this.generation;
     const epoch = this.editor.dataStore?.getDocumentEpoch?.(), revision = this.editor.dataStore?.getEditRevision?.();
-    const delivery = this.inputHandler.handleDomMutations(pending).then(() => {}, () => {
-      if (this.generation === generation) this.failedDeliveries.push({ mutations: pending, epoch, revision });
+    const delivery = this.inputHandler.handleDomMutations(pending).then(() => {}, error => {
+      if (this.generation === generation) this.failedDeliveries.push({ mutations: pending, epoch, revision, error });
     });
     this.deliveries.add(delivery);
     void delivery.then(() => this.deliveries.delete(delivery));

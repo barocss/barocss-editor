@@ -129,6 +129,11 @@ export class EditorViewDOM implements IEditorViewDOM {
     return this.inputHandler.hasFailedInputDelivery || this.mutationObserverManager.hasFailedInputDelivery;
   }
 
+  /** Correlate a host error before recovery; false-without-error input never matches unrelated errors. */
+  hasFailedInputDeliveryError(error: unknown): boolean {
+    return this.inputHandler.hasFailedInputDeliveryError(error) || this.mutationObserverManager.hasFailedInputDeliveryError(error);
+  }
+
   /** Explicit recovery preserves refused payloads; stale or subsequently edited input cannot be replayed. */
   async retryInputDelivery(isCurrent: () => boolean): Promise<boolean> {
     if (!this.hasFailedInputDelivery || this.inputDisposed || this._isComposing || !this.contentEditableElement.isConnected || !isCurrent()) return false;

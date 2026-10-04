@@ -6,6 +6,7 @@ import { data, define, element, getGlobalRegistry, slot } from '@barocss/dsl';
 import { registerPreCommitGuard } from '../../../model/src/index';
 import { createCoreExtensions } from '../../../extensions/src/index';
 import { EditorViewDOM } from '../../src/editor-view-dom';
+import { createCommandSettlement } from '../../../../apps/slide/src/command-settlement';
 
 let editor: Editor, view: EditorViewDOM, host: HTMLElement, textId: string;
 const leaf = () => document.createTreeWalker(host.querySelector(`[data-bc-sid="${textId}"]`)!, NodeFilter.SHOW_TEXT).nextNode() as Text;
@@ -244,4 +245,75 @@ it('offers an explicit retry witness only for genuine failure and retains reject
   expect(await view.retryInputDelivery(() => true)).toBe(true);
   expect(editor.dataStore.getNode(textId)!.text).toBe('Contents!'); expect(view.hasFailedInputDelivery).toBe(false);
   expect(await view.retryInputDelivery(() => true)).toBe(false);
+});
+
+
+it.each(['direct rejection', 'swallowed nested command'])('retains exact %s error identity for explicit input recovery', async mode => {
+  const error = new Error('owned input failed'), unrelated = new Error('owned input failed');
+  if (mode === 'direct rejection') vi.spyOn(editor, 'executeCommand').mockRejectedValueOnce(error);
+  else {
+    const command = (editor as unknown as { _commands: Map<string, { execute: (...args: unknown[]) => Promise<boolean> }> })._commands.get('replaceText')!;
+    vi.spyOn(command, 'execute').mockRejectedValueOnce(error);
+  }
+  const before = native(); nativeAction('text');
+  expect(await view.deliverInput(() => true)).toBe(false);
+  expect(native()).toBe(before);
+  expect(view.hasFailedInputDeliveryError(error)).toBe(true);
+  expect(view.hasFailedInputDeliveryError(unrelated)).toBe(false);
+  expect(view.hasFailedInputDeliveryError(undefined)).toBe(false);
+  expect(await view.retryInputDelivery(() => true)).toBe(true);
+  expect(editor.dataStore.getNode(textId)!.text).toBe('Contents!');
+  expect(view.hasFailedInputDeliveryError(error)).toBe(false);
+});
+
+it('does not acknowledge an unrelated prior runtime error after successful false-without-error input retry', async () => {
+  const owner = {}, runtime = createCommandSettlement(() => owner), prior = new Error('unrelated operation');
+  runtime.fail(prior);
+  vi.spyOn(editor, 'executeCommand').mockResolvedValueOnce(false);
+  nativeAction('text'); expect(await view.deliverInput(() => true)).toBe(false);
+  const captured = runtime.failure()!, correlated = view.hasFailedInputDeliveryError(captured.error);
+  expect(correlated).toBe(false); expect(view.hasFailedInputDeliveryError(undefined)).toBe(false);
+  const recovered = await view.retryInputDelivery(() => true);
+  if (recovered && correlated) captured.acknowledge(() => true);
+  expect(recovered).toBe(true); expect(editor.dataStore.getNode(textId)!.text).toBe('Contents!');
+  expect(runtime.failure()!.error).toBe(prior); expect(await runtime.settle(() => true)).toBe(false);
+});
+
+it('preserves rejected observer error identity only while the exact failed batch is retained', async () => {
+  const error = new Error('observer error');
+  const handler = (view as unknown as { inputHandler: { handleDomMutations: (records: MutationRecord[]) => Promise<void> } }).inputHandler;
+  vi.spyOn(handler, 'handleDomMutations').mockRejectedValueOnce(error);
+  leaf().data += '!'; selectEnd();
+  expect(await view.deliverInput(() => true)).toBe(false);
+  expect(view.hasFailedInputDeliveryError(error)).toBe(true);
+  expect(view.hasFailedInputDeliveryError(new Error('observer error'))).toBe(false);
+  expect(await view.retryInputDelivery(() => true)).toBe(true);
+  expect(view.hasFailedInputDeliveryError(error)).toBe(false);
+});
+
+
+it('does not correlate unrelated command errors reported during a pending body command', async () => {
+  const unrelated = new Error('other command failed');
+  vi.spyOn(editor, 'executeCommand').mockImplementationOnce(async () => {
+    editor.emit('error:command', { command: 'insertText', payload: { canApply: () => true }, error: unrelated });
+    return false;
+  });
+  nativeAction('text'); expect(await view.deliverInput(() => true)).toBe(false);
+  expect(view.hasFailedInputDelivery).toBe(true); expect(view.hasFailedInputDeliveryError(unrelated)).toBe(false);
+  expect(await view.retryInputDelivery(() => true)).toBe(true);
+});
+
+it('allows acknowledgement of only the correlated unchanged runtime failure after explicit replay', async () => {
+  const owner = {}, runtime = createCommandSettlement(() => owner), error = new Error('body failed');
+  const command = (editor as unknown as { _commands: Map<string, { execute: (...args: unknown[]) => Promise<boolean> }> })._commands.get('replaceText')!;
+  vi.spyOn(command, 'execute').mockRejectedValueOnce(error);
+  const onError = (event: { error: unknown }) => runtime.fail(event.error);
+  editor.on('error:command', onError);
+  try {
+    nativeAction('text'); expect(await view.deliverInput(() => true)).toBe(false);
+    const captured = runtime.failure()!, correlated = view.hasFailedInputDeliveryError(captured.error);
+    expect(correlated).toBe(true); expect(await runtime.settle(() => true)).toBe(false);
+    expect(await view.retryInputDelivery(() => true)).toBe(true);
+    expect(captured.acknowledge(() => true)).toBe(true); expect(await runtime.settle(() => true)).toBe(true);
+  } finally { editor.off('error:command', onError); }
 });

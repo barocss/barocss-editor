@@ -82,7 +82,7 @@ export class InputHandlerImpl implements InputHandler {
   private deliveryOwners = new Set<() => boolean>();
   registerDeliveryOwner(owns: () => boolean): () => void { this.deliveryOwners.add(owns); return () => this.deliveryOwners.delete(owns); }
   private inputCommands = new Set<Promise<void>>();
-  private failedInputs: { args: Parameters<Editor['executeCommand']>; revision: number | undefined }[] = [];
+  private failedInputs: { args: Parameters<Editor['executeCommand']>; revision: number | undefined; errors: unknown[] }[] = [];
   private inputOwner?: { root: string | undefined; epoch: number | undefined };
 
   /** Observe the original command promises, including model-first beforeinput. */
@@ -106,19 +106,28 @@ export class InputHandlerImpl implements InputHandler {
     const boundaryNoop = selection?.type === 'range' && selection.collapsed && typeof node?.text === 'string' && (
       (backward && selection.startOffset === 0 && !this.editor.dataStore.getPreviousEditableNode(selection.startNodeId)) ||
       (forward && selection.startOffset === node.text.length && !this.editor.dataStore.getNextEditableNode(selection.startNodeId)));
+    const errors: unknown[] = [];
     const recordFailure = () => {
-      if (this.inputOwner === owner && writesInput && !boundaryNoop) this.failedInputs.push({ args, revision });
+      if (this.inputOwner === owner && writesInput && !boundaryNoop) this.failedInputs.push({ args, revision, errors: [...errors] });
     };
     const viewOwns = this.editorViewDOM.captureInputOwner?.() ?? (() => true);
     const payloadOwns = args[1]?.canApply as (() => boolean) | undefined;
     const canApply = () => viewOwns() && (!payloadOwns || payloadOwns()) && [...this.deliveryOwners].every(owns => owns());
     const guardedArgs: Parameters<Editor['executeCommand']> = writesInput ? [args[0], { ...args[1], canApply }] : args;
+    // executeCommand reports caught failures as false; nested aliases preserve this exact guard.
+    const onCommandError = (event: { payload?: { canApply?: () => boolean }; error: unknown }) => {
+      if (writesInput && event.payload?.canApply === canApply && event.error !== undefined) errors.push(event.error);
+    };
+    if (writesInput) this.editor.on('error:command', onCommandError);
     const promise = this.editor.executeCommand(...guardedArgs);
     const tracked = Promise.resolve(promise).then(success => {
       if (success === false) recordFailure();
-    }, recordFailure);
+    }, error => { if (error !== undefined) errors.push(error); recordFailure(); });
     this.inputCommands.add(tracked);
-    void tracked.then(() => this.inputCommands.delete(tracked));
+    void tracked.then(() => {
+      this.inputCommands.delete(tracked);
+      if (writesInput) this.editor.off('error:command', onCommandError);
+    });
     return promise;
   }
 
@@ -150,6 +159,10 @@ export class InputHandlerImpl implements InputHandler {
   }
 
   get hasFailedInputDelivery(): boolean { return this.failedInputs.length > 0; }
+
+  hasFailedInputDeliveryError(error: unknown): boolean {
+    return error !== undefined && this.failedInputs.some(failed => failed.errors.some(retained => Object.is(retained, error)));
+  }
 
   get hasPendingInput(): boolean { return this.inputCommands.size > 0; }
 
