@@ -1,0 +1,70 @@
+name: Research question
+description: Evidence and a decision request, without automatic product dispatch.
+title: "[Research] "
+body:
+  - type: markdown
+    attributes:
+      value: "Choose a registered category in docs/operations/research-categories.md. Research completion does not mean implementation or release approval."
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options: [market, feature, ai-ux, technical, agent-docs, saas]
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Request or research source
+      placeholder: "User request, existing Issue or investigation question"
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question, hypothesis and useful decision
+      description: State a falsifiable question and what Planner can decide from its answer.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Current evidence and limits
+      description: Source/version, observed fact, inference, counterexample and missing proof.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Small test, exclusions and stop condition
+      description: Bound time/cost, avoid duplicate Issues, and say when this research can stop.
+    validations:
+      required: true
+  - type: textarea
+    id: relationship
+    attributes:
+      label: Related Issues and handoff
+      description: Reused research/implementation scope and Planner's adopt / verify more / hold decision.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Proposed priority (Planner confirms)
+      options: [unranked, P2, P1, P0]
+    validations:
+      required: true
+  - type: dropdown
+    id: readiness
+    attributes:
+      label: Initial readiness
+      options: [needs-triage, backlog, ready]
+    validations:
+      required: true
+  - type: dropdown
+    id: release-commitment
+    attributes:
+      label: Release commitment
+      options: [none, candidate, committed]
+    validations:
+      required: true
