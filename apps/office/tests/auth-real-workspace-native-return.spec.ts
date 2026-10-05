@@ -20,7 +20,10 @@ type Tree = SiteNativeNode;
 type File = { format: string; version: number; document: Tree; [key: string]: unknown };
 type Head = { documentId: string; creatorUserId: string; revision: number; product: Product; snapshotHash: string; [key: string]: unknown };
 type Receipt = { document: Head; snapshotText: string; idempotencyKey: string };
-type Draft = { draftId: string; status: string; snapshotText: string; base: { documentId?: string }; scope: { subject: string }; attempt?: { idempotencyKey: string; snapshotText: string } };
+type Draft = { draftId: string; status: string; savedAt: string; snapshotText: string;
+  base: { operation: string; documentId?: string; expectedRevision?: number };
+  scope: { issuer: string; subject: string; tenantId: string; workspaceId: string; documentRef: string };
+  attempt?: { idempotencyKey: string; snapshotText: string } };
 const seed: Record<Product, string> = { note: 'Nested fictional context remains editable.', word: 'Native return editable Word paragraph.', slides: 'One engine, two products', site: 'Nested seed' };
 const savedInput = ' AUTH SAVED INPUT';
 const laterInput = ' AUTH LATER DRAFT';
@@ -46,7 +49,7 @@ async function login(page: Page, alias: 'alpha-editor' | 'beta-viewer', status: 
   expect(identity.issuer === fixture.issuer && identity.subject === account.id, 'Current signed identity must match the requested account').toBe(true);
   expect(identity.currentUserId).toMatch(/^[0-9a-f-]{36}$/);
   expect(identity.tenants.find(item => item.tenantId === status.tenantId)?.role).toBe(alias === 'alpha-editor' ? 'owner' : 'viewer');
-  return { userId: identity.currentUserId!, subject: identity.subject };
+  return { userId: identity.currentUserId!, issuer: identity.issuer, subject: identity.subject };
 }
 async function api(page: Page, path: string, method = 'GET', body?: unknown) {
   return page.evaluate(async ({ path, method, body, source }) => {
@@ -122,25 +125,30 @@ async function input(page: Page, product: Product): Promise<Locator> {
   if (product === 'slides') return host(page, product).locator('.sl-stage .w-paragraph').filter({ hasText: seed.slides }).first();
   const existing = page.locator('[data-db-item-body]').last().locator('.on-doc > p').last();
   const tab = host(page, product).locator('.st-admin [data-admin-tab="data"]');
-  await expect.poll(async () => await existing.isVisible() || await tab.isVisible()).toBe(true);
+  const row = host(page, product).getByRole('button', { name: '1행 펼치기', exact: true });
+  await expect.poll(async () => await existing.isVisible() || await tab.isVisible() || await row.isVisible()).toBe(true);
   if (await existing.isVisible()) return existing;
-  await tab.click(); await page.locator('[data-admin-open="글"]').click();
-  await page.getByRole('button', { name: '1행 펼치기', exact: true }).click();
+  if (!await row.isVisible()) { await tab.click(); await page.locator('[data-admin-open="글"]').click(); }
+  await expect(row).toHaveCount(1); await expect(row).toBeVisible(); await expect(row).toBeEnabled(); await row.click();
   await page.locator('[data-row-form] [data-field="본문"] [data-note-body]').getByRole('button', { name: '행 1 열기', exact: true }).click();
   await page.locator('[data-db-item-body]').last().getByRole('button', { name: '행 1 열기', exact: true }).click();
   await expect(page.getByRole('dialog', { name: '데이터베이스 항목', exact: true })).toHaveCount(2); return existing;
 }
-async function append(page: Page, paragraph: Locator, product: Product, text: string) {
+async function append(page: Page, paragraph: Locator, product: Product, text: string, recovered = false) {
   await expect(paragraph).toBeVisible();
   if (product === 'slides') {
-    const point = await paragraph.evaluate(element => {
+    const point = await paragraph.evaluate((element, recovered) => {
+      if (recovered) {
+        const frame = element.closest('.sl-text-frame'); if (!frame) throw new Error('The recovered title has no current native text frame');
+        const box = frame.getBoundingClientRect(); return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      }
       const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT); let node: Node | null;
       while ((node = walker.nextNode())) if (node.textContent?.length) {
         const range = document.createRange(); range.setStart(node, 0); range.setEnd(node, 1); const box = range.getBoundingClientRect();
         return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
       }
       throw new Error('The actual title has no glyph');
-    }); await page.mouse.dblclick(point.x, point.y);
+    }, recovered); await page.mouse.dblclick(point.x, point.y);
   } else await paragraph.click();
   await expect.poll(() => paragraph.evaluate(element => !!getSelection()?.anchorNode && element.contains(getSelection()!.anchorNode))).toBe(true);
   if (!await paragraph.evaluate(() => getSelection()!.isCollapsed)) await page.keyboard.press('ArrowRight');
@@ -180,7 +188,7 @@ async function denied(page: Page, path: string, body: unknown) {
 
 // Four independent real-auth cases. Preparation is explicit API fixture creation;
 // input/history/save/return/reopen are genuine product UI, never forced publication.
-for (const product of products) test(`real ${product} native input, explicit save and catalog return keep full original and deny current viewer`, async ({ browser: _browser }, info: TestInfo) => {
+for (const product of products) test(`real ${product} native input, explicit save and catalog return keep full original and deny current viewer and recover rightful unsaved draft`, async ({ browser: _browser }, info: TestInfo) => {
   test.setTimeout(180_000);
   const directory = mkdtempSync(join('/private/tmp/', `468-auth-${product}-profiles-`));
   const profiles: Awaited<ReturnType<typeof launchPrivateProfile>>[] = [];
@@ -288,6 +296,83 @@ for (const product of products) test(`real ${product} native input, explicit sav
     expect(afterDeparture.document).toEqual(pg.document);
     expect(afterDeparture.receiptCount).toBe(pg.receiptCount); expect(afterDeparture.documentCount).toBe(pg.documentCount);
     expect((await drafts(page, product, id)).find(record => record.draftId === durable!.draftId)).toEqual(durable);
+    evidence.phase = 'rightful-recovery-reopen';
+    // Project openings intentionally read. Reopen this exact same original in
+    // My files for editing; its mode switch must not publish the unsaved draft.
+    await tree(page).locator('.ow-tree-perspectives').getByRole('button', { name: '내 파일', exact: true }).click();
+    await expect(tree(page).locator(selector)).toHaveCount(1); await tree(page).locator(selector).click();
+    await expect(host(page, product)).toBeVisible();
+    const confirmedInput = await input(page, product); await expect(confirmedInput).toHaveText(seed[product] + savedInput);
+    if (product === 'word') {
+      await expect(host(page, product).locator('.w-shell')).toHaveAttribute('data-reading', 'false');
+      await expect.poll(() => confirmedInput.evaluate(element => (element as HTMLElement).isContentEditable)).toBe(true);
+    }
+    if (product === 'site') await closeSite(page);
+    const currentIdentity = await page.evaluate(async source => {
+      const client = await import(source) as typeof import('../src/auth-client'); return client.loadIdentity();
+    }, '/src/auth-client.ts');
+    expect(currentIdentity.issuer === identity.issuer && currentIdentity.subject === identity.subject &&
+      currentIdentity.currentUserId === identity.userId, 'Recovery must use the current rightful signed identity').toBe(true);
+    expect(currentIdentity.tenants.find(item => item.tenantId === status.tenantId)?.role).toBe('owner');
+    expect(durable.scope.issuer === currentIdentity.issuer && durable.scope.subject === currentIdentity.subject &&
+      durable.scope.tenantId === status.tenantId && durable.scope.workspaceId === status.workspaceId,
+    'The retained draft must belong to the current complete account/workspace scope').toBe(true);
+    expect(durable.base).toEqual({ operation: 'update', documentId: id, expectedRevision: 2 });
+    expect(durable.scope.documentRef).toBe(product === 'note' ? baseline.attributes!.pageId : id);
+    expect(durable.attempt).toBeUndefined();
+    expect((await drafts(page, product, id)).find(record => record.draftId === durable.draftId)).toEqual(durable);
+    expect(writes).toHaveLength(1);
+    await host(page, product).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    const navigationAction = product === 'word' ? '열기…' : product === 'slides' ? '서버 Slides 목록' : '문서 작업';
+    await page.getByRole(product === 'note' ? 'menuitemcheckbox' : 'menuitem', { name: navigationAction, exact: true }).click();
+    const recoveryLabel = product === 'note' ? `초안 복구 ${baseline.attributes!.title} ${durable.draftId.slice(0, 8)}` :
+      `저장된 ${product === 'word' ? 'Word' : product === 'slides' ? 'Slides' : 'Site'} 초안 복구 · ${durable.savedAt}`;
+    const recovery = host(page, product).getByRole('button', { name: recoveryLabel, exact: true });
+    // A time label is a user action, not draft identity. Bind the sole visible
+    // choice to the exact scoped raw record before and after the real click.
+    expect((await drafts(page, product, id)).filter(record => record.status !== 'confirmed' && record.savedAt === durable.savedAt)).toEqual([durable]);
+    await expect(recovery).toHaveCount(1); await expect(recovery).toBeVisible(); await expect(recovery).toBeEnabled();
+    evidence.phase = 'rightful-explicit-recovery'; await recovery.click();
+    const recoveredInput = await input(page, product); await expect(recoveredInput).toHaveText(seed[product] + savedInput + laterInput);
+    expect((await drafts(page, product, id)).find(record => record.draftId === durable.draftId)).toEqual(durable);
+    if (product !== 'note') {
+      if (product === 'site') await closeSite(page);
+      expect(await publicNative(page, product, id)).toEqual(latest);
+    }
+    evidence.phase = 'recovered-native-input-probe';
+    const recoveryProbe = ' RECOVERED NATIVE PROBE';
+    const probeInput = await input(page, product);
+    if (product === 'word') {
+      await expect(host(page, product).locator('.w-shell')).toHaveAttribute('data-reading', 'false');
+      await expect.poll(() => probeInput.evaluate(element => (element as HTMLElement).isContentEditable)).toBe(true);
+    }
+    await append(page, probeInput, product, recoveryProbe, true);
+    const recoveredProbe = await currentInputDraft(page, product, id, edited(baseline, product, savedInput + laterInput + recoveryProbe));
+    expect(recoveredProbe.draftId).not.toBe(durable.draftId);
+    expect(recoveredProbe.base).toEqual(durable.base); expect(recoveredProbe.scope).toEqual(durable.scope);
+    await page.keyboard.press('ControlOrMeta+z'); await expect(probeInput).toHaveText(seed[product] + savedInput + laterInput);
+    if (product === 'site') await closeSite(page);
+    const recoveredNative = await publicNative(page, product, id, latest, recoveredProbe.draftId);
+    expect(recoveredNative).toEqual(latest);
+    expect((await drafts(page, product, id)).find(record => record.draftId === durable.draftId)).toEqual(durable);
+    expect(writes).toHaveLength(1);
+    const afterRecovery = await inspect(request.idempotencyKey);
+    expect(afterRecovery.document).toEqual(pg.document); expect(afterRecovery.receipt).toEqual(pg.receipt);
+    expect(afterRecovery.receiptCount).toBe(pg.receiptCount); expect(afterRecovery.documentCount).toBe(pg.documentCount);
+    const recoveredRead = await api(page, `${root}/documents/${id}`); expect(recoveredRead.status).toBe(200);
+    expect(recoveredRead.value.snapshotText).toBe(request.snapshotText);
+    expect(recoveredRead.value.document).toMatchObject({ documentId: id, creatorUserId: identity.userId, revision: 2 });
+    const createUnchanged = await privateControl<Inspection<Product>>({ action: 'inspect', product, documentId: id,
+      idempotencyKey: key, operation: 'create', actor: 'alpha-editor' });
+    expect(createUnchanged.receipt).toEqual(before.receipt);
+    evidence.rightfulRecovery = { navigationAction, recoveryDestination: 'My files writer', draftId: durable.draftId, status: durable.status,
+      wordWritingState: product === 'word' ? 'data-reading=false; actual native contentEditable=true' : 'not applicable',
+      exactRetainedRecordHash: hash(JSON.stringify(durable)), completeScopeMatchesCurrentIdentity: true, currentRole: 'owner',
+      retainedRecordUnchanged: true, explicitAction: true, automaticRestore: false,
+      mountedNative: recoveredNative, probeDraftId: recoveredProbe.draftId, probeNative: JSON.parse(recoveredProbe.snapshotText).document,
+      originalCanonicalAndReceiptsUnchanged: true, privatePg: afterRecovery.document, receipt: afterRecovery.receipt,
+      receiptCount: afterRecovery.receiptCount, documentCount: afterRecovery.documentCount,
+      history: 'Recovery mounts independent history; genuine probe Undo checked. Prior history/caret/scroll continuity not claimed.' };
     evidence.phase = 'complete-bounded-success';
   } catch (cause) {
     primaryFailure = cause;
