@@ -29,7 +29,7 @@ it('two Project placements and Sources point to one authorized original without 
   expect(first.id).not.toBe(second.id); expect(first.id).not.toBe(source.id);
   expect(JSON.stringify(groups)).not.toContain('별칭'); expect(JSON.stringify(groups)).not.toContain('표시하면 안');
   expect(first.row.title).toBe('원본 1');
-  expect(groups[2].entries[1].disabled).toBe(true); // Site discovery does not register a server renderer.
+  expect(groups[2].entries[1].disabled).toBe(false); // Snapshot Site uses the authenticated native host.
 });
 
 it('partial Project discovery retains authorized sources without claiming unlinked files or complete projects', () => {
@@ -103,4 +103,12 @@ it('preserves current Project login expiry when its request clears the session b
   let current = true;
   await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: requestFetch(),
     readProjects: async () => { current = false; throw new AuthError('unauthorized', 'expired'); }, isCurrent: () => current })).rejects.toMatchObject({ kind: 'unauthorized' });
+});
+
+it('Site snapshot aliases stay one original while initializing and collaborative entries remain unavailable', () => {
+  const value = catalog();
+  value.documents.push({ ...head(3, 'site'), mode: 'initializing' }, { ...head(4, 'site'), mode: 'collaborative' });
+  const groups = serverCatalogGroups(value, { ...options, perspective: 'sources', product: 'site' });
+  expect(groups[0].entries.map(entry => [entry.row.documentId, entry.disabled])).toEqual([[id(2), false], [id(3), true], [id(4), true]]);
+  expect(groups[0].entries[0].row.key).toContain(workspaceId);
 });

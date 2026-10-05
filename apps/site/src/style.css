@@ -893,3 +893,9 @@ body {
 
 /* Selection tools remain on the native plane; common tools belong to the header. */
 .st-main { position: relative; }
+
+/* The authenticated shell keeps the same compact Site header and native viewport. */
+[data-server-site-workspace] { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+[data-server-site-workspace] > .server-site-native { flex: 1; min-height: 0; }
+[data-server-site-workspace] > .server-site-native > .st-shell { height: 100%; min-height: 0; }
+[data-server-site-workspace] > aside { display: flex; flex-direction: column; gap: 6px; padding: 12px; }

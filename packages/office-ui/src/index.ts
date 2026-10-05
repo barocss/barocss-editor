@@ -67,6 +67,7 @@ export { ColorField, type ThemeSwatch } from './color-field';
 export { ColorPicker, type ColorPickerProps } from './color-picker';
 
 export { Dialog, DialogButton, Drawer } from './dialog';
+export { OfficePortalOwner } from './portal-owner';
 export { SidePeek, type SidePeekProps } from './side-peek';
 export { PropertySheet, type SheetGroup, type SheetRow } from './property-sheet';
 

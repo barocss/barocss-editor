@@ -31,6 +31,11 @@ import { getNoteDatabase, getNoteDatabaseItemId } from './database';
 import './table-ui.css';
 import { NoteDocumentNavigation, type NoteNavigationRequest } from './document-navigation';
 
+export type NoteInputDelivery = (() => Promise<boolean>) & {
+  captureInputIntent?: () => (() => boolean) | null;
+  hasPendingInput?: () => boolean;
+};
+
 /**
  * **한 편의 글을 쓰는 화면** — the bar and the body, owned by the package the body belongs to.
  *
@@ -76,7 +81,7 @@ export function NoteEditor({
   writeAllowed?: boolean;
   pageReferences?: NotePageReferences;
   /** Register child-body delivery before a host exports or saves its document. Flush deepest first. */
-  registerBeforeSnapshot?: (flush: () => Promise<boolean>) => () => void;
+  registerBeforeSnapshot?: (flush: NoteInputDelivery) => () => void;
   navigationRequest?: NoteNavigationRequest;
   /**
    * What a picked file becomes, when the host has somewhere better to put one than the document.
@@ -93,12 +98,14 @@ export function NoteEditor({
    * to *what is selected*, and the day they differ is the day a reader sets a file on a picture they
    * are not looking at.
    */
-  const deliveries = useRef(new Set<() => Promise<boolean>>());
+  const deliveries = useRef(new Set<NoteInputDelivery>());
+  const inputHost = useRef<HTMLDivElement>(null);
   const mutable = writeAllowed ?? editor.isEditable;
   const composing = useRef(new Set<EventTarget>());
   useEditorRevision(editor);
   const documentEpoch = editor.dataStore.getDocumentEpoch();
   const owner = useMemo(() => ({ editor, rootId, documentEpoch, documentRootId: editor.dataStore.getRootNodeId(), sessionId: editor.dataStore.getSessionId() }), [editor, rootId, documentEpoch, editor.dataStore.getSessionId()]);
+  const input = useMemo(() => ({ version: 0, authority: 0, pending: false, active: false, flushing: 0 }), [owner]);
   const lifetime = useRef(owner);
   lifetime.current = owner;
   useLayoutEffect(() => {
@@ -109,22 +116,62 @@ export function NoteEditor({
     composing.current.clear();
     return () => { lifetime.current = { ...owner, rootId: '' }; };
   }, [owner]);
-  const flushDocument = useCallback(async () => {
+  useLayoutEffect(() => {
+    const element = inputHost.current;
+    if (!element) return;
+    input.active = true;
+    const changed = (event: Event) => {
+      input.version++; input.pending = true;
+      if (event.type === 'compositionstart') composing.current.add(event.target!);
+      if (event.type === 'compositionend') composing.current.delete(event.target!);
+    };
+    const permission = () => { input.authority++; };
+    const events = ['beforeinput', 'input', 'compositionstart', 'compositionend'] as const;
+    events.forEach(event => element.addEventListener(event, changed, true));
+    editor.on('editor:editable.change', permission);
+    return () => {
+      input.active = false; input.version++;
+      events.forEach(event => element.removeEventListener(event, changed, true));
+      editor.off('editor:editable.change', permission);
+    };
+  }, [editor, input]);
+  const flushDocument = useCallback(Object.assign(async () => {
     const capturedOwner = lifetime.current;
-    const current = () => lifetime.current === capturedOwner && editor.dataStore.getDocumentEpoch() === capturedOwner.documentEpoch && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && !!editor.dataStore.getNode(rootId);
-    if (composing.current.size) return false;
-    for (const flush of [...deliveries.current].reverse()) {
-      try { if (!current() || composing.current.size || !await flush()) return false; }
-      catch { return false; }
+    const version = input.version, authority = input.authority;
+    const current = () => input.active && input.version === version && input.authority === authority && lifetime.current === capturedOwner && editor.dataStore.getDocumentEpoch() === capturedOwner.documentEpoch && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && !!editor.dataStore.getNode(rootId);
+    input.flushing++;
+    try {
+      if (composing.current.size) return false;
+      for (const flush of [...deliveries.current].reverse()) {
+        try { if (!current() || composing.current.size || !await flush()) return false; }
+        catch { return false; }
+      }
+      const accepted = current() && !composing.current.size;
+      if (accepted) input.pending = false;
+      return accepted;
+    } finally { input.flushing--; }
+  }, {
+    hasPendingInput: () => input.pending || !!input.flushing || !!composing.current.size || [...deliveries.current].some(child => child.hasPendingInput?.()),
+    captureInputIntent: () => {
+      const capturedOwner = lifetime.current, version = input.version, authority = input.authority;
+      const registered = [...deliveries.current];
+      const children = registered.flatMap(delivery => delivery.captureInputIntent ? [delivery.captureInputIntent()] : []);
+      const current = () => input.active && !input.pending && !input.flushing && !composing.current.size && input.version === version && input.authority === authority &&
+        lifetime.current === capturedOwner && editor.dataStore.getDocumentEpoch() === capturedOwner.documentEpoch && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && !!editor.dataStore.getNode(rootId) &&
+        registered.length === deliveries.current.size && registered.every(delivery => deliveries.current.has(delivery)) && children.every(child => !!child && child());
+      return current() ? current : null;
     }
-    return current() && !composing.current.size;
-  }, [owner]);
+  }), [owner, input]);
   useEffect(() => registerBeforeSnapshot?.(flushDocument), [registerBeforeSnapshot, flushDocument]);
-  const registerBodyDelivery = useCallback((flush: () => Promise<boolean>) => {
+  const registerBodyDelivery = useCallback((flush: NoteInputDelivery) => {
     deliveries.current.add(flush);
+    input.version++;
     const navigation = pageReferences?.registerBeforeNavigate?.(flush);
-    return () => { deliveries.current.delete(flush); navigation?.(); };
-  }, [pageReferences?.registerBeforeNavigate]);
+    return () => {
+      if (!flush.hasPendingInput?.()) { deliveries.current.delete(flush); navigation?.(); }
+      input.version++;
+    };
+  }, [pageReferences?.registerBeforeNavigate, input]);
   const [mathFocused, setMathFocused] = useState(false);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   /*
@@ -238,7 +285,7 @@ export function NoteEditor({
 
   const navigationControl = (target: EventTarget) => target instanceof Element && !!target.closest('[data-document-navigation]');
   return (
-    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar} data-note-editable={mutable}
+    <div ref={inputHost} className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar} data-note-editable={mutable}
       onCompositionStartCapture={event => { composing.current.add(event.target); }}
       onCompositionEndCapture={event => { composing.current.delete(event.target); }}
       onBeforeInputCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
@@ -326,7 +373,7 @@ export function NoteEditor({
         <LatexEditor editor={editor} scope={body} structured inPlace onEditingFocusChange={setMathFocused} registerBeforeLeave={registerBodyDelivery} />
         {mutable && <ColumnsEditor editor={editor} scope={body} />}
         <CodeBlockEditor editor={editor} scope={body} sid={picked} active={mutable && !mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
-        <NoteDatabases editor={editor} scope={body} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
+        <NoteDatabases editor={editor} scope={body} beforeItemChange={flushDocument} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
           <DatabaseItemBody key={`${nodeId}:${row}`} editor={editor} nodeId={nodeId} row={row} registerBeforeNavigate={registerBodyDelivery}
             renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" writeAllowed={writeAllowed ?? editor.isEditable} registerBeforeSnapshot={registerBodyDelivery} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
         {mutable && !mathFocused && !blockMenu && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}

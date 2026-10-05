@@ -103,3 +103,31 @@ it('rejects an accidentally asynchronous intent predicate without mutating state
   }).commit()).toMatchObject({ success: false, committed: false, errors: ['Transaction intent check must be synchronous'] });
   expect(snapshot(editor)).toEqual(before);
 });
+
+for (const retirement of ['authority ABA', 'same-root replacement'] as const) it(`captured editor policy rejects actual locked transaction after ${retirement}`, async () => {
+  const model = await import('../../src/transaction');
+  const factory = (model as typeof model & { registerTransactionIntentGuardFactory?: (editor: Editor, capture: () => () => string | void) => () => void }).registerTransactionIntentGuardFactory;
+  const editor = fixture(); let generation = 0;
+  const remove = factory?.(editor, () => { const at = generation, epoch = editor.dataStore.getDocumentEpoch();
+    return () => generation === at && editor.dataStore.getDocumentEpoch() === epoch ? undefined : 'captured owner retired'; });
+  const lock = await editor.dataStore.acquireLock('real held input');
+  const pending = transaction(editor, [setText('t', 'stale actual write')]).commit();
+  if (retirement === 'authority ABA') { editor.setEditable(false); generation++; editor.setEditable(true); generation++; }
+  else editor.loadDocument(editor.exportDocument(), String(editor.dataStore.getSessionId()));
+  const replacement = snapshot(editor);
+  editor.dataStore.releaseLock(lock);
+  expect(await pending).toMatchObject({ success: false, committed: false, errors: ['captured owner retired'] });
+  expect(snapshot(editor)).toEqual(replacement); remove?.();
+});
+
+it('captured editor policy refuses actual history replay queued across authority ABA', async () => {
+  const model = await import('../../src/transaction');
+  const factory = (model as typeof model & { registerTransactionIntentGuardFactory?: (editor: Editor, capture: () => () => string | void) => () => void }).registerTransactionIntentGuardFactory;
+  const editor = fixture(); await transaction(editor, [setText('t', 'kept actual edit')]).commit();
+  let generation = 0;
+  const remove = factory?.(editor, () => { const at = generation; return () => generation === at ? undefined : 'captured owner retired'; });
+  const lock = await editor.dataStore.acquireLock('real held history');
+  const pending = editor.undo(); generation += 2;
+  const before = snapshot(editor); editor.dataStore.releaseLock(lock);
+  expect(await pending).toBe(false); expect(snapshot(editor)).toEqual(before); remove?.();
+});

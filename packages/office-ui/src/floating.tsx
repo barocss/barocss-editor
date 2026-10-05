@@ -1,3 +1,4 @@
+import { useOfficePortalContainer } from './portal-owner';
 import { useEffect, useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@barocss/office-icons';
 import { IconButton, keepsDraftFieldEscape } from './controls';
@@ -89,11 +90,12 @@ export function FloatingSurface({
   variant = 'toolbar', portalRoot, onDismiss, ownedElements = [], focusOnOpen = false, focusOrigin, keepMounted = false,
   className, children, role, style, onKeyDown, ...attributes
 }: FloatingSurfaceProps) {
+  const container = useOfficePortalContainer();
   const host = useRef<HTMLDivElement>(null);
   const [placed, setPlaced] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const latest = useRef({ onDismiss, ownedElements });
   latest.current = { onDismiss, ownedElements };
-  const destination = portalRoot ?? (typeof document === 'undefined' ? null : document.body);
+  const destination = portalRoot ?? (container === undefined ? (typeof document === 'undefined' ? null : document.body) : container);
 
   useLayoutEffect(() => {
     const surface = host.current;

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { useEditorRevision } from '@barocss/office-editor-ui';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { getGlobalRegistry, type RendererRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
 import {
   SITE_ENV_KEY,
@@ -64,6 +65,8 @@ import { deviceNamed, deviceMatches } from './devices';
  * 됐지만, 패키지가 내보내는 것은 읽을 이름이 있어야 한다.
  */
 export interface PageFrameProps {
+  registry?: RendererRegistry;
+  registerInputDelivery?: (deliver: (isReady?: () => boolean) => Promise<boolean>, view: EditorViewDOM) => () => void;
   editor: Editor;
   breakpoint: BreakpointId;
   /** Whether this board is drawing the page with its finish taken off — see `wireframe.ts`. */
@@ -120,9 +123,13 @@ export function PageFrame({
   widths,
   onFollow,
   redraw,
-  overlay
+  overlay,
+  registry,
+  registerInputDelivery
 }: PageFrameProps) {
   const host = useRef<HTMLDivElement>(null);
+  useEditorRevision(editor);
+  const documentEpoch = editor.dataStore.getDocumentEpoch(), documentRoot = editor.getRootId();
   const view = useRef<EditorViewDOM | null>(null);
 
   /*
@@ -143,13 +150,13 @@ export function PageFrame({
     if (!view.current) {
       const store = (editor as never as { dataStore: { getNode: (sid: string) => unknown } }).dataStore;
       const doc = {
-        rootId: (editor as never as { getRootId: () => string }).getRootId(),
+        get rootId() { return editor.getRootId()!; },
         getNode: (sid: string) => store.getNode(sid) as never
       };
 
       view.current = new EditorViewDOM(editor, {
         container: host.current,
-        registry: getGlobalRegistry(),
+        registry: registry ?? getGlobalRegistry(),
         // This view draws one page, not the document — and keeps itself drawn.
         rootId: page,
         env: {
@@ -181,15 +188,53 @@ export function PageFrame({
      */
     view.current.setRootId(page);
     view.current.render(undefined, { sync: true });
-  }, [editor, page, breakpoint, redraw]);
+  }, [editor, page, breakpoint, redraw, registry]);
 
   useEffect(
     () => () => {
       view.current?.destroy?.();
       view.current = null;
     },
-    []
+    [editor, registry]
   );
+
+  useEffect(() => {
+    const live = view.current, element = host.current;
+    if (!live || !element || !registerInputDelivery) return;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+    let active = true, dirty = false, composing = false, version = 0, authority = 0, pending = 0;
+    const changed = () => { dirty = true; version++; };
+    const startComposition = () => { composing = true; changed(); };
+    const endComposition = () => { composing = false; changed(); };
+    const permission = () => { authority++; };
+    const owns = (capturedAuthority: number) => active && element.isConnected && view.current === live &&
+      editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch && authority === capturedAuthority;
+    element.addEventListener('beforeinput', changed, true);
+    element.addEventListener('input', changed, true);
+    element.addEventListener('compositionstart', startComposition, true);
+    element.addEventListener('compositionend', endComposition, true);
+    editor.on('editor:editable.change', permission);
+    const unregister = registerInputDelivery(async (isReady = () => true) => {
+      const at = version, role = authority;
+      const current = () => owns(role) && isReady() && !composing && version === at;
+      if (!current()) return false;
+      pending++;
+      try {
+        if (!await live.deliverInput(current) || !current()) return false;
+        dirty = false; return true;
+      } finally { pending--; }
+    }, live);
+    return () => {
+      active = false;
+      element.removeEventListener('beforeinput', changed, true);
+      element.removeEventListener('input', changed, true);
+      element.removeEventListener('compositionstart', startComposition, true);
+      element.removeEventListener('compositionend', endComposition, true);
+      editor.off('editor:editable.change', permission);
+      // Unfinished owned input remains an explicit refusal until its host retires it.
+      if (!dirty && !pending && !live.hasFailedInputDelivery) unregister();
+    };
+  }, [editor, page, registry, registerInputDelivery, documentEpoch, documentRoot]);
 
   /**
    * In preview the board is not typable, and that is what makes its links work.
@@ -204,14 +249,30 @@ export function PageFrame({
   useEffect(() => {
     const board = host.current;
     if (!board) return;
-    const content = board.querySelector<HTMLElement>('[contenteditable]');
-    if (!content) return;
-    const was = content.getAttribute('contenteditable');
-    content.setAttribute('contenteditable', preview ? 'false' : was ?? 'true');
-    return () => {
-      if (was !== null) content.setAttribute('contenteditable', was);
+    const sync = () => {
+      const content = view.current?.contentEditableElement;
+      if (content) content.setAttribute('contenteditable', String(!preview && editor.isEditable));
     };
-  }, [preview, page, redraw]);
+    sync();
+    editor.on('editor:editable.change', sync);
+    const refuse = (event: Event) => {
+      if (!preview && editor.isEditable) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+    };
+    const types = ['beforeinput', 'paste', 'cut', 'drop', 'compositionstart'];
+    for (const type of types) board.addEventListener(type, refuse, true);
+    const keys = (event: KeyboardEvent) => {
+      const navigation = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Tab', 'Escape'];
+      const reader = (event.ctrlKey || event.metaKey) && !event.altKey && ['c', 'a', 'f', '+', '=', '-', '0'].includes(event.key.toLowerCase());
+      if (!navigation.includes(event.key) && !reader) refuse(event);
+    };
+    board.addEventListener('keydown', keys, true);
+    return () => {
+      editor.off('editor:editable.change', sync);
+      for (const type of types) board.removeEventListener(type, refuse, true);
+      board.removeEventListener('keydown', keys, true);
+    };
+  }, [editor, preview, page, redraw]);
 
   /*
    * The device this width is a window onto, and only while previewing: a bezel around a board a

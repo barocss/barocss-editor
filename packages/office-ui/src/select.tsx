@@ -1,3 +1,4 @@
+import { useOfficePortalContainer } from './portal-owner';
 import * as Select from '@radix-ui/react-select';
 import { useRef, useState, type RefObject } from 'react';
 import { Icon } from '@barocss/office-icons';
@@ -62,10 +63,12 @@ export function ChoiceSelect({
   /** Optional DOM owner for a popup that must retain focus inside its tool surface. */
   portalContainer?: RefObject<HTMLElement | null>;
 }) {
+  const container = useOfficePortalContainer();
   const trigger = useRef<HTMLButtonElement>(null);
   const mixed = value === null;
   const [portalHost, setPortalHost] = useState<HTMLElement | undefined>();
 
+  const destination = portalHost ?? container;
   return (
     <Select.Root value={value ?? ''} onValueChange={onChange} disabled={disabled}
       onOpenChange={open => {
@@ -99,7 +102,7 @@ export function ChoiceSelect({
  </Select.Icon>
       </Select.Trigger>
 
-      <Select.Portal container={portalHost}>
+      {destination !== null && <Select.Portal container={destination}>
         <Select.Content
           position="popper"
  sideOffset={4}
@@ -134,7 +137,7 @@ export function ChoiceSelect({
             ))}
           </Select.Viewport>
         </Select.Content>
-      </Select.Portal>
+      </Select.Portal>}
     </Select.Root>
   );
 }

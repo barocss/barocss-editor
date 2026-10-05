@@ -2,14 +2,11 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { DataStore } from '@barocss/datastore';
-import { createSchema } from '@barocss/schema';
-import { getGlobalRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { OfficeLocaleProvider } from '@barocss/office-ui';
-import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
-import { createSampleSite, createSiteEditor, getSiteSchemaDefinition, registerSiteRenderers, type siteSessionOptions } from '@barocss/office-site';
+import { createSampleSite, createSiteEditor, type siteSessionOptions } from '@barocss/office-site';
 import { App } from '../src/app';
+import { mountSiteRuntime } from '../src/runtime';
 
 // Observe the real mounted App callback. All factory options and delivery remain real.
 const captured = vi.hoisted(() => ({ beforeSnapshot: undefined as (() => Promise<void>) | undefined }));
@@ -31,18 +28,12 @@ beforeEach(async () => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   captured.beforeSnapshot = undefined;
-  registerSiteRenderers();
-  const schema = createSchema('site', getSiteSchemaDefinition());
-  const store = new DataStore(undefined, schema);
-  editor = createSiteEditor({ editable: true, schema, dataStore: store });
-  editor.loadDocument(createSampleSite(), 'site');
   const mount = (container: HTMLElement) => {
     // This native host remains owned by AppShell across admin and canvas views.
     expect(container.closest('.st-shell')).not.toBeNull();
-    const doc = { rootId: editor.getRootId()!, getNode: (sid: string) => store.getNode(sid) };
-    view = new EditorViewDOM(editor, { container, registry: getGlobalRegistry(), env: { [WORD_ENV_KEY]: createTextEnv(doc) } });
-    view.render();
-    return { editor, view };
+    const runtime = mountSiteRuntime(container, { initialDocument: createSampleSite(), editable: true });
+    editor = runtime.editor; view = runtime.view;
+    return runtime;
   };
   const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root!.render(createElement(OfficeLocaleProvider, { children: createElement(App, { mount }) })));

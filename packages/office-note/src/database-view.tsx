@@ -18,12 +18,40 @@ import { DatabaseItemPage, DatabaseItemActions, DatabaseProperty } from './datab
 type DatabaseTarget = { id: string; element: HTMLElement; mount: HTMLElement };
 
 /** React owns only the chrome placeholder; the editor owns the database model and history. */
-export function NoteDatabases({ editor, scope, active = true, renderItemBody, revealItem }: {
+export function NoteDatabases({ editor, scope, active = true, renderItemBody, revealItem, beforeItemChange }: {
   editor: Editor; scope: RefObject<HTMLElement | null>; active?: boolean; revealItem?: { source: string; rowId: string }; renderItemBody?: (nodeId: string, row: number) => ReactNode;
+  beforeItemChange?: () => Promise<boolean>;
 }) {
   const revision = useEditorRevision(editor);
   const [targets, setTargets] = useState<DatabaseTarget[]>([]);
   const [activeItem, setActiveItem] = useState<{ nodeId: string; row: number }>();
+  const currentItem = useRef(activeItem); currentItem.current = activeItem;
+  const changing = useRef(false);
+  const lifetime = useRef({ active: true, authority: 0 });
+  useEffect(() => {
+    const owned = { active: true, authority: 0 }; lifetime.current = owned;
+    const permission = () => { owned.authority++; };
+    editor.on('editor:editable.change', permission);
+    return () => { owned.active = false; editor.off('editor:editable.change', permission); };
+  }, [editor]);
+  const changeItem = async (next: typeof activeItem): Promise<boolean> => {
+    if (changing.current) return false;
+    const previous = currentItem.current, owner = lifetime.current;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch(), authority = owner.authority;
+    const itemId = previous && getNoteDatabase(editor, previous.nodeId)?.rowIds[previous.row];
+    const nextItemId = next && getNoteDatabase(editor, next.nodeId)?.rowIds[next.row];
+    const current = () => owner.active && lifetime.current === owner && owner.authority === authority &&
+      editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch && currentItem.current === previous &&
+      (!previous || !!itemId && getNoteDatabase(editor, previous.nodeId)?.rowIds[previous.row] === itemId) &&
+      (!next || !!nextItemId && getNoteDatabase(editor, next.nodeId)?.rowIds[next.row] === nextItemId);
+    changing.current = true;
+    try {
+      if (previous && beforeItemChange && !await beforeItemChange()) return false;
+      if (!current()) return false;
+      currentItem.current = next; setActiveItem(next); return true;
+    } catch { return false; }
+    finally { changing.current = false; }
+  };
   useEffect(() => { setActiveItem(undefined); }, [editor, active]);
   const mounts = useRef(new Map<string, HTMLElement>());
   useEffect(() => () => { for (const mount of mounts.current.values()) mount.remove(); mounts.current.clear(); }, []);
@@ -72,15 +100,15 @@ export function NoteDatabases({ editor, scope, active = true, renderItemBody, re
     const target = targets.find(target => editor.dataStore.getNode(target.id)?.attributes?.source === revealItem.source);
     const source = getNoteDatabaseSourceOptions(editor).find(source => source.source === revealItem.source);
     const row = source?.rowIds.indexOf(revealItem.rowId) ?? -1;
-    if (target && row >= 0) { revealedItem.current = revealItem; setActiveItem({ nodeId: target.id, row }); }
+    if (target && row >= 0) { revealedItem.current = revealItem; void changeItem({ nodeId: target.id, row }); }
   }, [editor, targets, revealItem]);
   return <>{targets.map(target => createPortal(<DatabaseCard editor={editor} nodeId={target.id} renderItemBody={renderItemBody} onOpenRelated={(source, rowId) => {
     const related = targets.find(target => editor.dataStore.getNode(target.id)?.attributes?.source === source);
     const data = getNoteDatabaseSourceOptions(editor).find(item => item.source === source);
     const row = data?.rowIds.indexOf(rowId) ?? -1;
     if (!related || row < 0) return false;
-    setActiveItem({ nodeId: related.id, row }); return true;
-  }} editingRow={activeItem?.nodeId === target.id ? activeItem.row : undefined} onRowChange={row => setActiveItem(previous => row === undefined ? (previous?.nodeId === target.id ? undefined : previous) : { nodeId: target.id, row })} />, target.mount, target.id))}</>;
+    void changeItem({ nodeId: related.id, row }); return true;
+  }} editingRow={activeItem?.nodeId === target.id ? activeItem.row : undefined} onRowChange={row => { void changeItem(row === undefined ? (currentItem.current?.nodeId === target.id ? undefined : currentItem.current) : { nodeId: target.id, row }); }} />, target.mount, target.id))}</>;
 }
 
 const NONE = '__note_no_field__';
@@ -151,9 +179,12 @@ function DatabaseCard({ editor, nodeId, renderItemBody, editingRow, onOpenRelate
   return <TipProvider><section className="ondb" data-note-database-ui={nodeId} aria-label={db.label || '데이터베이스'} contentEditable={false}
     onPointerDown={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onKeyDown={event => {
       if (event.defaultPrevented || (event.target instanceof Element && event.target.closest('[data-db-item-body]'))) return;
+      const key = event.key.toLowerCase();
+      // Document Save also belongs to row actions after an item restores their focus.
+      if ((event.metaKey || event.ctrlKey) && key === 's' && !event.altKey && !event.shiftKey &&
+        !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) return;
       event.stopPropagation();
       if (!(event.metaKey || event.ctrlKey) || event.nativeEvent.isComposing) return;
-      const key = event.key.toLowerCase();
       if (key !== 'z' && key !== 'y') return;
       const target = event.target;
       // An uncommitted input draft belongs to native input undo. Otherwise undo the dataset transaction.

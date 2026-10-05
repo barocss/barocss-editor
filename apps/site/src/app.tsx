@@ -1,5 +1,5 @@
 import { documentLocationWorkspace } from '@barocss/shared';
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Toolbar, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Toolbar, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase, type MenuBarMenu } from '@barocss/office-ui';
 import {
   FileActions,
   LocalDocuments,
@@ -10,10 +10,12 @@ import {
   type LocalDocumentActions,
   type DocumentFileActions
 } from '@barocss/office-editor-ui';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
+import type { SiteRuntime } from './runtime';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
+import { observeNoteSessionChanges } from '@barocss/office-note';
 import {
   Icon,
   AppChrome,
@@ -78,7 +80,7 @@ import {
   type Panel as RailPanel
 } from '@barocss/office-site/ui';
 
-import { DataTable, RowForm, type RegisterBodyFlush } from './data-editor';
+import { DataTable, RowForm, type RegisterBodyFlush, type BodyInputDelivery } from './data-editor';
 import { CodeEditor, type CodeEdit } from './code-editor';
 
 import { Ribbon } from './ribbon';
@@ -248,16 +250,52 @@ function payloadFor(
   return entry.payload;
 }
 
-export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM } }) {
+export interface SiteAppLifecycle {
+  beforeSnapshot(): Promise<void>;
+  captureInputIntent(): () => boolean;
+  hasPendingInput(): boolean;
+}
+export interface SiteServerHost {
+  headerActions?: ReactNode;
+  headerNavigation?: ReactNode;
+  navigation?: ReactNode;
+  readOnly: boolean;
+  onRuntime(runtime: SiteRuntime, lifecycle: SiteAppLifecycle): void;
+  onPendingInput(pending: boolean): void;
+  onFileAction(action: 'new' | 'open' | 'save' | 'library' | 'export'): void;
+}
+
+export function App({ mount, server }: {
+  mount: (host: HTMLElement) => SiteRuntime;
+  server?: SiteServerHost;
+}) {
   const { t } = useOfficeLocale();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
-  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
+  const serverRef = useRef(server); serverRef.current = server;
+  const [instance, setInstance] = useState<SiteRuntime | null>(null);
+  const lifecycle = useRef<SiteAppLifecycle>({ beforeSnapshot: async () => {}, hasPendingInput: () => false, captureInputIntent: () => () => false });
+  const inputState = useRef({ version: 0, pending: false, code: false, composing: false });
+  const notifyPending = useCallback(() => {
+    const state = inputState.current;
+    serverRef.current?.onPendingInput(state.pending || state.code || state.composing);
+  }, []);
+  const codePending = useCallback((pending: boolean) => {
+    inputState.current.code = pending;
+    notifyPending();
+  }, [notifyPending]);
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
     mounted.current = true;
-    setInstance(mount(host.current));
+    const value = mount(host.current);
+    setInstance(value);
+    serverRef.current?.onRuntime(value, {
+      beforeSnapshot: () => lifecycle.current.beforeSnapshot(),
+      hasPendingInput: () => lifecycle.current.hasPendingInput(),
+      captureInputIntent: () => lifecycle.current.captureInputIntent()
+    });
+    return () => { value.dispose(); mounted.current = false; };
   }, [mount]);
 
   /**
@@ -413,6 +451,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   const [selectedBoard, setSelectedBoard] = useState<BreakpointId>('desktop');
 
   const editor = instance?.editor ?? null;
+  const readOnly = !!server?.readOnly || editor?.isEditable === false;
 
   /**
    * The code block a reader has opened, if any.
@@ -785,17 +824,47 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
   }, [instance]);
   const [failedInput, setFailedInput] = useState(false);
   useEffect(() => { setFailedInput(false); }, [instance]);
+  const frameDelivery = useRef(new Map<(isReady?: () => boolean) => Promise<boolean>, EditorViewDOM>());
   const retryInput = async () => {
-    if (!instance?.view.hasFailedInputDelivery) return;
+    if (!instance) return;
     const root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
-    const owns = () => pane.current?.isConnected === true && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
-    if (await instance.view.retryInputDelivery(owns) && owns()) setFailedInput(false);
+    const owns = () => activeInput.current === instance && pane.current?.isConnected === true &&
+      instance.editor.isEditable && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
+    const failure = instance.commandFailure();
+    const views = new Set([instance.view, ...frameDelivery.current.values()]);
+    const bodies = failure ? [...bodyFlushes.current].filter(body => body.hasFailedInputDeliveryError?.(failure.error)) : [];
+    const correlated = failure && ([...views].some(view => view.hasFailedInputDeliveryError(failure.error)) || bodies.length > 0);
+    for (const view of views) {
+      if (view.hasFailedInputDelivery && (!owns() || !await view.retryInputDelivery(owns) || !owns())) return;
+    }
+    for (const body of bodies) {
+      if (!owns() || !body.retryInputDelivery || !await body.retryInputDelivery(owns) || !owns() ||
+        !body.hasFailedInputDeliveryError?.(failure!.error)) return;
+    }
+    if (failure && (!correlated || !failure.acknowledge(owns))) return;
+    if (owns()) setFailedInput(false);
   };
-  const bodyFlushes = useRef(new Set<() => Promise<void>>());
+  const [serverNavigationOpen, setServerNavigationOpen] = useState(false);
+  const registerFrameDelivery = useCallback((deliver: (isReady?: () => boolean) => Promise<boolean>, view: EditorViewDOM) => {
+    frameDelivery.current.set(deliver, view); return () => { frameDelivery.current.delete(deliver); };
+  }, []);
+  const bodyFlushes = useRef(new Set<BodyInputDelivery>());
   const registerBodyFlush = useCallback<RegisterBodyFlush>((flush) => {
     bodyFlushes.current.add(flush);
     return () => { bodyFlushes.current.delete(flush); };
   }, []);
+  useEffect(() => {
+    if (!instance) return;
+    const failed = ({ error }: { error: unknown }) => {
+      queueMicrotask(() => {
+        if (activeInput.current !== instance || instance.commandFailure()?.error !== error) return;
+        if ([instance.view, ...frameDelivery.current.values()].some(view => view.hasFailedInputDeliveryError(error)) ||
+          [...bodyFlushes.current].some(body => body.hasFailedInputDeliveryError?.(error))) setFailedInput(true);
+      });
+    };
+    instance.editor.on('error:command', failed);
+    return () => instance.editor.off('error:command', failed);
+  }, [instance]);
   const flushBodies = useCallback(async () => {
     if (!instance || composing.current.size) throw new Error('마지막 입력을 완료한 뒤 다시 시도하세요.');
     const root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
@@ -803,7 +872,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     const owns = () => activeInput.current === instance && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch &&
       instance.editor.isEditable === editable && !composing.current.size;
     // A replacement can notify its host before the new inspector commits.
-    const currentOwner = (owner: typeof inputOwner) => owner?.instance === instance && owner.root === root && owner.epoch === epoch;
+    const currentOwner = (owner: typeof inputOwner) => !!owner && owner.instance === instance && owner.root === root && owner.epoch === epoch;
     const ready = () => currentOwner(committedInput.current) && (!propertyDelivery.current || currentOwner(propertyDelivery.current.owner));
     if (!ready() && !await new Promise<boolean>(resolve => {
       const check = () => {
@@ -819,6 +888,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     if (!owns() || !await instance.view.deliverInput(owns)) { setFailedInput(instance.view.hasFailedInputDelivery); throw new Error('마지막 입력을 반영하지 못했습니다. 현재 입력은 유지합니다.'); }
     setFailedInput(false);
     if (properties && (propertyDelivery.current !== properties || !currentOwner(properties.owner) || !await properties.deliver(owns) || !owns() || propertyDelivery.current !== properties)) throw new Error('속성 입력을 반영하지 못했습니다. 다시 시도하세요.');
+    for (const [deliver, view] of [...frameDelivery.current]) {
+      if (!owns() || !await deliver(owns) || !owns()) {
+        setFailedInput(view.hasFailedInputDelivery);
+        throw new Error('페이지의 마지막 입력을 반영하지 못했습니다. 입력을 유지합니다.');
+      }
+    }
     for (const flush of [...bodyFlushes.current].reverse()) {
       if (!owns()) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
       await flush();
@@ -836,7 +911,35 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     } catch { if (owns()) setRowCloseFailed(true); }
     finally { if (closingRow.current === token) closingRow.current = null; }
   };
-  const sessionOptions = useMemo(() => editor ? siteSessionOptions(editor, flushBodies) : null, [editor, flushBodies]);
+  lifecycle.current = {
+    captureInputIntent: () => {
+      const value = instance, owner = inputOwner, version = inputState.current.version;
+      const native = value?.captureInputIntent();
+      const bodies = [...bodyFlushes.current].map(body => ({ body, witness: body.captureInputIntent?.() }));
+      const ownsBodies = () => bodyFlushes.current.size === bodies.length &&
+        bodies.every(({ body, witness }) => bodyFlushes.current.has(body) && !!witness?.());
+      return () => !!value && activeInput.current === value && committedInput.current === owner &&
+        !!native?.() && ownsBodies() && inputState.current.version === version && !inputState.current.pending &&
+        !inputState.current.code && !inputState.current.composing && !composing.current.size;
+    },
+    hasPendingInput: () => inputState.current.pending || inputState.current.code || inputState.current.composing ||
+      !!composing.current.size || [...bodyFlushes.current].some(body => !body.captureInputIntent?.()?.()),
+    beforeSnapshot: async () => {
+      for (let pass = 0; pass < 3; pass++) {
+        if (inputState.current.composing || composing.current.size) throw new Error('Finish composing before saving.');
+        const version = inputState.current.version;
+        await flushBodies();
+        await instance?.flushCommands();
+        if (inputState.current.composing || composing.current.size) throw new Error('Finish composing before saving.');
+        if (version !== inputState.current.version) continue;
+        inputState.current.pending = false;
+        notifyPending();
+        return;
+      }
+      throw new Error('Input changed during flush. Retry with the latest input.');
+    }
+  };
+  const sessionOptions = useMemo(() => editor && !server ? siteSessionOptions(editor, flushBodies) : null, [editor, !!server, flushBodies]);
   const persistence = useLocalDocuments(sessionOptions);
   const workspaceEntry = documentLocationWorkspace();
   const workspacePage = useRef('');
@@ -865,6 +968,25 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       document.removeEventListener('beforeinput', pending, true);
     };
   }, [persistence.session]);
+  useEffect(() => {
+    if (!server || !editor) return;
+    const pending = () => { inputState.current.version++; inputState.current.pending = true; notifyPending(); };
+    const belongs = (event: Event) => !!host.current?.closest('.st-shell')?.contains(event.target as Node);
+    const input = (event: Event) => {
+      if (belongs(event) && (event.target as Element | null)?.closest?.('[contenteditable="true"], input, textarea')) pending();
+    };
+    const start = (event: Event) => { if (belongs(event)) { inputState.current.composing = true; pending(); } };
+    const end = (event: Event) => { if (belongs(event)) { inputState.current.composing = false; pending(); } };
+    const off = observeNoteSessionChanges(editor, pending);
+    document.addEventListener('input', input, true);
+    document.addEventListener('beforeinput', input, true);
+    document.addEventListener('compositionstart', start, true);
+    document.addEventListener('compositionend', end, true);
+    return () => {
+      off(); document.removeEventListener('input', input, true); document.removeEventListener('beforeinput', input, true);
+      document.removeEventListener('compositionstart', start, true); document.removeEventListener('compositionend', end, true);
+    };
+  }, [editor, !!server, notifyPending]);
   const [exportTask, setExportTask] = useState<{ phase: TaskPhase; title: string; description: string }>();
   const [exportRetry, setExportRetry] = useState<() => void>();
   const exportBusy = useRef(false);
@@ -913,11 +1035,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       }
       switch (entry.view) {
         case 'file.new':
-          return files.current?.create();
+          return serverRef.current ? serverRef.current.onFileAction('new') : files.current?.create();
         case 'file.open':
+          if (serverRef.current) { setServerNavigationOpen(true); return serverRef.current.onFileAction('open'); }
           return files.current?.open();
         case 'file.save':
-          return files.current?.save();
+          return serverRef.current ? serverRef.current.onFileAction('save') : files.current?.save();
         case 'frames.all':
           return setHidden([]);
         case 'preview':
@@ -975,7 +1098,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             guard();
             let downloaded = '';
             const ok = await editor.executeCommand(entry.command!, {
-              ...payload,
+              ...payload, registry: instance?.registry,
               write: ({ pages, files }: {
                 pages: { path: string; file: string; name: string; html: string }[];
                 files?: { file: string; text?: string; bytes?: string; type: string }[];
@@ -1029,14 +1152,17 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const onMenu = useCallback(
     (id: string) => {
+      if (id === 'workspace.export') { serverRef.current?.onFileAction('export'); return; }
+      if (id === 'workspace.recent' && serverRef.current) { setServerNavigationOpen(true); return; }
       if (id === 'workspace.recent') { recentDocuments.current?.open(documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')); return; }
       const entry = siteMenuEntry(id, menus);
       if (entry) runEntry(entry);
     },
     [runEntry]
   );
-  const documentMenus = bar.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks,
-    { id: 'original-library', items: [{ id: 'workspace.recent', label: t('document.library.recent'), disabled: !editor || preview }] }
+  const documentMenus: MenuBarMenu[] = bar.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks,
+    ...(server ? [{ id: 'native-export', items: [{ id: 'workspace.export', label: t('site.server.export'), icon: 'download' as const, disabled: !editor }] }] : []),
+    { id: 'original-library', items: [{ id: 'workspace.recent', label: server ? t('site.server.documentActions') : t('document.library.recent'), disabled: !editor || preview }] }
   ] } : menu);
   /**
    * What the pointer treats as the outermost thing.
@@ -1680,9 +1806,9 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
       <AppChrome className="st-chrome">
         <EditorHeader compact product="Site" className="st-documentbar"
-          fallbackNavigation={<ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
+          fallbackNavigation={server?.headerNavigation ?? <ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
           title={editor ? siteTitle(editor.dataStore as never) || '제목 없는 사이트' : '불러오는 중'}
-          menus={<span ref={documentMenuHost}><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} onPick={onMenu} /></span>}
+          menus={<span ref={documentMenuHost}>{server ? <SecondaryPopup triggerLabel={t('site.server.documentActions')} label={t('site.server.documentActions')} open={serverNavigationOpen} onOpenChange={setServerNavigationOpen} align="start" trigger={() => <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} onPick={onMenu} />}>{server.navigation}</SecondaryPopup> : <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} onPick={onMenu} />}</span>}
           tools={editor ? <Toolbar variant="compact" className="st-header-tools" label={t('site.header.insertTools')}>
             {historyItems.map(item => <IconButton key={item.command} label={item.label} preserveFocus
               disabled={!!menuItems.find(entry => entry.id === item.id)?.disabled}
@@ -1699,8 +1825,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
               <ZoomControl zoom={zoom} ladder={SITE_ZOOM_LADDER} onChange={next => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
             </>}
           </Toolbar> : undefined}
-          actions={<><LocalDocuments ref={recentDocuments} showTrigger={false} persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />
-          <div className="st-header-actions">{completeTools}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly /></div>
+          actions={<>{!server && <LocalDocuments ref={recentDocuments} showTrigger={false} persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />}
+          <div className="st-header-actions">{completeTools}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly />{server?.headerActions}</div>
 
 
 
@@ -1708,7 +1834,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
       </AppChrome>
 
-          {editor ? <FileActions showTrigger={false} ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
+          {editor && !server ? <FileActions showTrigger={false} ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
           {exportTask && <TaskStatusRegion label="사이트 출력 상태"><TaskStatus title={exportTask.title} phase={exportTask.phase} description={exportTask.description}
             onDismiss={() => { setExportTask(undefined); setExportRetry(undefined); }}
             actions={exportTask.phase === 'error' && exportRetry ? <Button onClick={exportRetry}>다시 시도</Button> : undefined} /></TaskStatusRegion>}
@@ -1817,7 +1943,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
              */
             onFiles={(files, at) => {
               const editor = instance?.editor;
-              if (!editor) return;
+              if (!editor || !editor.isEditable) return;
               const under = document
                 .elementsFromPoint(at.x, at.y)
                 .find((one) => one.hasAttribute('data-bc-sid'));
@@ -1849,6 +1975,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                   <PageFrame
                     key={one.id}
                     editor={instance.editor}
+                    registry={instance.registry}
+                    registerInputDelivery={registerFrameDelivery}
                     breakpoint={one.id}
                     label={definition ? `${definition.name} · ${one.label}` : one.label}
                     width={one.width}
@@ -1934,7 +2062,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             open, and a host that unmounted it would be taking the editor's own view away from it
             while the boards above are still drawing.
           */}
-          <div ref={host} id="editor" hidden />
+          <div ref={host} data-site-native-host hidden />
         </AppMain>
 
         {/*
@@ -1945,8 +2073,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         */}
         {codeEdit && editor ? (
           <CodeEditor
+            key={codeEdit.sid}
             edit={codeEdit}
-            onCommit={(code) => {
+            editable={!readOnly}
+            registerFlush={registerBodyFlush}
+            onPendingChange={codePending}
+            onCommit={async (code, isCurrent) => {
               /*
                * One transaction for the whole session, whatever happened inside. CodeMirror keeps
                * its own history while it is open and the document never hears about it — so a reader
@@ -1954,8 +2086,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                */
               const store = editor.dataStore as { getNode: (one: string) => any };
               const run = codeEdit.runSid ? store.getNode(codeEdit.runSid) : undefined;
-              if (!run) return;
-              void editor.executeCommand('replaceText', {
+              if (!run || !editor.isEditable) throw new Error('The code target is no longer editable.');
+              const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+              const accepted = await editor.executeCommand('replaceText', {
+                canApply: () => isCurrent() && editor.isEditable && editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch && store.getNode(codeEdit.runSid!) === run,
                 range: {
                   type: 'range',
                   startNodeId: codeEdit.runSid,
@@ -1965,6 +2099,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                 },
                 text: code
               });
+              if (!accepted) throw new Error('The code draft was not applied.');
             }}
             onClose={() => {
               setCodeEdit(undefined);
@@ -1991,7 +2126,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           surfaces this suite had were built in a **model** package, drawing their own DOM, and
           installed by nobody.
         */}
-        {editor ? <TextSurface key={toolOwnerKey} editor={given ?? editor} mode={writing ? 'text' : mode} active={!preview && !admin && !dataset} ownerKey={toolOwnerKey} scope={pane} portalRoot={pane.current} onFullTools={() => setFullTools(true)} /> : null}
+        {editor ? <TextSurface key={toolOwnerKey} editor={given ?? editor} mode={writing ? 'text' : mode} active={!readOnly && !preview && !admin && !dataset} ownerKey={toolOwnerKey} scope={pane} portalRoot={pane.current} onFullTools={() => setFullTools(true)} /> : null}
 
         {/**
           * And the `/` menu at the caret — the second one, and it is a list.
@@ -2013,7 +2148,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           product's `mode` guard — a page builder's pointer has a select mode where `/` is a
           character, and a body has no such mode. That is now the `active` prop.
         */}
-        {editor ? <SlashMenu editor={editor} active={writing || rowForm ? true : mode === 'text'} /> : null}
+        {editor ? <SlashMenu editor={editor} active={!readOnly && (writing || rowForm ? true : mode === 'text')} /> : null}
 
         {/*
           **No properties panel in the admin.** A panel is about a block, and the admin has none:

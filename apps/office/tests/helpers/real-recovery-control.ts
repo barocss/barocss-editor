@@ -19,7 +19,7 @@ export interface RealStatus {
   betaWorkspaceId: string;
 }
 
-export interface Inspection<Product extends 'note' | 'word' | 'slides' = 'note'> extends RealStatus {
+export interface Inspection<Product extends 'note' | 'word' | 'slides' | 'site' = 'note'> extends RealStatus {
   documentCount: number;
   receiptCount: number;
   document: {

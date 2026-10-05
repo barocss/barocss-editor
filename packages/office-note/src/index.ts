@@ -31,7 +31,7 @@ export {
 } from './note-schema';
 
 export { createNoteEditor, createNoteExtensions, noteSlashItems } from './note-kit';
-export { openNote, openNoteTree, noteTreeOf, type NoteSession } from './session';
+export { openNote, openNoteTree, noteTreeOf, noteNodeTreeOf, rememberNoteNativeSource, hasNoteNativeSource, observeNoteSessionChanges, type NoteSession } from './session';
 export { createNoteElementCommands, NOTE_INSERTS } from './element-commands';
 export { noteRegistry, registerNoteRenderers, registerNoteStandalone } from './renderers';
 export { NOTE_PICKED, NOTE_PICKED_WRITTEN, NOTE_WRITTEN, cellAt, holdsWriting, isPicked, pickedAt } from './selection';

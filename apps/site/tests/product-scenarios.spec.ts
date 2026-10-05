@@ -10,7 +10,8 @@ async function fileAction(page: Page, name: string) {
 }
 
 async function backToAdmin(page: Page) {
-  await page.getByRole('button', { name: '모든 도구', exact: true }).click();
+  await page.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
   await page.getByRole('button', { name: '관리로', exact: true }).click();
 }
 
@@ -78,7 +79,7 @@ test('[SITE-AUTHORED-MULTIPAGE-OUTPUT-UI-001] saves final native body input and 
   await fileAction(page, '새 사이트');
   await saved(page);
   expect(page.url()).not.toBe(url);
-  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await fileAction(page, '최근 자료');
   await page.locator(`[data-site-document="${id}"]`).getByRole('button').click();
   await saved(page);
   expect(page.url()).toBe(url);
