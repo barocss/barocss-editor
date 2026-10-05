@@ -514,3 +514,182 @@ for (const product of products) test(`real ${product} native input, explicit sav
     if (cleanupFailure) throw cleanupFailure;
   }
 });
+
+
+test('real Note committed update loss retains fixed request and later draft across library return and receipt confirmation', async ({ browser: _browser }, info: TestInfo) => {
+  test.setTimeout(180_000);
+  const product = 'note' as const;
+  const directory = mkdtempSync(join('/private/tmp/', '468-note-fixed-loss-'));
+  const profiles: Awaited<ReturnType<typeof launchPrivateProfile>>[] = [];
+  const evidence: Record<string, unknown> = { product, phase: 'preparation',
+    scope: 'One committed update with lost ACK and a separate later draft; no before-commit resend or process restart',
+    history: 'New recovery probe/Undo only; prior remount history not claimed' };
+  const writes: { expectedRevision: number; idempotencyKey: string; snapshotText: string }[] = [];
+  const publications: string[] = [], receiptReads: { key: string; currentA: boolean }[] = [];
+  let primaryFailure: unknown, routeFailure: unknown, releaseAck = () => {}, committed = false, routeSettled = false;
+  try {
+    const status = await privateControl<RealStatus>({ action: 'status' });
+    const profile = await launchPrivateProfile(join(directory, 'a')); profiles.push(profile);
+    const page = profile.context.pages()[0], identity = await login(page, 'alpha-editor', status);
+    const root = `/api/v1/tenants/${status.tenantId}`, name = `Note fixed loss ${randomUUID()}`, createKey = randomUUID();
+    const created = await api(page, `${root}/documents`, 'POST', { workspaceId: status.workspaceId, product, title: name,
+      fileFormat: 'barocss-note', fileVersion: 1, snapshotText: original(product), idempotencyKey: createKey, importMode: 'new-page-copy' });
+    expect(created.status).toBe(201); const signedCreate = created.value as Receipt, id = signedCreate.document.documentId;
+    expect(signedCreate.document).toMatchObject({ creatorUserId: identity.userId, revision: 1 });
+    const baseline = (JSON.parse(signedCreate.snapshotText) as File).document;
+    const inspect = (key?: string, operation = 'update') => privateControl<Inspection>({ action: 'inspect', product, documentId: id,
+      ...(key ? { idempotencyKey: key, operation, actor: 'alpha-editor' } : {}) });
+    const before = await inspect(createKey, 'create');
+    expect(before.document!.snapshotText).toBe(signedCreate.snapshotText); expect(before.document!.canonicalTree).toEqual(baseline);
+    expect(before.receipt!.snapshotText).toBe(signedCreate.snapshotText); expect(before.document!.snapshotHash).toBe(hash(signedCreate.snapshotText));
+    evidence.original = { signedCreate, document: before.document, createReceipt: before.receipt };
+    await page.evaluate(() => window.dispatchEvent(new Event('wonffice:catalog-refresh')));
+    await tree(page).locator('.ow-tree-perspectives').getByRole('button', { name: '내 파일', exact: true }).click();
+    await tree(page).getByRole('textbox', { name: '파일 검색', exact: true }).fill(name);
+    await tree(page).getByRole('combobox', { name: '파일 제품 필터', exact: true }).selectOption(product);
+    const selector = `[data-original='${JSON.stringify([status.tenantId, status.workspaceId, product, id])}']`;
+    await expect(tree(page).locator(selector)).toHaveCount(1); await tree(page).locator(selector).click();
+    await expect(host(page, product)).toBeVisible();
+    const paragraph = await input(page, product); await expect(paragraph).toHaveText(seed.note);
+    page.on('request', wire => {
+      const path = new URL(wire.url()).pathname;
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(wire.method()) && (path === `${root}/documents` || path.startsWith(`${root}/documents/`))) publications.push(`${wire.method()} ${path}`);
+      if (wire.method() === 'PUT' && path === `${root}/documents/${id}/snapshot`) writes.push(wire.postDataJSON());
+      if (wire.method() === 'GET' && path.startsWith(`${root}/receipts/update/`)) {
+        const bearer = wire.headers().authorization ?? '';
+        const claims = bearer.startsWith('Bearer ') ? JSON.parse(Buffer.from(bearer.slice(7).split('.')[1], 'base64url').toString()) : {};
+        receiptReads.push({ key: path.slice(`${root}/receipts/update/`.length), currentA: claims.iss === identity.issuer && claims.sub === identity.subject });
+      }
+    });
+    const fixedInput = ' FIXED COMMITTED INPUT', later = ' LATER UNSENT INPUT';
+    const expectedFixed = edited(baseline, product, fixedInput), expectedLater = edited(baseline, product, fixedInput + later);
+    await append(page, paragraph, product, fixedInput);
+    const fixedDraft = await currentInputDraft(page, product, id, expectedFixed);
+    expect(await publicNative(page, product, id, expectedFixed, fixedDraft.draftId)).toEqual(expectedFixed);
+    const gate = new Promise<void>(resolve => { releaseAck = resolve; });
+    await page.route(`${origin}${root}/documents/${id}/snapshot`, async route => {
+      try {
+        const bearer = route.request().headers().authorization ?? '';
+        const claims = JSON.parse(Buffer.from(bearer.slice(7).split('.')[1], 'base64url').toString());
+        expect(bearer.startsWith('Bearer ') && claims.iss === identity.issuer && claims.sub === identity.subject,
+          'The admitted real update must use the current signed A principal').toBe(true);
+        const response = await route.fetch(); expect(response.status()).toBe(200);
+        evidence.actualHeldAck = await response.json(); committed = true;
+        await gate; await route.abort('failed');
+      } catch (cause) { routeFailure = cause; await route.abort('failed').catch(() => {}); }
+      finally { routeSettled = true; }
+    }, { times: 1 });
+    evidence.phase = 'real-save-held-ack'; await host(page, product).getByRole('button', { name: '저장', exact: true }).click();
+    await expect.poll(() => committed || routeFailure !== undefined).toBe(true); if (routeFailure) throw routeFailure;
+    expect(writes).toHaveLength(1); const fixedRequest = writes[0];
+    expect(fixedRequest.expectedRevision).toBe(1); expect(JSON.parse(fixedRequest.snapshotText).document).toEqual(expectedFixed);
+    const committedPg = await inspect(fixedRequest.idempotencyKey);
+    expect(committedPg.document!.snapshotText).toBe(fixedRequest.snapshotText); expect(committedPg.document!.canonicalTree).toEqual(expectedFixed);
+    expect(committedPg.document!.snapshotHash).toBe(hash(fixedRequest.snapshotText)); expect(committedPg.document!.revision).toBe(2);
+    expect(committedPg.receipt!.snapshotText).toBe(fixedRequest.snapshotText); expect(committedPg.receipt!.idempotencyKey).toBe(fixedRequest.idempotencyKey);
+    expect(committedPg.receiptCount).toBe(before.receiptCount + 1); expect(committedPg.documentCount).toBe(before.documentCount);
+    expect(evidence.actualHeldAck).toMatchObject({ snapshotText: fixedRequest.snapshotText, document: { documentId: id, revision: 2, creatorUserId: identity.userId } });
+    const rawRows = async () => page.evaluate(id => Object.keys(localStorage).filter(key => key.startsWith('wonffice.note.pending.v1:'))
+      .map(key => ({ key, raw: localStorage.getItem(key)! })).filter(row => JSON.parse(row.raw).base?.documentId === id), id);
+    const fixedRaw = (await rawRows()).find(row => JSON.parse(row.raw).attempt?.idempotencyKey === fixedRequest.idempotencyKey);
+    if (!fixedRaw) throw new Error('Missing genuinely admitted durable fixed request');
+    const fixedRecord = JSON.parse(fixedRaw.raw) as Draft;
+    expect(fixedRecord.draftId).toBe(fixedDraft.draftId); expect(fixedRecord.status).toBe('pending');
+    expect(fixedRecord.attempt).toMatchObject(fixedRequest); expect(fixedRecord.snapshotText).toBe(fixedRequest.snapshotText);
+    expect(fixedRecord.base).toEqual({ operation: 'update', documentId: id, expectedRevision: 1 });
+    expect(fixedRecord.scope.issuer === identity.issuer && fixedRecord.scope.subject === identity.subject &&
+      fixedRecord.scope.tenantId === status.tenantId && fixedRecord.scope.workspaceId === status.workspaceId,
+    'Pending scope must match the current signed owner and workspace').toBe(true);
+    evidence.phase = 'later-native-input-before-ack-loss'; await append(page, paragraph, product, later, true);
+    const laterDraft = await currentInputDraft(page, product, id, expectedLater);
+    expect(laterDraft.draftId).not.toBe(fixedRecord.draftId); expect(laterDraft.status).toBe('draft'); expect(laterDraft.attempt).toBeUndefined();
+    expect(laterDraft.base).toEqual(fixedRecord.base); expect(laterDraft.scope).toEqual(fixedRecord.scope);
+    expect(await publicNative(page, product, id, expectedLater, laterDraft.draftId)).toEqual(expectedLater);
+    const laterRaw = (await rawRows()).find(row => JSON.parse(row.raw).draftId === laterDraft.draftId);
+    if (!laterRaw) throw new Error('Missing distinct actual later native draft');
+    const unchangedRaw = async (row: { key: string; raw: string }) => expect(await page.evaluate(key => localStorage.getItem(key), row.key)).toBe(row.raw);
+    const unchangedPg = async () => {
+      const current = await inspect(fixedRequest.idempotencyKey);
+      expect(current.document).toEqual(committedPg.document); expect(current.receipt).toEqual(committedPg.receipt);
+      expect(current.receiptCount).toBe(committedPg.receiptCount); expect(current.documentCount).toBe(committedPg.documentCount);
+      expect((await inspect(createKey, 'create')).receipt).toEqual(before.receipt);
+    };
+    await unchangedRaw(fixedRaw); await unchangedRaw(laterRaw); await unchangedPg();
+    releaseAck(); await expect.poll(() => routeSettled).toBe(true); if (routeFailure) throw routeFailure;
+    await expect(host(page, product).getByRole('button', { name: '저장 확인·재시도', exact: true })).toBeEnabled();
+    expect(receiptReads).toHaveLength(0); expect(publications).toEqual([`PUT ${root}/documents/${id}/snapshot`]);
+    await unchangedRaw(fixedRaw); await unchangedRaw(laterRaw); await unchangedPg();
+    evidence.fixed = { request: fixedRequest, record: { draftId: fixedRecord.draftId, snapshotText: fixedRecord.snapshotText,
+      status: fixedRecord.status, base: fixedRecord.base, attempt: fixedRecord.attempt }, privatePg: committedPg.document, receipt: committedPg.receipt };
+    evidence.later = { draftId: laterDraft.draftId, snapshotText: laterDraft.snapshotText, base: laterDraft.base, expectedNative: expectedLater };
+    evidence.phase = 'library-and-logout-no-new-publication';
+    await tree(page).locator('.ow-tree-footer').getByRole('button', { name: '자료함', exact: true }).click(); await expect(host(page, product)).toHaveCount(0);
+    await unchangedRaw(fixedRaw); await unchangedRaw(laterRaw); await unchangedPg();
+    expect(receiptReads).toHaveLength(0); expect(writes).toHaveLength(1); expect(publications).toEqual([`PUT ${root}/documents/${id}/snapshot`]);
+    await page.locator('.ow-workspace-rail-footer').getByRole('button', { name: '로그아웃', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Wonffice에 들어가기', exact: true })).toBeVisible();
+    await unchangedRaw(fixedRaw); await unchangedRaw(laterRaw); await unchangedPg(); expect(receiptReads).toHaveLength(0); expect(writes).toHaveLength(1);
+    evidence.phase = 'current-A-return-explicit-fixed-recovery'; const returned = await login(page, 'alpha-editor', status);
+    expect(returned.issuer === identity.issuer && returned.subject === identity.subject && returned.userId === identity.userId,
+      'The rightful returned owner must be the current signed A').toBe(true);
+    await tree(page).locator('.ow-tree-perspectives').getByRole('button', { name: '내 파일', exact: true }).click();
+    await tree(page).getByRole('textbox', { name: '파일 검색', exact: true }).fill(name);
+    await tree(page).getByRole('combobox', { name: '파일 제품 필터', exact: true }).selectOption(product);
+    await expect(tree(page).locator(selector)).toHaveCount(1); await tree(page).locator(selector).click(); await expect(host(page, product)).toBeVisible();
+    await expect(await input(page, product)).toHaveText(seed.note + fixedInput);
+    await host(page, product).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+    const recovery = (draftId: string) => host(page, product).getByRole('button', { name: `초안 복구 ${baseline.attributes!.title} ${draftId.slice(0, 8)}`, exact: true });
+    await expect(recovery(fixedRecord.draftId)).toBeEnabled(); await recovery(fixedRecord.draftId).click();
+    await expect(await input(page, product)).toHaveText(seed.note + fixedInput);
+    await unchangedRaw(fixedRaw); await unchangedRaw(laterRaw); await unchangedPg(); expect(receiptReads).toHaveLength(0); expect(writes).toHaveLength(1);
+    evidence.phase = 'receipt-confirmation-no-second-put';
+    await host(page, product).getByRole('button', { name: '저장 확인·재시도', exact: true }).click();
+    await expect(host(page, product).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+    expect(receiptReads).toEqual([{ key: fixedRequest.idempotencyKey, currentA: true }]);
+    expect(writes).toEqual([fixedRequest]); expect(publications).toEqual([`PUT ${root}/documents/${id}/snapshot`]);
+    const confirmedRaw = (await rawRows()).find(row => row.key === fixedRaw.key);
+    if (!confirmedRaw) throw new Error('Fixed request identity disappeared after receipt confirmation');
+    const confirmedRecord = JSON.parse(confirmedRaw.raw) as Draft;
+    expect(confirmedRecord.status).toBe('confirmed');
+    expect({ ...confirmedRecord, status: fixedRecord.status, savedAt: fixedRecord.savedAt }).toEqual(fixedRecord);
+    await unchangedRaw(laterRaw); await unchangedPg();
+    evidence.phase = 'explicit-later-recovery-original-stale-base'; await expect(recovery(laterDraft.draftId)).toBeEnabled(); await recovery(laterDraft.draftId).click();
+    const recovered = await input(page, product); await expect(recovered).toHaveText(seed.note + fixedInput + later);
+    await unchangedRaw(laterRaw); await unchangedPg();
+    const probeInput = ' LATER RECOVERY PROBE'; await append(page, recovered, product, probeInput, true);
+    const probe = await currentInputDraft(page, product, id, edited(baseline, product, fixedInput + later + probeInput));
+    expect(probe.draftId).not.toBe(laterDraft.draftId); expect(probe.scope).toEqual(laterDraft.scope); expect(probe.base).toEqual(laterDraft.base);
+    await page.keyboard.press('ControlOrMeta+z'); await expect(recovered).toHaveText(seed.note + fixedInput + later);
+    expect(await publicNative(page, product, id, expectedLater, probe.draftId)).toEqual(expectedLater);
+    await unchangedRaw(laterRaw); await unchangedRaw(confirmedRaw); await unchangedPg();
+    expect(writes).toEqual([fixedRequest]); expect(publications).toEqual([`PUT ${root}/documents/${id}/snapshot`]);
+    expect(receiptReads).toEqual([{ key: fixedRequest.idempotencyKey, currentA: true }]);
+    const canonical = await api(page, `${root}/documents/${id}`); expect(canonical.status).toBe(200);
+    expect(canonical.value.snapshotText).toBe(fixedRequest.snapshotText); expect(canonical.value.document).toMatchObject({ documentId: id, creatorUserId: identity.userId, revision: 2 });
+    evidence.result = { currentSignedOwnerVerified: true, fixedRawPreservedUntilExplicitConfirmation: true, laterRawPreserved: true,
+      fixedConfirmationChangesOnlyStatusAndSavedAt: true, sameCanonicalAndCreateUpdateReceiptsCounts: true,
+      mountedNative: expectedLater, probeNative: JSON.parse(probe.snapshotText).document, probeDraftId: probe.draftId,
+      originalStaleBase: laterDraft.base, automaticRestore: false, silentRebase: false, noSecondPut: true,
+      receiptReads, publications, recorderDomain: 'Browser page request events; route.fetch forwards the one admitted real request',
+      fullRawEquality: 'Passed source assertions; private complete scope/raw strings excluded from attachment' };
+    evidence.phase = 'complete-bounded-success';
+  } catch (cause) {
+    primaryFailure = cause; evidence.primaryFailure = { name: cause instanceof Error ? cause.name : 'unknown',
+      sourceLine: cause instanceof Error ? cause.stack?.match(/auth-real-workspace-native-return\.spec\.ts:(\d+):\d+/)?.[1] : undefined };
+  } finally {
+    releaseAck();
+  }
+  {
+    const closed = await Promise.allSettled(profiles.map(profile => stopPrivateProfile(profile.context, profile.pid)));
+    evidence.cleanup = closed.map(result => ({ status: result.status })); evidence.writes = writes;
+    await info.attach('note-fixed-loss-source-bound-proof', { body: JSON.stringify(evidence, null, 2), contentType: 'application/json' });
+    rmSync(directory, { recursive: true, force: true });
+    let cleanupFailure: unknown;
+    try { expect(closed.every(result => result.status === 'fulfilled'), 'Private browser processes must close').toBe(true); }
+    catch (cause) { cleanupFailure = cause; }
+    if (primaryFailure && cleanupFailure) throw new AggregateError([primaryFailure, cleanupFailure], 'Note fixed loss and browser cleanup both failed');
+    if (primaryFailure) throw primaryFailure;
+    if (cleanupFailure) throw cleanupFailure;
+  }
+});
