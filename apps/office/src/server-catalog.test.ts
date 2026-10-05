@@ -20,6 +20,62 @@ const catalog = (): AuthorizedWorkspaceCatalog => ({ source: 'server', tenantId,
   capabilities: { stableFolders: false, ownershipClassification: false }, documents: [head(1), head(2, 'site')],
   projects: [project('first'), project('second')], state: 'ready' });
 const options = { perspective: 'project' as const, product: 'all' as const, query: '', sourcesLabel: '접근 가능한 원본' };
+const person = '44444444-4444-4444-8444-444444444444';
+const otherPerson = '55555555-5555-4555-8555-555555555555';
+const myOptions = { ...options, perspective: 'my' as const,
+  ownershipLabels: { createdByMe: 'Created by me', sharedInWorkspace: 'Shared in this workspace', creatorUnknown: 'Creator unknown' } };
+
+it('My classifies only verified creators, retains all authorized originals and preserves their native identity', () => {
+  const value = { ...catalog(), currentUserId: person };
+  value.documents = [{ ...head(1), creatorUserId: person }, { ...head(2, 'site'), creatorUserId: otherPerson },
+    { ...head(3, 'note'), creatorUserId: null }, head(4, 'slides')];
+  const before = JSON.stringify(value);
+  const groups = serverCatalogGroups(value, myOptions);
+  expect(groups.map(group => group.label)).toEqual(['Created by me', 'Shared in this workspace', 'Creator unknown']);
+  expect(groups.map(group => group.entries.map(entry => entry.row.documentId))).toEqual([[id(1)], [id(2)], [id(3), id(4)]]);
+  const mine = groups[0].entries[0].row;
+  const placements = serverCatalogGroups(value, options).slice(0, 2).map(group => group.entries[0].row);
+  for (const row of placements) expect(row).toEqual(mine);
+  expect(mine.revision).toBe(1); expect(mine.nativeOpenSupported).toBe(true);
+  expect(JSON.stringify(value)).toBe(before);
+});
+
+it('a missing verified person cannot turn known creators or old Project links into personal ownership', () => {
+  const value = catalog();
+  value.documents = [{ ...head(1), creatorUserId: person }, { ...head(2, 'site'), creatorUserId: null }];
+  const groups = serverCatalogGroups(value, myOptions);
+  expect(groups.map(group => group.entries.length)).toEqual([0, 0, 2]);
+  expect(groups[2].label).toBe('Creator unknown');
+  expect(JSON.stringify(groups)).not.toContain('오래된 별칭');
+});
+
+it('My remains accurate when Project discovery fails and never invents missing or denied originals', () => {
+  const value = { ...catalog(), currentUserId: person, state: 'partial' as const };
+  value.documents = [{ ...head(1), creatorUserId: otherPerson }];
+  const groups = serverCatalogGroups(value, myOptions);
+  expect(groups.map(group => group.entries.length)).toEqual([0, 1, 0]);
+  expect(JSON.stringify(groups)).not.toContain(id(99));
+  expect(JSON.stringify(groups)).not.toContain('표시하면 안 되는 이름');
+});
+
+it('a zero-Project workspace can classify a new original using the verified internal person', async () => {
+  const result = await readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, currentUserId: person,
+    requestFetch: requestFetch(), readProjects: async () => [], isCurrent: () => true });
+  expect(result.currentUserId).toBe(person);
+  expect(result.capabilities).toEqual({ stableFolders: false, ownershipClassification: true });
+  expect(serverCatalogGroups(result, myOptions)[2].entries[0].row.documentId).toBe(id(1));
+});
+
+it('My search and product filtering preserve scope-qualified group and original identities', () => {
+  const value = { ...catalog(), currentUserId: person };
+  value.documents = [{ ...head(1), creatorUserId: person }, { ...head(2, 'site'), creatorUserId: otherPerson }];
+  const complete = serverCatalogGroups(value, myOptions);
+  const filtered = serverCatalogGroups(value, { ...myOptions, product: 'site', query: '원본' });
+  expect(filtered.map(group => group.id)).toEqual(complete.map(group => group.id));
+  expect(filtered.map(group => group.entries.length)).toEqual([0, 1, 0]);
+  expect(filtered[1].entries[0]).toEqual(complete[1].entries[0]);
+  expect(filtered.every(group => group.id.includes(tenantId) && group.id.includes(workspaceId))).toBe(true);
+});
 
 it('two Project placements and Sources point to one authorized original without cached alias or missing titles', () => {
   const groups = serverCatalogGroups(catalog(), options);

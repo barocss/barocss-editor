@@ -2,7 +2,7 @@ import { createTranslator, type ProjectSnapshot, type Translator } from '@barocs
 import type { WorkspaceFrameGroup, WorkspaceFrameRow } from '@barocss/office-workspace/host';
 import { AuthError, readDocumentCatalog, type CatalogDocumentHead } from './auth-client';
 
-export type ServerCatalogPerspective = 'project' | 'sources';
+export type ServerCatalogPerspective = 'project' | 'sources' | 'my';
 export interface ServerCatalogRow extends WorkspaceFrameRow {
   documentId: string;
   mode: CatalogDocumentHead['mode'];
@@ -14,15 +14,18 @@ export interface AuthorizedWorkspaceCatalog {
   source: 'server';
   tenantId: string;
   workspaceId: string;
-  capabilities: { stableFolders: false; ownershipClassification: false };
+  capabilities: { stableFolders: false; ownershipClassification: boolean };
+  /** Verified internal identity, never inferred from a Project or local file. */
+  currentUserId?: string | null;
   documents: CatalogDocumentHead[];
   projects: ProjectSnapshot[];
   state: 'ready' | 'partial';
 }
 
 /** Both readers belong to the same current authorized session. No cached/local fallback. */
-export async function readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch, readProjects, isCurrent, t = createTranslator('ko') }: {
+export async function readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, currentUserId = null, requestFetch, readProjects, isCurrent, t = createTranslator('ko') }: {
   tenantId: string; workspaceId: string; requestFetch: typeof fetch;
+  currentUserId?: string | null;
   readProjects: () => Promise<ProjectSnapshot[]>;
   isCurrent: () => boolean; t?: Translator;
 }): Promise<AuthorizedWorkspaceCatalog> {
@@ -43,13 +46,15 @@ export async function readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, re
     check();
     projects = []; state = 'partial';
   }
-  return { source: 'server', tenantId, workspaceId, capabilities: { stableFolders: false, ownershipClassification: false }, documents, projects, state };
+  return { source: 'server', tenantId, workspaceId, currentUserId,
+    capabilities: { stableFolders: false, ownershipClassification: currentUserId !== null }, documents, projects, state };
 }
 
 /** Project placements use authorized original titles. Pins/bodies/missing counts never enter the tree. */
 export function serverCatalogGroups(catalog: AuthorizedWorkspaceCatalog, options: {
   perspective: ServerCatalogPerspective; product: WorkspaceFrameRow['product'] | 'all'; query: string;
   sourcesLabel: string;
+  ownershipLabels?: { createdByMe: string; sharedInWorkspace: string; creatorUnknown: string };
 }): WorkspaceFrameGroup<ServerCatalogRow>[] {
   const needle = options.query.trim().normalize('NFC').toLocaleLowerCase();
   const rows = catalog.documents.map(head => ({
@@ -64,6 +69,26 @@ export function serverCatalogGroups(catalog: AuthorizedWorkspaceCatalog, options
     id: JSON.stringify([...scopeKey, 'sources']), label: options.sourcesLabel,
     entries: visible.map(row => ({ id: JSON.stringify(['source', row.key]), row, disabled: !row.nativeOpenSupported }))
   });
+  if (options.perspective === 'my') {
+    // Attribution describes originals already authorized by the server. It never grants access.
+    const labels = options.ownershipLabels ?? {
+      createdByMe: createTranslator('ko')('workspace.tree.createdByMe'),
+      sharedInWorkspace: createTranslator('ko')('workspace.tree.sharedInWorkspace'),
+      creatorUnknown: createTranslator('ko')('workspace.tree.creatorUnknown')
+    };
+    const creators = new Map(catalog.documents.map(head => [head.documentId, head.creatorUserId ?? null]));
+    const classification = (row: ServerCatalogRow): keyof typeof labels => {
+      const creator = creators.get(row.documentId);
+      if (!catalog.currentUserId || !creator) return 'creatorUnknown';
+      return creator === catalog.currentUserId ? 'createdByMe' : 'sharedInWorkspace';
+    };
+    return (['createdByMe', 'sharedInWorkspace', 'creatorUnknown'] as const).map(kind => ({
+      id: JSON.stringify([...scopeKey, 'my', kind]), label: labels[kind],
+      entries: visible.filter(row => classification(row) === kind).map(row => ({
+        id: JSON.stringify(['source', row.key]), row, disabled: !row.nativeOpenSupported
+      }))
+    }));
+  }
   // An incomplete Project read cannot establish that an original is unlinked.
   if (options.perspective === 'sources' || catalog.state === 'partial') return [sources()];
   const originals = new Map(rows.map(row => [`${row.product}:${row.documentId}`, row]));

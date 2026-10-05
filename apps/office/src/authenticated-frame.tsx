@@ -7,36 +7,40 @@ import { serverProjectRepository } from './project-client';
 import { readAuthorizedWorkspaceCatalog, serverCatalogGroups, type AuthorizedWorkspaceCatalog, type ServerCatalogRow, type ServerCatalogPerspective } from './server-catalog';
 
 const emptyView = (): WorkspaceTreeView => ({ query: '', product: 'all', collapsed: [], scroll: 0 });
+const emptyViews = (): Record<ServerCatalogPerspective, WorkspaceTreeView> => ({ project: emptyView(), sources: emptyView(), my: emptyView() });
 
 /** The authenticated host supplies authority and transitions; the tree never opens local storage. */
-export function AuthenticatedWorkspaceFrame({ children, railFooter, tenantId, workspaceId, workspaceName, role, authorityEpoch, authorized,
+export function AuthenticatedWorkspaceFrame({ children, railFooter, tenantId, workspaceId, workspaceName, role, currentUserId = null, authorityEpoch, authorized,
   active, projectId, busy, error, onOpen, onNavigate, onAccessFailure }: {
   children: ReactNode; railFooter?: ReactNode; tenantId: string; workspaceId: string; workspaceName: string; role: TenantRole;
+  currentUserId?: string | null;
   authorityEpoch: number; authorized: boolean; active: string; projectId?: string; busy: boolean; error: string;
   onOpen: (row: ServerCatalogRow, projectId?: string) => void;
   onNavigate: (destination: 'projects' | 'library', projectId?: string) => void;
   onAccessFailure: (error: AuthError) => void;
 }) {
   const { t } = useOfficeLocale();
-  const scopeKey = JSON.stringify([tenantId, workspaceId, role, authorityEpoch]);
+  const scopeKey = JSON.stringify([tenantId, workspaceId, role, currentUserId, authorityEpoch]);
   const [catalog, setCatalog] = useState<{ value: AuthorizedWorkspaceCatalog; scopeKey: string; isCurrent: () => boolean }>();
   const [failure, setFailure] = useState('');
   const [reload, setReload] = useState(0);
   const [focused, setFocused] = useState(false);
   const [perspective, setPerspective] = useState<ServerCatalogPerspective>('project');
-  const [views, setViews] = useState<Record<ServerCatalogPerspective, WorkspaceTreeView>>({ project: emptyView(), sources: emptyView() });
+  const viewScopeKey = JSON.stringify([tenantId, workspaceId, currentUserId]);
+  const [viewState, setViewState] = useState(() => ({ scopeKey: viewScopeKey, views: emptyViews() }));
+  const views = useMemo(() => viewState.scopeKey === viewScopeKey ? viewState.views : emptyViews(), [viewState, viewScopeKey]);
   const tree = useRef<HTMLElement>(null);
-  const current = useRef({ authorityEpoch, authorized, onAccessFailure });
-  current.current = { authorityEpoch, authorized, onAccessFailure };
+  const current = useRef({ scopeKey, authorized, onAccessFailure });
+  current.current = { scopeKey, authorized, onAccessFailure };
   useEffect(() => {
     let alive = true;
     setCatalog(undefined); setFailure('');
     if (!authorized) return;
     const session = captureAuthorizedSession();
-    const ownsScope = () => alive && current.current.authorized && current.current.authorityEpoch === authorityEpoch;
+    const ownsScope = () => alive && current.current.authorized && current.current.scopeKey === scopeKey;
     const isCurrent = () => ownsScope() && session.isCurrent();
-    const repository = serverProjectRepository(tenantId, workspaceId, role);
-    void readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: session.requestFetch, readProjects: () => repository.list(), isCurrent, t })
+    const repository = serverProjectRepository(tenantId, workspaceId, role, t);
+    void readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, currentUserId, requestFetch: session.requestFetch, readProjects: () => repository.list(), isCurrent, t })
       .then(value => { if (isCurrent()) setCatalog({ value, scopeKey, isCurrent }); })
       .catch(cause => {
         if (!ownsScope()) return;
@@ -48,7 +52,7 @@ export function AuthenticatedWorkspaceFrame({ children, railFooter, tenantId, wo
         setFailure(cause instanceof Error ? cause.message : t('workspace.catalog.invalidResponse'));
       });
     return () => { alive = false; };
-  }, [tenantId, workspaceId, role, authorityEpoch, authorized, reload, t, scopeKey]);
+  }, [tenantId, workspaceId, role, currentUserId, authorityEpoch, authorized, reload, t, scopeKey]);
   useEffect(() => {
     const refresh = () => setReload(value => value + 1);
     window.addEventListener('wonffice:catalog-refresh', refresh);
@@ -60,7 +64,9 @@ export function AuthenticatedWorkspaceFrame({ children, railFooter, tenantId, wo
     return authorized ? <span title={document ? `${workspaceName} / ${document.title}` : workspaceName}>{document ? `${workspaceName} / ${document.title}` : workspaceName}</span> : null;
   }, [shown, active, workspaceName, authorized]);
   useLayoutEffect(() => registerEditorNavigation(undefined, Location), [Location]);
-  const groups = useMemo(() => shown ? serverCatalogGroups(shown, { perspective, ...views[perspective], sourcesLabel: t('workspace.tree.sources') }) : [], [shown, perspective, views, t]);
+  const groups = useMemo(() => shown ? serverCatalogGroups(shown, { perspective, ...views[perspective], sourcesLabel: t('workspace.tree.sources'),
+    ownershipLabels: { createdByMe: t('workspace.tree.createdByMe'), sharedInWorkspace: t('workspace.tree.sharedInWorkspace'), creatorUnknown: t('workspace.tree.creatorUnknown') }
+  }) : [], [shown, perspective, views, t]);
   const labels: WorkspaceFrameLabels = {
     railNavigation: t('workspace.rail.navigation'), home: t('workspace.rail.home'), railFiles: t('workspace.rail.files'),
     recent: t('workspace.rail.recent'), projects: t('workspace.rail.projects'), treeNavigation: t('workspace.tree.navigation'),
@@ -71,11 +77,14 @@ export function AuthenticatedWorkspaceFrame({ children, railFooter, tenantId, wo
     unavailable: t('workspace.tree.unavailable'), openProject: title => t('workspace.tree.openProject', { title }),
     openOriginal: title => t('workspace.tree.openOriginal', { title })
   };
-  const viewChange = (patch: Partial<WorkspaceTreeView>) => setViews(previous => ({ ...previous, [perspective]: { ...previous[perspective], ...patch } }));
+  const viewChange = (patch: Partial<WorkspaceTreeView>) => setViewState(previous => {
+    const retained = previous.scopeKey === viewScopeKey ? previous.views : emptyViews();
+    return { scopeKey: viewScopeKey, views: { ...retained, [perspective]: { ...retained[perspective], ...patch } } };
+  });
   return <WorkspaceFramePresentation treeRef={tree} groups={groups} labels={labels} railFooter={railFooter}
     productOptions={Object.entries(products).map(([id, value]) => ({ id: id as ServerCatalogRow['product'], ...value }))}
-    perspectives={[{ id: 'project', label: t('workspace.tree.project') }, { id: 'sources', label: t('workspace.tree.sources') }]}
-    projectPerspective="project" perspective={perspective} views={authorized ? views : { project: emptyView(), sources: emptyView() }}
+    perspectives={[{ id: 'project', label: t('workspace.tree.project') }, { id: 'my', label: t('workspace.tree.my') }]}
+    projectPerspective="project" perspective={perspective} views={authorized ? views : emptyViews()}
     ready={!!shown || !!failure} catalogState={failure ? 'error' : shown?.state ?? 'loading'} entry="ready"
     focused={focused} busy={busy || !authorized} active={authorized ? active : ''} projectContext={authorized ? projectId : undefined}
     canRevealCurrent={!!shown?.documents.some(head => JSON.stringify([head.tenantId, head.workspaceId, head.product, head.documentId]) === active)}

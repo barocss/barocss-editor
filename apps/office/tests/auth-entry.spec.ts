@@ -1814,3 +1814,63 @@ for (const latest of ['input', 'composition'] as const) test(`controlled Project
     expect(state.projectWrites).toHaveLength(1); expect(state.writes.filter(write => write.product !== 'note')).toHaveLength(0);
   } finally { releaseTarget(); releaseSave?.(); await composerNode!.dispose(); }
 });
+
+
+test('library opening publishes its freshly verified creator identity to My', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  const person = '11111111-1111-4111-8111-111111111111';
+  let currentUserId: string | null = null;
+  await page.route('**/api/v1/me', route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ issuer, subject: 'synthetic-user', currentUserId,
+      tenants: [{ tenantId: id, name: 'Alpha Company', role: 'editor' }], nextCursor: null }) }));
+  const attributed = { ...documentHead, creatorUserId: person };
+  await page.route(`**/api/v1/tenants/${id}/documents?**`, route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ documents: [attributed], nextCursor: null }) }));
+  await page.route(`**/api/v1/tenants/${id}/documents/${documentId}`, route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ document: attributed, snapshotText }) }));
+  const writes: string[] = [];
+  page.on('request', request => { if (request.method() === 'PUT' && request.url().endsWith('/snapshot')) writes.push(request.url()); });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기', exact: true }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace', exact: true }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  const tree = page.locator('.ow-file-navigation');
+  await tree.getByRole('button', { name: '내 파일', exact: true }).click();
+  const group = (label: string) => tree.locator('section[data-tree-group]')
+    .filter({ has: page.locator('.ow-tree-group').filter({ hasText: label }) }).locator('[data-original]');
+  await expect(group('생성자 미확인')).toHaveCount(1);
+  await expect(group('내가 만든 파일')).toHaveCount(0);
+  // Same verified issuer/subject and role; only the new /me attribution field is now known.
+  currentUserId = person;
+  await page.locator('.office-auth-panel ul.office-auth-tenants').getByRole('button', { name: 'Alpha Note', exact: true }).click();
+  await expect(page.locator('[data-server-note-workspace] .on-doc > p').first()).toHaveText('Mock body');
+  await tree.getByRole('button', { name: '내 파일', exact: true }).click();
+  await expect(group('내가 만든 파일')).toHaveCount(1);
+  await expect(group('생성자 미확인')).toHaveCount(0);
+  await expect(group('내가 만든 파일')).toHaveAttribute('data-original', JSON.stringify([id, workspaceId, 'note', documentId]));
+  expect(writes).toEqual([]);
+});
+
+
+test('same-person library open retains My search and the Workspace tree instance', async ({ page }) => {
+  await mockLogin(page, { documentCount: 1 });
+  await page.goto('/');
+  await page.getByRole('button', { name: '일반 사용자로 들어가기', exact: true }).click();
+  await page.getByRole('button', { name: /Alpha Company/ }).click();
+  await page.getByRole('button', { name: 'Alpha Workspace', exact: true }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
+  const tree = page.locator('.ow-file-navigation');
+  await tree.getByRole('button', { name: '내 파일', exact: true }).click();
+  await tree.getByRole('textbox', { name: '파일 검색', exact: true }).fill('Alpha');
+  await tree.getByRole('combobox', { name: '파일 제품 필터', exact: true }).selectOption('note');
+  await expect(tree.locator('[data-original]')).toHaveCount(1);
+  const instance = await tree.elementHandle();
+  await page.locator('.office-auth-panel ul.office-auth-tenants').getByRole('button', { name: 'Alpha Note', exact: true }).click();
+  await expect(page.locator('[data-server-note-workspace] .on-doc > p').first()).toHaveText('Mock body');
+  expect(await instance!.evaluate(element => element.isConnected)).toBe(true);
+  await expect(tree.getByRole('button', { name: '내 파일', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(tree.getByRole('textbox', { name: '파일 검색', exact: true })).toHaveValue('Alpha');
+  await expect(tree.getByRole('combobox', { name: '파일 제품 필터', exact: true })).toHaveValue('note');
+  await expect(tree.locator('[data-original]')).toHaveAttribute('data-original', JSON.stringify([id, workspaceId, 'note', documentId]));
+});

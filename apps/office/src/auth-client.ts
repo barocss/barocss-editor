@@ -4,7 +4,7 @@ import { createTranslator, type Translator } from '@barocss/shared';
 export type EntryIntent = 'user' | 'admin' | 'operator';
 export type TenantRole = 'owner' | 'admin' | 'editor' | 'viewer';
 export type TenantAccess = { tenantId: string; name: string; role: TenantRole };
-export type Identity = { issuer: string; subject: string; tenants: TenantAccess[] };
+export type Identity = { issuer: string; subject: string; currentUserId?: string | null; tenants: TenantAccess[] };
 
 type Discovery = {
   issuer: string;
@@ -26,7 +26,7 @@ let activeSession: Session | null = null;
 let sessionEpoch = 0;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type WorkspaceAccess = { id: string; name: string };
-export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; mode: string; revision: number; fileFormat: string; fileVersion: number };
+export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; creatorUserId?: string | null; mode: string; revision: number; fileFormat: string; fileVersion: number };
 export type VerifiedNoteContext = { tenantId: string; workspaceId: string; role: TenantRole; authorizedFetch: typeof fetch; documentId?: string; document?: DocumentAccess; snapshotText?: string };
 export type SnapshotProduct = 'note' | 'word' | 'slides' | 'site';
 export type VerifiedSnapshotContext = VerifiedNoteContext & { product: SnapshotProduct };
@@ -294,7 +294,7 @@ export type CatalogDocumentPage = { items: CatalogDocumentHead[]; nextCursor: st
 const catalogPageSize = 50;
 const catalogMaxPages = 100;
 const catalogFormats = { note: 'barocss-note', word: 'barocss-word', slides: 'barocss-slides', site: 'barocss-site' };
-const catalogHeadKeys = ['documentId', 'tenantId', 'workspaceId', 'product', 'title', 'metadataRevision', 'mode', 'pageId', 'documentKey', 'fileFormat', 'fileVersion', 'revision', 'snapshotHash'];
+const catalogHeadKeys = ['documentId', 'tenantId', 'workspaceId', 'product', 'title', 'metadataRevision', 'mode', 'pageId', 'documentKey', 'fileFormat', 'fileVersion', 'revision', 'snapshotHash', 'creatorUserId'];
 const catalogRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const catalogRevision = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 function catalogError(t: Translator): AuthError { return new AuthError('unavailable', t('workspace.catalog.invalidResponse')); }
@@ -311,6 +311,8 @@ export function readCatalogHead(item: unknown, tenantId: string, workspaceId: st
       typeof item.documentId !== 'string' || !uuid.test(item.documentId) ||
       item.tenantId !== tenantId || item.workspaceId !== workspaceId ||
       typeof item.product !== 'string' || !Object.hasOwn(catalogFormats, item.product) ||
+      (Object.hasOwn(item, 'creatorUserId') && item.creatorUserId !== null &&
+        (typeof item.creatorUserId !== 'string' || !uuid.test(item.creatorUserId))) ||
       typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200 ||
       !catalogRevision(item.revision) || !catalogRevision(item.metadataRevision) ||
       !['snapshot', 'initializing', 'collaborative'].includes(item.mode as string) ||
@@ -319,7 +321,7 @@ export function readCatalogHead(item: unknown, tenantId: string, workspaceId: st
       (item.product === 'note' ? typeof item.pageId !== 'string' || !uuid.test(item.pageId) : item.pageId !== null) ||
       item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
       typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash)) throw catalogError(t);
-  return item as CatalogDocumentHead;
+  return { ...item, creatorUserId: Object.hasOwn(item, 'creatorUserId') ? item.creatorUserId : null } as CatalogDocumentHead;
 }
 
 /** Use one captured fetch for every page and its JSON decode. No product filter. */
@@ -411,22 +413,28 @@ export function openVerifiedNote(tenantId: string, workspaceId: string, document
 
 const roles = new Set<TenantRole>(['owner', 'admin', 'editor', 'viewer']);
 export async function loadIdentity(): Promise<Identity> {
+  const requestFetch = captureAuthorizedFetch();
   let after: string | null = null;
   const seen = new Set<string>();
   const tenants: TenantAccess[] = [];
   let issuerValue = '';
   let subject = '';
+  let currentUserId: string | null = null;
   for (let page = 0; page < 100; page++) {
-    const data = await apiGet(`/me${after ? `?after=${encodeURIComponent(after)}` : ''}`) as Record<string, unknown>;
+    const data = await apiGet(`/me${after ? `?after=${encodeURIComponent(after)}` : ''}`, requestFetch) as Record<string, unknown>;
     if (typeof data.issuer !== 'string' || typeof data.subject !== 'string' || !Array.isArray(data.tenants) ||
-      (data.nextCursor !== null && typeof data.nextCursor !== 'string')) {
+      (data.nextCursor !== null && typeof data.nextCursor !== 'string') ||
+      (Object.hasOwn(data, 'currentUserId') && data.currentUserId !== null &&
+        (typeof data.currentUserId !== 'string' || !uuid.test(data.currentUserId)))) {
       throw new AuthError('unavailable', '회사 목록 응답을 확인하지 못했습니다.');
     }
-    if (page && (data.issuer !== issuerValue || data.subject !== subject)) {
+    const pageUserId = Object.hasOwn(data, 'currentUserId') ? data.currentUserId as string | null : null;
+    if (page && (data.issuer !== issuerValue || data.subject !== subject || pageUserId !== currentUserId)) {
       throw new AuthError('unauthorized', '계정이 바뀌었습니다. 다시 로그인해 주세요.');
     }
     issuerValue = data.issuer;
     subject = data.subject;
+    currentUserId = pageUserId;
     for (const item of data.tenants) {
       if (!item || typeof item !== 'object') throw new AuthError('unavailable', '회사 목록 응답을 확인하지 못했습니다.');
       const tenant = item as Record<string, unknown>;
@@ -436,7 +444,7 @@ export async function loadIdentity(): Promise<Identity> {
       seen.add(tenant.tenantId);
       tenants.push(tenant as TenantAccess);
     }
-    if (data.nextCursor === null) return { issuer: issuerValue, subject, tenants };
+    if (data.nextCursor === null) return { issuer: issuerValue, subject, currentUserId, tenants };
     if (after === data.nextCursor) throw new AuthError('unavailable', '회사 목록을 끝까지 불러오지 못했습니다.');
     after = data.nextCursor;
   }

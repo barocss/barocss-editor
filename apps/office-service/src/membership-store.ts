@@ -16,7 +16,11 @@ export class InvalidWorkspaceCursorError extends Error {
 export class MembershipStore {
   constructor(private readonly pool: Pool) {}
 
-  async listTenantAccess(principal: VerifiedPrincipal, after?: string) {
+  async listTenantAccess(principal: VerifiedPrincipal, after?: string): Promise<{
+    currentUserId?: string | null;
+    tenants: Array<{ tenantId: string; name: string; role: TenantRole }>;
+    nextCursor: string | null;
+  }> {
     if (after) assertUuid(after);
     this.assertPrincipal(principal);
     const client = await this.pool.connect();
@@ -38,6 +42,11 @@ export class MembershipStore {
       if (!role.rows[0]?.context_empty) throw new Error('invalid_tenant_context');
       await client.query("SELECT set_config('wonffice.oidc_issuer', $1, true)", [principal.issuer]);
       await client.query("SELECT set_config('wonffice.oidc_subject', $1, true)", [principal.subject]);
+      // RLS exposes only the identity bound to this verified issuer and subject.
+      // A verified, unprovisioned person remains Unknown; discovery never creates one.
+      const identity = await client.query<{ id: string }>(`SELECT id FROM wonffice.identities
+        WHERE issuer = $1 AND subject = $2`, [principal.issuer, principal.subject]);
+      const currentUserId = identity.rows[0]?.id ?? null;
       const result = await client.query<{ tenantId: string; name: string; role: TenantRole }>(`
         SELECT m.tenant_id AS "tenantId", t.name, m.role
         FROM wonffice.tenant_memberships m
@@ -50,7 +59,7 @@ export class MembershipStore {
       await client.query("SELECT set_config('wonffice.oidc_subject', '', false)");
       healthy = true;
       const tenants = result.rows.slice(0, 50);
-      return { tenants, nextCursor: result.rows.length > 50 ? tenants[49].tenantId : null };
+      return { currentUserId, tenants, nextCursor: result.rows.length > 50 ? tenants[49].tenantId : null };
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch { /* Discard below. */ }
       throw error;

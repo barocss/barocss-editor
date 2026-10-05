@@ -69,6 +69,33 @@ This initial additive schema has no destructive `down` command. After data exist
 
 CLI logs are JSON `migration_complete` (applied IDs) or `migration_failed`, with a nonzero exit on failure. URLs, SQL errors, credentials, and row values are not logged. For diagnosis, an authorized operator checks the database connection/role, migration history and database logs through controlled access. Do not copy customer rows or secrets into issues.
 
+## Document creator attribution
+
+Migration `0015_document_creator_attribution` adds nullable `documents.creator_user_id`
+with an identity foreign key and an immutable-update trigger. Apply it with the
+existing owner migration command before starting an API that reads this column.
+There is no new configuration variable or destructive rollback command.
+
+A genuine create or independent copy records the internal identity UUID resolved
+from the verified OIDC issuer and subject. Ordinary metadata, snapshot, Project
+placement and replay operations cannot replace it. A referenced identity cannot
+be deleted while its originals remain. Membership revocation still works and is
+the access-control operation; creator attribution is not a membership or grant.
+
+Existing originals remain `NULL` (Unknown). There is no inferred backfill, owner
+transfer, per-document grant or personal-private collection. `/api/v1/me` adds
+`currentUserId: UUID | null` from the same verified membership transaction,
+including a provisioned person with zero active tenants. Reads never provision
+an identity. Current tenant membership and role still control every read/write.
+
+Old frozen receipt JSON is unchanged. The response adapter exposes an absent
+legacy creator as `null`; it does not fill it from the current user. New receipt
+replays preserve their original creator. Backup/restore verification must keep
+this column, identity reference, trigger and frozen receipts with the native
+snapshot bytes and revision. The actual PostgreSQL integration test exercises
+legacy migration, immutable updates, foreign-key rejection, independent copy,
+retry conflict, viewer denial and revocation on synthetic records.
+
 ## Backup and restore into a new database
 
 Use the PostgreSQL 16 `pg_dump`/`pg_restore` client tools. For operator commands, configure host/port and a protected `PGPASSFILE` through the environment; do not put passwords in a command line. The following names are examples for an operator-created source and a **new empty** recovery database:

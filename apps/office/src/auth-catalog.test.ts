@@ -6,7 +6,7 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const workspaceId = '22222222-2222-4222-8222-222222222222';
 const documentId = (index: number) => `33333333-3333-4333-8333-${String(index).padStart(12, '0')}`;
 function head(index = 1, product: 'note' | 'word' | 'slides' | 'site' = 'word') {
-  return { documentId: documentId(index), tenantId, workspaceId, product, title: `문서 ${index}`,
+  return { documentId: documentId(index), tenantId, workspaceId, product, title: `문서 ${index}`, creatorUserId: null,
     metadataRevision: 1, mode: 'snapshot', pageId: product === 'note' ? documentId(index) : null,
     documentKey: `wonffice-${tenantId}-${documentId(index)}`, fileFormat: `barocss-${product}`,
     fileVersion: 1, revision: 1, snapshotHash: 'a'.repeat(64) };
@@ -17,13 +17,13 @@ const fullPage = (start = 1) => Array.from({ length: 50 }, (_, i) => head(start 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); sessionStorage.clear(); });
 
 describe('authorized four-product head catalog', () => {
-  it('reads only the scoped unfiltered service list and preserves Site snapshot restrictions', async () => {
+  it('reads only the scoped unfiltered service list and preserves authorized Site intents', async () => {
     const heads = [head(1, 'note'), head(2, 'word'), { ...head(3, 'slides'), fileVersion: 2, mode: 'initializing' },
       { ...head(4, 'site'), mode: 'collaborative' }];
     const requestFetch = transport(page(heads));
     expect(await listCatalogDocuments(tenantId, workspaceId, undefined, requestFetch)).toEqual({ items: heads, nextCursor: null });
     expect(requestFetch).toHaveBeenCalledExactlyOnceWith(`/api/v1/tenants/${tenantId}/documents?workspaceId=${workspaceId}`);
-    expect(snapshotIntentFromSearch(`?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId(4)}&product=site`)).toBeNull();
+    expect(snapshotIntentFromSearch(`?tenant=${tenantId}&workspace=${workspaceId}&document=${documentId(4)}&product=site`)).toEqual({ tenantId, workspaceId, documentId: documentId(4), product: 'site' });
   });
 
   it.each([
@@ -132,4 +132,23 @@ it('refuses delayed catalog JSON after logout using the captured authorized fetc
   auth.clearSession();
   finish(page([head()]));
   await expect(reading).rejects.toMatchObject({ kind: 'cancelled' });
+});
+
+it('accepts only a stable creator UUID or explicit legacy Unknown without inferring a tenant owner', async () => {
+  const creatorUserId = '55555555-5555-4555-8555-555555555555';
+  for (const creator of [creatorUserId, null]) {
+    const items = await readDocumentCatalog(tenantId, workspaceId, transport(page([{ ...head(), creatorUserId: creator }])));
+    expect(items[0]).toMatchObject({ creatorUserId: creator });
+  }
+  const legacyHead: Record<string, unknown> = { ...head() };
+  delete legacyHead.creatorUserId;
+  const legacy = await readDocumentCatalog(tenantId, workspaceId, transport(page([legacyHead])));
+  expect(legacy[0]).toMatchObject({ creatorUserId: null });
+});
+
+it.each(['not-a-user', '', 123, {}, undefined])('rejects malformed present creator attribution %j', async creatorUserId => {
+  // Response.json omits undefined; an explicit own-undefined field must not become an inferred owner either.
+  const requestFetch = creatorUserId === undefined ? vi.fn<typeof fetch>().mockResolvedValue({ ok: true, status: 200,
+    json: async () => page([{ ...head(), creatorUserId }]) } as Response) : transport(page([{ ...head(), creatorUserId }]));
+  await expect(readDocumentCatalog(tenantId, workspaceId, requestFetch)).rejects.toMatchObject({ kind: 'unavailable' });
 });

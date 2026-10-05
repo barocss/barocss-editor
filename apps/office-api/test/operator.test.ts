@@ -48,7 +48,7 @@ describe('platform operator HTTP boundary', () => {
       expect(status.json()).toEqual({ live: { httpStatus: 200, status: 'alive' },
         ready: { httpStatus: 503, status: 'service_not_configured' } });
       const me = await app.inject({ url: '/v1/me', headers: header });
-      expect(me.json()).toEqual({ issuer: 'https://issuer.example', subject: 'operator',
+      expect(me.json()).toEqual({ issuer: 'https://issuer.example', subject: 'operator', currentUserId: null,
         tenants: [], nextCursor: null });
       granted = false;
       const revoked = await app.inject({ url: '/v1/operator/status', headers: header });

@@ -169,7 +169,7 @@ export function createApiServer(auth?: ApiAuthDependencies) {
       }
       try {
         const page = await auth.memberships.listTenantAccess(principal, query.after as string | undefined);
-        return { issuer: principal.issuer, subject: principal.subject, ...page };
+        return { issuer: principal.issuer, subject: principal.subject, ...page, currentUserId: page.currentUserId ?? null };
       } catch {
         return reply.code(503).send({ status: 'service_unavailable' });
       }

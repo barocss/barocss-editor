@@ -105,6 +105,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   };
   const rememberedDocumentId = useRef<string | null>(null);
   const verifiedIdentity = useRef<Identity | null>(null);
+  const previousWorkspaceScope = useRef<Extract<View, { phase: 'project' | 'library' }> | null>(null);
   const [mountedNote, setMountedNote] = useState<Extract<View, { phase: 'note' }> | null>(null);
   const [leaveBlocked, setLeaveBlocked] = useState(false);
   const feedbackBeforeLeave = useRef<FeedbackBeforeLeave | undefined>(undefined);
@@ -139,6 +140,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       return slot.session.requestFetch(...args);
     }) as typeof fetch };
     const retained = { ...next, principal: { issuer: identity.issuer, subject: identity.subject }, context: guardedContext };
+    verifiedIdentity.current = identity;
     noteAccount.current = account;
     noteAccess.current = true;
     rememberedDocumentId.current = next.context.documentId ?? null;
@@ -780,9 +782,15 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         }}>진입 선택</button></div>
     </section>}
   </main>;
-  const scope = mountedNote ?? (view.phase === 'project' || view.phase === 'library' ? view : null);
+  const workspaceScope = view.phase === 'project' || view.phase === 'library' ? view : null;
+  if (workspaceScope) previousWorkspaceScope.current = workspaceScope;
+  else if (view.phase !== 'checking') previousWorkspaceScope.current = null;
+  // Keep presentation state during verification. Authority below stays false,
+  // so the previous catalog is hidden and its actions cannot open an original.
+  const scope = mountedNote ?? workspaceScope ?? (view.phase === 'checking' ? previousWorkspaceScope.current : null);
   if (!scope) return content;
   return <AuthenticatedWorkspaceFrame tenantId={scope.tenant.tenantId} workspaceId={scope.workspace.id} workspaceName={scope.workspace.name}
+    currentUserId={verifiedIdentity.current?.currentUserId ?? null}
     role={scope.role} authorityEpoch={generation.current} authorized={view.phase === 'project' || view.phase === 'library' || (view.phase === 'note' && noteAccess.current)}
     active={activeDocument && mountedNote ? JSON.stringify([scope.tenant.tenantId, scope.workspace.id, mountedNote.context.product, activeDocument]) : ''}
     projectId={noteIntent.current?.projectId} busy={treeBusy} error={treeError}

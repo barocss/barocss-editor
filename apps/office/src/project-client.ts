@@ -1,4 +1,4 @@
-import { readProjectRecord, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
+import { createTranslator, readProjectRecord, type Translator, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
 import type { ProjectRepository, ProjectSnapshot, ProjectDocument, WordFeedbackRecovery } from '@barocss/office-workspace/project';
 import { captureAuthorizedFetch, listSnapshotDocuments, type TenantRole, type SnapshotProduct } from './auth-client';
 
@@ -13,7 +13,7 @@ const equal = (a: unknown, b: unknown): boolean => {
   return left.length === right.length && left.every(key => Object.prototype.hasOwnProperty.call(b, key) &&
     equal((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
 };
-export function serverProjectRepository(tenant: string, workspace: string, role: TenantRole): ProjectRepository {
+export function serverProjectRepository(tenant: string, workspace: string, role: TenantRole, t: Translator = createTranslator('ko')): ProjectRepository {
   const requestFetch = captureAuthorizedFetch();
   const base = `/api/v1/tenants/${tenant}/projects`;
   const records = new Map<string, ProjectSnapshot>();
@@ -307,15 +307,29 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
     acknowledgeExecution: (project, work, attempt, revision, snapshotHash) => executionPost(project, work, `/${attempt}/ack`, { revision, snapshotHash }),
     rejectExecution: (project, work, attempt) => executionPost(project, work, `/${attempt}/reject`, {}),
     list: async () => {
-      const results: ProjectSnapshot[] = []; let after: string | null = null;
-      do {
+      const results: ProjectSnapshot[] = [], seen = new Set<string>();
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const invalid = () => new Error(t('workspace.catalog.invalidResponse'));
+      let after: string | null = null;
+      // Match the existing document catalog bound. Exhaustion is a failed read,
+      // never a successfully truncated Project projection.
+      for (let index = 0; index < 100; index++) {
         const page = await request(`${base}?${new URLSearchParams({ workspaceId: workspace, ...(after ? { after } : {}) })}`);
-        if (!Array.isArray(page.projects)) throw new Error('프로젝트 목록을 확인하지 못했습니다.');
-        for (const raw of page.projects) { const one = view(raw); if (results.some(old => old.record.id === one.record.id)) throw new Error('프로젝트 목록이 중복되었습니다.'); results.push(one); }
-        if (page.nextCursor === after && after) throw new Error('프로젝트 목록을 끝까지 읽지 못했습니다.');
-        after = page.nextCursor ?? null;
-      } while (after);
-      return results;
+        if (!page || typeof page !== 'object' || Array.isArray(page) ||
+          Object.keys(page).some(key => key !== 'projects' && key !== 'nextCursor') ||
+          !Array.isArray(page.projects) || page.projects.length > 50 ||
+          (page.nextCursor !== null && (typeof page.nextCursor !== 'string' || !uuid.test(page.nextCursor)))) throw invalid();
+        let previous = after;
+        for (const raw of page.projects) {
+          const one = view(raw), id = one.record.id.toLowerCase();
+          if (!uuid.test(id) || seen.has(id) || (previous !== null && id <= previous)) throw invalid();
+          seen.add(id); previous = id; results.push(one);
+        }
+        if (page.nextCursor === null) return results;
+        if (page.projects.length !== 50 || page.nextCursor.toLowerCase() !== previous) throw invalid();
+        after = page.nextCursor.toLowerCase();
+      }
+      throw new Error(t('workspace.catalog.limitReached'));
     },
     read: async id => view(await request(`${base}/${id}`)),
     create: async (title, goal) => {

@@ -12,6 +12,8 @@ export interface DocumentHead {
   workspaceId: string;
   product: Product;
   title: string;
+  /** Immutable creator attribution; null means a legacy original of unknown origin. */
+  creatorUserId: string | null;
   metadataRevision: number;
   mode: DocumentMode;
   pageId: string | null;
@@ -120,12 +122,12 @@ function parseSnapshot(text: unknown, product: Product): Record<string, unknown>
 
 interface Row {
   documentId: string; tenantId: string; workspaceId: string; product: Product;
-  title: string; metadataRevision: number; mode: DocumentMode; pageId: string | null;
+  title: string; creatorUserId: string | null; metadataRevision: number; mode: DocumentMode; pageId: string | null;
   documentKey: string; fileFormat: string | null; fileVersion: number | null;
   revision: number | null; snapshotHash: string | null; snapshotText?: string;
 }
 const selectHead = `SELECT d.id AS "documentId", d.tenant_id AS "tenantId",
-  d.workspace_id AS "workspaceId", d.product, d.title,
+  d.workspace_id AS "workspaceId", d.product, d.title, d.creator_user_id AS "creatorUserId",
   d.metadata_revision AS "metadataRevision", d.mode, d.page_id AS "pageId",
   d.document_key AS "documentKey", s.file_format AS "fileFormat",
   s.file_version AS "fileVersion", s.revision, s.snapshot_hash AS "snapshotHash"`;
@@ -136,10 +138,15 @@ function head(row: Row): DocumentHead {
     throw new Error('missing_document_snapshot');
   }
   return { documentId: row.documentId, tenantId: row.tenantId, workspaceId: row.workspaceId,
-    product: row.product, title: row.title, metadataRevision: row.metadataRevision,
+    product: row.product, title: row.title, creatorUserId: row.creatorUserId ?? null, metadataRevision: row.metadataRevision,
     mode: row.mode, pageId: row.pageId, documentKey: row.documentKey,
     fileFormat: row.fileFormat, fileVersion: row.fileVersion,
     revision: row.revision, snapshotHash: row.snapshotHash };
+}
+
+// Old immutable receipts retain their stored bytes. Only their response gains Unknown.
+function receiptHead(document: DocumentHead): DocumentHead {
+  return Object.hasOwn(document, 'creatorUserId') ? document : { ...document, creatorUserId: null };
 }
 
 export class DocumentStore {
@@ -174,7 +181,7 @@ export class DocumentStore {
     if (operation !== 'metadata' && existing.rows[0].current_mode !== 'snapshot') {
       throw new DocumentError(409, 'mode_conflict');
     }
-    return { operation, idempotencyKey, requestHash: digest, document: existing.rows[0].result_head,
+    return { operation, idempotencyKey, requestHash: digest, document: receiptHead(existing.rows[0].result_head),
       ...(existing.rows[0].result_snapshot_text === null ? {} :
         { snapshotText: existing.rows[0].result_snapshot_text }) };
   }
@@ -225,10 +232,10 @@ export class DocumentStore {
       checkSnapshotSize(snapshotText);
       const snapshotHash = hash(snapshotText);
       await client.query(`INSERT INTO wonffice.documents
-        (tenant_id, id, workspace_id, product, title, page_id, document_key)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        (tenant_id, id, workspace_id, product, title, page_id, document_key, creator_user_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [tenantId, documentId, input.workspaceId, input.product, input.title, pageId,
-        `wonffice-${tenantId}-${documentId}`]);
+        `wonffice-${tenantId}-${documentId}`, identityId]);
       await client.query(`INSERT INTO wonffice.document_snapshots
         (tenant_id, document_id, file_format, file_version, snapshot_text, snapshot_hash, revision)
         VALUES ($1, $2, $3, $4, $5, $6, 1)`,
@@ -369,7 +376,7 @@ export class DocumentStore {
         throw new DocumentError(409, 'mode_conflict');
       }
       return { operation, idempotencyKey, requestHash: found.rows[0].request_hash,
-        document: found.rows[0].result_head,
+        document: receiptHead(found.rows[0].result_head),
         ...(found.rows[0].result_snapshot_text === null ? {} :
           { snapshotText: found.rows[0].result_snapshot_text }) };
     });
