@@ -30,11 +30,11 @@ const seedText: Record<Product, string> = {
 const firstInput = ' LOCAL ALIAS INPUT';
 const lastInput = ' FINAL CATALOG INPUT';
 
-function fixtures(): Record<Product, Tree> {
+function fixtures(omitMarks = false): Record<Product, Tree> {
   const word = createSampleDocument() as Tree;
   const surface = word.content!.find(node => node.stype === 'surface')!;
   surface.content!.unshift({ stype: 'paragraph', attributes: { styleId: 'Body' }, content: [
-    { stype: 'inline-text', text: seedText.word, marks: [] }
+    { stype: 'inline-text', text: seedText.word, ...(omitMarks ? {} : { marks: [] }) }
   ] });
   // Keep every sample resource, relationship, mark and attribute. The target
   // paragraph is additional fixture content, not a substitute for the sample.
@@ -47,14 +47,14 @@ function fixtures(): Record<Product, Tree> {
     };
     visit(originals[product]); expect(matches).toHaveLength(1);
     expect(matches[0].marks).toBeUndefined();
-    // The real insertion writer materializes empty marks. Seed that supported
-    // author representation on this exact input run; leave all other runs intact.
-    matches[0].marks = [];
+    // Keep the explicit-mark control and the original omitted-field fixture
+    // separate. Both compare the entire authored native tree after real input.
+    if (!omitMarks) matches[0].marks = [];
   }
   return originals;
 }
 
-async function seed(page: Page) {
+async function seed(page: Page, omitMarks = false) {
   await page.goto('/');
   await openLocalLibrary(page);
   return page.evaluate(async ({ module, originals, folder }) => {
@@ -79,7 +79,7 @@ async function seed(page: Page) {
       await workspace.saveProject(project.record, project.revision);
     }
     return { workspace: workspace.id, ids, input };
-  }, { module: workspaceModule, originals: fixtures(), folder });
+  }, { module: workspaceModule, originals: fixtures(omitMarks), folder });
 }
 type Fixture = Awaited<ReturnType<typeof seed>>;
 
@@ -218,20 +218,25 @@ function edited(document: Tree, product: Product, suffix: string) {
   matches[0].text += suffix;
   return expected;
 }
-async function liveState(frame: Frame, paragraph: Locator) {
+async function liveState(frame: Frame, paragraph: Locator, product: Product) {
   return { paragraph: await paragraph.evaluate(element => ({ text: element.textContent,
     ids: [element, ...element.querySelectorAll('[data-bc-sid]')].map(node => node.getAttribute('data-bc-sid')) })),
-    native: await frame.evaluate(() => {
-      const editor = (window as unknown as { editor?: { exportDocument(): unknown; getHistoryStats(): unknown } }).editor;
-      return editor ? { document: editor.exportDocument(), history: editor.getHistoryStats() } : null;
-    }) };
+    native: await frame.evaluate(requireNative => {
+      const editor = (window as unknown as { editor?: { exportDocument(): unknown; getHistoryStats(): { totalEntries: number }; selection: unknown } }).editor;
+      if (requireNative && !editor) throw new Error('The native Word/Slides editor history is unavailable');
+      return editor ? { document: editor.exportDocument(), history: editor.getHistoryStats(), selection: editor.selection } : null;
+    }, product === 'word' || product === 'slides') };
 }
 
 // Real local native inputs and IndexedDB persistence. No authenticated ownership,
 // physical IME, mobile or whole-product alpha claim follows from these cases.
-for (const product of products) test(`populated local ${product} Project/My aliases and catalog return preserve its complete edited original`, async ({ page }, info) => {
+const returnCases = [
+  ...products.map(product => ({ product, omitMarks: false })),
+  ...(['note', 'word', 'slides'] as const).map(product => ({ product, omitMarks: true })),
+];
+for (const { product, omitMarks } of returnCases) test(`populated local ${product} Project/My aliases and catalog return preserve its complete edited original${omitMarks ? ' with omitted marks' : ''}`, async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const fixture = await seed(page);
+  const fixture = await seed(page, omitMarks);
   await page.reload(); await openLocalLibrary(page); await filterCatalog(page, product);
   const initialStored = await originals(page, fixture);
   let frame = await catalogOpen(page, product, fixture.ids[product]);
@@ -240,7 +245,8 @@ for (const product of products) test(`populated local ${product} Project/My alia
   await append(page, frame, paragraph, firstInput, product);
   await expect.poll(async () => (await originals(page, fixture))[product].text).toContain(firstInput);
   const cleanOriginals = await originals(page, fixture);
-  const node = await paragraph.elementHandle(), before = await liveState(frame, paragraph), url = page.url();
+  const node = await paragraph.elementHandle(), before = await liveState(frame, paragraph, product), url = page.url();
+  if (product === 'word' || product === 'slides') expect(before.native!.history.totalEntries).toBeGreaterThan(0);
   const aliases = () => tree(page).locator(`[data-original="${product}:${fixture.ids[product]}"]`);
   await tree(page).getByRole('button', { name: '프로젝트', exact: true }).click();
   await expect(aliases()).toHaveCount(2); await aliases().last().click();
@@ -250,7 +256,7 @@ for (const product of products) test(`populated local ${product} Project/My alia
   await expect(aliases()).toHaveCount(2); await aliases().first().click();
   expect(page.url()).toBe(url); expect(await nativeFrame(page)).toBe(frame);
   expect(await node!.evaluate(element => element.isConnected)).toBe(true);
-  expect(await liveState(frame, paragraph)).toEqual(before);
+  expect(await liveState(frame, paragraph, product)).toEqual(before);
   expect(await originals(page, fixture)).toEqual(cleanOriginals);
   if (product === 'note') expect((await nativeFile(page, frame, product)).document).toEqual(edited(mounted.document, product, firstInput));
   if (product === 'note' || product === 'site') {

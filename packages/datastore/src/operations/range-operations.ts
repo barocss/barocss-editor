@@ -299,7 +299,11 @@ export class RangeOperations {
       updatedMarks = resultMarks;
     }
     
-    this.dataStore.updateNode(nodeId, { text: updatedText, marks: coalesceMarks(updatedMarks) });
+    // Plain insertion keeps an authored omission distinct from explicit empty marks.
+    const changes = node.marks === undefined && updatedMarks.length === 0
+      ? { text: updatedText }
+      : { text: updatedText, marks: coalesceMarks(updatedMarks) };
+    this.dataStore.updateNode(nodeId, changes);
     return text;
   }
 
