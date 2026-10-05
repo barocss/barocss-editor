@@ -1,4 +1,5 @@
 import { databaseRangeRecords } from './database-range';
+import { noteNodeTreeOf, hasNoteNativeSource } from './session';
 import { databaseCSVRows } from './database-csv';
 import type { INode } from '@barocss/datastore';
 import type { Editor } from '@barocss/editor-core';
@@ -122,6 +123,12 @@ function itemResource(editor: Editor, id: string | undefined) {
     .find(node => node?.stype === 'richText' && node.attributes?.id === id);
 }
 function treeOf(editor: Editor, node: INode): INode {
+  if (hasNoteNativeSource(editor.dataStore)) {
+    const tree = noteNodeTreeOf(editor.dataStore, node.sid!);
+    if (!tree) throw new Error('Missing item body node');
+    return tree as unknown as INode;
+  }
+  // Keep the legacy prose transport for hosts that do not provide native source evidence.
   return {
     stype: node.stype,
     ...(node.text !== undefined ? { text: node.text } : {}),
@@ -134,6 +141,7 @@ function treeOf(editor: Editor, node: INode): INode {
     }) } : {})
   } as INode;
 }
+
 export function getNoteDatabaseItemId(editor: Editor, nodeId: string, row: number): string | undefined {
   const db = getNoteDatabase(editor, nodeId);
   return db && validRow(db, row) ? db.rowIds[row] || undefined : undefined;
@@ -243,7 +251,14 @@ export function registerNoteDatabaseCommands(editor: Editor): void {
       if (!editor.isEditable) return false;
       const ops = build(payload);
       if (!ops?.length) return false;
-      return (await transaction(editor, ops as never, name === 'insertNoteDatabase' ? undefined : { applySelectionToView: false }).commit()).success;
+      const bodyWrite = name === 'ensureNoteDatabaseItem' || name === 'setNoteDatabaseItemBody';
+      const epoch = editor.dataStore.getDocumentEpoch(), session = editor.dataStore.getSessionId();
+      const canApply = typeof payload?.canApply === 'function' ? payload.canApply as () => boolean : () => true;
+      return (await transaction(editor, ops as never, name === 'insertNoteDatabase' ? undefined : {
+        applySelectionToView: false,
+        ...(bodyWrite ? { validateIntent: () => !editor.isEditable || epoch !== editor.dataStore.getDocumentEpoch()
+          || session !== editor.dataStore.getSessionId() || !canApply() ? 'The item body owner or authority changed.' : undefined } : {})
+      }).commit()).success;
     }
   });
 
@@ -495,9 +510,10 @@ export function registerNoteDatabaseCommands(editor: Editor): void {
     if (current && same(treeOf(editor, current).content, blocks) && same(rowIds, db.rowIds)) return;
     return [
       ...(same(rowIds, db.rowIds) ? [] : [setAttrs(db.datasetId, { rowIds } as never)]),
-      ...(current?.sid ? [removeChild(at.box.sid, current.sid)] : []),
-      // The plural resource insertion has no automatic caret target.
-      { type: 'addChild', payload: { parentId: at.box.sid, children: [tree] } }
+      ...(current?.sid ? [
+        ...(current.content ?? []).map(child => removeChild(current.sid!, String(child))),
+        { type: 'addChild', payload: { parentId: current.sid, children: blocks } }
+      ] : [{ type: 'addChild', payload: { parentId: at.box.sid, children: [tree] } }])
     ];
   });
 

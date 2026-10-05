@@ -480,6 +480,9 @@ importers:
       '@barocss/editor-view-dom':
         specifier: workspace:*
         version: link:../../packages/editor-view-dom
+      '@barocss/model':
+        specifier: workspace:*
+        version: link:../../packages/model
       '@barocss/office-canvas':
         specifier: workspace:*
         version: link:../../packages/office-canvas

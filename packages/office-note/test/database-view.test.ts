@@ -18,7 +18,7 @@ beforeEach(async () => {
     { stype: 'noteDatabase', attributes: { source: 'tasks', view: 'table' } },
     { stype: 'resources', content: [{ stype: 'dataset', attributes: { name: 'tasks', label: '업무 목록', fields: [
       { name: '이름', kind: 'text' }, { name: '상태', kind: 'choice', options: ['시작 전', '완료'] }, { name: '수량', kind: 'number' }, { name: '기한', kind: 'date' }, { name: '확인', kind: 'boolean' }
-    ], records: [{ 이름: '첫 업무', 상태: '시작 전', 수량: 2, 기한: '2026-09-01', 확인: false }] } }] }
+    ], rowIds: ['item-1'], records: [{ 이름: '첫 업무', 상태: '시작 전', 수량: 2, 기한: '2026-09-01', 확인: false }] } }] }
   ] });
   const first = session.editor.dataStore.getNode(session.rootId)!.content![0];
   if (typeof first !== 'string') throw new Error('Expected database sid'); nodeId = first;
@@ -134,4 +134,49 @@ it('keeps only one active item across database blocks in the same note', async (
   await act(async () => { document.querySelector<HTMLButtonElement>(`[data-note-database-ui="${otherId}"] [aria-label="행 1 열기"]`)!.click(); });
   expect(document.querySelectorAll('[data-side-peek]')).toHaveLength(1);
   expect(document.querySelector('[aria-label="항목 위치"]')?.textContent).toBe('Other database');
+});
+
+
+it.each(['Control', 'Meta'] as const)('passes non-composing %s+s from the actual row action to document Save without changing native history', async modifier => {
+  const opener = button('행 1 열기'); opener.focus();
+  const before = structuredClone({ document: session.editor.exportDocument(), history: session.editor.historyManager.getHistory(), selection: session.editor.selection });
+  const received: KeyboardEvent[] = [];
+  const save = (event: KeyboardEvent) => { received.push(event); event.preventDefault(); };
+  document.addEventListener('keydown', save);
+  try {
+    const event = new KeyboardEvent('keydown', { key: 's', ctrlKey: modifier === 'Control', metaKey: modifier === 'Meta', bubbles: true, cancelable: true });
+    await act(async () => { opener.dispatchEvent(event); });
+    expect(document.activeElement).toBe(opener); expect(received).toEqual([event]);
+    expect(event.defaultPrevented).toBe(true);
+    expect({ document: session.editor.exportDocument(), history: session.editor.historyManager.getHistory(), selection: session.editor.selection }).toEqual(before);
+  } finally { document.removeEventListener('keydown', save); }
+});
+
+it('keeps composition, ordinary keys and modified non-Save gestures inside the actual database chrome', async () => {
+  const opener = button('행 1 열기'); opener.focus();
+  const received: KeyboardEvent[] = [];
+  const listener = (event: KeyboardEvent) => received.push(event);
+  document.addEventListener('keydown', listener);
+  const before = structuredClone({ document: session.editor.exportDocument(), history: session.editor.historyManager.getHistory(), selection: session.editor.selection });
+  try {
+    for (const options of [{ key: 's' }, { key: 's', ctrlKey: true, isComposing: true }, { key: 's', ctrlKey: true, keyCode: 229 }, { key: 's', ctrlKey: true, altKey: true }, { key: 'S', ctrlKey: true, shiftKey: true }])
+      await act(async () => { opener.dispatchEvent(new KeyboardEvent('keydown', { ...options, bubbles: true, cancelable: true })); });
+    expect(received).toEqual([]);
+    expect({ document: session.editor.exportDocument(), history: session.editor.historyManager.getHistory(), selection: session.editor.selection }).toEqual(before);
+  } finally { document.removeEventListener('keydown', listener); }
+});
+
+it('keeps actual row-action Undo and Redo in the database after allowing document Save', async () => {
+  const before = structuredClone(session.editor.exportDocument());
+  await click('새 항목'); const added = structuredClone(session.editor.exportDocument());
+  expect(database().records).toHaveLength(2);
+  const history = structuredClone(session.editor.historyManager.getHistory());
+  const opener = button('행 1 열기'); opener.focus();
+  await act(async () => { opener.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })); });
+  await vi.waitFor(() => expect(session.editor.exportDocument()).toEqual(before));
+  expect(session.editor.historyManager.getHistory()).toEqual(history);
+  const currentOpener = button('행 1 열기'); currentOpener.focus();
+  await act(async () => { currentOpener.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true, cancelable: true })); });
+  await vi.waitFor(() => expect(session.editor.exportDocument()).toEqual(added));
+  expect(session.editor.historyManager.getHistory()).toEqual(history);
 });

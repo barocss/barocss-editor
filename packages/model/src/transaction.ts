@@ -186,6 +186,16 @@ export function registerPreExecutionGuard(editor: Editor, guard: PreExecutionGua
   };
 }
 
+/** Capture each opted-in editor owner before the transaction awaits its lock. */
+export type TransactionIntentGuardFactory = () => (() => string | void);
+const intentGuardFactories = new WeakMap<Editor, Set<TransactionIntentGuardFactory>>();
+export function registerTransactionIntentGuardFactory(editor: Editor, capture: TransactionIntentGuardFactory): () => void {
+  let factories = intentGuardFactories.get(editor);
+  if (!factories) { factories = new Set(); intentGuardFactories.set(editor, factories); }
+  factories.add(capture);
+  return () => { factories.delete(capture); if (!factories.size) intentGuardFactories.delete(editor); };
+}
+
 /** UI intent checks must not introduce a yield between a synchronous durable guard and commit. */
 function validateIntent(options: TransactionOptions | undefined): void {
   const result = options?.validateIntent?.();
@@ -286,6 +296,17 @@ export class TransactionManager {
     let isHistoryReplay = false;
     
     try {
+      const checks = [...(intentGuardFactories.get(this._editor) ?? [])].map(capture => capture());
+      if (checks.length) {
+        const supplied = options;
+        options = { ...supplied, validateIntent: () => {
+          for (const check of checks) {
+            const result = check();
+            if (result !== undefined) return result;
+          }
+          return supplied?.validateIntent?.();
+        } };
+      }
       // 1. Acquire global lock
       lockId = await this._dataStore.acquireLock('transaction-execution');
       validateIntent(options);

@@ -44,7 +44,7 @@
  * is a stylesheet rather than a page of inline soup. No `!important` anywhere: a page a reader cannot
  * override with their own CSS is a page that is not really theirs.
  */
-import { getGlobalRegistry } from '@barocss/dsl';
+import { getGlobalRegistry, type RendererRegistry } from '@barocss/dsl';
 import { isVarRef, resolveVarValue } from '@barocss/office-canvas';
 import { DOMRenderer } from '@barocss/renderer-dom';
 import { WORD_ENV_KEY, createTextEnv } from '@barocss/office-text';
@@ -132,13 +132,13 @@ interface Editor {
  * The addresses are the document's — `path` is what makes a page a page of a site — so a writer maps
  * `/제품` onto `제품/index.html` and nothing here has to know how a host serves files.
  */
-export function exportSite(editor: Editor): ExportedPage[] {
+export function exportSite(editor: Editor, registry?: RendererRegistry): ExportedPage[] {
   const store = editor.dataStore;
   const rootId = editor.getRootId?.();
   if (!store || !rootId) return [];
 
   const doc = { rootId, getNode: (sid: string) => store.getNode(sid) };
-  return pagesOf(doc as never).map((page) => exportPage(editor, page.sid));
+  return pagesOf(doc as never).map((page) => exportPage(editor, page.sid, registry));
 }
 
 /**
@@ -221,11 +221,11 @@ export function sitemapFor(editor: Editor): string | undefined {
 }
 
 /** One page. */
-export function exportPage(editor: Editor, pageSid: string): ExportedPage {
+export function exportPage(editor: Editor, pageSid: string, registry?: RendererRegistry): ExportedPage {
   const store = editor.dataStore!;
   const page = store.getNode(pageSid) as Node;
 
-  const host = drawn(editor, pageSid);
+  const host = drawn(editor, pageSid, registry);
   const lifted = lift(host);
   const responsive = mediaRules(store, pageSid, lifted.classOf);
   /*
@@ -547,17 +547,17 @@ function lift(host: HTMLElement): { css: string; classOf: (sid: string) => strin
  * a rule has to say **which node** it is about, and the node's own id is the one name that cannot
  * drift from the drawing it came out of.
  */
-export function drawnHtml(editor: Editor, pageSid: string): string {
-  return drawn(editor, pageSid).innerHTML;
+export function drawnHtml(editor: Editor, pageSid: string, registry?: RendererRegistry): string {
+  return drawn(editor, pageSid, registry).innerHTML;
 }
 
 /** The drawing itself, before its styles are lifted — the one place a render happens. */
-function drawn(editor: Editor, pageSid: string): HTMLElement {
+function drawn(editor: Editor, pageSid: string, registry?: RendererRegistry): HTMLElement {
   const store = editor.dataStore!;
   const rootId = editor.getRootId?.() ?? '';
   const host = document.createElement('div');
 
-  const renderer = new DOMRenderer(getGlobalRegistry());
+  const renderer = new DOMRenderer(registry ?? getGlobalRegistry());
   renderer.setEnv({
     [WORD_ENV_KEY]: createTextEnv({
       rootId,

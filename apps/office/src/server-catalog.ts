@@ -55,7 +55,7 @@ export function serverCatalogGroups(catalog: AuthorizedWorkspaceCatalog, options
   const rows = catalog.documents.map(head => ({
     key: JSON.stringify([head.tenantId, head.workspaceId, head.product, head.documentId]),
     documentId: head.documentId, title: head.title, product: head.product, mode: head.mode, revision: head.revision,
-    nativeOpenSupported: head.product !== 'site' && head.mode === 'snapshot'
+    nativeOpenSupported: head.mode === 'snapshot'
   }));
   const visible = rows.filter(row => (options.product === 'all' || row.product === options.product) &&
     (!needle || row.title.normalize('NFC').toLocaleLowerCase().includes(needle)));

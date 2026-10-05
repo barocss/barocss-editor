@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
@@ -24,7 +24,7 @@ import { json } from '@codemirror/lang-json';
  * a second undo stack fighting the document's, a second render path for the export. **None of those
  * apply to a layer that opens on a gesture**: it is a sibling of the boards rather than inside one,
  * it is gone when the reader is done, the export never sees it, and the document takes **one
- * transaction** when it closes — one undo, whatever happened inside.
+ * transaction** when it flushes — one undo, whatever happened inside.
  *
  * ## Why it is in screen coordinates
  *
@@ -66,75 +66,188 @@ export interface CodeEdit {
   box: { left: number; top: number; width: number; height: number };
 }
 
+interface CodeDraft {
+  view: EditorView;
+  active: boolean;
+  editable: boolean;
+  authorityVersion: number;
+  pending: boolean;
+  flush: () => Promise<void>;
+  syncEditable: () => void;
+}
+
 export function CodeEditor({
   edit,
+  editable = true,
   onCommit,
-  onClose
+  onClose,
+  registerFlush,
+  onPendingChange
 }: {
   edit: CodeEdit;
-  /** The whole text, once — one transaction, one undo, whatever happened inside. */
-  onCommit: (code: string) => void;
+  editable?: boolean;
+  /** Resolve only after the current document has accepted the whole buffer. */
+  onCommit: (code: string, isCurrent: () => boolean) => void | Promise<void>;
   onClose: () => void;
+  registerFlush?: (flush: () => Promise<void>) => () => void;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
-  const view = useRef<EditorView | null>(null);
-  const [code, setCode] = useState(edit.code);
+  const draft = useRef<CodeDraft | null>(null);
+  const callbacks = useRef({ edit, editable, onCommit, onClose, onPendingChange });
+  callbacks.current = { edit, editable, onCommit, onClose, onPendingChange };
+  const [committing, setCommitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     const where = host.current;
     if (!where) return;
 
+    const authority = new Compartment();
+    let accepted = edit.code;
+    let composing = false;
+    let compositionTimer: ReturnType<typeof setTimeout> | undefined;
+    let inFlight: Promise<void> | null = null;
+    const permissions = () => [
+      EditorState.readOnly.of(!callbacks.current.editable || !!inFlight),
+      EditorView.editable.of(callbacks.current.editable && !inFlight)
+    ];
+    const notifyPending = () => {
+      const pending = composing || current.view.state.doc.toString() !== accepted;
+      if (current.pending === pending) return;
+      current.pending = pending;
+      callbacks.current.onPendingChange?.(pending);
+    };
     const language = LANGUAGES[edit.language.trim().toLowerCase()];
     const state = EditorState.create({
       doc: edit.code,
       extensions: [
+        authority.of(permissions()),
         lineNumbers(),
         highlightActiveLine(),
         history(),
-        /*
-         * `indentWithTab` last, so it does not take Tab from the keys before it. Inside a code
-         * editor Tab is an indent — which is the one place it may be taken, because nobody tabs out
-         * of a program and the way out of this layer is Escape.
-         */
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         indentUnit.of('  '),
         EditorView.lineWrapping,
+        EditorView.domEventHandlers({
+          compositionstart: () => {
+            clearTimeout(compositionTimer);
+            composing = true;
+            notifyPending();
+          },
+          compositionend: () => {
+            // CodeMirror can receive the final DOM mutation after compositionend.
+            // Keep snapshots blocked until that input has had time to settle.
+            clearTimeout(compositionTimer);
+            compositionTimer = setTimeout(() => { composing = false; notifyPending(); }, 50);
+          }
+        }),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) setCode(update.state.doc.toString());
+          if (update.docChanged) { notifyPending(); setError(null); }
         }),
         ...(language ? [language() as never] : [])
       ]
     });
-
-    view.current = new EditorView({ state, parent: where });
-    view.current.focus();
-
-    return () => {
-      view.current?.destroy();
-      view.current = null;
+    const current: CodeDraft = {
+      view: new EditorView({ state, parent: where }),
+      active: true,
+      editable: callbacks.current.editable,
+      authorityVersion: 0,
+      pending: false,
+      syncEditable: () => current.view.dispatch({ effects: authority.reconfigure(permissions()) }),
+      flush: () => {
+        const reject = (message: string) => {
+          if (current.active) setError(message);
+          return Promise.reject(new Error(message));
+        };
+        if (!current.active || draft.current !== current) return reject('코드 편집창이 변경되었습니다.');
+        if (composing || current.view.composing) return reject('문자 입력을 마친 후 다시 저장하세요.');
+        if (inFlight) return inFlight;
+        const code = current.view.state.doc.toString();
+        if (code === accepted) return Promise.resolve();
+        if (!callbacks.current.editable) return reject('읽기 전용입니다. 입력한 코드는 보관되어 있습니다.');
+        const version = current.authorityVersion;
+        const commit = callbacks.current.onCommit;
+        const isCurrent = () => current.active && draft.current === current &&
+          callbacks.current.edit.sid === edit.sid && callbacks.current.edit.runSid === edit.runSid &&
+          callbacks.current.editable && current.authorityVersion === version;
+        const assertCurrent = () => {
+          if (!isCurrent()) {
+            throw new Error('편집 권한 또는 문서가 변경되었습니다. 입력한 코드는 보관되어 있습니다.');
+          }
+        };
+        setError(null);
+        setCommitting(true);
+        inFlight = Promise.resolve().then(async () => {
+          assertCurrent();
+          await commit(code, isCurrent);
+          assertCurrent();
+          accepted = code;
+          notifyPending();
+        }).catch((reason: unknown) => {
+          if (current.active) setError(reason instanceof Error ? reason.message : '코드를 저장하지 못했습니다.');
+          throw reason;
+        }).finally(() => {
+          inFlight = null;
+          if (current.active) { setCommitting(false); current.syncEditable(); }
+        });
+        current.syncEditable();
+        return inFlight;
+      }
     };
-    // The layer is made for one block and thrown away; nothing here changes while it is open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    draft.current = current;
+    setCommitting(false);
+    setError(null);
+    current.view.focus();
+    return () => {
+      current.active = false;
+      clearTimeout(compositionTimer);
+      current.view.destroy();
+      if (draft.current === current) draft.current = null;
+      callbacks.current.onPendingChange?.(false);
+    };
+    // A parent refresh of the same block must not replace an unsaved buffer.
+    // The host keys this component by document lifetime and flushes before replacing it.
+  }, [edit.sid, edit.runSid]);
 
-  /**
-   * Escape closes it, and closing is what commits.
-   *
-   * Listened for on the window rather than on the layer, because CodeMirror stops the key from
-   * bubbling out of its own view — and a reader who cannot get out of an editor they opened by
-   * accident is the worst thing this could be.
-   */
+  useLayoutEffect(() => {
+    const current = draft.current;
+    if (!current) return;
+    if (current.editable !== editable) {
+      current.editable = editable;
+      current.authorityVersion += 1;
+    }
+    current.syncEditable();
+  }, [editable, edit.sid, edit.runSid]);
+
+  useLayoutEffect(() => {
+    const current = draft.current;
+    if (current && registerFlush) return registerFlush(current.flush);
+  }, [registerFlush, edit.sid, edit.runSid]);
+
+  useLayoutEffect(() => {
+    onPendingChange?.(draft.current?.pending ?? false);
+  }, [onPendingChange, edit.sid, edit.runSid]);
+
   useEffect(() => {
+    const current = draft.current;
+    if (!current) return;
+    let closing = false;
     const leave = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || event.isComposing) return;
       event.preventDefault();
       event.stopPropagation();
-      if (code !== edit.code) onCommit(code);
-      onClose();
+      if (closing) return;
+      closing = true;
+      void current.flush().then(() => {
+        if (current.active && draft.current === current) callbacks.current.onClose();
+      }).catch(() => {
+        // flush reports the error and keeps the buffer open for retry.
+      }).finally(() => { closing = false; });
     };
     window.addEventListener('keydown', leave, true);
     return () => window.removeEventListener('keydown', leave, true);
-  }, [code, edit.code, onCommit, onClose]);
+  }, [edit.sid, edit.runSid]);
 
   return (
     <div
@@ -147,11 +260,15 @@ export function CodeEditor({
       }}
       role="dialog"
       aria-label="코드 편집"
+      aria-busy={committing}
     >
       <header className="st-code-layer-bar">
         <span>{edit.language || '언어 없음'}</span>
-        <span className="st-code-layer-hint">Esc로 닫고 반영합니다</span>
+        <span className="st-code-layer-hint">
+          {committing ? '코드를 저장하고 있습니다' : editable ? 'Esc로 닫고 반영합니다' : '읽기 전용'}
+        </span>
       </header>
+      {error && <p role="alert">{error}</p>}
       <div ref={host} className="st-code-layer-body" />
     </div>
   );

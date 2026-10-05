@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { isOfficePortalInactive, useOfficePortalContainer } from './portal-owner';
 import { dismissOwnedControlLayer } from './stack';
 import { dismissOwnedFloatingLayer } from './floating';
 import * as RadixDialog from '@radix-ui/react-dialog';
@@ -6,7 +7,7 @@ import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { Button, keepsDraftFieldEscape } from './controls';
 
-function useModalFocus(onClosed?: () => void) {
+function useModalFocus(container: HTMLElement | null | undefined, onClosed?: () => void) {
   const returnTo = useRef<HTMLElement | null>(null);
   return {
     onOpenAutoFocus: () => { returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; },
@@ -15,7 +16,9 @@ function useModalFocus(onClosed?: () => void) {
       if (returnTo.current?.isConnected) returnTo.current.focus({ preventScroll: true });
       if (onClosed) requestAnimationFrame(onClosed);
     },
+    onInteractOutside: (event: Event) => { if (isOfficePortalInactive(container)) event.preventDefault(); },
     onEscapeKeyDown: (event: KeyboardEvent) => {
+      if (isOfficePortalInactive(container)) { event.preventDefault(); return; }
       if (keepsDraftFieldEscape(event)) { event.preventDefault(); return; }
       if (event.isComposing || event.keyCode === 229) { event.preventDefault(); return; }
       dismissOwnedControlLayer(event) || dismissOwnedFloatingLayer(event);
@@ -67,10 +70,11 @@ export function Dialog({
   /** Run follow-up UI after dismissal has restored focus. */
   onClosed?: () => void;
 }) {
-  const focus = useModalFocus(onClosed);
+  const container = useOfficePortalContainer();
+  const focus = useModalFocus(container, onClosed);
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
-      <RadixDialog.Portal>
+      {container !== null && <RadixDialog.Portal container={container}>
         <RadixDialog.Overlay data-office-dialog-overlay className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)]" />
  <RadixDialog.Content
           data-office-dialog
@@ -108,7 +112,7 @@ export function Dialog({
             </div>
           )}
         </RadixDialog.Content>
-      </RadixDialog.Portal>
+      </RadixDialog.Portal>}
     </RadixDialog.Root>
   );
 }
@@ -156,10 +160,11 @@ export function Drawer({
   width?: string;
   className?: string;
 }) {
-  const focus = useModalFocus();
+  const container = useOfficePortalContainer();
+  const focus = useModalFocus(container);
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
-      <RadixDialog.Portal>
+      {container !== null && <RadixDialog.Portal container={container}>
         {/* Lighter than a dialog's: the page behind is what the reader is checking their edit against. */}
         <RadixDialog.Overlay data-office-dialog-overlay="drawer" className="fixed inset-0 z-[var(--ou-z-overlay)] bg-[color:var(--ou-scrim)] opacity-50" />
         <RadixDialog.Content
@@ -194,7 +199,7 @@ export function Drawer({
           {/* The one part that scrolls: a row of twenty columns is taller than a window. */}
           <div className="office-modal-body">{children}</div>
         </RadixDialog.Content>
-      </RadixDialog.Portal>
+      </RadixDialog.Portal>}
     </RadixDialog.Root>
   );
 }

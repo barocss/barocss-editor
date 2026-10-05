@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, Component, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, Component, type ReactNode } from 'react';
 import {
   AuthError, beginLogin, clearSession, confirmOperator, confirmTenant, currentIntent, finishLogin,
   isLogoutEvent, loadIdentity, providerLogout, consumeLogoutReturn, consumeResumeIntent,
   listWorkspaces, listSnapshotDocuments, openVerifiedSnapshot, snapshotIntentFromSearch, projectLocation, authorizedFetch, captureAuthorizedSession,
   type EntryIntent, type Identity, type TenantAccess, type TenantRole, type WorkspaceAccess, type DocumentAccess, type VerifiedNoteContext, type VerifiedSnapshotContext, type SnapshotProduct,
 } from './auth-client';
-import { Icon, IconButton, ProductLabel } from '@barocss/office-ui';
+import { Icon, IconButton, ProductLabel, OfficePortalOwner } from '@barocss/office-ui';
 import { productDocumentHost, prepareProductNavigation, prepareProductAccountExit, captureProductNavigation, createNativeHostSlot, disposeNativeHostSlot, promoteProductNavigation, type NativeHostSlot, type ProductNavigationGuard } from '@barocss/shared';
 import { ProjectFeedback, type FeedbackBeforeLeave } from '@barocss/office-workspace/feedback';
 import { AuthenticatedWorkspaceFrame } from './authenticated-frame';
@@ -33,7 +33,7 @@ type View =
 
 type NativeView = Extract<View, { phase: 'note' }>;
 type NativeSlot = { token: symbol; key: string; session: ReturnType<typeof captureAuthorizedSession>; hostSlot?: NativeHostSlot };
-export type NativeEntryBinding = { hostSlot?: NativeHostSlot; onNativeFailure?: (message: string) => void };
+export type NativeEntryBinding = { isAuthorized?: () => boolean; authorityEpoch?: number; subscribeAuthority?: (retire: () => void) => () => void; hostSlot?: NativeHostSlot; onNativeFailure?: (message: string) => void };
 class NativeEntryBoundary extends Component<{ children: ReactNode; onFailure: (message: string) => void }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -41,7 +41,7 @@ class NativeEntryBoundary extends Component<{ children: ReactNode; onFailure: (m
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-const productName = (product: SnapshotProduct) => ({ note: 'Note', word: 'Word', slides: 'Slides' })[product];
+const productName = (product: SnapshotProduct) => ({ note: 'Note', word: 'Word', slides: 'Slides', site: 'Site' } as const)[product];
 
 const curtainId = 'office-auth-curtain';
 function curtain() {
@@ -94,6 +94,15 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   const rememberedNote = useRef<Extract<View, { phase: 'note' }> | null>(null);
   const noteAccount = useRef<string | null>(null);
   const noteAccess = useRef(false);
+  const authorityListeners = useRef(new Set<() => void>());
+  const subscribeAuthority = useCallback((retire: () => void) => {
+    authorityListeners.current.add(retire);
+    return () => { authorityListeners.current.delete(retire); };
+  }, []);
+  const retireNoteAccess = () => {
+    noteAccess.current = false;
+    for (const retire of authorityListeners.current) retire();
+  };
   const rememberedDocumentId = useRef<string | null>(null);
   const verifiedIdentity = useRef<Identity | null>(null);
   const [mountedNote, setMountedNote] = useState<Extract<View, { phase: 'note' }> | null>(null);
@@ -109,7 +118,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     setActiveDocument(null);
     rememberedNote.current = null;
     noteAccount.current = null;
-    noteAccess.current = false;
+    retireNoteAccess();
     rememberedDocumentId.current = null;
     noteUnsafe.current = false;
     setMountedNote(null);
@@ -145,7 +154,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   };
 
   useLayoutEffect(() => {
-    if (view.phase !== 'checking') hideCurtain();
+    if (view.phase !== 'checking' && !(view.phase === 'note' && !noteAccess.current)) hideCurtain();
     heading.current?.focus();
   }, [view]);
 
@@ -154,10 +163,11 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     cancelStagedNative();
     treeOperation.current = null; setTreeBusy(false);
     const retainedNote = rememberedNote.current;
-    noteAccess.current = false;
+    retireNoteAccess();
     showCurtain();
     curtain().textContent = '현재 계정의 접근 권한 확인 중';
-    if (!retainedNote) setView({ phase: 'checking' });
+    if (retainedNote) setView({ ...retainedNote });
+    else setView({ phase: 'checking' });
     if (!intent) { selected.current = null; chosenIntent.current = null; setView({ phase: 'entry' }); return; }
     try {
       const identity = await loadIdentity();
@@ -226,7 +236,6 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
             if (run !== generation.current || !session.isCurrent()) return;
             if (item.kind === 'project') { direct = null; projectLink = { tenant: fresh.tenantId, workspace: workspace.id, project: item.id }; }
             else {
-              if (item.product === 'site') throw new AuthError('configuration', '인증된 Site 편집 연결은 아직 지원하지 않습니다.');
               direct = { tenantId: fresh.tenantId, workspaceId: workspace.id, documentId: item.id, product: item.product,
                 ...(route.projectId ? { projectId: route.projectId } : {}), ...(route.mode ? { mode: route.mode } : {}) };
               projectLink = null;
@@ -276,7 +285,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           // Silent login restores the URL after this component was mounted on the callback.
           // Retain the freshly authorized project intent before native navigation reports its document.
           noteIntent.current = direct;
-          const retainNativeRuntime = context.product === 'word' || context.product === 'slides';
+          const retainNativeRuntime = context.product === 'word' || context.product === 'slides' || context.product === 'site';
           if (retainedNote && (retainNativeRuntime || role !== 'viewer' || retainedNote.context.role === 'viewer') && retainedNote.context.tenantId === context.tenantId &&
             retainedNote.context.workspaceId === context.workspaceId && retainedNote.context.product === context.product && rememberedDocumentId.current === context.documentId) {
             // Preserve native Word/Slides runtimes and protected drafts while applying this fresh role.
@@ -521,7 +530,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     return () => window.removeEventListener('wonffice:host-change', publishInstalled);
   }, [mountedNote]);
   async function openTreeOriginal(row: ServerCatalogRow, projectId?: string) {
-    if (treeOperation.current || !row.nativeOpenSupported || row.product === 'site') return;
+    if (treeOperation.current || !row.nativeOpenSupported) return;
     const scope = rememberedNote.current ?? (currentView.current.phase === 'project' || currentView.current.phase === 'library' ? currentView.current : null);
     if (!scope) return;
     const run = generation.current, slot = nativeSlot.current, session = captureAuthorizedSession(), token = Symbol('tree open');
@@ -665,7 +674,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     finally { if (treeOperation.current === token) { treeOperation.current = null; setTreeBusy(false); } }
   }
 
-  const compactEditor = view.phase === 'note' && ['note', 'word', 'slides'].includes(view.context.product) && !!editorRenderer;
+  const compactEditor = view.phase === 'note' && ['note', 'word', 'slides', 'site'].includes(view.context.product) && !!editorRenderer;
   const returnToProject = async () => {
     if (view.phase !== 'note' || !canLeaveNote()) return;
     const started = generation.current, current = view, account = noteAccount.current, originalNote = rememberedNote.current, project = noteIntent.current?.projectId;
@@ -684,7 +693,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   };
   const headerNavigation = view.phase === 'note' ? <div className="office-editor-product office-auth-native-navigation">
     {treeBusy && <IconButton label={t('document.library.cancel')} onClick={() => { treeOperation.current = null; cancelStagedNative(); setTreeBusy(false); }}><Icon name="close" /></IconButton>}
-    <ProductLabel iconOnly name={view.context.product === 'slides' ? 'Slides' : view.context.product === 'word' ? 'Word' : 'Note'} />
+    <ProductLabel iconOnly name={productName(view.context.product)} />
     {noteIntent.current?.projectId && activeDocument && feedbackRepository && <ProjectFeedback key={`${noteAccount.current}:${noteIntent.current.projectId}:${activeDocument}`} repository={feedbackRepository} projectId={noteIntent.current.projectId} beforeLeave={feedbackBeforeLeave}
       document={{ product: view.context.product, id: activeDocument }} />}
   </div> : null;
@@ -718,12 +727,11 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         <button onClick={() => void switchAccount()}>계정 전환</button><button onClick={() => void logout()}>로그아웃</button></div>
     </section>}
     {view.phase === 'project' && <ConnectedWorkspace tenant={view.tenant.tenantId} workspace={view.workspace.id} role={view.role} onLibrary={() => void enterWorkspace(view.tenant, view.role, view.workspace, 'note')} onOpen={async (project, doc) => {
-      if (doc.product === 'site') throw new Error('Site 인증 편집은 아직 연결되지 않았습니다.');
       await enterNote({ phase: 'library', tenant: view.tenant, role: view.role, workspace: view.workspace, product: doc.product, documents: [], cursor: null }, doc.id, project);
     }} />}
     {view.phase === 'library' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>{view.workspace.name} · {productName(view.product)} 자료</h1>
       <button onClick={() => void enterWorkspace(view.tenant, view.role, view.workspace)}>프로젝트</button>
-      <div className="office-auth-actions">{(['note', 'word', 'slides'] as const).map(product => <button key={product} aria-pressed={view.product === product} onClick={() => void enterWorkspace(view.tenant, view.role, view.workspace, product)}>{`${productName(product)} 자료`}</button>)}</div>
+      <div className="office-auth-actions">{(['note', 'word', 'slides', 'site'] as const).map(product => <button key={product} aria-pressed={view.product === product} onClick={() => void enterWorkspace(view.tenant, view.role, view.workspace, product)}>{`${productName(product)} 자료`}</button>)}</div>
       {view.documents.length === 0 && <p>이 자료함에는 저장된 {productName(view.product)} 문서가 없습니다.</p>}
       <ul className="office-auth-tenants">{view.documents.map(item => <li key={item.documentId}><button onClick={() => void enterNote(view, item.documentId)}>{item.title}</button></li>)}</ul>
       {view.cursor && <button onClick={() => void moreDocuments(view)}>문서 더 보기</button>}
@@ -733,10 +741,10 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     {[(mountedNote && renderedSlot ? { value: mountedNote, slot: renderedSlot, staged: false, fail: undefined } : null),
       (stagedNative ? { ...stagedNative, staged: true } : null)].map(entry => entry && <section key={entry.slot.key}
       className="office-auth-note-host" data-native-entry={entry.staged ? 'preparing' : 'active'}
-      hidden={!entry.staged && view.phase !== 'note'} aria-hidden={entry.staged || view.phase !== 'note'} inert={entry.staged || view.phase !== 'note'}
+      hidden={!entry.staged && view.phase !== 'note'} aria-hidden={entry.staged || view.phase !== 'note' || !noteAccess.current} inert={entry.staged || view.phase !== 'note' || !noteAccess.current}
       style={entry.staged ? { position: 'absolute', inset: 0, visibility: 'hidden', pointerEvents: 'none' } : undefined}>
       <NativeEntryBoundary onFailure={message => { if (entry.staged) entry.fail?.(message); else setTreeError(message); }}>
-      <div className="office-auth-editor">{(editorRenderer ?? (entry.value.context.product === 'note' ? noteRenderer : undefined)) ?
+      <OfficePortalOwner className="office-auth-editor">{(editorRenderer ?? (entry.value.context.product === 'note' ? noteRenderer : undefined)) ?
         (editorRenderer ?? noteRenderer)!(entry.value.context, entry.value.principal, unsafe => {
           if (!entry.staged && nativeSlot.current === entry.slot && entry.slot.session.isCurrent() &&
             noteAccess.current && renderedAuthority === generation.current) noteUnsafe.current = unsafe;
@@ -745,8 +753,10 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           const native = captureProductNavigation(entry.slot.hostSlot);
           if (!native?.isCurrent() || native.product !== entry.value.context.product || native.id !== documentId) return;
           commitNativeLocation(documentId);
-        }, entry.staged ? null : headerNavigation, { hostSlot: entry.slot.hostSlot, onNativeFailure: entry.fail }) :
-        <p role="status">{productName(entry.value.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}</div>
+        }, entry.staged ? null : headerNavigation, { hostSlot: entry.slot.hostSlot, onNativeFailure: entry.fail, authorityEpoch: renderedAuthority, subscribeAuthority,
+          isAuthorized: () => renderedAuthority === generation.current && noteAccess.current && entry.slot.session.isCurrent() &&
+            (nativeSlot.current === entry.slot || pendingNative.current?.slot === entry.slot) }) :
+        <p role="status">{productName(entry.value.context.product)} 편집 화면 연결을 기다리고 있습니다.</p>}</OfficePortalOwner>
       </NativeEntryBoundary>
     </section>)}
     {view.phase === 'operator-opened' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>Wonffice 전체 서비스 운영자</h1>
@@ -760,7 +770,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     {view.phase === 'denied' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>관리자 권한이 없습니다</h1><p role="alert">{view.tenant.name}의 현재 역할은 {roleName(view.role)}입니다. 이 선택만으로 관리자 권한이 생기지 않습니다.</p>
       <div className="office-auth-actions"><button onClick={() => void open(view.tenant, 'user')}>사용자 화면 보기</button><button onClick={() => { selected.current = null; void checkAccess(); }}>다른 회사 선택</button><button onClick={() => void switchAccount()}>계정 전환</button></div>
     </section>}
-    {view.phase === 'error' && <section className="office-auth-panel"><h1 tabIndex={-1} ref={heading}>{view.error.kind === 'unauthorized' || view.error.kind === 'cancelled' || view.error.kind === 'login' ? '로그인이 필요합니다' : view.error.kind === 'forbidden' ? '접근 권한이 없습니다' : view.error.kind === 'collaboration_unavailable' ? '공동 편집을 열 수 없습니다' : '접근 권한을 확인하지 못했습니다'}</h1><p role="alert">{view.error.message}</p>
+    {view.phase === 'error' && <section className="office-auth-panel" data-retained-native-recovery={mountedNote ? '' : undefined}><h1 tabIndex={-1} ref={heading}>{view.error.kind === 'unauthorized' || view.error.kind === 'cancelled' || view.error.kind === 'login' ? '로그인이 필요합니다' : view.error.kind === 'forbidden' ? '접근 권한이 없습니다' : view.error.kind === 'collaboration_unavailable' ? '공동 편집을 열 수 없습니다' : '접근 권한을 확인하지 못했습니다'}</h1><p role="alert">{view.error.message}</p>
       <div className="office-auth-actions">{mountedNote && <button onClick={() => void checkAccess('user', mountedNote.tenant)}>초안 권한 다시 확인</button>}{(view.error.kind === 'unavailable' || view.error.kind === 'collaboration_unavailable') && currentIntent() && <button onClick={() => void checkAccess()}>다시 확인</button>}
         {view.error.kind === 'forbidden' && currentIntent() && <button onClick={() => { selected.current = null; void checkAccess(); }}>다른 회사 선택</button>}
         <button onClick={() => void login(chosenIntent.current ?? currentIntent() ?? 'user')}>다시 로그인</button><button onClick={() => {
@@ -783,7 +793,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         onClick={() => void logout()}><Icon name="logout" /></IconButton>
     </>}
     onOpen={(row, project) => void openTreeOriginal(row, project)} onNavigate={(destination, project) => void navigateTree(destination, project)}
-    onAccessFailure={error => { noteAccess.current = false; ++generation.current; setView({ phase: 'error', error }); }}>
+    onAccessFailure={error => { retireNoteAccess(); ++generation.current; setView({ phase: 'error', error }); }}>
     {content}
   </AuthenticatedWorkspaceFrame>;
 

@@ -15,8 +15,9 @@ if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
   const ServerNoteWorkspace = lazy(() => import('../../note/src/server-workspace').then(module => ({ default: module.ServerNoteWorkspace })));
   const ServerWordWorkspace = lazy(() => import('../../word/src/server-workspace').then(module => ({ default: module.ServerWordWorkspace })));
   const ServerSlidesWorkspace = lazy(() => import('../../slide/src/server-workspace').then(module => ({ default: module.ServerSlidesWorkspace })));
+  const ServerSiteWorkspace = lazy(() => import('../../site/src/server-workspace').then(module => ({ default: module.ServerSiteWorkspace })));
   void import('./auth-app').then(({ AuthApp }) => root.render(<EntryBoundary><OfficeLocaleProvider><AuthApp editorRenderer={(context, principal, onUnsafeChange, onDocumentNavigate, headerNavigation, binding) => {
-    const Workspace = context.product === 'slides' ? ServerSlidesWorkspace : context.product === 'word' ? ServerWordWorkspace : ServerNoteWorkspace;
+    const Workspace = context.product === 'site' ? ServerSiteWorkspace : context.product === 'slides' ? ServerSlidesWorkspace : context.product === 'word' ? ServerWordWorkspace : ServerNoteWorkspace;
     return <Suspense fallback={<EntryStatus />}>
       <Workspace key={`${principal.issuer}\0${principal.subject}\0${context.tenantId}\0${context.workspaceId}\0${context.product}`}
         headerNavigation={headerNavigation}

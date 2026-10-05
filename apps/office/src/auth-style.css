@@ -10,6 +10,9 @@
 .office-auth-brand span { font-size: 24px; font-weight: 700; letter-spacing: -.04em; }
 .office-auth-brand small { color: #565e67; font-size: 13px; }
 .office-auth-panel { max-width: 680px; margin: clamp(52px, 12vh, 140px) auto 0; }
+/* Retained hidden native modals can still own the body pointer lock.
+   Only the visible recovery panel must accept input outside that owner. */
+.office-auth > .office-auth-panel[data-retained-native-recovery] { pointer-events: auto; }
 /* Product styles own this mount; shell selectors stop at their named panels/actions. */
 .office-auth-editor { color: var(--ou-ink); background: var(--ou-ground); font: var(--ou-text, 14px)/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
 .office-auth .office-auth-note-host { max-width: none; margin-top: 20px; }
@@ -26,7 +29,7 @@
 .office-auth-tenants { list-style: none; padding: 0; margin: 28px 0; display: grid; gap: 10px; }
 .office-auth-tenants > li > button { width: 100%; display: flex; justify-content: space-between; gap: 16px; text-align: left; }
 .office-auth-tenants > li > button > span { color: #565e67; }
-#office-auth-curtain { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; padding: 24px; background: #f8f8f5; color: #20242c; font: 18px/1.5 system-ui, -apple-system, sans-serif; text-align: center; }
+#office-auth-curtain { pointer-events: auto; position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; padding: 24px; background: #f8f8f5; color: #20242c; font: 18px/1.5 system-ui, -apple-system, sans-serif; text-align: center; }
 #office-auth-curtain[hidden] { display: none; }
 #office-auth-curtain button { margin: 0 auto; border: 1px solid #3b4450; border-radius: 8px; background: #fff; min-height: 44px; padding: 10px 17px; font: inherit; cursor: pointer; }
 
