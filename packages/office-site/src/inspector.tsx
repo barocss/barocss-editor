@@ -1250,6 +1250,7 @@ function Groups({
   return (
     <>
       <PropertySheet
+        decorateControl={(_row, control) => <fieldset className="st-property-fields" disabled={!editor.isEditable}>{control}</fieldset>}
         /**
          * **A different panel in 글 고치기**, said with a key.
          *

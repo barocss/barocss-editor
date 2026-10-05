@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDeck, deckFileName, deckTitle } from '@barocss/office-slides';
 import { slideDocuments } from '../../../packages/office-slides/src/deck-autosave';
-import { Button, useOfficeLocale } from '@barocss/office-ui';
+import { Button, StatusIndicator, useOfficeLocale } from '@barocss/office-ui';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { App } from './app';
 import './style.css';
@@ -479,7 +479,7 @@ export function ServerSlidesWorkspace({ tenantId, workspaceId, issuer, subject, 
     finally { if (transition.current === lease) transition.current = undefined; endBusy(lease); }
   };
   const status = !protectedInput ? '복구 저장 실패' : nestedInput ? '수식 입력 완료 필요' : busy ? '저장 중…' : fixed.current ? '저장 확인 필요' : dirty ? '저장되지 않음' : current ? '서버 저장 확인됨' : '문서 선택';
-  const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}</>;
+  const actions = <><StatusIndicator data-save-status quiet busy={busy} tone={!protectedInput || problem ? (problem?.kind === 'conflict' ? 'warning' : 'danger') : current && !nestedInput && !fixed.current && !dirty ? 'success' : 'neutral'}>{status}</StatusIndicator>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}</>;
   const navigation = <aside aria-label="서버 Slides 목록">
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverSlidesFileText(createStarterDeck(), ''))}>새 Slides</Button>}
       {heads.map(head => <Button key={head.documentId} disabled={busy || !protectedInput || nestedInput} onClick={() => void openDocument(head.documentId)}>{head.title}</Button>)}

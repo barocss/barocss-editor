@@ -1,9 +1,9 @@
 import type { CriterionVerificationHost } from './criterion-verification-client';
 import type { CriterionConfirmationHost } from './criterion-confirmation-client';
-import { EditorHeader, DocumentMenu, ProductMenu, CommandSearch, CommandSearchTrigger, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
+import { EditorHeader, DocumentMenu, CommandSearch, CommandSearchTrigger, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { Editor, ModelSelection } from '@barocss/editor-core';
+import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
 import type { WordRuntime } from './runtime';
 import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
@@ -54,6 +54,7 @@ import { matchesKey } from '@barocss/office-controls';
 import { ParagraphProposalPanel } from './paragraph-proposal-panel';
 import { InputLab } from './input-lab/panel';
 import { BusinessPairPanel } from './business-pair-panel';
+import { createWordCommandOwner, type WordCommandTarget } from './command-owner';
 
 /**
  * The app shell.
@@ -387,37 +388,61 @@ export function App({ mount, server }: {
   const [commandSearchOpen, setCommandSearchOpen] = useState(false);
   const [recentCommands, setRecentCommands] = useState<string[]>([]);
   const [commandError, setCommandError] = useState('');
-  const searchTarget = useRef<{ rootId: string; selection: ModelSelection | undefined } | undefined>(undefined);
+  const searchTarget = useRef<{ owner: WordCommandTarget; authority: number; generation: number } | undefined>(undefined);
+  const searchGeneration = useRef(0);
+  const commandContext = useRef({ instance, readOnly, active: server?.active !== false, reading, authority: 0 });
+  const previousContext = commandContext.current;
+  commandContext.current = { instance, readOnly, active: server?.active !== false, reading,
+    authority: previousContext.authority + Number(previousContext.instance !== instance || previousContext.readOnly !== readOnly ||
+      previousContext.active !== (server?.active !== false) || previousContext.reading !== reading) };
+  const commandOwner = useMemo(() => instance ? createWordCommandOwner(instance, () => commandContext.current.instance === instance &&
+    commandContext.current.active && !commandContext.current.reading && (!serverRef.current?.isActive || serverRef.current.isActive())) : undefined, [instance]);
+  useEffect(() => commandOwner?.track(), [commandOwner]);
   const searchEntries = useMemo(() => wordSearchCommands(onApple()), []);
   const searchCommands = searchEntries.map(entry => {
     const menu = menus.flatMap(menu => menu.blocks.flatMap(block => block.items)).find(item => item.id === entry.id);
     const disabled = !instance || (menu ? menu.disabled : !instance.editor.canExecuteCommand(entry.command!, entry.payload as never));
-    return { ...entry, disabled, disabledReason: '현재 선택 또는 문서 상태에서는 실행할 수 없습니다.' };
+    return { ...entry, disabled, disabledReason: t('word.commandSearch.unavailable') };
   });
   const openCommandSearch = () => {
-    if (!instance) return;
-    const rootId = instance.editor.getRootId();
-    if (!rootId) return;
-    searchTarget.current = { rootId, selection: structuredClone(captureTextSelection(instance.editor, instance.view, { allowBlurred: true }) ?? instance.editor.selection ?? undefined) };
+    if (!instance || !commandOwner) return;
+    if (!commandOwner.capture()?.isCurrent()) { setCommandError(t('word.commandSearch.inputPending')); return; }
+    const selection = captureTextSelection(instance.editor, instance.view, { allowBlurred: true });
+    if (selection && JSON.stringify(selection) !== JSON.stringify(instance.editor.selection))
+      instance.editor.updateSelection({ selection, applySelectionToView: false });
+    const owner = commandOwner.capture();
+    if (!owner?.isCurrent()) { setCommandError(t('word.commandSearch.inputPending')); return; }
+    searchTarget.current = { owner, authority: commandContext.current.authority, generation: ++searchGeneration.current };
     setCommandError(''); setCommandSearchOpen(true);
   };
-  const pickCommand = async (id: string) => {
-    const target = searchTarget.current;
+  const ownsSearch = (target: NonNullable<typeof searchTarget.current>) => searchTarget.current === target &&
+    searchGeneration.current === target.generation && commandContext.current.authority === target.authority && target.owner.isCurrent();
+  const pickCommand = async (id: string, target: NonNullable<typeof searchTarget.current>) => {
     const entry = searchEntries.find(entry => entry.id === id);
-    if (!instance || !target || !entry || instance.editor.getRootId() !== target.rootId) { setCommandError('문서가 변경되었습니다. 명령을 다시 선택하세요.'); return; }
-    if (target.selection) instance.editor.updateSelection({ selection: target.selection, applySelectionToView: true });
+    if (!instance || !entry || !ownsSearch(target) || !target.owner.restore() || !ownsSearch(target)) {
+      setCommandError(t('word.commandSearch.changed')); return;
+    }
     try {
       if (readOnly || !instance.editor.isEditable) {
-        if (entry.command) { setCommandError('읽기 전용 문서에서는 편집 명령을 실행할 수 없습니다.'); return; }
+        if (entry.command) { setCommandError(t('word.commandSearch.readOnly')); return; }
       }
       if (entry.command) {
         if (!instance.editor.canExecuteCommand(entry.command, entry.payload as never) || !await instance.editor.executeCommand(entry.command, entry.payload as never)) {
-          setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
+          setCommandError(t('word.commandSearch.unavailable')); return;
         }
       } else runEntry(entry);
       setRecentCommands(previous => [id, ...previous.filter(value => value !== id)].slice(0, 5));
-    } catch { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); }
+    } catch { setCommandError(t('word.commandSearch.failed')); }
   };
+  const captureCommandIntent = (id: string) => {
+    const target = searchTarget.current, entry = searchCommands.find(entry => entry.id === id);
+    if (!target || !entry || entry.disabled || !ownsSearch(target)) {
+      setCommandError(t('word.commandSearch.changed')); return undefined;
+    }
+    let picked = false;
+    return () => { if (!picked) { picked = true; void pickCommand(id, target); } };
+  };
+  const documentMenus = menus.filter(menu => menu.id === 'file');
 
   /** A pick in the menubar, which is `runEntry` with the entry looked up. */
   const onMenu = useCallback(
@@ -479,20 +504,21 @@ export function App({ mount, server }: {
    */
   return (
     <AppShell className="w-shell" data={{ reading: String(reading) }}>
-      <CommandSearch open={commandSearchOpen} onOpenChange={setCommandSearchOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickCommand(id)} />
-      {commandError && <div role="alert" className="w-command-error">{commandError}<Button tone="quiet" onClick={() => setCommandError('')}>닫기</Button></div>}
+      <CommandSearch open={commandSearchOpen} onOpenChange={setCommandSearchOpen} commands={searchCommands} recentIds={recentCommands}
+        onPickIntent={captureCommandIntent} onPick={id => captureCommandIntent(id)?.()} />
+      {commandError && <div role="alert" className="w-command-error">{commandError}<Button tone="quiet" onClick={() => setCommandError('')}>{t('word.commandSearch.close')}</Button></div>}
       <AppChrome className="w-chrome">
         {instance && <>
           <EditorHeader compact product="Word" className="w-document-header"
             title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
-            menus={<span ref={documentMenuAnchor} data-word-document-menu><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={server?.nativeExport ? menus.map(menu => menu.id !== 'file' ? menu : { ...menu,
+            menus={<span ref={documentMenuAnchor} data-word-document-menu><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={server?.nativeExport ? documentMenus.map(menu => ({ ...menu,
               blocks: [...menu.blocks, { id: 'native-export', items: [{ id: 'server.native-export', label: t('word.file.nativeExport'), disabled: !server.nativeExport!.available }] }]
-            }) : server || proposalSample ? menus : [...menus, {
+            })) : server || proposalSample ? documentMenus : [...documentMenus, {
               id: 'local-library', label: '문서 작업', blocks: [{ id: 'local-library', items: [
                 { id: 'local.library', label: '문서 보관함' }, { id: 'local.actions', label: '문서 작업' }
               ] }]
             }]} onPick={onMenu} /></span>}
-            fallbackNavigation={server ? server.headerNavigation : proposalSample ? undefined : <ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
+            fallbackNavigation={server?.headerNavigation}
             tools={<div className="w-header-editing-group" role="group" aria-label={t('office.header.editing')}>
               {([{ command: 'historyUndo', label: t('office.header.undo'), icon: 'undo' }, { command: 'historyRedo', label: t('office.header.redo'), icon: 'redo' }] as const).map(action =>
                 <Tip key={action.command} label={action.label}><Button square tone="quiet" ariaLabel={action.label}

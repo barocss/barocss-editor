@@ -639,9 +639,10 @@ for (const replacement of ['copy', 'recovery'] as const) test(`synthetic DOM-onl
     const completed = page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname.endsWith(targetPath));
     release(); await completed;
     // The source identity gesture deliberately unmounted the file popup.
-    // Export's button is disabled only for a missing current owner or busy work.
-    // Observe it without clicking, reopening the popup or closing the tested owner.
-    await expect(shell(page).getByRole('button', { name: 'Site 파일 내보내기', exact: true, includeHidden: true })).toBeEnabled();
+    // The native export destination is now the document menu. Its live availability
+    // retains the missing-owner/busy condition. Observe without reopening the menu
+    // or closing the tested deepest input owner.
+    await expect(shell(page).locator('[data-native-export-available]')).toHaveAttribute('data-native-export-available', 'true');
     expect(await originalParagraph!.evaluate(node => node.isConnected)).toBe(true);
     await expect(paragraph).toHaveText(originalText!);
     await typeBody(page, nested, ` HEALTHY-AFTER-DOM-${replacement}`);
@@ -655,4 +656,104 @@ for (const replacement of ['copy', 'recovery'] as const) test(`synthetic DOM-onl
     expect((await exportNative(page)).document).toEqual(expected);
     if (replacement === 'recovery') expect((await pending(page)).some(record => record.snapshotText.includes('OLDER-DOM-INTENT-DRAFT'))).toBe(true);
   } finally { release(); }
+});
+
+for (const [width, height] of [[1440, 900], [1280, 800]]) for (const theme of ['light', 'dark'] as const)
+for (const viewer of [false, true]) test(`controlled authenticated Site compact selection ${width}x${height} ${theme} ${viewer ? 'viewer' : 'writer'} retains native bytes and property drafts`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height });
+  const state = await setup(page, { viewer });
+  await expect(shell(page).locator('[data-admin-page]').first()).toBeVisible();
+  await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+  const header = shell(page).locator('.office-editor-header');
+  await expect(header).toHaveCount(1); expect((await header.boundingBox())!.height).toBe(48);
+  await expect(status(page)).toHaveText('서버 저장 확인됨'); await expect(status(page)).toHaveAttribute('data-quiet', 'true');
+  await page.screenshot({ path: info.outputPath('idle.png'), animations: 'disabled' });
+  const first = shell(page).locator('[data-admin-page]').first();
+  await first.locator('[data-admin-open]').click();
+  const picture = shell(page).locator('[data-frame="desktop"] img.st-picture[alt="문서와 덱과 페이지가 한 화면에 놓인 그림"]');
+  await expect(picture).toBeVisible();
+  await shell(page).locator('[data-zoom-fit]').click();
+  const box = (await picture.boundingBox())!;
+  const apple = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform));
+  await page.keyboard.down(apple ? 'Meta' : 'Control');
+  await page.mouse.click(box.x + box.width - 10, box.y + 10);
+  await page.keyboard.up(apple ? 'Meta' : 'Control');
+  const primary = page.locator('[data-site-selection-chrome="object"]');
+  if (!viewer) {
+    await expect(primary).toBeVisible();
+    const rect = (await primary.boundingBox())!;
+    expect(rect.height).toBeLessThanOrEqual(48); expect(rect.width).toBeLessThanOrEqual(480);
+    expect(rect.x).toBeGreaterThanOrEqual(0); expect(rect.y).toBeGreaterThanOrEqual(0);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(width); expect(rect.y + rect.height).toBeLessThanOrEqual(height);
+    await info.attach('primary-geometry', { body: JSON.stringify(rect), contentType: 'application/json' });
+    const more = primary.getByRole('button', { name: '객체 도구 더 보기', exact: true });
+    const hit = (await more.boundingBox())!;
+    expect(hit.width).toBeGreaterThanOrEqual(32); expect(hit.height).toBeGreaterThanOrEqual(32);
+    expect(await more.evaluate(node => { const r = node.getBoundingClientRect(); const at = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!at && node.contains(at); })).toBe(true);
+    await page.screenshot({ path: info.outputPath('selected.png'), animations: 'disabled' });
+    await more.click();
+    const menu = page.getByRole('menu', { name: '추가 객체 도구', exact: true });
+    await expect(menu).toBeVisible();
+    await page.screenshot({ path: info.outputPath('more.png'), animations: 'disabled' });
+    await menu.getByRole('menuitem', { name: '자세한 속성', exact: true }).click();
+  } else {
+    await expect(primary).toHaveCount(0);
+    await header.getByRole('menuitem', { name: '패널', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '자세한 속성', exact: true }).click();
+  }
+  const panel = shell(page).locator('.office-properties');
+  await expect(panel).toBeVisible();
+  await panel.getByRole('tab', { name: '모양', exact: true }).click();
+  const input = panel.getByRole('spinbutton', { name: '기울기', exact: true });
+  if (!viewer) {
+    await input.fill('12');
+    // Reading the server receipt does not blur/commit this local field draft.
+    expect(JSON.parse(state.text()).document).toEqual(state.source); expect(state.writes).toHaveLength(0);
+  } else await expect(input).toBeDisabled();
+  await page.screenshot({ path: info.outputPath('native-detail.png'), animations: 'disabled' });
+  await header.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: '자세한 속성', exact: true }).click();
+  await expect(shell(page).locator('.st-detail-slot')).toBeHidden();
+  await header.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: '자세한 속성', exact: true }).click();
+  if (!viewer) {
+    await expect(input).toHaveValue('12');
+    await input.press('Escape');
+  }
+  const searchTrigger = header.getByRole('button', { name: '명령 검색', exact: true });
+  await searchTrigger.focus(); await searchTrigger.press('Enter');
+  const query = page.getByRole('combobox', { name: '명령 검색어', exact: true });
+  await expect(query).toBeFocused(); await query.fill('복제');
+  if (viewer) {
+    const option = page.getByRole('option').filter({ hasText: '복제' }).first();
+    await expect(option).toHaveAttribute('aria-disabled', 'true'); await query.press('Enter'); await expect(query).toBeFocused();
+  }
+  await query.press('Escape');
+  await expect(query).toHaveCount(0);
+  await expect(header.getByRole('button', { name: '명령 검색', exact: true })).toBeFocused();
+  expect((await exportNative(page)).document).toEqual(state.source);
+  expect(JSON.parse(state.text()).document).toEqual(state.source); expect(state.writes).toHaveLength(0);
+  await page.screenshot({ path: info.outputPath('dismissed.png'), animations: 'disabled' });
+  await header.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await page.getByRole('menuitem', { name: '사이트 관리', exact: true }).click();
+  const target = await openBody(page);
+  if (!viewer) {
+    await typeBody(page, target, ' UI continued');
+    await saveFromBody(page); await expect(status(page)).toHaveText('서버 저장 확인됨');
+    const expected = structuredClone(state.source);
+    const rich = nativeNode(expected, 'richText', '본문-스택');
+    rich.content![0].content![0].text = 'Native body seed UI continued';
+    expect(state.writes).toHaveLength(1); expect(state.revision()).toBe(2);
+    expect(JSON.parse(state.text()).document).toEqual(expected);
+    expect((await exportNative(page)).document).toEqual(expected);
+    await reopenAfterReload(page);
+    expect((await exportNative(page)).document).toEqual(expected);
+  } else {
+    await expect(target.locator('[contenteditable=true]')).toHaveCount(0);
+    await target.locator('p').last().click(); await page.keyboard.insertText('DENIED-VIEWER-INPUT');
+    await saveFromBody(page); expect(state.writes).toHaveLength(0);
+    expect((await exportNative(page)).document).toEqual(state.source);
+    expect(await pending(page)).toEqual([]);
+  }
 });

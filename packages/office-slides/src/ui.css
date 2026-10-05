@@ -2671,3 +2671,6 @@
 .sl-properties-header .sl-unit { width:64px; height:32px; }
 .sl-workspace-navigation .sl-sidebar { flex:1; width:100%; border:0; }
 .sl-workspace-navigation .sl-sidebar-context { min-height:36px; padding:6px 12px; }
+
+/* Floating detail controls retain the compact surface's real pointer targets. */
+#slides-details button { min-width:32px; min-height:32px; }

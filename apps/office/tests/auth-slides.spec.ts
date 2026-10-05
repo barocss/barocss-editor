@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { createStarterDeck } from '../../../packages/office-slides/src/starter-deck';
 import { createProjectRecord } from '../../../packages/shared/src/index';
 import { deckFileText } from '../../../packages/office-slides/src/deck-file';
@@ -461,4 +461,274 @@ test('exact short route still opens when unrelated whole-tree catalog pages fail
   await setup(page, { compact: true, catalogFail: true });
   await expect(shell(page).locator('.sl-stage')).toContainText('Server Slides native title');
   await expect(page).toHaveURL(`${origin}/${workspaceId}/${documentId}?tenant=${tenantId}`);
+});
+
+// These desktop pairs use the same populated original and controlled transport.
+// They do not qualify real OIDC, PostgreSQL, or unrelated product surfaces.
+async function currentSlidesFile(page: Page) {
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Slides 파일 내보내기', exact: true }).click();
+  const path = await (await downloading).path();
+  expect(path).not.toBeNull();
+  const file = JSON.parse(await readFile(path!, 'utf8'));
+  expect(file.format).toBe('barocss-slides'); expect(file.version).toBe(2);
+  // Download creation has its own savedAt; compare the entire native tree.
+  return file.document;
+}
+
+async function selectPopulatedTitle(page: Page, viewer: boolean) {
+  const paragraph = shell(page).locator('.sl-stage .w-paragraph').first();
+  await expect(paragraph).toHaveText('Server Slides native title');
+  // Read the actual first/last glyphs. A blank point in the centred title frame
+  // can select the object without establishing the native text caret.
+  const glyphs = await paragraph.evaluate(element => {
+    const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let text: Node | null;
+    while ((text = walker.nextNode())) {
+      if (text.textContent !== 'Server Slides native title') continue;
+      const start = element.ownerDocument.createRange(), end = element.ownerDocument.createRange();
+      start.setStart(text, 0); start.setEnd(text, 1);
+      end.setStart(text, text.textContent.length - 1); end.setEnd(text, text.textContent.length);
+      const a = start.getBoundingClientRect(), b = end.getBoundingClientRect();
+      return { x1: a.left, centre: a.left + a.width / 2, y1: a.top + a.height / 2, x2: b.right, y2: b.top + b.height / 2 };
+    }
+    throw new Error('Populated native title glyphs are missing');
+  });
+  if (!viewer) {
+    await page.mouse.dblclick(glyphs.centre, glyphs.y1);
+    await expect.poll(() => paragraph.evaluate(element => {
+      const selection = element.ownerDocument.getSelection();
+      return !!selection?.anchorNode && element.contains(selection.anchorNode);
+    })).toBe(true);
+    const apple = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform));
+    await page.keyboard.press(apple ? 'Meta+ArrowLeft' : 'Home');
+    for (let offset = 0; offset < 'Server Slides native title'.length; offset++) await page.keyboard.press('Shift+ArrowRight');
+  } else {
+    // Read glyph geometry only; the pointer creates the browser selection.
+    await page.mouse.move(glyphs.x1, glyphs.y1); await page.mouse.down();
+    await page.mouse.move(glyphs.x2, glyphs.y2, { steps: 8 }); await page.mouse.up();
+  }
+  await expect.poll(() => paragraph.evaluate(element => {
+    const selection = element.ownerDocument.getSelection();
+    return selection && element.contains(selection.anchorNode) && element.contains(selection.focusNode) ? selection.toString() : '';
+  })).toBe('Server Slides native title');
+  return paragraph;
+}
+
+async function captureSlidesUi(page: Page, info: TestInfo, label: string, surfaces: Locator[]) {
+  const geometry = [];
+  for (const surface of surfaces) {
+    const readSurface = () => surface.evaluate(element => {
+      const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
+      const root = element.closest('[data-server-slides-workspace]');
+      const selection = element.ownerDocument.getSelection();
+      const title = root?.querySelector('.sl-stage .w-paragraph');
+      const ownsTitleRange = !!selection && !!title && !!selection.anchorNode && !!selection.focusNode &&
+        title.contains(selection.anchorNode) && title.contains(selection.focusNode) &&
+        selection.toString() === 'Server Slides native title';
+      const floating = element.matches('[data-floating-surface]');
+      const primary = element.matches('[data-slides-formatting]');
+      const detail = element.matches('#slides-details');
+      const toolbarReady = !primary || (!!element.querySelector('[data-editor-context-toolbar]') &&
+        !!element.querySelector('[data-control=bold]') &&
+        !!element.querySelector('[aria-label="선택 도구 더보기"]') && !!element.querySelector('[aria-label="선택 속성 열기"]'));
+      const controls = [...element.querySelectorAll('button,[role=menuitem],[role=menuitemcheckbox]')]
+        .filter(control => {
+          const paint = getComputedStyle(control);
+          return !control.closest('[hidden]') && control.getClientRects().length > 0 && paint.display !== 'none' && paint.visibility === 'visible';
+        })
+        .map(control => {
+          const box = control.getBoundingClientRect();
+          const hit = control.ownerDocument.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+          return { disabled: control.matches(':disabled') || control.getAttribute('aria-disabled') === 'true' || !!control.closest('[inert]'),
+            name: control.getAttribute('aria-label') ?? control.textContent, width: box.width, height: box.height,
+            layoutWidth: (control as HTMLElement).offsetWidth, layoutHeight: (control as HTMLElement).offsetHeight,
+            x: box.x, y: box.y, right: box.right, bottom: box.bottom, ownsHit: !!hit && (control === hit || control.contains(hit)) };
+        });
+      return { ready: element.isConnected && !element.closest('[hidden],[inert]') && rect.width > 0 && rect.height > 0 &&
+        style.display !== 'none' && style.visibility === 'visible' && (!floating || element.getAttribute('data-floating-ready') === 'true') &&
+        toolbarReady && (!primary || ownsTitleRange),
+        floating, primary, detail, toolbarReady, ownsTitleRange,
+        placement: { left: element.style.left, top: element.style.top, viewportWidth: element.ownerDocument.defaultView?.innerWidth,
+          ancestors: [...(function* () { let parent = element.parentElement; while (parent) { yield parent; parent = parent.parentElement; } })()].map(parent => ({ className: parent.className, transform: getComputedStyle(parent).transform, translate: getComputedStyle(parent).translate, bounds: parent.getBoundingClientRect().toJSON(), position: getComputedStyle(parent).position, filter: getComputedStyle(parent).filter, contain: getComputedStyle(parent).contain })) },
+        bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, controls };
+    }, undefined, { timeout: 5_000 });
+    let measurement: Awaited<ReturnType<typeof readSurface>> | undefined;
+    // Poll only actual native readiness. Bounds, controls, and the owned range
+    // come from this same observation; geometry failures are never retried.
+    await expect.poll(async () => { measurement = await readSurface(); return measurement.ready; }).toBe(true);
+    if (!measurement) throw new Error('Slides surface readiness was not observed');
+    await info.attach(`${label}-surface-observation`, { body: JSON.stringify(measurement), contentType: 'application/json' });
+    const { bounds } = measurement;
+    expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    if (measurement.primary) {
+      expect(bounds.width).toBeLessThanOrEqual(480); expect(bounds.height).toBeLessThanOrEqual(48);
+    }
+    const measureControl = (element: Element) => {
+      const rect = element.getBoundingClientRect();
+      const hit = element.ownerDocument.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return { disabled: element.matches(':disabled') || element.getAttribute('aria-disabled') === 'true' || !!element.closest('[inert]'), name: element.getAttribute('aria-label') ?? element.textContent, width: rect.width, height: rect.height,
+        layoutWidth: (element as HTMLElement).offsetWidth, layoutHeight: (element as HTMLElement).offsetHeight,
+        x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, ownsHit: !!hit && (element === hit || element.contains(hit)) };
+    };
+    const controls = [];
+    const candidates = surface.locator('button,[role=menuitem],[role=menuitemcheckbox]');
+    if (!measurement.detail) {
+      controls.push(...measurement.controls);
+    } else for (const candidate of await candidates.all()) {
+      if (!await candidate.evaluate(element => {
+        const style = getComputedStyle(element);
+        return !element.closest('[hidden]') && element.getClientRects().length > 0 && style.display !== 'none' && style.visibility === 'visible';
+      })) continue;
+      // Native detail is scrollable. Reveal each control, including below the fold.
+      await candidate.scrollIntoViewIfNeeded();
+      controls.push(await candidate.evaluate(measureControl));
+    }
+    for (const control of controls) {
+      // Transformed DOMRects can round a 32px layout target to 31.99997px.
+      // Keep the exact CSS target requirement; genuine 24px controls still fail.
+      expect(control.layoutWidth, control.name ?? '').toBeGreaterThanOrEqual(32);
+      expect(control.layoutHeight, control.name ?? '').toBeGreaterThanOrEqual(32);
+      expect(control.width, control.name ?? '').toBeGreaterThanOrEqual(32 - .001);
+      expect(control.height, control.name ?? '').toBeGreaterThanOrEqual(32 - .001);
+      expect(control.x, control.name ?? '').toBeGreaterThanOrEqual(0);
+      expect(control.y, control.name ?? '').toBeGreaterThanOrEqual(0);
+      expect(control.right, control.name ?? '').toBeLessThanOrEqual(page.viewportSize()!.width);
+      expect(control.bottom, control.name ?? '').toBeLessThanOrEqual(page.viewportSize()!.height);
+      if (!control.disabled) expect(control.ownsHit, control.name ?? '').toBe(true);
+    }
+    geometry.push({ bounds, controls, readiness: { floating: measurement.floating, primary: measurement.primary, detail: measurement.detail,
+      toolbarReady: measurement.toolbarReady, ownsTitleRange: measurement.ownsTitleRange } });
+  }
+  await info.attach(`${label}-geometry`, { body: JSON.stringify(geometry), contentType: 'application/json' });
+  await info.attach(`${label}-screenshot`, { body: await page.screenshot({ animations: label === 'during-parent-motion' ? 'allow' : 'disabled' }), contentType: 'image/png' });
+}
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }]) {
+  for (const theme of ['light', 'dark'] as const) for (const viewer of [false, true]) {
+    test(`matched authenticated Slides selection ${viewport.width}x${viewport.height} ${theme} ${viewer ? 'viewer' : 'writer'}`, async ({ page }, info) => {
+      await page.setViewportSize(viewport); await page.emulateMedia({ colorScheme: theme });
+      const state = await setup(page, { viewer });
+      await expect(shell(page).locator('.sl-stage .w-paragraph').first()).toBeVisible();
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+      const header = shell(page).locator('.office-editor-header');
+      await expect(header).toHaveCount(1); expect((await header.boundingBox())!.height).toBe(48);
+      await captureSlidesUi(page, info, 'idle', [header]);
+      const confirmedText = state.text();
+      const sourcePaths = ['apps/office/src/auth-app.tsx', 'apps/slide/src/app.tsx', 'apps/slide/src/runtime.ts', 'apps/slide/src/server-workspace.tsx',
+        'packages/office-slides/src/selection-chrome.tsx', 'packages/office-slides/src/selection-tools.tsx',
+        'packages/office-ui/src/command-search.tsx', 'packages/office-ui/src/secondary-popup.tsx', 'apps/office/tests/auth-slides.spec.ts'];
+      const source = await Promise.all(sourcePaths.map(async path => ({ path, sha256: hash(await readFile(new URL(`../../../${path}`, import.meta.url), 'utf8')) })));
+      await info.attach('controlled-source-binding', { body: JSON.stringify({ viewport, theme, role: viewer ? 'viewer' : 'writer', transport: 'controlled', source }), contentType: 'application/json' });
+      const original = JSON.parse(state.text());
+      expect(await currentSlidesFile(page)).toEqual(original.document);
+      const protectedRows = () => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.slides.pending.v1:')).sort().map(key => localStorage.getItem(key)));
+      const beforeRows = await protectedRows();
+      const paragraph = await selectPopulatedTitle(page, viewer);
+      const primary = shell(page).locator('[data-slides-formatting]').filter({ has: page.getByRole('button', { name: '굵게', exact: true }) });
+      if (!viewer) {
+        await expect(primary).toHaveCount(1);
+        await captureSlidesUi(page, info, 'primary', [header, primary]);
+        await primary.getByRole('button', { name: '굵게', exact: true }).click();
+        await expect(paragraph.locator('.mark-bold')).not.toHaveCount(0);
+        await header.locator('[data-control=undo]').click();
+        await expect(paragraph.locator('.mark-bold')).toHaveCount(0);
+        expect(await currentSlidesFile(page)).toEqual(original.document);
+        await selectPopulatedTitle(page, false);
+        const more = primary.getByRole('button', { name: '선택 도구 더보기', exact: true });
+        await more.click();
+        const popup = page.getByRole('menu', { name: '선택한 Slides 추가 도구', exact: true });
+        await captureSlidesUi(page, info, 'more', [popup]);
+        await expect(popup.locator('[data-control=align-left]')).toBeEnabled();
+        await page.keyboard.press('Escape'); await expect(popup).toHaveCount(0); await expect(more).toBeFocused();
+        const detail = primary.getByRole('button', { name: '선택 속성 열기', exact: true });
+        await detail.click();
+        const panel = shell(page).locator('#slides-details');
+        await expect(panel).toBeFocused(); await captureSlidesUi(page, info, 'detail', [panel]);
+        await page.keyboard.press('Escape'); await expect(panel).toBeHidden(); await expect(detail).toBeFocused();
+      } else {
+        await expect(shell(page).locator('[data-slides-formatting]')).toHaveCount(0);
+        await expect(shell(page).getByRole('button', { name: '선택 도구 더보기', exact: true })).toHaveCount(0);
+        const panels = header.getByRole('menuitem', { name: '패널', exact: true });
+        await panels.click(); await page.getByRole('menuitemcheckbox', { name: '속성 · 크기, 위치, 모양', exact: true }).click();
+        const panel = shell(page).locator('#slides-details');
+        await expect(panel).toBeVisible();
+        const fields = panel.locator('.sl-properties-body');
+        await expect(fields).toHaveAttribute('disabled', ''); await expect(fields).toHaveAttribute('inert', '');
+        const authority = await fields.locator('input,select,textarea,button').evaluateAll(controls => controls.map(control => ({
+          disabled: control.matches(':disabled'), inert: !!control.closest('[inert]')
+        })));
+        expect(authority.length).toBeGreaterThan(0);
+        expect(authority.every(control => control.disabled && control.inert)).toBe(true);
+        await panel.focus(); await captureSlidesUi(page, info, 'viewer-detail', [header, panel]);
+        await page.keyboard.press('Escape'); await expect(panel).toBeHidden(); await expect(panels).toBeFocused();
+        await paragraph.click(); await page.keyboard.type('FORBIDDEN UI INPUT'); await page.keyboard.press('ControlOrMeta+b');
+        await expect(paragraph).toHaveText('Server Slides native title');
+      }
+      const search = header.getByRole('button', { name: '명령 검색', exact: true });
+      await search.focus(); await search.press('Enter');
+      const query = page.getByRole('combobox', { name: '명령 검색어', exact: true });
+      await expect(query).toBeFocused(); await query.fill('사각형');
+      const result = page.getByRole('option'); await expect(result).toHaveCount(1);
+      if (viewer) {
+        await expect(result).toHaveAttribute('aria-disabled', 'true');
+        await query.press('Enter'); await expect(query).toBeVisible();
+      } else await expect(result).not.toHaveAttribute('aria-disabled', 'true');
+      await captureSlidesUi(page, info, 'search', [page.getByRole('dialog', { name: '명령 검색', exact: true })]);
+      await query.press('Escape'); await expect(query).toHaveCount(0); await expect(search).toBeFocused();
+      if (viewer) {
+        await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
+        await expect(save(page)).toHaveCount(0); expect(await currentSlidesFile(page)).toEqual(original.document);
+        expect(await protectedRows()).toEqual(beforeRows); expect(state.text()).toBe(confirmedText);
+        expect(state.revision()).toBe(1); expect(state.writes).toHaveLength(0);
+      } else {
+        await type(page, 'CONTINUED MATCHED INPUT ');
+        await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+        expect(state.writes).toHaveLength(1); expect(state.revision()).toBe(2);
+        expect(await currentSlidesFile(page)).toEqual(JSON.parse(state.text()).document);
+        expect(state.text()).toContain('CONTINUED MATCHED INPUT ');
+        await page.reload(); await expect(shell(page).locator('.sl-stage')).toContainText('CONTINUED MATCHED INPUT ');
+        expect(await currentSlidesFile(page)).toEqual(JSON.parse(state.text()).document); expect(state.writes).toHaveLength(1);
+      }
+      await captureSlidesUi(page, info, 'continued-or-retained', [header]);
+      const afterSource = await Promise.all(sourcePaths.map(async path => ({ path, sha256: hash(await readFile(new URL(`../../../${path}`, import.meta.url), 'utf8')) })));
+      expect(afterSource).toEqual(source);
+    });
+  }
+}
+
+test('Slides nested selection menu retains viewport placement while native CSS entrance is replayed', async ({ page }, info) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const state = await setup(page);
+  await expect(shell(page).locator('.sl-stage .w-paragraph').first()).toBeVisible();
+  const original = JSON.parse(state.text()).document;
+  await selectPopulatedTitle(page, false);
+  const primary = shell(page).locator('[data-slides-formatting]').filter({ has: page.getByRole('button', { name: '굵게', exact: true }) });
+  await expect(primary).toHaveAttribute('data-floating-ready', 'true');
+  await primary.getByRole('button', { name: '선택 도구 더보기', exact: true }).click();
+  const popup = page.getByRole('menu', { name: '선택한 Slides 추가 도구', exact: true });
+  await expect(popup).toHaveAttribute('data-floating-ready', 'true');
+  // Replay the current owner's actual CSS animation and hold its midpoint.
+  // This isolates a child opened before parent motion ends; it does not set
+  // native content or selection, and is recorded as controlled CSS replay.
+  const currentMotion = await primary.evaluate(element => {
+    const surface = element as HTMLElement;
+    surface.style.animation = 'none';
+    void surface.offsetHeight;
+    surface.style.removeProperty('animation');
+    const active = surface.getAnimations();
+    for (const animation of active) { animation.pause(); animation.currentTime = Number(animation.effect?.getTiming().duration) / 2; }
+    return { translate: getComputedStyle(element).translate, bounds: element.getBoundingClientRect().toJSON(), animations: active.map(animation => ({ time: animation.currentTime, state: animation.playState })) };
+  });
+  expect(currentMotion.animations.length).toBeGreaterThan(0);
+  await info.attach('current-parent-motion', { body: JSON.stringify(currentMotion), contentType: 'application/json' });
+  await captureSlidesUi(page, info, 'during-parent-motion', [popup]);
+  await page.keyboard.press('Escape'); await expect(popup).toHaveCount(0);
+  expect(await currentSlidesFile(page)).toEqual(original);
+  expect(state.writes).toHaveLength(0);
 });

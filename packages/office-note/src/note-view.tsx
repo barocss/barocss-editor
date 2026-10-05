@@ -1,10 +1,11 @@
-import { ColumnsEditor, LatexEditor } from '@barocss/office-editor-ui';
+import { registerTransactionIntentGuardFactory } from '@barocss/model';
+import { ColumnsEditor, LatexEditor, captureTextSelection } from '@barocss/office-editor-ui';
 import { MultiBlockControl } from './multi-block-control';
 import { installNoteInputRules } from './input-rules-view';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import { reorderIndexAt } from '@barocss/office-canvas';
-import type { Editor } from '@barocss/editor-core';
+import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Controls, SlashMenu, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import { noteRegistry } from './renderers';
@@ -36,6 +37,20 @@ export type NoteInputDelivery = (() => Promise<boolean>) & {
   hasPendingInput?: () => boolean;
 };
 
+
+/** Optional host command surface, registered by each actual native body. */
+export interface NoteCommandTarget {
+  editor: Editor;
+  rootId: string;
+  element: HTMLElement;
+  flush: NoteInputDelivery;
+  isCurrent(): boolean;
+  capture(): { selection: ModelSelection | null; isCurrent(): boolean } | null;
+  openInsertion(): boolean;
+  openNavigation(mode: 'find' | 'outline'): boolean;
+  execute(command: string, parentCurrent: () => boolean): Promise<boolean>;
+}
+
 /**
  * **한 편의 글을 쓰는 화면** — the bar and the body, owned by the package the body belongs to.
  *
@@ -64,6 +79,7 @@ export function NoteEditor({
   writeAllowed,
   registerBeforeSnapshot,
   navigationRequest,
+  registerCommandTarget,
   pageReferences
 }: {
   /**
@@ -83,6 +99,7 @@ export function NoteEditor({
   /** Register child-body delivery before a host exports or saves its document. Flush deepest first. */
   registerBeforeSnapshot?: (flush: NoteInputDelivery) => () => void;
   navigationRequest?: NoteNavigationRequest;
+  registerCommandTarget?: (target: NoteCommandTarget) => () => void;
   /**
    * What a picked file becomes, when the host has somewhere better to put one than the document.
    *
@@ -98,6 +115,13 @@ export function NoteEditor({
    * to *what is selected*, and the day they differ is the day a reader sets a file on a picture they
    * are not looking at.
    */
+  const commandSelection = useRef<(() => ModelSelection | undefined) | undefined>(undefined);
+  const registerCommandSelection = useCallback((capture: () => ModelSelection | undefined) => {
+    commandSelection.current = capture;
+    return () => { if (commandSelection.current === capture) commandSelection.current = undefined; };
+  }, []);
+  const [commandNavigation, setCommandNavigation] = useState<NoteNavigationRequest>();
+  useEffect(() => { setCommandNavigation(undefined); }, [navigationRequest?.id]);
   const deliveries = useRef(new Set<NoteInputDelivery>());
   const inputHost = useRef<HTMLDivElement>(null);
   const mutable = writeAllowed ?? editor.isEditable;
@@ -163,6 +187,64 @@ export function NoteEditor({
     }
   }), [owner, input]);
   useEffect(() => registerBeforeSnapshot?.(flushDocument), [registerBeforeSnapshot, flushDocument]);
+
+  useLayoutEffect(() => {
+    const element = inputHost.current;
+    if (!registerCommandTarget || !element) return;
+    let active = true, generation = 0;
+    let range = JSON.stringify(editor.selection);
+    const selected = () => {
+      const next = JSON.stringify(editor.selection);
+      if (next !== range) { range = next; generation++; }
+    };
+    const retire = () => { generation++; };
+    editor.on('editor:selection.model', selected);
+    editor.on('editor:selection.change', selected);
+    editor.on('editor:content.change', retire);
+    editor.on('editor:editable.change', retire);
+    const isCurrent = () => active && input.active && lifetime.current === owner && element.isConnected && !element.closest('[hidden], [inert]') &&
+      editor.dataStore.getDocumentEpoch() === owner.documentEpoch && editor.dataStore.getRootNodeId() === owner.documentRootId &&
+      editor.dataStore.getSessionId() === owner.sessionId && !!editor.dataStore.getNode(rootId);
+    const target: NoteCommandTarget = { editor, rootId, element, flush: flushDocument, isCurrent,
+      execute: async (command, parentCurrent) => {
+        const prepared = flushDocument.captureInputIntent?.(), entered = generation;
+        const owns = () => isCurrent() && editor.isEditable && !!prepared?.() && generation === entered && parentCurrent();
+        if (!owns()) return false;
+        // Use the existing per-editor transaction intent boundary. The native
+        // command still owns its payload, result and meaningful history.
+        const off = registerTransactionIntentGuardFactory(editor, () => () =>
+          owns() ? undefined : 'note_command_owner_changed');
+        try { return await editor.executeCommand(command); }
+        finally { off(); }
+      },
+      capture: () => {
+        if (!isCurrent()) return null;
+        const actual = commandSelection.current?.();
+        if (actual) editor.updateSelection({ selection: actual, applySelectionToView: false });
+        const prepared = flushDocument.captureInputIntent?.(), entered = generation;
+        if (!isCurrent() || !prepared) return null;
+        const selection = editor.selection ? structuredClone(editor.selection) : null;
+        return { selection, isCurrent: () => isCurrent() && prepared() && generation === entered };
+      },
+      openNavigation: mode => {
+        if (!isCurrent()) return false;
+        setCommandNavigation(previous => ({ mode, id: -(Math.abs(previous?.id ?? 0) + 1) })); return true;
+      },
+      openInsertion: () => {
+        if (!isCurrent() || !editor.isEditable) return false;
+        const trigger = element.querySelector<HTMLButtonElement>('[data-note-add]');
+        if (!trigger || trigger.disabled) return false;
+        trigger.click(); return true;
+      }
+    };
+    const unregister = registerCommandTarget(target);
+    return () => {
+      active = false; generation++; unregister();
+      editor.off('editor:selection.model', selected); editor.off('editor:selection.change', selected);
+      editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);
+    };
+  }, [editor, rootId, owner, input, flushDocument, registerCommandTarget]);
+
   const registerBodyDelivery = useCallback((flush: NoteInputDelivery) => {
     deliveries.current.add(flush);
     input.version++;
@@ -336,8 +418,9 @@ export function NoteEditor({
           }
           setHovered(block?.getAttribute('data-bc-sid') ?? undefined);
         }}>
-        <NoteDocumentNavigation key={rootId} editor={editor} rootId={rootId} scope={body} request={navigationRequest} />
+        <NoteDocumentNavigation key={rootId} editor={editor} rootId={rootId} scope={body} request={commandNavigation ?? navigationRequest} />
         <NoteBody
+          registerCommandSelection={registerCommandTarget ? registerCommandSelection : undefined}
           editor={editor}
           rootId={rootId}
           chromeHost={body}
@@ -375,7 +458,7 @@ export function NoteEditor({
         <CodeBlockEditor editor={editor} scope={body} sid={picked} active={mutable && !mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
         <NoteDatabases editor={editor} scope={body} beforeItemChange={flushDocument} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
           <DatabaseItemBody key={`${nodeId}:${row}`} editor={editor} nodeId={nodeId} row={row} registerBeforeNavigate={registerBodyDelivery}
-            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" writeAllowed={writeAllowed ?? editor.isEditable} registerBeforeSnapshot={registerBodyDelivery} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
+            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor registerCommandTarget={registerCommandTarget} editor={childEditor} rootId={childRoot} className="ondb-body-note" writeAllowed={writeAllowed ?? editor.isEditable} registerBeforeSnapshot={registerBodyDelivery} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
         {mutable && !mathFocused && !blockMenu && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}
           onFormattingChange={setFormatting}
           insertion={(close) => <NoteBar editor={editor} blocksOnly onInsert={close} />} /></TipProvider>}
@@ -898,7 +981,8 @@ function NoteBody({
   picked,
   onPicked,
   onWriting,
-  registerDelivery
+  registerDelivery,
+  registerCommandSelection
 }: {
   editor: Editor;
   rootId: string;
@@ -916,6 +1000,7 @@ function NoteBody({
    */
   onWriting?: (sid: string | undefined) => void;
   registerDelivery?: (flush: () => Promise<boolean>) => () => void;
+  registerCommandSelection?: (capture: () => ModelSelection | undefined) => () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
@@ -1009,6 +1094,16 @@ function NoteBody({
     });
     return () => { active = false; unregister?.(); };
   }, [editor, rootId, documentEpoch, registerDelivery]);
+
+  useEffect(() => {
+    const live = view.current, element = host.current;
+    if (!live || !element || !registerCommandSelection) return;
+    let active = true;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+    const unregister = registerCommandSelection(() => active && element.isConnected && view.current === live &&
+      editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch ? captureTextSelection(editor, live) : undefined);
+    return () => { active = false; unregister(); };
+  }, [editor, rootId, documentEpoch, registerCommandSelection]);
 
   useLayoutEffect(() => {
     if (view.current) view.current.contentEditableElement.contentEditable = editable ? 'true' : 'false';

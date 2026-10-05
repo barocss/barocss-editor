@@ -97,35 +97,46 @@ test('real writer and viewer grouped Find and Outline preserve canonical data an
     await expect(writer.locator('[data-server-note-workspace] .nw-sidebar')).toBeHidden();
     const heldMutations = mutations;
     const unchanged = async () => { expect((await inspect()).document).toEqual(initial); expect(await api()).toEqual(canonical); expect(mutations).toBe(heldMutations); };
-    const menu = (page: Page) => host(page).getByRole('menubar', { name: '문서 메뉴', exact: true }).getByRole('menuitem', { name: '문서 메뉴', exact: true });
-    const openMenu = async (page: Page) => {
+    const openSearch = async (page: Page) => {
       const header = host(page).locator('.office-editor-header');
-      await expect(page.locator('.ow-file-navigation')).toBeVisible(); await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+      await expect(page.locator('.ow-file-navigation')).toBeVisible();
+      await expect(page.locator('.ow-entry-status')).toHaveCount(0);
       await expect(header).toHaveCount(1);
       const bounds = await header.boundingBox(); expect(bounds).not.toBeNull();
       expect(bounds!.height).toBe(48);
-      const trigger = menu(page), hit = await trigger.boundingBox(); expect(hit).not.toBeNull();
+      const trigger = header.getByRole('button', { name: '명령 검색', exact: true });
+      const hit = await trigger.boundingBox(); expect(hit).not.toBeNull();
       expect(hit!.height).toBeGreaterThanOrEqual(32); expect(hit!.width).toBeGreaterThanOrEqual(32);
-      expect(hit!.y).toBeGreaterThanOrEqual(bounds!.y); expect(hit!.y + hit!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height);
+      expect(hit!.y).toBeGreaterThanOrEqual(bounds!.y);
+      expect(hit!.y + hit!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height);
       const point = { x: hit!.x + hit!.width / 2, y: hit!.y + hit!.height / 2 };
       expect(await trigger.evaluate((element, point) => element.contains(document.elementFromPoint(point.x, point.y)), point)).toBe(true);
       await page.mouse.click(point.x, point.y);
-      await expect(page.getByRole('menu', { name: '문서 메뉴', exact: true })).toBeVisible();
+      const query = page.getByRole('combobox', { name: '명령 검색어', exact: true });
+      await expect(query).toBeFocused(); return query;
+    };
+    const find = async (page: Page) => {
+      const query = await openSearch(page); await query.fill('본문 찾기');
+      await expect(page.getByRole('option').filter({ hasText: '본문 찾기' })).toHaveAttribute('aria-selected', 'true');
+      await query.press('Enter');
     };
     const navigate = async (page: Page, role: 'writer' | 'viewer') => {
-      await openMenu(page); await page.getByRole('menuitem', { name: '찾기', exact: true }).click();
+      await find(page);
       const panel = page.getByRole('region', { name: '문서 탐색', exact: true }), query = panel.getByRole('searchbox', { name: '본문에서 찾기', exact: true });
       await expect(query).toBeFocused(); await query.fill('navigation'); await expect(panel.getByRole('status')).toHaveText('1 / 2');
       await query.press('Enter'); await expect(panel.getByRole('status')).toHaveText('2 / 2');
       await expect(host(page).locator('[data-note-find-current]')).toHaveText('Second navigation phrase');
       await query.press('Shift+Enter'); await expect(panel.getByRole('status')).toHaveText('1 / 2');
       await query.press('Escape'); await expect(panel).toHaveCount(0); await unchanged();
-      await openMenu(page);
-      await page.keyboard.press('End'); await expect(page.getByRole('menuitem', { name: '목차', exact: true })).toBeFocused();
-      await page.keyboard.press('Home'); await expect(page.getByRole('menuitemcheckbox', { name: '문서 작업', exact: true })).toBeFocused();
-      await page.keyboard.press('ArrowDown'); await expect(page.getByRole('menuitem', { name: '찾기', exact: true })).toBeFocused();
-      await page.keyboard.press('ArrowDown'); await expect(page.getByRole('menuitem', { name: '목차', exact: true })).toBeFocused();
-      await page.keyboard.press('Enter');
+      const commands = await openSearch(page); await commands.fill('문서');
+      const findOption = page.getByRole('option').filter({ hasText: '본문 찾기' });
+      const outlineOption = page.getByRole('option').filter({ hasText: '목차' });
+      await commands.press('End'); await expect(outlineOption).toHaveAttribute('aria-selected', 'true');
+      await expect(commands).toHaveAttribute('aria-activedescendant', (await outlineOption.getAttribute('id'))!);
+      await commands.press('Home'); await expect(findOption).toHaveAttribute('aria-selected', 'true');
+      await expect(commands).toHaveAttribute('aria-activedescendant', (await findOption.getAttribute('id'))!);
+      await commands.press('ArrowDown'); await expect(outlineOption).toHaveAttribute('aria-selected', 'true');
+      await commands.press('Enter');
       const outline = page.getByRole('navigation', { name: '본문 목차', exact: true });
       await expect(outline.getByRole('button')).toHaveText(['Alpha heading', 'Beta heading']);
       const heading = outline.getByRole('button', { name: 'Beta heading', exact: true }); await heading.click();
@@ -138,7 +149,7 @@ test('real writer and viewer grouped Find and Outline preserve canonical data an
     await expect(host(viewer).locator('[data-note-editor]').first()).toHaveAttribute('data-note-editable', 'false');
     await navigate(viewer, 'viewer'); await expect(host(viewer).getByRole('button', { name: '저장', exact: true })).toHaveCount(0);
     await expect(viewer.locator('[data-note-formatting],[data-note-block-menu]')).toHaveCount(0);
-    await openMenu(viewer); await viewer.getByRole('menuitem', { name: '찾기', exact: true }).click();
+    await find(viewer);
     await expect(viewer.getByRole('region', { name: '문서 탐색', exact: true })).toBeVisible();
     await privateControl<RealStatus>({ action: 'beta-active', active: false });
     await viewer.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));

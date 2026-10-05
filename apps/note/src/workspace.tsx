@@ -1,10 +1,11 @@
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice, CommandSearchTrigger } from '@barocss/office-ui';
 import { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from '@barocss/office-note';
 import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Choice, Icon, TextField, Dialog, IconButton, useOfficeLocale } from '@barocss/office-ui';
 import { documentLocationId, documentLocationURL, documentLocationWorkspace, documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, captureProductNavigation, captureProductReplacementPreparation, assertProductDocumentOpen, type ProductNavigationGuard, type LibraryRow } from '@barocss/shared';
-import { NoteEditor } from '@barocss/office-note/view';
+import { NoteEditor, type NoteInputDelivery } from '@barocss/office-note/view';
+import { useNoteCommandSearch } from './use-note-command-search';
 import { noteLibrary, noteFileText, noteFileName, readNoteFile, openNoteTree, noteTreeOf, type NoteDocument, type NoteSession } from '@barocss/office-note';
 
 import { pageMeta, pageTemplate, normalizeHierarchy, canMovePage, pageInTrash, orderedPages, searchPages, type PageMeta, type PageTemplate, type WorkspacePage } from './workspace-library';
@@ -70,6 +71,7 @@ export function Workspace() {
   const [session, setSession] = useState<{ id: string; value: NoteSession; generation: number }>();
   const [navigationRequest, setNavigationRequest] = useState<{ mode: 'find' | 'outline'; id: number; pageId: string }>();
   const openNavigation = (mode: 'find' | 'outline') => setNavigationRequest(previous => ({ mode, id: (previous?.id ?? 0) + 1, pageId: selected }));
+
   const [ready, setReady] = useState(false);
   const [problem, setProblem] = useState('');
   const [draftsProblem, setDraftsProblem] = useState(false);
@@ -96,14 +98,14 @@ export function Workspace() {
   const navigationFlushes = useRef(new Set<() => Promise<boolean>>());
   const navigating = useRef(false);
   const lifetime = useRef({ mounted: true });
-  const snapshotDelivery = useRef<{ session: NonNullable<typeof session>; flush: () => Promise<boolean> } | undefined>(undefined);
+  const snapshotDelivery = useRef<{ session: NonNullable<typeof session>; flush: NoteInputDelivery } | undefined>(undefined);
   const stagedSession = useRef<{ id: string; value: NoteSession; deliver?: (blocks: unknown[]) => void } | undefined>(undefined);
   const openingCompletion = useRef<{ id: string; value: NoteSession; current: () => boolean; resolve: (guard: ProductNavigationGuard | false) => void } | undefined>(undefined);
   useEffect(() => {
     const owner = { mounted: true }; lifetime.current = owner;
     return () => { owner.mounted = false; openingCompletion.current?.resolve(false); openingCompletion.current = undefined; stagedSession.current?.value.close(); stagedSession.current = undefined; };
   }, []);
-  const registerBeforeSnapshot = useCallback((flush: () => Promise<boolean>) => {
+  const registerBeforeSnapshot = useCallback((flush: NoteInputDelivery) => {
     const native = currentSession.current;
     if (!native || native.id !== selectedPage.current) return () => {};
     const delivery = { session: native, flush }; snapshotDelivery.current = delivery;
@@ -382,6 +384,18 @@ export function Workspace() {
     };
     return { native, current };
   };
+
+  const commands = useNoteCommandSearch({ captureHost: () => {
+    const native = currentSession.current, owner = lifetime.current, id = selectedPage.current, epoch = selectionEpoch.current;
+    const root = native?.value.editor.getRootId(), documentEpoch = native?.value.editor.dataStore.getDocumentEpoch();
+    const delivery = snapshotDelivery.current;
+    const current = () => owner.mounted && lifetime.current === owner && currentSession.current === native &&
+      selectedPage.current === id && selectionEpoch.current === epoch && native?.value.editor.getRootId() === root &&
+      native?.value.editor.dataStore.getDocumentEpoch() === documentEpoch && snapshotDelivery.current === delivery;
+    if (!native || !delivery || delivery.session !== native || !current()) return undefined;
+    return { flush: delivery.flush, isCurrent: current, capturePrepared: () => captureSource()?.current };
+  } });
+
   const flushArchive = async () => {
     const owner = captureSource();
     if (!owner || !owner.current() || (owner.native && !await snapshotDelivery.current!.flush()) || !owner.current() || !await flushNavigation() || !owner.current())
@@ -582,11 +596,7 @@ export function Workspace() {
             { id: 'open', label: '파일 열기', disabled: !ready },
             { id: 'export', label: '내보내기', disabled: !ready || !selected }
           ] }] },
-          { id: 'edit', label: '편집', blocks: [{ id: 'edit', items: [
-            { id: 'find', label: '본문 찾기', disabled: !session || selectedTrashed }
-          ] }] },
           { id: 'view', label: '보기', blocks: [{ id: 'view', items: [
-            { id: 'outline', label: '목차', disabled: !session || selectedTrashed },
             { id: 'page', label: '페이지 설정', disabled: !ready || !selected || selectedTrashed }
           ] }] }
         ]} onPick={id => {
@@ -594,9 +604,10 @@ export function Workspace() {
           else if (id === 'export') setPanel('export');
           else if (id === 'template' || id === 'page') setPanel(id);
           else if (id === 'find' || id === 'outline') openNavigation(id);
-        }} />} actions={<>{inWorkspace && <IconButton label={t('workspace.note.manage')} pressed={navigationOpen} onClick={() => setNavigationOpen(open => !open)}><Icon name="workspace-files" /></IconButton>}<StatusIndicator className="office-save-status" data-icon-only tabIndex={0} title={!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'} data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
+        }} />} actions={<><CommandSearchTrigger hint={t('note.commandSearch.shortcut')} shortcut="Control+Shift+P Meta+Shift+P" iconOnly disabled={!session || selectedTrashed} onClick={() => void commands.openSearch()} />{inWorkspace && <IconButton label={t('workspace.note.manage')} pressed={navigationOpen} onClick={() => setNavigationOpen(open => !open)}><Icon name="workspace-files" /></IconButton>}<StatusIndicator className="office-save-status" quiet={ready && !problem && !draftsProblem && !saving && !conflicts.includes(selected) && !!selected} data-icon-only={ready && !problem && !draftsProblem && !saving && !conflicts.includes(selected) && !!selected || undefined}  title={!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'} data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
         <input ref={picker} hidden disabled={!ready} type="file" accept=".json,.md,.markdown,.html,.htm,.csv" aria-label="노트 파일" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importFile(file); }} />
         </>} />
+    {commands.dialog}
     <AdaptiveWorkspace className="nw-workspace" enabled={!inWorkspace} panelSides={['navigation']} locationKey={selected}>
     <WorkspaceSidePanel side="navigation" width={240} hidden={inWorkspace && !navigationOpen}>
     <aside className="nw-sidebar" aria-label="노트 보관함">
@@ -656,7 +667,7 @@ export function Workspace() {
           </button>)}</div>
         </details>}
         {!selectedTrashed && <p className="nw-hint">/ 로 블록을 추가하고, [[ 로 다른 페이지를 연결하세요.</p>}
-        {!selectedTrashed && session?.id === selected && <NoteEditor writeAllowed={!selectedTrashed} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
+        {!selectedTrashed && session?.id === selected && <NoteEditor registerCommandTarget={commands.registerCommandTarget} writeAllowed={!selectedTrashed} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
       </section>}
     </main>
     </AdaptiveWorkspace>

@@ -96,7 +96,7 @@ export function LocalDocuments({ persistence, title, prefix, onOpened, iconOnly 
     {t('document.library.recoveryWarning')}
   </StatusNotice>;
   return <>
-    <Tip label={iconOnly ? t(`document.save.status.${status}`) : undefined}><DocumentSaveStatus status={status} tabIndex={iconOnly ? 0 : undefined} className="office-save-status" data-icon-only={iconOnly || undefined} {...{ [`data-${prefix}-save-status`]: true }} /></Tip>
+    <Tip label={iconOnly ? t(`document.save.status.${status}`) : undefined}><DocumentSaveStatus status={status} quiet={iconOnly} tabIndex={iconOnly && status !== 'saved' ? 0 : undefined} className="office-save-status" data-icon-only={iconOnly && status === 'saved' || undefined} {...{ [`data-${prefix}-save-status`]: true }} /></Tip>
     {recoveryRequired && !open && recoveryButton}
     {recoveryRequired && !open && confirmRecovery && recoveryConfirmation}
     {failure && !recoveryRequired && <Button disabled={busy} onClick={() => void perform(async () => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterSite, siteFileName, siteTitle, siteDocuments } from '@barocss/office-site';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
-import { Button, useOfficeLocale } from '@barocss/office-ui';
+import { Button, StatusIndicator, useOfficeLocale } from '@barocss/office-ui';
 import type { Translator } from '@barocss/shared';
 import { App, type SiteAppLifecycle } from './app';
 import './style.css';
@@ -502,7 +502,7 @@ export function ServerSiteWorkspace({ tenantId, workspaceId, issuer, subject, in
     link.href = url; link.download = siteFileName(runtime.current ? siteTitle(runtime.current.value.editor.dataStore) : t('site.server.draft')); link.click(); URL.revokeObjectURL(url);
   };
   const status = !protectedInput ? t('site.server.status.recoveryFailure') : nestedInput ? t('site.server.status.inputPending') : busy ? t('site.server.status.saving') : fixed.current ? t('site.server.status.confirmationPending') : dirty ? t('site.server.status.unsaved') : current ? t('site.server.status.confirmed') : t('site.server.status.choose');
-  const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || problem?.kind === 'conflict' || (!dirty && !fixed.current && !nestedInput && protectedInput)} onClick={() => void save()}>{fixed.current ? t('site.server.retry') : t('site.server.save')}</Button>}<Button disabled={!current || busy} onClick={() => void exportNative()}>{t('site.server.export')}</Button></>;
+  const actions = <><StatusIndicator data-save-status quiet busy={busy} tone={!protectedInput || problem ? (problem?.kind === 'conflict' ? 'warning' : 'danger') : current && !nestedInput && !fixed.current && !dirty ? 'success' : 'neutral'}>{status}</StatusIndicator>{canEdit && <Button disabled={!current || busy || problem?.kind === 'conflict' || (!dirty && !fixed.current && !nestedInput && protectedInput)} onClick={() => void save()}>{fixed.current ? t('site.server.retry') : t('site.server.save')}</Button>}</>;
   const navigation = <aside aria-label={t('site.server.list')}>
       {canEdit && <Button disabled={loading || busy} onClick={() => void prepare(serverSiteFileText(createStarterSite(), ''))}>{t('site.server.new')}</Button>}
       {heads.map(head => <Button key={head.documentId} disabled={busy} onClick={() => void openDocument(head.documentId)}>{head.title}</Button>)}
@@ -521,6 +521,7 @@ export function ServerSiteWorkspace({ tenantId, workspaceId, issuer, subject, in
     {problem?.kind === 'conflict' && <><Button onClick={() => { void flushAndCapture().then(text => { if (text) return navigator.clipboard.writeText(text).then(() => setCopied(text)); }).catch(() => setCopied(undefined)); }}>{t('site.server.copyConflict')}</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>{t('site.server.openLatest')}</Button></>}
     {loading && <p role="status">{t('site.server.loading')}</p>}
     {current && <div className="server-site-native" hidden={problem?.kind === 'denied'} inert={problem?.kind === 'denied'}><App key={current.generation} mount={mount} server={{ headerActions: actions, headerNavigation, navigation,
+      nativeExport: { available: !!current && !busy },
       readOnly: !canEdit || !!(draft.current?.source && draft.current.status !== 'confirmed'), onRuntime, onPendingInput,
       onFileAction: action => { if (action === 'export') void exportNative(); else if (action === 'save') void save(); else if (action === 'new') void prepare(serverSiteFileText(createStarterSite(), ''));  } }} /></div>}
   </div>;

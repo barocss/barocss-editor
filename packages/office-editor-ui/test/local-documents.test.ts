@@ -122,3 +122,30 @@ for (const outcome of ['complete', 'fail', 'unmount'] as const) it(`reports owne
     }
   }
 });
+
+
+it('keeps compact failures and recovery readable, then quiets only confirmed saved state', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  const host = document.createElement('div'); document.body.append(host); root = createRoot(host);
+  type Persistence = ComponentProps<typeof LocalDocuments>['persistence'];
+  const flush = vi.fn(async () => true);
+  const session = { current: { id: 'quiet-original', flush } } as unknown as Persistence['session'];
+  for (const status of ['loading', 'saving', 'save-error', 'restore-error', 'conflict', 'recovery-required', 'saved'] as const) {
+    await act(async () => root!.render(createElement(OfficeLocaleProvider, { locale: 'en', children: createElement(LocalDocuments, {
+      persistence: { session, status, beforeReplace: async () => true }, title: 'Library', prefix: 'quiet', iconOnly: true, onOpened: vi.fn(),
+    }) })));
+    const indicator = host.querySelector<HTMLElement>('[data-quiet-save-status]')!;
+    expect(indicator.getAttribute('role')).toBe('status');
+    expect(indicator.textContent!.length).toBeGreaterThan(0);
+    expect(indicator.hasAttribute('data-quiet')).toBe(status === 'saved');
+    expect(indicator.hasAttribute('data-icon-only')).toBe(status === 'saved');
+    if (status !== 'saved') expect(indicator.tabIndex).toBe(0);
+    else expect(indicator.getAttribute('title')).toBe('Saved');
+    if (status === 'save-error') expect(button('Retry save').disabled).toBe(false);
+    if (status === 'restore-error') expect(button('Retry restore').disabled).toBe(false);
+    if (status === 'conflict') expect(button('View recovery draft').disabled).toBe(false);
+    if (status === 'recovery-required') expect(button('Reopen saved copy').disabled).toBe(false);
+    expect(session.current?.id).toBe('quiet-original');
+    expect(flush).not.toHaveBeenCalled();
+  }
+});

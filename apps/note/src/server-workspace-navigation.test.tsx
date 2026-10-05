@@ -18,13 +18,13 @@ const f = vi.hoisted(() => ({
   delivery: async () => true, failSave: false, failNative: false, saveHold: undefined as Promise<void> | undefined,
 }));
 vi.mock('@barocss/shared', async original => ({ ...await original<typeof import('@barocss/shared')>(), ...await import('../../../packages/shared/src/document-save/product-host') }));
-vi.mock('@barocss/office-ui', async () => {
+vi.mock('@barocss/office-ui', async original => {
   const React = await import('react');
   const { useOfficeLocale } = await import('../../../packages/office-ui/src/locale');
   const { AdaptiveWorkspace, WorkspaceSidePanel } = await import('../../../packages/office-ui/src/adaptive-workspace');
   const { DocumentMenu } = await import('../../../packages/office-ui/src/document-bar');
   const Box = ({ children }: BoxProps) => React.createElement('div', {}, children);
-  return { useOfficeLocale, AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
+  return { ...await original<typeof import('@barocss/office-ui')>(), useOfficeLocale, AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
     Button: ({ children, ...props }: React.ComponentPropsWithRef<'button'>) => React.createElement('button', props, children),
     DocumentMenu, EditorHeader: ({ children, actions, menus }: BoxProps) => React.createElement('div', {}, children, menus, actions), StatusIndicator: Box, StatusNotice: Box };
 });
@@ -32,7 +32,8 @@ vi.mock('@barocss/office-note/view', () => ({ NoteEditor: ({ registerBeforeSnaps
   useEffect(() => { const off = registerBeforeSnapshot(() => f.delivery()); f.onMount(editor.id); return off; }, [registerBeforeSnapshot, editor]);
   return <div data-native-note={editor.id} />;
 } }));
-vi.mock('@barocss/office-note', () => ({
+vi.mock('@barocss/office-note', async original => ({
+  ...await original<typeof import('@barocss/office-note')>(),
   noteTreeOf: (store: { getNode: (id: string) => { content: unknown[] } }) => ({ stype: 'note', content: store.getNode('root').content }),
   openNoteTree: (note: NoteDocument, options: { onChange: (blocks: unknown[]) => void }) => {
     if (f.failNative) throw new Error('native load failed');

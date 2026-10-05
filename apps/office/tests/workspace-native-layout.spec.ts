@@ -17,11 +17,17 @@ const fullTitle = (product: Product) => `${product.toUpperCase()} — Customer a
 // Retain the exact active native document. Parent tree/route and child editor are
 // different windows; child hit testing and editor witnesses must use its Frame.
 async function localNative(page: Page): Promise<Frame> {
+  // The child header can mount before the parent promotes its navigation owner.
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
+  await expect(page.locator('.ow-file-navigation')).toBeVisible();
   const element = page.locator('.ow-native-slot iframe[data-local-native-frame="active"]');
   await expect(element).toHaveCount(1);
   const frame = (await (await element.elementHandle())!.contentFrame())!;
   expect(frame).not.toBeNull();
   await expect(frame.locator('.office-editor-header')).toHaveCount(1);
+  // Initial validation installs the current-owner proxy before lifting inert.
+  await expect.poll(() => element.evaluate(node => (node as HTMLIFrameElement).inert)).toBe(false);
+  await expect(page.locator('.ow-entry-status')).toHaveCount(0);
   return frame;
 }
 async function parentPoint(frame: Frame, point: { x: number; y: number }) {
@@ -62,10 +68,17 @@ async function populated(page: Page, product: Product) {
   }, { workspaceModule, fixtures, product, title: fullTitle(product), note: representativeDocument() });
 }
 async function savedNative(page: Page, product: Product, id: string) {
+  // Observe the installed current owner; never retry or bypass preparation.
+  await expect.poll(() => page.evaluate(async sharedModule => {
+    const { captureProductNavigation } = await import(sharedModule) as typeof import('@barocss/shared');
+    return captureProductNavigation()?.id;
+  }, sharedModule)).toBe(id);
   return page.evaluate(async ({ workspaceModule, sharedModule, product, id }) => {
     const { captureProductNavigation } = await import(sharedModule) as typeof import('@barocss/shared');
     const navigation = captureProductNavigation();
-    if (!navigation || navigation.id !== id || !await navigation.prepare()) throw new Error('Native input flush did not complete for the original');
+    if (!navigation) throw new Error('The current original navigation owner is not ready');
+    if (navigation.id !== id) throw new Error('The current navigation owner is a different original');
+    if (!await navigation.prepare()) throw new Error('Native input flush did not complete for the original');
     const { productStore } = await import(workspaceModule) as typeof import('@barocss/office-workspace');
     const saved = await productStore(product).read(id);
     if (!saved) throw new Error('Original is missing');
@@ -88,8 +101,11 @@ async function openPanels(frame: Frame, product: Product) {
     await expect(frame.locator('.w-comment-text').first()).toBeVisible();
   } else if (product === 'note') {
     await frame.getByRole('button', { name: '노트 페이지 관리', exact: true }).click();
-    await frame.locator('.office-editor-menus').getByRole('menuitem', { name: '노트 메뉴', exact: true }).click();
-    await frame.getByRole('menuitem', { name: '목차', exact: true }).click();
+    await frame.getByRole('button', { name: '명령 검색', exact: true }).click();
+    const query = frame.getByRole('combobox', { name: '명령 검색어', exact: true });
+    await query.fill('목차');
+    await frame.getByRole('option').filter({ hasText: '목차' }).click();
+    await expect(query).toHaveCount(0);
     await expect(frame.getByRole('region', { name: '문서 탐색', exact: true })).toBeVisible();
   } else if (product === 'slides') {
     await nativePanel(frame, '레이어 · 개체 순서와 컴포넌트');
@@ -440,6 +456,7 @@ test('Note nested input and native block properties survive Workspace navigation
   expect(await field.evaluate(el => { const r = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); })).toBe(true);
   await properties.getByRole('button', { name: '속성 닫기', exact: true }).click(); await expect(properties).toHaveCount(0);
   await page.locator('.ow-file-navigation').getByRole('button', { name: '내 파일', exact: true }).click();
+  frame = await localNative(page);
   expect(await savedNative(page, 'note', original.id)).toBe(before);
   await page.reload(); frame = await localNative(page); await expect(frame.locator('.on-doc .w-callout').first().locator('p').first()).toContainText('Last nested input');
   expect(await savedNative(page, 'note', original.id)).toBe(before);

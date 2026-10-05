@@ -17,8 +17,10 @@ export function ProductMenu({ product, blocks, onPick, id = 'product', label = `
 }
 
 /** A single named entry keeps existing command groups and shortcuts discoverable. */
-export function DocumentMenu({ menus, onPick, label = '문서 메뉴', triggerLabel, icon, portalContainer, onOpenChange }: {
+export function DocumentMenu({ menus, menuIds, onPick, label = '문서 메뉴', triggerLabel, icon, portalContainer, onOpenChange }: {
   menus: MenuBarMenu[];
+  /** Presentation scope only; products keep their complete native/search command model. */
+  menuIds?: readonly string[];
   onPick: (id: string) => void;
   label?: string;
   triggerLabel?: string;
@@ -26,7 +28,7 @@ export function DocumentMenu({ menus, onPick, label = '문서 메뉴', triggerLa
   icon?: ReactNode;
   portalContainer?: RefObject<HTMLElement | null>;
 }) {
-  const blocks = menus.flatMap(menu => menu.blocks.map((block, index) => ({
+  const blocks = menus.filter(menu => !menuIds || menuIds.includes(menu.id)).flatMap(menu => menu.blocks.map((block, index) => ({
     ...block, id: `${menu.id}:${block.id}`, label: index === 0 ? menu.label : block.label
   })));
   return <MenuBar compact label={label} className="office-document-menu" menus={[{ id: 'document', label: triggerLabel ?? label, ariaLabel: label, icon, blocks }]} onPick={onPick} onOpenChange={onOpenChange} portalContainer={portalContainer} />;

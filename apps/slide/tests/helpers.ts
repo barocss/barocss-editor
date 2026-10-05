@@ -223,8 +223,18 @@ export async function pinZoom(page: Page, percent = 60): Promise<void> {
  * thing about it a product is free to change.
  */
 export async function pickMenu(page: Page, id: string) {
-  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
-  await page.locator(`[data-menu-item="${id}"]`).click();
+  if (id.startsWith('file.')) {
+    await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.locator(`[data-menu-item="${id}"]`).click();
+  } else {
+    // Non-document commands now live in the real shared search. Keep the native
+    // command ID and all callers' resulting content/history assertions intact.
+    await page.getByRole('button', { name: '명령 검색', exact: true }).click();
+    const query = page.getByRole('combobox', { name: '명령 검색어' });
+    await query.fill('');
+    await page.getByRole('option').and(page.locator(`[id$="-${encodeURIComponent(id)}"]`)).click();
+    await expect(query).toHaveCount(0);
+  }
   await page.waitForTimeout(250);
 }
 

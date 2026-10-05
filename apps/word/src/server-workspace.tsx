@@ -2,7 +2,7 @@ import { createVerificationClient, verificationRequest, type CriterionVerificati
 import { createCriterionClient, criterionRequest, criterionHash, type CriterionConfirmationHost, type CriterionRequest } from './criterion-confirmation-client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-word';
-import { Button, useOfficeLocale } from '@barocss/office-ui';
+import { Button, StatusIndicator, useOfficeLocale } from '@barocss/office-ui';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
 import { App } from './app';
 import { createWordOpenGate } from './guarded-open';
@@ -597,7 +597,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       }
     };
   }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject]);
-  const actions = <><span role="status" data-save-status>{status}</span>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}</>;
+  const actions = <><StatusIndicator data-save-status quiet busy={busy} tone={!protectedInput || problem ? (problem?.kind === 'conflict' ? 'warning' : 'danger') : current && !nestedInput && !fixed.current && !dirty ? 'success' : 'neutral'}>{status}</StatusIndicator>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}</>;
   const navigation = <aside aria-label={workspaceNavigation ? t('workspace.document.actions') : '서버 Word 목록'}>
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverWordFileText(createStarterDocument(), ''))}>새 Word</Button>}
       {!workspaceNavigation && heads.map(head => <Button key={head.documentId} disabled={busy || !protectedInput || nestedInput} onClick={() => void (current ? requestOpen.current(head.documentId) : openDocument(head.documentId))}>{head.title}</Button>)}

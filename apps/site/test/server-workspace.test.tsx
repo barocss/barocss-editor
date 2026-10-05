@@ -55,7 +55,10 @@ function ControlledNativeApp({ mount, server }: ComponentProps<typeof App>) {
   }, [mount]);
   return createElement('section', { 'data-controlled-native-app': true },
     createElement('div', { ref: host, 'data-controlled-native-root': true }),
-    server?.headerActions, server?.navigation);
+    server?.headerActions, server?.navigation,
+    // This controlled App exercises the server's file-action contract. The real
+    // App presents the same action in its document menu, verified in browser tests.
+    server && createElement('button', { disabled: !server.nativeExport?.available, onClick: () => server.onFileAction('export') }, 'Site 파일 내보내기'));
 }
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const workspaceId = '22222222-2222-4222-8222-222222222222';

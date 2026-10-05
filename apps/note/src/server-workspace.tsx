@@ -3,10 +3,11 @@ import './style.css';
 import { matchesConfirmedNoteNative } from './confirmed-native';
 import { flushSync } from 'react-dom';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
-import { NoteEditor } from '@barocss/office-note/view';
+import { NoteEditor, type NoteInputDelivery } from '@barocss/office-note/view';
 import { readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
 import { noteTreeOf, openNoteTree, type NoteDocument, type NoteSession } from '@barocss/office-note';
-import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, Icon, StatusIndicator, StatusNotice, useOfficeLocale } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, Icon, StatusIndicator, StatusNotice, CommandSearchTrigger, useOfficeLocale } from '@barocss/office-ui';
+import { useNoteCommandSearch } from './use-note-command-search';
 import { pageTemplate } from './workspace-library';
 import { ServerLocalNoteCopy } from './server-local-copy';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
@@ -147,8 +148,8 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     return () => document.removeEventListener('keydown', find);
   }, [client]);
   const savingRequest = useRef<{ client: object; session: NoteSession | undefined; generation: string; authority: object; request: symbol } | undefined>(undefined);
-  const snapshotDeliveries = useRef(new Set<() => Promise<boolean>>());
-  const registerBeforeSnapshot = useCallback((flush: () => Promise<boolean>) => {
+  const snapshotDeliveries = useRef(new Set<NoteInputDelivery>());
+  const registerBeforeSnapshot = useCallback((flush: NoteInputDelivery) => {
     snapshotDeliveries.current.add(flush);
     return () => { snapshotDeliveries.current.delete(flush); };
   }, []);
@@ -793,12 +794,32 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const availableRecovery = currentProblem?.kind === 'denied' ? [] : recoveryRecords.filter(record => record.status !== 'confirmed' &&
     record.draftId !== currentDraft?.record.draftId && (record.base.operation === 'create' ||
       [...currentHeads, ...(currentOpen?.head ? [currentOpen.head] : [])].some(head => record.base.operation === 'update' && head.documentId === record.base.documentId && head.mode === 'snapshot')));
-  const openNavigation = (mode: 'find' | 'outline') => {
-    const current = access.current;
-    if (current.client !== client || activeClient.current !== client || !current.session || !current.open || current.denied) return;
-    setNavigationRequest(previous => ({ mode, id: (previous?.id ?? 0) + 1, generation: current.open!.generation }));
-  };
-  const navigationDisabled = !currentSession || !currentOpen || currentProblem?.kind === 'denied';
+  const commands = useNoteCommandSearch({ captureHost: () => {
+    const captured = access.current, native = captured.session, authority = roleRef.current;
+    const rootId = native?.editor.getRootId(), epoch = native?.editor.dataStore.getDocumentEpoch();
+    const deliveries = [...snapshotDeliveries.current];
+    const current = () => activeClient.current === captured.client && access.current.client === captured.client &&
+      access.current.session === native && access.current.open?.generation === captured.open?.generation &&
+      access.current.open?.documentId === captured.open?.documentId && roleRef.current === authority &&
+      !access.current.denied && !access.current.busy && !opening.current &&
+      (!hostSlot || isNativeHostSlotActive(hostSlot)) && native?.editor.getRootId() === rootId &&
+      native?.editor.dataStore.getDocumentEpoch() === epoch && deliveries.length === snapshotDeliveries.current.size &&
+      deliveries.every(delivery => snapshotDeliveries.current.has(delivery));
+    if (!native || !captured.open || !deliveries.length || !current()) return undefined;
+    const flush: NoteInputDelivery = Object.assign(async () => {
+      for (const delivery of [...deliveries].reverse()) if (!current() || !await delivery()) return false;
+      return current();
+    }, { captureInputIntent: () => {
+      const inputs = deliveries.map(delivery => delivery.captureInputIntent?.());
+      return current() && inputs.every(input => !!input) ? () => current() && inputs.every(input => input!()) : null;
+    } });
+    return { flush, isCurrent: current, capturePrepared: () => {
+      const root = native.editor.dataStore.getNode(rootId!);
+      return current() ? () => current() && native.editor.dataStore.getNode(rootId!) === root : undefined;
+    } };
+  } });
+  const quietSaved = !!currentOpen && !loading && !busy && !currentProblem && !currentProtection?.error && !opening.current && !recoveryError && !isDirty && !currentPending;
+
   return <div ref={workspace} className="nw-shell" data-server-note-workspace onKeyDown={event => {
     if (workspaceNavigation && documentActionsOpen && event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) {
       event.preventDefault(); event.stopPropagation(); setDocumentActionsOpen(false); restoreDocumentMenuFocus(); return;
@@ -809,15 +830,15 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     setNavigationRequest(previous => ({ mode: 'find', id: (previous?.id ?? 0) + 1, generation: currentOpen.generation }));
   }}>
     <EditorHeader compact product="Note" className="nw-header" title={currentOpen?.note.attributes.title || '서버 노트'} fallbackNavigation={headerNavigation}
-      menus={<span ref={documentMenuAnchor}><DocumentMenu label={t('note.header.documentMenu')} icon={<Icon name="disclosed" />} menus={[
+      menus={workspaceNavigation ? <span ref={documentMenuAnchor}><DocumentMenu label={t('note.header.documentMenu')} icon={<Icon name="disclosed" />} menus={[
         ...(workspaceNavigation ? [{ id: 'file', label: t('workspace.document.actions'), blocks: [{ id: 'file', items: [{ id: 'document-actions', label: t('workspace.document.actions'), checked: documentActionsOpen }] }] }] : []),
-        { id: 'edit', label: '편집', blocks: [{ id: 'edit', items: [{ id: 'find', label: '찾기', disabled: navigationDisabled }] }] },
-        { id: 'view', label: '보기', blocks: [{ id: 'view', items: [{ id: 'outline', label: '목차', disabled: navigationDisabled }] }] }
-      ]} onPick={id => { if (id === 'find' || id === 'outline') openNavigation(id); else if (id === 'document-actions') setDocumentActionsOpen(value => !value); }} /></span>}
-      actions={<><StatusIndicator className="office-save-status" data-icon-only tabIndex={0} title={status} data-save-status busy={busy} tone={currentProblem ? 'danger' : isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
+
+      ]} onPick={id => { if (id === 'document-actions') setDocumentActionsOpen(value => !value); }} /></span> : undefined}
+      actions={<><CommandSearchTrigger hint={t('note.commandSearch.shortcut')} shortcut="Control+Shift+P Meta+Shift+P" iconOnly disabled={!currentSession || currentProblem?.kind === 'denied' || busy} onClick={() => void commands.openSearch()} /><StatusIndicator className="office-save-status" quiet={quietSaved} data-icon-only={quietSaved || undefined}  title={status} data-save-status busy={busy} tone={currentProtection?.error || currentProblem && currentProblem.kind !== 'conflict' ? 'danger' : currentProblem?.kind === 'conflict' || isDirty || currentPending ? 'warning' : 'success'}>{status}</StatusIndicator>
         {canEdit && <Button disabled={!currentOpen || busy || currentProblem?.kind === 'denied' || currentProblem?.kind === 'conflict' || (!isDirty && !currentPending)}
           onClick={() => void save()}>{currentPending ? '저장 확인·재시도' : '저장'}</Button>}
         {onLeave && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={onLeave}>나가기</Button>}</>} />
+    {commands.dialog}
     {openingError && <StatusNotice tone="danger" title="문서를 열지 못했습니다">{openingError}</StatusNotice>}
     <AdaptiveWorkspace className="nw-workspace" panelSides={['navigation']} locationKey={currentOpen?.documentId ?? undefined}
       showPanelControls={!workspaceNavigation} panelIds={{ navigation: documentActionsId }}
@@ -874,7 +895,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         </StatusNotice>}
         {currentProblem?.kind !== 'denied' && currentOpen && <section className="nw-document" aria-label="노트 편집">
           <h1>{currentOpen.note.attributes.title}</h1>
-          {currentSession && <NoteEditor key={currentSession.session} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.generation === currentOpen.generation ? navigationRequest : undefined} writeAllowed={canEdit && ((!busy && !currentPending) || updateResponsePending) && !(currentDraft?.record.source && currentDraft.record.status !== 'confirmed')} editor={currentSession.editor} rootId={currentSession.rootId} />}
+          {currentSession && <NoteEditor key={currentSession.session} registerCommandTarget={commands.registerCommandTarget} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.generation === currentOpen.generation ? navigationRequest : undefined} writeAllowed={canEdit && ((!busy && !currentPending) || updateResponsePending) && !(currentDraft?.record.source && currentDraft.record.status !== 'confirmed')} editor={currentSession.editor} rootId={currentSession.rootId} />}
         </section>}
         {!currentOpen && !loading && !currentProblem && <p>노트를 선택하거나 새로 만드세요.</p>}
       </main>

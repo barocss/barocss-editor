@@ -1,5 +1,5 @@
 import { documentLocationWorkspace } from '@barocss/shared';
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Toolbar, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase, type MenuBarMenu } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, CommandSearch, CommandSearchTrigger, RibbonGroup, Toolbar, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase, type MenuBarMenu } from '@barocss/office-ui';
 import {
   FileActions,
   LocalDocuments,
@@ -260,6 +260,7 @@ export interface SiteServerHost {
   headerNavigation?: ReactNode;
   navigation?: ReactNode;
   readOnly: boolean;
+  nativeExport?: { available: boolean };
   onRuntime(runtime: SiteRuntime, lifecycle: SiteAppLifecycle): void;
   onPendingInput(pending: boolean): void;
   onFileAction(action: 'new' | 'open' | 'save' | 'library' | 'export'): void;
@@ -1152,7 +1153,7 @@ export function App({ mount, server }: {
    */
   const onMenu = useCallback(
     (id: string) => {
-      if (id === 'workspace.export') { serverRef.current?.onFileAction('export'); return; }
+      if (id === 'workspace.export') { const owner = serverRef.current; if (owner?.nativeExport?.available) owner.onFileAction('export'); return; }
       if (id === 'workspace.recent' && serverRef.current) { setServerNavigationOpen(true); return; }
       if (id === 'workspace.recent') { recentDocuments.current?.open(documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')); return; }
       const entry = siteMenuEntry(id, menus);
@@ -1160,8 +1161,9 @@ export function App({ mount, server }: {
     },
     [runEntry]
   );
-  const documentMenus: MenuBarMenu[] = bar.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks,
-    ...(server ? [{ id: 'native-export', items: [{ id: 'workspace.export', label: t('site.server.export'), icon: 'download' as const, disabled: !editor }] }] : []),
+  const nativeExportAvailable = !!editor && !!server?.nativeExport?.available;
+  const documentMenus: MenuBarMenu[] = bar.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks.filter(block => block.id !== 'pages'),
+    ...(server ? [{ id: 'native-export', items: [{ id: 'workspace.export', label: t('site.server.export'), icon: 'download' as const, disabled: !nativeExportAvailable }] }] : []),
     { id: 'original-library', items: [{ id: 'workspace.recent', label: server ? t('site.server.documentActions') : t('document.library.recent'), disabled: !editor || preview }] }
   ] } : menu);
   /**
@@ -1668,12 +1670,14 @@ export function App({ mount, server }: {
                   inspectorTrigger.current = trigger;
                 }}><DocumentMenu onOpenChange={open => { panelMenuActive.current = open; }} portalContainer={toolsMenuHost} label={t('office.header.panels')} icon={<Icon name="outline" size={16} />} menus={[{
                   id: 'panels', label: t('office.header.panels'), blocks: [{ id: 'panels', items: [
+                    { id: 'panel.manage', label: t('site.header.management') },
                     { id: 'panel.navigation', label: '페이지 및 구조', checked: navigationOpen },
                     { id: 'panel.inspector', label: '자세한 속성', checked: detailOpen },
                     { id: 'panel.tools', label: t('office.header.tools'), checked: fullTools }
                   ] }]
                 }]} onPick={id => {
-                  if (id === 'panel.navigation') { setNavigationOpen(value => !value); if (navigationOpen) restorePanelFocus('navigation'); }
+                  if (id === 'panel.manage') setAdmin('pages');
+                  else if (id === 'panel.navigation') { setNavigationOpen(value => !value); if (navigationOpen) restorePanelFocus('navigation'); }
                   else if (id === 'panel.inspector') { setDetailOpen(value => !value); if (detailOpen) restorePanelFocus('inspector'); }
                   else if (id === 'panel.tools') changeTools(!fullTools);
                 }} /></span>}>{toolbar}</SecondaryPopup>}
@@ -1806,9 +1810,9 @@ export function App({ mount, server }: {
       {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
       <AppChrome className="st-chrome">
         <EditorHeader compact product="Site" className="st-documentbar"
-          fallbackNavigation={server?.headerNavigation ?? <ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
+          fallbackNavigation={server?.headerNavigation}
           title={editor ? siteTitle(editor.dataStore as never) || '제목 없는 사이트' : '불러오는 중'}
-          menus={<span ref={documentMenuHost}>{server ? <SecondaryPopup triggerLabel={t('site.server.documentActions')} label={t('site.server.documentActions')} open={serverNavigationOpen} onOpenChange={setServerNavigationOpen} align="start" trigger={() => <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} onPick={onMenu} />}>{server.navigation}</SecondaryPopup> : <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} onPick={onMenu} />}</span>}
+          menus={<span ref={documentMenuHost} data-native-export-available={nativeExportAvailable || undefined}>{server ? <SecondaryPopup triggerLabel={t('site.server.documentActions')} label={t('site.server.documentActions')} open={serverNavigationOpen} onOpenChange={setServerNavigationOpen} align="start" trigger={() => <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} menuIds={['file']} onPick={onMenu} />}>{server.navigation}</SecondaryPopup> : <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} menuIds={['file']} onPick={onMenu} />}</span>}
           tools={editor ? <Toolbar variant="compact" className="st-header-tools" label={t('site.header.insertTools')}>
             {historyItems.map(item => <IconButton key={item.command} label={item.label} preserveFocus
               disabled={!!menuItems.find(entry => entry.id === item.id)?.disabled}
@@ -1825,8 +1829,7 @@ export function App({ mount, server }: {
               <ZoomControl zoom={zoom} ladder={SITE_ZOOM_LADDER} onChange={next => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
             </>}
           </Toolbar> : undefined}
-          actions={<>{!server && <LocalDocuments ref={recentDocuments} showTrigger={false} persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />}
-          <div className="st-header-actions">{completeTools}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly />{server?.headerActions}</div>
+          actions={<><div className="st-header-actions">{completeTools}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly />{!server && <LocalDocuments ref={recentDocuments} showTrigger={false} persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />}{server?.headerActions}</div>
 
 
 

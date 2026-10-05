@@ -1,7 +1,8 @@
 import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
+import type { INode } from '../../../packages/datastore/src/types';
 import { createStarterDocument } from '../../../packages/office-word/src/starter-document';
 import { wordFileText } from '../../../packages/office-word/src/word-file';
 
@@ -14,8 +15,8 @@ const origin = `http://127.0.0.1:${process.env.OFFICE_AUTH_TEST_PORT ?? '5191'}`
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const shell = (page: Page) => page.locator('[data-server-word-workspace]');
 const save = (page: Page) => shell(page).getByRole('button', { name: /^(저장|저장 확인·재시도)$/ });
-async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; failSave?: boolean; tree?: boolean } = {}) {
-  let snapshotText = wordFileText(createStarterDocument(), '');
+async function setup(page: Page, options: { viewer?: boolean; lostAck?: boolean; wrongProduct?: boolean; mode?: string; second?: boolean; failSave?: boolean; tree?: boolean; document?: INode } = {}) {
+  let snapshotText = wordFileText(options.document ?? createStarterDocument(), '');
   let revision = 1;
   let viewer = !!options.viewer;
   const writes: Record<string, unknown>[] = [];
@@ -482,8 +483,9 @@ test('authenticated workspace tree saves immediate input before opening another 
 });
 
 
-for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const) test(`authenticated Word frame geometry ${width} ${theme}`, async ({ page }, testInfo) => {
-  await page.setViewportSize({ width, height: 1000 });
+for (const width of [1170, 1280, 1440]) for (const theme of ['light', 'dark'] as const) test(`authenticated Word frame geometry ${width} ${theme}`, async ({ page }, testInfo) => {
+  const height = width === 1280 ? 800 : 900;
+  await page.setViewportSize({ width, height });
   await setup(page, { tree: true });
   // Complete the provider round trip before measuring the native editor.
   await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('document') === documentId);
@@ -498,7 +500,11 @@ for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const
   await expect(header).toHaveCount(1);
   const geometry = await header.boundingBox();
   expect(geometry!.height).toBe(48);
-  await expect(header.locator('[data-document-context]')).toContainText('Word workspace / Server Word');
+  // Workspace/file identity lives in the persistent tree, rather than a repeated subtitle.
+  await expect(page.locator('.ow-file-navigation')).toContainText('Word workspace');
+  await expect(page.locator('.ow-file-navigation').getByRole('button', { name: 'Server Word 열기', exact: true }).first()).toHaveAttribute('aria-pressed', 'true');
+  // This native starter has an empty title; its file-head name must not rewrite the original.
+  await expect(header.getByRole('textbox', { name: '문서 제목', exact: true })).toHaveValue('');
   const controls = await header.locator('button,input').evaluateAll(elements => elements.filter(element => element.getBoundingClientRect().width > 0).map(element => {
     const rect = element.getBoundingClientRect(), hit = element.ownerDocument.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
     return { name: element.getAttribute('aria-label') ?? element.textContent, x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height,
@@ -518,7 +524,7 @@ for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const
   }));
   expect(footerHits).toHaveLength(2);
   for (const hit of footerHits) { expect(hit.width).toBeGreaterThanOrEqual(32); expect(hit.height).toBeGreaterThanOrEqual(32);
-    expect(hit.x).toBeGreaterThanOrEqual(0); expect(hit.y).toBeGreaterThanOrEqual(0); expect(hit.bottom).toBeLessThanOrEqual(1000); expect(hit.ownsHit).toBe(true); }
+    expect(hit.x).toBeGreaterThanOrEqual(0); expect(hit.y).toBeGreaterThanOrEqual(0); expect(hit.bottom).toBeLessThanOrEqual(height); expect(hit.ownsHit).toBe(true); }
   await expect(shell(page).getByRole('complementary', { name: '서버 Word 목록' })).toHaveCount(0);
   await expect(shell(page).getByRole('complementary', { name: '문서 작업' })).toBeHidden();
   await page.screenshot({ path: testInfo.outputPath(`authenticated-word-${width}-${theme}.png`) });
@@ -540,4 +546,102 @@ for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const
   await page.keyboard.press('Escape');
   await expect(shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true })).toBeFocused();
   expect(await node!.evaluate(element => element.isConnected)).toBe(true);
+});
+
+
+// Controlled transport and actual authenticated Word/native selection controls; no runtime mocks.
+async function matrixWordExport(page: Page) {
+  await shell(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  const waiting = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Word 파일 내보내기', exact: true }).click();
+  const path = await (await waiting).path(); expect(path).not.toBeNull();
+  return JSON.parse(await readFile(path!, 'utf8')).document;
+}
+async function matrixWordSurface(surface: Locator, width: number, height: number) {
+  await expect(surface).toBeVisible(); const box = await surface.boundingBox(); expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(width); expect(box!.y + box!.height).toBeLessThanOrEqual(height);
+  return box!;
+}
+async function matrixWordHit(control: Locator) {
+  const box = await control.boundingBox(); expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(32); expect(box!.height).toBeGreaterThanOrEqual(32);
+  expect(await control.evaluate(node => {
+    const rect = node.getBoundingClientRect(), hit = node.ownerDocument.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return !!hit && (node === hit || node.contains(hit));
+  })).toBe(true);
+}
+for (const [width, height] of [[1440, 900], [1280, 800]]) for (const theme of ['light', 'dark'] as const)
+for (const role of ['editor', 'viewer'] as const) test(`controlled authenticated Word tools ${role} ${width}x${height} ${theme}`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height }); await page.emulateMedia({ colorScheme: theme });
+  const fixture = createStarterDocument();
+  const surface = fixture.content![1] as INode, block = surface.content![0] as INode, inline = block.content![0] as INode;
+  // Use an explicit supported empty mark set; omitted-mark typing normalization
+  // is a separately retained codec boundary, not a compact UI expectation.
+  inline.text = 'Authority sample'; inline.marks = [];
+  const source = wordFileText(fixture, '');
+  const state = await setup(page, { viewer: role === 'viewer', document: fixture });
+  const paragraph = shell(page).locator('.w-paragraph').first(); await expect(paragraph).toHaveText('Authority sample');
+  await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+  const nativeBody = await paragraph.elementHandle(), header = shell(page).locator('.office-editor-header');
+  await expect(header).toHaveCount(1); expect((await matrixWordSurface(header, width, height)).height).toBe(48);
+  const primary = page.locator('[data-word-formatting]'); await expect(primary).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath(`${width}-${theme}-${role}-idle.png`), animations: 'disabled' });
+  const before = await matrixWordExport(page);
+  // The empty native title is intentional; the server head title is only the catalog identity.
+  expect(before.content[0].content[0].content[0].text).toBe('');
+  expect(state.text()).toBe(source); expect(state.writes).toHaveLength(0);
+  await paragraph.click();
+  const apple = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform));
+  if (role === 'editor') {
+    await page.keyboard.press(apple ? 'Meta+ArrowDown' : 'Control+End');
+    for (let index = 0; index < 'Authority sample'.length; index++) await page.keyboard.press('Shift+ArrowLeft');
+  } else await paragraph.click({ clickCount: 3 });
+  await expect.poll(() => paragraph.evaluate(node => {
+    const selection = getSelection(); return !!selection?.anchorNode && node.contains(selection.anchorNode) && selection.toString().trimEnd() === 'Authority sample';
+  })).toBe(true);
+  if (role === 'editor') {
+    const box = await matrixWordSurface(primary, width, height);
+    expect(box.height).toBeLessThanOrEqual(48); expect(box.width).toBeLessThanOrEqual(480);
+    await info.attach(`${width}-${theme}-${role}-primary-dimensions`, { contentType: 'application/json', body: Buffer.from(JSON.stringify({ width: box.width, height: box.height })) });
+    const bold = primary.getByRole('button', { name: 'Bold', exact: true }); await matrixWordHit(bold);
+    await page.screenshot({ path: info.outputPath(`${width}-${theme}-${role}-selection-primary.png`), animations: 'disabled' });
+    const trigger = primary.getByRole('button', { name: '추가 서식', exact: true }); await matrixWordHit(trigger); await trigger.click();
+    const more = page.getByLabel('추가 Word 서식', { exact: true }); await matrixWordSurface(more, width, height);
+    expect(await more.evaluate(node => node.contains(document.activeElement))).toBe(true);
+    const font = more.locator('.w-toolbar-font-family'), ownedFont = await font.elementHandle(); await font.click();
+    await expect(page.getByRole('listbox')).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`${width}-${theme}-${role}-owned-font-value.png`), animations: 'disabled' });
+    await page.keyboard.press('Escape'); await expect(page.getByRole('listbox')).toHaveCount(0);
+    await page.keyboard.press('Escape'); await expect(more).toBeHidden(); await expect(more).toHaveAttribute('inert', '');
+    await expect(trigger).toBeFocused(); await expect(primary).toBeVisible();
+    expect(await ownedFont!.evaluate(node => node.isConnected)).toBe(true); expect(state.text()).toBe(source); expect(state.writes).toHaveLength(0);
+    await bold.click(); await expect(paragraph.locator('.mark-bold')).toHaveText('Authority sample');
+    await paragraph.click(); await page.keyboard.press('ControlOrMeta+z'); await expect(paragraph.locator('.mark-bold')).toHaveCount(0);
+    await expect(paragraph).toHaveText('Authority sample'); expect(await matrixWordExport(page)).toEqual(before);
+    await paragraph.click(); await page.keyboard.press(apple ? 'Meta+ArrowDown' : 'Control+End'); await page.keyboard.insertText('!');
+    await expect(paragraph).toHaveText('Authority sample!');
+    const expected = structuredClone(before); expected.content[1].content[0].content[0].text = 'Authority sample!';
+    await save(page).click(); await expect(shell(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+    expect(state.writes).toHaveLength(1); expect(state.revision()).toBe(2);
+    expect(JSON.parse(state.text()).document).toEqual(expected); expect(await matrixWordExport(page)).toEqual(expected);
+  } else {
+    await expect(primary).toHaveCount(0); await expect(shell(page).locator('[contenteditable=true]')).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`${width}-${theme}-${role}-readonly-selection.png`), animations: 'disabled' });
+    await shell(page).getByRole('button', { name: '명령 검색', exact: true }).click();
+    const query = page.getByRole('combobox', { name: '명령 검색어', exact: true }); await expect(query).toBeFocused();
+    await query.fill('굵게'); await expect(page.getByRole('option').filter({ hasText: '굵게' })).toHaveAttribute('aria-disabled', 'true');
+    await query.press('Enter'); await expect(query).toBeFocused(); await expect(paragraph.locator('.mark-bold')).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`${width}-${theme}-${role}-readonly-command-detail.png`), animations: 'disabled' });
+    await query.press('Escape'); await expect(query).toHaveCount(0);
+    await paragraph.click({ clickCount: 3 });
+    await page.keyboard.insertText('DENIED-VIEWER-INPUT'); await page.keyboard.press('ControlOrMeta+b'); await page.keyboard.press('ControlOrMeta+s');
+    await expect(paragraph).toHaveText('Authority sample'); await expect(paragraph.locator('.mark-bold')).toHaveCount(0); await expect(save(page)).toHaveCount(0);
+    expect(state.text()).toBe(source); expect(state.revision()).toBe(1); expect(state.writes).toHaveLength(0);
+    expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('wonffice.word.pending.v1:')))).toEqual([]);
+    expect(await matrixWordExport(page)).toEqual(before);
+  }
+  expect(await nativeBody!.evaluate(node => node.isConnected)).toBe(true);
+  await page.screenshot({ path: info.outputPath(`${width}-${theme}-${role}-dismissed-final-native.png`), animations: 'disabled' });
 });

@@ -18,9 +18,9 @@ const originals = ([['note', 'barocss-note', note], ['word', 'barocss-word', wor
 }));
 
 // Fictional local originals. This is desktop native/chrome evidence, not server or two-user alpha.
-for (const original of originals) for (const width of [1170, 1440]) for (const theme of ['light', 'dark'] as const) {
+for (const original of originals) for (const width of [1170, 1280, 1440]) for (const theme of ['light', 'dark'] as const) {
   test(`${original.product} one populated header at ${width} ${theme}${original.longPanel ? ' long title and panel' : ''}`, async ({ page }, info) => {
-    await page.setViewportSize({ width, height: 900 });
+    await page.setViewportSize({ width, height: width === 1280 ? 800 : 900 });
     await page.emulateMedia({ colorScheme: theme });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: '전체 자료', exact: true })).toBeVisible();

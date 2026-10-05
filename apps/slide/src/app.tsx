@@ -1,6 +1,6 @@
 import { useFloatingPanelBounds } from './floating-panel-bounds';
 import { documentTitle } from '@barocss/office-text';
-import { EditorHeader, ProductMenu, DocumentMenu, Toolbar, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion, useOfficeLocale, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
+import { EditorHeader, DocumentMenu, Toolbar, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion, useOfficeLocale, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { selectedNodeIds } from '@barocss/editor-core';
@@ -1988,9 +1988,9 @@ export function App({
       {failedInput && <TaskStatusRegion label={t('document.input.failed')}><TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button onClick={() => void retryInput()}>{t('document.input.retry')}</Button>} /></TaskStatusRegion>}
       {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
       <EditorHeader compact product="Slides" className="sl-topbar"
-        fallbackNavigation={server ? server.headerNavigation : <ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
+        fallbackNavigation={server?.headerNavigation}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<span ref={documentMenuHost}><DocumentMenu key={`${menuLifetimeKey}:${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} onPick={pickDocumentMenu} /></span>}
+        menus={<span ref={documentMenuHost}><DocumentMenu key={`${menuLifetimeKey}:${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} menuIds={['file']} onPick={pickDocumentMenu} /></span>}
         tools={<div ref={setHeaderTools} className="sl-header-edit-tools" />}
         view={!presenting && <Toolbar variant="compact" label="Slides 보기 도구" className="sl-header-view-tools">
           <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}

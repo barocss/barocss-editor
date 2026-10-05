@@ -693,3 +693,13 @@ ColorPicker는 색상·색상 알파·테마 색·스포이드를 제공한다. 
 - 표시 형식만 바꾸어도 양자화하거나 실행 취소 기록을 만들지 않는다. 다른 채널과 알파를 유지하며 변경한 채널만 반영한다. 회색·검정에서 색조·채도를 먼저 지정한 값은 현재 입력 세션에서 보존한다.
 - 채널 입력은 공통 NumberField의 확정·취소 동작을 사용한다. HEX 입력과 팝업 포커스 규칙은 유지한다.
 - 변환 근거: [Color.js procedural API](https://colorjs.io/api/modules/index_fn.html).
+
+
+## Compact command ownership — 2026-10-05
+
+- `DocumentMenu.menuIds` filters the visible menu groups. Omit it to retain the existing full menu. A product must keep every supported command reachable through its native menu, inspector, or command search. Filtering changes presentation only.
+- `StatusIndicator.quiet` hides successful idle text while retaining its accessible name and live status. Busy, failed, or recovery states remain visible. Products provide the actual current save state.
+- `CommandSearch` accepts localized labels, hint, and shortcut text. Home and End select the first and last enabled result. Composition input does not run a command. The product must capture its current selection owner and check current authority again before execution.
+- Native value editors retain draft and selection ownership. Escape in an unrelated modal must not dismiss a background control. Escape inside a control's own modal follows that control's native dismissal policy.
+- Floating detail panels can scroll. Verify visible controls and controls revealed by scrolling with real pointer geometry. Disabled controls retain their target size; they must not mutate the document.
+- Shared UI owns presentation and focus behavior. Product code owns document models, command payloads, native editors, persistence, and current permissions. Controlled transport tests do not establish real login or PostgreSQL durability.
