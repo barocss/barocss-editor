@@ -1338,7 +1338,7 @@
   --ou-table-boundary-line: 2px;
 }
 .office-selection-readout {
-  z-index: var(--ou-z-popover); box-sizing: border-box;
+  z-index: var(--ou-z-toolbar); box-sizing: border-box;
   max-width: calc(100vw - 16px); padding: 3px 7px;
   border: 1px solid var(--ou-line); border-radius: 4px;
   background: var(--ou-selection-readout-bg); color: var(--ou-selection-readout-ink);
