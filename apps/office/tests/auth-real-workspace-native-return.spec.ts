@@ -184,11 +184,12 @@ async function denied(page: Page, path: string, body: unknown) {
   page.off('request', capture); expect(kind).toBe('forbidden'); expect((await wire).status()).toBe(403);
   expect(authorization.startsWith('Bearer ')).toBe(true);
   const response = await page.request.put(`${origin}${path}`, { headers: { authorization }, data: body }); expect(response.status()).toBe(403);
+  return { browserStatus: 403, explicitRequestContextStatus: response.status(), reusedObservedBrowserBearer: true };
 }
 
 // Four independent real-auth cases. Preparation is explicit API fixture creation;
 // input/history/save/return/reopen are genuine product UI, never forced publication.
-for (const product of products) test(`real ${product} native input, explicit save and catalog return keep full original and deny current viewer and recover rightful unsaved draft`, async ({ browser: _browser }, info: TestInfo) => {
+for (const product of products) test(`real ${product} native input, explicit save and catalog return keep full original and deny current viewer and recover rightful unsaved draft across same-profile A-B-A`, async ({ browser: _browser }, info: TestInfo) => {
   test.setTimeout(180_000);
   const directory = mkdtempSync(join('/private/tmp/', `468-auth-${product}-profiles-`));
   const profiles: Awaited<ReturnType<typeof launchPrivateProfile>>[] = [];
@@ -373,6 +374,122 @@ for (const product of products) test(`real ${product} native input, explicit sav
       originalCanonicalAndReceiptsUnchanged: true, privatePg: afterRecovery.document, receipt: afterRecovery.receipt,
       receiptCount: afterRecovery.receiptCount, documentCount: afterRecovery.documentCount,
       history: 'Recovery mounts independent history; genuine probe Undo checked. Prior history/caret/scroll continuity not claimed.' };
+    evidence.phase = 'account-A-unsaved-input';
+    const accountInput = ' ACCOUNT TRANSITION DRAFT';
+    const accountParagraph = await input(page, product);
+    await append(page, accountParagraph, product, accountInput, true);
+    const accountExpected = edited(baseline, product, savedInput + laterInput + accountInput);
+    const accountDraft = await currentInputDraft(page, product, id, accountExpected);
+    expect(accountDraft.draftId).not.toBe(durable.draftId);
+    expect(accountDraft.status).toBe('draft'); expect(accountDraft.attempt).toBeUndefined();
+    expect(accountDraft.scope).toEqual(durable.scope); expect(accountDraft.base).toEqual(durable.base);
+    if (product === 'site') await closeSite(page);
+    expect(await publicNative(page, product, id, accountExpected, accountDraft.draftId)).toEqual(accountExpected);
+    // Capture the current live draft. Further input in this runtime may use
+    // its current ID; after logout this exact key/raw record must stay fixed.
+    const rawAccount = await page.evaluate(({ product, draftId }) => Object.keys(localStorage)
+      .filter(key => key.startsWith(`wonffice.${product}.pending.v1:`))
+      .map(key => ({ key, raw: localStorage.getItem(key)! }))
+      .filter(entry => JSON.parse(entry.raw).draftId === draftId), { product, draftId: accountDraft.draftId });
+    expect(rawAccount).toHaveLength(1); expect(JSON.parse(rawAccount[0].raw)).toEqual(accountDraft);
+    const assertAccountRaw = async () => {
+      expect(await page.evaluate(key => localStorage.getItem(key), rawAccount[0].key)).toBe(rawAccount[0].raw);
+    };
+    const retainedAccountDraft = async () => (await drafts(page, product, id)).find(record => record.draftId === accountDraft.draftId);
+    const unchangedAccountCanonical = async () => {
+      const state = await inspect(request.idempotencyKey);
+      expect(state.document).toEqual(pg.document); expect(state.receipt).toEqual(pg.receipt);
+      expect(state.receiptCount).toBe(pg.receiptCount); expect(state.documentCount).toBe(pg.documentCount);
+      const create = await privateControl<Inspection<Product>>({ action: 'inspect', product, documentId: id,
+        idempotencyKey: key, operation: 'create', actor: 'alpha-editor' });
+      expect(create.receipt).toEqual(before.receipt);
+    };
+    const logout = async () => {
+      await page.locator('.ow-workspace-rail-footer').getByRole('button', { name: '로그아웃', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'Wonffice에 들어가기', exact: true })).toBeVisible();
+      await expect(host(page, product)).toHaveCount(0);
+      expect(await retainedAccountDraft()).toEqual(accountDraft); await assertAccountRaw();
+    };
+    evidence.phase = 'account-A-logout'; await logout(); expect(writes).toHaveLength(1); await unchangedAccountCanonical();
+    evidence.phase = 'account-B-entry'; const switchedB = await login(page, 'beta-viewer', status);
+    expect(switchedB.issuer === viewerIdentity.issuer && switchedB.subject === viewerIdentity.subject &&
+      switchedB.userId === viewerIdentity.userId && switchedB.userId !== identity.userId, 'Same-profile current B must match the independently verified viewer').toBe(true);
+    expect(await retainedAccountDraft()).toEqual(accountDraft); await assertAccountRaw(); expect(writes).toHaveLength(1);
+    await tree(page).locator('.ow-tree-perspectives').getByRole('button', { name: '프로젝트', exact: true }).click();
+    await tree(page).getByRole('textbox', { name: '파일 검색', exact: true }).fill(name);
+    await tree(page).getByRole('combobox', { name: '파일 제품 필터', exact: true }).selectOption(product);
+    await expect(group.locator(selector)).toHaveCount(1); await group.locator(selector).click();
+    await expect(host(page, product)).toBeVisible(); await expect(host(page, product)).not.toContainText(accountInput);
+    await host(page, product).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    const bNavigation = page.getByRole(product === 'note' ? 'menuitemcheckbox' : 'menuitem', { name: navigationAction, exact: true });
+    if (product === 'word') {
+      // Viewer cannot open Word's file.open; this is capability-gated absence,
+      // not proof of physical browser-profile privacy or a hidden scope list.
+      await expect(bNavigation).toBeDisabled(); await page.keyboard.press('Escape');
+    } else await bNavigation.click();
+    const accountRecoveryLabel = product === 'note' ? `초안 복구 ${baseline.attributes!.title} ${accountDraft.draftId.slice(0, 8)}` :
+      `저장된 ${product === 'word' ? 'Word' : product === 'slides' ? 'Slides' : 'Site'} 초안 복구 · ${accountDraft.savedAt}`;
+    await expect(host(page, product).getByRole('button', { name: accountRecoveryLabel, exact: true })).toHaveCount(0);
+    expect(await retainedAccountDraft()).toEqual(accountDraft); await assertAccountRaw(); expect(writes).toHaveLength(1); await unchangedAccountCanonical();
+    evidence.phase = 'account-B-current-denial'; const accountDeniedKey = `account-viewer-${randomUUID()}`;
+    const denial = { expectedRevision: 2, snapshotText: request.snapshotText, idempotencyKey: accountDeniedKey };
+    const currentBRequests: boolean[] = [];
+    const observeB = (wire: import('@playwright/test').Request) => {
+      if (wire.method() === 'PUT' && new URL(wire.url()).pathname === `${root}/documents/${id}/snapshot`) {
+        const bearer = wire.headers().authorization ?? '';
+        const claims = JSON.parse(Buffer.from(bearer.slice(7).split('.')[1], 'base64url').toString());
+        currentBRequests.push(bearer.startsWith('Bearer ') && claims.iss === switchedB.issuer && claims.sub === switchedB.subject);
+      }
+    };
+    page.on('request', observeB); const bDenied = await denied(page, `${root}/documents/${id}/snapshot`, denial); page.off('request', observeB);
+    expect(currentBRequests).toEqual([true]); expect(writes.slice(1)).toEqual([denial]);
+    expect(bDenied).toEqual({ browserStatus: 403, explicitRequestContextStatus: 403, reusedObservedBrowserBearer: true });
+    expect((await inspect(accountDeniedKey, 'beta-viewer')).receipt).toBeNull();
+    await unchangedAccountCanonical(); expect(await retainedAccountDraft()).toEqual(accountDraft); await assertAccountRaw();
+    evidence.phase = 'account-B-logout'; await logout();
+    expect(writes).toHaveLength(2); await unchangedAccountCanonical();
+    evidence.phase = 'account-A-return'; const returnedA = await login(page, 'alpha-editor', status); expect(returnedA.issuer === identity.issuer && returnedA.subject === identity.subject &&
+      returnedA.userId === identity.userId, 'Returned A must be the current rightful signed owner').toBe(true);
+    expect(await retainedAccountDraft()).toEqual(accountDraft); await assertAccountRaw(); expect(writes).toHaveLength(2); await unchangedAccountCanonical();
+    await tree(page).locator('.ow-tree-perspectives').getByRole('button', { name: '내 파일', exact: true }).click();
+    await tree(page).getByRole('textbox', { name: '파일 검색', exact: true }).fill(name);
+    await tree(page).getByRole('combobox', { name: '파일 제품 필터', exact: true }).selectOption(product);
+    await expect(tree(page).locator(selector)).toHaveCount(1); await tree(page).locator(selector).click(); await expect(host(page, product)).toBeVisible();
+    await expect(await input(page, product)).toHaveText(seed[product] + savedInput); if (product === 'site') await closeSite(page);
+    await host(page, product).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole(product === 'note' ? 'menuitemcheckbox' : 'menuitem', { name: navigationAction, exact: true }).click();
+    const accountRecovery = host(page, product).getByRole('button', { name: accountRecoveryLabel, exact: true });
+    expect((await drafts(page, product, id)).filter(record => record.status !== 'confirmed' && record.savedAt === accountDraft.savedAt)).toEqual([accountDraft]);
+    await expect(accountRecovery).toHaveCount(1); await expect(accountRecovery).toBeVisible(); await expect(accountRecovery).toBeEnabled();
+    evidence.phase = 'account-A-explicit-recovery'; await accountRecovery.click();
+    const accountRecoveredInput = await input(page, product); await expect(accountRecoveredInput).toHaveText(seed[product] + savedInput + laterInput + accountInput);
+    if (product === 'word') {
+      await expect(host(page, product).locator('.w-shell')).toHaveAttribute('data-reading', 'false');
+      await expect.poll(() => accountRecoveredInput.evaluate(element => (element as HTMLElement).isContentEditable)).toBe(true);
+    }
+    expect(await retainedAccountDraft()).toEqual(accountDraft); await assertAccountRaw();
+    expect(writes.slice(1)).toEqual([denial]); await unchangedAccountCanonical();
+    const accountProbeInput = ' ACCOUNT RETURN PROBE'; await append(page, accountRecoveredInput, product, accountProbeInput, true);
+    const accountProbe = await currentInputDraft(page, product, id, edited(baseline, product, savedInput + laterInput + accountInput + accountProbeInput));
+    expect(accountProbe.draftId).not.toBe(accountDraft.draftId); expect(accountProbe.scope).toEqual(accountDraft.scope); expect(accountProbe.base).toEqual(accountDraft.base);
+    await page.keyboard.press('ControlOrMeta+z'); await expect(accountRecoveredInput).toHaveText(seed[product] + savedInput + laterInput + accountInput);
+    if (product === 'site') await closeSite(page);
+    const accountMounted = await publicNative(page, product, id, accountExpected, accountProbe.draftId); expect(accountMounted).toEqual(accountExpected);
+    expect(await retainedAccountDraft()).toEqual(accountDraft); await assertAccountRaw();
+    expect(writes.slice(1)).toEqual([denial]); await unchangedAccountCanonical();
+    const accountCanonical = await api(page, `${root}/documents/${id}`); expect(accountCanonical.status).toBe(200);
+    expect(accountCanonical.value.snapshotText).toBe(request.snapshotText);
+    expect(accountCanonical.value.document).toMatchObject({ documentId: id, creatorUserId: identity.userId, revision: 2 });
+    evidence.accountTransition = { sameBrowserProfile: true, actualUiLogouts: 2, signedCurrentPrincipals: 'A owner → B viewer → A owner',
+      currentBRequests: currentBRequests.length, deliberateCanonicalOnly403Requests: 2, denialControl: bDenied,
+      writesRecorderDomain: 'Browser page requests only; explicit APIRequestContext denial recorded separately', extraNativePublicationRequests: 0,
+      retainedDraft: { draftId: accountDraft.draftId, status: accountDraft.status, base: accountDraft.base, snapshotText: accountDraft.snapshotText },
+      rawRetainedRecordEquality: 'Passed exact full record assertions; private complete scope omitted',
+      viewerRecovery: product === 'word' ? 'Word file.open disabled; capability-gated absence' : product === 'note' ? 'Scoped existing native actions open; A recovery absent' : 'Existing native actions open; canEdit-gated A recovery absence',
+      recoveryDestination: 'My files writer', automaticRestore: false, mountedNative: accountMounted,
+      probeDraftId: accountProbe.draftId, probeNative: JSON.parse(accountProbe.snapshotText).document,
+      canonicalAndReceiptsUnchanged: true, physicalBrowserProfilePrivacy: 'Not qualified; raw draft stays in browser storage',
+      history: 'New recovery history; genuine new probe Undo, not prior history continuity' };
     evidence.phase = 'complete-bounded-success';
   } catch (cause) {
     primaryFailure = cause;

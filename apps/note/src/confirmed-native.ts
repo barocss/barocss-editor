@@ -36,6 +36,6 @@ export function matchesConfirmedNoteNative(nativeSnapshotText: string, confirmed
       !object(confirmed.document) || confirmed.document.stype !== 'note' || !Array.isArray(confirmed.document.content)) return false;
     const projected = { ...confirmed, document: { ...confirmed.document,
       content: confirmed.document.content.map(node => confirmedNode(node)) } };
-    return equal(native, projected);
+    return equal(native, confirmed) || equal(native, projected);
   } catch { return false; }
 }

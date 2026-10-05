@@ -51,8 +51,8 @@ it('refuses a genuine native command mutation', async () => {
 });
 
 it.each([
-  ['nonempty extra attributes', (file: TestFile) => { file.document.content[0].attributes.extra = true; }],
-  ['nonempty extra content', (file: TestFile) => { file.document.content[0].content[0].content.push({ stype: 'inline-text', attributes: {}, content: [], text: 'Extra' }); }],
+  ['nonempty extra attributes', (file: TestFile) => { file.document.content[0].attributes = { ...file.document.content[0].attributes, extra: true }; }],
+  ['nonempty extra content', (file: TestFile) => { const run = file.document.content[0].content[0]; run.content = [...(run.content ?? []), { stype: 'inline-text', attributes: {}, content: [], text: 'Extra' }]; }],
   ['missing existing marks', (file: TestFile) => { delete file.document.content[0].content[0].marks; }],
   ['reordered children', (file: TestFile) => { file.document.content.reverse(); }],
   ['changed mark range', (file: TestFile) => { file.document.content[0].content[0].marks![0]!.range[1] = 3; }],
@@ -78,3 +78,40 @@ it('retains all unknown fields and resources, and ignores only object key orderi
 
 it.each(['invalid', '{}', '{"format":"barocss-note","version":1,"document":{"stype":"note","content":[null]}}'])(
   'refuses malformed confirmed input', text => { expect(matchesConfirmedNoteNative(nativeText(), text)).toBe(false); });
+
+
+it('accepts the untouched complete readonly native file and preserves omitted fields and resources', () => {
+  const source: NoteDocument = structuredClone(confirmed);
+  Object.assign(source, { metadata: { loadedAt: 'authored readonly stamp', explicitEmpty: {} },
+    resources: { retained: [{ stype: 'opaque-resource', payload: { content: [{ custom: true }] } }] } });
+  const original = serializeNoteFile(source);
+  session = openNoteTree(source); session.editor.setEditable(false);
+  const tree = noteTreeOf(session.editor.dataStore, session.rootId);
+  if (!tree) throw new Error('Missing actual readonly native root');
+  const native = serializeNoteFile({ ...source, content: tree.content as unknown[] });
+  const nativeFile = JSON.parse(native) as TestFile, originalFile = JSON.parse(original) as TestFile;
+  expect(session.editor.isEditable).toBe(false); expect(nativeFile).toEqual(originalFile);
+  expect(Object.hasOwn(nativeFile.document.content[0], 'attributes')).toBe(false);
+  expect(Object.hasOwn(nativeFile.document.content[0].content[1], 'marks')).toBe(false);
+  expect(nativeFile.document.resources).toEqual(originalFile.document.resources);
+  expect(matchesConfirmedNoteNative(native, original)).toBe(true);
+  expect(serializeNoteFile(source)).toBe(original);
+});
+
+it.each([
+  { stype: 'paragraph', content: [null] },
+  { stype: 'paragraph', content: [{}] },
+  { stype: 'paragraph', content: {} },
+])('refuses an identical malformed native and confirmed child', child => {
+  const text = JSON.stringify({ format: 'barocss-note', version: 1,
+    document: { stype: 'note', content: [child] } });
+  expect(matchesConfirmedNoteNative(text, text)).toBe(false);
+});
+
+it('refuses identical native and confirmed trees past the existing depth limit', () => {
+  let child: unknown = { stype: 'inline-text', text: 'Deep source' };
+  for (let depth = 0; depth < 102; depth++) child = { stype: 'paragraph', content: [child] };
+  const text = JSON.stringify({ format: 'barocss-note', version: 1,
+    document: { stype: 'note', content: [child] } });
+  expect(matchesConfirmedNoteNative(text, text)).toBe(false);
+});
