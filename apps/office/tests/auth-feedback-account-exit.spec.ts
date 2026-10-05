@@ -366,21 +366,21 @@ for (const late of ['unchanged', 'input', 'composition', 'failed-save'] as const
   } finally { releaseNative(); releaseFeedback?.(); await originalComposer!.dispose(); }
 });
 
-async function observeActualNativeNavigation(page: Page) {
-  await page.evaluate(async module => {
+async function observeActualNativeNavigation(page: Page, method: 'beforeNavigate' | 'beforeAccountExit' = 'beforeNavigate') {
+  await page.evaluate(async ({ module, method }) => {
     const { productDocumentHost } = await import(module);
     const host = productDocumentHost();
-    if (!host?.beforeNavigate) throw new Error('Expected actual native navigation');
-    const original = host.beforeNavigate.bind(host);
+    if (!host?.[method]) throw new Error('Expected actual native navigation preparation');
+    const original = host[method]!.bind(host);
     const proof = { entered: 0, settled: 0, result: false };
     (window as Window & { nativeNavigationProof?: typeof proof }).nativeNavigationProof = proof;
-    host.beforeNavigate = async () => {
+    host[method] = async () => {
       proof.entered++;
       const result = await original();
       proof.result = result; proof.settled++;
       return result;
     };
-  }, sharedModule);
+  }, { module: sharedModule, method });
 }
 async function nativeNavigationProof(page: Page) {
   return page.evaluate(() => (window as Window & { nativeNavigationProof?: { entered: number; settled: number; result: boolean } }).nativeNavigationProof);
@@ -393,7 +393,7 @@ for (const late of ['unchanged', 'feedback-input', 'native-composition'] as cons
   const composer = page.getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
   await expect(composer).toHaveValue('Initial controlled project draft');
   const originalComposer = await composer.elementHandle();
-  await observeActualNativeNavigation(page);
+  await observeActualNativeNavigation(page, 'beforeAccountExit');
   let releaseCatalog!: () => void, catalogReads = 0;
   const held = new Promise<void>(resolve => { releaseCatalog = resolve; });
   await page.route(`**/api/v1/tenants/${id}/documents?**`, async route => {

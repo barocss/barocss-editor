@@ -1185,12 +1185,57 @@ export function App({
   }, [current, moveBy, stretches, readOnly, focused]);
 
   const {
-    menus: nativeMenus, menuLifetimeKey, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
     dismissCommandError, openCommandSearch, pickSearchCommand, prepareSearchCommandPick, onMenu, runEntry
   } = useSlideMenuSearch({
     editor, view, current, slideNumber: here?.number, answers, moveBy,
     auditing, mapping, focused, onFileAction, onViewAction
   });
+
+  const [documentMenuGeneration, setDocumentMenuGeneration] = useState(0);
+  const documentMenuOwner = useRef<{ editor: SlidesRuntime['editor']; view: typeof view; selection: string } | null>(null);
+  const documentMenuOpenChanged = useCallback((open: boolean) => {
+    const owned = documentMenuOwner.current;
+    if (!open) {
+      if (owned?.editor === editor && owned.view === view) documentMenuOwner.current = null;
+      return;
+    }
+    if (!editor || (owned?.editor === editor && owned.view === view)) return;
+    let selection = editor.selection;
+    const dom = view?.contentEditableElement.ownerDocument.getSelection();
+    if (view && dom?.anchorNode?.isConnected && dom.focusNode?.isConnected &&
+      view.contentEditableElement.contains(dom.anchorNode) && view.contentEditableElement.contains(dom.focusNode)) {
+      const converted = view.convertDOMSelectionToModel(dom);
+      if (converted?.type === 'range') selection = converted;
+    }
+    // The real DOM caret can settle after the menu opens. Observe it without
+    // changing the model or reviving a previously retired selection owner.
+    documentMenuOwner.current = { editor, view, selection: JSON.stringify(selection) };
+  }, [editor, view]);
+  useEffect(() => {
+    if (!editor) return;
+    const owner = () => {
+      const owned = documentMenuOwner.current;
+      return owned?.editor === editor && owned.view === view ? owned : null;
+    };
+    const retire = () => {
+      const owned = owner();
+      if (!owned || documentMenuOwner.current !== owned) return;
+      documentMenuOwner.current = null;
+      setDocumentMenuGeneration(generation => generation + 1);
+    };
+    const selectionChanged = () => {
+      const owned = owner();
+      if (owned && JSON.stringify(editor.selection) !== owned.selection) retire();
+    };
+    editor.on('editor:selection.model', selectionChanged); editor.on('editor:selection.change', selectionChanged);
+    editor.on('editor:content.change', retire); editor.on('editor:editable.change', retire);
+    return () => {
+      if (owner()) documentMenuOwner.current = null;
+      editor.off('editor:selection.model', selectionChanged); editor.off('editor:selection.change', selectionChanged);
+      editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);
+    };
+  }, [editor, view]);
 
   const nativeDocumentMenus = useMemo(() => nativeMenus.map(menu => ({ ...menu, blocks: menu.blocks.map(block => ({
     ...block, items: block.items.map(item => {
@@ -1990,7 +2035,7 @@ export function App({
       <EditorHeader compact product="Slides" className="sl-topbar"
         fallbackNavigation={server?.headerNavigation}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<span ref={documentMenuHost}><DocumentMenu key={`${menuLifetimeKey}:${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} menuIds={['file']} onPick={pickDocumentMenu} /></span>}
+        menus={<span ref={documentMenuHost}><DocumentMenu key={`${documentMenuGeneration}:${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} onOpenChange={documentMenuOpenChanged} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} menuIds={['file']} onPick={pickDocumentMenu} /></span>}
         tools={<div ref={setHeaderTools} className="sl-header-edit-tools" />}
         view={!presenting && <Toolbar variant="compact" label="Slides 보기 도구" className="sl-header-view-tools">
           <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}

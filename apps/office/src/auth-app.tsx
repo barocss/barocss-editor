@@ -645,12 +645,16 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     const owns = () => treeOperation.current === token && run === generation.current && nativeSlot.current === slot && session.isCurrent() && (!slot || (noteAccess.current && slot.session.isCurrent()));
     const feedback = feedbackBeforeLeave.current, guard = rememberedNote.current ? captureProductNavigation() : undefined;
     const feedbackPrepared = () => feedbackBeforeLeave.current === feedback && (!feedback || !!feedback.isPrepared?.());
+    // Catalog departure protects the latest private draft without publishing it.
+    // Keep the captured native owner for both preparations around the list read.
+    const prepareDeparture = async () => !!guard && guard.isCurrent() &&
+      await (destination === 'library' ? guard.prepareAccountExit?.() ?? false : guard.prepare()) && guard.isCurrent();
     treeOperation.current = token; setTreeBusy(true); setTreeError('');
     try {
       if (feedback && !await feedback()) return;
       if (!owns()) return;
       if (rememberedNote.current) {
-        if (!guard || !await guard.prepare()) { if (owns()) setLeaveBlocked(true); return; }
+        if (!guard || !await prepareDeparture()) { if (owns()) setLeaveBlocked(true); return; }
         if (!owns()) return;
       }
       if (destination === 'library') {
@@ -659,7 +663,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
         if (!feedbackPrepared()) { setLeaveBlocked(true); return; }
         // Input can change while the catalog read awaits. Prepare the exact
         // native owner again before retiring its still-interactive source.
-        if (guard && (!guard.isCurrent() || !await guard.prepare())) { if (owns()) setLeaveBlocked(true); return; }
+        if (guard && (!guard.isCurrent() || !await prepareDeparture())) { if (owns()) setLeaveBlocked(true); return; }
         if (!owns()) return;
         if (!feedbackPrepared() || (guard && !guard.isCurrent())) { setLeaveBlocked(true); return; }
         forgetNote(); noteIntent.current = null;
