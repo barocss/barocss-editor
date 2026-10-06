@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { documentLibrary, type LibraryRow } from '@barocss/shared';
-import { readNoteSnapshotFile } from '@barocss/office-note/file';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile } from '@barocss/office-note/file';
 import { Button } from '@barocss/office-ui';
 
 export interface ServerLocalNoteCopyProps {

@@ -1,5 +1,5 @@
 import { noteSaveAttempt, type NoteSaveAttempt } from './server-documents';
-import { readNoteSnapshotFile } from '@barocss/office-note/file';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile } from '@barocss/office-note/file';
 
 export interface PendingNoteScope {
   issuer: string;

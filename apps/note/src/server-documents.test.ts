@@ -131,3 +131,64 @@ describe('Note server document receipts', () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+
+import { readNoteSnapshotFile } from '@barocss/office-note/file';
+it('refuses an otherwise valid native2 before fixed-attempt admission or request publication', async () => {
+  const native = {
+  "format": "barocss-note",
+  "version": 2,
+  "schemaBundle": {
+    "bundleVersion": 1,
+    "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+    "selected": [
+      {
+        "schemaId": "11111111-1111-1111-1111-111111111111",
+        "version": 1,
+        "digest": "1d5ed747190992707c92ff635f4b6a4747531a8bd4066e75d1b9064c4c75298b"
+      }
+    ],
+    "definitions": [
+      {
+        "reference": {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "1d5ed747190992707c92ff635f4b6a4747531a8bd4066e75d1b9064c4c75298b"
+        },
+        "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [],\n  \"requiredCapabilities\": [\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"items\",\n    \"fields\": [\n      {\n        \"name\": \"Title\",\n        \"kind\": \"text\"\n      }\n    ]\n  }\n}\n"
+      }
+    ]
+  },
+  "document": {
+    "stype": "note",
+    "content": [
+      {
+        "stype": "paragraph",
+        "content": [
+          {
+            "stype": "inline-text",
+            "text": "Café",
+            "marks": [
+              {
+                "stype": "bold",
+                "range": [
+                  0,
+                  5
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+};
+  const text = JSON.stringify(native), input = { operation: 'create' as const, workspaceId,
+    title: 'Pinned', snapshotText: text, idempotencyKey: 'fixed-native2' };
+  expect(readNoteSnapshotFile(text)).toEqual({ document: native.document, fileVersion: 2, schemaBundle: native.schemaBundle });
+  expect(() => noteSaveAttempt(input)).toThrow('저장 요청을 고정할 수 없습니다.');
+  const { client, calls } = transport();
+  await expect(client.save(input)).rejects.toThrow('저장 요청을 고정할 수 없습니다.');
+  expect(calls).toEqual([]);
+  expect(input.snapshotText).toBe(text); expect(input.idempotencyKey).toBe('fixed-native2');
+});

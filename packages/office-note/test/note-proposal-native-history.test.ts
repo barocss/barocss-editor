@@ -3,7 +3,7 @@ import type { INode } from '@barocss/datastore';
 import type { ModelSelection } from '@barocss/editor-core';
 import { FragmentEditor, type EditingPlan } from '@barocss/model';
 import { noteTreeOf, openNoteTree, type NoteSession } from '../src/session';
-import { readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from '../src/note-file-codec';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from '../src/note-file-codec';
 
 const sessions: NoteSession[] = [];
 afterEach(() => sessions.splice(0).reverse().forEach(session => session.close()));

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { parseRegistryDefinition, REGISTRY_DIGEST, REGISTRY_LIMITS, isRegistryUuid,
   type RegistryDefinition } from '@barocss/schema/registry-contract';
-import { readNoteSnapshotFile } from '@barocss/office-note-file';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile } from '@barocss/office-note-file';
 import { MembershipStore, TenantAccessDeniedError, type TenantRole, type VerifiedPrincipal } from './membership-store.js';
 export class SchemaRegistryError extends Error {
   constructor(public readonly status: 400 | 403 | 404 | 409 | 413 | 422, public readonly reason: string) { super(reason); }

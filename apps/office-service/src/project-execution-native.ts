@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util';
-import { readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from '@barocss/office-note-file';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from '@barocss/office-note-file';
 import { ProjectError, type ProjectTarget } from './project-store.js';
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);

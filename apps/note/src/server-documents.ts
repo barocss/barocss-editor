@@ -1,5 +1,5 @@
 import { copyNoteSnapshotFile, isNotePageId, NOTE_FILE_FORMAT, NOTE_FILE_VERSION,
-  readNoteSnapshotFile, type NoteDocument } from '@barocss/office-note/file';
+  readNoteV1SnapshotFile as readNoteSnapshotFile, type NoteDocument } from '@barocss/office-note/file';
 
 export type ServerDocumentMode = 'snapshot' | 'initializing' | 'collaborative';
 export type SaveOperation = 'create' | 'update';
@@ -156,6 +156,7 @@ export function createServerNoteClient({ authorizedFetch, tenantId, workspaceId,
   };
 
   const save = async (attempt: Readonly<NoteSaveAttempt>): Promise<ServerNoteReceipt> => {
+    noteSaveAttempt(attempt);
     if (attempt.operation === 'create' && attempt.workspaceId !== workspaceId) return protocolError();
     const result = attempt.operation === 'create'
       ? await send('/documents', 'POST', {
