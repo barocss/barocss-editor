@@ -1,0 +1,32 @@
+{
+  "name": "@barocss/schema-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "pnpm --filter @barocss/office-api build && tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "pnpm build && pnpm start",
+    "type-check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:postgres": "pnpm build && node test/schema-server.postgres-oidc.integration.mjs",
+    "stage": "node test/schema-server.postgres-oidc.integration.mjs --stage-only"
+  },
+  "dependencies": {
+    "@barocss/schema": "workspace:^",
+    "@barocss/office-service": "workspace:^",
+    "@barocss/office-api": "workspace:^",
+    "fastify": "5.12.5",
+    "jose": "6.2.12",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}

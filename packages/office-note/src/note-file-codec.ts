@@ -39,6 +39,13 @@ function isTree(value: unknown, depth = 0): boolean {
 export function readNoteFile(text: string): { document: NoteDocument } | { error: string } {
   const read = format.read(text);
   if ('error' in read) return read;
+  const envelope = JSON.parse(text) as Record<string, unknown>;
+  const raw = read.document as { attributes?: unknown };
+  const attributes = raw.attributes;
+  if (read.version === 1 && (Object.hasOwn(envelope, 'schemaLock') ||
+    attributes !== null && typeof attributes === 'object' && !Array.isArray(attributes) && Object.hasOwn(attributes, 'schemaRef'))) {
+    return { error: '이 노트 파일 버전은 스키마 고정을 지원하지 않습니다.' };
+  }
   const doc = normalizeProseTree(read.document) as Partial<NoteDocument>;
   if (doc.stype !== 'note' || !Array.isArray(doc.content) || !isTree(doc)) {
     return { error: '이 파일에는 올바른 노트 본문이 없습니다.' };

@@ -11,6 +11,11 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./registry-contract": {
+      "types": "./src/registry-contract.ts",
+      "import": "./dist/registry-contract.js",
+      "default": "./dist/registry-contract.js"
     }
   },
   "publishConfig": {
@@ -22,6 +27,11 @@
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js",
         "default": "./dist/index.js"
+      },
+      "./registry-contract": {
+        "types": "./dist/registry-contract.d.ts",
+        "import": "./dist/registry-contract.js",
+        "default": "./dist/registry-contract.js"
       }
     },
     "files": [

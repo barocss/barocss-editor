@@ -81,3 +81,387 @@ describe('Note snapshot file codec', () => {
     expect(() => copyNoteSnapshotFile(serializeNoteFile(document()), '__proto__')).toThrow('페이지 ID');
   });
 });
+
+
+// Adopted future refusal contract. These are unsupported native-v1 pin claims,
+// not installed schemas or a claim that the current product already refuses them.
+describe('reserved schema claims in native-v1 files', () => {
+  const fixtures = [
+  {
+    "label": "A",
+    "format": "barocss-note",
+    "version": 1,
+    "savedAt": "authored source stamp A",
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검사 자료 A",
+        "pageId": "schema-note-A"
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "authoredTag": "paragraph-A"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "계획 A",
+              "marks": [
+                {
+                  "stype": "bold",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "schema-note-A",
+                "title": "A 내부 참조"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-A",
+                "title": "A 외부 참조"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "codeBlock",
+          "attributes": {
+            "language": "typescript"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "const total = 7;"
+            }
+          ]
+        },
+        {
+          "stype": "bTable",
+          "content": [
+            {
+              "stype": "bTableBody",
+              "content": [
+                {
+                  "stype": "bTableRow",
+                  "content": [
+                    {
+                      "stype": "bTableCell",
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "A cell"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "tasks-A",
+                "fields": [
+                  {
+                    "name": "Label",
+                    "kind": "text"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "계획",
+                      "진행"
+                    ]
+                  }
+                ],
+                "rowIds": [
+                  "row-A-1",
+                  "row-A-2"
+                ],
+                "records": [
+                  {
+                    "Label": "자료 A",
+                    "Count": 7,
+                    "Done": false,
+                    "State": "계획"
+                  },
+                  {
+                    "Label": "값이 생략된 A"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-A-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "항목 본문 A",
+                      "marks": [
+                        {
+                          "stype": "italic",
+                          "range": [
+                            0,
+                            2
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "schema-note-A",
+                        "title": "자료 A"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "label": "B",
+    "format": "barocss-note",
+    "version": 1,
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검사 자료 B",
+        "pageId": "schema-note-B"
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": [
+                {
+                  "stype": "italic",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부 참조"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "schema-note-B",
+                "title": "B 내부 참조"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "bTable",
+          "content": [
+            {
+              "stype": "bTableBody",
+              "content": [
+                {
+                  "stype": "bTableRow",
+                  "content": [
+                    {
+                      "stype": "bTableCell",
+                      "attributes": {
+                        "authoredTag": "cell-B"
+                      },
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "B cell",
+                          "marks": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "codeBlock",
+          "attributes": {
+            "language": "javascript"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "const ready = true;"
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "tasks-B",
+                "fields": [
+                  {
+                    "name": "Name",
+                    "kind": "text"
+                  },
+                  {
+                    "name": "Amount",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Ready",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Stage",
+                    "kind": "choice",
+                    "options": [
+                      "검토",
+                      "완료"
+                    ]
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "Name": "자료 B",
+                    "Amount": 0,
+                    "Ready": true,
+                    "Stage": "검토"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "항목 본문 B"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "external-note-B",
+                        "title": "보존할 외부 자료"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+] as const;
+  const claim = { schemaId: 'note-work-items', version: 1, digest: 'a'.repeat(64) };
+  const expected = [
+    { document: 'A', placement: 'schemaLock', refused: true },
+    { document: 'A', placement: 'schemaRef', refused: true },
+    { document: 'B', placement: 'schemaLock', refused: true },
+    { document: 'B', placement: 'schemaRef', refused: true }
+  ];
+
+  it('refuses reserved schema metadata in native-v1 before resave', () => {
+    const outcomes = [];
+    for (const fixture of fixtures) {
+      const { label, ...legacy } = fixture;
+      const fixtureBefore = JSON.stringify(fixture);
+      const legacyText = `${JSON.stringify(legacy, null, 2)}\n`;
+      expect(readNoteSnapshotFile(legacyText)).toEqual({ document: legacy.document,
+        ...('savedAt' in legacy ? { savedAt: legacy.savedAt } : {}) });
+      for (const placement of ['schemaLock', 'schemaRef'] as const) {
+        const claimed = placement === 'schemaLock' ? { ...legacy, schemaLock: [claim] }
+          : { ...legacy, document: { ...legacy.document,
+            attributes: { ...legacy.document.attributes, schemaRef: claim } } };
+        const source = `${JSON.stringify(claimed, null, 2)}\n`, sourceBefore = source;
+        const claimedBefore = JSON.stringify(claimed);
+        const result = readNoteSnapshotFile(source);
+        expect(source).toBe(sourceBefore); expect(JSON.stringify(claimed)).toBe(claimedBefore);
+        expect(JSON.stringify(fixture)).toBe(fixtureBefore);
+        outcomes.push({ document: label, placement,
+          refused: 'error' in result && typeof result.error === 'string' && result.error.length > 0 });
+      }
+    }
+    expect(outcomes).toEqual(expected);
+  });
+
+  it('refuses independent copying of native-v1 schema metadata without changing source', () => {
+    const outcomes = [];
+    for (const fixture of fixtures) {
+      const { label, ...legacy } = fixture;
+      const fixtureBefore = JSON.stringify(fixture);
+      const legacyText = `${JSON.stringify(legacy, null, 2)}\n`;
+      expect(readNoteSnapshotFile(legacyText)).toEqual({ document: legacy.document,
+        ...('savedAt' in legacy ? { savedAt: legacy.savedAt } : {}) });
+      for (const placement of ['schemaLock', 'schemaRef'] as const) {
+        const claimed = placement === 'schemaLock' ? { ...legacy, schemaLock: [claim] }
+          : { ...legacy, document: { ...legacy.document,
+            attributes: { ...legacy.document.attributes, schemaRef: claim } } };
+        const source = `${JSON.stringify(claimed, null, 2)}\n`, sourceBefore = source;
+        const claimedBefore = JSON.stringify(claimed);
+        const result = copyNoteSnapshotFile(source, `independent-copy-${label}`);
+        expect(source).toBe(sourceBefore); expect(JSON.stringify(claimed)).toBe(claimedBefore);
+        expect(JSON.stringify(fixture)).toBe(fixtureBefore);
+        outcomes.push({ document: label, placement,
+          refused: 'error' in result && typeof result.error === 'string' && result.error.length > 0 });
+      }
+    }
+    expect(outcomes).toEqual(expected);
+  });
+});

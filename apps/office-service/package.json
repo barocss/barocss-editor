@@ -47,13 +47,17 @@
     "./criterion-browser-executor": {
       "types": "./src/criterion-browser-executor.ts",
       "import": "./dist/criterion-browser-executor.js"
+    },
+    "./schema-registry-store": {
+      "types": "./src/schema-registry-store.ts",
+      "import": "./dist/schema-registry-store.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "pnpm --filter @barocss/office-note-file build && pnpm --filter @barocss/office-word build:criterion && tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @barocss/schema build && pnpm --filter @barocss/office-note-file build && pnpm --filter @barocss/office-word build:criterion && tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
@@ -70,7 +74,8 @@
     "@barocss/office-note-file": "workspace:^",
     "pg": "8.23.0",
     "@barocss/office-word": "workspace:^",
-    "playwright": "1.58.0"
+    "playwright": "1.58.0",
+    "@barocss/schema": "workspace:^"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"
