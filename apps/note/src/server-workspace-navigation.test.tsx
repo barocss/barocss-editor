@@ -10,7 +10,7 @@ import type { NoteSaveAttempt } from './server-documents';
 import { ServerNoteWorkspace } from './server-workspace';
 
 type BoxProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; actions?: ReactNode; menus?: ReactNode };
-type NativeFixture = { editor: { id: string }; close: ReturnType<typeof vi.fn>; change: (content: unknown[]) => void; retireRoot: () => void };
+type NativeFixture = { editor: { id: string }; close: ReturnType<typeof vi.fn>; change: (content: unknown[]) => void; flush: () => void; retireRoot: () => void };
 type ClientFixture = { list: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn>; receipt: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn>; confirm: ReturnType<typeof vi.fn> };
 const f = vi.hoisted(() => ({
   sessions: [] as NativeFixture[], client: undefined as unknown as ClientFixture,
@@ -77,6 +77,94 @@ beforeEach(async () => {
   container = document.createElement('div'); document.body.append(container); root = createRoot(container); render(); await mounted();
 });
 afterEach(() => { flushSync(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+// Controlled client/native fixture, with the actual mounted workspace and guard.
+async function reloadConfirmedSource(sourceText: string) {
+  flushSync(() => root.unmount());
+  f.sessions = [];
+  let stored = sourceText;
+  f.client.open.mockImplementation(async (id: string) => opened(id, id === a ? stored : serializeNoteFile(note(id))));
+  f.client.save.mockImplementation(async (attempt: NoteSaveAttempt) => {
+    if (f.saveHold) await f.saveHold;
+    if (f.failSave) throw new Error('lost acknowledgement');
+    if (attempt.operation === 'update' && attempt.documentId === a) stored = attempt.snapshotText;
+    return attempt;
+  });
+  for (const call of [f.client.open, f.client.save, f.client.receipt, f.client.confirm]) call.mockClear();
+  root = createRoot(container); render(); await mounted();
+  return { sourceText: () => stored };
+}
+
+it.each(['2026-10-01T00:00:00Z', 'authored source stamp', undefined])('keeps the exact confirmed envelope with savedAt %s on cleared navigation without a write', async savedAt => {
+  const original = serializeNoteFile(note(a), { savedAt });
+  const stored = await reloadConfirmedSource(original);
+  expect(await captureProductNavigation()!.open!(b)).toMatchObject({ id: b });
+  expect(stored.sourceText()).toBe(original);
+  expect(Object.hasOwn(JSON.parse(stored.sourceText()), 'savedAt')).toBe(savedAt !== undefined);
+  expect(f.client.save).not.toHaveBeenCalled();
+  expect(f.client.receipt).not.toHaveBeenCalled();
+  expect(f.client.confirm).not.toHaveBeenCalled();
+  expect(f.client.open.mock.calls.map(call => call[0])).toEqual([a, b]);
+});
+
+it('still saves deeply delivered changes from a source with savedAt before navigation', async () => {
+  const original = serializeNoteFile(note(a), { savedAt: '2026-10-01T00:00:00Z' });
+  const stored = await reloadConfirmedSource(original);
+  let deliver!: () => void;
+  const content = [{ stype: 'paragraph', attributes: { custom: 'last' },
+    content: [{ stype: 'inline-text', text: 'last savedAt source input', marks: [{ type: 'italic' }] }] }];
+  f.delivery = () => new Promise<boolean>(resolve => { deliver = () => { f.sessions[0].change(content); resolve(true); }; });
+  const task = captureProductNavigation()!.open!(b);
+  await vi.waitFor(() => expect(deliver).toBeTypeOf('function'));
+  expect(f.client.save).not.toHaveBeenCalled(); expect(stored.sourceText()).toBe(original);
+  f.delivery = async () => true; deliver();
+  expect(await task).toMatchObject({ id: b });
+  expect(f.client.save).toHaveBeenCalledTimes(1); expect(f.client.confirm).toHaveBeenCalledTimes(1);
+  const attempt = f.client.save.mock.calls[0][0];
+  expect(JSON.parse(attempt.snapshotText).document).toEqual({ ...note(a), content });
+  expect(stored.sourceText()).toBe(attempt.snapshotText);
+});
+
+it('preserves savedAt source bytes and the fixed failed attempt when navigation save fails', async () => {
+  const original = serializeNoteFile(note(a), { savedAt: '2026-10-01T00:00:00Z' });
+  const stored = await reloadConfirmedSource(original);
+  f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'failed savedAt source input' }] }]);
+  f.failSave = true;
+  expect(await captureProductNavigation()!.open!(b)).toBe(false);
+  expect(stored.sourceText()).toBe(original); expect(productDocumentHost()?.id()).toBe(a);
+  expect(f.client.save).toHaveBeenCalledTimes(1); expect(f.client.confirm).not.toHaveBeenCalled();
+  const fixed = structuredClone(f.client.save.mock.calls[0][0]);
+  const rows = Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!));
+  expect(rows.some(value => value && JSON.stringify(JSON.parse(value).attempt) === JSON.stringify(fixed))).toBe(true);
+  render('viewer'); await mounted();
+  expect(await captureProductNavigation()!.open!(b)).toBe(false);
+  expect(f.client.save).toHaveBeenCalledTimes(1); expect(stored.sourceText()).toBe(original);
+  expect(Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!))).toEqual(rows);
+});
+
+it('keeps the exact fixed request and durable rows when account exit settles a failed savedAt source Save', async () => {
+  const original = serializeNoteFile(note(a), { savedAt: '2026-10-01T00:00:00Z' });
+  const stored = await reloadConfirmedSource(original);
+  f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'held savedAt source input' }] }]);
+  flushSync(() => f.sessions[0].flush());
+  let release!: () => void; f.saveHold = new Promise<void>(resolve => { release = resolve; });
+  f.failSave = true;
+  const save = [...container.querySelectorAll<HTMLButtonElement>('button')].find(one => one.textContent === '저장')!;
+  await vi.waitFor(() => expect(save.disabled).toBe(false));
+  flushSync(() => save.click());
+  await vi.waitFor(() => expect(f.client.save).toHaveBeenCalledTimes(1));
+  const fixed = structuredClone(f.client.save.mock.calls[0][0]);
+  const rows = Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!));
+  try {
+    const exiting = productDocumentHost()!.beforeAccountExit!();
+    release();
+    expect(await exiting).toBe(true);
+    expect(f.client.save).toHaveBeenCalledTimes(1); expect(f.client.save.mock.calls[0][0]).toEqual(fixed);
+    expect(f.client.receipt).not.toHaveBeenCalled(); expect(f.client.confirm).not.toHaveBeenCalled();
+    expect(stored.sourceText()).toBe(original); expect(productDocumentHost()?.id()).toBe(a);
+    expect(Array.from({ length: localStorage.length }, (_, index) => localStorage.getItem(localStorage.key(index)!))).toEqual(rows);
+  } finally { release(); }
+});
 
 it('returns the exact mounted target witness and retires the old guard', async () => {
   const old = captureProductNavigation()!;
@@ -254,4 +342,67 @@ it('keeps standalone discovery and native find/outline separate from workspace d
   expect(container.querySelector('[aria-label="서버 문서 목록"]')).not.toBeNull();
   expect(container.textContent).toContain('목록 새로고침');
   expect(container.querySelector('[aria-label="서버 문서 목록"]')?.textContent).toContain(b);
+});
+
+it('refreshes the authorized tree after a current Note save is confirmed and installed', async () => {
+  const refresh = vi.fn(); window.addEventListener('wonffice:catalog-refresh', refresh);
+  try {
+    f.sessions[0].change([{ stype: 'paragraph', attributes: { custom: 'retained' },
+      content: [{ stype: 'inline-text', text: 'confirmed new input', marks: [{ type: 'italic' }] }] }]);
+    flushSync(() => f.sessions[0].flush());
+    const save = [...container.querySelectorAll<HTMLButtonElement>('button')].find(one => one.textContent === '저장')!;
+    await vi.waitFor(() => expect(save.disabled).toBe(false));
+    flushSync(() => save.click());
+    await vi.waitFor(() => expect(f.client.confirm).toHaveBeenCalledTimes(1));
+    expect(productDocumentHost()?.id()).toBe(a);
+    expect(f.client.save).toHaveBeenCalledTimes(1);
+    expect(f.client.save.mock.calls[0][0].snapshotText).toContain('confirmed new input');
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+  } finally { window.removeEventListener('wonffice:catalog-refresh', refresh); }
+});
+
+it('does not refresh the tree while a save is pending or after its delivery fails', async () => {
+  const refresh = vi.fn(); window.addEventListener('wonffice:catalog-refresh', refresh);
+  try {
+    f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'held input' }] }]);
+    let release!: () => void; f.saveHold = new Promise<void>(resolve => { release = resolve; });
+    f.failSave = true;
+    const opening = captureProductNavigation()!.open!(b);
+    await vi.waitFor(() => expect(f.client.save).toHaveBeenCalledTimes(1));
+    expect(f.client.confirm).not.toHaveBeenCalled(); expect(refresh).not.toHaveBeenCalled();
+    release(); expect(await opening).toBe(false);
+    expect(f.client.confirm).not.toHaveBeenCalled(); expect(refresh).not.toHaveBeenCalled();
+    expect(productDocumentHost()?.id()).toBe(a);
+  } finally { window.removeEventListener('wonffice:catalog-refresh', refresh); }
+});
+
+it('does not refresh the tree from a late confirmation after account and role retirement', async () => {
+  const refresh = vi.fn(); window.addEventListener('wonffice:catalog-refresh', refresh);
+  try {
+    let release!: (value: ReturnType<typeof opened>) => void;
+    f.client.confirm.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'retired input' }] }]);
+    const opening = captureProductNavigation()!.open!(b);
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    expect(refresh).not.toHaveBeenCalled();
+    render('viewer', 'B'); await mounted(); render('editor', 'A'); await mounted();
+    release(opened(a, f.client.save.mock.calls[0][0].snapshotText));
+    expect(await opening).toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  } finally { window.removeEventListener('wonffice:catalog-refresh', refresh); }
+});
+
+it('does not refresh the tree from a late confirmation after the native root retires', async () => {
+  const refresh = vi.fn(); window.addEventListener('wonffice:catalog-refresh', refresh);
+  try {
+    let release!: (value: ReturnType<typeof opened>) => void;
+    f.client.confirm.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    f.sessions[0].change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'retired root input' }] }]);
+    const opening = captureProductNavigation()!.open!(b);
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    expect(refresh).not.toHaveBeenCalled();
+    f.sessions[0].retireRoot(); release(opened(a, f.client.save.mock.calls[0][0].snapshotText));
+    expect(await opening).toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  } finally { window.removeEventListener('wonffice:catalog-refresh', refresh); }
 });

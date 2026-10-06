@@ -1,7 +1,10 @@
 import { parseWorkspaceRoute } from '../../../packages/office-workspace/src/routes';
-import { readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
-import { privateControl, type Inspection, type RealStatus } from './helpers/real-recovery-control';
+import { privateControl, launchPrivateProfile, stopPrivateProfile, type Inspection, type RealStatus } from './helpers/real-recovery-control';
 
 const origin = process.env.OFFICE_AUTH_ORIGIN ?? 'http://127.0.0.1:5191';
 
@@ -163,4 +166,212 @@ test('real writer and viewer grouped Find and Outline preserve canonical data an
     // This test owns the temporary revocation; later serial cases retain the seeded viewer grant.
     await privateControl<RealStatus>({ action: 'beta-active', active: true });
   }
+});
+
+// This case owns its adapters. The original Find/Outline case and fixture above
+// retain their original behavior and assertions.
+test('real canonical Note tree navigation returns the exact source with browser Back and Forward', async ({ browserName }, info) => {
+  expect(browserName).toBe('chromium');
+  const directory = dirname(process.env.OFFICE_AUTH_CONTROL_FILE!);
+  const evidenceFile = join(directory, '479-note-traversal.json');
+  const sourceRoot = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, '');
+  const sharedModule = `/@fs${sourceRoot}/packages/shared/src/index.ts`;
+  const authModule = '/src/auth-client.ts';
+  const sha = (text: string) => createHash('sha256').update(text).digest('hex');
+  const evidence: Record<string, unknown> = { status: 'incomplete', kind: 'genuine-oidc-api-private-postgres',
+    physicalOsIme: 'not exercised', preparation: 'Existing rich local fixture imported and explicitly saved through public UI; not manual authoring',
+    history: 'Same-original alias Undo/Redo and different-original traversal are separate claims' };
+  const checkpoint = (phase: string) => { evidence.phase = phase; writeFileSync(evidenceFile, JSON.stringify(evidence, null, 2), { mode: 0o600 }); };
+  let profile: Awaited<ReturnType<typeof launchPrivateProfile>> | undefined, page: Page | undefined;
+  let primaryFailure: unknown, diagnosticFailure: unknown, cleanupFailure: unknown;
+  let bearer = '', mutations = 0, modelRequests = 0;
+  const changes: Array<{ method: string; path: string; body: Record<string, unknown> }> = [];
+  const originals: Inspection[] = [];
+  const frameTree = () => page!.getByLabel('작업 공간 파일 탐색', { exact: true });
+  const current = async () => page!.evaluate(async module => {
+    const { productDocumentHost } = await import(module) as typeof import('@barocss/shared');
+    const owner = productDocumentHost();
+    const selection = window.getSelection();
+    const safeSearch = new URLSearchParams();
+    for (const [key, value] of new URLSearchParams(location.search)) {
+      safeSearch.append(key, ['tenant', 'view', 'mode'].includes(key) ? value : '[redacted]');
+    }
+    return { pathname: location.pathname, search: safeSearch.toString() ? `?${safeSearch}` : '',
+      historyState: history.state === null ? null : { type: typeof history.state,
+        keys: typeof history.state === 'object' ? Object.keys(history.state) : [] },
+      owner: owner ? { product: owner.product, id: owner.id(), epoch: owner.identityEpoch?.() } : null,
+      native: [...document.querySelectorAll('[data-server-note-workspace] .on-doc p')].map(element => element.textContent),
+      selection: selection ? { anchorText: selection.anchorNode?.textContent, anchorOffset: selection.anchorOffset,
+        focusText: selection.focusNode?.textContent, focusOffset: selection.focusOffset, text: selection.toString() } : null,
+      tree: [...document.querySelectorAll('.ow-file-navigation .ow-file-tree')].map(element => ({ scroll: element.scrollTop,
+        expanded: [...element.querySelectorAll('[aria-expanded]')].map(one => ({ text: one.textContent, expanded: one.getAttribute('aria-expanded') })) })),
+      query: (document.querySelector('.ow-file-navigation input') as HTMLInputElement | null)?.value };
+  }, sharedModule);
+  const actions = async (open: boolean) => {
+    const panel = host(page!).getByRole('complementary', { name: '문서 작업', exact: true });
+    if (await panel.isVisible() === open) return;
+    await host(page!).getByRole('menubar', { name: '문서 메뉴', exact: true }).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page!.getByRole('menu', { name: '문서 메뉴', exact: true }).getByRole('menuitemcheckbox', { name: '문서 작업', exact: true }).click();
+    if (open) await expect(panel).toBeVisible(); else await expect(panel).toBeHidden();
+  };
+  const identity = async (tenantId: string) => page!.evaluate(async ({ module, tenantId }) => {
+    const { loadIdentity, confirmTenant } = await import(module) as typeof import('./../src/auth-client');
+    const principal = await loadIdentity(), role = await confirmTenant(tenantId);
+    return { issuer: principal.issuer, subject: principal.subject, currentUserId: principal.currentUserId,
+      listedRole: principal.tenants.find(one => one.tenantId === tenantId)?.role, role };
+  }, { module: authModule, tenantId });
+  const inspect = (documentId: string, key?: string, operation: 'create' | 'update' = 'create') =>
+    privateControl<Inspection>({ action: 'inspect', product: 'note', documentId,
+      ...(key ? { idempotencyKey: key, operation, actor: 'alpha-editor' } : {}) });
+  const currentDrafts = (documentId: string) => page!.evaluate(id => Object.keys(localStorage)
+    .filter(key => key.startsWith('wonffice.note.pending.v1:'))
+    .map(key => JSON.parse(localStorage.getItem(key)!) as { base?: { documentId?: string }; status: string; snapshotText: string })
+    .filter(record => record.base?.documentId === id), documentId);
+  try {
+    checkpoint('login');
+    profile = await launchPrivateProfile(mkdtempSync(join(directory, '479-note-owner-')));
+    page = await profile.context.newPage();
+    page.on('request', request => {
+      const path = new URL(request.url()).pathname;
+      if (request.headers().authorization) bearer = request.headers().authorization;
+      if (/\/execution$/.test(path)) modelRequests++;
+      if (/^\/api\/v1\/tenants\/[^/]+\/documents(?:\/[^/]+\/snapshot)?$/.test(path) && ['POST', 'PUT'].includes(request.method())) {
+        mutations++; changes.push({ method: request.method(), path, body: request.postDataJSON() as Record<string, unknown> });
+      }
+    });
+    await page.goto(origin);
+    await page.getByRole('button', { name: '일반 사용자로 들어가기', exact: true }).click();
+    await expect(page.locator('#username')).toBeVisible();
+    const fixturePath = process.env.OFFICE_AUTH_REAL_FILE!;
+    expect(statSync(fixturePath).mode & 0o077).toBe(0);
+    const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as { issuer: string; users: Record<string, { username?: string; password: string; id: string }> };
+    const account = fixture.users['alpha-editor'];
+    await page.locator('#username').fill(account.username ?? 'alpha-editor');
+    await page.locator('#password').fill(account.password); await page.locator('#kc-login').click();
+    await page.getByRole('button', { name: /Synthetic Alpha/ }).click();
+    await page.getByRole('button', { name: 'Alpha workspace', exact: true }).click();
+    const status = await privateControl<RealStatus>({ action: 'status' });
+    const principal = await identity(status.tenantId);
+    expect(principal).toMatchObject({ issuer: fixture.issuer, subject: account.id, role: 'owner', listedRole: 'owner' });
+    expect(principal.currentUserId).toMatch(/^[0-9a-f-]{36}$/i);
+    evidence.identity = principal; checkpoint('prepare-two-originals');
+    await frameTree().getByRole('button', { name: '자료함', exact: true }).click();
+    await page.getByRole('button', { name: '새 Note 만들기', exact: true }).click();
+    await expect(host(page)).toBeVisible(); await seed(page);
+    for (let index = 0; index < 2; index++) {
+      await actions(true);
+      if (!await host(page).getByRole('region', { name: '로컬 노트 사본 가져오기', exact: true }).isVisible()) {
+        await host(page).getByRole('button', { name: '로컬 노트 사본 가져오기', exact: true }).click();
+      }
+      await host(page).getByRole('button', { name: '이 기기의 로컬 노트 목록 확인', exact: true }).click();
+      await host(page).getByRole('button', { name: `서버 사본 준비 ${title}`, exact: true }).click();
+      const response = page.waitForResponse(response => response.request().method() === 'POST' && /\/documents$/.test(new URL(response.url()).pathname));
+      await host(page).getByRole('button', { name: '저장 확인·재시도', exact: true }).click();
+      const reply = await response; expect(reply.status()).toBe(201);
+      const receipt = await reply.json() as { document: { documentId: string; pageId: string; revision: number }; snapshotText: string; idempotencyKey: string };
+      await expect(host(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+      const stored = await inspect(receipt.document.documentId, receipt.idempotencyKey);
+      expect(stored.document!.snapshotText).toBe(receipt.snapshotText);
+      expect(stored.document!.snapshotHash).toBe(sha(receipt.snapshotText));
+      expect(stored.document!.revision).toBe(1);
+      expect(stored.receipt!.snapshotText).toBe(receipt.snapshotText);
+      const expected = producer(); expect(receipt.document.pageId).not.toBe(expected.attributes.pageId);
+      expected.attributes.pageId = receipt.document.pageId;
+      expect(stored.document!.canonicalTree).toEqual(expected);
+      const submitted = changes.at(-1)!; expect(submitted.method).toBe('POST');
+      expect(JSON.parse(submitted.body.snapshotText as string).document).toEqual(producer());
+      expect(submitted.body.idempotencyKey).toBe(receipt.idempotencyKey);
+      expect(stored.document!.documentId).toBe(receipt.document.documentId);
+      originals.push(stored); evidence.originals = originals; evidence.submitted = changes; checkpoint(`original-${index}-saved`);
+      await actions(false);
+    }
+    const [originalA, originalB] = originals.map(one => one.document!);
+    expect(originalA.documentId).not.toBe(originalB.documentId); expect(originalA.pageId).not.toBe(originalB.pageId);
+    // The authoritative tree key includes tenant/workspace/product, not a URL product guess.
+    const row = (id: string) => frameTree().locator(`[data-original='${JSON.stringify([status.tenantId, status.workspaceId, 'note', id])}']`);
+    await row(originalA.documentId).click();
+    await expect.poll(async () => (await current()).owner?.id).toBe(originalA.documentId);
+    await expect.poll(() => new URL(page!.url()).pathname).toBe(`/${status.workspaceId}/${originalA.documentId}`);
+    const treeNode = await frameTree().elementHandle(), nativeNode = await host(page).locator('.on-doc').elementHandle();
+    expect(treeNode).not.toBeNull(); expect(nativeNode).not.toBeNull();
+    const paragraph = host(page).locator('.on-doc p').filter({ hasText: 'First navigation phrase' });
+    await expect(paragraph).toHaveCount(1);
+    await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' HISTORY SOURCE');
+    await expect(paragraph).toHaveText('First navigation phrase HISTORY SOURCE');
+    const expectedEditedA = producer(); expectedEditedA.attributes.pageId = originalA.pageId!;
+    // A caret insert at the end changes this unique text run. The original
+    // bold range ends before the new suffix; every other field is retained.
+    expectedEditedA.content[1].content[0].text += ' HISTORY SOURCE';
+    await expect.poll(async () => (await currentDrafts(originalA.documentId))
+      .filter(record => record.status === 'draft').map(record => JSON.parse(record.snapshotText).document)).toContainEqual(expectedEditedA);
+    await host(page).getByRole('button', { name: '저장', exact: true }).click();
+    await expect(host(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+    const editedA = await inspect(originalA.documentId);
+    const editedSubmitted = changes.at(-1)!;
+    expect(editedSubmitted.method).toBe('PUT'); expect(editedA.document!.snapshotText).toBe(editedSubmitted.body.snapshotText);
+    expect(JSON.parse(editedSubmitted.body.snapshotText as string).document).toEqual(expectedEditedA);
+    expect(editedA.document!.canonicalTree).toEqual(expectedEditedA);
+    expect(editedA.document!.revision).toBe(2); evidence.editedA = editedA; evidence.editedSubmitted = editedSubmitted;
+    const aliasesBefore = await current(), aliasMutations = mutations;
+    checkpoint('same-original-aliases');
+    for (const perspective of ['프로젝트', '내 파일', '프로젝트']) {
+      await frameTree().getByRole('button', { name: perspective, exact: true }).click(); await row(originalA.documentId).click();
+      const observed = await current(); expect(observed.owner).toEqual(aliasesBefore.owner);
+      expect(observed.native).toEqual(aliasesBefore.native); expect(observed.selection).toEqual(aliasesBefore.selection);
+      expect(await nativeNode!.evaluate(element => element.isConnected)).toBe(true);
+      expect(await treeNode!.evaluate(element => element.isConnected)).toBe(true);
+      expect((await inspect(originalA.documentId)).document).toEqual(editedA.document);
+      expect(mutations).toBe(aliasMutations);
+    }
+    await paragraph.click(); await page.keyboard.press('ControlOrMeta+z');
+    await expect(paragraph).toHaveText('First navigation phrase');
+    await page.keyboard.press('ControlOrMeta+Shift+z'); await expect(paragraph).toHaveText('First navigation phrase HISTORY SOURCE');
+    expect((await inspect(originalA.documentId)).document).toEqual(editedA.document); expect(mutations).toBe(aliasMutations);
+    // Undo/Redo may retire a confirmed input version. Explicit user Save settles
+    // that state before traversal; automatic routing publication is not accepted.
+    const save = host(page).getByRole('button', { name: '저장', exact: true });
+    if (await save.isEnabled()) { await save.click(); await expect(host(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨'); }
+    const beforeTraversal = await current(), frozenA = await inspect(originalA.documentId), frozenB = await inspect(originalB.documentId);
+    const traversalMutations = mutations;
+    evidence.beforeTraversal = beforeTraversal; evidence.frozenA = frozenA; evidence.frozenB = frozenB; checkpoint('tree-A-to-B');
+    await row(originalB.documentId).click();
+    await expect.poll(async () => (await current()).owner?.id).toBe(originalB.documentId);
+    await expect.poll(() => new URL(page!.url()).pathname).toBe(`/${status.workspaceId}/${originalB.documentId}`);
+    expect((await inspect(originalB.documentId)).document).toEqual(frozenB.document); expect(mutations).toBe(traversalMutations);
+    evidence.atB = await current(); checkpoint('browser-Back-to-A');
+    await page.goBack();
+    evidence.afterBack = await current(); checkpoint('browser-Back-observed');
+    await expect.poll(async () => (await current()).owner?.id).toBe(originalA.documentId);
+    await expect.poll(() => new URL(page!.url()).pathname).toBe(`/${status.workspaceId}/${originalA.documentId}`);
+    expect((await current()).tree).toEqual(beforeTraversal.tree); expect((await current()).query).toBe(beforeTraversal.query);
+    expect(await treeNode!.evaluate(element => element.isConnected)).toBe(true);
+    expect((await inspect(originalA.documentId)).document).toEqual(frozenA.document); expect(mutations).toBe(traversalMutations);
+    evidence.returnedA = await current(); checkpoint('browser-Forward-to-B');
+    await page.goForward();
+    await expect.poll(async () => (await current()).owner?.id).toBe(originalB.documentId);
+    await expect.poll(() => new URL(page!.url()).pathname).toBe(`/${status.workspaceId}/${originalB.documentId}`);
+    expect((await inspect(originalA.documentId)).document).toEqual(frozenA.document);
+    expect((await inspect(originalB.documentId)).document).toEqual(frozenB.document);
+    expect(mutations).toBe(traversalMutations); expect(modelRequests).toBe(0);
+    expect(await identity(status.tenantId)).toEqual(principal);
+    expect(bearer).not.toBe(''); // Observed memory-only bearer is never retained in evidence.
+    evidence.returnedB = await current(); evidence.status = 'passed'; checkpoint('complete');
+  } catch (error) {
+    primaryFailure = error; evidence.status = 'failed';
+    try {
+      if (page && !page.isClosed()) {
+        evidence.failure = await current(); evidence.mutations = mutations; evidence.modelRequests = modelRequests;
+        evidence.finalOriginals = await Promise.all(originals.map(one => inspect(one.document!.documentId)));
+        if (await host(page).isVisible()) await page.screenshot({ path: info.outputPath('479-note-traversal-failure.png') });
+      }
+      checkpoint(String(evidence.phase));
+    } catch (diagnostic) { diagnosticFailure = diagnostic; evidence.diagnosticFailure = true; }
+  } finally {
+    try { if (profile) await stopPrivateProfile(profile.context, profile.pid); evidence.browserCleanup = true; }
+    catch (error) { cleanupFailure = error; evidence.browserCleanup = false; }
+    checkpoint(String(evidence.phase));
+  }
+  if (primaryFailure) throw primaryFailure;
+  if (diagnosticFailure) throw diagnosticFailure;
+  if (cleanupFailure) throw cleanupFailure;
 });

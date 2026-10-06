@@ -286,7 +286,8 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       if (!latest || latest.generation !== currentOpen.generation) return;
       if (JSON.stringify(latest.note.content) === JSON.stringify(blocks)) return;
       const nextNote = { ...latest.note, content: blocks } as NoteDocument;
-      const snapshotText = serializeNoteFile(nextNote);
+      const snapshotText = snapshotWithConfirmedSavedAt(latest, nextNote);
+      if (!snapshotText) { recordProtectionFailure(currentOpen.generation, versionRef.current); return; }
       if (snapshotText === snapshotRef.current) return;
       const version = versionRef.current + 1;
       versionRef.current = version;
@@ -491,11 +492,13 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     if (!knownAttempt) currentSession?.flush();
     const tree = currentSession && noteTreeOf(currentSession.editor.dataStore, currentSession.rootId);
     const draftNote = tree ? { ...currentOpen.note, content: tree.content as unknown[] } : currentOpen.note;
+    const snapshotText = knownAttempt?.snapshotText ?? snapshotWithConfirmedSavedAt(currentOpen, draftNote);
+    if (!snapshotText) throw new Error('invalid_confirmed_snapshot');
     const fixed = { owner: client, version: knownAttempt ? (currentPending?.version ?? currentOpen.version) : versionRef.current, attempt: knownAttempt ?? noteSaveAttempt(currentOpen.documentId === null
       ? { operation: 'create', workspaceId, title: draftNote.attributes.title,
-        snapshotText: serializeNoteFile(draftNote), idempotencyKey: saveRecord?.draftId ?? crypto.randomUUID() }
+        snapshotText, idempotencyKey: saveRecord?.draftId ?? crypto.randomUUID() }
       : { operation: 'update', documentId: currentOpen.documentId,
-        expectedRevision: currentOpen.revision!, snapshotText: serializeNoteFile(draftNote),
+        expectedRevision: currentOpen.revision!, snapshotText,
         idempotencyKey: saveRecord?.draftId ?? crypto.randomUUID() }) };
     if (expected && (fixed.attempt.operation !== 'update' || fixed.attempt.expectedRevision !== expected.revision ||
       fixed.attempt.snapshotText !== expected.snapshotText || !ownsRequest())) return;
@@ -585,6 +588,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         productDocumentHost(hostSlot) === nativeHost.current && installed?.isCurrent() && installed.product === 'note' && installed.id === notice.documentId) {
         confirmedNavigation.current = undefined;
         navigate.current?.(notice.documentId);
+        window.dispatchEvent(new Event('wonffice:catalog-refresh'));
       }
     } catch (error) {
       if (!ownsRequest()) return;
@@ -605,9 +609,14 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     void operation.finally(() => { if (savePending.current === operation) savePending.current = undefined; }).catch(() => {});
     return operation;
   };
+  function snapshotWithConfirmedSavedAt(one: OpenState, note: NoteDocument): string | undefined {
+    const confirmed = one.confirmedText === null ? undefined : readNoteSnapshotFile(one.confirmedText);
+    if (confirmed && 'error' in confirmed) return undefined;
+    return serializeNoteFile(note, { savedAt: confirmed?.savedAt });
+  }
   const nativeSnapshot = (one: OpenState, native: NoteSession): string | undefined => {
     const tree = noteTreeOf(native.editor.dataStore, native.rootId);
-    return tree ? serializeNoteFile({ ...one.note, content: tree.content as unknown[] }) : undefined;
+    return tree ? snapshotWithConfirmedSavedAt(one, { ...one.note, content: tree.content as unknown[] }) : undefined;
   };
   const captureOwner = (intentCurrent = () => true) => {
     const captured = access.current, one = captured.open, native = captured.session;
@@ -750,6 +759,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         notice.authority === roleRef.current && notice.documentId === currentOpen.documentId &&
         activeClient.current === client && productDocumentHost(hostSlot) === host && installed?.isCurrent() && installed.product === 'note' && installed.id === notice.documentId) {
         navigate.current?.(notice.documentId);
+        window.dispatchEvent(new Event('wonffice:catalog-refresh'));
       }
     }
     const completion = openingCompletion.current;

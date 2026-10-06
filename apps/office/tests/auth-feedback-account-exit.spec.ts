@@ -276,13 +276,23 @@ async function appendMixedNoteInput(page: Page, paragraph: Locator, text: string
   await expect(paragraph).toContainText(text.trim());
 }
 
+async function openNoteTaskPanel(page: Page) {
+  const toggle = page.getByRole('button', { name: 'Note 작업', exact: true });
+  const panel = page.getByRole('complementary', { name: 'Note 작업', exact: true });
+  await expect(toggle).toHaveCount(1);
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel).toHaveCount(1);
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
 // Controlled OIDC/API, actual mounted AuthApp/ProjectFeedback/native Note.
 // Hold a real user-initiated snapshot write. Logout must settle it, never retry it.
 for (const late of ['unchanged', 'input', 'composition', 'failed-save'] as const) test(`logout checks Project feedback ${late} after actual held native exit`, async ({ page }) => {
   const state = await controlledMixedWorkspace(page, 'editor', { project: true });
   const sourceURL = page.url(), source = state.shell('note');
-  await (await projectFeedbackAction(page, '의견 0')).click();
-  const composer = page.getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
+  const panel = await openNoteTaskPanel(page);
+  const composer = panel.getByRole('textbox', { name: 'Note 수정 요청 입력', exact: true });
   await expect(composer).toHaveValue('Initial controlled project draft');
   const originalComposer = await composer.elementHandle();
   const originalProject = structuredClone(state.projectRecord);
@@ -349,7 +359,7 @@ for (const late of ['unchanged', 'input', 'composition', 'failed-save'] as const
     await expect(composer).toHaveValue(latest);
     if (late !== 'failed-save') await expect.poll(() => state.projectRecord.drafts[state.feedbackKey]).toBe(latest);
     releaseFeedback?.();
-    if (late === 'failed-save') await expect(page.getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible();
+    if (late === 'failed-save') await expect(panel.getByText('요청을 보관하지 못했습니다', { exact: true })).toBeVisible();
     releaseNative();
     await expect(page.getByRole('alert').filter({ hasText: /저장|보관|이동|문서/ }).first()).toBeVisible();
     await expect(source).toBeVisible(); await expect(page).toHaveURL(sourceURL);
@@ -389,8 +399,8 @@ async function nativeNavigationProof(page: Page) {
 for (const late of ['unchanged', 'feedback-input', 'native-composition'] as const) test(`tree library return checks ${late} after the actual catalog read`, async ({ page }) => {
   const state = await controlledMixedWorkspace(page, 'editor', { project: true });
   const source = state.shell('note'), sourceURL = page.url();
-  await (await projectFeedbackAction(page, '의견 0')).click();
-  const composer = page.getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
+  const panel = await openNoteTaskPanel(page);
+  const composer = panel.getByRole('textbox', { name: 'Note 수정 요청 입력', exact: true });
   await expect(composer).toHaveValue('Initial controlled project draft');
   const originalComposer = await composer.elementHandle();
   await observeActualNativeNavigation(page, 'beforeAccountExit');
@@ -441,8 +451,8 @@ for (const late of ['unchanged', 'feedback-input', 'native-composition'] as cons
 for (const late of ['unchanged', 'feedback-input'] as const) test(`Project return checks ${late} while the actual native save prepares navigation`, async ({ page }) => {
   const state = await controlledMixedWorkspace(page, 'editor', { project: true });
   const source = state.shell('note'), sourceURL = page.url();
-  await (await projectFeedbackAction(page, '의견 0')).click();
-  const composer = page.getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
+  const panel = await openNoteTaskPanel(page);
+  const composer = panel.getByRole('textbox', { name: 'Note 수정 요청 입력', exact: true });
   await expect(composer).toHaveValue('Initial controlled project draft');
   const originalComposer = await composer.elementHandle();
   await appendMixedNoteInput(page, source.locator('.on-doc > p').first(), ' protected-project-return');
@@ -504,11 +514,217 @@ async function sameProductOpenProof(page: Page) {
   return page.evaluate(() => (window as Window & { sameProductOpenProof?: { entered: number; settled: number; result: boolean } }).sameProductOpenProof);
 }
 
+test('authenticated same-Note tree navigation returns to the exact original with browser Back and Forward', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { secondNote: true });
+  const sourceURL = page.url();
+  const tree = page.locator('.ow-file-navigation');
+  const note = state.shell('note');
+  const source = note.locator('.on-doc > p');
+  await expect(source).toHaveCount(1);
+  await expect(source).toContainText('Matrix structured body');
+  await appendMixedNoteInput(page, source, ' saved before history traversal');
+  await note.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(note.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const sourceText = state.originals.get(documentId)!.text;
+  const writesBeforeTree = state.writes.length;
+  const sourceNode = await source.elementHandle();
+  const initialHistoryLength = await page.evaluate(() => history.length);
+  await tree.getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${state.secondNoteId}\\?tenant=${id}$`));
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  expect(await sourceNode!.evaluate(node => node.isConnected)).toBe(false);
+  expect(await page.evaluate(() => history.length)).toBe(initialHistoryLength + 1);
+  expect(state.originals.get(documentId)!.text).toBe(sourceText);
+  expect(state.writes).toHaveLength(writesBeforeTree);
+  await appendMixedNoteInput(page, note.locator('.on-doc > p'), ' saved before history traversal');
+  await note.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(note.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const targetText = state.originals.get(state.secondNoteId)!.text;
+  const writesBeforeHistory = state.writes.length;
+  const targetNode = await note.locator('.on-doc').elementHandle();
+  await tree.getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  expect(await targetNode!.evaluate(node => node.isConnected)).toBe(true);
+  expect(await page.evaluate(() => history.length)).toBe(initialHistoryLength + 1);
+  expect(state.writes).toHaveLength(writesBeforeHistory);
+
+  await page.goBack();
+  await expect(page).toHaveURL(sourceURL);
+  await expect(note.locator('.on-doc > p')).toContainText('Matrix structured body saved before history traversal');
+  await expect(tree.getByRole('button', { name: 'Mixed rich Note 열기', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => history.length)).toBe(initialHistoryLength + 1);
+  expect(state.writes).toHaveLength(writesBeforeHistory);
+
+  await page.goForward();
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${state.secondNoteId}\\?tenant=${id}$`));
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body saved before history traversal');
+  await expect(tree.getByRole('button', { name: 'Second rich Note 열기', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(state.originals.get(documentId)!.text).toBe(sourceText);
+  expect(state.originals.get(state.secondNoteId)!.text).toBe(targetText);
+  expect(state.writes).toHaveLength(writesBeforeHistory);
+});
+
+test('authenticated Back restores the current Note cursor and draft when its save fails', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { secondNote: true });
+  const tree = page.locator('.ow-file-navigation'), note = state.shell('note');
+  await tree.getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  const originalA = state.originals.get(documentId)!.text;
+  await appendMixedNoteInput(page, note.locator('.on-doc > p'), ' settled before refusal');
+  await note.getByRole('button', { name: '저장', exact: true }).click();
+  await expect(note.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  const beforeFailure = state.originals.get(state.secondNoteId)!.text;
+  await appendMixedNoteInput(page, note.locator('.on-doc > p'), ' blocked by failed save');
+  const expectedDraft = expectedMixedNote(beforeFailure, ' blocked by failed save');
+  await expectProtectedMixedNote(page, 'draft', expectedDraft);
+  const atB = page.url(), historyLength = await page.evaluate(() => history.length);
+  let refusedWrites = 0;
+  const pattern = `**/api/v1/tenants/${id}/documents/${state.secondNoteId}/snapshot`;
+  const refuse = (route: import('@playwright/test').Route) => {
+    refusedWrites++;
+    return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ status: 'service_unavailable' }) });
+  };
+  await page.route(pattern, refuse);
+  try {
+    await page.goBack();
+    await expect.poll(() => refusedWrites).toBe(1);
+    await expect(page).toHaveURL(atB);
+    await expect(note.locator('.on-doc > p')).toContainText('Target structured body settled before refusal blocked by failed save');
+    await expect.poll(() => page.evaluate(expected => Object.keys(localStorage)
+      .filter(key => key.startsWith('wonffice.note.pending.v1:')).some(key =>
+        JSON.stringify(JSON.parse(JSON.parse(localStorage.getItem(key)!).snapshotText).document) === JSON.stringify(expected)), expectedDraft)).toBe(true);
+    await expect(tree.getByRole('button', { name: 'Second rich Note 열기', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => history.length)).toBe(historyLength);
+    expect(state.originals.get(documentId)!.text).toBe(originalA);
+    expect(state.originals.get(state.secondNoteId)!.text).toBe(beforeFailure);
+  } finally { await page.unroute(pattern, refuse); }
+  await note.getByRole('button', { name: '저장 확인·재시도', exact: true }).click();
+  await expect(note.locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${documentId}\\?tenant=${id}$`));
+  await expect(note.locator('.on-doc > p')).toContainText('Matrix structured body');
+});
+
+test('authenticated Back does not reopen a Note whose current access is denied', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { secondNote: true });
+  const tree = page.locator('.ow-file-navigation'), note = state.shell('note');
+  await tree.getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  const atB = page.url(), source = state.originals.get(documentId)!.text;
+  const target = state.originals.get(state.secondNoteId)!.text;
+  const writes = state.writes.length, length = await page.evaluate(() => history.length);
+  let deniedReads = 0;
+  const pattern = `**/api/v1/tenants/${id}/documents/${documentId}`;
+  const deny = (route: import('@playwright/test').Route) => {
+    deniedReads++;
+    return route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ status: 'forbidden' }) });
+  };
+  await page.route(pattern, deny);
+  try {
+    await page.goBack();
+    await expect.poll(() => deniedReads).toBe(1);
+    await expect(page).toHaveURL(atB);
+    await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+    await expect(tree.getByRole('button', { name: 'Second rich Note 열기', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => history.length)).toBe(length);
+    expect(state.originals.get(documentId)!.text).toBe(source);
+    expect(state.originals.get(state.secondNoteId)!.text).toBe(target);
+    expect(state.writes).toHaveLength(writes);
+  } finally { await page.unroute(pattern, deny); }
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/${workspaceId}/${documentId}\\?tenant=${id}$`));
+  await expect(note.locator('.on-doc > p')).toContainText('Matrix structured body');
+});
+
+test('rapid Back then Forward retires the older authenticated Note target read', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { secondNote: true });
+  const tree = page.locator('.ow-file-navigation'), note = state.shell('note');
+  await tree.getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  const atB = page.url(), target = state.originals.get(state.secondNoteId)!.text;
+  const writes = state.writes.length, readsBefore = state.reads.filter(one => one === documentId).length;
+  const release = state.hold(documentId);
+  try {
+    await page.goBack();
+    await expect.poll(() => state.reads.filter(one => one === documentId).length).toBe(readsBefore + 1);
+    await page.goForward();
+  } finally { release(); }
+  await expect(page).toHaveURL(atB);
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  await expect(tree.getByRole('button', { name: 'Second rich Note 열기', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(state.originals.get(state.secondNoteId)!.text).toBe(target);
+  expect(state.writes).toHaveLength(writes);
+});
+
+test('authenticated Back refuses a changed current principal and preserves the mounted Note', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { secondNote: true });
+  const tree = page.locator('.ow-file-navigation'), note = state.shell('note');
+  await tree.getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  const atB = page.url(), target = state.originals.get(state.secondNoteId)!.text;
+  const writes = state.writes.length;
+  let changedReads = 0;
+  const changed = (route: import('@playwright/test').Route) => {
+    changedReads++;
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ issuer, subject: 'changed-user',
+      tenants: [{ tenantId: id, name: 'Alpha Company', role: 'editor' }], nextCursor: null }) });
+  };
+  await page.route('**/api/v1/me', changed);
+  try {
+    await page.goBack();
+    await expect.poll(() => changedReads).toBe(1);
+    await expect(page).toHaveURL(atB);
+    await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+    await expect(tree.getByRole('button', { name: 'Second rich Note 열기', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(state.originals.get(state.secondNoteId)!.text).toBe(target);
+    expect(state.writes).toHaveLength(writes);
+  } finally { await page.unroute('**/api/v1/me', changed); }
+});
+
+test('foreign browser history state cannot select an authenticated Note original', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { secondNote: true });
+  const tree = page.locator('.ow-file-navigation'), note = state.shell('note');
+  await tree.getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  const atB = page.url(), target = state.originals.get(state.secondNoteId)!.text;
+  const reads = state.reads.length, writes = state.writes.length;
+  // Adversarial history data is only a negative input. It is not a simulated
+  // successful tree action and must never grant a document or product identity.
+  await page.evaluate(({ workspace, tenant }) => history.pushState({ foreign: true }, '',
+    `/${workspace}/00000000-0000-4000-8000-000000000099?tenant=${tenant}`), { workspace: workspaceId, tenant: id });
+  await page.goBack();
+  await expect(page).toHaveURL(atB);
+  await page.goForward();
+  await expect(page.locator('#office-auth-curtain')).toBeVisible();
+  await expect(page.locator('#office-auth-curtain')).toContainText('현재 문서를 유지합니다');
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  expect(state.reads).toHaveLength(reads);
+  expect(state.writes).toHaveLength(writes);
+  expect(state.originals.get(state.secondNoteId)!.text).toBe(target);
+});
+
+test('copied position metadata cannot authorize a different Note URL', async ({ page }) => {
+  const state = await controlledMixedWorkspace(page, 'editor', { secondNote: true });
+  const note = state.shell('note');
+  await page.locator('.ow-file-navigation').getByRole('button', { name: 'Second rich Note 열기', exact: true }).click();
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  const atB = page.url(), reads = state.reads.length, writes = state.writes.length;
+  await page.evaluate(({ workspace, tenant }) => history.pushState(history.state, '',
+    `/${workspace}/00000000-0000-4000-8000-000000000099?tenant=${tenant}`), { workspace: workspaceId, tenant: id });
+  await page.goBack();
+  await expect(page).toHaveURL(atB);
+  await page.goForward();
+  await expect(page.locator('#office-auth-curtain')).toBeVisible();
+  await expect(page.locator('#office-auth-curtain')).toContainText('현재 문서를 유지합니다');
+  await expect(note.locator('.on-doc > p')).toContainText('Target structured body');
+  expect(state.reads).toHaveLength(reads);
+  expect(state.writes).toHaveLength(writes);
+});
+
 for (const late of ['unchanged', 'input', 'composition', 'failed-save'] as const) test(`same-product tree open checks Project feedback ${late} after actual target read`, async ({ page }) => {
   const state = await controlledMixedWorkspace(page, 'editor', { project: true, secondNote: true });
   const source = state.shell('note'), sourceURL = page.url();
-  await (await projectFeedbackAction(page, '의견 0')).click();
-  const composer = page.getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
+  const panel = await openNoteTaskPanel(page);
+  const composer = panel.getByRole('textbox', { name: 'Note 수정 요청 입력', exact: true });
   await expect(composer).toHaveValue('Initial controlled project draft');
   const originalComposer = await composer.elementHandle();
   const originalBody = await source.locator('.on-doc').elementHandle();
@@ -546,7 +762,7 @@ for (const late of ['unchanged', 'input', 'composition', 'failed-save'] as const
       await expect(composer).toHaveValue(latest);
       if (late === 'input') await expect.poll(() => state.projectRecord.drafts[state.feedbackKey]).toBe(latest);
       releaseFeedback?.();
-      if (late === 'failed-save') await expect(page.getByText('의견을 저장하지 못했습니다', { exact: true })).toBeVisible();
+      if (late === 'failed-save') await expect(panel.getByText('요청을 보관하지 못했습니다', { exact: true })).toBeVisible();
     }
     releaseTarget();
     await expect(page.locator('.ow-file-navigation').getByRole('button', { name: 'Second rich Note 열기', exact: true })).toBeEnabled();
@@ -586,15 +802,15 @@ for (const late of ['unchanged', 'input', 'composition', 'failed-save'] as const
 // its target. It does not claim to hold the child's readiness callback.
 test('same-product parent completion retires the actual old feedback input at native host replacement', async ({ page }) => {
   const state = await controlledMixedWorkspace(page, 'editor', { project: true, secondNote: true });
-  await (await projectFeedbackAction(page, '의견 0')).click();
-  const composer = page.getByRole('textbox', { name: '프로젝트 의견 입력', exact: true });
+  const panel = await openNoteTaskPanel(page);
+  const composer = panel.getByRole('textbox', { name: 'Note 수정 요청 입력', exact: true });
   await expect(composer).toHaveValue('Initial controlled project draft');
   const originalProject = structuredClone(state.projectRecord);
   const sourceText = state.originals.get(documentId)!.text, targetText = state.originals.get(state.secondNoteId)!.text;
   await page.evaluate(async module => {
     const { productDocumentHost } = await import(module), host = productDocumentHost();
     if (!host?.requestOpen) throw new Error('Expected actual native same-product opening');
-    const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="프로젝트 의견 입력"]');
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note 수정 요청 입력"]');
     if (!textarea || textarea.disabled) throw new Error('Expected owned editable source feedback');
     const original = host.requestOpen.bind(host);
     let release!: () => void;
