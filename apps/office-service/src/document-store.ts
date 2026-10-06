@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { copyNoteSnapshotFile, readNoteSnapshotFile } from '@barocss/office-note-file';
+import { copyNoteSnapshotFile, readNoteV1SnapshotFile as readNoteSnapshotFile } from '@barocss/office-note-file';
 import type { Pool, PoolClient } from 'pg';
 import { MembershipStore, type TenantRole, type VerifiedPrincipal } from './membership-store.js';
 

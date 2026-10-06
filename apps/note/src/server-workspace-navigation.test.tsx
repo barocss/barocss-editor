@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { captureProductNavigation, productDocumentHost } from '@barocss/shared';
-import { serializeNoteFile, readNoteSnapshotFile } from '@barocss/office-note/file';
+import { serializeNoteFile, readNoteV1SnapshotFile as readNoteSnapshotFile } from '@barocss/office-note/file';
 import type { NoteDocument } from '@barocss/office-note/file';
 import type { NoteSaveAttempt } from './server-documents';
 import { ServerNoteWorkspace } from './server-workspace';

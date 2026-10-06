@@ -1,3 +1,5 @@
+import { registrySha256 } from './registry-sha256.js';
+
 /** Untrusted declarative registry JSON. Never installs an engine schema or executable code. */
 export const REGISTRY_DIALECT = 'wonffice.note-fields.v1' as const;
 export const REGISTRY_DIGEST = 'wonffice.canonical-json.sha256.v1' as const;
@@ -31,6 +33,15 @@ function unicode(text: string) {
 }
 /** A bounded parser detects duplicate decoded keys before JSON.parse can discard them. */
 export function parseRegistryJson(text: string, byteLimit: number = REGISTRY_LIMITS.definitionBytes): unknown {
+  return parseBoundedJson(text, byteLimit, false);
+}
+
+export const NATIVE_JSON_LIMITS = { bytes: 524288, depth: 100, nodes: 65536 } as const;
+/** Native values permit finite fractions; declaration versions retain the original integer rules. */
+export function parseNativeJson(text: string): unknown {
+  return parseBoundedJson(text, NATIVE_JSON_LIMITS.bytes, true);
+}
+function parseBoundedJson(text: string, byteLimit: number, native: boolean): unknown {
   if (!Number.isSafeInteger(byteLimit) || byteLimit < 1 || byteLimit > 1048576 || typeof text !== 'string' || new TextEncoder().encode(text).length > byteLimit) fail('definition_too_large');
   let at = 0, nodes = 0;
   const space = () => { while (/[\x20\t\r\n]/.test(text[at] ?? '\0')) at++; };
@@ -47,7 +58,7 @@ export function parseRegistryJson(text: string, byteLimit: number = REGISTRY_LIM
     return fail();
   };
   const value = (depth: number): unknown => {
-    if (depth > REGISTRY_LIMITS.depth || ++nodes > 8192) fail('definition_too_complex');
+    if (depth > (native ? NATIVE_JSON_LIMITS.depth : REGISTRY_LIMITS.depth) || ++nodes > (native ? NATIVE_JSON_LIMITS.nodes : 8192)) fail('definition_too_complex');
     space(); const c = text[at];
     if (c === '"') return string();
     if (c === '{') {
@@ -74,7 +85,7 @@ export function parseRegistryJson(text: string, byteLimit: number = REGISTRY_LIM
     }
     const number = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(text.slice(at));
     if (!number) return fail(); at += number[0].length; const n = Number(number[0]);
-    if (!Number.isSafeInteger(n) || Object.is(n, -0)) fail('invalid_definition_number');
+    if ((!native && !Number.isSafeInteger(n)) || !Number.isFinite(n) || Number.isInteger(n) && !Number.isSafeInteger(n) || Object.is(n, -0)) fail('invalid_definition_number');
     return n;
   };
   const result = value(0); space(); if (at !== text.length) fail(); return result;
@@ -141,4 +152,110 @@ export function parseRegistryDefinition(text: string): { definition: RegistryDef
   if (required.size !== d.requiredCapabilities.length || d.requiredCapabilities.some(c => !required.has(c as string))) fail('unsupported_capability');
   const canonicalText = canonicalRegistryJson(d); freeze(d);
   return { definition: d as unknown as RegistryDefinition, canonicalText };
+}
+
+
+/** Clone only JSON data. Descriptor checks occur before value reads or JSON.stringify. */
+export function nativeJsonData(input: unknown): unknown {
+  const ancestors = new Set<object>();
+  let nodes = 0;
+  const copy = (value: unknown, depth: number): unknown => {
+    if (depth > NATIVE_JSON_LIMITS.depth || ++nodes > NATIVE_JSON_LIMITS.nodes) fail('native_too_complex');
+    if (value === null || typeof value === 'boolean') return value;
+    if (typeof value === 'string') { unicode(value); return value; }
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value) || Object.is(value, -0) || Number.isInteger(value) && !Number.isSafeInteger(value)) fail('invalid_native_number');
+      return value;
+    }
+    if (typeof value !== 'object') return fail('non_json_native_value');
+    if (ancestors.has(value)) fail('cyclic_native_value');
+    const array = Array.isArray(value), prototype = Object.getPrototypeOf(value);
+    if (prototype !== null && prototype !== (array ? Array.prototype : Object.prototype)) fail('non_json_native_value');
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    if (Object.getOwnPropertySymbols(value).length) fail('non_json_native_value');
+    for (const [key, descriptor] of Object.entries(descriptors)) {
+      if (array && key === 'length') continue;
+      if (!Object.hasOwn(descriptor, 'value') || !descriptor.enumerable) fail('non_json_native_value');
+    }
+    ancestors.add(value);
+    let result: unknown;
+    if (array) {
+      if (Object.keys(descriptors).length !== value.length + 1) fail('non_json_native_value');
+      const items: unknown[] = [];
+      for (let i = 0; i < value.length; i++) {
+        if (!Object.hasOwn(descriptors, String(i))) fail('non_json_native_value');
+        items.push(copy(descriptors[String(i)].value, depth + 1));
+      }
+      result = items;
+    } else {
+      const record: Record<string, unknown> = Object.create(null);
+      for (const [key, descriptor] of Object.entries(descriptors)) {
+        unicode(key); record[key] = copy(descriptor.value, depth + 1);
+      }
+      result = record;
+    }
+    ancestors.delete(value); return result;
+  };
+  const result = copy(input, 0);
+  if (new TextEncoder().encode(JSON.stringify(result)).length > NATIVE_JSON_LIMITS.bytes) fail('native_too_large');
+  return result;
+}
+
+export interface RegistryBundle {
+  bundleVersion: 1;
+  digestAlgorithm: typeof REGISTRY_DIGEST;
+  selected: readonly RegistryReference[];
+  definitions: readonly { reference: RegistryReference; definitionText: string }[];
+}
+/** Integrity and intrinsic scope only. This operation grants no remote authority. */
+export function validateRegistryBundle(value: unknown): {
+  bundle: RegistryBundle; selectedDefinitions: readonly RegistryDefinition[]; requiredCapabilities: readonly string[];
+} {
+  const b = object(value, ['bundleVersion', 'digestAlgorithm', 'selected', 'definitions']);
+  if (b.bundleVersion !== 1 || b.digestAlgorithm !== REGISTRY_DIGEST) fail('unsupported_schema_bundle');
+  if (!Array.isArray(b.selected) || !Array.isArray(b.definitions)) fail('invalid_schema_bundle');
+  if (!b.selected.length) fail('empty_schema_selection');
+  if (b.selected.length > REGISTRY_LIMITS.closure || b.definitions.length > REGISTRY_LIMITS.closure ||
+    new TextEncoder().encode(JSON.stringify(b)).length > REGISTRY_LIMITS.bundleBytes) fail('schema_bundle_too_large');
+  const key = (ref: RegistryReference) => `${ref.schemaId}:${ref.version}`;
+  const entries = new Map<string, { reference: RegistryReference; definition: RegistryDefinition; canonicalText: string }>();
+  let scope: RegistryDefinition['scope'] | undefined;
+  const capabilities = new Set<string>();
+  for (const item of b.definitions) {
+    const entry = object(item, ['reference', 'definitionText']);
+    const reference = registryReference(entry.reference);
+    if (entries.has(key(reference))) fail('duplicate_schema_definition');
+    if (typeof entry.definitionText !== 'string') fail('invalid_schema_bundle');
+    const parsed = parseRegistryDefinition(entry.definitionText), definition = parsed.definition;
+    if (definition.schemaId !== reference.schemaId || definition.version !== reference.version) fail('schema_reference_mismatch');
+    if (scope && (scope.tenantId !== definition.scope.tenantId || scope.workspaceId !== definition.scope.workspaceId)) fail('schema_scope_mismatch');
+    scope = definition.scope;
+    definition.requiredCapabilities.forEach(c => capabilities.add(c));
+    entries.set(key(reference), { reference, ...parsed });
+  }
+  const selected = b.selected.map(registryReference), selectedIds = new Set<string>();
+  for (const ref of selected) {
+    if (selectedIds.has(ref.schemaId)) fail('conflicting_schema_selection');
+    selectedIds.add(ref.schemaId);
+  }
+  const visited = new Set<string>(), active = new Set<string>();
+  const visit = (ref: RegistryReference): RegistryDefinition => {
+    const id = key(ref), entry = entries.get(id);
+    if (!entry) return fail('missing_schema_definition');
+    if (entry.reference.digest !== ref.digest) fail('schema_reference_mismatch');
+    if (active.has(id)) fail('dependency_cycle');
+    if (!visited.has(id)) {
+      active.add(id);
+      if (entry.definition.parent) visit(entry.definition.parent);
+      entry.definition.dependencies.forEach(visit);
+      active.delete(id); visited.add(id);
+    }
+    return entry.definition;
+  };
+  const selectedDefinitions = selected.map(visit);
+  if (visited.size !== entries.size) fail('unreferenced_schema_definition');
+  for (const entry of entries.values()) {
+    if (registrySha256(entry.canonicalText) !== entry.reference.digest) fail('schema_digest_mismatch');
+  }
+  return { bundle: b as unknown as RegistryBundle, selectedDefinitions, requiredCapabilities: [...capabilities] };
 }

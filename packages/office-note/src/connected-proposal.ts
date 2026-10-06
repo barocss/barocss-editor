@@ -1,7 +1,7 @@
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { FragmentEditor } from '@barocss/model';
 import type { NoteParagraphTarget, ProductRevisionProposal, ProductRevisionPreview } from '@barocss/shared';
-import { readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from './note-file-codec';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from './note-file-codec';
 
 export interface NoteParagraphCapture {
   readonly target: NoteParagraphTarget;

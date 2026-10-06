@@ -4,7 +4,7 @@ import { matchesConfirmedNoteNative } from './confirmed-native';
 import { flushSync } from 'react-dom';
 import { captureProductNavigation, productDocumentHost, registerProductDocumentHost, registerProductFeedbackHost, isNativeHostSlotActive, type NativeHostSlot, type ProductDocumentHost, type ProductFeedbackHost, type ProductFeedbackTarget, type ProductNavigationGuard } from '@barocss/shared';
 import { NoteEditor, type NoteInputDelivery } from '@barocss/office-note/view';
-import { readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
 import { captureNoteParagraph, noteTreeOf, openNoteTree, type NoteDocument, type NoteSession, type NoteParagraphCapture } from '@barocss/office-note';
 import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, DocumentMenu, EditorHeader, Icon, StatusIndicator, StatusNotice, CommandSearchTrigger, useOfficeLocale } from '@barocss/office-ui';
 import { useNoteCommandSearch } from './use-note-command-search';

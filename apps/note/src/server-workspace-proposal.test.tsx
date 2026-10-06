@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { productFeedbackHost } from '@barocss/shared';
-import { readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from '@barocss/office-note/file';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from '@barocss/office-note/file';
 import { ServerNoteWorkspace } from './server-workspace';
 import { ServerNoteError, type NoteSaveAttempt } from './server-documents';
 
