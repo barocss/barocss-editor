@@ -1,6 +1,6 @@
 import { DocumentSession, type DocumentSessionOptions } from './document-session';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertProductDocumentOpen, isProductDocumentTrashed, ProductDocumentTrashedError, captureProductNavigation, prepareProductNavigation, prepareProductAccountExit, registerProductDocumentHost, createNativeHostSlot, disposeNativeHostSlot, isNativeHostSlotActive, productDocumentHost, promoteProductNavigation, captureProductReplacementPreparation, registerProductReplacementPreparation, type ProductNavigationGuard } from './product-host';
+import { assertProductDocumentOpen, isProductDocumentTrashed, ProductDocumentTrashedError, captureProductNavigation, prepareProductNavigation, prepareProductAccountExit, registerProductDocumentHost, createNativeHostSlot, disposeNativeHostSlot, isNativeHostSlotActive, productDocumentHost, promoteProductNavigation, captureProductReplacementPreparation, registerProductReplacementPreparation, type ProductNavigationGuard, type ProductDocumentHost } from './product-host';
 
 const catalog = vi.hoisted(() => ({ read: vi.fn() }));
 vi.mock('../document-library/document-library', async importOriginal => ({ ...await importOriginal<typeof import('../document-library/document-library')>(), documentLibrary: () => catalog }));
@@ -578,5 +578,59 @@ describe('account exit preparation', () => {
     const next = registerProductDocumentHost({ product: 'word', id: () => 'source', beforeNavigate: async () => true, beforeAccountExit: async () => true });
     try { release(true); expect(await pending).toBe(false); expect(await prepareProductAccountExit()).toBe(true); }
     finally { next(); detach(); }
+  });
+});
+
+
+describe('explicit current Word snapshot ownership', () => {
+  it('captures the method and receiver without preparing replacement or account exit', async () => {
+    const beforeNavigate = vi.fn(async () => false), beforeAccountExit = vi.fn(async () => false);
+    const replacement = vi.fn(async () => false);
+    const detach = registerProductReplacementPreparation(() => ({ prepare: replacement, isPrepared: () => false }));
+    const host: ProductDocumentHost = { product: 'word', id: () => 'one', beforeNavigate, beforeAccountExit,
+      async saveCurrentSnapshot(owns) { expect(this).toBe(host); return owns(); } };
+    const original = vi.spyOn(host, 'saveCurrentSnapshot'), close = registerProductDocumentHost(host);
+    const guard = captureProductNavigation()!;
+    host.saveCurrentSnapshot = vi.fn(async () => false);
+    try {
+      expect(await guard.saveCurrentSnapshot!()).toBe(true);
+      expect(original).toHaveBeenCalledTimes(1); expect(host.saveCurrentSnapshot).not.toHaveBeenCalled();
+      expect(beforeNavigate).not.toHaveBeenCalled(); expect(beforeAccountExit).not.toHaveBeenCalled(); expect(replacement).not.toHaveBeenCalled();
+      expect(await guard.prepare()).toBe(false); expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    } finally { close(); detach(); }
+  });
+  it.each(['note', 'slides', 'site'] as const)('keeps %s capability unavailable even when a host advertises it', product => {
+    const close = registerProductDocumentHost({ product, id: () => 'one', beforeNavigate: async () => true, saveCurrentSnapshot: async () => true });
+    try { expect(captureProductNavigation()!.saveCurrentSnapshot).toBeUndefined(); } finally { close(); }
+  });
+  it('leaves an older Word host on its existing preparation path', async () => {
+    const beforeNavigate = vi.fn(async () => true), close = registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate });
+    try { const guard = captureProductNavigation()!; expect(guard.saveCurrentSnapshot).toBeUndefined(); expect(await guard.prepare()).toBe(true); }
+    finally { close(); }
+  });
+  it.each(['registration ABA', 'document ABA', 'caller retired', 'slot disposed'])('refuses %s during a held save and a later retry from the retired capture', async reason => {
+    let epoch = 0, allowed = true, release!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const save = vi.fn(async (owns: () => boolean) => { await waiting; return owns(); });
+    const host: ProductDocumentHost = { product: 'word', id: () => 'one', identityEpoch: () => epoch, beforeNavigate: async () => true, saveCurrentSnapshot: save };
+    const slot = reason === 'slot disposed' ? createNativeHostSlot() : undefined;
+    const close = registerProductDocumentHost(host, slot), guard = captureProductNavigation(slot)!;
+    const pending = guard.saveCurrentSnapshot!(() => allowed);
+    let newer = () => {};
+    if (reason === 'registration ABA') newer = registerProductDocumentHost(host);
+    if (reason === 'document ABA') epoch += 2;
+    if (reason === 'caller retired') allowed = false;
+    if (slot) disposeNativeHostSlot(slot);
+    release();
+    try { expect(await pending).toBe(false); expect(await guard.saveCurrentSnapshot!(() => allowed)).toBe(false); expect(save).toHaveBeenCalledTimes(1); }
+    finally { close(); newer(); }
+  });
+  it('does not invoke an already denied caller and preserves an actual save refusal', async () => {
+    const save = vi.fn(async () => false), close = registerProductDocumentHost({ product: 'word', id: () => 'one', beforeNavigate: async () => true, saveCurrentSnapshot: save });
+    try {
+      const guard = captureProductNavigation()!;
+      expect(await guard.saveCurrentSnapshot!(() => false)).toBe(false); expect(save).not.toHaveBeenCalled();
+      expect(await guard.saveCurrentSnapshot!()).toBe(false); expect(save).toHaveBeenCalledTimes(1);
+    } finally { close(); }
   });
 });

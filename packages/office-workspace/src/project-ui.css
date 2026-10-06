@@ -2,3 +2,18 @@
 .ow-connected-work{margin-top:12px;padding-top:12px;border-top:1px solid var(--ou-line);font-size:13px}.ow-connected-work>p{white-space:pre-wrap;overflow-wrap:anywhere}.ow-connected-work h3{font-size:12px;margin:12px 0 4px}.ow-connected-work details{margin:8px 0}.ow-connected-work code{overflow-wrap:anywhere;font-size:11px}.ow-connected-work button{margin:4px 6px 4px 0}
 
 .ow-feedback-panel>header{position:sticky;top:-16px;z-index:1;background:var(--ou-panel);padding:12px 0;margin-top:-12px;border-bottom:1px solid var(--ou-line)}.ow-feedback-excerpt-link{color:var(--ou-accent)}
+
+.ow-note-tasks{margin:24px 0 32px;border:1px solid var(--ou-line);border-radius:var(--ou-radius);background:var(--ou-panel)}
+.ow-note-tasks>header{padding:20px 24px;border-bottom:1px solid var(--ou-line)}
+.ow-note-tasks h2{font-size:18px;margin:0 0 6px}.ow-note-tasks p{color:var(--ou-muted);margin:8px 0}
+.ow-note-task-layout{display:grid;grid-template-columns:minmax(240px,1fr) minmax(320px,1.5fr)}
+.ow-note-task-list{padding:12px;border-right:1px solid var(--ou-line);display:flex;flex-direction:column;gap:4px}
+.ow-note-task-list>button{height:auto;min-height:56px;justify-content:flex-start;text-align:left;white-space:normal}
+.ow-note-task-list small{display:block;font-size:12px;color:var(--ou-muted);margin-top:4px}
+.ow-note-task-list details{padding:12px}.ow-note-task-list details button{margin:4px}
+.ow-note-task-detail{padding:24px}.ow-note-task-detail h3{margin:0;font-size:16px;font-weight:600;white-space:pre-wrap}
+.ow-note-task-detail blockquote{margin:16px 0;padding:12px 16px;background:var(--ou-subtle);border-left:2px solid var(--ou-accent);white-space:pre-wrap}
+.ow-feedback-panel.ow-note-task-panel{width:420px;top:64px;bottom:16px;padding:20px;border-radius:var(--ou-radius)}
+.ow-note-task-intro{padding:16px 0;border-bottom:1px solid var(--ou-line);margin-bottom:16px}
+.ow-note-task-intro p{font-size:13px;color:var(--ou-muted);white-space:normal;line-height:1.6}
+.ow-note-task-panel .ow-feedback-composer textarea{min-height:120px}.ow-note-task-panel .ow-connected-work h3{font-size:13px}

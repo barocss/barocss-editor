@@ -1,3 +1,4 @@
+import { nativeEditor, nativeFrame } from './helpers/native-editor';
 import { projectFeedbackAction } from './project-feedback-menu.helpers';
 import { expect, test, type Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
@@ -25,14 +26,15 @@ async function newResult(page: Page, name: string, product: string) {
   await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
 }
 async function project(page: Page) {
-  const navigation = page.getByRole('navigation', { name: 'Wonffice 작업 공간', exact: true });
+  const navigation = nativeEditor(page).getByRole('navigation', { name: 'Wonffice 작업 공간', exact: true });
   await navigation.locator('[data-menu="workspace"]').click();
-  await page.getByRole('menuitem', { name: '프로젝트로 돌아가기', exact: true }).click();
+  await nativeEditor(page).getByRole('menuitem', { name: '프로젝트로 돌아가기', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Windows 베타 공개', exact: true })).toBeVisible();
 }
 test('real project goal, four existing original editors, final input, source revisions and reload', async ({ page }) => {
   await createProject(page);
-  const projectURL = page.url();
+  // Explicit project return retains this exact workspace/project and projects view.
+  const projectURL = new URL(page.url()); projectURL.searchParams.set('view', 'projects');
   await newResult(page, '고객 설치 안내', 'Word');
   await newResult(page, '팀 교육자료', 'Slides');
   await newResult(page, '검토 메모', 'Note');
@@ -44,13 +46,13 @@ test('real project goal, four existing original editors, final input, source rev
   }, workspaceModule);
   for (const name of ['고객 설치 안내', '팀 교육자료', '검토 메모', '공개 페이지 초안']) {
     await page.getByRole('button', { name, exact: true }).click();
-    await expect(page.getByRole('navigation', { name: 'Wonffice 작업 공간' })).toBeVisible();
+    await expect(nativeEditor(page).getByRole('navigation', { name: 'Wonffice 작업 공간' })).toBeVisible();
     if (name === '고객 설치 안내') {
-      const edit = (await projectFeedbackAction(page, '직접 편집'));
+      const edit = (await projectFeedbackAction(await nativeFrame(page), '직접 편집'));
       await expect(edit).toBeVisible(); await edit.click();
-      await page.locator('.w-paragraph').last().click();
+      await nativeEditor(page).locator('.w-paragraph').last().click();
       await page.keyboard.press('End'); await page.keyboard.insertText(' 실제 마지막 입력');
-      await expect(page.locator('.w-paragraph').last()).toContainText('실제 마지막 입력');
+      await expect(nativeEditor(page).locator('.w-paragraph').last()).toContainText('실제 마지막 입력');
     }
     await project(page);
   }
@@ -64,7 +66,7 @@ test('real project goal, four existing original editors, final input, source rev
   }, workspaceModule);
   expect(after.docs.sort((a,b) => a.id.localeCompare(b.id))).toEqual(before.sort((a,b) => a.id.localeCompare(b.id)));
   expect(after.guide).toContain('실제 마지막 입력');
-  expect(page.url()).toBe(projectURL);
+  expect(page.url()).toBe(projectURL.href);
   await page.screenshot({ path: test.info().outputPath('project-goal-results.png'), fullPage: true });
 });
 
@@ -86,8 +88,8 @@ test('project source evidence retains exact bytes after human changes and metada
   }, workspaceModule);
   expect(captured.exact).toBe(true); expect(captured.refused).toBe(true); expect(captured.goal).toBe('중간 사용자 변경');
   await page.getByRole('button', { name: '고객 설치 안내', exact: true }).click();
-  const edit = (await projectFeedbackAction(page, '직접 편집')); await expect(edit).toBeVisible(); await edit.click();
-  await page.locator('.w-paragraph').last().click(); await page.keyboard.press('End'); await page.keyboard.insertText(' 사람의 후속 변경'); await project(page);
+  const edit = (await projectFeedbackAction(await nativeFrame(page), '직접 편집')); await expect(edit).toBeVisible(); await edit.click();
+  await nativeEditor(page).locator('.w-paragraph').last().click(); await page.keyboard.press('End'); await page.keyboard.insertText(' 사람의 후속 변경'); await project(page);
   await page.locator('.ow-project-result').filter({ hasText: '팀 교육자료' }).getByText('요청과 참고 자료', { exact: true }).click();
   await page.getByRole('button', { name: `고객 설치 안내 · 버전 ${captured.pin.revision}`, exact: true }).click();
   const evidence = page.getByRole('dialog', { name: '사용한 원본 버전' });
@@ -123,7 +125,7 @@ test('fresh profile backup restore retains retrievable historical bytes without 
     }, { workspaceModule, backup: saved.backup, oldId: saved.pin.document.id });
     expect(restored.missingOldSource).toBe(true);
     expect(restored.project.record.results.find(one => one.name === '팀 교육자료')!.inputs[0]).toEqual(saved.pin);
-    await fresh.reload(); await fresh.getByRole('button', { name: /Windows 베타 공개/ }).click();
+    await fresh.reload(); await fresh.getByRole('button', { name: 'Windows 베타 공개 프로젝트 열기', exact: true }).click();
     await fresh.locator('.ow-project-result').filter({ hasText: '팀 교육자료' }).getByText('요청과 참고 자료', { exact: true }).click();
     await fresh.getByRole('button', { name: `고객 설치 안내 · 버전 ${saved.pin.revision}`, exact: true }).click();
     const evidence = fresh.getByRole('dialog', { name: '사용한 원본 버전' });

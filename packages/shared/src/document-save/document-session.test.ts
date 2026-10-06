@@ -4,7 +4,7 @@ import { randomUUID, webcrypto } from 'node:crypto';
 import { LibraryRevisionConflict } from '../document-library/document-library';
 import { DocumentSession, type DocumentSessionOptions } from './document-session';
 import { registerDocumentLocation } from './document-location';
-import { registerProductReplacementPreparation } from './product-host';
+import { captureProductNavigation, registerProductReplacementPreparation } from './product-host';
 import { createWordEditor } from '../../../office-word/src/word-kit';
 import { createSampleDocument } from '../../../office-word/src/sample-document';
 
@@ -41,8 +41,8 @@ describe('local document session', () => {
   });
   afterEach(() => { running.splice(0).forEach(session => session.stop()); owned.splice(0).reverse().forEach(dispose => dispose()); vi.useRealTimers(); vi.unstubAllGlobals(); });
   const start = async () => { const one = setup(); running.push(one.session); await one.session.start(); await one.session.flush(); return one; };
-  const native = async () => {
-    const one = setup(), editor = createWordEditor(); editor.loadDocument(createSampleDocument());
+  const native = async (key = 'test') => {
+    const one = setup(), editor = createWordEditor(); one.options.key = key; editor.loadDocument(createSampleDocument());
     owned.push(() => editor.destroy());
     one.options.snapshot = () => ({ text: JSON.stringify({ format: 'barocss-word', version: 1, document: editor.exportDocument() }), title: 'Native Word', count: 1 });
     one.options.replace = text => editor.loadDocument(JSON.parse(text).document);
@@ -74,6 +74,88 @@ describe('local document session', () => {
     const remove = register(); owned.push(remove);
     return { edit: (value: string) => { body = value; }, compose: () => { composing = true; }, saved: () => saved, register, remove };
   };
+
+
+  it('saves the real current Word tree while newer feedback composition still blocks replacement', async () => {
+    const one = await native('word'), draft = feedback(); draft.compose();
+    const guard = captureProductNavigation()!, before = structuredClone(one.editor.exportDocument());
+    expect(await one.editor.run('insertText', { text: 'Submitted native change ' })).toBe(true);
+    const tree = structuredClone(one.editor.exportDocument()), stats = one.editor.getHistoryStats();
+    const writes = one.store.keep.mock.calls.length;
+    expect(await guard.saveCurrentSnapshot!()).toBe(true);
+    expect(one.store.keep).toHaveBeenCalledTimes(writes + 1);
+    expect(JSON.parse(one.records.get(one.original)!.text).document).toEqual(tree);
+    expect(one.editor.getHistoryStats()).toEqual(stats); expect(tree).not.toEqual(before);
+    expect(one.session.id).toBe(one.original); expect(draft.saved()).toBeUndefined();
+    expect(await guard.prepare()).toBe(false); expect(await one.session.open('target')).toBe(false);
+    expect(one.store.read).not.toHaveBeenCalled(); expect(one.editor.exportDocument()).toEqual(tree);
+    expect(one.editor.getHistoryStats()).toEqual(stats);
+  });
+  it('settles actual nested Word input before capturing the explicit current write', async () => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    one.options.beforeSnapshot = async () => { expect(await one.editor.run('insertText', { text: 'Nested input ' })).toBe(true); };
+    one.session.input();
+    expect(await guard.saveCurrentSnapshot!()).toBe(true);
+    expect(JSON.parse(one.records.get(one.original)!.text).document).toEqual(one.editor.exportDocument());
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
+  });
+  it.each(['stop', 'replacement ABA', 'caller retired'])('does not capture or publish after %s while nested input is held', async reason => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    let release!: () => void, entered = false, allowed = true;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    one.options.beforeSnapshot = async () => { entered = true; await pending; };
+    one.session.input(); const writes = one.store.keep.mock.calls.length;
+    const saving = guard.saveCurrentSnapshot!(() => allowed); await vi.waitFor(() => expect(entered).toBe(true));
+    if (reason === 'stop') one.session.stop();
+    if (reason === 'replacement ABA') { one.editor.loadDocument(createSampleDocument()); one.session.id = one.original; }
+    if (reason === 'caller retired') allowed = false;
+    release(); expect(await saving).toBe(false);
+    if (reason !== 'replacement ABA') expect(one.store.keep).toHaveBeenCalledTimes(writes);
+    expect(one.records.get(one.original)?.text).not.toBe('new native lifetime');
+  });
+  it('keeps a newer native edit pending when the earlier immutable write finishes', async () => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    expect(await one.editor.run('insertText', { text: 'Earlier submitted edit ' })).toBe(true);
+    const earlier = one.options.snapshot().text;
+    const keep = one.store.keep.getMockImplementation()!; let release!: () => void, entered = false;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    one.store.keep.mockImplementationOnce(async (...args) => { entered = true; await pending; return keep(...args); });
+    const saving = guard.saveCurrentSnapshot!(); await vi.waitFor(() => expect(entered).toBe(true));
+    expect(await one.editor.run('insertText', { text: 'Later native input ' })).toBe(true);
+    const later = one.options.snapshot().text; release(); expect(await saving).toBe(false);
+    expect(one.records.get(one.original)?.text).toBe(earlier); expect(one.options.snapshot().text).toBe(later);
+    expect(await guard.saveCurrentSnapshot!()).toBe(true); expect(one.records.get(one.original)?.text).toBe(later);
+  });
+  it.each(['storage error', 'revision conflict'])('does not confirm the original after %s and preserves the native tree/history', async reason => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    const saved = structuredClone(one.records.get(one.original));
+    expect(await one.editor.run('insertText', { text: 'Preserve submitted edit ' })).toBe(true);
+    const tree = structuredClone(one.editor.exportDocument()), stats = one.editor.getHistoryStats();
+    one.store.keep.mockRejectedValueOnce(reason === 'storage error' ? new Error('storage unavailable') : new LibraryRevisionConflict(saved!.row.revision, saved));
+    expect(await guard.saveCurrentSnapshot!()).toBe(false); expect(one.records.get(one.original)).toEqual(saved);
+    expect(one.editor.exportDocument()).toEqual(tree); expect(one.editor.getHistoryStats()).toEqual(stats);
+    expect(one.notify).toHaveBeenLastCalledWith(reason === 'storage error' ? 'save-error' : 'conflict');
+    if (reason === 'revision conflict') {
+      expect(await guard.saveCurrentSnapshot!()).toBe(false);
+      const drafts = [...one.records].filter(([name]) => name !== one.original && name !== 'target');
+      expect(drafts).toHaveLength(1); expect(drafts[0][1].row.metadata.originalId).toBe(one.original);
+      expect(JSON.parse(drafts[0][1].text).document).toEqual(tree);
+    } else { expect(await guard.saveCurrentSnapshot!()).toBe(true); expect(JSON.parse(one.records.get(one.original)!.text).document).toEqual(tree); }
+  });
+  it('refuses a quarantined Word original without flushing its partial native replacement', async () => {
+    const one = await native('word');
+    one.options.replace = () => { throw new Error('native load failed'); };
+    await expect(one.session.open('target')).rejects.toThrow('native load failed');
+    const guard = captureProductNavigation()!, writes = one.store.keep.mock.calls.length;
+    one.options.beforeSnapshot = vi.fn(async () => {});
+    expect(await guard.saveCurrentSnapshot!()).toBe(false);
+    expect(one.options.beforeSnapshot).not.toHaveBeenCalled(); expect(one.store.keep).toHaveBeenCalledTimes(writes);
+    expect(one.session.recoveryRequired).toBe(true);
+  });
+  it('does not add explicit current save capability to the local Note host', async () => {
+    const one = setup(); one.options.key = 'note'; running.push(one.session); await one.session.start();
+    expect(captureProductNavigation()!.saveCurrentSnapshot).toBeUndefined();
+  });
 
   it('awaits actual feedback persistence before native preparation or target reading, without adding it to autosave', async () => {
     const one = await native(); let release!: () => void, entered = false;

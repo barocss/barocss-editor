@@ -112,7 +112,13 @@ export function useNoteCommandSearch({ captureHost }: {
       else if (entry.view === 'find' || entry.view === 'outline') { finish(target.openNavigation(entry.view)); }
     };
   };
-  return { registerCommandTarget, openSearch, dialog: <>
+  const captureTarget = () => {
+    const target = activeTarget.current;
+    if (!target || !targets.current.has(target) || !target.isCurrent()) return undefined;
+    const capture = target.capture();
+    return capture ? { target, capture } : undefined;
+  };
+  return { registerCommandTarget, captureTarget, openSearch, dialog: <>
     <CommandSearch open={open} onOpenChange={setOpen} commands={noteSearchCommands(intent.current?.target ?? activeTarget.current, t).map(entry => open && !intent.current?.current() ?
       { ...entry, disabled: true, disabledReason: t('note.commandSearch.reopen') } : entry)}
       recentIds={recent} onPick={() => undefined} onPickIntent={capturePick} />

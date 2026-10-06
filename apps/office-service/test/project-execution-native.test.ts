@@ -64,3 +64,53 @@ describe('the bounded native execution target', () => {
     expect(() => captureExecutionTarget(encode(doc), target)).toThrow();
   });
 });
+
+// Actual native Note bytes; independently authored whole-document delta.
+const noteTarget = { kind: 'note-paragraph' as const, id: '11111111-1111-4111-8111-111111111111', quote: 'Original paragraph',
+  selector: { version: 1 as const, pageId: '22222222-2222-4222-8222-222222222222', paragraphIndex: 1 } };
+interface NoteFixtureBlock {
+  stype: string;
+  attributes?: Record<string, unknown>;
+  content: Array<{ stype: string; text: string; marks?: Array<{ stype: string; range: number[] }>;
+    metadata?: Record<string, unknown> }>;
+}
+const noteFixture = (explicitMarks = false): { stype: string; attributes: Record<string, unknown>; content: NoteFixtureBlock[] } => ({ stype: 'note', attributes: { title: 'Fictional task', pageId: noteTarget.selector.pageId }, content: [
+  { stype: 'paragraph', content: [{ stype: 'inline-text', text: noteTarget.quote }] },
+  { stype: 'paragraph', attributes: { custom: 'preserved' }, content: [{ stype: 'inline-text', text: noteTarget.quote,
+    ...(explicitMarks ? { marks: [] } : {}), metadata: { loadedAt: 17, custom: 'retained' } }] },
+  { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Unrelated rich sibling', marks: [{ stype: 'bold', range: [0, 9] }] }] },
+  { stype: 'resources', content: [] }
+] });
+const noteEncode = (document: unknown) => `${JSON.stringify({ format: 'barocss-note', version: 1, document }, null, 2)}\n`;
+describe('Note task exact pinned coordinate', () => {
+  it.each([false, true])('captures and changes only the pinned paragraph, preserving authored marks shape (%s)', explicit => {
+    const original = noteFixture(explicit), bytes = noteEncode(original), expected = structuredClone(original);
+    expected.content[1].content[0].text = 'Reviewed paragraph';
+    expect(captureExecutionTarget(bytes, noteTarget)).toEqual({ nodeId: noteTarget.id, text: noteTarget.quote, from: 0, to: noteTarget.quote.length, path: [1, 0] });
+    const actual = expectedExecutionSnapshot(bytes, noteTarget, 'Reviewed paragraph');
+    expect(JSON.parse(actual)).toEqual(JSON.parse(noteEncode(expected)));
+    expect(noteEncode(original)).toBe(bytes);
+    expect(Object.hasOwn(JSON.parse(actual).document.content[1].content[0], 'marks')).toBe(explicit);
+  });
+  it.each(['page', 'quote', 'index', 'runtime', 'nested', 'heading', 'multirun', 'marked', 'locked', 'normalization', 'unknown-root'])(
+    'refuses %s instead of guessing equal text or pruning source', change => {
+      const doc = noteFixture(), target = structuredClone(noteTarget);
+      if (change === 'page') target.selector.pageId = '33333333-3333-4333-8333-333333333333';
+      if (change === 'quote') target.quote = 'Other';
+      if (change === 'index') target.selector.paragraphIndex = 999;
+      if (change === 'runtime') Object.assign(doc.content[1], { sid: 'runtime-only' });
+      if (change === 'nested') Object.assign(doc.content[1], { stype: 'blockquote', content: [structuredClone(doc.content[1])] });
+      if (change === 'heading') doc.content[1].stype = 'heading';
+      if (change === 'multirun') doc.content[1].content.push({ stype: 'inline-text', text: 'Other' });
+      if (change === 'marked') Object.assign(doc.content[1].content[0], { marks: [{ stype: 'bold', range: [0, 4] }] });
+      if (change === 'locked') Object.assign(doc.content[1].attributes!, { locked: true });
+      if (change === 'normalization') doc.content[1].content[0].text = 'First\nSecond';
+      if (change === 'unknown-root') Object.assign(doc, { unknownRootField: 'must not disappear' });
+      const bytes = noteEncode(doc);
+      expect(() => captureExecutionTarget(bytes, target)).toThrow();
+      expect(noteEncode(doc)).toBe(bytes);
+    });
+  it.each(['Original paragraph', 'First\nSecond', 'First\rSecond', 'A\u0000B'])('refuses no-op or non-paragraph proposal %j before acceptance', replacement => {
+    expect(() => expectedExecutionSnapshot(noteEncode(noteFixture()), noteTarget, replacement)).toThrow();
+  });
+});

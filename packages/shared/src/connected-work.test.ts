@@ -57,3 +57,21 @@ describe('connected project work', () => {
     expect(() => createProjectComment(project, input)).toThrow('Archived');
   });
 });
+
+it('retains the complete Note capture descriptor and exact pin through request and JSON reload', () => {
+  const notePin: Pin = { ...pin, document: { product: 'note', id: 'note-original' } };
+  const project = createProjectRecord('Note task', 'A deliberate revision');
+  project.results.push({ id: 'note-result', name: 'Original', document: notePin.document, inputs: [notePin] });
+  const target = { kind: 'note-paragraph' as const, id: '11111111-1111-4111-8111-111111111111', quote: 'Selected',
+    selector: { version: 1 as const, pageId: 'note-page', paragraphIndex: 2 } };
+  const added = createProjectComment(project, { ...input, resultId: 'note-result', pin: notePin, target });
+  const requested = requestProjectWork(added, added.comments[0].id, 'Clarify the selected paragraph');
+  expect(readProjectRecord(JSON.parse(JSON.stringify(requested)))).toEqual(requested);
+  expect(requested.comments[0].target).toEqual(target); expect(requested.works[0].inputs).toEqual([notePin]);
+  for (const mutate of [(value: typeof target) => { value.selector.paragraphIndex = -1; },
+    (value: typeof target) => { Object.assign(value.selector, { sid: 'runtime-only' }); },
+    (value: typeof target) => { Reflect.deleteProperty(value, 'selector'); }]) {
+    const corrupt = structuredClone(requested); mutate(corrupt.comments[0].target as typeof target);
+    expect(() => readProjectRecord(corrupt)).toThrow();
+  }
+});

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, DocumentMenu, Icon, IconButton, StatusNotice, useOfficeLocale } from '@barocss/office-ui';
-import { createProjectComment, requestProjectWork, productDocumentHost, productFeedbackHost, prepareProductNavigation,
+import { createProjectComment, requestProjectWork, productDocumentHost, productFeedbackHost, prepareProductNavigation, captureProductNavigation,
   type ProductFeedbackTarget, type ProductFeedbackHost, type Pin, type ProjectComment } from '@barocss/shared';
 import type { Product } from './products';
 import { type ProjectRepository, type ProjectSnapshot, type WordFeedbackRecovery, PinnedSource } from './project-ui';
@@ -19,15 +19,17 @@ interface InputPreparation {
 }
 
 
-export function ProjectFeedback({ repository, projectId, document: address, beforeLeave, actor }: {
+export function ProjectFeedback({ repository, projectId, document: address, beforeLeave, actor, presentation = 'feedback' }: {
+  presentation?: 'feedback' | 'task';
   repository: ProjectRepository; projectId: string; document: { product: Product; id: string };
   beforeLeave?: { current?: FeedbackBeforeLeave }; actor?: { kind: 'local' | 'human'; id: string; label: string }
 }) {
   const { t } = useOfficeLocale();
+  const noteTask = presentation === 'task' && address.product === 'note';
   const inputElement = useRef<HTMLTextAreaElement>(null);
   const menuAnchor = useRef<HTMLSpanElement>(null);
-  const restoreMenuFocus = () => menuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
-  const [snapshot, setSnapshot] = useState<ProjectSnapshot | null>(null), [open, setOpen] = useState(false), [error, setError] = useState('');
+  const restoreMenuFocus = () => menuAnchor.current?.querySelector<HTMLElement>(noteTask ? 'button' : '[role="menuitem"]')?.focus({ preventScroll: true });
+  const [snapshot, setSnapshot] = useState<ProjectSnapshot | null>(null), [open, setOpen] = useState(noteTask), [error, setError] = useState('');
   const [draft, setDraft] = useState(''), [target, setTarget] = useState<ProductFeedbackTarget>(), [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(new URLSearchParams(location.search).get('mode') === 'read');
   const [viewing, setViewing] = useState<string>();
@@ -203,7 +205,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     if (prepared && (prepared.host !== host || prepared.generation !== generation || !owns())) throw new Error('문서 또는 선택 영역이 바뀌었습니다. 대상 영역을 다시 선택하세요.');
     const captured = host ? prepared ? prepared.target : host.capture() : { kind: 'document' as const, id: address.id, quote: '' };
     if (!captured) throw new Error('이 선택 영역은 아직 의견 연결을 지원하지 않습니다. 한 문단의 텍스트를 선택하세요.');
-    if (!await prepareProductNavigation() || !owns()) throw new Error('마지막 입력을 저장하지 못했습니다.');
+    if (!noteTask && !await prepareProductNavigation() || !owns()) throw new Error('마지막 입력을 저장하지 못했습니다.');
     await refresh();
     if (host && (host !== productFeedbackHost() || !host.ownsCapture?.(captured))) throw new Error('선택 영역이 바뀌었습니다. 의견 초안은 유지합니다. 대상 영역을 다시 선택하세요.');
     const capturedSource = await repository.pin(address);
@@ -217,6 +219,7 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
     const ready = await repository.read(projectId);
     if (!owns() || !ready || ready.record.archived || !ready.record.results.some(one => one.id === result.id && one.document.product === address.product && one.document.id === address.id)) throw new Error('프로젝트 또는 결과물 연결이 바뀌었습니다. 의견 초안은 유지합니다.');
     const native = productFeedbackHost();
+    const currentSave = target.kind === 'word-comment' ? captureProductNavigation() : undefined;
     const durable = target.kind === 'word-comment' ? repository.feedbackRecovery : undefined;
     if (durable) { await durable.begin(projectId, { documentId: address.id, resultId: result.id, target, body: submittedBody, requestWork: request }); requireOwn(); }
     if (target.kind === 'word-comment') {
@@ -228,7 +231,15 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
         await durable.nativeSnapshot(projectId, address.id, fingerprint); requireOwn();
       }
     }
-    if (!await prepareProductNavigation() || !owns()) throw new Error('원본 댓글을 저장하지 못했습니다. 입력한 의견을 유지합니다.');
+    if (target.kind === 'note-paragraph' && (!native || native.product !== 'note' || native.id() !== address.id || !native.ownsCapture?.(target))) throw new Error(t('workspace.task.captureRetired'));
+    if (target.kind !== 'note-paragraph') {
+      const nativeCurrent = () => owns() && !!native && native === productFeedbackHost() &&
+        native.product === address.product && native.id() === address.id && native.editable();
+      const saved = currentSave?.saveCurrentSnapshot
+        ? currentSave.product === 'word' && currentSave.id === address.id && await currentSave.saveCurrentSnapshot(nativeCurrent)
+        : await prepareProductNavigation();
+      if (!saved || !owns()) throw new Error('원본 댓글을 저장하지 못했습니다. 입력한 의견을 유지합니다.');
+    } else requireOwn();
     const pin = pendingComment.current?.pin ?? (target.kind === 'word-comment' ? await repository.pin(address) : capturedPin.current);
     requireOwn(); if (!pin) throw new Error('의견의 원본 버전을 다시 확인하세요.');
     if (durable) {
@@ -303,7 +314,8 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
   };
   const comments = snapshot?.record.comments.filter(one => one.resultId === result?.id) ?? [];
   return <>
-    {result && <span ref={menuAnchor} className="ow-project-feedback-controls" onPointerDownCapture={event => {
+    {result && noteTask && <span ref={menuAnchor}><IconButton label={t('workspace.task.open')} pressed={open} onClick={() => setOpen(value => !value)}><Icon name="comments" /></IconButton></span>}
+    {result && !noteTask && <span ref={menuAnchor} className="ow-project-feedback-controls" onPointerDownCapture={event => {
       const trigger = (event.target as HTMLElement).closest('[data-menu="document"]');
       if (event.button === 0 && trigger?.getAttribute('aria-expanded') === 'false') captureMenuSelection();
     }} onKeyDownCapture={event => {
@@ -329,23 +341,26 @@ export function ProjectFeedback({ repository, projectId, document: address, befo
       });
     }} /></span>}
     {error && !open && <span role="alert">{error}</span>}
-    {open && <aside className="ow-feedback-panel" aria-label="프로젝트 의견"><header><h2>프로젝트 의견</h2><IconButton label="의견 닫기" onClick={() => void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); restoreMenuFocus(); })}><Icon name="close" /></IconButton></header>
+    {open && <aside className={`ow-feedback-panel${noteTask ? ' ow-note-task-panel' : ''}`} aria-label={noteTask ? t('workspace.task.open') : '프로젝트 의견'}><header><h2>{noteTask ? t('workspace.task.open') : '프로젝트 의견'}</h2><IconButton label={noteTask ? t('workspace.task.close') : '의견 닫기'} onClick={() => void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); restoreMenuFocus(); })}><Icon name="close" /></IconButton></header>
       {recovery && <div className="ow-feedback-recovery"><StatusNotice tone="warning" title="저장 응답을 확인해야 합니다">원래 댓글과 같은 요청만 확인합니다. 초안은 유지합니다.</StatusNotice><Button disabled={busy || !repository.writable} onClick={() => void perform(recover)}>저장 응답 확인</Button>{recovery.phase === 'native' && !recovery.nativeHash && !recovery.commentId && repository.feedbackRecovery?.cancel && <Button disabled={busy || !repository.writable} onClick={() => void perform(cancelRecovery)}>이전 요청 취소하고 대상 다시 선택</Button>}</div>}
-      {error && <StatusNotice tone="danger" title="의견을 저장하지 못했습니다">{error}</StatusNotice>}
-      {!target && draft && <p className="ow-feedback-note">작성 중인 의견을 보관했습니다. 문서의 대상 영역을 선택한 뒤 의견 남기기를 누르세요.</p>}
-      {(target || draft) && <div className="ow-feedback-composer"><p>{!target ? '보관한 초안' : target.kind === 'document' ? '문서 전체' : '선택한 텍스트 영역'}</p>{target?.quote && <blockquote>{excerpt.length ? excerpt.map((part, index) => <span key={index} style={{ fontWeight: part.bold ? 650 : undefined, fontStyle: part.italic ? 'italic' : undefined, textDecoration: part.underline || part.link ? 'underline' : undefined }} className={part.link ? 'ow-feedback-excerpt-link' : undefined}>{part.text}</span>) : target.quote}</blockquote>}
-        {target && capturedPin.current && <small className="ow-feedback-note">{capturedPin.current.title} · 버전 {capturedPin.current.revision}</small>}
-        <textarea ref={inputElement} aria-label="프로젝트 의견 입력" disabled={inputLifetime.retired || !owns()} value={draft} onChange={event => { if (inputLifetime.retired || !owns()) { event.currentTarget.value = latest.current; return; } const text = event.target.value; inputVersion.current++; latest.current = text; setDraft(text); void saveDraft().catch(cause => owns() && setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.')); }} onCompositionStart={() => { if (inputLifetime.retired || !owns()) return; inputVersion.current++; composing.current = true; }} onCompositionEnd={() => { if (inputLifetime.retired || !owns()) return; composing.current = false; }} onKeyDown={event => {
+      {noteTask && <div className="ow-note-task-intro"><p>{t('workspace.task.captureDescription')}</p>
+        <Button disabled={busy || !repository.writable || !!snapshot?.record.archived} onMouseDown={event => { event.preventDefault(); captureMenuSelection(); }}
+          onClick={() => void perform(start)}>{t('workspace.task.capture')}</Button></div>}
+      {error && <StatusNotice tone="danger" title={noteTask ? t('workspace.task.requestError') : '의견을 저장하지 못했습니다'}>{error}</StatusNotice>}
+      {!target && draft && <p className="ow-feedback-note">{noteTask ? t('workspace.task.draftDescription') : '작성 중인 의견을 보관했습니다. 문서의 대상 영역을 선택한 뒤 의견 남기기를 누르세요.'}</p>}
+      {(target || draft) && <div className="ow-feedback-composer"><p>{!target ? noteTask ? t('workspace.task.draft') : '보관한 초안' : target.kind === 'document' ? '문서 전체' : noteTask ? t('workspace.task.selection') : '선택한 텍스트 영역'}</p>{target?.quote && <blockquote>{excerpt.length ? excerpt.map((part, index) => <span key={index} style={{ fontWeight: part.bold ? 650 : undefined, fontStyle: part.italic ? 'italic' : undefined, textDecoration: part.underline || part.link ? 'underline' : undefined }} className={part.link ? 'ow-feedback-excerpt-link' : undefined}>{part.text}</span>) : target.quote}</blockquote>}
+        {target && capturedPin.current && <small className="ow-feedback-note">{capturedPin.current.title} · {noteTask ? t('workspace.task.version') : '버전'} {capturedPin.current.revision}</small>}
+        <textarea ref={inputElement} aria-label={noteTask ? t('workspace.task.requestInput') : '프로젝트 의견 입력'} disabled={inputLifetime.retired || !owns()} value={draft} onChange={event => { if (inputLifetime.retired || !owns()) { event.currentTarget.value = latest.current; return; } const text = event.target.value; inputVersion.current++; latest.current = text; setDraft(text); void saveDraft().catch(cause => owns() && setError(cause instanceof Error ? cause.message : '초안을 저장하지 못했습니다.')); }} onCompositionStart={() => { if (inputLifetime.retired || !owns()) return; inputVersion.current++; composing.current = true; }} onCompositionEnd={() => { if (inputLifetime.retired || !owns()) return; composing.current = false; }} onKeyDown={event => {
           if (inputLifetime.retired || !owns()) { event.preventDefault(); return; }
           if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) { if (event.key === 'Enter' || event.key === 'Escape') event.stopPropagation(); return; }
           if (event.key === 'Escape') { event.stopPropagation(); void perform(async () => { await saveDraft(); requireOwn(); setOpen(false); restoreMenuFocus(); }); }
         }} />
-        <div className="ow-actions"><Button disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(false))}>댓글만 남기기</Button><Button tone="accent" disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(true))}>수정 요청</Button></div><p className="ow-feedback-note">수정 요청은 작업을 연결합니다. 모델 실행과 원본 변경 승인은 별도 단계입니다.</p>
+        <div className="ow-actions">{!noteTask && <Button disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(false))}>댓글만 남기기</Button>}<Button tone="accent" disabled={busy || !!recovery || !target || !draft.trim()} onClick={() => void perform(() => submit(true))}>{noteTask ? t('workspace.task.submit') : '수정 요청'}</Button></div><p className="ow-feedback-note">{noteTask ? t('workspace.task.requestDescription') : '수정 요청은 작업을 연결합니다. 모델 실행과 원본 변경 승인은 별도 단계입니다.'}</p>
       </div>}
-      {comments.map(comment => <article className="ow-feedback-thread" key={comment.id}><small>{comment.actor.label} · 버전 {comment.pin.revision}</small><p>{comment.body}</p>
-        <Button disabled={busy} onClick={() => { const host = productFeedbackHost(); if (comment.target.kind === 'document') return; const state = host?.product === address.product && host.id() === address.id ? host.locate(comment.target) : 'missing'; if (state !== 'located') setError(state === 'ambiguous' ? '대상 영역이 중복되어 이동하지 않습니다.' : '대상 영역을 찾을 수 없습니다.'); }}>대상 영역</Button>
-        <Button disabled={busy} onClick={() => void perform(async () => { if (viewing === comment.id) { setViewing(undefined); return; } const stored = await repository.readPin(projectId, comment.pin.id); requireOwn(); setSource(stored); setViewing(comment.id); })}>참고한 버전</Button>
-        <Button disabled={busy || !repository.writable || !!comment.workId} onClick={() => void perform(() => requestWork(comment.id, comment.body))}>{comment.workId ? '작업에 연결됨' : '수정 작업 연결'}</Button>
+      {comments.map(comment => <article className="ow-feedback-thread" key={comment.id}><small>{comment.actor.label} · {noteTask ? t('workspace.task.version') : '버전'} {comment.pin.revision}</small><p>{comment.body}</p>
+        <Button disabled={busy} onClick={() => { const host = productFeedbackHost(); if (comment.target.kind === 'document') return; const state = host?.product === address.product && host.id() === address.id ? host.locate(comment.target) : 'missing'; if (state !== 'located') setError(state === 'ambiguous' ? '대상 영역이 중복되어 이동하지 않습니다.' : '대상 영역을 찾을 수 없습니다.'); }}>{noteTask ? t('workspace.task.locate') : '대상 영역'}</Button>
+        <Button disabled={busy} onClick={() => void perform(async () => { if (viewing === comment.id) { setViewing(undefined); return; } const stored = await repository.readPin(projectId, comment.pin.id); requireOwn(); setSource(stored); setViewing(comment.id); })}>{noteTask ? t('workspace.task.source') : '참고한 버전'}</Button>
+        <Button disabled={busy || !repository.writable || !!comment.workId} onClick={() => void perform(() => requestWork(comment.id, comment.body))}>{comment.workId ? noteTask ? t('workspace.task.linked') : '작업에 연결됨' : noteTask ? t('workspace.task.link') : '수정 작업 연결'}</Button>
         {comment.workId && snapshot && <ConnectedWorkControl repository={repository} project={projectId} work={comment.workId} revision={snapshot.revision} document={address} results={snapshot.record.results} />}{viewing === comment.id && source && <PinnedSource pin={source} />}
       </article>)}
     </aside>}

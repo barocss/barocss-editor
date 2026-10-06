@@ -1,10 +1,11 @@
+import type { ProductFeedbackTarget } from './document-save/product-feedback';
 /** Project coordination metadata. Native product documents remain the originals. */
 export interface ProjectDocument { product: 'note' | 'word' | 'slides' | 'site'; id: string; }
 /** Immutable evidence: the exact stored source, not a promise that it is still current. */
 export interface Pin { id: string; document: ProjectDocument; revision: number; text: string; title: string; }
 export interface ProjectResult { id: string; name: string; document: ProjectDocument; inputs: Pin[]; request?: string; }
 export interface ProjectComment {
-  id: string; resultId: string; target: { kind: 'document' | 'word-comment'; id: string; quote: string };
+  id: string; resultId: string; target: ProductFeedbackTarget;
   pin: Pin; actor: { kind: 'local' | 'human'; id: string; label: string }; body: string;
   createdAt: string; workId?: string; status: 'open' | 'resolved';
 }
@@ -32,6 +33,13 @@ function validPin(v: unknown): v is Pin {
 function pins(v: unknown): v is Pin[] { return Array.isArray(v) && v.every(validPin) && unique(v.map(p => p.id)); }
 function keys(v: Record<string, unknown>, allowed: string) { return Object.keys(v).every(k => allowed.split(' ').includes(k)); }
 function unique(v: unknown[]) { return new Set(v).size === v.length; }
+function validTarget(v: unknown): v is ProductFeedbackTarget {
+  if (!object(v) || !identity(v.id) || !string(v.quote)) return false;
+  if (v.kind !== 'note-paragraph') return keys(v, 'kind id quote') && ['document', 'word-comment'].includes(String(v.kind));
+  return keys(v, 'kind id quote selector') && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v.id) &&
+    !!v.quote.trim() && object(v.selector) && keys(v.selector, 'version pageId paragraphIndex') &&
+    v.selector.version === 1 && identity(v.selector.pageId) && Number.isSafeInteger(v.selector.paragraphIndex) && Number(v.selector.paragraphIndex) >= 0;
+}
 function invalid(): never { throw new Error('Invalid project data.'); }
 /** Reject corrupt links and unsupported execution claims before any storage write. */
 export function readProjectRecord(value: unknown): ProjectRecord {
@@ -47,12 +55,12 @@ export function readProjectRecord(value: unknown): ProjectRecord {
   }
   const commentIds = new Set<string>();
   for (const c of value.comments) {
-    if (!object(c) || !keys(c, 'id resultId target pin actor body createdAt workId status') || !identity(c.id) || !identity(c.resultId) || !object(c.target) || !keys(c.target, 'kind id quote') ||
-      !['document', 'word-comment'].includes(String(c.target.kind)) || !identity(c.target.id) || !string(c.target.quote) ||
+    if (!object(c) || !keys(c, 'id resultId target pin actor body createdAt workId status') || !identity(c.id) || !identity(c.resultId) || !validTarget(c.target) ||
       !validPin(c.pin) || !object(c.actor) || !keys(c.actor, 'kind id label') || !['local', 'human'].includes(String(c.actor.kind)) || !identity(c.actor.id) || !identity(c.actor.label) ||
       !identity(c.body) || !date(c.createdAt) || !['open', 'resolved'].includes(String(c.status)) || (c.workId !== undefined && !identity(c.workId)) || commentIds.has(c.id)) invalid();
     if (c.target.kind === 'document' && c.target.id !== c.pin.document.id) invalid();
     if (c.target.kind === 'word-comment' && c.pin.document.product !== 'word') invalid();
+    if (c.target.kind === 'note-paragraph' && c.pin.document.product !== 'note') invalid();
     commentIds.add(c.id);
   }
   const workIds = new Set<string>(), workComments = new Set<string>();

@@ -87,7 +87,8 @@ export class DocumentSession {
   private remember() { history.replaceState(history.state, '', documentLocationURL(this.options.key, this.id)); }
   private exposeHost() {
     if (!this.stopped && ['note', 'word', 'slides', 'site'].includes(this.options.key))
-      this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, identityEpoch: () => this.navigationEpoch, beforeNavigate: () => this.hasCurrentDocument ? this.beforeReplace() : Promise.resolve(false) });
+      this.unregisterHost = registerProductDocumentHost({ product: this.options.key as 'note' | 'word' | 'slides' | 'site', id: () => this.id, identityEpoch: () => this.navigationEpoch, beforeNavigate: () => this.hasCurrentDocument ? this.beforeReplace() : Promise.resolve(false),
+        ...(this.options.key === 'word' ? { saveCurrentSnapshot: (isCurrent: () => boolean) => this.saveCurrentSnapshot(isCurrent) } : {}) });
   }
   async start() {
     let id: string | undefined;
@@ -142,6 +143,26 @@ export class DocumentSession {
       if (pending && saved && !this.stopped) this.notify(this.settled);
       return saved;
     } catch { if (!this.stopped) this.notify('save-error'); return false; }
+  }
+  /** A submitted comment is a current native write, not permission to leave its composer. */
+  private async saveCurrentSnapshot(isCurrent: () => boolean): Promise<boolean> {
+    const id = this.id, epoch = this.navigationEpoch;
+    const owns = () => isCurrent() && !this.stopped && !this.replacing && !this.quarantined &&
+      this.hasCurrentDocument && this.id === id && this.navigationEpoch === epoch;
+    if (!owns()) return false;
+    clearTimeout(this.timer);
+    try {
+      await this.options.beforeSnapshot?.();
+      if (!owns()) return false;
+      const version = this.version, pending = this.pendingInput;
+      this.capture();
+      if (!owns() || this.version !== version) return false;
+      this.pendingInput = false;
+      const saved = await this.writes.flush();
+      if (!owns() || this.version !== version || this.pendingInput || this.settled === 'conflict') return false;
+      if (pending && saved) this.notify(this.settled);
+      return saved;
+    } catch { if (owns()) this.notify('save-error'); return false; }
   }
   private async prepareReplacement(preparation: ProductReplacementPreparation) {
     if (this.stopped || this.replacing || this.quarantined) return false;

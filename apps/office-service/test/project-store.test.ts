@@ -132,3 +132,34 @@ describe('ordered multi-run project comment coverage', () => {
     expect(() => verifyProjectTarget(pin(f.document), multiTarget)).toThrow('target_conflict');
   });
 });
+
+describe('strict Note paragraph request descriptor', () => {
+  const target = { kind: 'note-paragraph' as const, id: '11111111-1111-4111-8111-111111111111', quote: 'Selected paragraph',
+    selector: { version: 1 as const, pageId: doc, paragraphIndex: 0 } };
+  const source = { documentId: doc, revision: 1, snapshotHash: 'a'.repeat(64) };
+  const action = () => ({ type: 'comment', resultId: doc, target: structuredClone(target), body: 'Make the request clear', source });
+  it('accepts a bounded descriptor and verifies the exact Note source, without inserting a native comment', () => {
+    expect(() => validateProjectAction(action())).not.toThrow();
+    const original = { stype: 'note', attributes: { title: 'Note', pageId: doc }, content: [
+      { stype: 'paragraph', content: [{ stype: 'inline-text', text: target.quote }] }
+    ] };
+    const notePin: ProjectPin = { id: 'pin', document: { product: 'note', id: doc }, revision: 1,
+      text: JSON.stringify({ format: 'barocss-note', version: 1, document: original }), title: 'Note' };
+    const before = structuredClone(notePin);
+    expect(() => verifyProjectTarget(notePin, target)).not.toThrow(); expect(notePin).toEqual(before);
+    expect(() => verifyProjectTarget({ ...notePin, document: { product: 'word', id: doc } }, target)).toThrow('unsupported_target');
+  });
+  it.each(['missing-selector', 'extra-field', 'extra-selector', 'negative-index', 'fractional-index', 'version', 'runtime-id', 'empty-quote'])(
+    'refuses %s without an execution or storage claim', mode => {
+      const one = action();
+      if (mode === 'missing-selector') Reflect.deleteProperty(one.target, 'selector');
+      if (mode === 'extra-field') Object.assign(one.target, { sid: 'runtime-only' });
+      if (mode === 'extra-selector') Object.assign(one.target.selector, { nodeId: 'runtime-only' });
+      if (mode === 'negative-index') one.target.selector.paragraphIndex = -1;
+      if (mode === 'fractional-index') one.target.selector.paragraphIndex = 0.5;
+      if (mode === 'version') Object.assign(one.target.selector, { version: 2 });
+      if (mode === 'runtime-id') one.target.id = 'runtime:1';
+      if (mode === 'empty-quote') one.target.quote = '';
+      expect(() => validateProjectAction(one)).toThrow();
+    });
+});

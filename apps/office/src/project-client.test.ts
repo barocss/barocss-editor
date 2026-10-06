@@ -159,3 +159,27 @@ it('allocates a fresh work request receipt only after a confirmed CAS rejection'
   expect(posted[1]!.idempotencyKey).not.toBe(posted[0]!.idempotencyKey);
   expect(current.goal).toBe('보존할 새 목표'); expect(current.works).toHaveLength(1);
 });
+
+it('reads server-derived Note operation binding without changing its coordinate or native source', async () => {
+  const target = { kind: 'note-paragraph' as const, id: randomUUID(), quote: 'Selected paragraph',
+    selector: { version: 1 as const, pageId: randomUUID(), paragraphIndex: 2 } };
+  const execution = { id: randomUUID(), tenantId: 'tenant', workspaceId: 'workspace', projectId: 'project', workId: 'work',
+    resultId: 'result', documentId: 'note', actorId: 'owner', phase: 'proposal', reason: null, pendingOutputs: [],
+    binding: { product: 'note', operation: 'note.paragraph.replace/v1', schema: 'barocss-note@1', target },
+    input: { request: 'Clarify only this paragraph', revision: 1, snapshotHash: 'a'.repeat(64), snapshotText: 'exact pinned native bytes',
+      target: { nodeId: target.id, text: target.quote, from: 0, to: target.quote.length }, inputs: [] } };
+  transport.fetch.mockImplementation(async () => new Response(JSON.stringify({ execution })));
+  const repository = serverProjectRepository('tenant', 'workspace', 'editor');
+  expect(await repository.execution!('project', 'work')).toEqual(execution);
+  expect(transport.fetch).toHaveBeenCalledTimes(1);
+  for (const mode of ['version', 'extra-selector', 'capture', 'range', 'schema']) {
+    const invalid = structuredClone(execution);
+    if (mode === 'version') Object.assign(invalid.binding.target.selector, { version: 2 });
+    if (mode === 'extra-selector') Object.assign(invalid.binding.target.selector, { sid: 'runtime-only' });
+    if (mode === 'capture') invalid.input.target.nodeId = randomUUID();
+    if (mode === 'range') invalid.input.target.from = 1;
+    if (mode === 'schema') invalid.binding.schema = 'model-invented-schema';
+    transport.fetch.mockImplementation(async () => new Response(JSON.stringify({ execution: invalid })));
+    await expect(repository.execution!('project', 'work')).rejects.toThrow();
+  }
+});

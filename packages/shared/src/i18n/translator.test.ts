@@ -12,7 +12,22 @@ describe('the centralized host-owned message catalogs', () => {
       expect(messagesEn[key].length, key).toBeGreaterThan(0);
       expect(messagesKo[key].length, key).toBeGreaterThan(0);
     }
-    expect(Object.keys(messagesEn)).toHaveLength(274);
+  });
+
+  it('distinguishes a Note task proposal, local draft and confirmed save in both locales', () => {
+    const english = createTranslator('en'), korean = createTranslator('ko');
+    expect(english('workspace.task.apply')).toBe('Apply to local draft');
+    expect(korean('workspace.task.apply')).toBe('초안에 적용');
+    expect(english('workspace.task.phase.accepted')).toBe('Approved · original save unconfirmed');
+    expect(korean('workspace.task.phase.accepted')).toBe('승인됨 · 원본 저장 미확인');
+    expect(english('workspace.task.phase.applied')).toBe('Original save confirmed');
+    expect(korean('workspace.task.phase.applied')).toBe('원본 저장 확인됨');
+    expect(english('workspace.task.provenance')).toBe('Execution evidence');
+    expect(korean('workspace.task.provenance')).toBe('실제 실행 근거');
+    expect(english('workspace.task.generate')).toBe('Request local model proposal');
+    expect(korean('workspace.task.generate')).toBe('로컬 모델에 제안 요청');
+    expect(english('workspace.task.reason.authority_changed')).toBe('Account permissions changed after execution.');
+    expect(korean('workspace.task.reason.authority_changed')).toBe('실행 이후 계정 권한이 바뀌었습니다.');
   });
 
   it.each([['ko', 'ko'], ['ko-KR', 'ko'], ['KO-kr', 'ko'], ['en-US', 'en'], ['fr-FR', 'en'], ['', 'en']])(

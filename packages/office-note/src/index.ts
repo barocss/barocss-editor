@@ -1,3 +1,4 @@
+export { captureNoteParagraph, type NoteParagraphCapture } from './connected-proposal';
 /**
  * **한 편의 글** — the schema, the kit and the editing session a body of prose needs.
  *

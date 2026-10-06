@@ -4,6 +4,7 @@ import { setProjectWorkPaused, type ProjectRecord, type Pin, type ProjectExecuti
 import { products, type Product, plainText } from './products';
 import './project-ui.css';
 import { WorkspaceHeading } from './workspace-heading';
+import { ProjectTaskPanel } from './project-task-panel';
 import { ConnectedWorkControl } from './connected-work-control';
 import type { ProductFeedbackTarget } from '@barocss/shared';
 
@@ -132,6 +133,8 @@ export function ProjectHome({ repository, onOpen, onLibrary, embedded = false, i
         {!projects.length && <p>목표를 정하고 기존 결과물을 연결하세요. 자동으로 문서나 작업을 만들지 않습니다.</p>}
         {(ready ? projects : []).map(one => <Button disabled={busy} key={one.record.id} onClick={() => void choose(one)}><span><strong>{one.record.title}</strong><small>{one.record.goal}</small></span>{one.record.archived && <span>보관됨</span>}<span>{one.record.results.length}개 결과</span></Button>)}
       </section> : <>
+        <ProjectTaskPanel key={record.id} record={record} revision={selected!.revision} repository={repository} documents={documents} busy={busy}
+          onOpen={document => void perform(() => onOpen(record.id, document))} />
         <section className="ow-project-section" aria-labelledby="project-results"><div className="ow-project-section-heading"><h2 id="project-results">결과물</h2>
           <Button disabled={busy || !repository.writable || record.archived} onClick={() => { setLinking(true); setDocumentKey(''); setResultName(''); setNewDocument(false); }}>결과물 연결</Button></div>
           {!record.results.length && <p>확인할 결과물이 없습니다. 기존 자료를 연결하거나 새 자료를 만드세요.</p>}
@@ -144,9 +147,10 @@ export function ProjectHome({ repository, onOpen, onLibrary, embedded = false, i
             </details>
           </article>; })}
         </section>
+        {(record.works.some(work => !record.comments.some(comment => comment.id === work.commentId && comment.pin.document.product === 'note')) || !record.results.some(result => result.document.product === 'note')) && <>
         <section className="ow-project-section" aria-labelledby="project-work"><h2 id="project-work">작업</h2>
           {!record.works.length && <p>수정 요청이 없습니다. 결과물의 영역에 의견을 남기고 수정 작업으로 연결할 수 있습니다.</p>}
-          {record.works.map(work => <details className="ow-project-work" key={work.id}><summary>{work.request}<span>{work.state === 'paused' ? '일시 정지' : repository.execution ? '요청 기록' : '실행기 미연결'}</span></summary>
+          {record.works.filter(work => !record.comments.some(comment => comment.id === work.commentId && comment.pin.document.product === 'note')).map(work => <details className="ow-project-work" key={work.id}><summary>{work.request}<span>{work.state === 'paused' ? '일시 정지' : repository.execution ? '요청 기록' : '실행기 미연결'}</span></summary>
             <p>{work.state === 'paused' ? '수정 요청을 중단했습니다.' : '요청과 원본 버전을 보관합니다. 원본은 자동 변경하지 않습니다.'}</p><h3>입력 자료</h3>{work.inputs.map(pin => {
               const initial = record.comments.find(comment => comment.id === work.commentId)?.pin.id === pin.id;
               const uses = record.results.filter(result => result.request === work.id && result.inputs.some(input => input.id === pin.id));
@@ -159,6 +163,7 @@ export function ProjectHome({ repository, onOpen, onLibrary, embedded = false, i
             <ConnectedWorkControl repository={repository} project={record.id} work={work.id} revision={selected!.revision} results={record.results} />
           </details>)}
         </section>
+        </>}
         {record.activities.length > 0 && <section className="ow-project-section"><h2>최근 변경</h2><ol className="ow-project-activities">{record.activities.slice(-6).reverse().map(activity => <li key={activity.id}>{Object.prototype.hasOwnProperty.call(activityLabels, activity.label) ? activityLabels[activity.label] : activity.label}<time>{new Date(activity.at).toLocaleString('ko-KR')}</time></li>)}</ol></section>}
         <details className="ow-project-management"><summary>프로젝트 관리</summary><TextField ariaLabel="프로젝트 이름" value={record.title} onCommit={value => value.trim() && void perform(() => update({ ...record, title: value.trim() }))} disabled={!repository.writable || busy} />
           <Button disabled={busy || !repository.writable} onClick={() => void perform(() => update({ ...record, archived: !record.archived }))}>{record.archived ? '프로젝트 다시 열기' : '프로젝트 보관'}</Button><p>보관해도 원본 문서는 유지합니다.</p></details>

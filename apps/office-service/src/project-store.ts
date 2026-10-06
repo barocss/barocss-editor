@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { MembershipStore, TenantAccessDeniedError, type VerifiedPrincipal } from './membership-store.js';
 import type { Product } from './document-store.js';
+import { captureExecutionTarget } from './project-execution-native.js';
 
 export interface ProjectDocument { product: Product; id: string }
 export interface ProjectPin { id: string; document: ProjectDocument; revision: number; text: string; title: string }
@@ -16,7 +17,9 @@ export interface ProjectRecord {
   activities: Array<{ id: string; at: string; label: string }>;
   drafts: Record<string, string>;
 }
-export interface ProjectTarget { kind: 'document' | 'word-comment'; id: string; quote: string }
+export type ProjectTarget = { kind: 'document' | 'word-comment'; id: string; quote: string } | {
+  kind: 'note-paragraph'; id: string; quote: string; selector: { version: 1; pageId: string; paragraphIndex: number };
+};
 export interface ProjectSource { documentId: string; revision: number; snapshotHash: string }
 export type ProjectAction =
   | { type: 'metadata'; title?: string; goal?: string; archived?: boolean }
@@ -82,8 +85,15 @@ export function validateProjectAction(value: unknown): asserts value is ProjectA
     case 'unlink-result': shape(value, ['type', 'resultId']); id(value.resultId); break;
     case 'comment':
       shape(value, ['type', 'resultId', 'target', 'body', 'source']); id(value.resultId); text(value.body, 8000);
-      shape(value.target, ['kind', 'id', 'quote']); text(value.target.id, 120); text(value.target.quote, 8000, true);
-      if (!['document', 'word-comment'].includes(value.target.kind as string)) throw new ProjectError(400, 'invalid_request');
+      if (object(value.target) && value.target.kind === 'note-paragraph') {
+        shape(value.target, ['kind', 'id', 'quote', 'selector']); id(value.target.id); text(value.target.quote, 8000);
+        shape(value.target.selector, ['version', 'pageId', 'paragraphIndex']); id(value.target.selector.pageId);
+        if (value.target.selector.version !== 1 || !Number.isSafeInteger(value.target.selector.paragraphIndex) ||
+          Number(value.target.selector.paragraphIndex) < 0) throw new ProjectError(400, 'invalid_request');
+      } else {
+        shape(value.target, ['kind', 'id', 'quote']); text(value.target.id, 120); text(value.target.quote, 8000, true);
+        if (!['document', 'word-comment'].includes(value.target.kind as string)) throw new ProjectError(400, 'invalid_request');
+      }
       source(value.source); break;
     case 'request': shape(value, ['type', 'commentId', 'request']); id(value.commentId); text(value.request, 8000); break;
     case 'pause':
@@ -370,6 +380,10 @@ export function verifyProjectTarget(pin: ProjectPin, target: ProjectTarget) {
   if (target.kind === 'document') {
     if (target.id !== pin.document.id || target.quote !== '') throw new ProjectError(409, 'target_conflict');
     return;
+  }
+  if (target.kind === 'note-paragraph') {
+    if (pin.document.product !== 'note') throw new ProjectError(422, 'unsupported_target');
+    captureExecutionTarget(pin.text, target); return;
   }
   if (pin.document.product !== 'word') throw new ProjectError(422, 'unsupported_target');
   let value: unknown; try { value = JSON.parse(pin.text); } catch { throw new ProjectError(409, 'source_conflict'); }

@@ -1,9 +1,17 @@
 /** A product owns native selection and comments. The workspace owns work records. */
-export interface ProductFeedbackTarget {
+export interface NoteParagraphTarget {
+  kind: 'note-paragraph';
+  /** Opaque capture identity; never an editor SID or a durable block locator. */
+  id: string;
+  quote: string;
+  /** A coordinate usable only in this target's exact pinned source. */
+  selector: { version: 1; pageId: string; paragraphIndex: number };
+}
+export type ProductFeedbackTarget = NoteParagraphTarget | {
   kind: 'document' | 'word-comment';
   id: string;
   quote: string;
-}
+};
 /** Supplied server proposal. Native editors still own validation, history and the original. */
 export interface ProductRevisionProposal {
   targetId: string;
@@ -38,6 +46,8 @@ export interface ProductFeedbackHost {
   /** Reading changes presentation only; it must never grant write permission. */
   reading?(value: boolean): void;
   /** A proposal is not a command. Capture an exact native plan before approval awaits. */
+  /** Explicit Note Save only. Reuses fixed receipt recovery; never reapplies or publishes a later draft. */
+  saveRevision?(proposal: ProductRevisionProposal, revision: number, owns?: () => boolean): Promise<boolean>;
   previewRevision?(proposal: ProductRevisionProposal, owns?: () => boolean): ProductRevisionPreview | null;
 }
 let current: ProductFeedbackHost | undefined;

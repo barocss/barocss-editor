@@ -3,6 +3,8 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { NoteEditor, type NoteCommandTarget, type NoteInputDelivery } from '../src/note-view';
 import { openNoteTree, noteTreeOf, type NoteSession } from '../src/session';
+import { captureNoteParagraph } from '../src/connected-proposal';
+import { serializeNoteFile, type NoteDocument } from '../src/note-file-codec';
 
 let root: Root, host: HTMLDivElement, session: NoteSession, target: NoteCommandTarget;
 const fixture = { stype: 'note', attributes: { title: 'Owned commands' }, metadata: { preserve: ['all'] },
@@ -147,3 +149,70 @@ it('refuses a held native Undo after a newer input owner and retains the meaning
   await act(async () => { expect(await target.execute('historyUndo', () => true)).toBe(true); });
   expect(native()).toEqual(original);
 });
+
+async function mountedProposal() {
+  const original: NoteDocument = { stype: 'note', attributes: { title: 'Actual command owner', pageId: 'actual-command-note' },
+    content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'kept' }] }] };
+  await act(async () => {
+    session.editor.loadDocument(original, session.session);
+    root.render(createElement(NoteEditor, { editor: session.editor, rootId: session.rootId, registerCommandTarget: register }));
+  });
+  await act(async () => { select(); });
+  const owned = target, input = owned.capture()!, prepared = owned.flush.captureInputIntent!()!;
+  const rootId = session.rootId, rootNode = session.editor.dataStore.getNode(rootId);
+  const nativeDocument = () => ({ ...original, content: noteTreeOf(session.editor.dataStore, rootId)!.content as unknown[] });
+  const current = () => owned.isCurrent() && prepared() && session.rootId === rootId && session.editor.dataStore.getNode(rootId) === rootNode;
+  const capture = captureNoteParagraph({ editor: session.editor, rootId, snapshotText: serializeNoteFile(original),
+    capture: input, nativeDocument, current });
+  expect(capture).not.toBeNull();
+  const expected = structuredClone(original);
+  (expected.content[0] as { content: { text: string }[] }).content[0].text = 'Reviewed actual Note';
+  const preview = capture!.preview({ targetId: capture!.target.id, snapshotText: serializeNoteFile(original),
+    replacement: 'Reviewed actual Note', expectedSnapshotText: serializeNoteFile(expected) });
+  expect(preview).not.toBeNull();
+  return { original, expected, nativeDocument, input, current, capture: capture!, preview: preview! };
+}
+
+it('applies through the actual mounted capture and checks host/input after its own committed render', async () => {
+  const f = await mountedProposal(), before = structuredClone(session.editor.exportDocument());
+  try {
+    await act(async () => { expect(await f.preview.apply()).toBe(true); });
+    expect(f.nativeDocument()).toStrictEqual(f.expected);
+    expect(f.input.isCurrent()).toBe(false); // Own content/selection commit retires the old gesture.
+    expect(f.current()).toBe(true); // Current root/account/prepared input survives only this render.
+    expect(f.capture.current()).toBe(false);
+    expect(session.editor.getHistoryStats().totalEntries).toBe(1);
+    await act(async () => { expect(await f.preview.apply()).toBe(false); });
+    for (let cycle = 0; cycle < 3; cycle++) {
+      await act(async () => { expect(await session.editor.undo()).toBe(true); });
+      expect(session.editor.exportDocument()).toStrictEqual(before); expect(f.nativeDocument()).toStrictEqual(f.original);
+      await act(async () => { expect(await session.editor.redo()).toBe(true); });
+      expect(f.nativeDocument()).toStrictEqual(f.expected);
+    }
+  } finally { f.preview.dispose(); f.capture.dispose(); }
+});
+
+it.each(['selection-ABA', 'content-ABA', 'editable-ABA', 'new-input', 'composition', 'unmount'] as const)(
+  'refuses queued actual mounted proposal after %s and preserves exact state/history', async change => {
+    const f = await mountedProposal(), lock = await session.editor.dataStore.acquireLock('mounted-note-proposal');
+    const pending = f.preview.apply();
+    try {
+      await act(async () => {
+        if (change === 'selection-ABA') { session.editor.updateSelection(null); select(); }
+        if (change === 'content-ABA') {
+          const id = f.input.selection!.startNodeId;
+          session.editor.dataStore.updateNode(id, { text: 'later' }, false);
+          session.editor.dataStore.updateNode(id, { text: 'kept' }, false);
+        }
+        if (change === 'editable-ABA') { session.editor.setEditable(false); session.editor.setEditable(true); }
+        if (change === 'new-input') target.element.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: 'later' }));
+        if (change === 'composition') target.element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+        if (change === 'unmount') root.render(null);
+      });
+      const before = structuredClone(session.editor.exportDocument()), selection = structuredClone(session.editor.selection);
+      session.editor.dataStore.releaseLock(lock);
+      await act(async () => { expect(await pending).toBe(false); });
+      expect(session.editor.exportDocument()).toStrictEqual(before); expect(session.editor.selection).toStrictEqual(selection);
+      expect(session.editor.canUndo()).toBe(false);
+    } finally { session.editor.dataStore.releaseLock(lock); await pending; f.preview.dispose(); f.capture.dispose(); }
+  });

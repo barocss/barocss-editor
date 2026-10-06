@@ -701,7 +701,7 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     {treeBusy && <IconButton label={t('document.library.cancel')} onClick={() => { treeOperation.current = null; cancelStagedNative(); setTreeBusy(false); }}><Icon name="close" /></IconButton>}
     <ProductLabel iconOnly name={productName(view.context.product)} />
     {noteIntent.current?.projectId && activeDocument && feedbackRepository && <ProjectFeedback key={`${noteAccount.current}:${noteIntent.current.projectId}:${activeDocument}`} repository={feedbackRepository} projectId={noteIntent.current.projectId} beforeLeave={feedbackBeforeLeave}
-      document={{ product: view.context.product, id: activeDocument }} />}
+      presentation={view.context.product === 'note' ? 'task' : 'feedback'} document={{ product: view.context.product, id: activeDocument }} />}
   </div> : null;
   const renderedSlot = nativeSlot.current, renderedAuthority = generation.current;
   const content = <main className="office-auth" data-editor-open={compactEditor || undefined}>

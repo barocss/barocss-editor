@@ -48,6 +48,19 @@ export function serverProjectRepository(tenant: string, workspace: string, role:
     if (!execution || execution.tenantId !== tenant || execution.workspaceId !== workspace || execution.projectId !== project || execution.workId !== work ||
       !['unknown', 'proposal', 'blocked', 'failed', 'accepted', 'applied', 'rejected', 'unsupported'].includes(execution.phase) ||
       typeof execution.id !== 'string' || typeof execution.input?.snapshotText !== 'string') throw new Error('실행 기록을 확인하지 못했습니다.');
+    if (execution.binding !== undefined) {
+      const binding = execution.binding, target = binding.target, selector = target?.kind === 'note-paragraph' ? target.selector : undefined;
+      const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+      const exact = (value: unknown, keys: string[]) => !!value && typeof value === 'object' && !Array.isArray(value) &&
+        Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+      if (!exact(binding, ['product', 'operation', 'schema', 'target']) || binding.product !== 'note' || binding.operation !== 'note.paragraph.replace/v1' ||
+        binding.schema !== 'barocss-note@1' || !exact(target, ['kind', 'id', 'quote', 'selector']) || target.kind !== 'note-paragraph' ||
+        typeof target.id !== 'string' || !uuid.test(target.id) || typeof target.quote !== 'string' || !target.quote.trim() || target.quote.length > 8000 ||
+        !exact(selector, ['version', 'pageId', 'paragraphIndex']) || selector!.version !== 1 || typeof selector!.pageId !== 'string' || !uuid.test(selector!.pageId) ||
+        !Number.isSafeInteger(selector!.paragraphIndex) || selector!.paragraphIndex < 0 ||
+        execution.input.target.nodeId !== target.id || execution.input.target.text !== target.quote || execution.input.target.from !== 0 ||
+        execution.input.target.to !== target.quote.length) throw new Error('실행 기록을 확인하지 못했습니다.');
+    }
     return execution;
   };
   const executionPost = async (project: string, work: string, path: string, body: unknown) => {

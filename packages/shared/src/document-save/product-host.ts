@@ -8,6 +8,8 @@ export interface ProductDocumentHost {
   identityEpoch?(): number;
   /** Resolve only after nested input and conditional storage writes settle. */
   beforeNavigate(): Promise<boolean>;
+  /** Explicitly save an already-submitted local Word change without replacing its document. */
+  saveCurrentSnapshot?(isCurrent: () => boolean): Promise<boolean>;
   /** Protect scoped private input for logout without retrying a failed server save. */
   beforeAccountExit?(): Promise<boolean>;
   /** Native server host owns preparation, authority checks and validated installation. */
@@ -120,6 +122,8 @@ export interface ProductNavigationGuard {
   /** Recheck after every async catalog operation and immediately before changing the route. */
   isCurrent(): boolean;
   prepare(): Promise<boolean>;
+  /** Optional current Word save; does not prepare navigation or replace input. */
+  saveCurrentSnapshot?(intentCurrent?: () => boolean): Promise<boolean>;
   prepareAccountExit?(): Promise<boolean>;
   /** Returns the exact installed target guard; the old guard retires on replacement. */
   open?(documentId: string, intentCurrent?: () => boolean): Promise<ProductNavigationGuard | false>;
@@ -136,6 +140,11 @@ export function captureProductNavigation(slot?: NativeHostSlot): ProductNavigati
     !state.disposed && !state.retired && state.registration === registration &&
       (activeSlot === state ? current === registration : registration.slot === state)) &&
     host.id() === id && host.identityEpoch?.() === identity;
+  const currentSave = host.product === 'word' ? host.saveCurrentSnapshot : undefined;
+  const saveCurrentSnapshot = currentSave ? async (intentCurrent = () => true): Promise<boolean> => {
+    const owns = () => isCurrent() && intentCurrent();
+    return owns() && await currentSave.call(host, owns) && owns();
+  } : undefined;
   const requestOpen = host.requestOpen;
   const open = requestOpen ? async (documentId: string, intentCurrent = () => true): Promise<ProductNavigationGuard | false> => {
     const owns = () => isCurrent() && intentCurrent();
@@ -156,7 +165,7 @@ export function captureProductNavigation(slot?: NativeHostSlot): ProductNavigati
         installed.product === host.product && installed.id === documentId && installed.isCurrent() ? installed : false;
     } finally { if (scope.opening === lease) scope.opening = undefined; }
   } : undefined;
-  const guard = Object.freeze({ product: host.product, id, isCurrent, open,
+  const guard = Object.freeze({ product: host.product, id, isCurrent, open, saveCurrentSnapshot,
     prepare: async () => isCurrent() && await host.beforeNavigate() && isCurrent(),
     prepareAccountExit: async () => isCurrent() && !!host.beforeAccountExit && await host.beforeAccountExit() && isCurrent() });
   guards.set(guard, { registration, slot: state });

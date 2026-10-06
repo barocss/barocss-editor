@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { TenantAccessDeniedError, type VerifiedPrincipal } from './membership-store.js';
@@ -25,6 +26,7 @@ export type ExecutionPhase = 'unknown' | 'proposal' | 'blocked' | 'failed' | 'ac
 export interface ProjectExecutionView {
   id: string; tenantId: string; workspaceId: string; projectId: string; workId: string; resultId: string;
   documentId: string; actorId: string; phase: ExecutionPhase; reason: string | null;
+  binding?: { product: 'note'; operation: 'note.paragraph.replace/v1'; schema: 'barocss-note@1'; target: Extract<ProjectTarget, { kind: 'note-paragraph' }> };
   input: Pick<LocalExecutionInput, 'request' | 'revision' | 'snapshotHash' | 'snapshotText' | 'target' | 'inputs'>;
   proposal?: ExecutionProposal; provenance?: ExecutionProvenance;
   expectedSnapshotText?: string; expectedSnapshotHash?: string; appliedRevision?: number;
@@ -107,6 +109,7 @@ export class ProjectExecutionStore {
     return { id: attempt.id, tenantId: attempt.tenantId, workspaceId: attempt.workspaceId, projectId: attempt.projectId,
       workId: attempt.workId, resultId: attempt.resultId, documentId: attempt.documentId, actorId: attempt.actorId,
       input: attempt.input, pendingOutputs: attempt.pendingOutputs,
+      ...(attempt.target.kind === 'note-paragraph' ? { binding: { product: 'note' as const, operation: 'note.paragraph.replace/v1' as const, schema: 'barocss-note@1' as const, target: structuredClone(attempt.target) } } : {}),
       ...(attempt.proposal ? { proposal: attempt.proposal } : {}), ...(attempt.provenance ? { provenance: attempt.provenance } : {}),
       ...(attempt.expectedSnapshotText !== undefined ? { expectedSnapshotText: attempt.expectedSnapshotText, expectedSnapshotHash: attempt.expectedSnapshotHash } : {}),
       ...(attempt.appliedRevision !== undefined ? { appliedRevision: attempt.appliedRevision } : {}), phase: attempt.phase === 'started' ? 'unknown' : attempt.phase,
@@ -116,10 +119,10 @@ export class ProjectExecutionStore {
     const { work, comment, result } = this.work(context, workId);
     if (context.project.data.archived) throw new ProjectError(409, 'project_archived');
     if (work.state === 'paused') throw new ProjectError(409, 'work_paused');
-    if (result.document.product !== 'word' || comment.pin.document.id !== result.document.id)
+    if (!['word', 'note'].includes(result.document.product) || comment.pin.document.product !== result.document.product || comment.pin.document.id !== result.document.id)
       throw new ProjectError(422, 'unsupported_target');
     const source = await context.document(result.document.id);
-    if (source.product !== 'word' || source.mode !== 'snapshot' || source.revision !== comment.pin.revision
+    if (source.product !== result.document.product || source.mode !== 'snapshot' || source.revision !== comment.pin.revision
       || source.snapshot_hash !== hash(comment.pin.text) || source.snapshot_text !== comment.pin.text)
       throw new ProjectError(409, 'source_conflict');
     const inputs: ExecutionPin[] = [];
@@ -150,8 +153,7 @@ export class ProjectExecutionStore {
     const input = await this.inputs(context, attempt.tenantId, attempt.workId);
     if (input.work.request !== attempt.input.request || input.result.id !== attempt.resultId
       || input.source.revision !== attempt.input.revision || input.source.snapshot_hash !== attempt.input.snapshotHash
-      || input.source.snapshot_text !== attempt.input.snapshotText || input.comment.target.kind !== attempt.target.kind
-      || input.comment.target.id !== attempt.target.id || input.comment.target.quote !== attempt.target.quote
+      || input.source.snapshot_text !== attempt.input.snapshotText || !isDeepStrictEqual(input.comment.target, attempt.target)
       || input.inputs.length !== attempt.input.inputs.length || input.inputs.some((pin, index) => {
         const held = attempt.input.inputs[index];
         return pin.id !== held.id || pin.documentId !== held.documentId || pin.revision !== held.revision
@@ -216,7 +218,7 @@ export class ProjectExecutionStore {
         resultId: captured.result.id, documentId: captured.source.id, actorId: context.actor.id,
         phase: unsupported ? 'unsupported' : 'started', reason: unsupported ? 'unsupported_target' : null,
         projectRevision: context.project.revision, projectContextHash: projectContextHash(context.project.data, workId),
-        authorityEpoch: context.authorityEpoch, target: captured.comment.target,
+        authorityEpoch: context.authorityEpoch, target: structuredClone(captured.comment.target),
         input: { request: captured.work.request, revision: captured.source.revision, snapshotHash: captured.source.snapshot_hash,
           snapshotText: captured.source.snapshot_text, target, inputs: captured.inputs },
         pendingOutputs: await this.pendingOutputs(context, tenantId, workId, captured.result.id) };
@@ -287,7 +289,8 @@ export class ProjectExecutionStore {
       if (!attempt) throw new ProjectError(404, 'not_found');
       if (!['accepted', 'applied'].includes(attempt.phase)) throw new ProjectError(409, 'execution_not_accepted');
       if (context.actor.id !== attempt.actorId || context.authorityEpoch !== attempt.authorityEpoch) throw new ProjectError(409, 'authority_changed');
-      const { work, result } = this.work(context, workId);
+      const { work, result, comment } = this.work(context, workId);
+      if (!isDeepStrictEqual(comment.target, attempt.target)) throw new ProjectError(409, 'target_conflict');
       if (work.state === 'paused') throw new ProjectError(409, 'work_paused');
       if (context.project.data.archived || !this.sameProjectContext(context, attempt)
         || work.request !== attempt.input.request || result.id !== attempt.resultId) throw new ProjectError(409, 'project_conflict');
