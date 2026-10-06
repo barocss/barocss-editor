@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
-import { parseRegistryDefinition, REGISTRY_DIGEST, REGISTRY_LIMITS, isRegistryUuid,
+import { parseRegistryDefinition, validateRegistryBundle, REGISTRY_DIGEST, REGISTRY_LIMITS, isRegistryUuid,
   type RegistryDefinition } from '@barocss/schema/registry-contract';
 import { readNoteV1SnapshotFile as readNoteSnapshotFile } from '@barocss/office-note-file';
 import { MembershipStore, TenantAccessDeniedError, type TenantRole, type VerifiedPrincipal } from './membership-store.js';
@@ -27,7 +27,9 @@ const key = (value: string) => { if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test
 const refs = (d: RegistryDefinition) => [...(d.parent ? [{ kind: 'parent', ref: d.parent }] : []),
   ...d.dependencies.map(ref => ({ kind: 'dependency', ref }))];
 function version(row: Row, tenantId: string, workspaceId: string): SchemaVersion {
-  const parsed = parseRegistryDefinition(row.definition_text);
+  let parsed: ReturnType<typeof parseRegistryDefinition>;
+  try { parsed = parseRegistryDefinition(row.definition_text); }
+  catch { return error(409, 'schema_store_unavailable'); }
   if (parsed.canonicalText !== row.canonical_text || hash(parsed.canonicalText) !== row.digest ||
     parsed.definition.scope.tenantId !== tenantId || parsed.definition.scope.workspaceId !== workspaceId ||
     parsed.definition.schemaId !== row.schema_id || parsed.definition.version !== row.version) return error(409, 'schema_store_unavailable');
@@ -35,17 +37,99 @@ function version(row: Row, tenantId: string, workspaceId: string): SchemaVersion
     definitionText: row.definition_text, canonicalText: row.canonical_text, definition: parsed.definition,
     actorIdentityId: row.actor_identity_id, createdAt: row.created_at.toISOString() };
 }
-/** All effects, immutable edges and receipts use one current-authority transaction. */
-export class SchemaRegistryStore {
-  private readonly membership: MembershipStore;
-  constructor(private readonly pool: Pool, private readonly policy: readonly RegistryScopePolicy[]) { this.membership = new MembershipStore(pool); }
-  private async actor(client: PoolClient, tenantId: string, write: boolean) {
+export type DocumentSchemaAction = 'read' | 'preserve' | 'adopt';
+/** Trusted operator configuration, separate from schema registration permission. */
+export interface DocumentSchemaScopePolicy {
+  tenantId: string; workspaceId: string; readRoles: readonly TenantRole[];
+  preserveRoles: readonly TenantRole[]; adoptRoles: readonly TenantRole[]; capabilities: readonly string[];
+}
+export interface CurrentSchemaActor { readonly id: string; readonly role: TenantRole; readonly epoch: string }
+const actorClients = new WeakMap<CurrentSchemaActor, { client: PoolClient; tenantId: string }>();
+/** Caller must already be inside withAuthorizedTenant on this exact client. */
+export async function currentSchemaActor(client: PoolClient, tenantId: string, write = false): Promise<CurrentSchemaActor> {
     const result = await client.query<{ id: string; role: TenantRole }>('SELECT id,role FROM wonffice.project_current_actor($1)', [tenantId]);
     const actor = result.rows[0]; if (!actor) throw new TenantAccessDeniedError();
     if (write && actor.role === 'viewer') return error(403, 'forbidden');
     const epochs = await client.query<{ epoch: string }>('SELECT epoch FROM wonffice.project_execution_actor_epoch($1)', [tenantId]);
     if (!epochs.rows[0]) throw new TenantAccessDeniedError();
-    return { ...actor, epoch: epochs.rows[0].epoch };
+    const current = Object.freeze({ ...actor, epoch: epochs.rows[0].epoch });
+    actorClients.set(current, { client, tenantId });
+    return current;
+}
+async function schemaRow(client: PoolClient, tenantId: string, workspaceId: string, schemaId: string, v: number) {
+    return (await client.query<Row>('SELECT * FROM wonffice.schema_versions WHERE tenant_id=$1 AND workspace_id=$2 AND schema_id=$3 AND version=$4',
+      [tenantId, workspaceId, schemaId, v])).rows[0];
+}
+async function schemaClosure(client: PoolClient, tenantId: string, workspaceId: string, root: SchemaVersion) {
+    const found = new Map<string, SchemaVersion>(), visiting = new Set<string>();
+    const visit = async (record: SchemaVersion) => {
+      const id = `${record.schemaId}:${record.version}`;
+      if (visiting.has(id)) error(422, 'dependency_cycle');
+      const previous = found.get(id);
+      if (previous) { if (previous.digest !== record.digest) error(409, 'dependency_digest_conflict'); return; }
+      if (found.size >= REGISTRY_LIMITS.closure) error(413, 'schema_bundle_too_large');
+      found.set(id, record); visiting.add(id);
+      const expected = refs(record.definition);
+      const edges = (await client.query<{ kind: string; dependency_id: string; dependency_version: number; dependency_digest: string }>(
+        'SELECT kind,dependency_id,dependency_version,dependency_digest FROM wonffice.schema_dependencies WHERE tenant_id=$1 AND workspace_id=$2 AND schema_id=$3 AND version=$4 ORDER BY ordinal',
+        [tenantId, workspaceId, record.schemaId, record.version])).rows;
+      if (JSON.stringify(edges.map(e => ({ kind: e.kind, ref: { schemaId: e.dependency_id, version: e.dependency_version, digest: e.dependency_digest } }))) !== JSON.stringify(expected)) error(409, 'bundle_incomplete');
+      for (const { ref } of expected) {
+        const row = await schemaRow(client, tenantId, workspaceId, ref.schemaId, ref.version);
+        if (!row) error(422, 'dependency_missing');
+        const next = version(row, tenantId, workspaceId);
+        if (next.digest !== ref.digest) error(409, 'dependency_digest_conflict'); await visit(next);
+      }
+      visiting.delete(id);
+    };
+    await visit(root); const records = [...found.values()];
+    if (Buffer.byteLength(JSON.stringify(records), 'utf8') > REGISTRY_LIMITS.bundleBytes) error(413, 'schema_bundle_too_large');
+    return records.filter(r => r !== root);
+}
+/** Admission only: no pool, nested transaction, registry effects or native rewriting. */
+export async function admitDocumentSchemaBundle(client: PoolClient, scope: { tenantId: string; workspaceId: string },
+  bundle: unknown, actor: CurrentSchemaActor, action: DocumentSchemaAction, policies: readonly DocumentSchemaScopePolicy[]) {
+  const issued = actorClients.get(actor);
+  if (!issued || issued.client !== client || issued.tenantId !== scope.tenantId) error(403, 'forbidden');
+  let checked: ReturnType<typeof validateRegistryBundle>;
+  try { checked = validateRegistryBundle(bundle); }
+  catch (failure) {
+    const reason = failure instanceof Error ? failure.message : '';
+    error(reason === 'schema_bundle_too_large' ? 413 : 422, reason === 'schema_bundle_too_large' ? reason : 'invalid_snapshot');
+  }
+  const policy = policies.find(p => p.tenantId === scope.tenantId && p.workspaceId === scope.workspaceId);
+  const roles = action === 'read' ? policy?.readRoles : action === 'preserve' ? policy?.preserveRoles : policy?.adoptRoles;
+  if (!policy || !Array.isArray(roles) || !roles.includes(actor.role) || !Array.isArray(policy.capabilities) ||
+    checked.requiredCapabilities.some(c => !policy.capabilities.includes(c))) error(403, 'scope_forbidden');
+  const entries = new Map(checked.bundle.definitions.map(entry => {
+    const parsed = parseRegistryDefinition(entry.definitionText);
+    if (parsed.definition.scope.tenantId !== scope.tenantId || parsed.definition.scope.workspaceId !== scope.workspaceId) error(403, 'scope_forbidden');
+    return [`${entry.reference.schemaId}:${entry.reference.version}`, { ...entry, canonicalText: parsed.canonicalText }];
+  }));
+  const verified = new Set<string>();
+  for (const ref of checked.bundle.selected) {
+    const row = await schemaRow(client, scope.tenantId, scope.workspaceId, ref.schemaId, ref.version);
+    if (!row) error(422, 'dependency_missing');
+    const root = version(row, scope.tenantId, scope.workspaceId);
+    if (root.digest !== ref.digest) error(409, 'dependency_digest_conflict');
+    const records = [root, ...await schemaClosure(client, scope.tenantId, scope.workspaceId, root)];
+    for (const record of records) {
+      const id = `${record.schemaId}:${record.version}`, submitted = entries.get(id);
+      if (!submitted || submitted.reference.digest !== record.digest || submitted.canonicalText !== record.canonicalText) error(409, 'schema_store_unavailable');
+      if (record.definition.requiredCapabilities.some(c => !policy.capabilities.includes(c))) error(403, 'scope_forbidden');
+      verified.add(id);
+    }
+  }
+  if (verified.size !== entries.size) error(409, 'bundle_incomplete');
+  // Preserve the caller's exact bundle/texts; authoritative canonical identity is not a replacement serializer.
+}
+
+/** All effects, immutable edges and receipts use one current-authority transaction. */
+export class SchemaRegistryStore {
+  private readonly membership: MembershipStore;
+  constructor(private readonly pool: Pool, private readonly policy: readonly RegistryScopePolicy[]) { this.membership = new MembershipStore(pool); }
+  private actor(client: PoolClient, tenantId: string, write: boolean) {
+    return currentSchemaActor(client, tenantId, write);
   }
   private allow(role: TenantRole, tenantId: string, workspaceId: string, action: 'read' | 'register', definitions: readonly RegistryDefinition[] = []) {
     const policy = this.policy.find(p => p.tenantId === tenantId && p.workspaceId === workspaceId);
@@ -68,35 +152,11 @@ export class SchemaRegistryStore {
     const found = await client.query('SELECT 1 FROM wonffice.workspaces WHERE tenant_id=$1 AND id=$2', [tenantId, workspaceId]);
     if (!found.rowCount) error(404, 'not_found');
   }
-  private async row(client: PoolClient, tenantId: string, workspaceId: string, schemaId: string, v: number) {
-    return (await client.query<Row>('SELECT * FROM wonffice.schema_versions WHERE tenant_id=$1 AND workspace_id=$2 AND schema_id=$3 AND version=$4',
-      [tenantId, workspaceId, schemaId, v])).rows[0];
+  private row(client: PoolClient, tenantId: string, workspaceId: string, schemaId: string, v: number) {
+    return schemaRow(client, tenantId, workspaceId, schemaId, v);
   }
-  private async closure(client: PoolClient, tenantId: string, workspaceId: string, root: SchemaVersion) {
-    const found = new Map<string, SchemaVersion>(), visiting = new Set<string>();
-    const visit = async (record: SchemaVersion) => {
-      const id = `${record.schemaId}:${record.version}`;
-      if (visiting.has(id)) error(422, 'dependency_cycle');
-      const previous = found.get(id);
-      if (previous) { if (previous.digest !== record.digest) error(409, 'dependency_digest_conflict'); return; }
-      if (found.size >= REGISTRY_LIMITS.closure) error(413, 'schema_bundle_too_large');
-      found.set(id, record); visiting.add(id);
-      const expected = refs(record.definition);
-      const edges = (await client.query<{ kind: string; dependency_id: string; dependency_version: number; dependency_digest: string }>(
-        'SELECT kind,dependency_id,dependency_version,dependency_digest FROM wonffice.schema_dependencies WHERE tenant_id=$1 AND workspace_id=$2 AND schema_id=$3 AND version=$4 ORDER BY ordinal',
-        [tenantId, workspaceId, record.schemaId, record.version])).rows;
-      if (JSON.stringify(edges.map(e => ({ kind: e.kind, ref: { schemaId: e.dependency_id, version: e.dependency_version, digest: e.dependency_digest } }))) !== JSON.stringify(expected)) error(409, 'bundle_incomplete');
-      for (const { ref } of expected) {
-        const row = await this.row(client, tenantId, workspaceId, ref.schemaId, ref.version);
-        if (!row) error(422, 'dependency_missing');
-        const next = version(row, tenantId, workspaceId);
-        if (next.digest !== ref.digest) error(409, 'dependency_digest_conflict'); await visit(next);
-      }
-      visiting.delete(id);
-    };
-    await visit(root); const records = [...found.values()];
-    if (Buffer.byteLength(JSON.stringify(records), 'utf8') > REGISTRY_LIMITS.bundleBytes) error(413, 'schema_bundle_too_large');
-    return records.filter(r => r !== root);
+  private closure(client: PoolClient, tenantId: string, workspaceId: string, root: SchemaVersion) {
+    return schemaClosure(client, tenantId, workspaceId, root);
   }
   async register(principal: VerifiedPrincipal, tenantId: string, workspaceId: string, schemaId: string, v: number,
     input: { definitionText: string; idempotencyKey: string }): Promise<SchemaRegistrationReceipt> {
