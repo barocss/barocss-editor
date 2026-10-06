@@ -44,6 +44,15 @@ class NativeEntryBoundary extends Component<{ children: ReactNode; onFailure: (m
 const productName = (product: SnapshotProduct) => ({ note: 'Note', word: 'Word', slides: 'Slides', site: 'Site' } as const)[product];
 
 const curtainId = 'office-auth-curtain';
+const nativeHistoryKey = 'wonffice.auth.native-history.v1';
+type NativeHistoryEntry = { owner: string; index: number };
+function nativeHistoryEntry(state: unknown): NativeHistoryEntry | null {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) return null;
+  const value = (state as Record<string, unknown>)[nativeHistoryKey];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const { owner, index } = value as Partial<NativeHistoryEntry>;
+  return typeof owner === 'string' && Number.isSafeInteger(index) && typeof index === 'number' && index >= 0 ? { owner, index } : null;
+}
 function curtain() {
   let element = document.getElementById(curtainId);
   if (!element) {
@@ -81,6 +90,9 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
   }
   useEffect(() => () => { pendingNative.current?.cancel(); if (pendingNative.current?.slot.hostSlot) disposeNativeHostSlot(pendingNative.current.slot.hostSlot); }, []);
   const treeOperation = useRef<symbol | null>(null);
+  const historyOwner = useRef<NativeHistoryEntry>({ owner: crypto.randomUUID(), index: 0 });
+  const historyEpoch = useRef(0);
+  const restoringHistory = useRef<{ owner: string; index: number } | null>(null);
   const [view, setView] = useState<View>({ phase: 'checking' });
   const selected = useRef<TenantAccess | null>(null);
   const chosenIntent = useRef<EntryIntent | null>(null);
@@ -508,7 +520,8 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     } catch (error) { if (run === generation.current) setView({ phase: 'error', error: asAuthError(error) }); }
   }
 
-  function commitNativeLocation(documentId: string, projectId: string | null | undefined = noteIntent.current?.projectId) {
+  function commitNativeLocation(documentId: string, projectId: string | null | undefined = noteIntent.current?.projectId,
+    action: 'replace' | 'push' | 'traverse' = 'replace', traversalIndex?: number) {
     const native = rememberedNote.current;
     if (!native) return;
     rememberedDocumentId.current = documentId; setActiveDocument(documentId);
@@ -518,7 +531,19 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     const mode = sameOriginal ? previous.mode : projectId ? 'read' as const : undefined;
     noteIntent.current = { tenantId: native.context.tenantId, workspaceId: native.context.workspaceId, documentId,
       product: native.context.product, ...(projectId ? { projectId } : {}), ...(mode ? { mode } : {}) };
-    history.replaceState(null, '', snapshotIntentURL(noteIntent.current));
+    const state = history.state && typeof history.state === 'object' && !Array.isArray(history.state) ? history.state as Record<string, unknown> : {};
+    const owner = historyOwner.current.owner;
+    if (action === 'push') {
+      // The currently displayed source must have an owned cursor before a user
+      // selection creates the next entry. Background identity reports replace it.
+      if (nativeHistoryEntry(state)?.owner !== owner)
+        history.replaceState({ ...state, [nativeHistoryKey]: { owner, index: historyOwner.current.index } }, '', location.href);
+      historyOwner.current.index++;
+      history.pushState({ ...state, [nativeHistoryKey]: { owner, index: historyOwner.current.index } }, '', snapshotIntentURL(noteIntent.current));
+    } else {
+      if (action === 'traverse' && traversalIndex !== undefined) historyOwner.current.index = traversalIndex;
+      history.replaceState({ ...state, [nativeHistoryKey]: { owner, index: historyOwner.current.index } }, '', snapshotIntentURL(noteIntent.current));
+    }
   }
   useEffect(() => {
     const publishInstalled = () => {
@@ -531,40 +556,42 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
     window.addEventListener('wonffice:host-change', publishInstalled);
     return () => window.removeEventListener('wonffice:host-change', publishInstalled);
   }, [mountedNote]);
-  async function openTreeOriginal(row: ServerCatalogRow, projectId?: string) {
-    if (treeOperation.current || !row.nativeOpenSupported) return;
+  async function openTreeOriginal(row: ServerCatalogRow, projectId?: string,
+    traversal?: { index: number; epoch: number; url: string }): Promise<boolean> {
+    if (treeOperation.current || !row.nativeOpenSupported) return false;
     const scope = rememberedNote.current ?? (currentView.current.phase === 'project' || currentView.current.phase === 'library' ? currentView.current : null);
-    if (!scope) return;
+    if (!scope) return false;
     const run = generation.current, slot = nativeSlot.current, session = captureAuthorizedSession(), token = Symbol('tree open');
-    const owns = () => treeOperation.current === token && run === generation.current && nativeSlot.current === slot && session.isCurrent() && (!slot || (noteAccess.current && slot.session.isCurrent()));
+    const owns = () => treeOperation.current === token && run === generation.current && nativeSlot.current === slot && session.isCurrent() &&
+      (!slot || (noteAccess.current && slot.session.isCurrent())) && (!traversal || (historyEpoch.current === traversal.epoch && location.href === traversal.url));
     treeOperation.current = token; setTreeBusy(true); setTreeError('');
     try {
       const native = rememberedNote.current;
       if (native && row.product === native.context.product && row.documentId === rememberedDocumentId.current) {
         const same = captureProductNavigation();
         if (!owns() || !same?.isCurrent() || same.product !== row.product || same.id !== row.documentId) throw new Error(t('workspace.tree.nativeUnavailable'));
-        return; // A placement alias preserves the current Project, feedback draft and native selection.
+        return true; // A placement alias preserves the current Project, feedback draft and native selection.
       }
       const feedback = feedbackBeforeLeave.current;
-      if (feedback && !await feedback()) return;
+      if (feedback && !await feedback()) return false;
       const feedbackInput = feedback?.capturePreparedInput?.();
-      if (!owns()) return;
+      if (!owns()) return false;
       if (native) {
         const guard = captureProductNavigation(slot?.hostSlot);
         if (!guard || guard.product !== native.context.product || guard.id !== rememberedDocumentId.current) throw new Error(t('workspace.tree.nativeUnavailable'));
         if (row.product !== native.context.product) {
           if (!await guard.prepare() || !owns()) throw new Error(t('workspace.tree.nativeUnavailable'));
           const identity = await loadIdentity();
-          if (!owns()) return;
+          if (!owns()) return false;
           if (`${identity.issuer}\0${identity.subject}` !== noteAccount.current ||
             !identity.tenants.some(item => item.tenantId === scope.tenant.tenantId)) throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
           const role = await confirmTenant(scope.tenant.tenantId);
-          if (!owns()) return;
+          if (!owns()) return false;
           if (role !== native.role) throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
           const context = await openVerifiedSnapshot(scope.tenant.tenantId, scope.workspace.id, row.documentId, role, row.product, session.requestFetch);
-          if (!owns()) return;
+          if (!owns()) return false;
           await readProductDocument(row.product, context.snapshotText!);
-          if (!owns()) return;
+          if (!owns()) return false;
           let ready!: (guard: ProductNavigationGuard | false) => void;
           const installed = new Promise<ProductNavigationGuard | false>(resolve => { ready = resolve; });
           const target: NativeSlot = { token: Symbol('native target'), key: crypto.randomUUID(), session,
@@ -596,11 +623,13 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
             nativeSlot.current = target; rememberedNote.current = targetView; verifiedIdentity.current = identity;
             noteUnsafe.current = false; rememberedDocumentId.current = row.documentId;
             setMountedNote(targetView); setView(targetView); setStagedNative(null);
-            commitNativeLocation(row.documentId, projectId ?? null);
+            // Cross-product history restoration is a separate native contract.
+            // Preserve its prior replace behavior until that path is qualified.
+            commitNativeLocation(row.documentId, projectId ?? null, traversal ? 'traverse' : 'replace', traversal?.index);
           } finally {
             if (nativeSlot.current !== target) cancelStagedNative(target);
           }
-          return;
+          return true;
         }
         if (!guard.open) throw new Error(t('workspace.tree.nativeUnavailable'));
         let feedbackPrepared = false, targetWitness: ProductNavigationGuard | undefined;
@@ -620,23 +649,98 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           return targetWitness?.isCurrent() === true && (!feedback || feedbackInput?.isCurrent() === true);
         };
         const installed = await guard.open(row.documentId, openIntentCurrent);
-        if (!owns()) return;
+        if (!owns()) return false;
         if (!installed || !installed.isCurrent() || !openIntentCurrent()) throw new Error(t('workspace.tree.nativeUnavailable'));
-        commitNativeLocation(row.documentId, projectId ?? null);
-        return;
+        commitNativeLocation(row.documentId, projectId ?? null, traversal ? 'traverse' : row.product === 'note' ? 'push' : 'replace', traversal?.index);
+        return true;
       }
       const identity = verifiedIdentity.current;
-      if (!identity) return;
+      if (!identity) return false;
       const context = await openVerifiedSnapshot(scope.tenant.tenantId, scope.workspace.id, row.documentId, scope.role, row.product, session.requestFetch);
-      if (!owns()) return;
+      if (!owns()) return false;
       await readProductDocument(row.product, context.snapshotText!);
-      if (!owns()) return;
+      if (!owns()) return false;
       noteIntent.current = { tenantId: context.tenantId, workspaceId: context.workspaceId, documentId: row.documentId, product: context.product,
         ...(projectId ? { projectId, mode: 'read' as const } : {}) };
       rememberNote({ phase: 'note', tenant: scope.tenant, role: scope.role, workspace: scope.workspace, context }, identity);
+      return true;
     } catch (error) { if (owns()) setTreeError(error instanceof Error ? error.message : t('workspace.tree.nativeUnavailable')); }
     finally { if (treeOperation.current === token) { treeOperation.current = null; setTreeBusy(false); } }
+    return false;
   }
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      const refuseUnownedHistory = () => {
+        curtain().textContent = t('workspace.tree.nativeUnavailable');
+        showCurtain(); setTreeError(t('workspace.tree.nativeUnavailable'));
+      };
+      const entry = nativeHistoryEntry(event.state);
+      const restoring = restoringHistory.current;
+      if (restoring) {
+        restoringHistory.current = null;
+        if (entry?.owner === restoring.owner && entry.index === restoring.index &&
+          location.href === (noteIntent.current ? new URL(snapshotIntentURL(noteIntent.current), location.origin).href : '')) return;
+        refuseUnownedHistory();
+        return;
+      }
+      const source = rememberedNote.current;
+      if (!source || currentView.current.phase !== 'note' || !noteAccess.current) return;
+      const owner = historyOwner.current.owner, sourceIndex = historyOwner.current.index;
+      const epoch = ++historyEpoch.current;
+      treeOperation.current = null; cancelStagedNative(); setTreeBusy(false);
+      // An entry marker is a cursor, never an authority or a cached original.
+      if (!entry || entry.owner !== owner || entry.index >= history.length || Math.abs(sourceIndex - entry.index) >= history.length) {
+        refuseUnownedHistory();
+        return;
+      }
+      if (entry.index === sourceIndex) {
+        if (!noteIntent.current || location.href !== new URL(snapshotIntentURL(noteIntent.current), location.origin).href) refuseUnownedHistory();
+        return;
+      }
+      const url = location.href, account = noteAccount.current, slot = nativeSlot.current;
+      const current = () => historyEpoch.current === epoch && location.href === url &&
+        rememberedNote.current === source && noteAccount.current === account && nativeSlot.current === slot &&
+        noteAccess.current && slot?.session.isCurrent() === true && historyOwner.current.index === sourceIndex;
+      const restore = () => {
+        if (!current()) return;
+        if (nativeHistoryEntry(history.state)?.owner !== owner) {
+          refuseUnownedHistory();
+          return;
+        }
+        restoringHistory.current = { owner, index: sourceIndex };
+        history.go(sourceIndex - entry.index);
+      };
+      void (async () => {
+        try {
+          const request = authRouteRequest(url);
+          if (!request || request.route.kind !== 'item' || request.route.workspaceId !== source.workspace.id ||
+            (request.route.tenantId && request.route.tenantId !== source.tenant.tenantId)) throw new Error(t('workspace.tree.nativeUnavailable'));
+          const session = captureAuthorizedSession();
+          if (!session.isCurrent() || !current()) return;
+          const identity = await loadIdentity();
+          if (!current()) return;
+          if (`${identity.issuer}\0${identity.subject}` !== account || !identity.tenants.some(one => one.tenantId === source.tenant.tenantId))
+            throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
+          const role = await confirmTenant(source.tenant.tenantId);
+          if (!current()) return;
+          if (role !== source.role) throw new AuthError('forbidden', t('workspace.tree.nativeUnavailable'));
+          const item = await resolveAuthenticatedRouteItem(request, source.tenant.tenantId, session.requestFetch, current);
+          if (!current()) return;
+          if (item.kind !== 'document' || item.product !== source.context.product) throw new Error(t('workspace.tree.nativeUnavailable'));
+          const context = await openVerifiedSnapshot(source.tenant.tenantId, source.workspace.id, item.id, role, item.product, session.requestFetch);
+          if (!current()) return;
+          if (context.product !== item.product || context.documentId !== item.id) throw new Error(t('workspace.tree.nativeUnavailable'));
+          const row: ServerCatalogRow = { key: JSON.stringify([source.tenant.tenantId, source.workspace.id, item.product, item.id]),
+            title: '', product: item.product, documentId: item.id, mode: 'snapshot', revision: 0, nativeOpenSupported: true };
+          if (!await openTreeOriginal(row, request.route.projectId, { index: entry.index, epoch, url })) restore();
+        } catch (error) {
+          if (current()) { setTreeError(error instanceof Error ? error.message : t('workspace.tree.nativeUnavailable')); restore(); }
+        }
+      })();
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   async function navigateTree(destination: 'projects' | 'library', projectId?: string) {
     if (treeOperation.current) return;
     const scope = rememberedNote.current ?? (currentView.current.phase === 'project' || currentView.current.phase === 'library' ? currentView.current : null);
