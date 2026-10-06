@@ -24,5 +24,15 @@
   ],
   "devDependencies": {
     "@types/pg": "8.23.1"
+  },
+  "exports": {
+    "./oidc": {
+      "types": "./src/oidc.ts",
+      "import": "./dist/oidc.js"
+    },
+    "./auth-config": {
+      "types": "./src/auth-config.ts",
+      "import": "./dist/auth-config.js"
+    }
   }
 }
