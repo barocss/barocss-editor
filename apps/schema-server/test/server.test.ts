@@ -9,6 +9,8 @@ import { SchemaRegistryStore } from '@barocss/office-service/schema-registry-sto
 import { AuthProviderUnavailableError } from '@barocss/office-api/oidc';
 import { parseRegistryDefinition } from '@barocss/schema/registry-contract';
 import type { TenantRole } from '@barocss/office-service/membership-store';
+import { DocumentError, type DocumentHead, type DocumentReceipt } from '@barocss/office-service/document-store';
+import type { Native2Documents } from '../src/native2-routes.js';
 const tenantId='11111111-1111-4111-8111-111111111111', workspaceId='22222222-2222-4222-8222-222222222222';
 const schemaId='33333333-3333-4333-8333-333333333333', identity='44444444-4444-4444-8444-444444444444';
 const documentId='55555555-5555-4555-8555-555555555555';
@@ -69,6 +71,103 @@ describe('controlled current-policy admission with the actual store and held tra
   it('refuses an actor receipt after trusted operator policy removes its required capability',async()=>{
     const f=controlled();f.policy[0].capabilities=[];const app=createSchemaServer(f.deps);
     try{const response=await app.inject({method:'GET',url:base+'/schema-receipts/old-operation',headers});expect(response.statusCode).toBe(403);expect(f.state.effects).toBe(0);}finally{await app.close();}
+  });
+});
+
+function controlledNative2() {
+  const f = controlled(), text = JSON.stringify(definition()), parsed = parseRegistryDefinition(text);
+  const ref = { schemaId, version: 1, digest: hash(parsed.canonicalText) };
+  const bundle = { bundleVersion: 1, digestAlgorithm: 'wonffice.canonical-json.sha256.v1', selected: [ref], definitions: [{ reference: ref, definitionText: text }] };
+  const raw = JSON.stringify({ format: 'barocss-note', version: 2, schemaBundle: bundle,
+    document: { stype: 'note', attributes: { title: 'Controlled native2', pageId: documentId }, content: [] } });
+  const head: DocumentHead = { documentId, tenantId, workspaceId, product: 'note', title: 'Controlled native2', creatorUserId: identity,
+    metadataRevision: 1, mode: 'snapshot', pageId: documentId, documentKey: 'controlled-key', fileFormat: 'barocss-note', fileVersion: 2, revision: 1, snapshotHash: hash(raw) };
+  const calls: Array<{ operation: string; input: unknown; principal: unknown }> = [];
+  const state = { deny: false };
+  const check = (op: string, p: unknown, input: unknown) => {
+    if (state.deny) throw new DocumentError(403, 'scope_forbidden');
+    calls.push({ operation: op, input, principal: p });
+  };
+  const receipt = (operation: 'create' | 'update', idempotencyKey: string): DocumentReceipt =>
+    ({ operation, idempotencyKey, requestHash: hash('controlled fixture receipt, not actual PG'), document: head, snapshotText: raw });
+  const documents: Native2Documents = {
+    create: async (p, _t, input) => { check('create', p, input); return receipt('create', input.idempotencyKey); },
+    open: async (p, _t, id) => { check('open', p, id); return { document: head, snapshotText: raw }; },
+    updateSnapshot: async (p, _t, _id, input) => { check('update', p, input); return receipt('update', input.idempotencyKey); },
+    getReceipt: async (p, _t, operation, idempotencyKey) => {
+      check('receipt', p, idempotencyKey);
+      if (operation !== 'create' && operation !== 'update') throw new DocumentError(400, 'invalid_operation');
+      return receipt(operation, idempotencyKey);
+    }
+  };
+  f.deps.documents = documents;
+  const input = { schemaAction: 'preserve', expectedRevision: 1, expectedSnapshotHash: hash(raw), expectedPriorPinDigest: hash('controlled priorpins'), snapshotText: raw, idempotencyKey: 'fixed-native2' };
+  return { f, head, bundle, raw, calls, state, input };
+}
+
+describe('controlled optional native2 HTTP seam, separate from actual PG authority', () => {
+  const path = `/v1/tenants/${tenantId}/note-native2`;
+  it('has no native2 route without explicit document dependencies', async () => {
+    const f = controlled(), app = createSchemaServer(f.deps);
+    try { expect((await app.inject({ url: path + `/documents/${documentId}`, headers })).statusCode).toBe(404); }
+    finally { await app.close(); }
+  });
+  it('keeps raw input/current verified principal and returns the same versioned full bundle', async () => {
+    const x = controlledNative2(), app = createSchemaServer(x.f.deps);
+    try {
+      const saved = await app.inject({ method: 'PUT', url: path + `/documents/${documentId}/snapshot`, headers, payload: x.input });
+      expect(saved.statusCode).toBe(200); expect(x.calls[0]).toEqual({ operation: 'update', input: x.input, principal });
+      const opened = await app.inject({ url: path + `/documents/${documentId}/schema-bundle`, headers });
+      expect(opened.json()).toEqual({ status: 'pinned', documentId, documentRevision: 1, snapshotHash: hash(x.raw),
+        nativeFormat: { format: 'barocss-note', version: 2 }, bundle: x.bundle });
+    } finally { await app.close(); }
+  });
+  it('rejects grants, missing source hash, invalid action objects, legacy payload and queries before store dispatch', async () => {
+    const x = controlledNative2(), app = createSchemaServer(x.f.deps);
+    try {
+      const url = path + `/documents/${documentId}/snapshot`;
+      for (const payload of [{ ...x.input, role: 'owner' }, { ...x.input, expectedSnapshotHash: undefined }, { ...x.input, schemaAction: {} }]) {
+        expect((await app.inject({ method: 'PUT', url, headers, payload })).statusCode).toBe(400);
+      }
+      expect((await app.inject({ method: 'PUT', url, headers, payload: { ...x.input, snapshotText: JSON.stringify({ format: 'barocss-note', version: 1 }) } })).statusCode).toBe(422);
+      expect((await app.inject({ url: path + `/documents/${documentId}?approved=true`, headers })).statusCode).toBe(400);
+      expect(x.calls).toEqual([]);
+    } finally { await app.close(); }
+  });
+  it('requires Bearer verification and maps current service denial to its named response', async () => {
+    const x = controlledNative2(), app = createSchemaServer(x.f.deps);
+    try {
+      expect((await app.inject(path + `/documents/${documentId}`)).statusCode).toBe(401); expect(x.calls).toEqual([]);
+      x.state.deny = true;
+      const denied = await app.inject({ url: path + `/receipts/update/${x.input.idempotencyKey}`, headers });
+      expect(denied.statusCode).toBe(403); expect(denied.json()).toEqual({ status: 'scope_forbidden' });
+      expect(x.calls).toEqual([]);
+    } finally { await app.close(); }
+  });
+  it('refuses metadata receipts and legacy native heads on the explicit route', async () => {
+    const x = controlledNative2(), app = createSchemaServer(x.f.deps);
+    try {
+      expect((await app.inject({ url: path + '/receipts/metadata/key', headers })).statusCode).toBe(400);
+      x.head.fileVersion = 1;
+      expect((await app.inject({ url: path + `/documents/${documentId}`, headers })).statusCode).toBe(422);
+    } finally { await app.close(); }
+  });
+  it('reads separate protected document permissions without inheriting registration or echoing secrets', () => {
+    const dir = mkdtempSync('/private/tmp/native2-config-'), registry = join(dir, 'registry.json'), docs = join(dir, 'documents.json');
+    writeFileSync(registry, JSON.stringify(policies()), { mode: 0o600 });
+    const env = { SCHEMA_SERVER_POLICY_FILE: registry, SCHEMA_SERVER_OIDC_ISSUER: principal.issuer, SCHEMA_SERVER_OIDC_JWKS_URL: 'http://127.0.0.1:18595/keys',
+      SCHEMA_SERVER_OIDC_AUDIENCE: 'schema-test', SCHEMA_SERVER_DATABASE_URL: 'postgresql://wonffice_app@localhost/private' };
+    try {
+      expect(readSchemaServerConfig(env).documentPolicy).toEqual([]);
+      writeFileSync(docs, '[]', { mode: 0o600 });
+      const configured = { ...env, SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE: docs };
+      expect(readSchemaServerConfig(configured).documentPolicy).toEqual([]);
+      const entry = { tenantId, workspaceId, readRoles: ['editor', 'viewer'], preserveRoles: ['editor'], adoptRoles: [], capabilities: ['note.field.text.v1'] };
+      writeFileSync(docs, JSON.stringify([entry])); expect(readSchemaServerConfig(configured).documentPolicy).toEqual([entry]);
+      writeFileSync(docs, JSON.stringify([{ ...entry, registerRoles: ['owner'] }])); expect(() => readSchemaServerConfig(configured)).toThrow('SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE');
+      writeFileSync(docs, JSON.stringify([entry, entry])); expect(() => readSchemaServerConfig(configured)).toThrow('SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE');
+      writeFileSync(docs, JSON.stringify([entry])); chmodSync(docs, 0o644); expect(() => readSchemaServerConfig(configured)).toThrow('SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE');
+    } finally { rmSync(dir, { recursive: true }); }
   });
 });
 describe('diagnostic module identity (not PostgreSQL evidence)',()=>{
