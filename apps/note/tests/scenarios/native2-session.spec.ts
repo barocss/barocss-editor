@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { NativeScenarioSnapshot } from '../../src/scenario-main';
-import { NATIVE_NOTE_FIXTURES, NATIVE_NOTE_EXPECTED_VARIANTS } from '../../src/native2-scenario-fixtures';
+import { NATIVE_NOTE_FIXTURES, NATIVE_NOTE_EXPECTED_VARIANTS, NATIVE_B_VARIANTS } from '../../src/native2-scenario-fixtures';
 
 test.afterEach(async ({ page }, info) => {
   await page.screenshot({ path: info.outputPath('native-current.png'), fullPage: true });
@@ -62,13 +62,6 @@ test('explicit A2 context paints preserved content and complete pins without ret
   expect(NATIVE_NOTE_FIXTURES.SOURCE_B.schemaBundle.selected[0].version).toBe(1);
 });
 
-test('whole B literal strike is retained as source while engine admission refuses before painting or save', async ({ page }) => {
-  await page.goto('/scenarios.html?case=native2-B');
-  await expect(page.getByTestId('native2-error')).toContainText('unsupported_native_editor');
-  await expect(page.getByTestId('native2-host').locator('.on-doc')).toHaveCount(0);
-  expect(await page.getByTestId('native2-retained-source').textContent()).toBe(JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_B, null, 2) + '\n');
-  expect(await page.getByTestId('native2-export').textContent()).toBe('');
-});
 
 test('whole C has only the three declared self IDs changed and structural move restores by real UI history', async ({ page }) => {
   await page.goto('/scenarios.html?case=native2-C'); await expect(page.getByTestId('native2-host').locator('.on-doc')).toBeVisible();
@@ -90,4 +83,143 @@ test('whole C has only the three declared self IDs changed and structural move r
   await page.getByRole('button', { name: 'Reopen native snapshot', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.readNativeNoteScenario?.().nativeDocument)).toEqual(changed);
   await expect(page.getByTestId('native2-host')).toContainText('목표 A');
+});
+
+
+test('desired full original B opens in native2 and paints literal strike', async ({ page }) => {
+  await page.goto('/scenarios.html?case=native2-B');
+  const host = page.getByTestId('native2-host');
+  await expect(host.locator('.on-doc')).toBeVisible();
+  await expect(host).toContainText('검토 B');
+  await expect(host.locator('.mark-strike')).toHaveCount(1);
+});
+
+test('bare readonly original B model and painter are investigated separately from admission', async ({ page }) => {
+  await page.goto('/scenarios.html?case=native2-B-bare');
+  const host = page.getByTestId('native2-bare-host');
+  await expect(host.locator('.on-doc')).toBeVisible();
+  expect(await page.evaluate(() => window.readNativeNoteScenario?.().nativeDocument)).toEqual(NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+  await expect(host).toContainText('검토 B');
+  const paint = await host.locator('p').filter({ hasText: '검토 B' }).first().evaluate(p => [...p.querySelectorAll('*')].map(el => ({ text: el.textContent, line: getComputedStyle(el).textDecorationLine, className: el.className })));
+  await test.info().attach('original-B-effective-paint.json', { body: JSON.stringify(paint, null, 2), contentType: 'application/json' });
+  expect(paint.some(run => run.text?.includes('검토') && run.line.includes('line-through'))).toBe(true);
+});
+
+async function readNative(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    if (!window.readNativeNoteScenario) throw new Error('Actual native diagnostic required'); return window.readNativeNoteScenario();
+  });
+}
+async function exportB(page: import('@playwright/test').Page, expected: unknown) {
+  await expect.poll(async () => (await readNative(page)).nativeDocument).toEqual(expected);
+  // Escape dismisses the selected-text surface before using the outside diagnostic control.
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-editor-context-toolbar]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Export native snapshot', exact: true }).click();
+  const text = await page.getByTestId('native2-export').textContent(); if (!text) throw new Error('Complete native2 snapshot required');
+  expect(JSON.parse(text)).toEqual({ ...NATIVE_NOTE_FIXTURES.SOURCE_B, document: expected });
+  expect(Object.hasOwn(JSON.parse(text), 'savedAt')).toBe(false);
+}
+async function placeB(page: import('@playwright/test').Page, offset: number, selected = 0) {
+  const host = page.getByTestId('native2-host'); await host.locator('.mark-strike').first().click();
+  await page.keyboard.press('Home');
+  for (let n = 0; n < offset; n++) await page.keyboard.press('ArrowRight');
+  if (selected) { await page.keyboard.down('Shift'); for (let n = 0; n < selected; n++) await page.keyboard.press('ArrowRight'); await page.keyboard.up('Shift'); }
+  const identity = await host.locator('[data-bc-sid]').filter({ hasText: '검토 B' }).evaluateAll(elements => {
+    const run = elements.find(element => element.getAttribute('data-bc-stype') === 'inline-text' || element.classList.contains('inline-text'));
+    return run?.getAttribute('data-bc-sid');
+  });
+  const current = await readNative(page);
+  const doc = current.document;
+  if (!doc || typeof doc !== 'object' || !('content' in doc) || !Array.isArray(doc.content)) throw new Error('Whole actual B tree required');
+  const paragraph = doc.content[0];
+  const run = paragraph?.content?.[0];
+  if (!run || run.text !== '검토 B' || typeof run.sid !== 'string') throw new Error('Original B run identity required');
+  if (identity) expect(identity).toBe(run.sid);
+  await expect.poll(async () => (await readNative(page)).selection).toMatchObject({ type: 'range', startNodeId: run.sid, endNodeId: run.sid, startOffset: offset, endOffset: offset + selected, collapsed: selected === 0 });
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('[data-testid="native2-host"]'))).toBe(true);
+}
+
+test('B real keyboard input outside and inside strike preserves full native file, caret and Undo/Redo', async ({ page }) => {
+  await page.goto('/scenarios.html?case=native2-B');
+  await placeB(page, 4); await page.keyboard.insertText(' • 편집 B');
+  await exportB(page, NATIVE_B_VARIANTS['append-outside-strike'].document);
+  await page.getByRole('button', { name: 'Undo local edit', exact: true }).click();
+  await exportB(page, NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+  await placeB(page, 1); await page.keyboard.insertText('사');
+  await exportB(page, NATIVE_B_VARIANTS['insert-inside-strike'].document);
+  await page.getByRole('button', { name: 'Undo local edit', exact: true }).click(); await exportB(page, NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+  await page.getByRole('button', { name: 'Redo local edit', exact: true }).click(); await exportB(page, NATIVE_B_VARIANTS['insert-inside-strike'].document);
+  await page.getByRole('button', { name: 'Reopen native snapshot', exact: true }).click();
+  await expect.poll(async () => (await readNative(page)).nativeDocument).toEqual(NATIVE_B_VARIANTS['insert-inside-strike'].document);
+});
+
+test('B actual S overflow reads literal mark on/off and underline overlap keeps both painted decorations', async ({ page }) => {
+  await page.goto('/scenarios.html?case=native2-B'); await placeB(page, 0, 2);
+  const more = page.getByRole('button', { name: '추가 서식', exact: true }); await more.click();
+  const strike = page.getByRole('menuitemcheckbox', { name: '취소선', exact: true });
+  await expect(strike).toHaveAttribute('aria-checked', 'true'); await strike.click();
+  await more.click(); await expect(strike).toHaveAttribute('aria-checked', 'false');
+  // Hover tooltip and secondary popup consume Escape one layer at a time.
+  await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
+  await expect(strike).toHaveCount(0);
+  await exportB(page, NATIVE_B_VARIANTS['remove-exact-strike'].document);
+  await page.getByRole('button', { name: 'Undo local edit', exact: true }).click();
+  await placeB(page, 1, 3); await more.click();
+  await page.getByRole('menuitemcheckbox', { name: '밑줄', exact: true }).click();
+  await exportB(page, NATIVE_B_VARIANTS['underline-overlap'].document);
+  const host = page.getByTestId('native2-host');
+  await expect(host.locator('.mark-strike').first()).toBeVisible(); await expect(host.locator('.mark-underline').first()).toBeVisible();
+  const paint = await host.locator('.mark-underline').first().evaluate(el => {
+    const lines: string[] = []; for (let node: Element | null = el; node; node = node.parentElement) lines.push(getComputedStyle(node).textDecorationLine);
+    return lines.join(' ');
+  });
+  expect(paint).toContain('underline'); expect(paint).toContain('line-through');
+  await page.getByRole('button', { name: 'Reopen native snapshot', exact: true }).click();
+  await expect.poll(async () => (await readNative(page)).nativeDocument).toEqual(NATIVE_B_VARIANTS['underline-overlap'].document);
+});
+
+test('B last nested resource keyboard input is delivered and reopened with exact full pins', async ({ page }) => {
+  await page.goto('/scenarios.html?case=native2-B'); await page.getByRole('button', { name: 'Show nested resource', exact: true }).click();
+  const paragraph = page.getByTestId('native2-host').locator('p').filter({ hasText: 'B 자료 본문' }).first();
+  await paragraph.click(); await page.keyboard.press('End'); await page.keyboard.insertText(' / 마지막 B 입력');
+  await page.getByRole('button', { name: 'Export native snapshot', exact: true }).click();
+  await expect.poll(async () => {
+    const text = await page.getByTestId('native2-export').textContent(); return text ? JSON.parse(text) : undefined;
+  }).toEqual(NATIVE_B_VARIANTS['last-nested-input']);
+  await page.getByRole('button', { name: 'Reopen native snapshot', exact: true }).click();
+  await expect.poll(async () => (await readNative(page)).nativeDocument).toEqual(NATIVE_B_VARIANTS['last-nested-input'].document);
+});
+
+test('B real block controls keep terminal resources and complete source through structure/history', async ({ page }) => {
+  await page.goto('/scenarios.html?case=native2-B');
+  await page.getByRole('button', { name: 'Insert B block', exact: true }).click(); await exportB(page, NATIVE_B_VARIANTS['new-block'].document);
+  await page.getByRole('button', { name: 'Move original B block down', exact: true }).click(); await exportB(page, NATIVE_B_VARIANTS['move-original-below-new'].document);
+  await page.getByRole('button', { name: 'Delete B block', exact: true }).click(); await exportB(page, NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+  await page.getByRole('button', { name: 'Undo local edit', exact: true }).click(); await exportB(page, NATIVE_B_VARIANTS['move-original-below-new'].document);
+  await page.getByRole('button', { name: 'Redo local edit', exact: true }).click(); await exportB(page, NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+});
+
+
+for (const [label, mark] of [['굵게', 'bold'], ['기울임', 'italic']] as const) test(`B actual ${mark} overlap preserves literal S, whole file and local history`, async ({ page }) => {
+  // Independent expected full file: only one declared native mark is appended.
+  const expected = structuredClone(NATIVE_NOTE_FIXTURES.SOURCE_B);
+  const run = expected.document.content[0].content[0];
+  if (!('marks' in run) || !run.marks) throw new Error('Full original B authored strike required');
+  run.marks.push({ stype: mark, range: [1, 4] });
+  await page.goto('/scenarios.html?case=native2-B'); await placeB(page, 1, 3);
+  await page.getByRole('button', { name: label, exact: true }).click();
+  await exportB(page, expected.document);
+  await page.getByRole('button', { name: 'Undo local edit', exact: true }).click(); await exportB(page, NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+  await page.getByRole('button', { name: 'Redo local edit', exact: true }).click(); await exportB(page, expected.document);
+  const marked = page.getByTestId('native2-host').locator(`.mark-${mark}`).first();
+  await expect(marked).toBeVisible();
+  if (mark === 'bold') await expect(marked).toHaveCSS('font-weight', '700');
+  else await expect(marked).toHaveCSS('font-style', 'italic');
+  await expect.poll(() => marked.evaluate(el => {
+    const lines: string[] = []; for (let node: Element | null = el; node; node = node.parentElement) lines.push(getComputedStyle(node).textDecorationLine);
+    return lines.join(' ');
+  })).toContain('line-through');
+  await page.getByRole('button', { name: 'Reopen native snapshot', exact: true }).click();
+  await expect.poll(async () => (await readNative(page)).nativeDocument).toEqual(expected.document);
 });

@@ -54,7 +54,7 @@ import { registerNotePageReferenceCommands } from './page-reference';
  * refuse. The site's menu reads the site's toolbar for the same reason, and the two lists never meet
  * — which is the point of the package.
  */
-export function createNoteExtensions(): Extension[] {
+export function createNoteExtensions(options: { strikeMark?: 'strike' | 'strikethrough' } = {}): Extension[] {
   return [
     ...createCoreExtensions(),
 
@@ -78,7 +78,7 @@ export function createNoteExtensions(): Extension[] {
     new MoveBlockExtension(),
 
     new UnderlineExtension(),
-    new StrikeThroughExtension(),
+    new StrikeThroughExtension({ markType: options.strikeMark }),
     new SubSuperExtension(),
     new TextFormattingExtension(),
     new CodeMarkExtension(),
@@ -153,6 +153,7 @@ export function noteSlashItems(): {
  * this decides is the schema and the kit.
  */
 export interface NoteEditorOptions extends ProductEditorOptions {
+  strikeMark?: 'strike' | 'strikethrough';
   /**
    * **저장소는 부르는 쪽의 것이다** — 그래서 다른 셋과 달리 필수다.
    *
@@ -164,10 +165,10 @@ export interface NoteEditorOptions extends ProductEditorOptions {
 }
 
 export function createNoteEditor(options: NoteEditorOptions): Editor {
-  const { kit, keybindings, extensions = [], ...rest } = options;
+  const { kit, keybindings, strikeMark, extensions = [], ...rest } = options;
   const editor = new Editor({
     ...rest,
-    extensions: [...(kit ?? createNoteExtensions()), ...extensions]
+    extensions: [...(kit ?? createNoteExtensions({ strikeMark })), ...extensions]
   } as never);
 
   /*

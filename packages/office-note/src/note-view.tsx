@@ -1,3 +1,4 @@
+import { isNative2NoteEditor } from './session';
 import { registerTransactionIntentGuardFactory } from '@barocss/model';
 import { ColumnsEditor, LatexEditor, captureTextSelection } from '@barocss/office-editor-ui';
 import { MultiBlockControl } from './multi-block-control';
@@ -522,7 +523,7 @@ function NoteBar({ editor, blocksOnly = false, onInsert }: { editor: Editor; blo
         * `data-note-control` rather than the default, because this package's own checks name the
         * buttons that way and a shared surface should not rename a product's tests.
         */}
-      {!blocksOnly && <Controls editor={editor} controls={noteControlsIn('mark')} mark="note-control" />}
+      {!blocksOnly && <Controls editor={editor} controls={noteControlsIn('mark', isNative2NoteEditor(editor) ? 'strike' : 'strikethrough')} mark="note-control" />}
 
       {!blocksOnly && blocks.length > 0 ? <span className="on-bar-split" /> : null}
 

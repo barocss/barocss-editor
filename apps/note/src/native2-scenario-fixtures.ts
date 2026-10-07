@@ -2191,3 +2191,1469 @@ export const NATIVE_NOTE_EXPECTED_VARIANTS = {
     }
   }
 };
+
+// Whole independent B variants frozen before the original baseline producer.
+export const NATIVE_B_VARIANTS = {
+  "append-outside-strike": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B • 편집 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "insert-inside-strike": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검사토 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    3
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "remove-exact-strike": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": []
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "underline-overlap": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                },
+                {
+                  "stype": "underline",
+                  "range": [
+                    1,
+                    4
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cross-run-strike-off": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": []
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "last-nested-input": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문 / 마지막 B 입력"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "new-block": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "metadata": null,
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "보조 검토 B",
+              "marks": []
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "move-original-below-new": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "metadata": null,
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "보조 검토 B",
+              "marks": []
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "delete-new-back-to-original": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+};

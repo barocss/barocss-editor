@@ -8,7 +8,7 @@ import { transaction } from '@barocss/model';
 import { openNoteTree, noteNodeTreeOf, type NoteSession } from '../src/session';
 import { createNoteNative2Context, openNoteNativeSnapshot, NativeNoteError, type NativeNoteSession } from '../src/native-session';
 import { copyNoteSnapshotFile, readNoteSnapshotFile } from '../src/note-file-codec';
-import { NATIVE_NOTE_FIXTURES, NATIVE_NOTE_EXPECTED_VARIANTS } from '../../../apps/note/src/native2-scenario-fixtures';
+import { NATIVE_NOTE_FIXTURES, NATIVE_NOTE_EXPECTED_VARIANTS, NATIVE_B_VARIANTS } from '../../../apps/note/src/native2-scenario-fixtures';
 const sessions: NoteSession[] = [];
 afterEach(() => { for (const one of sessions.splice(0).reverse()) one.close(); });
 const raw = (value: unknown) => JSON.stringify(value, null, 2) + '\n';
@@ -60,15 +60,20 @@ function nativeProjection(value: unknown): unknown {
   return result;
 }
 describe('explicit native2 original Note engine/context bridge', () => {
-  it('keeps intrinsic A/B immutable and refuses literal strike before parent/model effects', () => {
+  it('keeps intrinsic A/B immutable and refuses an unrelated canonical alias before parent/model effects', () => {
     const ctxA = createNoteNative2Context(raw(sourceA)), ctxB = createNoteNative2Context(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
     expect(ctxA.document).toStrictEqual(safeExpected(sourceA.document)); expect(ctxB.document).toStrictEqual(safeExpected(NATIVE_NOTE_FIXTURES.SOURCE_B.document));
     expect(ctxA.schemaBundle).toStrictEqual(safeExpected(sourceA.schemaBundle)); expect(ctxB.rawSnapshotText).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
     expect(Object.isFrozen(ctxA)).toBe(true); expect(Object.isFrozen(ctxB.schemaBundle)).toBe(true);
     const parent = openNoteTree({ stype: 'note', content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Unchanged parent' }] }] }); sessions.push(parent);
     const before = { document: parent.editor.exportDocument(), history: parent.editor.getHistoryStats(), selection: parent.editor.selection };
-    expect(() => openNoteNativeSnapshot(ctxB, { authority: parent.editor })).toThrowError(NativeNoteError);
-    try { openNoteNativeSnapshot(ctxB, { authority: parent.editor }); } catch (error) { expect(error).toMatchObject({ code: 'unsupported_native_editor', detail: 'mark' }); }
+    const unsupported = structuredClone(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    const marked = unsupported.document.content[0].content[0];
+    if (!('marks' in marked) || !marked.marks?.[0]) throw new Error('Original literal mark required');
+    marked.marks[0].stype = 'strikethrough';
+    const alias = createNoteNative2Context(raw(unsupported));
+    expect(() => openNoteNativeSnapshot(alias, { authority: parent.editor })).toThrowError(NativeNoteError);
+    try { openNoteNativeSnapshot(alias, { authority: parent.editor }); } catch (error) { expect(error).toMatchObject({ code: 'unsupported_native_editor', detail: 'mark' }); }
     expect({ document: parent.editor.exportDocument(), history: parent.editor.getHistoryStats(), selection: parent.editor.selection }).toStrictEqual(before);
   });
   it('retains full codec-valid unknown root and descendant node JSON and refuses admission before effects', () => {
@@ -302,4 +307,157 @@ describe('explicit native2 original Note engine/context bridge', () => {
     expect(() => one.editor.loadDocument(NATIVE_NOTE_FIXTURES.TARGET_A2.document)).toThrowError(NativeNoteError);
     expect({ document: one.editor.exportDocument(), history: one.editor.getHistoryStats(), snapshot: one.exportSnapshot() }).toStrictEqual(before);
   });
+});
+
+describe('literal strike runtime original baselines', () => {
+  it('admits the complete original B and preserves materialized and pinned native data', () => {
+    const { one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    expect(nativeProjection(one.editor.exportDocument())).toStrictEqual(materializedExpected(NATIVE_NOTE_FIXTURES.SOURCE_B.document));
+    expect(one.exportNativeDocument()).toStrictEqual(safeExpected(NATIVE_NOTE_FIXTURES.SOURCE_B.document));
+    expect(one.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
+  });
+  it('exports new underline on original supported A as full valid native JSON', async () => {
+    const { one } = start();
+    const leaf = nodes(one.editor).find(node => node.text === '목표 A');
+    if (!leaf?.sid) throw new Error('Original heading text SID required');
+    const selection = { type: 'range' as const, startNodeId: leaf.sid, endNodeId: leaf.sid, startOffset: 2, endOffset: 4, collapsed: false };
+    one.editor.selectionManager.setSelection(selection);
+    expect(await one.editor.executeCommand('toggleUnderline')).toBe(true);
+    const marks = one.editor.dataStore.getNode(leaf.sid)?.marks;
+    const evidence = process.env.NATIVE_NOTE_BASELINE_EVIDENCE;
+    if (evidence) { mkdirSync(evidence, { recursive: true }); writeFileSync(join(evidence, 'A-created-mark-shape.json'), JSON.stringify({ marks, optionalFields: marks?.map(mark => ({ keys: Object.keys(mark), undefinedKeys: Object.entries(mark).filter(([, value]) => value === undefined).map(([key]) => key) })) }, null, 2)); }
+    expect(marks?.map(mark => ({ stype: mark.stype, range: mark.range }))).toEqual([{ stype: 'bold', range: [0, 2] }, { stype: 'underline', range: [2, 4] }]);
+    const expected = structuredClone(sourceA);
+    const marked = expected.document.content[0].content[0];
+    if (!('marks' in marked) || !marked.marks) throw new Error('Authored marks array required');
+    marked.marks.push({ stype: 'underline', range: [2, 4] });
+    expect(JSON.parse(one.exportSnapshot())).toEqual(expected);
+  });
+  it('full B literal S restores exact original marks and omissions on cross-run undo', async () => {
+    // Investigation only: the bare existing engine is not supported native2 admission or save.
+    const one = openNoteTree(NATIVE_NOTE_FIXTURES.SOURCE_B.document, { nativeSource: true }); sessions.push(one);
+    one.editor.setEditable(true);
+    const first = nodes(one.editor).find(node => node.text === '검토 B'), second = nodes(one.editor).find(node => node.text === ' / 생략 B');
+    if (!first?.sid || !second?.sid) throw new Error('Original B two declared text nodes required');
+    expect(noteNodeTreeOf(one.editor.dataStore, one.rootId)).toStrictEqual(NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+    const selection = { type: 'range' as const, startNodeId: first.sid, endNodeId: second.sid, startOffset: 0, endOffset: 2, collapsed: false };
+    one.editor.selectionManager.setSelection(selection);
+    expect(await one.editor.executeCommand('toggleStrikeThrough')).toBe(true);
+    expect(noteNodeTreeOf(one.editor.dataStore, one.rootId)).toStrictEqual(NATIVE_B_VARIANTS['cross-run-strike-off'].document);
+    expect(await one.editor.undo()).toBe(true);
+    const evidence = process.env.NATIVE_NOTE_BASELINE_EVIDENCE;
+    if (evidence) { mkdirSync(evidence, { recursive: true }); writeFileSync(join(evidence, 'B-cross-run-undo.json'), JSON.stringify({ actual: noteNodeTreeOf(one.editor.dataStore, one.rootId), expected: NATIVE_NOTE_FIXTURES.SOURCE_B.document, selection: one.editor.selection }, null, 2)); }
+    expect(noteNodeTreeOf(one.editor.dataStore, one.rootId)).toStrictEqual(NATIVE_NOTE_FIXTURES.SOURCE_B.document);
+    expect(one.editor.selection).toMatchObject(selection);
+  });
+});
+
+describe('whole original B supported editing and native boundaries', () => {
+  function target(one: NativeNoteSession, text = '검토 B') {
+    const leaf = nodes(one.editor).find(node => node.text === text);
+    if (!leaf?.sid) throw new Error('Independently declared original text target required');
+    return leaf.sid;
+  }
+  function range(one: NativeNoteSession, start: number, end: number, endId = target(one)) {
+    return { type: 'range' as const, startNodeId: target(one), endNodeId: endId, startOffset: start, endOffset: end, collapsed: start === end && target(one) === endId };
+  }
+  async function checkHistory(one: NativeNoteSession, expected: unknown) {
+    expect(one.exportNativeDocument()).toStrictEqual(safeExpected(expected));
+    const snapshot = JSON.parse(one.exportSnapshot());
+    expect(snapshot).toEqual({ ...NATIVE_NOTE_FIXTURES.SOURCE_B, document: expected });
+    expect(Object.hasOwn(snapshot, 'savedAt')).toBe(false);
+    const reopened = start(snapshot).one;
+    expect(reopened.exportNativeDocument()).toStrictEqual(safeExpected(expected));
+    expect(await one.editor.undo()).toBe(true);
+    expect(one.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
+    expect(await one.editor.redo()).toBe(true);
+    expect(one.exportNativeDocument()).toStrictEqual(safeExpected(expected));
+  }
+  it.each([
+    ['outside', 4, ' • 편집 B', 'append-outside-strike'],
+    ['inside', 1, '사', 'insert-inside-strike']
+  ] as const)('keeps full B and adjusts literal ranges on %s input', async (_name, offset, text, variant) => {
+    const { one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B), selection = range(one, offset, offset);
+    one.editor.selectionManager.setSelection(selection);
+    expect(await one.editor.executeCommand('replaceText', { range: selection, text })).toBe(true);
+    await checkHistory(one, NATIVE_B_VARIANTS[variant].document);
+  });
+  it.each([
+    ['toggleStrikeThrough', 0, 2, 'remove-exact-strike'],
+    ['toggleUnderline', 1, 4, 'underline-overlap']
+  ] as const)('exports complete B after %s with exact literal names and order', async (command, startOffset, endOffset, variant) => {
+    const { one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B), selection = range(one, startOffset, endOffset);
+    one.editor.selectionManager.setSelection(selection);
+    expect(await one.editor.executeCommand(command)).toBe(true);
+    await checkHistory(one, NATIVE_B_VARIANTS[variant].document);
+    expect(one.editor.selection).toMatchObject(selection);
+  });
+  it('cross-run native S exports whole pins/resources and restores second-run absence', async () => {
+    const { one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    const selection = range(one, 0, 2, target(one, ' / 생략 B')); one.editor.selectionManager.setSelection(selection);
+    expect(await one.editor.executeCommand('toggleStrikeThrough')).toBe(true);
+    await checkHistory(one, NATIVE_B_VARIANTS['cross-run-strike-off'].document);
+    expect(one.editor.selection).toMatchObject(selection);
+  });
+  it('commits the exact row-B-1 last nested input with full pins and history', async () => {
+    const { one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    const resource = nodes(one.editor).find(node => node.stype === 'richText' && node.attributes?.id === 'row-B-1');
+    if (!resource?.sid) throw new Error('Original row-B-1 resource required');
+    const child = one.openChildResource(resource.sid); sessions.push(child);
+    const leaf = nodes(child.editor).find(node => node.text === 'B 자료 본문');
+    if (!leaf?.sid) throw new Error('Captured child original text required');
+    const selection = { type: 'range' as const, startNodeId: leaf.sid, endNodeId: leaf.sid, startOffset: 7, endOffset: 7, collapsed: true };
+    expect(await child.editor.executeCommand('replaceText', { range: selection, text: ' / 마지막 B 입력' })).toBe(true);
+    expect(await one.commitChildResource(resource.sid, child)).toBe(true);
+    await checkHistory(one, NATIVE_B_VARIANTS['last-nested-input'].document);
+  });
+  it('creates, moves and deletes a block before terminal resources with exact native history', async () => {
+    const { one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    const original = one.editor.dataStore.getNode(one.rootId)?.content?.[0];
+    const block = NATIVE_B_VARIANTS['new-block'].document.content[1];
+    expect((await transaction(one.editor, [{ type: 'addChild', payload: { parentId: one.rootId, child: block, position: 0 } }]).commit()).success).toBe(true);
+    // The independently declared new-block is after the original paragraph.
+    const added = one.editor.dataStore.getNode(one.rootId)?.content?.[0];
+    if (typeof added !== 'string' || typeof original !== 'string') throw new Error('Actual original/new SIDs required');
+    expect(await one.editor.executeCommand('moveNoteBlockDown', { nodeId: added })).toBe(true);
+    expect(one.exportNativeDocument()).toStrictEqual(safeExpected(NATIVE_B_VARIANTS['new-block'].document));
+    expect(await one.editor.executeCommand('moveNoteBlockDown', { nodeId: original })).toBe(true);
+    expect(one.exportNativeDocument()).toStrictEqual(safeExpected(NATIVE_B_VARIANTS['move-original-below-new'].document));
+    expect((await transaction(one.editor, [{ type: 'removeChild', payload: { parentId: one.rootId, childId: added } }]).commit()).success).toBe(true);
+    expect(one.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
+    expect(await one.editor.undo()).toBe(true); expect(one.exportNativeDocument()).toStrictEqual(safeExpected(NATIVE_B_VARIANTS['move-original-below-new'].document));
+    expect(await one.editor.undo()).toBe(true); expect(one.exportNativeDocument()).toStrictEqual(safeExpected(NATIVE_B_VARIANTS['new-block'].document));
+    expect(await one.editor.redo()).toBe(true); expect(await one.editor.redo()).toBe(true); expect(one.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
+  });
+  it('keeps B read-only by default and retains current parent generation across a queued mark', async () => {
+    const readonly = openNoteNativeSnapshot(createNoteNative2Context(raw(NATIVE_NOTE_FIXTURES.SOURCE_B))); sessions.push(readonly);
+    readonly.editor.selectionManager.setSelection(range(readonly, 0, 2));
+    const original = readonly.exportSnapshot();
+    expect(await readonly.editor.executeCommand('toggleStrikeThrough')).toBe(false); expect(readonly.exportSnapshot()).toBe(original);
+    const { parent, one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B); one.editor.selectionManager.setSelection(range(one, 0, 2));
+    const before = { native: one.exportSnapshot(), model: one.editor.exportDocument(), history: one.editor.getHistoryStats() };
+    const lock = await one.editor.dataStore.acquireLock(); const pending = one.editor.executeCommand('toggleStrikeThrough');
+    parent.editor.setEditable(false); parent.editor.setEditable(true); one.editor.dataStore.releaseLock(lock);
+    expect(await pending).toBe(false);
+    expect({ native: one.exportSnapshot(), model: one.editor.exportDocument(), history: one.editor.getHistoryStats() }).toStrictEqual(before);
+  });
+});
+
+
+it('failed full B callback retains draft and retries the latest actual input exactly once', async () => {
+  let fail = true; const delivered: string[] = [];
+  const { one } = start(NATIVE_NOTE_FIXTURES.SOURCE_B, snapshot => { if (fail) throw new Error('B host delivery refused'); delivered.push(snapshot); });
+  expect(await append(one, '검토 B', ' • 편집 B')).toBe(true);
+  const before = { model: one.editor.exportDocument(), history: one.editor.getHistoryStats() };
+  expect(() => one.flush()).toThrow('B host delivery refused'); expect(delivered).toEqual([]);
+  expect({ model: one.editor.exportDocument(), history: one.editor.getHistoryStats() }).toStrictEqual(before);
+  expect(JSON.parse(one.exportSnapshot())).toEqual(NATIVE_B_VARIANTS['append-outside-strike']);
+  const expected = structuredClone(NATIVE_B_VARIANTS['append-outside-strike']);
+  const run = expected.document.content[0].content[0];
+  if (!('text' in run) || typeof run.text !== 'string') throw new Error('Independent full B text required');
+  run.text += ' latest';
+  expect(await append(one, '검토 B • 편집 B', ' latest')).toBe(true);
+  fail = false; one.flush(); expect(delivered).toEqual([raw(expected)]);
+  one.flush(); expect(delivered).toEqual([raw(expected)]);
+  expect(start(JSON.parse(delivered[0])).one.exportSnapshot()).toBe(raw(expected));
 });

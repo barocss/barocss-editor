@@ -13,6 +13,20 @@ function nativeField(value: unknown, key: string): unknown {
   if (!nativeRecord(value) || !Object.hasOwn(value, key)) throw new Error('The native Note lost an authored field.');
   return value[key];
 }
+
+/** The existing mark operation emits an optional attrs key even when absent.
+ * Omit only that known engine omission for admitted native marks. Every other
+ * field and invalid value remains visible to the strict whole-file validator.
+ */
+function nativeNoteMarks(marks: unknown[]): unknown[] {
+  return marks.map(mark => {
+    const copy: unknown = structuredClone(mark);
+    if (nativeRecord(copy) && ['bold', 'italic', 'underline', 'strike'].includes(String(copy.stype)) &&
+        Object.hasOwn(copy, 'attrs') && copy.attrs === undefined) delete copy.attrs;
+    return copy;
+  });
+}
+
 type Access = { getNode: (sid: string) => Node | undefined };
 
 /**
@@ -90,7 +104,7 @@ export function noteNodeTreeOf(doc: Access, sid: string): Record<string, unknown
       stype: one.stype,
       ...(one.text !== undefined ? { text: one.text } : {}),
       ...(attributes && (shape?.hasAttributes !== false || Object.keys(attributes).length) ? { attributes } : {}),
-      ...(one.marks && (!shape?.native || shape.hasMarks || one.marks.length) ? { marks: structuredClone(one.marks) } : {}),
+      ...(one.marks && (!shape?.native || shape.hasMarks || one.marks.length) ? { marks: shape?.native || !shape && !!shapes ? nativeNoteMarks(one.marks) : structuredClone(one.marks) } : {}),
       ...nativeMetadata,
       ...(children.length || shape?.hasContent || (!shape && Array.isArray(one.content)) ? { content: children } : {})
     };
@@ -172,9 +186,9 @@ interface NoteOptions {
 
 function start(tree: unknown, options: NoteOptions): NoteSession {
   const nativeSource = options.nativeSource === true || !!options.authority && nativeEditors.has(options.authority);
-  const schema = createSchema('note', getNoteSchemaDefinition());
+  const schema = createSchema('note', getNoteSchemaDefinition({ literalStrike: nativeSource }));
   const store = new DataStore(undefined as never, schema as never);
-  const editor = createNoteEditor({ dataStore: store, schema, editable: options.authority?.isEditable ?? !nativeSource });
+  const editor = createNoteEditor({ dataStore: store, schema, editable: options.authority?.isEditable ?? !nativeSource, strikeMark: nativeSource ? 'strike' : 'strikethrough' });
   if (nativeSource) nativeEditors.add(editor);
 
   /* One name per body — see `NoteOptions.session` for what sharing one costs. */
@@ -282,6 +296,8 @@ export function captureNoteChildIntent(child: NoteSession, parent: Editor): () =
 }
 const noteParents = new WeakMap<Editor, Editor>();
 const nativeEditors = new WeakSet<Editor>();
+/** Explicit factory identity, never a document attribute or an authority grant. */
+export function isNative2NoteEditor(editor: Editor): boolean { return nativeEditors.has(editor); }
 const pendingObservers = new WeakMap<Editor, Set<() => void>>();
 /** Immediate dirty-input signal, bubbled to each owning editor. Successful flush settles separately. */
 export function observeNoteSessionChanges(editor: Editor, changed: () => void): () => void {

@@ -7,8 +7,8 @@ const tree = { stype: 'note', content: [{ stype: 'paragraph', content: [{ stype:
 const sessions: NoteSession[] = [];
 const make = (authority?: NoteSession['editor']) => { const one = openNoteTree(tree, { authority } as never); sessions.push(one); return one; };
 afterEach(() => { sessions.splice(0).reverse().forEach(one => one.close()); });
-it('native2 explicit parent authority changes cannot grant queued old-generation input', async () => {
-  const host = make(), context = createNoteNative2Context(JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_A));
+it.each([{ name: 'A', source: NATIVE_NOTE_FIXTURES.SOURCE_A }, { name: 'B', source: NATIVE_NOTE_FIXTURES.SOURCE_B }])('native2 explicit parent authority changes cannot grant queued old-generation input: $name', async ({ source }) => {
+  const host = make(), context = createNoteNative2Context(JSON.stringify(source));
   const child = openNoteNativeSnapshot(context, { authority: host.editor }); sessions.push(child);
   const first = child.editor.dataStore.getNode(child.rootId)?.content?.[0];
   if (typeof first !== 'string') throw new Error('Actual heading must have an owned SID');
@@ -23,8 +23,8 @@ it('native2 explicit parent authority changes cannot grant queued old-generation
   host.editor.setEditable(false); expect(child.editor.isEditable).toBe(false);
   expect(await child.editor.executeCommand('replaceText', { range: { type: 'range', startNodeId: run, endNodeId: run, startOffset: 4, endOffset: 4, collapsed: true }, text: ' denied' })).toBe(false);
 });
-it('native2 parent root-generation replacement retires descendant writes and refuses old-context export', () => {
-  const host = make(), child = openNoteNativeSnapshot(createNoteNative2Context(JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_A)), { authority: host.editor }); sessions.push(child);
+it.each([{ name: 'A', source: NATIVE_NOTE_FIXTURES.SOURCE_A }, { name: 'B', source: NATIVE_NOTE_FIXTURES.SOURCE_B }])('native2 parent root-generation replacement retires descendant writes and refuses old-context export: $name', ({ source }) => {
+  const host = make(), child = openNoteNativeSnapshot(createNoteNative2Context(JSON.stringify(source)), { authority: host.editor }); sessions.push(child);
   const before = child.editor.exportDocument(); host.editor.loadDocument(tree, host.session);
   expect(child.editor.isEditable).toBe(false); expect(() => child.exportSnapshot()).toThrow('native_context_changed');
   expect(child.editor.exportDocument()).toStrictEqual(before);

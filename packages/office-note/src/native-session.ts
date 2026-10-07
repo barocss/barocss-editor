@@ -51,7 +51,7 @@ export function createNoteNative2Context(rawSnapshotText: string): NativeNoteCon
 // Resources/dataset are preserved data regions, not arbitrary renderer/plugin declarations.
 const nodes = new Set(['note', 'heading', 'paragraph', 'inline-text', 'codeBlock', 'bTable', 'bTableBody', 'bTableRow', 'bTableCell',
   'pageReference', 'resources', 'richText', 'dataset']);
-const marks = new Set(['bold', 'italic', 'underline']);
+const marks = new Set(['bold', 'italic', 'underline', 'strike']);
 function supported(document: unknown): void {
   const walk = (value: unknown) => {
     if (!record(value) || typeof value.stype !== 'string' || !nodes.has(value.stype)) throw new NativeNoteError('unsupported_native_editor', 'node');
