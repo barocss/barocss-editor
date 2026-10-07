@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { createServer } from 'node:http';
-import { mkdirSync, writeFileSync, readFileSync, realpathSync, readdirSync, statSync, existsSync, createWriteStream, cpSync, symlinkSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { createServer, request as httpRequest } from 'node:http';
+import { mkdirSync, mkdtempSync, chmodSync, writeFileSync, readFileSync, realpathSync, readdirSync, statSync, existsSync, createWriteStream, cpSync, symlinkSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -10,26 +10,1222 @@ import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 
 // Actual own compiled HTTP process/private PostgreSQL with controlled signed JWKS.
 // No browser login, LLM, document schema adoption, MCP or external deployment claim.
+const HTTP_NATIVE_FIXTURES = {
+  "SOURCE_A": {
+    "format": "barocss-note",
+    "version": 2,
+    "savedAt": "authored stamp A / Café",
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 A",
+        "pageId": "native2-note-A",
+        "authoredTag": "preserve-A"
+      },
+      "metadata": {
+        "sourceRevision": 7,
+        "annotation": null,
+        "labels": [
+          "검토",
+          "Café"
+        ]
+      },
+      "content": [
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "목표 A",
+              "marks": [
+                {
+                  "stype": "bold",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "alignment": "left"
+          },
+          "metadata": {
+            "source": "authored-A",
+            "annotation": null
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Café 검토 A",
+              "marks": [
+                {
+                  "stype": "italic",
+                  "range": [
+                    0,
+                    5
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / marks 생략"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-A",
+                "title": "A 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-A",
+                "title": "A 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "codeBlock",
+          "attributes": {
+            "language": "typescript"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "const total = 7;"
+            }
+          ]
+        },
+        {
+          "stype": "bTable",
+          "content": [
+            {
+              "stype": "bTableBody",
+              "content": [
+                {
+                  "stype": "bTableRow",
+                  "content": [
+                    {
+                      "stype": "bTableCell",
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "A cell",
+                          "marks": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-A-2",
+                  "row-A-1"
+                ],
+                "records": [
+                  {
+                    "State": "진행",
+                    "Done": false,
+                    "Count": 7,
+                    "Label": "자료 A"
+                  },
+                  {
+                    "Label": "값 생략 A"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-A-2"
+              },
+              "metadata": {
+                "note": null
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "항목 본문 A",
+                      "marks": [
+                        {
+                          "stype": "underline",
+                          "range": [
+                            0,
+                            2
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-A",
+                        "title": "A 자료 내부"
+                      }
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "external-note-A",
+                        "title": "A 자료 외부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "SOURCE_B": {
+    "format": "barocss-note",
+    "version": 2,
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 B",
+        "pageId": "native2-note-B",
+        "authoredTag": "preserve-B"
+      },
+      "metadata": {
+        "annotation": null,
+        "sourceRevision": 3
+      },
+      "content": [
+        {
+          "stype": "paragraph",
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "검토 B",
+              "marks": [
+                {
+                  "stype": "strike",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / 생략 B"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-B",
+                "title": "B 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-B",
+                "title": "B 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-B-1"
+                ],
+                "records": [
+                  {
+                    "State": "계획",
+                    "Done": true,
+                    "Count": 0,
+                    "Label": "자료 B"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-B-1"
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "B 자료 본문"
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-B",
+                        "title": "B 자료 내부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "TARGET_A2": {
+    "format": "barocss-note",
+    "version": 2,
+    "savedAt": "authored stamp A / Café",
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 2,
+          "digest": "c73df69758346deeb34cc3be23f7e0629aa9069907fb5293207e1faed4e416fd"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 2,
+            "digest": "c73df69758346deeb34cc3be23f7e0629aa9069907fb5293207e1faed4e416fd"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 2,\n  \"parent\": {\n    \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n    \"version\": 1,\n    \"digest\": \"0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a\"\n  },\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      },\n      {\n        \"name\": \"Owner\",\n        \"kind\": \"text\",\n        \"label\": \"담당자\"\n      }\n    ]\n  }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 A",
+        "pageId": "native2-note-A",
+        "authoredTag": "preserve-A"
+      },
+      "metadata": {
+        "sourceRevision": 7,
+        "annotation": null,
+        "labels": [
+          "검토",
+          "Café"
+        ]
+      },
+      "content": [
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "목표 A",
+              "marks": [
+                {
+                  "stype": "bold",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "alignment": "left"
+          },
+          "metadata": {
+            "source": "authored-A",
+            "annotation": null
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Café 검토 A",
+              "marks": [
+                {
+                  "stype": "italic",
+                  "range": [
+                    0,
+                    5
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / marks 생략"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-note-A",
+                "title": "A 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-A",
+                "title": "A 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "codeBlock",
+          "attributes": {
+            "language": "typescript"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "const total = 7;"
+            }
+          ]
+        },
+        {
+          "stype": "bTable",
+          "content": [
+            {
+              "stype": "bTableBody",
+              "content": [
+                {
+                  "stype": "bTableRow",
+                  "content": [
+                    {
+                      "stype": "bTableCell",
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "A cell",
+                          "marks": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  },
+                  {
+                    "name": "Owner",
+                    "kind": "text",
+                    "label": "담당자"
+                  }
+                ],
+                "rowIds": [
+                  "row-A-2",
+                  "row-A-1"
+                ],
+                "records": [
+                  {
+                    "State": "진행",
+                    "Done": false,
+                    "Count": 7,
+                    "Label": "자료 A"
+                  },
+                  {
+                    "Label": "값 생략 A"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-A-2"
+              },
+              "metadata": {
+                "note": null
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "항목 본문 A",
+                      "marks": [
+                        {
+                          "stype": "underline",
+                          "range": [
+                            0,
+                            2
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-note-A",
+                        "title": "A 자료 내부"
+                      }
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "external-note-A",
+                        "title": "A 자료 외부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "COPY_A_ORACLE": {
+    "format": "barocss-note",
+    "version": 2,
+    "savedAt": "authored stamp A / Café",
+    "schemaBundle": {
+      "bundleVersion": 1,
+      "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+      "selected": [
+        {
+          "schemaId": "11111111-1111-1111-1111-111111111111",
+          "version": 1,
+          "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+        }
+      ],
+      "definitions": [
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 2,
+            "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+          },
+          "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "11111111-1111-1111-1111-111111111111",
+            "version": 1,
+            "digest": "0e35de697c2ce77c04c03ecd68344763d73d9656a4484b6824f6c0414917ed1a"
+          },
+          "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"11111111-1111-1111-1111-111111111111\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+        },
+        {
+          "reference": {
+            "schemaId": "22222222-2222-2222-2222-222222222222",
+            "version": 1,
+            "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+          },
+          "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+        }
+      ]
+    },
+    "document": {
+      "stype": "note",
+      "attributes": {
+        "title": "검토 자료 A",
+        "pageId": "native2-copy-A",
+        "authoredTag": "preserve-A"
+      },
+      "metadata": {
+        "sourceRevision": 7,
+        "annotation": null,
+        "labels": [
+          "검토",
+          "Café"
+        ]
+      },
+      "content": [
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "목표 A",
+              "marks": [
+                {
+                  "stype": "bold",
+                  "range": [
+                    0,
+                    2
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "alignment": "left"
+          },
+          "metadata": {
+            "source": "authored-A",
+            "annotation": null
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Café 검토 A",
+              "marks": [
+                {
+                  "stype": "italic",
+                  "range": [
+                    0,
+                    5
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " / marks 생략"
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "native2-copy-A",
+                "title": "A 내부"
+              }
+            },
+            {
+              "stype": "pageReference",
+              "attributes": {
+                "pageId": "external-note-A",
+                "title": "A 외부"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "codeBlock",
+          "attributes": {
+            "language": "typescript"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "const total = 7;"
+            }
+          ]
+        },
+        {
+          "stype": "bTable",
+          "content": [
+            {
+              "stype": "bTableBody",
+              "content": [
+                {
+                  "stype": "bTableRow",
+                  "content": [
+                    {
+                      "stype": "bTableCell",
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "A cell",
+                          "marks": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "resources",
+          "content": [
+            {
+              "stype": "dataset",
+              "attributes": {
+                "name": "review-items",
+                "fields": [
+                  {
+                    "name": "State",
+                    "kind": "choice",
+                    "options": [
+                      "진행",
+                      "계획"
+                    ]
+                  },
+                  {
+                    "name": "Done",
+                    "kind": "boolean"
+                  },
+                  {
+                    "name": "Count",
+                    "kind": "number"
+                  },
+                  {
+                    "name": "Label",
+                    "kind": "text",
+                    "label": "Café"
+                  }
+                ],
+                "rowIds": [
+                  "row-A-2",
+                  "row-A-1"
+                ],
+                "records": [
+                  {
+                    "State": "진행",
+                    "Done": false,
+                    "Count": 7,
+                    "Label": "자료 A"
+                  },
+                  {
+                    "Label": "값 생략 A"
+                  }
+                ]
+              }
+            },
+            {
+              "stype": "richText",
+              "attributes": {
+                "id": "row-A-2"
+              },
+              "metadata": {
+                "note": null
+              },
+              "content": [
+                {
+                  "stype": "paragraph",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "항목 본문 A",
+                      "marks": [
+                        {
+                          "stype": "underline",
+                          "range": [
+                            0,
+                            2
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "native2-copy-A",
+                        "title": "A 자료 내부"
+                      }
+                    },
+                    {
+                      "stype": "pageReference",
+                      "attributes": {
+                        "pageId": "external-note-A",
+                        "title": "A 자료 외부"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+};
+const UNREGISTERED_NATIVE_FIXTURE = {
+  "format": "barocss-note",
+  "version": 2,
+  "savedAt": "authored stamp A / Café",
+  "schemaBundle": {
+    "bundleVersion": 1,
+    "digestAlgorithm": "wonffice.canonical-json.sha256.v1",
+    "selected": [
+      {
+        "schemaId": "99999999-9999-4999-8999-999999999999",
+        "version": 1,
+        "digest": "81e0ecf0451997f737c78e2faf12680493d3c16a0455528a319c834214e9aa20"
+      }
+    ],
+    "definitions": [
+      {
+        "reference": {
+          "schemaId": "22222222-2222-2222-2222-222222222222",
+          "version": 2,
+          "digest": "20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305"
+        },
+        "definitionText": "{\n    \"dialect\": \"wonffice.note-fields.v1\",\n    \"scope\": {\n        \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n        \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n    },\n    \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n    \"version\": 2,\n    \"parent\": {\n        \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n        \"version\": 1,\n        \"digest\": \"4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9\"\n    },\n    \"dependencies\": [],\n    \"requiredCapabilities\": [\n        \"note.field.choice.v1\",\n        \"note.field.text.v1\"\n    ],\n    \"dataset\": {\n        \"name\": \"reference labels\",\n        \"fields\": [\n            {\n                \"name\": \"State\",\n                \"kind\": \"choice\",\n                \"options\": [\n                    \"검토\",\n                    \"초안\"\n                ]\n            },\n            {\n                \"name\": \"Label\",\n                \"kind\": \"text\",\n                \"label\": \"Café\"\n            }\n        ]\n    }\n}\n"
+      },
+      {
+        "reference": {
+          "schemaId": "99999999-9999-4999-8999-999999999999",
+          "version": 1,
+          "digest": "81e0ecf0451997f737c78e2faf12680493d3c16a0455528a319c834214e9aa20"
+        },
+        "definitionText": "{\n  \"dialect\": \"wonffice.note-fields.v1\",\n  \"scope\": {\n    \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n    \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n  },\n  \"schemaId\": \"99999999-9999-4999-8999-999999999999\",\n  \"version\": 1,\n  \"parent\": null,\n  \"dependencies\": [\n    {\n      \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n      \"version\": 2,\n      \"digest\": \"20cca32c0fd5abdaae11f82e327b6456c248d13421be0b2966d9e7884aeb0305\"\n    }\n  ],\n  \"requiredCapabilities\": [\n    \"note.field.choice.v1\",\n    \"note.field.boolean.v1\",\n    \"note.field.number.v1\",\n    \"note.field.text.v1\"\n  ],\n  \"dataset\": {\n    \"name\": \"review-items\",\n    \"fields\": [\n      {\n        \"name\": \"State\",\n        \"kind\": \"choice\",\n        \"options\": [\n          \"진행\",\n          \"계획\"\n        ]\n      },\n      {\n        \"name\": \"Done\",\n        \"kind\": \"boolean\"\n      },\n      {\n        \"name\": \"Count\",\n        \"kind\": \"number\"\n      },\n      {\n        \"name\": \"Label\",\n        \"kind\": \"text\",\n        \"label\": \"Café\"\n      }\n    ]\n  }\n}\n"
+      },
+      {
+        "reference": {
+          "schemaId": "22222222-2222-2222-2222-222222222222",
+          "version": 1,
+          "digest": "4d4891751b5d9b86ea92afbdd02300dac31e139d4a69adcde28db2b43e83e0f9"
+        },
+        "definitionText": "{\n \"dialect\": \"wonffice.note-fields.v1\",\n \"scope\": {\n  \"tenantId\": \"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\n  \"workspaceId\": \"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb\"\n },\n \"schemaId\": \"22222222-2222-2222-2222-222222222222\",\n \"version\": 1,\n \"parent\": null,\n \"dependencies\": [],\n \"requiredCapabilities\": [\n  \"note.field.text.v1\"\n ],\n \"dataset\": {\n  \"name\": \"reference labels\",\n  \"fields\": [\n   {\n    \"name\": \"Label\",\n    \"kind\": \"text\",\n    \"label\": \"Café\"\n   }\n  ]\n }\n}\n"
+      }
+    ]
+  },
+  "document": {
+    "stype": "note",
+    "attributes": {
+      "title": "검토 자료 A",
+      "pageId": "native2-note-A",
+      "authoredTag": "preserve-A"
+    },
+    "metadata": {
+      "sourceRevision": 7,
+      "annotation": null,
+      "labels": [
+        "검토",
+        "Café"
+      ]
+    },
+    "content": [
+      {
+        "stype": "heading",
+        "attributes": {
+          "level": 2
+        },
+        "content": [
+          {
+            "stype": "inline-text",
+            "text": "목표 A",
+            "marks": [
+              {
+                "stype": "bold",
+                "range": [
+                  0,
+                  2
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "stype": "paragraph",
+        "attributes": {
+          "alignment": "left"
+        },
+        "metadata": {
+          "source": "authored-A",
+          "annotation": null
+        },
+        "content": [
+          {
+            "stype": "inline-text",
+            "text": "Café 검토 A",
+            "marks": [
+              {
+                "stype": "italic",
+                "range": [
+                  0,
+                  5
+                ]
+              }
+            ]
+          },
+          {
+            "stype": "inline-text",
+            "text": " / marks 생략"
+          },
+          {
+            "stype": "pageReference",
+            "attributes": {
+              "pageId": "native2-note-A",
+              "title": "A 내부"
+            }
+          },
+          {
+            "stype": "pageReference",
+            "attributes": {
+              "pageId": "external-note-A",
+              "title": "A 외부"
+            }
+          }
+        ]
+      },
+      {
+        "stype": "codeBlock",
+        "attributes": {
+          "language": "typescript"
+        },
+        "content": [
+          {
+            "stype": "inline-text",
+            "text": "const total = 7;"
+          }
+        ]
+      },
+      {
+        "stype": "bTable",
+        "content": [
+          {
+            "stype": "bTableBody",
+            "content": [
+              {
+                "stype": "bTableRow",
+                "content": [
+                  {
+                    "stype": "bTableCell",
+                    "content": [
+                      {
+                        "stype": "inline-text",
+                        "text": "A cell",
+                        "marks": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "stype": "resources",
+        "content": [
+          {
+            "stype": "dataset",
+            "attributes": {
+              "name": "review-items",
+              "fields": [
+                {
+                  "name": "State",
+                  "kind": "choice",
+                  "options": [
+                    "진행",
+                    "계획"
+                  ]
+                },
+                {
+                  "name": "Done",
+                  "kind": "boolean"
+                },
+                {
+                  "name": "Count",
+                  "kind": "number"
+                },
+                {
+                  "name": "Label",
+                  "kind": "text",
+                  "label": "Café"
+                }
+              ],
+              "rowIds": [
+                "row-A-2",
+                "row-A-1"
+              ],
+              "records": [
+                {
+                  "State": "진행",
+                  "Done": false,
+                  "Count": 7,
+                  "Label": "자료 A"
+                },
+                {
+                  "Label": "값 생략 A"
+                }
+              ]
+            }
+          },
+          {
+            "stype": "richText",
+            "attributes": {
+              "id": "row-A-2"
+            },
+            "metadata": {
+              "note": null
+            },
+            "content": [
+              {
+                "stype": "paragraph",
+                "content": [
+                  {
+                    "stype": "inline-text",
+                    "text": "항목 본문 A",
+                    "marks": [
+                      {
+                        "stype": "underline",
+                        "range": [
+                          0,
+                          2
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "stype": "pageReference",
+                    "attributes": {
+                      "pageId": "native2-note-A",
+                      "title": "A 자료 내부"
+                    }
+                  },
+                  {
+                    "stype": "pageReference",
+                    "attributes": {
+                      "pageId": "external-note-A",
+                      "title": "A 자료 외부"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+};
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 const stageOnly=process.argv[2]==='--stage-only';
+const originalBaseline=process.argv[2]==='--original-native2-baseline';
 if(stageOnly && !process.argv[3])throw new Error('Stage destination is required');
 const evidence=stageOnly?resolve(process.argv[3]):process.env.SCHEMA_SERVER_EVIDENCE;
 if(stageOnly)assert.equal(existsSync(evidence),false,'Refuse existing artifact destination');
 if(!evidence)throw new Error('SCHEMA_SERVER_EVIDENCE is required');
+assert.equal(existsSync(evidence),false,'Fresh producer evidence required');
 mkdirSync(evidence,{recursive:true,mode:0o700});
-const privateRoot='/private/tmp/495-schema-pg-v2',socket=join(privateRoot,'socket'),data=join(privateRoot,'data');
-if(!stageOnly){assert.equal(existsSync(privateRoot),false,'Refuse existing cluster; never take over another runtime');mkdirSync(socket,{recursive:true,mode:0o700});}
-const bin=stageOnly?undefined:process.env.PG_BIN??execFileSync('pg_config',['--bindir'],{encoding:'utf8'}).trim();
+const privateRoot=stageOnly?undefined:mkdtempSync('/private/tmp/schema-n2-'),socket=privateRoot?join(privateRoot,'socket'):undefined,data=privateRoot?join(privateRoot,'data'):undefined;
+if(!stageOnly){chmodSync(privateRoot,0o700);mkdirSync(socket,{mode:0o700});}
+const bin=stageOnly?undefined:process.env.PG_BIN;
+if(!stageOnly)assert.ok(bin,'Explicit owned PG_BIN required');
 const httpPort=14595,jwksPort=18595,pgPort=14596,issuer=`http://127.0.0.1:${jwksPort}/realm`;
 const origin=`http://127.0.0.1:${httpPort}`;
 const ids={tenant:'11111111-1111-4111-8111-111111111111',workspace:'22222222-2222-4222-8222-222222222222',schema:'33333333-3333-4333-8333-333333333333',otherSchema:'66666666-6666-4666-8666-666666666666',foreignTenant:'77777777-7777-4777-8777-777777777777',foreignWorkspace:'88888888-8888-4888-8888-888888888888'};
 const hash=text=>createHash('sha256').update(text,'utf8').digest('hex');
-const report={kind:'actual-independent-compiled-schema-http-private-postgres-controlled-signed-jwks',status:'incomplete',checks:[],notClaimed:['genuine browser/OIDC login','nativeformat2/pins/adoption','MCP','full495/Goal/alpha/release']};
+const report={kind:'actual-independent-compiled-schema-http-private-postgres-controlled-signed-jwks',status:'incomplete',checks:[],notClaimed:['genuine browser/OIDC login','MCP','full495/Goal/alpha/release']};
+const lease={runId:randomUUID(),uid:process.getuid(),controllerPid:process.pid,root:privateRoot,socket,data,httpPort,jwksPort,pgPort,state:'prepared',qualification:'Fresh exclusive Unix PG/own HTTP+JWKS; no shared listener or data takeover'};
+const saveLease=()=>{if(!stageOnly)writeFileSync(join(evidence,'runtime-lease.json'),JSON.stringify(lease,null,2),{mode:0o600});};
 const save=()=>writeFileSync(join(evidence,'server-proof.json'),JSON.stringify(report,null,2),{mode:0o600});
 const check=async(name,work)=>{await work();report.checks.push({name,status:'passed'});save();console.log(JSON.stringify({check:name,result:'passed'}));};
 const run=(name,args)=>execFileSync(join(bin,name),args,{encoding:'utf8',stdio:'pipe'});
 const cfg=(user,database='schema_test')=>({host:socket,port:pgPort,user,database});
-const clients=[],pools=[];let pgStarted=false,jwks,child,stage;const logs=[];
+const startPg=()=>{run('pg_ctl',['-D',data,'-l',join(privateRoot,'postgres.log'),'-o',`-k ${socket} -h '' -p ${pgPort}`,'-w','start']);
+ const lines=readFileSync(join(data,'postmaster.pid'),'utf8').trim().split('\n');assert.equal(realpathSync(lines[1]),realpathSync(data));lease.postmasterPid=Number(lines[0]);assert.ok(lease.postmasterPid>0);pgStarted=true;lease.state='running';saveLease();};
+const stopPg=()=>{const lines=readFileSync(join(data,'postmaster.pid'),'utf8').trim().split('\n');assert.equal(realpathSync(lines[1]),realpathSync(data));assert.equal(Number(lines[0]),lease.postmasterPid);run('pg_ctl',['-D',data,'-m','fast','-w','stop']);pgStarted=false;lease.state='stopped-retained';saveLease();};
+const closeConnections=async()=>{for(const pool of pools.splice(0))await pool.end();for(const client of clients.splice(0))await client.end();};
+const clients=[],pools=[];let pgStarted=false,jwks,child,stage,forwarder;const logs=[];
 async function connect(user,database){const c=new pg.Client(cfg(user,database));await c.connect();clients.push(c);return c;}
 function graph(directory){
   const files={},links={},visited=new Set();
@@ -65,7 +1261,7 @@ function stageRuntime(target) {
   }
   const entries=[
     ['packages/schema',['registry-contract.js'],{'./registry-contract':'./dist/registry-contract.js'},{}],
-    ['apps/office-service',['schema-registry-store.js','membership-store.js','tenant-store.js'],{'./schema-registry-store':'./dist/schema-registry-store.js','./membership-store':'./dist/membership-store.js'},{'@barocss/schema':'workspace:^','@barocss/office-note-file':'workspace:^'}],
+    ['apps/office-service',['schema-registry-store.js','membership-store.js','tenant-store.js','document-store.js'],{'./schema-registry-store':'./dist/schema-registry-store.js','./membership-store':'./dist/membership-store.js','./document-store':'./dist/document-store.js'},{'@barocss/schema':'workspace:^','@barocss/office-note-file':'workspace:^'}],
     ['apps/office-api',['oidc.js','auth-config.js'],{'./oidc':'./dist/oidc.js','./auth-config':'./dist/auth-config.js'},{jose:'6.2.12'}],
     ['packages/office-note-file',null,{'.':'./dist/index.js'},{}]
   ];
@@ -90,18 +1286,21 @@ function stageRuntime(target) {
   writeFileSync(join(evidence,'runtime-package-projection.json'),JSON.stringify(projection,null,2));
 }
 let stageBefore;
-async function startServer(policyFile,label){
+if(!stageOnly){lease.pg=Object.fromEntries(['initdb','pg_ctl','postgres','pg_config','pg_dump','pg_restore'].map(name=>[name,{path:realpathSync(join(bin,name)),sha256:hash(readFileSync(join(bin,name))),version:run(name,['--version']).trim()}]));saveLease();}
+async function startServer(policyFile,label,documentPolicyFile){
   const log=join(evidence,`${label}.log`);logs.push(log);const out=createWriteStream(log,{mode:0o600});
   const env={...process.env,NODE_DEBUG:'esm,module',SCHEMA_SERVER_HOST:'127.0.0.1',SCHEMA_SERVER_PORT:String(httpPort),SCHEMA_SERVER_POLICY_FILE:policyFile,
     SCHEMA_SERVER_OIDC_ISSUER:issuer,SCHEMA_SERVER_OIDC_JWKS_URL:`http://127.0.0.1:${jwksPort}/keys`,SCHEMA_SERVER_OIDC_AUDIENCE:'schema-test',
     SCHEMA_SERVER_DATABASE_URL:`postgresql:///schema_test?host=${encodeURIComponent(socket)}&port=${pgPort}&user=wonffice_app`};
+  delete env.SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE;if(documentPolicyFile)env.SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE=documentPolicyFile;
   child=spawn(process.execPath,[join(stage,'dist/main.js')],{cwd:stage,env,stdio:['ignore','pipe','pipe']});
-  child.stdout.pipe(out);child.stderr.pipe(out);
+  let outputText='';child.stdout.on('data',bytes=>{outputText+=bytes.toString();});
+  child.stdout.pipe(out);child.stderr.pipe(out);lease.serverPid=child.pid;lease.serverStage=stage;saveLease();
   const exit=new Promise(resolve=>child.once('exit',(code,signal)=>resolve({code,signal})));
   child.proofExit=exit;child.proofLog=out;
   for(let n=0;n<100;n++){
     if(child.exitCode!==null)throw new Error('Compiled server exited before readiness');
-    try{if((await fetch(origin+'/health/ready')).status===200)return;}catch{/* The bounded startup poll or already-closed resource may refuse; final cleanup is tracked separately. */}
+    try{if(outputText.includes('schema_server_listening')&&(await fetch(origin+'/health/ready')).status===200)return;}catch{/* The bounded startup poll or already-closed resource may refuse; final cleanup is tracked separately. */}
     await new Promise(resolve=>setTimeout(resolve,50));
   }
   throw new Error('Compiled server did not become ready');
@@ -115,7 +1314,7 @@ async function stopServer(){
 }
 const definition=(schemaId=ids.schema,version=1,parent=null,dependencies=[],number=false)=>({dialect:'wonffice.note-fields.v1',scope:{tenantId:ids.tenant,workspaceId:ids.workspace},schemaId,version,parent,dependencies,requiredCapabilities:[number?'note.field.number.v1':'note.field.text.v1'],dataset:{name:number?'Numbers':'Tasks',fields:[{name:number?'Amount':'Title',kind:number?'number':'text'}]}});
 const base=`/v1/tenants/${ids.tenant}/workspaces/${ids.workspace}`;
-let owner,token,policyFile;
+let owner,token,policyFile,observer;
 const send=async(method,path,body,who='writer')=>{
  const response=await fetch(origin+path,{method,headers:{authorization:`Bearer ${await token(who)}`,...(body?{'content-type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
  return {status:response.status,body:await response.json()};
@@ -138,11 +1337,12 @@ try{
   assert.ok(existsSync(join(stage,'dist/main.js')));assert.equal(existsSync(join(stage,'src')),false);
   stageBefore=graph(stage);writeFileSync(join(evidence,'runtime-stage-before.json'),JSON.stringify(stageBefore,null,2));
   run('initdb',['-D',data,'-U','schema_test_admin','--auth-local=trust','--auth-host=reject','--no-locale','--encoding=UTF8']);
-  run('pg_ctl',['-D',data,'-l',join(privateRoot,'postgres.log'),'-o',`-k ${socket} -h '' -p ${pgPort}`,'-w','start']);pgStarted=true;
+  startPg();
   const admin=await connect('schema_test_admin','postgres');
   await admin.query(`CREATE ROLE wonffice_owner LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
     CREATE ROLE wonffice_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
     CREATE ROLE wonffice_backup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS`);
+  await admin.query("ALTER ROLE wonffice_app SET lock_timeout='5s';ALTER ROLE wonffice_app SET log_min_messages='notice'");
   await admin.query('CREATE DATABASE schema_test OWNER wonffice_owner');
   owner=await connect('wonffice_owner');const applied=await migrate(owner);assert.equal(applied.at(-1),'0016_schema_registry');
   const {privateKey,publicKey}=await generateKeyPair('RS256');const publicJwk={...await exportJWK(publicKey),kid:'schema-test-key',alg:'RS256',use:'sig'};
@@ -164,7 +1364,37 @@ try{
   const expectedNativeText=JSON.stringify({format:'barocss-note',version:1,savedAt:'authored old stamp',document:expectedNative},null,2)+'\n';assert.equal(original.snapshotText,expectedNativeText);
   const policy=[{tenantId:ids.tenant,workspaceId:ids.workspace,readRoles:['editor','viewer'],registerRoles:['editor'],capabilities:['note.field.text.v1','note.field.number.v1','note.field.boolean.v1','note.field.choice.v1']}];
   policyFile=join(evidence,'operator-policy.json');writeFileSync(policyFile,JSON.stringify(policy),{mode:0o600});
-  await startServer(policyFile,'server-first');
+  if(originalBaseline){
+    const f=HTTP_NATIVE_FIXTURES.SOURCE_A,nativeTenant='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',nativeWorkspace='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    await applyMembershipChange(owner,{action:'bootstrap_owner',tenantId:nativeTenant,tenantName:'Native transport baseline',issuer,subject:'native-operator',approvalRef:'native-baseline-owner'});
+    await applyMembershipChange(owner,{action:'grant',tenantId:nativeTenant,issuer,subject:'writer-a',role:'editor',approvalRef:'native-baseline-writer'});
+    await owner.query('INSERT INTO wonffice.workspaces(tenant_id,id,name) VALUES($1,$2,$3)',[nativeTenant,nativeWorkspace,'Native baseline workspace']);
+    const {SchemaRegistryStore}=await import('../../office-service/dist/schema-registry-store.js');
+    const nativePolicy={tenantId:nativeTenant,workspaceId:nativeWorkspace,readRoles:['editor','viewer'],registerRoles:['editor'],capabilities:policy[0].capabilities};
+    const registry=new SchemaRegistryStore(pool,[nativePolicy]);
+    for(const [schemaId,version] of [['22222222-2222-2222-2222-222222222222',1],['22222222-2222-2222-2222-222222222222',2],['11111111-1111-1111-1111-111111111111',1]]){
+      const entry=f.schemaBundle.definitions.find(e=>e.reference.schemaId===schemaId&&e.reference.version===version);assert.ok(entry);
+      await registry.register({issuer,subject:'writer-a'},nativeTenant,nativeWorkspace,schemaId,version,{definitionText:entry.definitionText,idempotencyKey:'baseline-register-'+schemaId+'-'+version});
+    }
+    const sourceRaw=JSON.stringify(f,null,2)+'\n';
+    const seeded=await new DocumentStore(pool,{noteSchemaPolicy:[{...nativePolicy,preserveRoles:['editor'],adoptRoles:['editor']}]}).create({issuer,subject:'writer-a'},nativeTenant,{workspaceId:nativeWorkspace,product:'note',title:'Baseline imported native2',fileFormat:'barocss-note',fileVersion:2,snapshotText:sourceRaw,importMode:'new-page-copy',idempotencyKey:'baseline-native2-seed'});
+    const expectedCopy=structuredClone(HTTP_NATIVE_FIXTURES.COPY_A_ORACLE);
+    for(const path of [['document','attributes','pageId'],['document','content',1,'content',2,'attributes','pageId'],['document','content',4,'content',1,'content',0,'content',1,'attributes','pageId']]){
+      let value=expectedCopy;for(const key of path.slice(0,-1))value=value[key];value[path.at(-1)]=seeded.document.pageId;
+    }
+    const expectedCopyRaw=JSON.stringify({format:expectedCopy.format,version:expectedCopy.version,schemaBundle:expectedCopy.schemaBundle,document:expectedCopy.document,...(Object.hasOwn(expectedCopy,'savedAt')?{savedAt:expectedCopy.savedAt}:{})},null,2)+'\n';assert.equal(seeded.snapshotText,expectedCopyRaw);assert.equal(seeded.document.snapshotHash,hash(expectedCopyRaw));assert.equal(seeded.document.fileVersion,2);
+    policy.push(nativePolicy);writeFileSync(policyFile,JSON.stringify(policy),{mode:0o600});
+    report.nativeBaseline={seededVia:'direct actual service trusted principal fixture, NOT HTTP create',tenantId:nativeTenant,workspaceId:nativeWorkspace,documentId:seeded.document.documentId};
+    await startServer(policyFile,'server-first');
+    await check('original compiled main new native2 routes404 and authenticated legacy native2 bundle422 without effects',async()=>{
+      const sql=async()=>(await owner.query('SELECT d.*,s.snapshot_text,s.snapshot_hash,s.revision,s.file_version FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.document_id=d.id AND s.tenant_id=d.tenant_id WHERE d.id=$1',[seeded.document.documentId])).rows;
+      const before=await sql();
+      const missing=await send('GET',`/v1/tenants/${nativeTenant}/note-native2/documents/${seeded.document.documentId}`,undefined,'writer-a');assert.equal(missing.status,404);
+      const unsupported=await send('GET',`/v1/tenants/${nativeTenant}/workspaces/${nativeWorkspace}/documents/${seeded.document.documentId}/schema-bundle`,undefined,'writer-a');assert.equal(unsupported.status,422);assert.equal(unsupported.body.status,'unsupported_native_format');
+      assert.deepEqual(await sql(),before);writeFileSync(join(evidence,'original-native2-baseline.json'),JSON.stringify({missing,unsupported,before,qualification:'Signed token against404 is not businessauth proof; existing legacy path authenticated refusal, seeded imported fixture, production original unchanged'},null,2));
+    });
+  }else await startServer(policyFile,'server-first');
+
   await check('own compiled staged process/live/actual DB readiness; no source TypeScript entry',async()=>{
     assert.equal((await fetch(origin+'/health/live')).status,200);assert.equal((await fetch(origin+'/health/ready')).status,200);
   });
@@ -203,9 +1433,9 @@ try{
   });
   await check('SIGTERM only-owned listener/pool cleanup leaves controlled JWKS available',async()=>{await stopServer();assert.equal((await fetch(`http://127.0.0.1:${jwksPort}/keys`)).status,200);});
   await check('database AND server restart preserve exact definitions/receipts/native bytes',async()=>{
-    for(const p of pools)await p.end();for(const c of clients)await c.end();
-    run('pg_ctl',['-D',data,'-m','fast','-w','stop']);pgStarted=false;
-    run('pg_ctl',['-D',data,'-l',join(privateRoot,'postgres.log'),'-o',`-k ${socket} -h '' -p ${pgPort}`,'-w','start']);pgStarted=true;
+    await closeConnections();
+    stopPg();
+    startPg();
     owner=await connect('wonffice_owner');await startServer(policyFile,'server-restarted');
     assert.deepEqual((await send('GET',base+'/schema-receipts/first')).body,first.body);assert.deepEqual((await send('GET',base+`/schemas/${ids.otherSchema}/versions/1`)).body,{record:dependent.body.record,dependencies:[first.body.record]});
     assert.equal((await owner.query('SELECT snapshot_text FROM wonffice.document_snapshots WHERE document_id=$1',[original.document.documentId])).rows[0].snapshot_text,expectedNativeText);
@@ -215,8 +1445,184 @@ try{
     await startServer(restricted,'server-restricted');assert.equal((await send('GET',base+'/schema-receipts/first')).status,403);assert.equal((await send('GET',base+`/schemas/${ids.otherSchema}/versions/1`)).status,403);
     await stopServer();await startServer(policyFile,'server-restored-policy');assert.deepEqual((await send('GET',base+'/schema-receipts/first')).body,first.body);
   });
+  if(!originalBaseline){
+    const tenant='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',workspace='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const nbase=`/v1/tenants/${tenant}/note-native2`,rbase=`/v1/tenants/${tenant}/workspaces/${workspace}`;
+    const pathsA=[['document','attributes','pageId'],['document','content',1,'content',2,'attributes','pageId'],['document','content',4,'content',1,'content',0,'content',1,'attributes','pageId']];
+    const pathsB=[['document','attributes','pageId'],['document','content',0,'content',2,'attributes','pageId'],['document','content',1,'content',1,'content',0,'content',1,'attributes','pageId']];
+    const raw=file=>JSON.stringify(file,null,2)+'\n';
+    const copiedRaw=(file,pageId,paths)=>{
+      const copy=structuredClone(file);
+      for(const path of paths){let node=copy;for(const key of path.slice(0,-1))node=node[key];node[path.at(-1)]=pageId;}
+      return raw({format:copy.format,version:copy.version,schemaBundle:copy.schemaBundle,document:copy.document,...(Object.hasOwn(copy,'savedAt')?{savedAt:copy.savedAt}:{})});
+    };
+    const pins=(doc,text)=>hash(JSON.stringify(['wonffice.note.snapshot-pins.cas.v1',tenant,workspace,doc,'pinned',JSON.parse(text).schemaBundle.selected.map(r=>[r.schemaId,r.version,r.digest])]));
+    const input=(doc,before,after,idempotencyKey,revision=1,schemaAction='adopt')=>Object.freeze({schemaAction,expectedRevision:revision,expectedSnapshotHash:hash(before),expectedPriorPinDigest:pins(doc,before),snapshotText:after,idempotencyKey});
+    const audit=async()=>{
+      const tables={};
+      for(const [table,order] of [['documents','tenant_id,id'],['document_snapshots','tenant_id,document_id'],['document_receipts','tenant_id,identity_id,operation,idempotency_key'],['schema_versions','tenant_id,workspace_id,schema_id,version'],['schema_dependencies','tenant_id,workspace_id,schema_id,version,ordinal'],['schema_registry_receipts','tenant_id,identity_id,idempotency_key'],['workspaces','tenant_id,id']])tables[table]=(await owner.query(`SELECT * FROM wonffice.${table} ORDER BY ${order}`)).rows;
+      return JSON.parse(JSON.stringify(tables));
+    };
+    const saveAudit=(name,value)=>writeFileSync(join(evidence,`native2-${name}.json`),JSON.stringify(value,null,2));
+    const assertDenied=async(name,work,status,reason)=>{const before=await audit();saveAudit(name+'-before',before);const response=await work();assert.equal(response.status,status);assert.equal(response.body.status,reason);const after=await audit();saveAudit(name+'-after',after);assert.deepEqual(after,before);};
+    await applyMembershipChange(owner,{action:'bootstrap_owner',tenantId:tenant,tenantName:'Native HTTP fixture',issuer,subject:'native-operator',approvalRef:'http-native-owner'});
+    for(const [subject,role] of [['writer-a','editor'],['writer-b','editor'],['native-viewer','viewer']])await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject,role,approvalRef:'http-'+subject});
+    await owner.query('INSERT INTO wonffice.workspaces(tenant_id,id,name) VALUES($1,$2,$3)',[tenant,workspace,'HTTP native workspace']);
+    const nativeRegistryPolicy={tenantId:tenant,workspaceId:workspace,readRoles:['editor','viewer'],registerRoles:['editor'],capabilities:policy[0].capabilities};
+    policy.push(nativeRegistryPolicy);writeFileSync(policyFile,JSON.stringify(policy),{mode:0o600});
+    const documentPolicy={tenantId:tenant,workspaceId:workspace,readRoles:['editor','viewer'],preserveRoles:['editor'],adoptRoles:['editor'],capabilities:policy[0].capabilities};
+    const documentPolicyFile=join(evidence,'operator-document-policy.json');writeFileSync(documentPolicyFile,JSON.stringify([documentPolicy]),{mode:0o600});
+    await check('native2 optional policy absent/empty default404 and explicit compiled DocumentStore runtime',async()=>{
+      assert.equal((await send('GET',nbase+'/documents/'+ids.schema,undefined,'writer-a')).status,404);
+      await stopServer();const empty=join(evidence,'operator-document-empty.json');writeFileSync(empty,'[]',{mode:0o600});await startServer(policyFile,'server-native-empty',empty);
+      assert.equal((await send('GET',nbase+'/documents/'+ids.schema,undefined,'writer-a')).status,404);
+      await stopServer();await startServer(policyFile,'server-native-enabled',documentPolicyFile);
+    });
+    const registerNative=async(schemaId,version,entry,key)=>{const result=await send('PUT',rbase+`/schemas/${schemaId}/versions/${version}`,{definitionText:entry.definitionText,idempotencyKey:key},'writer-a');assert.equal(result.status,200);assert.equal(result.body.record.definitionText,entry.definitionText);assert.equal(result.body.record.digest,entry.reference.digest);return result;};
+    const actorIds=Object.fromEntries((await owner.query('SELECT subject,id FROM wonffice.identities WHERE issuer=$1',[issuer])).rows.map(row=>[row.subject,row.id]));
+    const expectedHead=(minted,title,creator,text,revision)=>({documentId:minted.documentId,tenantId:tenant,workspaceId:workspace,product:'note',title,creatorUserId:creator,metadataRevision:1,mode:'snapshot',pageId:minted.pageId,documentKey:`wonffice-${tenant}-${minted.documentId}`,fileFormat:'barocss-note',fileVersion:2,revision,snapshotHash:hash(text)});
+    const assertUpdate=(receipt,minted,title,before,after,attempt)=>{
+      assert.deepEqual(receipt,{operation:'update',idempotencyKey:attempt.idempotencyKey,requestHash:hash(JSON.stringify(['note-native2-snapshot-v1',tenant,workspace,minted.documentId,attempt.schemaAction,attempt.expectedRevision,hash(before),pins(minted.documentId,before),after])),document:expectedHead(minted,title,actorIds['writer-a'],after,attempt.expectedRevision+1),snapshotText:after});
+    };
+    const createNative=async(label,file,who='writer-a')=>{
+      const result=await send('POST',nbase+'/documents',{workspaceId:workspace,title:label,fileFormat:'barocss-note',fileVersion:2,snapshotText:raw(file),importMode:'new-page-copy',idempotencyKey:'http-create-'+label},who);
+      assert.equal(result.status,201);
+      const expected=copiedRaw(file,result.body.document.pageId,file===sourceB?pathsB:pathsA);
+      assert.deepEqual(result.body,{operation:'create',idempotencyKey:'http-create-'+label,requestHash:hash(JSON.stringify(['note-native2-create-v1',tenant,workspace,'note',label,'barocss-note',2,'new-page-copy',raw(file)])),document:expectedHead(result.body.document,label,actorIds[who],expected,1),snapshotText:expected});
+      return result.body;
+    };
+    const sourceA=HTTP_NATIVE_FIXTURES.SOURCE_A,sourceB=HTTP_NATIVE_FIXTURES.SOURCE_B,targetA=HTTP_NATIVE_FIXTURES.TARGET_A2;
+    let A,B,C,rawA,rawB,rawA2,rawC;
+    await check('actual HTTP parent-first registry and full independent A1 B1 onlyA2 Bunchanged Ccopy and pinned bundle',async()=>{
+      for(const [id,v] of [['22222222-2222-2222-2222-222222222222',1],['22222222-2222-2222-2222-222222222222',2],['11111111-1111-1111-1111-111111111111',1]]){
+        const entry=sourceA.schemaBundle.definitions.find(e=>e.reference.schemaId===id&&e.reference.version===v);assert.ok(entry);await registerNative(id,v,entry,'http-register-'+id+'-'+v);
+      }
+      A=await createNative('A',sourceA);B=await createNative('B',sourceB,'writer-b');
+      rawA=copiedRaw(HTTP_NATIVE_FIXTURES.COPY_A_ORACLE,A.document.pageId,pathsA);rawB=copiedRaw(sourceB,B.document.pageId,pathsB);
+      assert.equal(A.snapshotText,rawA);assert.equal(B.snapshotText,rawB);assert.notEqual(A.document.documentId,B.document.documentId);assert.notEqual(A.document.creatorUserId,B.document.creatorUserId);
+      const before=await audit();const v2=targetA.schemaBundle.definitions.find(e=>e.reference.schemaId==='11111111-1111-1111-1111-111111111111'&&e.reference.version===2);assert.ok(v2);await registerNative(v2.reference.schemaId,2,v2,'http-register-main2');
+      const discovered=await audit();assert.deepEqual(discovered.documents,before.documents);assert.deepEqual(discovered.document_snapshots,before.document_snapshots);assert.deepEqual(discovered.document_receipts,before.document_receipts);
+      const bBefore={document:discovered.documents.find(d=>d.id===B.document.documentId),snapshot:discovered.document_snapshots.find(d=>d.document_id===B.document.documentId),receipts:discovered.document_receipts.filter(d=>d.document_id===B.document.documentId)};
+      rawA2=copiedRaw(targetA,A.document.pageId,pathsA);const adoption=await send('PUT',nbase+`/documents/${A.document.documentId}/snapshot`,input(A.document.documentId,rawA,rawA2,'http-onlyA2'),'writer-a');assert.equal(adoption.status,200);assert.equal(adoption.body.snapshotText,rawA2);assert.equal(adoption.body.document.revision,2);assertUpdate(adoption.body,A.document,'A',rawA,rawA2,input(A.document.documentId,rawA,rawA2,'http-onlyA2'));assert.equal(Object.hasOwn(adoption.body.document,'_noteSchemaReceiptV1'),false);
+      const after=await audit();assert.deepEqual({document:after.documents.find(d=>d.id===B.document.documentId),snapshot:after.document_snapshots.find(d=>d.document_id===B.document.documentId),receipts:after.document_receipts.filter(d=>d.document_id===B.document.documentId)},bBefore);
+      C=await createNative('C',JSON.parse(rawA2));rawC=copiedRaw(targetA,C.document.pageId,pathsA);assert.equal(C.snapshotText,rawC);
+      for(const [receipt,text,v,revision] of [[A,rawA2,2,2],[B,rawB,1,1],[C,rawC,2,1]]){
+        const id=receipt.document.documentId,opened=await send('GET',nbase+`/documents/${id}`,undefined,'writer-a');assert.equal(opened.status,200);assert.equal(opened.body.snapshotText,text);assert.equal(opened.body.document.snapshotHash,hash(text));assert.equal(opened.body.document.revision,revision);assert.equal(opened.body.document.fileVersion,2);
+        const bundle=await send('GET',nbase+`/documents/${id}/schema-bundle`,undefined,'writer-a');assert.deepEqual(bundle.body,{status:'pinned',documentId:id,documentRevision:revision,snapshotHash:hash(text),nativeFormat:{format:'barocss-note',version:2},bundle:JSON.parse(text).schemaBundle});assert.equal(bundle.body.bundle.selected[0].version,v);
+        const sql=(await owner.query('SELECT snapshot_text,snapshot_hash,revision,file_version FROM wonffice.document_snapshots WHERE document_id=$1',[id])).rows[0];assert.deepEqual(sql,{snapshot_text:text,snapshot_hash:hash(text),revision,file_version:2});
+      }
+      saveAudit('ABC-original',await audit());
+    });
+    const fresh=async label=>{const receipt=await createNative(label,sourceA);return {receipt,before:copiedRaw(HTTP_NATIVE_FIXTURES.COPY_A_ORACLE,receipt.document.pageId,pathsA),after:copiedRaw(targetA,receipt.document.pageId,pathsA)};};
+    await check('strict native2 HTTP DTO missing grant/query/legacy/hash/pin boundaries and current viewer foreign denial',async()=>{
+      const x=await fresh('negative'),id=x.receipt.document.documentId,valid=input(id,x.before,x.after,'http-negative');
+      for(const [name,change] of [['body-grant',{approved:true}],['hash-missing',{expectedSnapshotHash:undefined}],['action-object',{schemaAction:{}}]])await assertDenied(name,()=>send('PUT',nbase+`/documents/${id}/snapshot`,{...valid,...change},'writer-a'),400,'invalid_request');
+      await assertDenied('legacy-write',()=>send('PUT',nbase+`/documents/${id}/snapshot`,{...valid,snapshotText:sourceText},'writer-a'),422,'invalid_snapshot');
+      for(const [name,change,reason] of [['rawhash',{expectedSnapshotHash:'0'.repeat(64)},'snapshot_hash_conflict'],['priorpins',{expectedPriorPinDigest:'0'.repeat(64)},'schema_pin_conflict'],['revision',{expectedRevision:2},'revision_conflict']])await assertDenied(name,()=>send('PUT',nbase+`/documents/${id}/snapshot`,{...valid,...change,idempotencyKey:'http-negative-'+name},'writer-a'),409,reason);
+      const createBody=file=>({workspaceId:workspace,title:'Refused native',fileFormat:'barocss-note',fileVersion:2,snapshotText:raw(file),importMode:'new-page-copy',idempotencyKey:'http-native-missing'});
+      await assertDenied('native-unregistered',()=>send('POST',nbase+'/documents',createBody(UNREGISTERED_NATIVE_FIXTURE),'writer-a'),422,'dependency_missing');
+      const unsupported=structuredClone(sourceA);unsupported.document.content[0].content[0].marks=[{stype:'untrusted-executable-mark'}];
+      await assertDenied('native-unsupported-mark',()=>send('POST',nbase+'/documents',createBody(unsupported),'writer-a'),422,'invalid_snapshot');
+      const beforeAuth=await audit();assert.equal((await fetch(origin+nbase+`/documents/${id}`)).status,401);
+      assert.equal((await fetch(origin+nbase+`/documents/${id}`,{headers:{authorization:`Bearer ${await token('writer-a',{typ:'ID'})}`}})).status,401);assert.deepEqual(await audit(),beforeAuth);
+      await assertDenied('viewer-write',()=>send('PUT',nbase+`/documents/${id}/snapshot`,valid,'native-viewer'),403,'forbidden');
+      await assertDenied('foreign-read',()=>send('GET',nbase+`/documents/${id}`,undefined,'foreign'),403,'forbidden');
+      assert.equal((await send('GET',nbase+`/documents/${id}`,undefined,'native-viewer')).body.snapshotText,x.before);
+      await assertDenied('query-grant',()=>send('GET',nbase+`/documents/${id}?approved=true`,undefined,'writer-a'),400,'invalid_request');
+    });
+    observer=await connect('schema_test_admin');
+    const barrier=async(where,params,ownerPid,label,count)=>{
+      const deadline=Date.now()+2200;let rows=[];
+      while(Date.now()<deadline){
+        rows=(await observer.query(`SELECT pid,application_name,wait_event_type,wait_event,query,pg_blocking_pids(pid) blockers FROM pg_stat_activity WHERE usename='wonffice_app' AND ${where}`,params)).rows;
+        const chain=async(pid,seen=new Set())=>{if(pid===ownerPid)return [pid];if(seen.has(pid)||seen.size>=8)return null;seen.add(pid);const next=(await observer.query('SELECT pg_blocking_pids($1) blockers',[pid])).rows[0].blockers;for(const p of next){const found=await chain(p,new Set(seen));if(found)return [pid,...found];}return null;};
+        const waiting=[];for(const row of rows)if(row.wait_event_type==='Lock'){const path=await chain(row.pid);if(path)waiting.push({...row,ownerChain:path});}
+        if(waiting.length===count&&new Set(waiting.map(r=>r.pid)).size===count){writeFileSync(join(evidence,label+'-barrier.json'),JSON.stringify({ownerPid,waiting},null,2));return;}
+        await new Promise(resolve=>setTimeout(resolve,10));
+      }
+      throw new Error('actual_HTTP_PG_barrier_NOT_REACHED:'+label+':'+JSON.stringify(rows));
+    };
+    await check('two actual HTTP writers real distinct blocked PG backends oneCAS winner one409 oneeffect and fixedsamekey retry',async()=>{
+      const x=await fresh('race'),id=x.receipt.document.documentId;await owner.query('BEGIN');const ownerPid=(await owner.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+      await owner.query('SELECT d.id FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id WHERE d.id=$1 FOR UPDATE OF d,s',[id]);
+      const pending=Promise.all([send('PUT',nbase+`/documents/${id}/snapshot`,input(id,x.before,x.after,'http-race-a'),'writer-a'),send('PUT',nbase+`/documents/${id}/snapshot`,input(id,x.before,x.after,'http-race-b'),'writer-b')]);
+      try{await barrier("query LIKE '%FOR UPDATE OF d,s%'",[],ownerPid,'http-cas',2);}finally{await owner.query('COMMIT');}
+      const responses=await pending;assert.equal(responses.filter(x=>x.status===200).length,1);assert.equal(responses.filter(x=>x.status===409&&x.body.status==='revision_conflict').length,1);
+      const state=await audit();assert.equal(state.document_receipts.filter(r=>r.document_id===id&&r.operation==='update').length,1);assert.equal(state.document_snapshots.find(r=>r.document_id===id).snapshot_text,x.after);
+      const winner=responses.find(x=>x.status===200).body,key=winner.idempotencyKey,who=key==='http-race-a'?'writer-a':'writer-b';assertUpdate(winner,x.receipt.document,'race',x.before,x.after,input(id,x.before,x.after,key));
+      assert.deepEqual((await send('PUT',nbase+`/documents/${id}/snapshot`,input(id,x.before,x.after,key),who)).body,winner);assert.deepEqual(await audit(),state);
+      await assertDenied('samekey-changed',()=>send('PUT',nbase+`/documents/${id}/snapshot`,input(id,x.before,x.after+' ',key),who),409,'key_reuse');
+    });
+    await check('real HTTP held current membership role and revoke refuse before effect',async()=>{
+      const actor=(await owner.query('SELECT id FROM wonffice.identities WHERE issuer=$1 AND subject=$2',[issuer,'writer-a'])).rows[0].id;
+      for(const mutation of ['viewer','revoked']){
+        const x=await fresh('held-'+mutation),id=x.receipt.document.documentId,before=await audit();await owner.query('BEGIN');const ownerPid=(await owner.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+        await owner.query('SELECT identity_id FROM wonffice.tenant_memberships WHERE tenant_id=$1 AND identity_id=$2 FOR UPDATE',[tenant,actor]);
+        const pending=send('PUT',nbase+`/documents/${id}/snapshot`,input(id,x.before,x.after,'http-held-'+mutation),'writer-a');
+        try{await barrier("query LIKE '%project_current_actor%'",[],ownerPid,'http-current-'+mutation,1);await owner.query(mutation==='viewer'?"UPDATE wonffice.tenant_memberships SET role='viewer' WHERE tenant_id=$1 AND identity_id=$2":'UPDATE wonffice.tenant_memberships SET revoked_at=now() WHERE tenant_id=$1 AND identity_id=$2',[tenant,actor]);}finally{await owner.query('COMMIT');}
+        const response=await pending;assert.equal(response.status,403);assert.equal(response.body.status,'forbidden');assert.deepEqual(await audit(),before);
+        await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject:'writer-a',role:'editor',approvalRef:'http-restored-'+mutation});
+        assert.equal((await send('PUT',nbase+`/documents/${id}/snapshot`,input(id,x.before,x.after,'http-restored-'+mutation),'writer-a')).status,200);
+      }
+    });
+    await check('HTTP actual stagedtarget receipt NOTICE P0001 rollback preserves full native and no provisional receipt',async()=>{
+      const x=await fresh('rollback'),id=x.receipt.document.documentId,before=await audit(),targetHash=hash(x.after);
+      await owner.query(`CREATE FUNCTION wonffice.http_native2_receipt_failure() RETURNS trigger LANGUAGE plpgsql AS $fn$ DECLARE actual record; BEGIN
+        IF NEW.idempotency_key='http-fail-after-snapshot' AND NEW.document_id='${id}'::uuid THEN
+          SELECT snapshot_hash,revision,file_version,snapshot_text INTO actual FROM wonffice.document_snapshots WHERE document_id=NEW.document_id;
+          IF actual.snapshot_hash<>'${targetHash}' OR actual.revision<>2 OR actual.file_version<>2 OR actual.snapshot_text::jsonb#>>'{schemaBundle,selected,0,version}'<>'2' THEN RAISE EXCEPTION 'http_failpoint_target_NOT_REACHED'; END IF;
+          RAISE NOTICE 'http_native2_receipt_failure_target_seen';RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='http_native2_receipt_failure';
+        END IF;RETURN NEW;END $fn$;CREATE TRIGGER http_native2_receipt_failure BEFORE UPDATE ON wonffice.document_receipts FOR EACH ROW EXECUTE FUNCTION wonffice.http_native2_receipt_failure()`);
+      const response=await send('PUT',nbase+`/documents/${id}/snapshot`,input(id,x.before,x.after,'http-fail-after-snapshot'),'writer-a');assert.equal(response.status,503);assert.equal(response.body.status,'schema_store_unavailable');assert.deepEqual(await audit(),before);
+      assert.ok(readFileSync(join(privateRoot,'postgres.log'),'utf8').includes('http_native2_receipt_failure_target_seen'));
+      await owner.query('DROP TRIGGER http_native2_receipt_failure ON wonffice.document_receipts;DROP FUNCTION wonffice.http_native2_receipt_failure()');saveAudit('rollback-restored',await audit());
+    });
+    let history,historyInput,historyId,historyAfter;
+    await check('physical owned HTTP response drop aftercommit immutable retry receipt laterdraft and persistence',async()=>{
+      const x=await fresh('lost-http');historyId=x.receipt.document.documentId;historyAfter=x.after;historyInput=input(historyId,x.before,x.after,'http-physical-omit');
+      const frozen=JSON.stringify(historyInput),laterDraft=Object.freeze({key:'http-unsent-later',raw:x.after+' '}),laterBytes=JSON.stringify(laterDraft);
+      let delivered;const dropped=new Promise(resolve=>{delivered=resolve;});
+      forwarder=createServer((request,response)=>{
+        const upstream=httpRequest(new URL(request.url,origin),{method:request.method,headers:request.headers},result=>{
+          const chunks=[];result.on('data',b=>chunks.push(b));result.on('end',()=>{lease.omittedResponse={upstreamStatus:result.statusCode,bytes:Buffer.concat(chunks).length,qualification:'Actual upstreamHTTPresponse buffered after committed operation; downstream socket intentionallyclosed, no delivery'};saveLease();response.destroy();delivered();});
+        });upstream.on('error',error=>{response.destroy(error);delivered();});request.pipe(upstream);
+      });await new Promise((resolve,reject)=>{forwarder.once('error',reject);forwarder.listen(0,'127.0.0.1',resolve);});lease.forwarderPort=forwarder.address().port;saveLease();
+      try{await assert.rejects(fetch(`http://127.0.0.1:${lease.forwarderPort}${nbase}/documents/${historyId}/snapshot`,{method:'PUT',headers:{authorization:`Bearer ${await token('writer-a')}`,'content-type':'application/json'},body:frozen}));await dropped;assert.equal(lease.omittedResponse.upstreamStatus,200);}
+      finally{forwarder.closeAllConnections();await new Promise(resolve=>forwarder.close(resolve));forwarder=undefined;}
+      const committed=await audit();assert.equal(committed.document_receipts.filter(r=>r.document_id===historyId&&r.operation==='update').length,1);assert.equal(committed.document_snapshots.find(r=>r.document_id===historyId).snapshot_text,x.after);
+      history=(await send('GET',nbase+'/receipts/update/'+historyInput.idempotencyKey,undefined,'writer-a')).body;assert.equal(history.document.revision,2);assert.equal(history.snapshotText,x.after);assertUpdate(history,x.receipt.document,'lost-http',x.before,x.after,historyInput);
+      assert.deepEqual((await send('PUT',nbase+`/documents/${historyId}/snapshot`,historyInput,'writer-a')).body,history);assert.deepEqual(await audit(),committed);assert.equal(JSON.stringify(historyInput),frozen);assert.equal(JSON.stringify(laterDraft),laterBytes);
+      const later=input(historyId,x.after,x.after+' ','http-explicit-later',2,'preserve');assert.equal((await send('PUT',nbase+`/documents/${historyId}/snapshot`,later,'writer-a')).status,200);const laterState=await audit();
+      assert.deepEqual((await send('PUT',nbase+`/documents/${historyId}/snapshot`,historyInput,'writer-a')).body,history);assert.deepEqual(await audit(),laterState);assert.equal(laterState.document_snapshots.find(r=>r.document_id===historyId).revision,3);assert.equal(JSON.stringify(laterDraft),laterBytes);
+      await stopServer();await closeConnections();stopPg();startPg();owner=await connect('wonffice_owner');observer=await connect('schema_test_admin');await startServer(policyFile,'server-native-persisted',documentPolicyFile);assert.deepEqual(await audit(),laterState);
+      for(const [receipt,text] of [[A,rawA2],[B,rawB],[C,rawC]])assert.equal((await send('GET',nbase+`/documents/${receipt.document.documentId}`,undefined,'writer-a')).body.snapshotText,text);
+      assert.deepEqual((await send('GET',nbase+'/receipts/update/'+historyInput.idempotencyKey,undefined,'writer-a')).body,history);
+    });
+    await check('operator preserve and adopt independent of registration; current historical read and fixed write retry authority',async()=>{
+      await stopServer();const restricted=join(evidence,'operator-document-preserve-only.json');writeFileSync(restricted,JSON.stringify([{...documentPolicy,adoptRoles:[]}]),{mode:0o600});await startServer(policyFile,'server-native-preserve-only',restricted);
+      assert.equal((await send('GET',nbase+'/receipts/update/'+historyInput.idempotencyKey,undefined,'writer-a')).status,200);
+      await assertDenied('adopt-role-removed',()=>send('PUT',nbase+`/documents/${historyId}/snapshot`,historyInput,'writer-a'),403,'scope_forbidden');
+      const preserved=input(historyId,historyAfter+' ',historyAfter+'  ','http-preserve-only-confirm',3,'preserve');
+      const preservedResponse=await send('PUT',nbase+`/documents/${historyId}/snapshot`,preserved,'writer-a');assert.equal(preservedResponse.status,200);assert.equal(preservedResponse.body.document.revision,4);assert.equal(preservedResponse.body.snapshotText,historyAfter+'  ');
+      const exactVersion=sourceA.schemaBundle.selected[0];assert.equal((await send('GET',rbase+`/schemas/${exactVersion.schemaId}/versions/${exactVersion.version}`,undefined,'writer-a')).status,200);
+
+      await stopServer();const denied=join(evidence,'operator-document-cap-removed.json');writeFileSync(denied,JSON.stringify([{...documentPolicy,capabilities:['note.field.text.v1']}]),{mode:0o600});await startServer(policyFile,'server-native-caps-removed',denied);
+      await assertDenied('history-caps-removed',()=>send('GET',nbase+'/receipts/update/'+historyInput.idempotencyKey,undefined,'writer-a'),403,'scope_forbidden');
+      await stopServer();await startServer(policyFile,'server-native-policy-restored',documentPolicyFile);assert.deepEqual((await send('GET',nbase+'/receipts/update/'+historyInput.idempotencyKey,undefined,'writer-a')).body,history);
+    });
+    await check('actual JWT-provider and database outages named HTTP failures recover without new effect',async()=>{
+      const before=await audit();await stopServer();await new Promise(resolve=>jwks.close(resolve));jwks=undefined;await startServer(policyFile,'server-native-jwks-down',documentPolicyFile);
+      const unavailable=await send('GET',nbase+`/documents/${A.document.documentId}`,undefined,'writer-a');assert.equal(unavailable.status,503);assert.equal(unavailable.body.status,'auth_unavailable');assert.deepEqual(await audit(),before);
+      jwks=createServer((_request,response)=>{response.setHeader('content-type','application/json');response.end(JSON.stringify({keys:[publicJwk]}));});await new Promise((resolve,reject)=>{jwks.once('error',reject);jwks.listen(jwksPort,'127.0.0.1',resolve);});
+      await stopServer();await startServer(policyFile,'server-native-jwks-restored',documentPolicyFile);assert.equal((await send('GET',nbase+`/documents/${A.document.documentId}`,undefined,'writer-a')).status,200);
+      await closeConnections();stopPg();const unavailableDB=await send('GET',nbase+`/documents/${A.document.documentId}`,undefined,'writer-a');assert.equal(unavailableDB.status,503);assert.equal(unavailableDB.body.status,'schema_store_unavailable');startPg();owner=await connect('wonffice_owner');assert.deepEqual(await audit(),before);
+      assert.equal((await send('GET',nbase+`/documents/${A.document.documentId}`,undefined,'writer-a')).body.snapshotText,rawA2);saveAudit('ABC-final',await audit());
+    });
+    report.native2={status:'passed',qualification:'Actual own compiled HTTP/privatePG/controlled signedJWKS; not genuine userlogin/NoteUI/MCP/retirement/backup/install'};
+  }
+
   await check('actual DB-down readiness503 while process remains live',async()=>{
-    await owner.end();run('pg_ctl',['-D',data,'-m','fast','-w','stop']);pgStarted=false;
+    await owner.end();clients.splice(clients.indexOf(owner),1);stopPg();
     assert.equal((await fetch(origin+'/health/live')).status,200);assert.equal((await fetch(origin+'/health/ready')).status,503);
   });
   await stopServer();
@@ -232,11 +1638,11 @@ try{
 } catch(error){report.status='failed';report.failure=String(error);save();throw error;}
 finally{
   let clean=true;try{if(child)await stopServer();}catch{clean=false;}
+  if(forwarder){forwarder.closeAllConnections();await new Promise(resolve=>forwarder.close(resolve));}
   if(jwks)await new Promise(resolve=>jwks.close(resolve));
-  for(const p of pools)try{await p.end();}catch{/* The bounded startup poll or already-closed resource may refuse; final cleanup is tracked separately. */}
-  for(const c of clients)try{await c.end();}catch{/* The bounded startup poll or already-closed resource may refuse; final cleanup is tracked separately. */}
-  if(pgStarted)try{run('pg_ctl',['-D',data,'-m','fast','-w','stop']);}catch{clean=false;}
-  report.cleanup=clean;if(!clean)report.status='failed';save();
+  try{await closeConnections();}catch(error){clean=false;report.cleanupFailure=String(error);}
+  if(pgStarted)try{stopPg();}catch(error){clean=false;report.cleanupFailure=String(error);}
+  report.cleanup=clean;if(!clean)report.status='failed';lease.state=clean?'stopped-retained':'cleanup-failed';lease.cleanup=report.cleanupFailure??'own server/JWKS/pools/PG stopped; data retained';saveLease();if(privateRoot&&existsSync(join(privateRoot,'postgres.log')))cpSync(join(privateRoot,'postgres.log'),join(evidence,'postgres.log'));save();
 }
 if(!report.cleanup)throw new Error('Only-owned cleanup failed');
 

@@ -5,10 +5,13 @@ import { MembershipStore, TenantAccessDeniedError, type VerifiedPrincipal } from
 import { SchemaRegistryError, type SchemaRegistryStore } from '@barocss/office-service/schema-registry-store';
 import { isRegistryUuid, SchemaContractError, parseRegistryDefinition, parseRegistryJson } from '@barocss/schema/registry-contract';
 import type { SchemaScopePolicy } from './config.js';
+import { DocumentError } from '@barocss/office-service/document-store';
+import { registerNative2Routes, type Native2Documents } from './native2-routes.js';
 export interface SchemaServerDependencies {
   verifier: Pick<OidcVerifier, 'verify'>; memberships: Pick<MembershipStore, 'getTenantAccess'>;
   registry: Pick<SchemaRegistryStore, 'ready' | 'register' | 'get' | 'receipt' | 'legacyDocument'>;
   policy: readonly SchemaScopePolicy[];
+  documents?: Native2Documents;
 }
 class AuthRequestError extends Error {
   constructor(public readonly status: 401 | 503, public readonly reason: string) { super(reason); }
@@ -28,6 +31,7 @@ export function createSchemaServer(deps: SchemaServerDependencies) {
   app.setNotFoundHandler(async (_request, reply) => reply.code(404).send({ status: 'not_found' }));
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof AuthRequestError) return reply.code(error.status).send({ status: error.reason });
+    if (error instanceof DocumentError) return reply.code(error.status).send({ status: error.reason });
     if (error instanceof SchemaRegistryError) return reply.code(error.status).send({ status: error.reason });
     if (error instanceof SchemaContractError) return reply.code(error.reason === 'definition_too_large' ? 413 : 422).send({ status: error.reason });
     if (error instanceof TenantAccessDeniedError) return reply.code(403).send({ status: 'forbidden' });
@@ -40,13 +44,17 @@ export function createSchemaServer(deps: SchemaServerDependencies) {
     let ready = false; try { ready = await deps.registry.ready(); } catch { /* Named failure, no driver detail. */ }
     return reply.code(ready ? 200 : 503).send({ status: ready ? 'ready' : 'schema_store_unavailable' });
   });
-  async function authorize(request: FastifyRequest, action: 'read' | 'register', capabilities: readonly string[] = []) {
+  async function authenticate(request: FastifyRequest): Promise<VerifiedPrincipal> {
     const token = request.headers.authorization?.match(/^Bearer ([A-Za-z0-9_.-]+)$/i);
     if (!token) throw new AuthRequestError(401, 'unauthorized');
     let principal: VerifiedPrincipal;
     try { principal = await deps.verifier.verify(token[1]); }
     catch (error) { throw new AuthRequestError(error instanceof AuthProviderUnavailableError ? 503 : 401,
       error instanceof AuthProviderUnavailableError ? 'auth_unavailable' : 'unauthorized'); }
+    return principal;
+  }
+  async function authorize(request: FastifyRequest, action: 'read' | 'register', capabilities: readonly string[] = []) {
+    const principal = await authenticate(request);
     const params = request.params as Record<string,string>;
     if (!isRegistryUuid(params.tenantId) || !isRegistryUuid(params.workspaceId) || Object.keys(request.query ?? {}).length) bad();
     const access = await deps.memberships.getTenantAccess(principal, params.tenantId);
@@ -76,5 +84,6 @@ export function createSchemaServer(deps: SchemaServerDependencies) {
     const a = await authorize(request, 'read'); if (!isRegistryUuid(a.params.documentId)) bad();
     return deps.registry.legacyDocument(a.principal, a.tenantId, a.workspaceId, a.params.documentId);
   });
+  if (deps.documents) registerNative2Routes(app, deps.documents, authenticate);
   return app;
 }

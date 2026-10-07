@@ -106,9 +106,77 @@ browser/OIDC login or an LLM test. Source/config/runtime graph and cleanup are r
 external evidence directory when `SCHEMA_SERVER_EVIDENCE` is set. No current database/server takeover
 is supported by that harness.
 
-Native schema-aware format2, full selected document bundles/offline copies, A/B definition1 with
-A-only definition2 adoption, one atomic document revision/pin CAS, ordinary save/copy/backup retention,
-genuine UI current-account matrices and authenticated real MCP remain subsequent #495 phases.
+The optional native2 HTTP qualification below covers schema-aware format2, full selected bundles,
+A/B definition1 with A-only definition2 adoption, atomic snapshot/pin CAS and copy/reopen persistence.
+Genuine UI current-account matrices, ordinary UI save/recovery, backup/restore, renderer installation,
+account retirement and authenticated real MCP remain subsequent #495 phases.
 Registration never installs a schema globally, adopts it into a document or executes submitted code.
 Full #495, full Goal, external alpha and release are incomplete. This phase makes no push/PR/deploy
 or Yorkie/mobile/physical-IME claim.
+
+## Optional experimental Note-native2 HTTP
+
+`SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE` is a separate optional absolute protected JSON file.
+Missing configuration or an empty array leaves these routes unregistered (404). Registry permission
+does not enable them. A nonempty document policy has these exact keys per scope:
+
+```json
+[
+  {
+    "tenantId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "workspaceId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "readRoles": ["editor", "viewer"],
+    "preserveRoles": ["editor"],
+    "adoptRoles": ["editor"],
+    "capabilities": ["note.field.text.v1", "note.field.number.v1", "note.field.boolean.v1", "note.field.choice.v1"]
+  }
+]
+```
+
+The file must be regular, absolute, at most 65536 bytes and unreadable by group/others. Duplicate
+scopes, decoded JSON keys, unknown fields/roles/capabilities and wildcard access are rejected. The
+operator must control the file and parent directories; mode checks alone do not prove installer or
+filesystem security. Current viewers cannot write even if a configuration erroneously lists them
+for preservation/adoption. Restart only this owned process to change policy. This is protected
+process configuration, not atomic database policy hot reload or instantaneous token retirement.
+
+The namespace is `/v1/tenants/:tenantId/note-native2`. Every operation verifies the configured
+access token and delegates authority/effects to the SAME PostgreSQL DocumentStore and pool as the
+registry. The current stored workspace, locked issuer/subject membership/role, complete immutable
+definition closure and document policy decide admission. Body approvals, roles and capabilities
+cannot confer rights. No second content store, live-head substitution or schema normalization occurs.
+
+- POST `/documents`: exact body keys `workspaceId`, `title`, `fileFormat`, `fileVersion`,
+  `snapshotText`, `importMode`, `idempotencyKey`. Format must be `barocss-note`, version `2`, import
+  mode `new-page-copy`; product is fixed to Note. It returns 201 with a complete public receipt.
+- GET `/documents/:documentId`: the actual versioned head and original raw native2 snapshot.
+- GET `/documents/:documentId/schema-bundle`: `pinned`, document revision/raw hash/native format
+  and the complete exact bundle from that SAME admitted snapshot. It never queries latest instead.
+- PUT `/documents/:documentId/snapshot`: exact keys `schemaAction` (`preserve` or `adopt`),
+  `expectedRevision`, `expectedSnapshotHash`, `expectedPriorPinDigest`, `snapshotText`,
+  `idempotencyKey`. Missing CAS fields, legacy payloads, extra grants and unknown queries refuse.
+- GET `/receipts/:operation/:idempotencyKey`: only create/update native2 receipts. Current
+  authority is checked again; a historical receipt is not confirmation of a later draft/current head.
+
+`expectedPriorPinDigest` explicitly exposes the existing **experimental private** pin-CAS value in
+this namespace. It hashes JSON `["wonffice.note.snapshot-pins.cas.v1", tenantId, workspaceId,
+documentId, "pinned", selected.map(ref => [ref.schemaId, ref.version, ref.digest])]` in exact order.
+This is not a final SDK/UI/MCP digest protocol or permission token. The public `requestHash` remains
+the unchanged opaque service operation correlation value. Raw native text hashes, canonical
+definition digests and pin-CAS hashes are distinct. Outer HTTP JSON whitespace/key order is not
+claimed to be an operation digest. Freeze operation/key/body/source revision/hash/pins for retries;
+retain a later unsent draft separately, never replace the fixed attempt or silently rebase it.
+
+Ordinary office-api and Note UI remain native1/default-native2-closed. The old workspace
+`schema-bundle` route still returns legacy-unpinned/refuses2. Existing mixed-format listing/metadata
+refusals remain explicit; enabling an isolated transport fixture does not make an existing client
+compatible or authorize activation in a shared product database.
+
+The runtime staging function includes the actual compiled document-store and new route module,
+with declared locked dependencies and copied byte origins; it does not load repository TypeScript,
+install dependencies or provide a complete cross-machine deployment proof. The controlled signed-JWKS
+HTTP/private-PG checks retain full independent native/definition/copy/CAS/receipt/no-effect assertions,
+real blocking backend chains, staged receipt rollback, controlled physical response loss, exact retry,
+policy/authority changes, server/database restarts and named auth/database outages. Controlled
+authority fixtures and response omission are labelled; genuine browser login, Note editing/rendering,
+MCP, account retirement, backup, installation, privacy/encryption and external alpha remain unproved.
