@@ -167,7 +167,7 @@ export function registerValuedMarks(): void {
           ...markAttributes(type, attrs),
           style: {
             ...markCss(type, attrs, styles),
-            ...(type === 'underline' || type === 'strikethrough' ? decorationFont(props, styles) : {})
+            ...(type === 'underline' || type === 'strikethrough' || type === 'strike' ? decorationFont(props, styles) : {})
           }
         },
         [data('text')]

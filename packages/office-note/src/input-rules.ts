@@ -1,3 +1,4 @@
+import { isNative2NoteEditor } from './session';
 import { inlineMathAt } from './markdown-math';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { addChild, removeChild, transaction } from '@barocss/model';
@@ -44,7 +45,7 @@ export function planNoteInputRule(editor: Editor, range: ModelSelection, input: 
       { expression: /(^|[^\\$])\$([^$\n]+)\$$/, stype: 'mathInline' },
       { expression: /(^|[^\\`])`([^`\n]+)`$/, stype: 'code' },
       { expression: /(^|[^\\*])\*\*([^*\n]+)\*\*$/, stype: 'bold' },
-      { expression: /(^|[^\\~])~~([^~\n]+)~~$/, stype: 'strikethrough' },
+      { expression: /(^|[^\\~])~~([^~\n]+)~~$/, stype: isNative2NoteEditor(editor) ? 'strike' : 'strikethrough' },
       { expression: /(^|[^\\*])\*([^*\n]+)\*$/, stype: 'italic' }
     ];
     for (const rule of expressions) {

@@ -116,3 +116,10 @@ describe.each(MARKS)('$name', ({ command, Extension }) => {
     expect(commands.get(command).canExecute(editor, { selection: caret() })).toBe(true);
   });
 });
+
+it('explicit trusted literal strike selector dispatches the same command with the native spelling', async () => {
+  class LiteralStrike extends StrikeThroughExtension { constructor() { super({ markType: 'strike' }); } }
+  const { editor, commands } = editorWith(LiteralStrike, range());
+  expect(await commands.get('toggleStrikeThrough').execute(editor, { selection: range() })).toBe(true);
+  expect(ops[0].args[4]).toBe('strike');
+});

@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { NativeNoteError, openNoteTree, createNoteNative2Context, openNoteNativeSnapshot, noteNodeTreeOf, type NoteSession, type NativeNoteSession } from '@barocss/office-note';
 import { selectedNodeIds, type ModelSelection } from '@barocss/editor-core';
 import { NoteEditor, type NoteInputDelivery } from '@barocss/office-note/view';
-import { NATIVE_NOTE_FIXTURES } from './native2-scenario-fixtures';
+import { transaction } from '../../../packages/model/src/index';
+import { NATIVE_NOTE_FIXTURES, NATIVE_B_VARIANTS } from './native2-scenario-fixtures';
 import { copyNoteSnapshotFile } from '@barocss/office-note/file';
 import './scenario.css';
 
@@ -41,7 +42,7 @@ declare global {
 const query = new URLSearchParams(location.search);
 const caseName = query.get('case') ?? 'empty';
 const fixture = documents[caseName as keyof typeof documents];
-const nativeCase = caseName === 'native2-A' || caseName === 'native2-A2' || caseName === 'native2-B' || caseName === 'native2-C';
+const nativeCase = caseName === 'native2-A' || caseName === 'native2-A2' || caseName === 'native2-B' || caseName === 'native2-C' || caseName === 'native2-B-bare';
 if (!fixture && !nativeCase) throw new Error(`Unknown Note scenario: ${caseName}`);
 const embedded = query.get('host') === 'embedded';
 
@@ -65,7 +66,20 @@ function ScenarioEditor() {
   </main>;
 }
 
+function BareOriginalB() {
+  const [session, setSession] = useState<NoteSession | null>(null);
+  useEffect(() => {
+    // Readonly legacy engine investigation; no native2 admission, export or storage claim.
+    const one = openNoteTree(NATIVE_NOTE_FIXTURES.SOURCE_B.document, { nativeSource: true });
+    setSession(one);
+    window.readNativeNoteScenario = () => ({ rawSource: JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_B, null, 2) + '\n', document: one.editor.exportDocument(), nativeDocument: noteNodeTreeOf(one.editor.dataStore, one.rootId), selectedNodeIds: [] });
+    return () => { delete window.readNativeNoteScenario; one.close(); };
+  }, []);
+  return <main><p>Bare readonly original B engine diagnostic. No native2 save.</p><div data-testid="native2-bare-host">{session && <NoteEditor editor={session.editor} rootId={session.rootId} />}</div></main>;
+}
+
 function NativeScenarioEditor() {
+
   const input = caseName === 'native2-B' ? NATIVE_NOTE_FIXTURES.SOURCE_B : caseName === 'native2-A2' ? NATIVE_NOTE_FIXTURES.TARGET_A2 : NATIVE_NOTE_FIXTURES.SOURCE_A;
   let source = JSON.stringify(input, null, 2) + '\n';
   if (caseName === 'native2-C') {
@@ -99,7 +113,7 @@ function NativeScenarioEditor() {
   useEffect(() => {
     if (!nested || !session) { setChildSession(null); return; }
     const all = [...session.editor.dataStore.getNodes().values()];
-    const resource = all.find(node => node.stype === 'richText' && node.attributes?.id === 'row-A-2');
+    const resource = all.find(node => node.stype === 'richText' && node.attributes?.id === (caseName === 'native2-B' ? 'row-B-1' : 'row-A-2'));
     if (!resource?.sid) { setFailure('Captured authored nested body does not exist'); return; }
     const body = noteNodeTreeOf(session.editor.dataStore, resource.sid);
     if (!body || !Array.isArray(body.content)) { setFailure('Complete nested content required'); return; }
@@ -112,7 +126,7 @@ function NativeScenarioEditor() {
       if (!live.current || delivery.current && !await delivery.current()) throw new Error('Input delivery not settled');
       nestedLive.current?.flush();
       if (nestedLive.current) {
-        const resource = [...live.current.editor.dataStore.getNodes().values()].find(node => node.stype === 'richText' && node.attributes?.id === 'row-A-2');
+        const resource = [...live.current.editor.dataStore.getNodes().values()].find(node => node.stype === 'richText' && node.attributes?.id === (caseName === 'native2-B' ? 'row-B-1' : 'row-A-2'));
         if (!resource?.sid) throw new Error('Captured authored resource is missing');
         writes.current = live.current.commitChildResource(resource.sid, nestedLive.current);
       }
@@ -140,6 +154,22 @@ function NativeScenarioEditor() {
       <button onClick={() => { void session?.editor.undo(); }}>Undo local edit</button>
       <button onClick={() => { void session?.editor.redo(); }}>Redo local edit</button>
       <button onClick={() => setNested(value => !value)}>Show nested resource</button>
+      {caseName === 'native2-B' && <>
+        <button onClick={() => {
+          const one = live.current; if (!one) return;
+          void transaction(one.editor, [{ type: 'addChild', payload: { parentId: one.rootId, child: NATIVE_B_VARIANTS['new-block'].document.content[1], position: 1 } }]).commit();
+        }}>Insert B block</button>
+        <button onClick={() => {
+          const one = live.current; if (!one) return;
+          const run = [...one.editor.dataStore.getNodes().values()].find(node => node.text === '검토 B');
+          if (run?.parentId) void one.editor.executeCommand('moveNoteBlockDown', { nodeId: run.parentId });
+        }}>Move original B block down</button>
+        <button onClick={() => {
+          const one = live.current; if (!one) return;
+          const run = [...one.editor.dataStore.getNodes().values()].find(node => node.text === '보조 검토 B');
+          if (run?.parentId) void transaction(one.editor, [{ type: 'removeChild', payload: { parentId: one.rootId, childId: run.parentId } }]).commit();
+        }}>Delete B block</button>
+      </>}
       <button onClick={() => {
         const one = live.current, content = one?.editor.dataStore.getNode(one.rootId)?.content;
         const first = content?.[0], second = content?.[1];
@@ -160,5 +190,5 @@ function NativeScenarioEditor() {
 createRoot(document.getElementById('root')!).render(<StrictMode>
   {embedded && !query.has('frame')
     ? <iframe title="Embedded Note scenario" className="scenario-frame" src={`/scenarios.html?host=embedded&frame=1&case=${encodeURIComponent(caseName)}`} />
-    : nativeCase ? <NativeScenarioEditor /> : <ScenarioEditor />}
+    : caseName === 'native2-B-bare' ? <BareOriginalB /> : nativeCase ? <NativeScenarioEditor /> : <ScenarioEditor />}
 </StrictMode>);

@@ -123,6 +123,6 @@ export const NOTE_TOOLBAR: NoteControl[] = [
 ];
 
 /** The controls in one group, in the order the bar draws them. */
-export function noteControlsIn(group: NoteControl['group']): NoteControl[] {
-  return controlsIn(NOTE_TOOLBAR, group);
+export function noteControlsIn(group: NoteControl['group'], strikeMark: 'strike' | 'strikethrough' = 'strikethrough'): NoteControl[] {
+  return controlsIn(NOTE_TOOLBAR, group).map(control => control.command === 'toggleStrikeThrough' ? { ...control, mark: strikeMark } : control);
 }

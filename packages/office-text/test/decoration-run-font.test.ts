@@ -59,3 +59,11 @@ describe('decorations use the font of the marked run', () => {
     }
   });
 });
+
+it('draws the original literal strike with the same known line and run metrics', () => {
+  const marks: Mark[] = [{ stype: 'strike', range: [0, 2] }, { stype: 'underline', range: [1, 4] }, { stype: 'fontSize', attrs: { size: 36 } }];
+  const original = structuredClone(marks);
+  expect(draw('strike', marks, 1, 2)).toEqual({ textDecorationLine: 'line-through', fontSize: '18pt' });
+  expect(draw('underline', marks, 1, 2)).toEqual({ textDecorationLine: 'underline', fontSize: '18pt' });
+  expect(marks).toStrictEqual(original);
+});

@@ -116,3 +116,10 @@ describe('the set that needs a renderer at all', () => {
     expect(markCss('strikethrough', {}, undefined)).toEqual({ textDecorationLine: 'line-through' });
   });
 });
+
+it('recognizes only the declared literal strike spelling while preserving canonical decoration attributes', () => {
+  expect(VALUED_MARKS).toContain('strike');
+  expect(markCss('strike', { color: '#ff0000' }, undefined)).toEqual({ textDecorationLine: 'line-through', textDecorationColor: '#ff0000' });
+  expect(markCss('strike', {}, undefined)).toEqual(markCss('strikethrough', {}, undefined));
+  expect(markCss('unknown-native-strike', {}, undefined)).toEqual({});
+});
