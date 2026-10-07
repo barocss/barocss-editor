@@ -93,3 +93,27 @@ For a new block type, provide its schema, commands, rendering, and controls. A n
 ## License
 
 MIT. The published archive includes the license in `dist/LICENSE`.
+
+## Explicit native2 local sessions
+
+`createNoteNative2Context(rawSnapshotText)` validates a full version2 envelope and retains its original bytes, savedAt and complete immutable schema bundle. `openNoteNativeSnapshot(context)` is read-only by default. A file or bundle does not grant editing rights. A trusted local host can supply its existing `authority` editor. Parent editability, document epoch, root and session constrain local commands and pending delivery. This is local lifetime control, not authenticated server authorization.
+
+```ts
+const context = createNoteNative2Context(snapshotText);
+const session = openNoteNativeSnapshot(context, {
+  authority: hostEditor,
+  onSnapshotChange: text => saveLocalSnapshot(text),
+});
+// First await NoteEditor's registerBeforeSnapshot delivery, then settle child
+// sessions and the host's own asynchronous storage work.
+session.flush();
+const wholeSnapshot = session.exportSnapshot();
+```
+
+`exportNativeDocument()` extracts the whole live model. `exportSnapshot()` validates that model with the fixed context. Only an unchanged whole document can reuse original bytes. Supported attributes and metadata preserve unknown JSON, authored loadedAt, nulls, omitted keys, empty mark arrays, resources and page references. Undo/redo retains source shape by owned node identity. A bare `editor.loadDocument()` is refused; reopen with a new explicit context after settling input. A failed local delivery retains the dirty model and reports failure.
+
+The first bridge accepts the existing trusted Note, heading, paragraph, inline-text, codeBlock, bTable/body/row/cell, pageReference, resources, richText and dataset vocabulary, with bold, italic and underline marks. Dataset fields remain passive text, number, boolean and choice data. It does not install a schema or renderer from imported JSON. Literal strike and arbitrary extra root/descendant **node** keys remain codec-valid retained contexts but are refused before editor creation. Their original raw data is preserved. Unknown JSON **inside attributes or metadata** is supported. Other vocabulary is closed until its runtime behavior is separately verified.
+
+For an authored richText resource, `openChildResource(resourceId)` creates a child bound to that exact resource, parent and document generation. Await the child's view input delivery, flush it, then await `commitChildResource(resourceId, child)` before parent export. Delivery uses one existing guarded engine transaction and local history, with full native and schema validation. Unrelated, reloaded, revoked or detached child/resource instances refuse delivery. The existing nonempty block schema rejects an empty body; no placeholder body is fabricated. Close child sessions before the parent. A retired dirty child remains a recoverable draft, not a successful save.
+
+The local desktop diagnostic is `apps/note/scenarios.html?case=native2-A` (also A2, B and C). It does not activate native2 in the product workspace, public client, authenticated storage or backup. Full B strike editing, server schema adoption, OIDC/product integration, pending lineage and external release remain separate work. The `/file` codec and Node facade remain independent of the browser editor entry.

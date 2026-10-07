@@ -1,4 +1,6 @@
 export { captureNoteParagraph, type NoteParagraphCapture } from './connected-proposal';
+export { createNoteNative2Context, openNoteNativeSnapshot, NativeNoteError,
+  type NativeNoteContext, type NativeNoteSession, type NativeNoteOptions } from './native-session';
 /**
  * **한 편의 글** — the schema, the kit and the editing session a body of prose needs.
  *

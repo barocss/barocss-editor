@@ -8,6 +8,11 @@ import { getNoteSchemaDefinition } from './note-schema';
 
 /** What a store hands back, and all this needs of one. */
 type Node = { stype?: unknown; text?: unknown; attributes?: Record<string, unknown>; content?: unknown[]; marks?: unknown[]; metadata?: Record<string, unknown> };
+const nativeRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
+function nativeField(value: unknown, key: string): unknown {
+  if (!nativeRecord(value) || !Object.hasOwn(value, key)) throw new Error('The native Note lost an authored field.');
+  return value[key];
+}
 type Access = { getNode: (sid: string) => Node | undefined };
 
 /**
@@ -74,12 +79,19 @@ export function noteNodeTreeOf(doc: Access, sid: string): Record<string, unknown
       if (typeof child !== 'string' || !doc.getNode(child)) throw new Error('The note body has missing content.');
       return copy(doc.getNode(child)!);
     });
+    const extras: Record<string, unknown> = {};
+    if (shape?.native) for (const key of shape.extraKeys) {
+      extras[key] = structuredClone(nativeField(one, key));
+    }
+    const nativeMetadata = (shape?.native && shape.metadataNull || !shape && !!shapes && one.metadata === null) && (!metadata || !Object.keys(metadata).length)
+      ? { metadata: null } : metadata && (shape?.hasMetadata || Object.keys(metadata).length) ? { metadata } : {};
     return {
+      ...extras,
       stype: one.stype,
       ...(one.text !== undefined ? { text: one.text } : {}),
       ...(attributes && (shape?.hasAttributes !== false || Object.keys(attributes).length) ? { attributes } : {}),
-      ...(one.marks ? { marks: structuredClone(one.marks) } : {}),
-      ...(metadata && (shape?.hasMetadata || Object.keys(metadata).length) ? { metadata } : {}),
+      ...(one.marks && (!shape?.native || shape.hasMarks || one.marks.length) ? { marks: structuredClone(one.marks) } : {}),
+      ...nativeMetadata,
       ...(children.length || shape?.hasContent || (!shape && Array.isArray(one.content)) ? { content: children } : {})
     };
   };
@@ -124,6 +136,8 @@ export function openNoteTree(tree: unknown, options: NoteOptions = {}): NoteSess
 }
 
 interface NoteOptions {
+  /** Explicit native2 factory/descendant control, never inferred from a file attribute. */
+  nativeSource?: boolean;
   /** The current authority of the owning document. Child history and input share this lifetime. */
   authority?: Editor;
   /**
@@ -157,36 +171,42 @@ interface NoteOptions {
 }
 
 function start(tree: unknown, options: NoteOptions): NoteSession {
+  const nativeSource = options.nativeSource === true || !!options.authority && nativeEditors.has(options.authority);
   const schema = createSchema('note', getNoteSchemaDefinition());
   const store = new DataStore(undefined as never, schema as never);
-  const editor = createNoteEditor({ dataStore: store, schema, editable: options.authority?.isEditable ?? true });
+  const editor = createNoteEditor({ dataStore: store, schema, editable: options.authority?.isEditable ?? !nativeSource });
+  if (nativeSource) nativeEditors.add(editor);
 
   /* One name per body — see `NoteOptions.session` for what sharing one costs. */
   const session = options.session ?? DataStore.mintSessionId('note');
   const load = editor.loadDocument.bind(editor);
   editor.loadDocument = (document, namedSession) => {
+    const source = nativeSource ? structuredClone(document) : document;
     load(document, namedSession);
-    rememberNoteNativeSource(store, document, editor.getRootId()!);
+    rememberNoteNativeSource(store, source, editor.getRootId()!, nativeSource);
   };
-  editor.loadDocument(normalizeProseTree(tree) as never, session);
+  editor.loadDocument(nativeSource ? structuredClone(tree) : normalizeProseTree(tree), session);
 
   /* Always a string after `loadDocument` — the engine types it optional for a store with no root. */
   const rootId = editor.getRootId() ?? '';
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   let dirty = false;
+  let pendingIntent: (() => boolean) | undefined;
   let closed = false;
   const authority = options.authority;
   const parentEpoch = authority?.dataStore.getDocumentEpoch();
   const parentRoot = authority?.getRootId();
   const parentSession = authority?.dataStore.getSessionId();
   let generation = 0;
+  let parentGeneration = 0, parentEditable = authority?.isEditable;
   let lastEditable = editor.isEditable;
   const currentParent = () => !authority || (authority.dataStore.getDocumentEpoch() === parentEpoch
     && authority.getRootId() === parentRoot && authority.dataStore.getSessionId() === parentSession);
   const allowed = () => !closed && editor.isEditable && currentParent() && (!authority || authority.isEditable);
   const ownEditable = () => { if (editor.isEditable !== lastEditable) { lastEditable = editor.isEditable; generation++; } };
   const syncAuthority = () => {
+    if (authority?.isEditable !== parentEditable) { parentEditable = authority?.isEditable; parentGeneration++; }
     const editable = !closed && currentParent() && !!authority?.isEditable;
     if (editor.isEditable !== editable) editor.setEditable(editable);
   };
@@ -200,6 +220,7 @@ function start(tree: unknown, options: NoteOptions): NoteSession {
     const at = generation, epoch = editor.dataStore.getDocumentEpoch();
     return () => allowed() && generation === at && editor.dataStore.getDocumentEpoch() === epoch;
   };
+  noteIntents.set(editor, capture);
   const removeIntent = registerTransactionIntentGuardFactory(editor, () => {
     const valid = capture();
     return () => valid() ? undefined : 'The note authority or document changed.';
@@ -208,6 +229,7 @@ function start(tree: unknown, options: NoteOptions): NoteSession {
     if (!dirty) return;
     if (timer !== undefined) clearTimeout(timer);
     timer = undefined;
+    if (nativeSource && pendingIntent && !pendingIntent()) throw new Error('The pending native Note authority changed.');
     dirty = false;
     const doc = store;
     // A host history restore may have loaded a new root into this same editor.
@@ -220,6 +242,8 @@ function start(tree: unknown, options: NoteOptions): NoteSession {
     notifyNotePending(editor);
     if (!options.onChange) return;
     dirty = true;
+    const parentAt = parentGeneration, documentAt = store.getDocumentEpoch();
+    pendingIntent = () => currentParent() && parentGeneration === parentAt && store.getDocumentEpoch() === documentAt;
     if (timer !== undefined) clearTimeout(timer);
     timer = setTimeout(flush, options.after ?? 350);
   };
@@ -233,6 +257,7 @@ function start(tree: unknown, options: NoteOptions): NoteSession {
     flush,
     close: () => {
       if (closed) return;
+      if (nativeSource) flush();
       closed = true;
       editor.off('editor:content.change' as never, told);
       try {
@@ -242,14 +267,21 @@ function start(tree: unknown, options: NoteOptions): NoteSession {
         authority?.off('editor:editable.change', syncAuthority);
         authority?.off('editor:content.change', syncAuthority);
         editor.off('editor:editable.change', ownEditable);
-        removeIntent(); noteParents.delete(editor); nativeSources.delete(store);
+        removeIntent(); noteIntents.delete(editor); noteParents.delete(editor); nativeSources.delete(store); nativeEditors.delete(editor);
         editor.destroy();
       }
     }
   };
 }
 
+const noteIntents = new WeakMap<Editor, () => () => boolean>();
+/** Internal local lifetime check; file context never supplies this relationship. */
+export function captureNoteChildIntent(child: NoteSession, parent: Editor): () => boolean {
+  if (noteParents.get(child.editor) !== parent || !nativeEditors.has(child.editor)) return () => false;
+  return noteIntents.get(child.editor)?.() ?? (() => false);
+}
 const noteParents = new WeakMap<Editor, Editor>();
+const nativeEditors = new WeakSet<Editor>();
 const pendingObservers = new WeakMap<Editor, Set<() => void>>();
 /** Immediate dirty-input signal, bubbled to each owning editor. Successful flush settles separately. */
 export function observeNoteSessionChanges(editor: Editor, changed: () => void): () => void {
@@ -268,18 +300,21 @@ function notifyNotePending(editor: Editor): void {
 interface NativeNoteShape {
   metadata?: Record<string, unknown>; loadedAt: unknown;
   hasMetadata: boolean; hasAttributes: boolean; hasContent: boolean;
+  native: boolean; metadataNull: boolean; hasMarks: boolean; extraKeys: string[];
 }
 const nativeSources = new WeakMap<Access, Map<string, NativeNoteShape>>();
 const metadataSources = new WeakMap<object, NativeNoteShape>();
 /** Remember source shape without writing to the model. Used by hosts with exact native snapshots. */
-export function rememberNoteNativeSource(store: Access, document: unknown, rootId: string): void {
-  const shapes = new Map<string, NativeNoteShape>();
+export function rememberNoteNativeSource(store: Access, document: unknown, rootId: string, native = false, append = false): void {
+  const shapes = append ? nativeSources.get(store) ?? new Map<string, NativeNoteShape>() : new Map<string, NativeNoteShape>();
   const walk = (value: unknown, sid: string) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return;
     const source = value as Record<string, unknown>, held = store.getNode(sid);
     if (!held) return;
     shapes.set(sid, { metadata: source.metadata as Record<string, unknown> | undefined, loadedAt: held.metadata?.loadedAt,
-      hasMetadata: Object.hasOwn(source, 'metadata'), hasAttributes: Object.hasOwn(source, 'attributes'), hasContent: Object.hasOwn(source, 'content') });
+      hasMetadata: Object.hasOwn(source, 'metadata'), hasAttributes: Object.hasOwn(source, 'attributes'), hasContent: Object.hasOwn(source, 'content'),
+      native, metadataNull: source.metadata === null, hasMarks: Object.hasOwn(source, 'marks'),
+      extraKeys: native ? Object.keys(source).filter(key => !['stype', 'text', 'attributes', 'content', 'marks', 'metadata'].includes(key)) : [] });
     if (held.metadata) metadataSources.set(held.metadata, shapes.get(sid)!);
     if (Array.isArray(source.content)) source.content.forEach((child, index) => {
       const id = held.content?.[index]; if (typeof id === 'string') walk(child, id);

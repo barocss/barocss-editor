@@ -1,10 +1,34 @@
 import { afterEach, expect, it } from 'vitest';
 import { registerPreCommitGuard } from '@barocss/model';
 import { openNoteTree, type NoteSession } from '../src/session';
+import { createNoteNative2Context, openNoteNativeSnapshot } from '../src/native-session';
+import { NATIVE_NOTE_FIXTURES } from '../../../apps/note/src/native2-scenario-fixtures';
 const tree = { stype: 'note', content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'kept' }] }] };
 const sessions: NoteSession[] = [];
 const make = (authority?: NoteSession['editor']) => { const one = openNoteTree(tree, { authority } as never); sessions.push(one); return one; };
 afterEach(() => { sessions.splice(0).reverse().forEach(one => one.close()); });
+it('native2 explicit parent authority changes cannot grant queued old-generation input', async () => {
+  const host = make(), context = createNoteNative2Context(JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_A));
+  const child = openNoteNativeSnapshot(context, { authority: host.editor }); sessions.push(child);
+  const first = child.editor.dataStore.getNode(child.rootId)?.content?.[0];
+  if (typeof first !== 'string') throw new Error('Actual heading must have an owned SID');
+  const run = child.editor.dataStore.getNode(first)?.content?.[0];
+  if (typeof run !== 'string') throw new Error('Actual heading run must exist');
+  const before = { document: child.editor.exportDocument(), native: child.exportSnapshot(), history: child.editor.getHistoryStats() };
+  const lock = await child.editor.dataStore.acquireLock();
+  const pending = child.editor.executeCommand('replaceText', { range: { type: 'range', startNodeId: run, endNodeId: run, startOffset: 4, endOffset: 4, collapsed: true }, text: ' stale' });
+  host.editor.setEditable(false); host.editor.setEditable(true); child.editor.dataStore.releaseLock(lock);
+  expect(await pending).toBe(false);
+  expect({ document: child.editor.exportDocument(), native: child.exportSnapshot(), history: child.editor.getHistoryStats() }).toStrictEqual(before);
+  host.editor.setEditable(false); expect(child.editor.isEditable).toBe(false);
+  expect(await child.editor.executeCommand('replaceText', { range: { type: 'range', startNodeId: run, endNodeId: run, startOffset: 4, endOffset: 4, collapsed: true }, text: ' denied' })).toBe(false);
+});
+it('native2 parent root-generation replacement retires descendant writes and refuses old-context export', () => {
+  const host = make(), child = openNoteNativeSnapshot(createNoteNative2Context(JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_A)), { authority: host.editor }); sessions.push(child);
+  const before = child.editor.exportDocument(); host.editor.loadDocument(tree, host.session);
+  expect(child.editor.isEditable).toBe(false); expect(() => child.exportSnapshot()).toThrow('native_context_changed');
+  expect(child.editor.exportDocument()).toStrictEqual(before);
+});
 const edit = (one: NoteSession, text: string) => {
   const paragraph = one.editor.dataStore.getNode(one.rootId)!.content![0] as string;
   const run = one.editor.dataStore.getNode(paragraph)!.content![0] as string;
