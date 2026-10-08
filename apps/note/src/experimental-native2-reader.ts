@@ -37,7 +37,7 @@ function freeze(value: unknown): void {
 }
 const headKeys = ['documentId', 'tenantId', 'workspaceId', 'product', 'title', 'creatorUserId', 'metadataRevision',
   'mode', 'pageId', 'documentKey', 'fileFormat', 'fileVersion', 'revision', 'snapshotHash'] as const;
-function head(value: unknown, tenantId: string, workspaceId: string, documentId: string): ExperimentalNative2Head {
+export function decodeExperimentalNative2Head(value: unknown, tenantId: string, workspaceId: string, documentId: string): ExperimentalNative2Head {
   const h = exact(value, headKeys);
   if (h.documentId !== documentId || h.tenantId !== tenantId || h.workspaceId !== workspaceId ||
     h.product !== 'note' || h.mode !== 'snapshot' || h.fileFormat !== 'barocss-note' || h.fileVersion !== 2 ||
@@ -91,7 +91,7 @@ export function createExperimentalNative2NoteReader({ tenantId, workspaceId, api
     current();
     if (!isRegistryUuid(documentId)) throw new Error('invalid_experimental_native2_document');
     const opened = exact(await get(`/documents/${documentId}`), ['document', 'snapshotText']);
-    const document = head(opened.document, tenantId, workspaceId, documentId);
+    const document = decodeExperimentalNative2Head(opened.document, tenantId, workspaceId, documentId);
     if (typeof opened.snapshotText !== 'string') return invalid();
     const snapshotText = opened.snapshotText;
     const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(snapshotText));
