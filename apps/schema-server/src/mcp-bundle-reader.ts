@@ -17,7 +17,8 @@ function documentHead(value: unknown, tenantId: string, documentId: string): val
     value.mode === 'snapshot' && typeof value.title === 'string' &&
     (value.creatorUserId === null || isRegistryUuid(value.creatorUserId)) &&
     typeof value.metadataRevision === 'number' && Number.isSafeInteger(value.metadataRevision) && value.metadataRevision >= 1 &&
-    typeof value.pageId === 'string' && value.pageId.length > 0 && typeof value.documentKey === 'string' &&
+    typeof value.pageId === 'string' && value.pageId.length > 0 &&
+    value.documentKey === `wonffice-${tenantId}-${documentId}` &&
     typeof value.revision === 'number' && Number.isSafeInteger(value.revision) && value.revision >= 1 &&
     typeof value.snapshotHash === 'string' && /^[0-9a-f]{64}$/.test(value.snapshotHash);
 }

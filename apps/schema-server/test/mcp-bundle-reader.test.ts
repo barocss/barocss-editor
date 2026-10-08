@@ -29,7 +29,8 @@ function fixture() {
   const snapshotText = JSON.stringify({ format: 'barocss-note', version: 2, schemaBundle: bundle,
     document: { stype: 'note', attributes: { title: 'Exact', pageId: documentId }, content: [] } });
   const document = { documentId, tenantId, workspaceId, product: 'note', title: 'Exact', creatorUserId: null,
-    metadataRevision: 1, mode: 'snapshot', pageId: documentId, documentKey: 'controlled-key',
+    metadataRevision: 1, mode: 'snapshot', pageId: documentId,
+    documentKey: `wonffice-${tenantId}-${documentId}`,
     fileFormat: 'barocss-note', fileVersion: 2, revision: 7, snapshotHash: sha(snapshotText) };
   const opened = { document, snapshotText };
   const resolved = { status: 'pinned', documentId, documentRevision: 7, snapshotHash: document.snapshotHash,
@@ -102,6 +103,11 @@ describe('MCP exact document-bundle reader, controlled HTTP responses only', () 
       workspaceId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } };
     await expect(readExactDocumentBundle(config, tenantId, documentId, undefined, served([wrongWorkspace, source.resolved]).fetcher))
       .rejects.toMatchObject({ reason: 'invalid_service_response' });
+    const wrongDocumentKey = { ...source.opened, document: { ...source.document, documentKey: 'controlled-key' } };
+    const wrongKeyResponses = served([wrongDocumentKey, source.resolved]);
+    await expect(readExactDocumentBundle(config, tenantId, documentId, undefined, wrongKeyResponses.fetcher))
+      .rejects.toMatchObject({ reason: 'invalid_service_response' });
+    expect(wrongKeyResponses.paths).toHaveLength(1);
     const brokenRaw = JSON.stringify({ ...JSON.parse(source.snapshotText),
       schemaBundle: { ...source.bundle, definitions: [source.bundle.definitions[0]] } });
     const broken = { document: { ...source.document, snapshotHash: sha(brokenRaw) }, snapshotText: brokenRaw };

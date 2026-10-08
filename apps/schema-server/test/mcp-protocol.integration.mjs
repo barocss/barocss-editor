@@ -22,7 +22,8 @@ const bundle = { bundleVersion: 1, digestAlgorithm: 'wonffice.canonical-json.sha
 const snapshotText = JSON.stringify({ format: 'barocss-note', version: 2, schemaBundle: bundle,
   document: { stype: 'note', attributes: { title: 'Exact', pageId: documentId }, content: [] } });
 const document = { documentId, tenantId, workspaceId, product: 'note', title: 'Exact', creatorUserId: null,
-  metadataRevision: 1, mode: 'snapshot', pageId: documentId, documentKey: 'controlled-key',
+  metadataRevision: 1, mode: 'snapshot', pageId: documentId,
+  documentKey: `wonffice-${tenantId}-${documentId}`,
   fileFormat: 'barocss-note', fileVersion: 2, revision: 1, snapshotHash: sha(snapshotText) };
 const expected = { status: 'pinned', document, snapshotText, documentRevision: 1,
   snapshotHash: document.snapshotHash, nativeFormat: { format: 'barocss-note', version: 2 }, bundle };
