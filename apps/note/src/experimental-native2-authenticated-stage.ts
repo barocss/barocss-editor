@@ -13,10 +13,16 @@ export interface Native2StageReadLease {
   readonly retire: () => void;
 }
 
+export interface Native2StageReadFactory {
+  readonly open: (scope: Readonly<{ tenantId: string; workspaceId: string; documentId: string }>) => Promise<Native2StageReadLease>;
+  readonly isCurrent: () => boolean;
+  readonly retire: () => void;
+}
+
 export interface Native2StageSource {
   readonly session: NoteSession;
   readonly authority: NoteSession;
-  readonly resourceId: string;
+  readonly resourceIds: readonly string[];
   readonly scope: Scope;
   /** Exact retained source bytes verified against the current model, or refusal. Never acknowledge pending input. */
   readonly sourceSnapshot: () => string;
@@ -36,23 +42,26 @@ const invalid = (): never => { throw new Error('native2_stage_read_invalid'); };
 const readRetired = (): never => { throw new Error('native2_stage_read_retired'); };
 
 function captureSource(source: Native2StageSource): () => boolean {
-  const { session, authority, resourceId } = source;
+  const { session, authority } = source;
   const root = session.rootId, sid = session.session, epoch = session.editor.dataStore.getDocumentEpoch();
   const rootNode = session.editor.dataStore.getNode(root);
-  const resource = session.editor.dataStore.getNode(resourceId);
+  const resourceIds = [...source.resourceIds];
+  const resources = resourceIds.map(id => ({ id, node: session.editor.dataStore.getNode(id) }));
   const authorityRoot = authority.rootId, authoritySid = authority.session;
   const authorityEpoch = authority.editor.dataStore.getDocumentEpoch();
   const manager = session.editor.historyManager, index = manager.getCurrentIndex();
   const entries = manager.getHistory().map(entry => ({ entry, operations: entry.operations,
     inverse: entry.inverseOperations, forward: [...entry.operations], backward: [...entry.inverseOperations] }));
-  if (!rootNode || !resource || resource.stype !== 'richText') changed();
+  if (!rootNode || new Set(resourceIds).size !== resourceIds.length ||
+    resources.some(resource => !resource.node || resource.node.stype !== 'richText')) changed();
   let raw: string;
   try { raw = source.sourceSnapshot(); } catch { return changed(); }
   return () => {
     try {
       if (!source.isCurrent() || session.rootId !== root || session.session !== sid ||
         session.editor.dataStore.getDocumentEpoch() !== epoch || session.editor.dataStore.getNode(root) !== rootNode ||
-        session.editor.dataStore.getNode(resourceId) !== resource || authority.rootId !== authorityRoot ||
+        resources.some(resource => session.editor.dataStore.getNode(resource.id) !== resource.node) ||
+        authority.rootId !== authorityRoot ||
         authority.session !== authoritySid || authority.editor.dataStore.getDocumentEpoch() !== authorityEpoch ||
         session.editor.historyManager !== manager || manager.getCurrentIndex() !== index || source.sourceSnapshot() !== raw) return false;
       const now = manager.getHistory();

@@ -122,7 +122,7 @@ function mountedSource() {
   const listeners = new Set<() => void>();
   let hostCurrent = true;
   return { authority, session, resourceId: resource.sid, listeners, source: {
-    authority, session, resourceId: resource.sid, scope, sourceSnapshot: () => session.exportSnapshot(), isCurrent: () => hostCurrent,
+    authority, session, resourceIds: [resource.sid], scope, sourceSnapshot: () => session.exportSnapshot(), isCurrent: () => hostCurrent,
     subscribeAuthority: (retire: () => void) => { listeners.add(retire); return () => { listeners.delete(retire); }; }
   }, retireHost: () => { hostCurrent = false; for (const listener of [...listeners]) listener(); } };
 }
