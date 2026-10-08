@@ -7,6 +7,7 @@ import { transaction } from '../../../packages/model/src/index';
 import { NATIVE_NOTE_FIXTURES, NATIVE_B_VARIANTS } from './native2-scenario-fixtures';
 import { copyNoteSnapshotFile } from '@barocss/office-note/file';
 import './scenario.css';
+import { Native2TransportScenario } from './native2-transport-scenario';
 
 const paragraph = (text: string) => ({ stype: 'paragraph', content: [{ stype: 'inline-text', text }] });
 const documents = {
@@ -43,7 +44,8 @@ const query = new URLSearchParams(location.search);
 const caseName = query.get('case') ?? 'empty';
 const fixture = documents[caseName as keyof typeof documents];
 const nativeCase = caseName === 'native2-A' || caseName === 'native2-A2' || caseName === 'native2-B' || caseName === 'native2-C' || caseName === 'native2-B-bare';
-if (!fixture && !nativeCase) throw new Error(`Unknown Note scenario: ${caseName}`);
+const nativeTransportCase = /^native2-transport-(A|A2|B|C)$/.test(caseName);
+if (!fixture && !nativeCase && !nativeTransportCase) throw new Error(`Unknown Note scenario: ${caseName}`);
 const embedded = query.get('host') === 'embedded';
 
 function ScenarioEditor() {
@@ -190,5 +192,6 @@ function NativeScenarioEditor() {
 createRoot(document.getElementById('root')!).render(<StrictMode>
   {embedded && !query.has('frame')
     ? <iframe title="Embedded Note scenario" className="scenario-frame" src={`/scenarios.html?host=embedded&frame=1&case=${encodeURIComponent(caseName)}`} />
-    : caseName === 'native2-B-bare' ? <BareOriginalB /> : nativeCase ? <NativeScenarioEditor /> : <ScenarioEditor />}
+    : nativeTransportCase ? <Native2TransportScenario variant={caseName.slice('native2-transport-'.length)} />
+      : caseName === 'native2-B-bare' ? <BareOriginalB /> : nativeCase ? <NativeScenarioEditor /> : <ScenarioEditor />}
 </StrictMode>);
