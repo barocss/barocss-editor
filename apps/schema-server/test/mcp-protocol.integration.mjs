@@ -28,6 +28,15 @@ const document = { documentId, tenantId, workspaceId, product: 'note', title: 'E
 const expected = { status: 'pinned', document, snapshotText, documentRevision: 1,
   snapshotHash: document.snapshotHash, nativeFormat: { format: 'barocss-note', version: 2 }, bundle };
 const path = `/v1/tenants/${tenantId}/note-native2/documents/${documentId}`;
+const validationPath = path + '/validation';
+const priorPinDigest = sha(JSON.stringify(['wonffice.note.snapshot-pins.cas.v1', tenantId, workspaceId,
+  documentId, 'pinned', bundle.selected.map(item => [item.schemaId, item.version, item.digest])]));
+const validationInput = { tenantId, documentId, expectedRevision: 1,
+  expectedSnapshotHash: document.snapshotHash, expectedPriorPinDigest: priorPinDigest };
+const validationChecks = ['current_authority', 'current_source', 'native2_file', 'registered_bundle',
+  'source_preconditions'];
+const candidateChecks = [...validationChecks, 'candidate_file', 'candidate_registered_bundle',
+  'candidate_action_policy', 'pin_transition'];
 const registerPath = `/v1/tenants/${tenantId}/workspaces/${workspaceId}/schemas/${schemaId}/versions/1`;
 const registration = { tenantId, workspaceId, schemaId, version: 1, definitionText, idempotencyKey: 'mcp-fixed-1' };
 const parsed = parseRegistryDefinition(definitionText);
@@ -43,7 +52,7 @@ const startedAt = new Date().toISOString(), childPids = [];
 let held, heldResponse;
 const http = createServer(async (request, response) => {
   calls.push({ method: request.method, url: request.url, authorization: request.headers.authorization });
-  if (held && request.url === path) {
+  if (held && request.url === held.url) {
     const current = held; held = undefined; heldResponse = response;
     response.once('close', current.closed); current.entered(); return;
   }
@@ -58,6 +67,27 @@ const http = createServer(async (request, response) => {
       response.writeHead(409).end(JSON.stringify({ status: 'key_reuse' })); return;
     }
     response.writeHead(200).end(JSON.stringify(registerReceipt)); return;
+  }
+  if (request.method === 'POST' && request.url === validationPath) {
+    const chunks = []; for await (const chunk of request) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (request.headers.authorization !== 'Bearer controlled.token.value') {
+      response.writeHead(401).end(JSON.stringify({ status: 'unauthorized' })); return;
+    }
+    if (body.expectedRevision !== 1) {
+      response.writeHead(409).end(JSON.stringify({ status: 'revision_conflict' })); return;
+    }
+    if (body.expectedSnapshotHash !== document.snapshotHash || body.expectedPriorPinDigest !== priorPinDigest) {
+      response.writeHead(409).end(JSON.stringify({ status: 'schema_pin_conflict' })); return;
+    }
+    if (body.kind === 'candidate' && body.intendedAction !== 'preserve') {
+      response.writeHead(403).end(JSON.stringify({ status: 'scope_forbidden' })); return;
+    }
+    response.writeHead(200).end(JSON.stringify({ status: 'structurally_valid', kind: body.kind,
+      documentId, documentRevision: 1, snapshotHash: document.snapshotHash, priorPinDigest,
+      checks: body.kind === 'candidate' ? candidateChecks : validationChecks,
+      ...(body.kind === 'candidate' ? { candidateSnapshotHash: sha(body.snapshotText), action: 'preserve' } : {}) }));
+    return;
   }
   if (request.method !== 'GET' || request.headers.authorization !== 'Bearer controlled.token.value') {
     response.writeHead(401).end(JSON.stringify({ status: 'unauthorized' })); return;
@@ -103,7 +133,8 @@ try {
     protocolVersion = client.getNegotiatedProtocolVersion();
     assert.match(protocolVersion, /^20\d{2}-\d{2}-\d{2}$/);
     const listed = await client.listTools();
-    assert.deepEqual(listed.tools.map(tool => tool.name), ['get_schema_bundle', 'register_schema']);
+    assert.deepEqual(listed.tools.map(tool => tool.name),
+      ['get_schema_bundle', 'register_schema', 'validate_document', 'validate_candidate']);
     assert.deepEqual(listed.tools[0].inputSchema.required, ['tenantId', 'documentId']);
     const result = await client.callTool({ name: 'get_schema_bundle', arguments: { tenantId, documentId } });
     assert.notEqual(result.isError, true);
@@ -123,10 +154,40 @@ try {
       arguments: { ...registration, definitionText: definitionText + ' ' } });
     assert.equal(reuse.isError, true);
     assert.deepEqual(JSON.parse(reuse.content[0].text), { status: 'key_reuse' });
+    const beforeValidation = calls.length;
+    const validated = await client.callTool({ name: 'validate_document', arguments: validationInput });
+    assert.notEqual(validated.isError, true);
+    assert.deepEqual(JSON.parse(validated.content[0].text), { status: 'structurally_valid', kind: 'document',
+      documentId, documentRevision: 1, snapshotHash: document.snapshotHash, priorPinDigest,
+      checks: validationChecks });
+    const candidateInput = { ...validationInput, snapshotText, intendedAction: 'preserve' };
+    const candidateResult = await client.callTool({ name: 'validate_candidate', arguments: candidateInput });
+    assert.notEqual(candidateResult.isError, true);
+    assert.deepEqual(JSON.parse(candidateResult.content[0].text), { status: 'structurally_valid', kind: 'candidate',
+      documentId, documentRevision: 1, snapshotHash: document.snapshotHash, priorPinDigest,
+      checks: candidateChecks, candidateSnapshotHash: sha(snapshotText), action: 'preserve' });
+    assert.deepEqual(calls.slice(beforeValidation).map(call => [call.method, call.url, call.authorization]), [
+      ['POST', validationPath, 'Bearer controlled.token.value'],
+      ['POST', validationPath, 'Bearer controlled.token.value']]);
+    const stale = await client.callTool({ name: 'validate_document',
+      arguments: { ...validationInput, expectedRevision: 2 } });
+    assert.equal(stale.isError, true);
+    assert.deepEqual(JSON.parse(stale.content[0].text), { status: 'revision_conflict' });
+    const forbiddenAdopt = await client.callTool({ name: 'validate_candidate',
+      arguments: { ...candidateInput, intendedAction: 'adopt' } });
+    assert.equal(forbiddenAdopt.isError, true);
+    assert.deepEqual(JSON.parse(forbiddenAdopt.content[0].text), { status: 'scope_forbidden' });
     const beforeMalformed = calls.length;
     const forbiddenArgument = await client.callTool({ name: 'register_schema',
       arguments: { ...registration, role: 'owner' } });
     assert.equal(forbiddenArgument.isError, true);
+    assert.equal(calls.length, beforeMalformed);
+    const extraValidation = await client.callTool({ name: 'validate_document',
+      arguments: { ...validationInput, role: 'owner' } });
+    assert.equal(extraValidation.isError, true);
+    const invalidCandidate = await client.callTool({ name: 'validate_candidate',
+      arguments: { ...candidateInput, intendedAction: 'execute' } });
+    assert.equal(invalidCandidate.isError, true);
     assert.equal(calls.length, beforeMalformed);
 
     const before = calls.length;
@@ -147,7 +208,7 @@ try {
     let entered, closed;
     const enteredPromise = new Promise(resolve => { entered = resolve; });
     const closedPromise = new Promise(resolve => { closed = resolve; });
-    held = { entered, closed };
+    held = { entered, closed, url: path };
     const controller = new AbortController();
     const cancelled = client.callTool({ name: 'get_schema_bundle', arguments: { tenantId, documentId } },
       { signal: controller.signal });
@@ -160,6 +221,18 @@ try {
     assert.equal(calls.length, beforeCancel);
     const afterCancel = await client.callTool({ name: 'get_schema_bundle', arguments: { tenantId, documentId } });
     assert.notEqual(afterCancel.isError, true);
+    let validateEntered, validateClosed;
+    const validateEnteredPromise = new Promise(resolve => { validateEntered = resolve; });
+    const validateClosedPromise = new Promise(resolve => { validateClosed = resolve; });
+    held = { entered: validateEntered, closed: validateClosed, url: validationPath };
+    const validationController = new AbortController();
+    const cancelledValidation = client.callTool({ name: 'validate_document', arguments: validationInput },
+      { signal: validationController.signal });
+    await within(validateEnteredPromise, 'Validation did not reach HTTP');
+    validationController.abort();
+    await assert.rejects(cancelledValidation);
+    await within(validateClosedPromise, 'Cancelled validation HTTP connection stayed open');
+    heldResponse = undefined;
   } finally { await client.close(); }
 
   const anonymous = await connect(baseUrl);
@@ -172,6 +245,9 @@ try {
     const deniedRegister = await anonymous.callTool({ name: 'register_schema', arguments: registration });
     assert.equal(deniedRegister.isError, true);
     assert.deepEqual(JSON.parse(deniedRegister.content[0].text), { status: 'unauthorized' });
+    const deniedValidation = await anonymous.callTool({ name: 'validate_document', arguments: validationInput });
+    assert.equal(deniedValidation.isError, true);
+    assert.deepEqual(JSON.parse(deniedValidation.content[0].text), { status: 'unauthorized' });
     assert.equal(calls.length, before);
   } finally { await anonymous.close(); }
 } finally { heldResponse?.destroy(); http.closeAllConnections(); await new Promise(resolve => http.close(resolve)); }
@@ -184,7 +260,8 @@ for (const pid of childPids) {
   assert.equal(alive, false, `Owned MCP child ${pid} remained running`);
 }
 console.log(JSON.stringify({ status: 'passed', transport: 'stdio', protocolVersion,
-  client: '@modelcontextprotocol/client', server: 'dist/mcp-main.js', tools: ['get_schema_bundle', 'register_schema'],
+  client: '@modelcontextprotocol/client', server: 'dist/mcp-main.js',
+  tools: ['get_schema_bundle', 'register_schema', 'validate_document', 'validate_candidate'],
   ownedResources: { controllerPid: process.pid, loopbackHost: '127.0.0.1', loopbackPort: address.port,
     childPids, startedAt, finishedAt: new Date().toISOString(), httpClosed: true, childrenExited: true },
   controlledHttpCalls: calls.length,
