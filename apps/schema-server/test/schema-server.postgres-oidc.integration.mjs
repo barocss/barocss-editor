@@ -7,6 +7,9 @@ import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import { parseRegistryDefinition } from '@barocss/schema/registry-contract';
 
 // Actual own compiled HTTP process/private PostgreSQL with controlled signed JWKS.
 // No browser login, LLM, document schema adoption, MCP or external deployment claim.
@@ -1200,6 +1203,7 @@ const UNREGISTERED_NATIVE_FIXTURE = {
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 const stageOnly=process.argv[2]==='--stage-only';
 const originalBaseline=process.argv[2]==='--original-native2-baseline';
+const mcpEnabled=process.argv.includes('--mcp');
 if(stageOnly && !process.argv[3])throw new Error('Stage destination is required');
 const evidence=stageOnly?resolve(process.argv[3]):process.env.SCHEMA_SERVER_EVIDENCE;
 if(stageOnly)assert.equal(existsSync(evidence),false,'Refuse existing artifact destination');
@@ -1214,7 +1218,7 @@ const httpPort=14595,jwksPort=18595,pgPort=14596,issuer=`http://127.0.0.1:${jwks
 const origin=`http://127.0.0.1:${httpPort}`;
 const ids={tenant:'11111111-1111-4111-8111-111111111111',workspace:'22222222-2222-4222-8222-222222222222',schema:'33333333-3333-4333-8333-333333333333',otherSchema:'66666666-6666-4666-8666-666666666666',foreignTenant:'77777777-7777-4777-8777-777777777777',foreignWorkspace:'88888888-8888-4888-8888-888888888888'};
 const hash=text=>createHash('sha256').update(text,'utf8').digest('hex');
-const report={kind:'actual-independent-compiled-schema-http-private-postgres-controlled-signed-jwks',status:'incomplete',checks:[],notClaimed:['genuine browser/OIDC login','MCP','full495/Goal/alpha/release']};
+const report={kind:'actual-independent-compiled-schema-http-private-postgres-controlled-signed-jwks',status:'incomplete',checks:[],notClaimed:['genuine browser/OIDC login',...(mcpEnabled?['MCP writes/LLM/native UI']:['MCP']),'full495/Goal/alpha/release']};
 const lease={runId:randomUUID(),uid:process.getuid(),controllerPid:process.pid,root:privateRoot,socket,data,httpPort,jwksPort,pgPort,state:'prepared',qualification:'Fresh exclusive Unix PG/own HTTP+JWKS; no shared listener or data takeover'};
 const saveLease=()=>{if(!stageOnly)writeFileSync(join(evidence,'runtime-lease.json'),JSON.stringify(lease,null,2),{mode:0o600});};
 const save=()=>writeFileSync(join(evidence,'server-proof.json'),JSON.stringify(report,null,2),{mode:0o600});
@@ -1278,11 +1282,13 @@ function stageRuntime(target) {
   }
   cpSync(join(root,'apps/schema-server/dist'),join(target,'dist'),{recursive:true});
   const app=JSON.parse(readFileSync(join(root,'apps/schema-server/package.json'),'utf8'));
-  const projectedApp={name:app.name,version:app.version,type:'module',scripts:{start:'node dist/main.js'},dependencies:app.dependencies};
+  const projectedApp={name:app.name,version:app.version,type:'module',scripts:{start:'node dist/main.js',...(existsSync(join(root,'apps/schema-server/dist/mcp-main.js'))?{'start:mcp':'node dist/mcp-main.js'}:{})},dependencies:app.dependencies};
   writeFileSync(join(target,'package.json'),JSON.stringify(projectedApp,null,2));
   projection.push({name:app.name,sourcePackage:join(root,'apps/schema-server/package.json'),sourcePackageHash:hash(readFileSync(join(root,'apps/schema-server/package.json'))),kind:'compiled-app-runtime-projection',projected:projectedApp});
   for(const dependency of Object.keys(app.dependencies))link(join(target,'node_modules',dependency),workspace.get(dependency)??external(dependency,join(root,'apps/schema-server')));
   cpSync(join(root,'apps/schema-server/README.md'),join(target,'README.md'));
+  if(existsSync(join(root,'apps/schema-server/MCP.md')))cpSync(join(root,'apps/schema-server/MCP.md'),join(target,'MCP.md'));
+  if(mcpEnabled){assert.ok(existsSync(join(target,'dist/mcp-main.js')));assert.ok(existsSync(join(target,'dist/mcp-bundle-reader.js')));assert.ok(existsSync(join(target,'MCP.md')));}
   writeFileSync(join(evidence,'runtime-package-projection.json'),JSON.stringify(projection,null,2));
 }
 let stageBefore;
@@ -1320,6 +1326,30 @@ const send=async(method,path,body,who='writer')=>{
  return {status:response.status,body:await response.json()};
 };
 const register=(value,key,who='writer',text=JSON.stringify(value,null,2))=>send('PUT',base+`/schemas/${value.schemaId}/versions/${value.version}`,{definitionText:text,idempotencyKey:key},who);
+let mcpSerial=0;
+const mcpResources=[];
+async function withMcp(bearer,work){
+  const label=`mcp-child-${++mcpSerial}`,log=join(evidence,label+'.log'),out=createWriteStream(log,{mode:0o600});logs.push(log);
+  const transport=new StdioClientTransport({command:process.execPath,args:[join(stage,'dist/mcp-main.js')],cwd:stage,
+    env:{SCHEMA_SERVER_MCP_BASE_URL:origin,...(bearer?{SCHEMA_SERVER_MCP_BEARER_TOKEN:bearer}:{}),NODE_DEBUG:'esm,module'},stderr:'pipe'});
+  const client=new Client({name:'schema-private-pg-proof',version:'1.0.0'});const item={label,start:new Date().toISOString(),entry:join(stage,'dist/mcp-main.js'),controlledSignedJwksPrivatePg:true};mcpResources.push(item);
+  try{
+    await client.connect(transport);item.pid=transport.pid;assert.ok(item.pid>0);transport.stderr?.pipe(out);
+    item.protocol=client.getNegotiatedProtocolVersion();assert.equal(item.protocol,'2025-11-25');
+    assert.deepEqual((await client.listTools()).tools.map(tool=>tool.name),['get_schema_bundle']);
+    lease.mcpChildren=mcpResources;saveLease();return await work(client);
+  }finally{
+    await client.close();await new Promise(resolve=>out.end(resolve));
+    if(item.pid){const point=execFileSync('ps',['-axo','pid='],{encoding:'utf8'}).split('\n').map(v=>Number(v.trim()));assert.equal(point.includes(item.pid),false);}
+    item.end=new Date().toISOString();item.closed=true;lease.mcpChildren=mcpResources;saveLease();
+  }
+}
+async function mcpTool(client,tenantId,documentId){
+  const result=await client.callTool({name:'get_schema_bundle',arguments:{tenantId,documentId}});
+  assert.ok(Array.isArray(result.content)&&result.content.length===1&&result.content[0].type==='text');
+  return {isError:result.isError===true,body:JSON.parse(result.content[0].text)};
+}
+
 if(stageOnly){
   stageRuntime(evidence);const binding=graph(evidence);
   writeFileSync(join(evidence,'artifact-binding.json'),JSON.stringify(binding,null,2));
@@ -1348,7 +1378,7 @@ try{
   const {privateKey,publicKey}=await generateKeyPair('RS256');const publicJwk={...await exportJWK(publicKey),kid:'schema-test-key',alg:'RS256',use:'sig'};
   jwks=createServer((request,response)=>{if(request.url==='/keys'){response.setHeader('content-type','application/json');response.end(JSON.stringify({keys:[publicJwk]}));}else{response.statusCode=404;response.end();}});
   await new Promise((resolve,reject)=>{jwks.once('error',reject);jwks.listen(jwksPort,'127.0.0.1',resolve);});
-  token=async(subject,options={})=>new SignJWT({typ:options.typ??'Bearer'}).setProtectedHeader({alg:'RS256',kid:'schema-test-key'}).setIssuer(issuer).setAudience(options.audience??'schema-test').setSubject(subject).setIssuedAt().setExpirationTime('5m').sign(privateKey);
+  token=async(subject,options={})=>new SignJWT({typ:options.typ??'Bearer'}).setProtectedHeader({alg:'RS256',kid:'schema-test-key'}).setIssuer(issuer).setAudience(options.audience??'schema-test').setSubject(subject).setIssuedAt().setExpirationTime(options.expiration??'5m').sign(privateKey);
   for(const [subject,role] of [['writer','editor'],['viewer','viewer']]){
     if(subject==='writer')await applyMembershipChange(owner,{action:'bootstrap_owner',tenantId:ids.tenant,tenantName:'Schema Alpha',issuer,subject:'operator',approvalRef:'schema-test-owner'});
     await applyMembershipChange(owner,{action:'grant',tenantId:ids.tenant,issuer,subject,role,approvalRef:`schema-test-${subject}`});
@@ -1513,6 +1543,77 @@ try{
       }
       saveAudit('ABC-original',await audit());
     });
+
+    if(mcpEnabled){
+      const mcpReadNoEffects=async(client,receipt,title,creator,text,revision)=>{
+        const before=await audit(),result=await mcpTool(client,tenant,receipt.document.documentId);
+        assert.equal(result.isError,false);assert.deepEqual(result.body,{status:'pinned',document:expectedHead(receipt.document,title,creator,text,revision),snapshotText:text,
+          documentRevision:revision,snapshotHash:hash(text),nativeFormat:{format:'barocss-note',version:2},bundle:JSON.parse(text).schemaBundle});
+        assert.deepEqual(await audit(),before);
+      };
+      const mcpDenied=async(label,bearer,receipt,reason)=>{
+        const before=await audit();saveAudit('mcp-'+label+'-before',before);
+        await withMcp(bearer,async client=>{const result=await mcpTool(client,tenant,receipt.document.documentId);assert.equal(result.isError,true);assert.deepEqual(result.body,{status:reason});});
+        const after=await audit();assert.deepEqual(after,before);saveAudit('mcp-'+label+'-after',after);
+      };
+      await check('MCP actual staged SDK initialize sole-tool exact A2 B1 C2 and complete SQL no-effects',async()=>{
+        await withMcp(await token('writer-a'),async client=>{
+          for(const [receipt,title,creator,text,revision] of [[A,'A',actorIds['writer-a'],rawA2,2],[B,'B',actorIds['writer-b'],rawB,1],[C,'C',actorIds['writer-a'],rawC,1]])await mcpReadNoEffects(client,receipt,title,creator,text,revision);
+          const before=await audit();await assert.rejects(client.callTool({name:'adopt_schema',arguments:{tenantId:tenant,documentId:A.document.documentId}}));
+          for(const argumentsValue of [{tenantId:tenant,documentId:A.document.documentId,role:'owner',approved:true},{tenantId:tenant,documentId:'not-a-uuid'}]){
+            const result=await client.callTool({name:'get_schema_bundle',arguments:argumentsValue});assert.equal(result.isError,true);
+          }
+          assert.deepEqual(await audit(),before);
+        });
+      });
+      await check('MCP actual signed JWT absent forged expired foreign denial with no returned body or effect',async()=>{
+        await mcpDenied('anonymous',undefined,A,'unauthorized');await mcpDenied('forged','invalid.jwt.value',A,'unauthorized');
+        await mcpDenied('expired',await token('writer-a',{expiration:1}),A,'unauthorized');await mcpDenied('foreign',await token('foreign'),A,'scope_forbidden');
+      });
+      await check('MCP same-child current membership role removal and restored fresh request without SQL effects',async()=>{
+        const captured=await token('writer-a'),restricted=join(evidence,'mcp-policy-editor-only.json');writeFileSync(restricted,JSON.stringify([{...documentPolicy,readRoles:['editor']}]),{mode:0o600});
+        await stopServer();await startServer(policyFile,'server-mcp-editor-only',restricted);
+        await mcpDenied('viewer-without-policy',await token('native-viewer'),A,'scope_forbidden');
+        await withMcp(captured,async client=>{
+          await mcpReadNoEffects(client,A,'A',actorIds['writer-a'],rawA2,2);
+          await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject:'writer-a',role:'viewer',approvalRef:'mcp-current-viewer'});
+          const before=await audit();const denied=await mcpTool(client,tenant,A.document.documentId);assert.equal(denied.isError,true);assert.deepEqual(denied.body,{status:'scope_forbidden'});assert.deepEqual(await audit(),before);
+          await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject:'writer-a',role:'editor',approvalRef:'mcp-restored-editor'});
+          await mcpReadNoEffects(client,A,'A',actorIds['writer-a'],rawA2,2);
+        });
+        await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject:'mcp-revoked',role:'editor',approvalRef:'mcp-grant-revoke-user'});const revocable=await token('mcp-revoked');
+        await withMcp(revocable,async client=>{
+          await mcpReadNoEffects(client,A,'A',actorIds['writer-a'],rawA2,2);
+          await applyMembershipChange(owner,{action:'revoke',tenantId:tenant,issuer,subject:'mcp-revoked',role:'editor',approvalRef:'mcp-remove-user'});
+          const before=await audit(),denied=await mcpTool(client,tenant,A.document.documentId);assert.equal(denied.isError,true);assert.deepEqual(denied.body,{status:'scope_forbidden'});assert.deepEqual(await audit(),before);
+        });
+        await stopServer();await startServer(policyFile,'server-mcp-membership-restored',documentPolicyFile);
+      });
+      await check('MCP existing A2 absent and empty operator document policy denies without effects',async()=>{
+        await stopServer();await startServer(policyFile,'server-mcp-policy-absent');await mcpDenied('absent-policy',await token('writer-a'),A,'not_found');
+        const empty=join(evidence,'mcp-empty-policy.json');writeFileSync(empty,'[]',{mode:0o600});await stopServer();await startServer(policyFile,'server-mcp-policy-empty',empty);await mcpDenied('empty-policy',await token('writer-a'),A,'not_found');
+        await stopServer();await startServer(policyFile,'server-mcp-policy-restored',documentPolicyFile);
+      });
+      await check('MCP real same-tenant other-workspace document policy denial without read effects',async()=>{
+        const otherWorkspace='dddddddd-dddd-4ddd-8ddd-dddddddddddd';await owner.query('INSERT INTO wonffice.workspaces(tenant_id,id,name) VALUES($1,$2,$3)',[tenant,otherWorkspace,'MCP other workspace']);
+        const declared=structuredClone(sourceA),references=new Map();
+        for(const [schemaId,version] of [['22222222-2222-2222-2222-222222222222',1],['22222222-2222-2222-2222-222222222222',2],['11111111-1111-1111-1111-111111111111',1]]){
+          const entry=declared.schemaBundle.definitions.find(e=>e.reference.schemaId===schemaId&&e.reference.version===version),definition=JSON.parse(entry.definitionText);definition.scope.workspaceId=otherWorkspace;
+          if(definition.parent)definition.parent=references.get(`${definition.parent.schemaId}:${definition.parent.version}`);
+          definition.dependencies=definition.dependencies.map(ref=>references.get(`${ref.schemaId}:${ref.version}`));entry.definitionText=JSON.stringify(definition,null,2);entry.reference={schemaId,version,digest:hash(parseRegistryDefinition(entry.definitionText).canonicalText)};references.set(`${schemaId}:${version}`,entry.reference);
+        }
+        declared.schemaBundle.selected=declared.schemaBundle.selected.map(ref=>references.get(`${ref.schemaId}:${ref.version}`));
+        const registryPolicy={...nativeRegistryPolicy,workspaceId:otherWorkspace};policy.push(registryPolicy);writeFileSync(policyFile,JSON.stringify(policy),{mode:0o600});
+        const both=join(evidence,'mcp-two-workspace-policy.json');writeFileSync(both,JSON.stringify([documentPolicy,{...documentPolicy,workspaceId:otherWorkspace}]),{mode:0o600});await stopServer();await startServer(policyFile,'server-mcp-two-workspace-setup',both);
+        for(const [schemaId,version] of [['22222222-2222-2222-2222-222222222222',1],['22222222-2222-2222-2222-222222222222',2],['11111111-1111-1111-1111-111111111111',1]]){
+          const entry=declared.schemaBundle.definitions.find(e=>e.reference.schemaId===schemaId&&e.reference.version===version);assert.equal((await send('PUT',`/v1/tenants/${tenant}/workspaces/${otherWorkspace}/schemas/${schemaId}/versions/${version}`,{definitionText:entry.definitionText,idempotencyKey:'mcp-other-'+schemaId+'-'+version},'writer-a')).status,200);
+        }
+        const created=await send('POST',nbase+'/documents',{workspaceId:otherWorkspace,title:'MCP other',fileFormat:'barocss-note',fileVersion:2,snapshotText:raw(declared),importMode:'new-page-copy',idempotencyKey:'mcp-other-document'},'writer-a');assert.equal(created.status,201);assert.equal(created.body.document.workspaceId,otherWorkspace);
+        await stopServer();await startServer(policyFile,'server-mcp-other-workspace-denied',documentPolicyFile);await mcpDenied('other-workspace',await token('writer-a'),created.body,'scope_forbidden');
+      });
+      report.mcp={status:'passed',qualification:'Actual independent SDK/staged compiled MCP/current signedJWKS/privatePG service, not genuine user login/LLM/UI or agent writes',children:mcpResources,tool:'get_schema_bundle',noSecondStore:true};save();
+    }
+
     const fresh=async label=>{const receipt=await createNative(label,sourceA);return {receipt,before:copiedRaw(HTTP_NATIVE_FIXTURES.COPY_A_ORACLE,receipt.document.pageId,pathsA),after:copiedRaw(targetA,receipt.document.pageId,pathsA)};};
     await check('strict native2 HTTP DTO missing grant/query/legacy/hash/pin boundaries and current viewer foreign denial',async()=>{
       const x=await fresh('negative'),id=x.receipt.document.documentId,valid=input(id,x.before,x.after,'http-negative');
