@@ -248,6 +248,51 @@ export function captureAuthorizedSession(): { requestFetch: typeof fetch; isCurr
 }
 export function captureAuthorizedFetch(): typeof fetch { return captureAuthorizedSession().requestFetch; }
 
+const native2ReadUuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const native2DocumentRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/note-native2/documents/${native2ReadUuid}(?:/schema-bundle)?$`);
+const native2AccessRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/access$`);
+const native2WorkspaceRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/workspaces$`);
+function native2ReadUrl(url: URL): boolean {
+  if (url.origin !== location.origin || url.username || url.password || url.hash) return false;
+  if (native2DocumentRead.test(url.pathname) || native2AccessRead.test(url.pathname)) return !url.search;
+  if (url.pathname === '/api/v1/me') return !url.search;
+  if (!native2WorkspaceRead.test(url.pathname)) return false;
+  if (!url.search) return true;
+  const query = new URLSearchParams(url.search);
+  return query.size === 1 && query.getAll('after').length === 1 &&
+    new RegExp(`^${native2ReadUuid}$`).test(query.get('after') ?? '');
+}
+
+/** One private, read-only lease for the current memory login; never an editor grant. */
+export function captureNative2ReadSession(): { requestFetch: typeof fetch; isCurrent: () => boolean; retire: () => void } {
+  const token = activeSession, epoch = sessionEpoch;
+  if (!token || token.expiresAt <= Date.now()) throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.');
+  let retired = false;
+  const isCurrent = () => !retired && activeSession === token && sessionEpoch === epoch && token.expiresAt > Date.now();
+  const check = () => {
+    if (!isCurrent()) throw new AuthError(token.expiresAt <= Date.now() ? 'unauthorized' : 'cancelled',
+      '현재 계정의 읽기 권한이 끝났습니다. 문서를 다시 여세요.');
+  };
+  const requestFetch: typeof fetch = async (input, init) => {
+    check();
+    if (input instanceof Request && input.method !== 'GET') throw new AuthError('configuration', '지원하지 않는 읽기 요청입니다.');
+    const request = new Request(input, { ...init, method: 'GET', cache: 'no-store', redirect: 'error', credentials: 'omit' });
+    const url = new URL(request.url);
+    if ((init?.method && init.method.toUpperCase() !== 'GET') || request.method !== 'GET' || request.body !== null ||
+      request.headers.has('authorization') || request.headers.has('content-length') ||
+      request.headers.has('transfer-encoding') || !native2ReadUrl(url)) {
+      throw new AuthError('configuration', '지원하지 않는 읽기 요청입니다.');
+    }
+    const response = await authorizedFetch(request);
+    check();
+    const readText = response.text.bind(response), readJson = response.json.bind(response);
+    response.text = async () => { check(); const value = await readText(); check(); return value; };
+    response.json = async () => { check(); const value: unknown = await readJson(); check(); return value; };
+    return response;
+  };
+  return Object.freeze({ requestFetch, isCurrent, retire: () => { retired = true; } });
+}
+
 async function apiGet(path: string, requestFetch: typeof fetch = authorizedFetch): Promise<unknown> {
   const response = await requestFetch(`/api/v1${path}`);
   if (!response.ok) throw new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 확인해 주세요.');
