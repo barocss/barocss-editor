@@ -7,6 +7,58 @@ import { resolveLocalEntry } from './local-entry';
 import { EntryBoundary, EntryStatus } from './entry-status';
 import { LocalNativeFrame } from './local-native-frame';
 import { localNativeFrameRoute, reportLocalNativeFrameFailure } from './local-native-bridge';
+import type { NativeEntryBinding } from './auth-app';
+import type { AuthenticatedNative2Read, Native2ReadScope } from './native2-authenticated-reader';
+
+type Native2ReadFactory = Readonly<{
+  open: (scope: Native2ReadScope) => Promise<AuthenticatedNative2Read>;
+  isCurrent: () => boolean;
+  retire: () => void;
+}>;
+
+function noteReadLeaseFactory(tenantId: string, workspaceId: string, binding?: NativeEntryBinding): () => Promise<Native2ReadFactory> {
+  return async () => {
+    const isAuthorized = binding?.isAuthorized;
+    const subscribeAuthority = binding?.subscribeAuthority;
+    const unavailable = () => new Error('현재 Note 문서 읽기 권한을 확인하지 못했습니다.');
+    if (!isAuthorized || !subscribeAuthority || !isAuthorized()) throw unavailable();
+    const { createAuthenticatedNative2Reader } = await import('./native2-authenticated-reader');
+    if (!isAuthorized()) throw unavailable();
+
+    const reader = createAuthenticatedNative2Reader();
+    let retired = false;
+    let unsubscribe: (() => void) | undefined;
+    const retire = () => {
+      const stop = unsubscribe;
+      unsubscribe = undefined;
+      if (!retired) { retired = true; reader.retire(); }
+      stop?.();
+    };
+    const isCurrent = () => {
+      if (retired) return false;
+      if (!isAuthorized() || !reader.isCurrent()) { retire(); return false; }
+      return true;
+    };
+    try { unsubscribe = subscribeAuthority(retire); }
+    catch (error) { retire(); throw error; }
+    if (retired) retire();
+    if (!isCurrent()) { retire(); throw unavailable(); }
+
+    return Object.freeze({
+      open: async (scope: Native2ReadScope) => {
+        if (!isCurrent()) throw unavailable();
+        if (scope.tenantId !== tenantId || scope.workspaceId !== workspaceId) throw unavailable();
+        let result: AuthenticatedNative2Read;
+        try { result = await reader.open(scope); }
+        catch (error) { if (!isCurrent()) retire(); throw error; }
+        if (!isCurrent()) { result.retire(); retire(); throw unavailable(); }
+        return Object.freeze({ ...result, isCurrent: () => isCurrent() && result.isCurrent() });
+      },
+      isCurrent,
+      retire,
+    });
+  };
+}
 
 const root = createRoot(document.getElementById('root')!);
 if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
@@ -27,6 +79,8 @@ if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
         workspaceId={context.workspaceId}
         issuer={principal.issuer}
         subject={principal.subject}
+        {...(context.product === 'note' ? { currentUserId: principal.currentUserId,
+          createNative2ReadLease: noteReadLeaseFactory(context.tenantId, context.workspaceId, binding) } : {})}
         initialDocumentId={context.documentId}
         authorizedFetch={context.authorizedFetch}
         role={context.role}
