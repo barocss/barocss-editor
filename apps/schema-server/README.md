@@ -152,6 +152,17 @@ cannot confer rights. No second content store, live-head substitution or schema 
 - GET `/documents/:documentId`: the actual versioned head and original raw native2 snapshot.
 - GET `/documents/:documentId/schema-bundle`: `pinned`, document revision/raw hash/native format
   and the complete exact bundle from that SAME admitted snapshot. It never queries latest instead.
+- POST `/documents/:documentId/validation`: read-only structural check of one current native2 head.
+  `kind: "document"` requires exact `expectedRevision`, `expectedSnapshotHash` and
+  `expectedPriorPinDigest`. `kind: "candidate"` adds raw `snapshotText` and `intendedAction`
+  (`preserve` or `adopt`). No other body fields or query parameters are accepted. The service
+  checks the current actor, source revision/hash/pins, native2 codec/page ID, exact registered
+  definition closure and current document policy. Candidate validation also checks the proposed
+  raw file, action policy and pin transition. It returns `structurally_valid`, the checked head,
+  fixed check names and, for a candidate, its exact raw SHA-256 and action. It never stores the
+  candidate or creates a receipt. The result is advisory for that head; a later write must repeat
+  all current authority and CAS checks. It does not validate arbitrary business field meaning,
+  execute renderers or approve the proposed change.
 - PUT `/documents/:documentId/snapshot`: exact keys `schemaAction` (`preserve` or `adopt`),
   `expectedRevision`, `expectedSnapshotHash`, `expectedPriorPinDigest`, `snapshotText`,
   `idempotencyKey`. Missing CAS fields, legacy payloads, extra grants and unknown queries refuse.

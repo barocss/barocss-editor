@@ -1,9 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { DocumentError, type DocumentStore, type CreateDocumentInput, type UpdateSnapshotInput } from '@barocss/office-service/document-store';
+import { DocumentError, type DocumentStore, type CreateDocumentInput, type UpdateSnapshotInput, type ValidateNative2Input } from '@barocss/office-service/document-store';
 import type { VerifiedPrincipal } from '@barocss/office-service/membership-store';
 import { isRegistryUuid, validateRegistryBundle } from '@barocss/schema/registry-contract';
 
-export type Native2Documents = Pick<DocumentStore, 'create' | 'open' | 'updateSnapshot' | 'getReceipt'>;
+export type Native2Documents = Pick<DocumentStore, 'create' | 'open' | 'updateSnapshot' | 'getReceipt'> &
+  Partial<Pick<DocumentStore, 'validateNative2'>>;
 type Authenticate = (request: FastifyRequest) => Promise<VerifiedPrincipal>;
 const invalid = (): never => { throw new DocumentError(400, 'invalid_request'); };
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -57,6 +58,21 @@ export function registerNative2Routes(app: FastifyInstance, documents: Native2Do
     const { bundle } = validateRegistryBundle(envelope.schemaBundle);
     return { status: 'pinned' as const, documentId: opened.document.documentId, documentRevision: opened.document.revision,
       snapshotHash: opened.document.snapshotHash, nativeFormat: { format: 'barocss-note', version: 2 }, bundle };
+  });
+  app.post(prefix + '/documents/:documentId/validation', async request => {
+    const { principal, params } = await context(request);
+    const submitted: unknown = request.body;
+    if (!record(submitted)) return invalid();
+    if (submitted.kind !== 'document' && submitted.kind !== 'candidate') return invalid();
+    const input = body(submitted, submitted.kind === 'document'
+      ? ['kind', 'expectedRevision', 'expectedSnapshotHash', 'expectedPriorPinDigest']
+      : ['kind', 'expectedRevision', 'expectedSnapshotHash', 'expectedPriorPinDigest', 'snapshotText', 'intendedAction']);
+    if (!Number.isSafeInteger(input.expectedRevision) || (input.expectedRevision as number) < 1 ||
+      !digest(input.expectedSnapshotHash) || !digest(input.expectedPriorPinDigest) ||
+      (input.kind === 'candidate' && (typeof input.snapshotText !== 'string' ||
+        (input.intendedAction !== 'preserve' && input.intendedAction !== 'adopt')))) invalid();
+    if (!documents.validateNative2) throw new Error('native2_validation_unavailable');
+    return documents.validateNative2(principal, params.tenantId, params.documentId, input as ValidateNative2Input);
   });
   app.put(prefix + '/documents/:documentId/snapshot', async request => {
     const { principal, params } = await context(request);

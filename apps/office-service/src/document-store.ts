@@ -52,6 +52,12 @@ export interface UpdateSnapshotInput {
   snapshotText: string;
   idempotencyKey: string;
 }
+export type ValidateNative2Input = {
+  kind: 'document'; expectedRevision: number; expectedSnapshotHash: string; expectedPriorPinDigest: string;
+} | {
+  kind: 'candidate'; expectedRevision: number; expectedSnapshotHash: string; expectedPriorPinDigest: string;
+  snapshotText: string; intendedAction: 'preserve' | 'adopt';
+};
 export interface UpdateMetadataInput {
   expectedMetadataRevision: number;
   title: string;
@@ -465,6 +471,49 @@ export class DocumentStore {
         return { document, transitionStatus: attempt.rows[0]?.status ?? 'uncertain' };
       }
       return { document };
+    });
+  }
+
+  /** Advisory structural validation for one locked head. It makes no document or registry change. */
+  async validateNative2(principal: VerifiedPrincipal, tenantId: string, documentId: string, input: ValidateNative2Input) {
+    checkUuid(tenantId); checkUuid(documentId); revision(input.expectedRevision);
+    if (!/^[0-9a-f]{64}$/.test(input.expectedSnapshotHash) || !/^[0-9a-f]{64}$/.test(input.expectedPriorPinDigest) ||
+      (input.kind !== 'document' && input.kind !== 'candidate') ||
+      (input.kind === 'candidate' && (typeof input.snapshotText !== 'string' ||
+        (input.intendedAction !== 'preserve' && input.intendedAction !== 'adopt')))) throw new DocumentError(400, 'invalid_request');
+    return this.membership.withAuthorizedTenant(principal, tenantId, async client => {
+      const actor = await schemaErrors(() => currentSchemaActor(client, tenantId, input.kind === 'candidate'));
+      const row = await this.lockedSnapshot(client, tenantId, documentId, false), current = head(row);
+      if (current.product !== 'note' || current.fileFormat !== 'barocss-note' || current.fileVersion !== 2) {
+        throw new DocumentError(422, 'unsupported_native_format');
+      }
+      if (current.mode !== 'snapshot') throw new DocumentError(409, 'mode_conflict');
+      const source = storedNative2(current, row.snapshotText);
+      if (current.revision !== input.expectedRevision) throw new DocumentError(409, 'revision_conflict');
+      if (current.snapshotHash !== input.expectedSnapshotHash) throw new DocumentError(409, 'snapshot_hash_conflict');
+      const pinDigest = priorPinDigest(current, source.schemaBundle);
+      if (pinDigest !== input.expectedPriorPinDigest) throw new DocumentError(409, 'schema_pin_conflict');
+      await this.admit(client, current, source, actor, 'read');
+      const result = { status: 'structurally_valid' as const, kind: input.kind, documentId,
+        documentRevision: current.revision, snapshotHash: current.snapshotHash, priorPinDigest: pinDigest,
+        checks: ['current_authority', 'current_source', 'native2_file', 'registered_bundle', 'source_preconditions'] };
+      if (input.kind === 'candidate') {
+        const candidate = native2Snapshot(input.snapshotText);
+        if (candidate.document.attributes?.pageId !== current.pageId) throw new DocumentError(422, 'invalid_page_id');
+        await this.admit(client, current, candidate, actor, input.intendedAction);
+        preserveBundle(source.schemaBundle, candidate.schemaBundle, input.intendedAction);
+        const latest = await schemaErrors(() => currentSchemaActor(client, tenantId, true));
+        if (latest.id !== actor.id || latest.role !== actor.role || latest.epoch !== actor.epoch) {
+          throw new DocumentError(403, 'scope_forbidden');
+        }
+        return { ...result, candidateSnapshotHash: hash(input.snapshotText), action: input.intendedAction,
+          checks: [...result.checks, 'candidate_file', 'candidate_registered_bundle', 'candidate_action_policy', 'pin_transition'] };
+      }
+      const latest = await schemaErrors(() => currentSchemaActor(client, tenantId));
+      if (latest.id !== actor.id || latest.role !== actor.role || latest.epoch !== actor.epoch) {
+        throw new DocumentError(403, 'scope_forbidden');
+      }
+      return result;
     });
   }
 
