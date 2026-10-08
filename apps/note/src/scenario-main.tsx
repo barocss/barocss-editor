@@ -10,6 +10,7 @@ import './scenario.css';
 import { Native2TransportScenario } from './native2-transport-scenario';
 import { Native2PreserveScenario } from './native2-preserve-scenario';
 import { Native2AdoptScenario } from './native2-adopt-scenario';
+import { Native2EditableTargetScenario } from './native2-editable-target-scenario';
 
 const paragraph = (text: string) => ({ stype: 'paragraph', content: [{ stype: 'inline-text', text }] });
 const documents = {
@@ -47,9 +48,10 @@ const caseName = query.get('case') ?? 'empty';
 const fixture = documents[caseName as keyof typeof documents];
 const nativeCase = caseName === 'native2-A' || caseName === 'native2-A2' || caseName === 'native2-B' || caseName === 'native2-C' || caseName === 'native2-B-bare';
 const nativeTransportCase = /^native2-transport-(A|A2|B|C)$/.test(caseName);
+const nativeEditableTargetCase = caseName === 'native2-editable-target-A';
 const nativeAdoptCase = caseName === 'native2-adopt-A';
 const nativePreserveCase = /^native2-preserve-(A|A2|B|C)$/.test(caseName);
-if (!fixture && !nativeCase && !nativeTransportCase && !nativePreserveCase && !nativeAdoptCase) throw new Error(`Unknown Note scenario: ${caseName}`);
+if (!fixture && !nativeCase && !nativeTransportCase && !nativePreserveCase && !nativeAdoptCase && !nativeEditableTargetCase) throw new Error(`Unknown Note scenario: ${caseName}`);
 const embedded = query.get('host') === 'embedded';
 
 function ScenarioEditor() {
@@ -196,6 +198,7 @@ function NativeScenarioEditor() {
 createRoot(document.getElementById('root')!).render(<StrictMode>
   {embedded && !query.has('frame')
     ? <iframe title="Embedded Note scenario" className="scenario-frame" src={`/scenarios.html?host=embedded&frame=1&case=${encodeURIComponent(caseName)}`} />
+    : nativeEditableTargetCase ? <Native2EditableTargetScenario />
     : nativeAdoptCase ? <Native2AdoptScenario />
       : nativePreserveCase ? <Native2PreserveScenario variant={caseName.slice('native2-preserve-'.length)} />
       : nativeTransportCase ? <Native2TransportScenario variant={caseName.slice('native2-transport-'.length)} />
