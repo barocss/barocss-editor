@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { NATIVE_NOTE_FIXTURES } from './native2-scenario-fixtures';
 import { describe, expect, it } from 'vitest';
 import { copyNoteSnapshotFile, serializeNoteFile } from '@barocss/office-note/file';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
@@ -30,6 +31,21 @@ const transport = (...responses: Array<Response | Error>) => {
   };
   return { calls, client: createServerNoteClient({ tenantId, workspaceId, authorizedFetch: authorizedFetch as typeof fetch }) };
 };
+
+describe('ordinary Note stays native2 closed', () => {
+  it.each(Object.entries(NATIVE_NOTE_FIXTURES))('refuses the complete %s before ordinary opening or freezing a save', async (_name, file) => {
+    const snapshotText = JSON.stringify(file);
+    const original = structuredClone(file);
+    const { client, calls } = transport(reply({ document: { ...head(snapshotText), fileVersion: 2 }, snapshotText }));
+    await expect(client.open(documentId)).rejects.toMatchObject({ code: 'invalid_server_response' });
+    expect(() => noteSaveAttempt({ operation: 'update', documentId, expectedRevision: 1,
+      snapshotText, idempotencyKey: 'native2-default-refused' })).toThrow();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].init?.method).toBe('GET');
+    expect(calls[0].init?.body).toBeUndefined();
+    expect(file).toEqual(original);
+  });
+});
 
 describe('Note server document receipts', () => {
   it('confirms a C copy only after the matching receipt and same-account GET', async () => {
