@@ -28,16 +28,37 @@ const document = { documentId, tenantId, workspaceId, product: 'note', title: 'E
 const expected = { status: 'pinned', document, snapshotText, documentRevision: 1,
   snapshotHash: document.snapshotHash, nativeFormat: { format: 'barocss-note', version: 2 }, bundle };
 const path = `/v1/tenants/${tenantId}/note-native2/documents/${documentId}`;
+const registerPath = `/v1/tenants/${tenantId}/workspaces/${workspaceId}/schemas/${schemaId}/versions/1`;
+const registration = { tenantId, workspaceId, schemaId, version: 1, definitionText, idempotencyKey: 'mcp-fixed-1' };
+const parsed = parseRegistryDefinition(definitionText);
+const registerReceipt = { operation: 'register', idempotencyKey: registration.idempotencyKey,
+  requestHash: sha(JSON.stringify(['schema-register-v1', tenantId, workspaceId, schemaId, 1, definitionText])),
+  requesterIdentityId: '44444444-4444-4444-8444-444444444444', authorityEpoch: 'controlled-epoch',
+  record: { schemaId, version: 1, digest: ref.digest, digestAlgorithm: 'wonffice.canonical-json.sha256.v1',
+    definitionText, canonicalText: parsed.canonicalText, definition: parsed.definition,
+    actorIdentityId: '44444444-4444-4444-8444-444444444444', createdAt: '2026-10-08T00:00:00.000Z' },
+  dependencies: [] };
 const calls = [];
 const startedAt = new Date().toISOString(), childPids = [];
 let held, heldResponse;
-const http = createServer((request, response) => {
+const http = createServer(async (request, response) => {
   calls.push({ method: request.method, url: request.url, authorization: request.headers.authorization });
   if (held && request.url === path) {
     const current = held; held = undefined; heldResponse = response;
     response.once('close', current.closed); current.entered(); return;
   }
   response.setHeader('content-type', 'application/json');
+  if (request.method === 'PUT' && request.url === registerPath) {
+    const chunks = []; for await (const chunk of request) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (request.headers.authorization !== 'Bearer controlled.token.value') {
+      response.writeHead(401).end(JSON.stringify({ status: 'unauthorized' })); return;
+    }
+    if (body.definitionText !== definitionText || body.idempotencyKey !== registration.idempotencyKey) {
+      response.writeHead(409).end(JSON.stringify({ status: 'key_reuse' })); return;
+    }
+    response.writeHead(200).end(JSON.stringify(registerReceipt)); return;
+  }
   if (request.method !== 'GET' || request.headers.authorization !== 'Bearer controlled.token.value') {
     response.writeHead(401).end(JSON.stringify({ status: 'unauthorized' })); return;
   }
@@ -82,7 +103,7 @@ try {
     protocolVersion = client.getNegotiatedProtocolVersion();
     assert.match(protocolVersion, /^20\d{2}-\d{2}-\d{2}$/);
     const listed = await client.listTools();
-    assert.deepEqual(listed.tools.map(tool => tool.name), ['get_schema_bundle']);
+    assert.deepEqual(listed.tools.map(tool => tool.name), ['get_schema_bundle', 'register_schema']);
     assert.deepEqual(listed.tools[0].inputSchema.required, ['tenantId', 'documentId']);
     const result = await client.callTool({ name: 'get_schema_bundle', arguments: { tenantId, documentId } });
     assert.notEqual(result.isError, true);
@@ -90,6 +111,23 @@ try {
     assert.equal(calls.length, 2);
     assert.deepEqual(calls.map(call => [call.method, call.url, call.authorization]), [
       ['GET', path, 'Bearer controlled.token.value'], ['GET', path + '/schema-bundle', 'Bearer controlled.token.value']]);
+
+    const registered = await client.callTool({ name: 'register_schema', arguments: registration });
+    assert.notEqual(registered.isError, true);
+    assert.deepEqual(JSON.parse(registered.content[0].text), JSON.parse(JSON.stringify(registerReceipt)));
+    const retried = await client.callTool({ name: 'register_schema', arguments: registration });
+    assert.deepEqual(JSON.parse(retried.content[0].text), JSON.parse(JSON.stringify(registerReceipt)));
+    assert.deepEqual(calls.slice(2, 4).map(call => [call.method, call.url, call.authorization]), [
+      ['PUT', registerPath, 'Bearer controlled.token.value'], ['PUT', registerPath, 'Bearer controlled.token.value']]);
+    const reuse = await client.callTool({ name: 'register_schema',
+      arguments: { ...registration, definitionText: definitionText + ' ' } });
+    assert.equal(reuse.isError, true);
+    assert.deepEqual(JSON.parse(reuse.content[0].text), { status: 'key_reuse' });
+    const beforeMalformed = calls.length;
+    const forbiddenArgument = await client.callTool({ name: 'register_schema',
+      arguments: { ...registration, role: 'owner' } });
+    assert.equal(forbiddenArgument.isError, true);
+    assert.equal(calls.length, beforeMalformed);
 
     const before = calls.length;
     const extra = await client.callTool({ name: 'get_schema_bundle',
@@ -99,7 +137,7 @@ try {
     const malformed = await client.callTool({ name: 'get_schema_bundle', arguments: { tenantId: '../x', documentId } });
     assert.equal(malformed.isError, true);
     assert.equal(calls.length, before);
-    await assert.rejects(client.callTool({ name: 'register_schema', arguments: { tenantId, documentId } }));
+    await assert.rejects(client.callTool({ name: 'unregistered_tool', arguments: { tenantId, documentId } }));
 
     const foreign = await client.callTool({ name: 'get_schema_bundle',
       arguments: { tenantId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', documentId } });
@@ -131,6 +169,10 @@ try {
     assert.equal(denied.isError, true);
     assert.deepEqual(JSON.parse(denied.content[0].text), { status: 'unauthorized' });
     assert.equal(calls.length, before);
+    const deniedRegister = await anonymous.callTool({ name: 'register_schema', arguments: registration });
+    assert.equal(deniedRegister.isError, true);
+    assert.deepEqual(JSON.parse(deniedRegister.content[0].text), { status: 'unauthorized' });
+    assert.equal(calls.length, before);
   } finally { await anonymous.close(); }
 } finally { heldResponse?.destroy(); http.closeAllConnections(); await new Promise(resolve => http.close(resolve)); }
 for (const pid of childPids) {
@@ -142,7 +184,7 @@ for (const pid of childPids) {
   assert.equal(alive, false, `Owned MCP child ${pid} remained running`);
 }
 console.log(JSON.stringify({ status: 'passed', transport: 'stdio', protocolVersion,
-  client: '@modelcontextprotocol/client', server: 'dist/mcp-main.js', tools: ['get_schema_bundle'],
+  client: '@modelcontextprotocol/client', server: 'dist/mcp-main.js', tools: ['get_schema_bundle', 'register_schema'],
   ownedResources: { controllerPid: process.pid, loopbackHost: '127.0.0.1', loopbackPort: address.port,
     childPids, startedAt, finishedAt: new Date().toISOString(), httpClosed: true, childrenExited: true },
   controlledHttpCalls: calls.length,
