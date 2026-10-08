@@ -36,3 +36,18 @@ OFFICE_AUTH_ORIGIN=http://127.0.0.1:5186 \
 OFFICE_AUTH_REAL_FILE=/private/tmp/your-protected-synthetic-accounts.json \
 pnpm --filter @barocss/office-app exec playwright test -c playwright.auth.real.config.ts
 ```
+
+## Note native2 읽기 실험
+
+이 실험은 OIDC Office 화면의 현재 메모리 로그인으로 Note native2 문서와 완전한 schema bundle을 읽는다. 일반 문서 열기, 편집, 저장, schema 등록·채택, MCP를 켜지 않는다. 기본값은 꺼짐이다. 로컬 개발 proxy를 켜려면 위 OIDC 명령에 다음 환경 변수를 추가한다.
+
+```sh
+VITE_OFFICE_NATIVE2_READ_BRIDGE=enabled \
+SCHEMA_SERVER_PROXY_TARGET=http://127.0.0.1:14102
+```
+
+`SCHEMA_SERVER_PROXY_TARGET`은 별도로 시작한 schema server의 loopback HTTP origin이다. 해당 서버의 실행·인증·데이터베이스 설정은 서버 문서를 따른다. proxy는 정확한 `/api/v1/tenants/{tenantId}/note-native2/documents/{documentId}`와 `/schema-bundle`의 본문 없는 GET만 서버의 `/v1/...`로 전달한다. 다른 native2 경로·메서드·쿼리는 거부한다. 배포 reverse proxy에도 같은 거부 규칙이 필요하다. Vite 규칙만으로 배포 접근을 보호하지 않는다.
+
+`createAuthenticatedNative2Reader()`는 Office 내부의 명시적 읽기 진입점이다. 활성 로그인과 현재 회사·작업 공간을 확인하고, 원본 전체와 고정된 bundle을 검증한 뒤 읽기 전용 provenance를 준다. 계정 전환, 만료, 새 읽기 요청 또는 `retire()` 뒤에는 기존 결과를 사용하지 않는다. 서버에서 관찰하지 못한 권한 회수와 권한 ABA는 이 로컬 lease만으로 증명할 수 없다. 실제 OIDC 두 계정, 현재 권한 회수, PostgreSQL 원본과 5186 callback 검사는 별도 운영 준비가 필요하다.
+
+`apps/office/src/native2-authenticated-reader.test.ts`는 모의 응답을 쓴 단위 검사다. `apps/office/tests/native2-authenticated-read.spec.ts`는 브라우저의 실제 Office 모듈을 쓰지만 OIDC/API 응답을 모의한다. 이 검사는 실제 provider나 PostgreSQL 인수 근거가 아니다.
