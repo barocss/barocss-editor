@@ -1336,7 +1336,7 @@ async function withMcp(bearer,work){
   try{
     await client.connect(transport);item.pid=transport.pid;assert.ok(item.pid>0);transport.stderr?.pipe(out);
     item.protocol=client.getNegotiatedProtocolVersion();assert.equal(item.protocol,'2025-11-25');
-    assert.deepEqual((await client.listTools()).tools.map(tool=>tool.name),['get_schema_bundle','register_schema']);
+    assert.deepEqual((await client.listTools()).tools.map(tool=>tool.name),['get_schema_bundle','register_schema','validate_document','validate_candidate']);
     lease.mcpChildren=mcpResources;saveLease();return await work(client);
   }finally{
     await client.close();await new Promise(resolve=>out.end(resolve));
@@ -1740,8 +1740,143 @@ try{
         await stopServer();await startServer(policyFile,'server-mcp-register-capability-restored',documentPolicyFile);
         await withMcp(await token('writer-a'),async client=>{const before=await audit();assert.deepEqual((await mcpRegister(client,registrationInput())).body,mcpFirst);assert.deepEqual(await audit(),before);});
       });
+      // #501 existing current service/PG; validation is advisory and every SQL effect is forbidden.
+      const validationObserver=await connect('schema_test_admin');
+      const validationTables=(await validationObserver.query("SELECT tablename FROM pg_tables WHERE schemaname='wonffice' ORDER BY tablename")).rows.map(row=>row.tablename);
+      for(const required of ['documents','document_snapshots','document_receipts','schema_versions','schema_dependencies','schema_registry_receipts','workspaces','identities','tenant_memberships','membership_events','project_receipts','project_executions','criterion_confirmations','criterion_verifications','document_capabilities','document_collaboration_seeds'])assert.ok(validationTables.includes(required));
+      const validationAudit=async()=>{
+        const result={};for(const table of validationTables){assert.match(table,/^[a-z_]+$/);result[table]=(await validationObserver.query(`SELECT * FROM wonffice.${table} t ORDER BY to_jsonb(t)::text`)).rows;}
+        return JSON.parse(JSON.stringify(result));
+      };
+      const validationBody=(receipt,text,revision=receipt.document.revision)=>({kind:'document',expectedRevision:revision,expectedSnapshotHash:hash(text),expectedPriorPinDigest:pins(receipt.document.documentId,text)});
+      const sourceChecks=['current_authority','current_source','native2_file','registered_bundle','source_preconditions'];
+      const candidateChecks=[...sourceChecks,'candidate_file','candidate_registered_bundle','candidate_action_policy','pin_transition'];
+      const expectedValidation=(id,text,revision,body)=>({status:'structurally_valid',kind:body.kind,documentId:id,documentRevision:revision,snapshotHash:hash(text),priorPinDigest:pins(id,text),checks:body.kind==='candidate'?candidateChecks:sourceChecks,...(body.kind==='candidate'?{candidateSnapshotHash:hash(body.snapshotText),action:body.intendedAction}:{})});
+      const httpValidation=(id,body,who='writer-a',suffix='')=>send('POST',nbase+`/documents/${id}/validation`+suffix,body,who);
+      const toolValidation=async(client,id,body)=>{
+        const {kind,...argumentsValue}=body;
+        const result=await client.callTool({name:kind==='candidate'?'validate_candidate':'validate_document',arguments:{tenantId:tenant,documentId:id,...argumentsValue}});
+        assert.ok(Array.isArray(result.content)&&result.content.length===1&&result.content[0].type==='text');return {isError:result.isError===true,body:JSON.parse(result.content[0].text)};
+      };
+      const validationNoEffect=async(label,work)=>{
+        const before=await validationAudit();writeFileSync(join(evidence,'validation-'+label+'-before.json'),JSON.stringify(before,null,2));
+        const result=await work();const after=await validationAudit();assert.deepEqual(after,before);writeFileSync(join(evidence,'validation-'+label+'-after.json'),JSON.stringify(after,null,2));return result;
+      };
+      const validPair=async(client,label,receipt,text,revision,body,who='writer-a')=>validationNoEffect(label,async()=>{
+        const expected=expectedValidation(receipt.document.documentId,text,revision,body),http=await httpValidation(receipt.document.documentId,body,who);assert.equal(http.status,200);assert.deepEqual(http.body,expected);
+        const mcp=await toolValidation(client,receipt.document.documentId,body);assert.equal(mcp.isError,false);assert.deepEqual(mcp.body,expected);
+      });
+      const deniedPair=async(client,label,id,body,status,httpReason,mcpReason=httpReason,who='writer-a',suffix='')=>validationNoEffect(label,async()=>{
+        const http=await httpValidation(id,body,who,suffix);assert.equal(http.status,status);assert.deepEqual(http.body,{status:httpReason});
+        if(!suffix){const mcp=await toolValidation(client,id,body);assert.equal(mcp.isError,true);assert.deepEqual(mcp.body,{status:mcpReason});}
+      });
+      const aBody=validationBody(A,rawA2,2),bBody=validationBody(B,rawB,1),cBody=validationBody(C,rawC,1);
+      const advisory=JSON.parse(rawA2);advisory.document.content[0].content[0].text+=' / structural candidate only';
+      const advisoryText=raw(advisory),preserve={...aBody,kind:'candidate',snapshotText:advisoryText,intendedAction:'preserve'};
+      await check('MCP validation exact A2 B1 C2 current head and independent candidate raw hash; HTTP-equivalent advisory results with all application tables unchanged',async()=>{
+        await withMcp(await token('writer-a'),async client=>{
+          for(const [receipt,text,revision,body,label] of [[A,rawA2,2,aBody,'A2'],[B,rawB,1,bBody,'B1'],[C,rawC,1,cBody,'C2']])await validPair(client,'document-'+label,receipt,text,revision,body);
+          await validPair(client,'candidate-preserve',A,rawA2,2,preserve);
+          await validPair(client,'candidate-advisory-adopt',A,rawA2,2,{...preserve,intendedAction:'adopt'});
+          await validPair(client,'candidate-exact-new-whitespace',A,rawA2,2,{...preserve,snapshotText:advisoryText+' '});
+        });
+        await withMcp(await token('native-viewer'),client=>validPair(client,'viewer-document',A,rawA2,2,aBody,'native-viewer'));
+      });
+      await check('MCP validation stale revision raw hash prior pins page and complete malformed/unsupported native candidate refusal without any SQL effect',async()=>{
+        await withMcp(await token('writer-a'),async client=>{
+          for(const [label,change,reason] of [['revision',{expectedRevision:1},'revision_conflict'],['rawhash',{expectedSnapshotHash:'0'.repeat(64)},'snapshot_hash_conflict'],['pins',{expectedPriorPinDigest:'0'.repeat(64)},'schema_pin_conflict']])await deniedPair(client,'stale-'+label,A.document.documentId,{...aBody,...change},409,reason);
+          const wrongPage=JSON.parse(advisoryText);wrongPage.document.attributes.pageId='other-page';
+          await deniedPair(client,'wrong-page',A.document.documentId,{...preserve,snapshotText:raw(wrongPage)},422,'invalid_page_id');
+          for(const [label,text] of [['partial','{}'],['syntax','{'],['legacy',sourceText]])await deniedPair(client,'candidate-'+label,A.document.documentId,{...preserve,snapshotText:text},422,'invalid_snapshot');
+          const unsupported=JSON.parse(advisoryText);unsupported.document.content[0].content[0].marks=[{stype:'untrusted-executable-mark'}];await deniedPair(client,'unsupported',A.document.documentId,{...preserve,snapshotText:raw(unsupported)},422,'invalid_snapshot');
+          await deniedPair(client,'query-grant',A.document.documentId,aBody,400,'invalid_request','invalid_request','writer-a','?approved=true');
+          for(const [name,extra] of [['role',{role:'owner'}],['token',{token:'caller-token'}],['url',{url:'http://invalid.test'}],['grant',{approved:true}]])await validationNoEffect('strict-'+name,async()=>{
+            const http=await httpValidation(A.document.documentId,{...aBody,...extra});assert.equal(http.status,400);assert.deepEqual(http.body,{status:'invalid_request'});
+            const body={...aBody};delete body.kind;const result=await client.callTool({name:'validate_document',arguments:{tenantId:tenant,documentId:A.document.documentId,...body,...extra}});assert.equal(result.isError,true);
+          });
+        });
+      });
+      await check('MCP candidate preserve forbids changed pin definitions, complete unregistered bundle refuses, existing policy alone permits structural transition without writes',async()=>{
+        const bAdopt=copiedRaw(targetA,B.document.pageId,pathsA),adoptBody={...bBody,kind:'candidate',snapshotText:bAdopt,intendedAction:'adopt'};
+        await withMcp(await token('writer-a'),async client=>{
+          await deniedPair(client,'preserve-pin-change',B.document.documentId,{...adoptBody,intendedAction:'preserve'},409,'schema_pin_conflict');
+          await validPair(client,'adopt-B-only-advisory',B,rawB,1,adoptBody);
+          const changedDefinition=JSON.parse(advisoryText);changedDefinition.schemaBundle.definitions[0].definitionText+=' ';
+          await deniedPair(client,'preserve-definition-bytes',A.document.documentId,{...preserve,snapshotText:raw(changedDefinition)},409,'schema_pin_conflict');
+          const missing=copiedRaw(UNREGISTERED_NATIVE_FIXTURE,A.document.pageId,pathsA);
+          await deniedPair(client,'candidate-unregistered',A.document.documentId,{...preserve,snapshotText:missing,intendedAction:'adopt'},422,'dependency_missing');
+        });
+      });
+      await check('MCP validation current viewer candidate foreign absent forged expired and same-child revoked/restored authority deny without provisioning or receipts',async()=>{
+        await withMcp(await token('native-viewer'),client=>deniedPair(client,'viewer-candidate',A.document.documentId,preserve,403,'forbidden','scope_forbidden','native-viewer'));
+        await withMcp(await token('foreign'),client=>deniedPair(client,'foreign-validation',A.document.documentId,aBody,403,'forbidden','scope_forbidden','foreign'));
+        for(const [label,bearer] of [['missing',undefined],['forged','invalid.jwt.value'],['expired',await token('writer-a',{expiration:1})]])await withMcp(bearer,client=>validationNoEffect('auth-'+label,async()=>{const result=await toolValidation(client,A.document.documentId,aBody);assert.equal(result.isError,true);assert.deepEqual(result.body,{status:'unauthorized'});}));
+        await withMcp(await token('writer-a'),async client=>{
+          await validPair(client,'before-revoke',A,rawA2,2,aBody);
+          await applyMembershipChange(owner,{action:'revoke',tenantId:tenant,issuer,subject:'writer-a',role:'editor',approvalRef:'validation-revoke'});
+          await deniedPair(client,'current-revoked-document',A.document.documentId,aBody,403,'forbidden','scope_forbidden');
+          await deniedPair(client,'current-revoked-candidate',A.document.documentId,preserve,403,'forbidden','scope_forbidden');
+          await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject:'writer-a',role:'editor',approvalRef:'validation-restore'});
+          await validPair(client,'restored-fresh-request',A,rawA2,2,aBody);
+        });
+      });
+      await check('MCP validation absent/empty/current capability/action policy independently gates advisory checks with complete SQL no-effects',async()=>{
+        await stopServer();await startServer(policyFile,'server-validation-absent');
+        await withMcp(await token('writer-a'),client=>deniedPair(client,'policy-absent',A.document.documentId,aBody,404,'not_found'));
+        const empty=join(evidence,'validation-empty-policy.json');writeFileSync(empty,'[]',{mode:0o600});await stopServer();await startServer(policyFile,'server-validation-empty',empty);
+        await withMcp(await token('writer-a'),client=>deniedPair(client,'policy-empty',A.document.documentId,aBody,404,'not_found'));
+        const restricted=join(evidence,'validation-restricted-policy.json');writeFileSync(restricted,JSON.stringify([{...documentPolicy,capabilities:['note.field.number.v1']}]),{mode:0o600});await stopServer();await startServer(policyFile,'server-validation-capability',restricted);
+        await withMcp(await token('writer-a'),client=>deniedPair(client,'capability',A.document.documentId,aBody,403,'scope_forbidden'));
+        const noAdopt=join(evidence,'validation-read-preserve-only.json');writeFileSync(noAdopt,JSON.stringify([{...documentPolicy,adoptRoles:[]}]),{mode:0o600});await stopServer();await startServer(policyFile,'server-validation-no-adopt',noAdopt);
+        await withMcp(await token('writer-a'),async client=>{
+          await validPair(client,'read-independent-action',A,rawA2,2,aBody);await validPair(client,'preserve-independent-action',A,rawA2,2,preserve);
+          await deniedPair(client,'adopt-policy',A.document.documentId,{...preserve,intendedAction:'adopt'},403,'scope_forbidden');
+        });
+        await stopServer();await startServer(policyFile,'server-validation-restored',documentPolicyFile);
+      });
+      await check('MCP validation actual other-workspace and unprovisioned signed identity deny without creating identity or authority',async()=>{
+        const state=await validationAudit(),other=state.documents.find(row=>row.title==='MCP other');assert.ok(other);const stored=state.document_snapshots.find(row=>row.document_id===other.id);assert.ok(stored);
+        const body={kind:'document',expectedRevision:stored.revision,expectedSnapshotHash:hash(stored.snapshot_text),expectedPriorPinDigest:hash(JSON.stringify(['wonffice.note.snapshot-pins.cas.v1',tenant,other.workspace_id,other.id,'pinned',JSON.parse(stored.snapshot_text).schemaBundle.selected.map(r=>[r.schemaId,r.version,r.digest])]))};
+        await withMcp(await token('writer-a'),client=>deniedPair(client,'validation-other-workspace',other.id,body,403,'scope_forbidden'));
+        await withMcp(await token('unprovisioned-validation-user'),client=>deniedPair(client,'validation-unprovisioned',A.document.documentId,aBody,403,'forbidden','scope_forbidden','unprovisioned-validation-user'));
+      });
+      await check('MCP validation legacy format and actual collaboration mode reject without snapshot overwrite or capability change',async()=>{
+        const legacy={kind:'document',expectedRevision:1,expectedSnapshotHash:hash(expectedNativeText),expectedPriorPinDigest:'0'.repeat(64)};
+        await withMcp(await token('writer'),client=>validationNoEffect('validation-legacy',async()=>{
+          const http=await send('POST',`/v1/tenants/${ids.tenant}/note-native2/documents/${original.document.documentId}/validation`,legacy,'writer');assert.equal(http.status,422);assert.deepEqual(http.body,{status:'unsupported_native_format'});
+          const body={...legacy};delete body.kind;const result=await client.callTool({name:'validate_document',arguments:{tenantId:ids.tenant,documentId:original.document.documentId,...body}});assert.equal(result.isError,true);assert.deepEqual(JSON.parse(result.content[0].text),{status:'unsupported_native_format'});
+        }));
+        await owner.query("UPDATE wonffice.documents SET mode='collaborative' WHERE tenant_id=$1 AND id=$2",[tenant,A.document.documentId]);
+        try{await withMcp(await token('writer-a'),client=>deniedPair(client,'validation-collaboration-mode',A.document.documentId,aBody,409,'mode_conflict'));}
+        finally{await owner.query("UPDATE wonffice.documents SET mode='snapshot' WHERE tenant_id=$1 AND id=$2",[tenant,A.document.documentId]);}
+      });
+      await check('MCP actual SDK cancellation after an observed private PG blocked validation returns no success and no later SQL effect',async()=>{
+        const before=await validationAudit();await owner.query('BEGIN');const ownerPid=(await owner.query('SELECT pg_backend_pid() pid')).rows[0].pid;
+        await owner.query('SELECT * FROM wonffice.document_snapshots WHERE tenant_id=$1 AND document_id=$2 FOR UPDATE',[tenant,A.document.documentId]);
+        try{await withMcp(await token('writer-a'),async client=>{
+          const controller=new AbortController(),body={...aBody};delete body.kind;
+          const pending=client.callTool({name:'validate_document',arguments:{tenantId:tenant,documentId:A.document.documentId,...body}},{signal:controller.signal}).then(value=>({unexpectedSuccess:true,value}),error=>({cancelled:true,message:String(error)}));
+          let blocked=[];const deadline=Date.now()+2200;
+          while(Date.now()<deadline){blocked=(await validationObserver.query("SELECT pid,query,wait_event_type,pg_blocking_pids(pid) blockers FROM pg_stat_activity WHERE usename='wonffice_app' AND query LIKE '%FOR SHARE OF d,s%' AND wait_event_type='Lock'")).rows;if(blocked.some(row=>row.blockers.includes(ownerPid)))break;await new Promise(resolve=>setTimeout(resolve,20));}
+          assert.ok(blocked.some(row=>row.blockers.includes(ownerPid)));writeFileSync(join(evidence,'validation-cancellation-real-pg-wait.json'),JSON.stringify({ownerPid,blocked},null,2));
+          controller.abort();const outcome=await pending;assert.equal(outcome.cancelled,true);assert.match(outcome.message,/cancel|abort/i);
+          await owner.query('ROLLBACK');await stopServer();await startServer(policyFile,'server-validation-after-cancel',documentPolicyFile);
+          assert.deepEqual(await validationAudit(),before);
+        });}finally{await owner.query('ROLLBACK');}
+      });
+      await check('MCP validation server and private database restart preserve source/pins/all application data and advisory recheck creates no result record',async()=>{
+        const before=await validationAudit();await stopServer();await closeConnections();stopPg();startPg();owner=await connect('wonffice_owner');
+        await startServer(policyFile,'server-validation-restarted',documentPolicyFile);
+        // Reopen observer only: this is still the same exclusive fixture database.
+        const reopenedObserver=await connect('schema_test_admin');
+        for(const table of validationTables)assert.deepEqual(JSON.parse(JSON.stringify((await reopenedObserver.query(`SELECT * FROM wonffice.${table} t ORDER BY to_jsonb(t)::text`)).rows)),before[table]);
+        // Original observer was explicitly closed above; restart checks below use HTTP plus independent fresh all-table audit.
+        await withMcp(await token('writer-a'),async client=>{const result=await toolValidation(client,A.document.documentId,aBody);assert.equal(result.isError,false);assert.deepEqual(result.body,expectedValidation(A.document.documentId,rawA2,2,aBody));});
+        for(const table of validationTables)assert.deepEqual(JSON.parse(JSON.stringify((await reopenedObserver.query(`SELECT * FROM wonffice.${table} t ORDER BY to_jsonb(t)::text`)).rows)),before[table]);
+      });
+      report.mcpValidation={status:'passed',qualification:'Actual same staged MCP/HTTP/current controlled signedJWT/privatePG structural checks; advisory only, no genuine provider/renderer/business confirmation/adoption',tools:['validate_document','validate_candidate'],allApplicationTablesAudited:validationTables,http403Normalization:'forbidden → scope_forbidden'};
       report.mcpRegistration={status:'passed',qualification:'Actual staged SDK MCP PUT through existing current signedJWT/operator policy/private PostgreSQL, not genuine provider/LLM/UI or adoption',tools:['get_schema_bundle','register_schema'],originalReceipt:mcpFirst,parentReceipt:mcpSecond,completeClosureReceipt:mcpThird,noSecondStore:true};
-      report.mcp={status:'passed',qualification:'Actual independent SDK/staged compiled MCP/current signedJWKS/privatePG service, not genuine user login/LLM/UI or adoption',children:mcpResources,tools:['get_schema_bundle','register_schema'],noSecondStore:true};save();
+      report.mcp={status:'passed',qualification:'Actual independent SDK/staged compiled MCP/current signedJWKS/privatePG service, not genuine user login/LLM/UI or adoption',children:mcpResources,tools:['get_schema_bundle','register_schema','validate_document','validate_candidate'],noSecondStore:true};save();
     }
 
     const fresh=async label=>{const receipt=await createNative(label,sourceA);return {receipt,before:copiedRaw(HTTP_NATIVE_FIXTURES.COPY_A_ORACLE,receipt.document.pageId,pathsA),after:copiedRaw(targetA,receipt.document.pageId,pathsA)};};

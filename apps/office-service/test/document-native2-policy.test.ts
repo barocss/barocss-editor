@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { readNoteSnapshotFile, readNoteV1SnapshotFile } from '@barocss/office-note-file';
-import { DocumentStore, type DocumentHead, type DocumentStoreOptions, type UpdateSnapshotInput } from '../src/document-store.js';
+import { DocumentStore, type DocumentHead, type DocumentStoreOptions, type UpdateSnapshotInput, type ValidateNative2Input } from '../src/document-store.js';
 import { MembershipStore, type TenantRole } from '../src/membership-store.js';
 import { admitDocumentSchemaBundle, currentSchemaActor, SchemaRegistryError, type CurrentSchemaActor } from '../src/schema-registry-store.js';
 
@@ -131,6 +131,7 @@ function fixture(opts: DocumentStoreOptions | undefined = policy(), file = origi
   const registry = new Map(definitionRows.map(entry => [entry.reference.schemaId, { schema_id: entry.reference.schemaId, version: entry.reference.version,
     digest: entry.reference.digest, definition_text: entry.definitionText, canonical_text: entry.canonicalText, actor_identity_id: writer, created_at: new Date('2026-10-01T00:00:00Z') }]));
   let edgeTampered = false;
+  let onVersionRead: (() => void) | undefined;
   const keyOf = (params: readonly unknown[]) => JSON.stringify(params.slice(0, 4));
   const pool = { connect: async () => {
     let working: typeof committed | undefined;
@@ -150,6 +151,7 @@ function fixture(opts: DocumentStoreOptions | undefined = policy(), file = origi
       if (s.includes('SELECT id FROM wonffice.identities')) return rows([{ id: writer }]);
       if (s.includes('SELECT 1 FROM wonffice.workspaces')) return rows([{}]);
       if (s.includes('FROM wonffice.schema_versions')) {
+        onVersionRead?.(); onVersionRead = undefined;
         const found = registry.get(str(params[2])); return rows(found && found.version === params[3] && params[0] === tenant && params[1] === workspace ? [structuredClone(found)] : []);
       }
       if (s.includes('FROM wonffice.schema_dependencies')) {
@@ -190,7 +192,7 @@ function fixture(opts: DocumentStoreOptions | undefined = policy(), file = origi
   } } as unknown as Pool;
   return { store: new DocumentStore(pool, opts), pool, registry, roleState,
     state: () => JSON.stringify({ rows: [...committed.rows], receipts: [...committed.receipts] }),
-    row: () => committed.rows.get(doc)!, seedMetadata: () => {
+    row: () => committed.rows.get(doc)!, onNextVersionRead: (effect: () => void) => { onVersionRead = effect; }, seedMetadata: () => {
       const head = { ...committed.rows.get(doc)! };
       Reflect.deleteProperty(head, 'snapshotText'); // metadata receipts intentionally carry no snapshot body
       committed.receipts.set(JSON.stringify([tenant, writer, 'metadata', 'historical-metadata2']), { document_id: doc, request_hash: sha('controlled historical metadata'), result_head: head, result_snapshot_text: null });
@@ -316,5 +318,75 @@ describe('native2 policy malformed data and unavailable history', () => {
     }
     expect(readNoteSnapshotFile(textOf(file))).toHaveProperty('error'); const f = fixture(), before = f.state();
     await expect(f.store.create(principal, tenant, { ...createInput, snapshotText: textOf(file) })).rejects.toMatchObject({ status: 422, reason: 'invalid_snapshot' }); expect(f.state()).toBe(before);
+  });
+});
+
+describe('read-only native2 structural validation on one current head', () => {
+  const documentInput = (): ValidateNative2Input => ({ kind: 'document', expectedRevision: 1,
+    expectedSnapshotHash: sha(raw), expectedPriorPinDigest: pins() });
+  const candidateInput = (snapshotText: string, intendedAction: 'preserve' | 'adopt' = 'preserve'): ValidateNative2Input =>
+    ({ ...documentInput(), kind: 'candidate', snapshotText, intendedAction });
+
+  it('checks the stored native2 file and registered closure without any document or receipt effect', async () => {
+    const f = fixture(), before = f.state();
+    expect(await f.store.validateNative2(principal, tenant, doc, documentInput())).toEqual({
+      status: 'structurally_valid', kind: 'document', documentId: doc, documentRevision: 1,
+      snapshotHash: sha(raw), priorPinDigest: pins(),
+      checks: ['current_authority', 'current_source', 'native2_file', 'registered_bundle', 'source_preconditions'] });
+    expect(f.state()).toBe(before);
+  });
+
+  it('checks an exact raw candidate and reports only structural readiness, without saving it', async () => {
+    const file = structuredClone(originalFile), changed = textOf(file);
+    file.document.content[0].content[0].text = 'Candidate source retained';
+    const candidate = textOf(file), f = fixture(), before = f.state();
+    codecValid(candidate);
+    expect(await f.store.validateNative2(principal, tenant, doc, candidateInput(candidate))).toEqual({
+      status: 'structurally_valid', kind: 'candidate', documentId: doc, documentRevision: 1,
+      snapshotHash: sha(raw), priorPinDigest: pins(), candidateSnapshotHash: sha(candidate), action: 'preserve',
+      checks: ['current_authority', 'current_source', 'native2_file', 'registered_bundle', 'source_preconditions',
+        'candidate_file', 'candidate_registered_bundle', 'candidate_action_policy', 'pin_transition'] });
+    expect(changed).not.toBe(candidate); expect(f.state()).toBe(before);
+  });
+
+  it('rejects stale revision, raw hash and prior pins before candidate success', async () => {
+    const f = fixture(), before = f.state();
+    for (const [input, reason] of [
+      [{ ...documentInput(), expectedRevision: 2 }, 'revision_conflict'],
+      [{ ...documentInput(), expectedSnapshotHash: '0'.repeat(64) }, 'snapshot_hash_conflict'],
+      [{ ...documentInput(), expectedPriorPinDigest: '0'.repeat(64) }, 'schema_pin_conflict'],
+    ] as const) await expect(f.store.validateNative2(principal, tenant, doc, input)).rejects.toMatchObject({ status: 409, reason });
+    expect(f.state()).toBe(before);
+  });
+
+  it('requires write authority and action policy for a candidate, while an allowed viewer can validate the stored source', async () => {
+    const opts = policy(); opts.noteSchemaPolicy = [{ ...opts.noteSchemaPolicy![0], readRoles: ['editor', 'viewer'], adoptRoles: [] }];
+    const f = fixture(opts), before = f.state();
+    await expect(f.store.validateNative2(principal, tenant, doc, candidateInput(raw, 'adopt'))).rejects.toMatchObject({ status: 403, reason: 'scope_forbidden' });
+    f.roleState.role = 'viewer';
+    await expect(f.store.validateNative2(principal, tenant, doc, documentInput())).resolves.toMatchObject({ status: 'structurally_valid', kind: 'document' });
+    await expect(f.store.validateNative2(principal, tenant, doc, candidateInput(raw))).rejects.toMatchObject({ status: 403, reason: 'forbidden' });
+    expect(f.state()).toBe(before);
+  });
+
+  it('refuses a held validation after the current actor changes during registry admission', async () => {
+    const f = fixture(), before = f.state();
+    f.onNextVersionRead(() => { f.roleState.role = 'viewer'; f.roleState.epoch = 'viewer:5'; });
+    await expect(f.store.validateNative2(principal, tenant, doc, documentInput())).rejects.toMatchObject({ status: 403, reason: 'scope_forbidden' });
+    expect(f.state()).toBe(before);
+  });
+
+  it('refuses bad candidates, changed immutable definition text and preserve-to-adopt pin changes without effects', async () => {
+    const f = fixture(), before = f.state();
+    const wrongPage = structuredClone(originalFile); wrongPage.document.attributes.pageId = 'foreign-page';
+    await expect(f.store.validateNative2(principal, tenant, doc, candidateInput(textOf(wrongPage)))).rejects.toMatchObject({ status: 422, reason: 'invalid_page_id' });
+    const changedDefinition = structuredClone(originalFile);
+    changedDefinition.schemaBundle.definitions[0].definitionText = JSON.stringify(JSON.parse(changedDefinition.schemaBundle.definitions[0].definitionText));
+    await expect(f.store.validateNative2(principal, tenant, doc, candidateInput(textOf(changedDefinition)))).rejects.toMatchObject({ status: 409, reason: 'schema_pin_conflict' });
+    const changedPins = structuredClone(originalFile); changedPins.schemaBundle.selected.push(changedPins.schemaBundle.definitions[1].reference);
+    await expect(f.store.validateNative2(principal, tenant, doc, candidateInput(textOf(changedPins)))).rejects.toMatchObject({ status: 409, reason: 'schema_pin_conflict' });
+    await expect(f.store.validateNative2(principal, tenant, doc, candidateInput(textOf(changedPins), 'adopt'))).resolves.toMatchObject({
+      status: 'structurally_valid', kind: 'candidate', action: 'adopt', candidateSnapshotHash: sha(textOf(changedPins)) });
+    expect(f.state()).toBe(before);
   });
 });

@@ -1,11 +1,11 @@
 # Authenticated MCP schema tools
 
 The document read is [#498](https://github.com/barocss/barocss-editor/issues/498). The bounded
-registration tool is [#500](https://github.com/barocss/barocss-editor/issues/500).
+registration tool is [#500](https://github.com/barocss/barocss-editor/issues/500). The bounded
+structural validation tools are [#501](https://github.com/barocss/barocss-editor/issues/501).
 It requires the separately running, configured `@barocss/schema-server` HTTP process and its
 operator schema policy. The read also requires `SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE`.
-It does not start a second registry or document store, or enable validation, adoption, save or
-native UI actions.
+It does not start a second registry or document store, or enable adoption, save or native UI actions.
 
 ## Run
 
@@ -65,7 +65,40 @@ private tool output. This operation registers a definition only. It never change
 
 `test/mcp-protocol.integration.mjs` launches the compiled entry with an independent SDK client
 against a controlled loopback HTTP service. It verifies initialization, discovery, exact read,
-registration, fixed retry, argument rejection, denied access and shutdown. That controlled check
+registration, structural validation, fixed retry, argument rejection, denied access, cancellation
+and shutdown. That controlled check
 does not prove PostgreSQL authority or genuine login. Integration runs the serial private
-PostgreSQL/JWKS check separately. The parent #495 Agent validation and adoption operations remain
-open. No LLM is needed or claimed by this fixed protocol client.
+PostgreSQL/JWKS check separately. The parent #495 Agent adoption and whole flow remain open.
+No LLM is needed or claimed by this fixed protocol client.
+
+## Validate a Note native2 document or candidate
+
+`validate_document` accepts exact `tenantId`, `documentId`, `expectedRevision`,
+`expectedSnapshotHash` and `expectedPriorPinDigest`. `validate_candidate` accepts those fields
+plus the original `snapshotText` and `intendedAction: "preserve" | "adopt"`. UUIDs and lowercase
+SHA-256 hashes are required. The text has the native2 512 KiB UTF-8 limit. Neither tool accepts
+a role, actor, workspace, token, service URL, approval or idempotency key from the caller.
+
+Both tools send one strict POST to the same authenticated Schema Server native2 validation route.
+The server checks current tenant/workspace/document membership, the stored source and raw hash,
+the experimental native2 snapshot-pin CAS digest, exact registered definitions and closure,
+and the current action policy for candidates. `expectedPriorPinDigest` uses the existing
+`wonffice.note.snapshot-pins.cas.v1` value: tenant, stored workspace, document, `pinned`, and
+ordered selected exact schema ID/version/digest tuples. This is an experimental native2
+precondition, not a general public SDK protocol. The MCP adapter passes that value through; it
+does not recalculate policy, native validity or the definition registry.
+
+Success has `status: "structurally_valid"`, the checked kind, document ID, current revision,
+source raw hash, prior pin digest and fixed named checks. A candidate also has the SHA-256 of its
+exact submitted raw text and the checked action. The adapter verifies response identity,
+preconditions, check names and candidate raw hash before returning it. Named HTTP refusals such
+as `revision_conflict`, `snapshot_hash_conflict`, `schema_pin_conflict`, `invalid_snapshot` and
+`scope_forbidden` become named MCP tool errors. HTTP responses are limited to 64 KiB, redirects
+are disabled, and the request has a 10 second timeout. Caller cancellation closes the HTTP
+request.
+
+The result says only that the listed structural, registry, authority and precondition checks
+passed for that observed source. It does not prove business field truth, renderer behavior,
+human criterion confirmation or future write authority. It creates no snapshot, adoption,
+reservation, receipt or approval. A later write must check current authority and revision/pins
+again. The host protects document text in tool arguments and results as private content.
