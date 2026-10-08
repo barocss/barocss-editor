@@ -1,9 +1,11 @@
-# First authenticated MCP document read
+# Authenticated MCP schema tools
 
-This entry is the first read-only Agent transport for [#498](https://github.com/barocss/barocss-editor/issues/498).
+The document read is [#498](https://github.com/barocss/barocss-editor/issues/498). The bounded
+registration tool is [#500](https://github.com/barocss/barocss-editor/issues/500).
 It requires the separately running, configured `@barocss/schema-server` HTTP process and its
-`SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE`. It does not start a second document store or enable
-registration, validation, adoption, save or native UI actions.
+operator schema policy. The read also requires `SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE`.
+It does not start a second registry or document store, or enable validation, adoption, save or
+native UI actions.
 
 ## Run
 
@@ -40,11 +42,30 @@ The bearer credential is never returned. The entry allows at most 2 MiB per HTTP
 response, oversized response, cancellation and inconsistent reads. The MCP client closes its own
 child; the HTTP schema server and database remain running.
 
+## Register one declarative schema
+
+`register_schema` takes exact `tenantId`, `workspaceId` and `schemaId` UUIDs, a positive integer
+`version`, the original JSON `definitionText`, and a stable `idempotencyKey`. The caller keeps
+the same key and bytes for a fixed retry. A later changed draft uses a new key. The tool accepts
+no token, actor, role, permission or service URL argument. The child uses its configured bearer
+token and sends one PUT to the existing Schema Server HTTP registration route. The HTTP server
+checks the current account, tenant membership, workspace policy, capabilities and immutable
+dependencies in PostgreSQL. The tool does not install executable validators or renderers.
+
+The tool returns the existing registration receipt. It checks the request hash, schema identity,
+canonical digest, scope and complete dependency closure before returning success. An equivalent
+new request with different JSON whitespace can return the first stored `definitionText`; the
+receipt's `requestHash` still binds the exact new request bytes. Same-key changed bytes return
+`key_reuse`. Refusal and unavailable outcomes return a named tool error. Input definitions have
+the registry's 64 KiB limit; the HTTP response is bounded, redirects are disabled, and a request
+has a 10 second timeout. The host must protect the returned definition and receipt like other
+private tool output. This operation registers a definition only. It never changes document pins.
+
 ## Verification boundary
 
 `test/mcp-protocol.integration.mjs` launches the compiled entry with an independent SDK client
 against a controlled loopback HTTP service. It verifies initialization, discovery, exact read,
-argument rejection, denied access and shutdown. That check does not prove PostgreSQL authority or
-genuine login. The serial private PostgreSQL/JWKS and current account/product UI results remain
-separate. This read is only the first part of parent #495 criterion 7; other Agent operations remain
+registration, fixed retry, argument rejection, denied access and shutdown. That controlled check
+does not prove PostgreSQL authority or genuine login. Integration runs the serial private
+PostgreSQL/JWKS check separately. The parent #495 Agent validation and adoption operations remain
 open. No LLM is needed or claimed by this fixed protocol client.

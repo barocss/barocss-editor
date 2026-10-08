@@ -1218,7 +1218,7 @@ const httpPort=14595,jwksPort=18595,pgPort=14596,issuer=`http://127.0.0.1:${jwks
 const origin=`http://127.0.0.1:${httpPort}`;
 const ids={tenant:'11111111-1111-4111-8111-111111111111',workspace:'22222222-2222-4222-8222-222222222222',schema:'33333333-3333-4333-8333-333333333333',otherSchema:'66666666-6666-4666-8666-666666666666',foreignTenant:'77777777-7777-4777-8777-777777777777',foreignWorkspace:'88888888-8888-4888-8888-888888888888'};
 const hash=text=>createHash('sha256').update(text,'utf8').digest('hex');
-const report={kind:'actual-independent-compiled-schema-http-private-postgres-controlled-signed-jwks',status:'incomplete',checks:[],notClaimed:['genuine browser/OIDC login',...(mcpEnabled?['MCP writes/LLM/native UI']:['MCP']),'full495/Goal/alpha/release']};
+const report={kind:'actual-independent-compiled-schema-http-private-postgres-controlled-signed-jwks',status:'incomplete',checks:[],notClaimed:['genuine browser/OIDC login',...(mcpEnabled?['LLM/native UI']:['MCP']),'full495/Goal/alpha/release']};
 const lease={runId:randomUUID(),uid:process.getuid(),controllerPid:process.pid,root:privateRoot,socket,data,httpPort,jwksPort,pgPort,state:'prepared',qualification:'Fresh exclusive Unix PG/own HTTP+JWKS; no shared listener or data takeover'};
 const saveLease=()=>{if(!stageOnly)writeFileSync(join(evidence,'runtime-lease.json'),JSON.stringify(lease,null,2),{mode:0o600});};
 const save=()=>writeFileSync(join(evidence,'server-proof.json'),JSON.stringify(report,null,2),{mode:0o600});
@@ -1336,7 +1336,7 @@ async function withMcp(bearer,work){
   try{
     await client.connect(transport);item.pid=transport.pid;assert.ok(item.pid>0);transport.stderr?.pipe(out);
     item.protocol=client.getNegotiatedProtocolVersion();assert.equal(item.protocol,'2025-11-25');
-    assert.deepEqual((await client.listTools()).tools.map(tool=>tool.name),['get_schema_bundle']);
+    assert.deepEqual((await client.listTools()).tools.map(tool=>tool.name),['get_schema_bundle','register_schema']);
     lease.mcpChildren=mcpResources;saveLease();return await work(client);
   }finally{
     await client.close();await new Promise(resolve=>out.end(resolve));
@@ -1556,7 +1556,7 @@ try{
         await withMcp(bearer,async client=>{const result=await mcpTool(client,tenant,receipt.document.documentId);assert.equal(result.isError,true);assert.deepEqual(result.body,{status:reason});});
         const after=await audit();assert.deepEqual(after,before);saveAudit('mcp-'+label+'-after',after);
       };
-      await check('MCP actual staged SDK initialize sole-tool exact A2 B1 C2 and complete SQL no-effects',async()=>{
+      await check('MCP actual staged SDK initialize expanded tools exact A2 B1 C2 and complete SQL no-effects',async()=>{
         await withMcp(await token('writer-a'),async client=>{
           for(const [receipt,title,creator,text,revision] of [[A,'A',actorIds['writer-a'],rawA2,2],[B,'B',actorIds['writer-b'],rawB,1],[C,'C',actorIds['writer-a'],rawC,1]])await mcpReadNoEffects(client,receipt,title,creator,text,revision);
           const before=await audit();await assert.rejects(client.callTool({name:'adopt_schema',arguments:{tenantId:tenant,documentId:A.document.documentId}}));
@@ -1611,7 +1611,137 @@ try{
         const created=await send('POST',nbase+'/documents',{workspaceId:otherWorkspace,title:'MCP other',fileFormat:'barocss-note',fileVersion:2,snapshotText:raw(declared),importMode:'new-page-copy',idempotencyKey:'mcp-other-document'},'writer-a');assert.equal(created.status,201);assert.equal(created.body.document.workspaceId,otherWorkspace);
         await stopServer();await startServer(policyFile,'server-mcp-other-workspace-denied',documentPolicyFile);await mcpDenied('other-workspace',await token('writer-a'),created.body,'scope_forbidden');
       });
-      report.mcp={status:'passed',qualification:'Actual independent SDK/staged compiled MCP/current signedJWKS/privatePG service, not genuine user login/LLM/UI or agent writes',children:mcpResources,tool:'get_schema_bundle',noSecondStore:true};save();
+      // #500 independently authored registry fixtures. No product canonicalizer supplies the oracle.
+      const mcpSchema='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+      const declared=(version=1,parent=null,dependencies=[])=>({scope:{tenantId:tenant,workspaceId:workspace},
+        schemaId:mcpSchema,version,dialect:'wonffice.note-fields.v1',parent,dependencies,
+        requiredCapabilities:['note.field.text.v1'],dataset:{name:'MCP registry proof',fields:[{name:'Title',kind:'text'}]}});
+      const canonicalRegistration=(version=1,parent=null,dependencies=[])=>`{"dataset":{"fields":[{"kind":"text","name":"Title"}],"name":"MCP registry proof"},"dependencies":${JSON.stringify(dependencies)},"dialect":"wonffice.note-fields.v1","parent":${JSON.stringify(parent)},"requiredCapabilities":["note.field.text.v1"],"schemaId":"${mcpSchema}","scope":{"tenantId":"${tenant}","workspaceId":"${workspace}"},"version":${version}}`;
+      const submitted=JSON.stringify(declared(),null,2)+'\n';
+      const registrationInput=(definitionText=submitted,idempotencyKey='mcp-register-first',version=1)=>({tenantId:tenant,workspaceId:workspace,schemaId:mcpSchema,version,definitionText,idempotencyKey});
+      const mcpRegister=async(client,input)=>{
+        const result=await client.callTool({name:'register_schema',arguments:input});
+        assert.ok(Array.isArray(result.content)&&result.content.length===1&&result.content[0].type==='text');
+        return {isError:result.isError===true,body:JSON.parse(result.content[0].text)};
+      };
+      const registrationDenied=async(client,label,input,reason)=>{
+        const before=await audit();saveAudit('mcp-register-'+label+'-before',before);
+        const result=await mcpRegister(client,input);assert.equal(result.isError,true);
+        if(reason)assert.deepEqual(result.body,{status:reason});
+        const after=await audit();assert.deepEqual(after,before);saveAudit('mcp-register-'+label+'-after',after);
+      };
+      const currentEpoch=async()=>{
+        const result=await owner.query(`SELECT m.role || ':' || (SELECT count(*)::text FROM wonffice.membership_events e
+          WHERE e.tenant_id=m.tenant_id AND e.identity_id=m.identity_id) epoch FROM wonffice.tenant_memberships m
+          WHERE m.tenant_id=$1 AND m.identity_id=$2 AND m.revoked_at IS NULL`,[tenant,actorIds['writer-a']]);
+        assert.equal(result.rows.length,1);return result.rows[0].epoch;
+      };
+      const expectedRegistration=async(input,storedText,canonicalText,dependencies=[])=>{
+        const rows=(await owner.query(`SELECT * FROM wonffice.schema_versions WHERE tenant_id=$1 AND workspace_id=$2 AND schema_id=$3 AND version=$4`,[tenant,workspace,mcpSchema,input.version])).rows;
+        assert.equal(rows.length,1);const row=rows[0];assert.ok(Number.isFinite(row.created_at.getTime()));
+        const record={schemaId:mcpSchema,version:input.version,digest:hash(canonicalText),digestAlgorithm:'wonffice.canonical-json.sha256.v1',
+          definitionText:storedText,canonicalText,definition:JSON.parse(storedText),actorIdentityId:actorIds['writer-a'],createdAt:row.created_at.toISOString()};
+        assert.deepEqual(row,{tenant_id:tenant,workspace_id:workspace,schema_id:mcpSchema,version:input.version,digest:record.digest,
+          definition_text:storedText,canonical_text:canonicalText,actor_identity_id:actorIds['writer-a'],created_at:row.created_at});
+        return {operation:'register',idempotencyKey:input.idempotencyKey,
+          requestHash:hash(JSON.stringify(['schema-register-v1',tenant,workspace,mcpSchema,input.version,input.definitionText])),
+          requesterIdentityId:actorIds['writer-a'],authorityEpoch:await currentEpoch(),record,dependencies};
+      };
+      const assertPersistedReceipt=async expected=>{
+        const rows=(await owner.query('SELECT * FROM wonffice.schema_registry_receipts WHERE tenant_id=$1 AND identity_id=$2 AND idempotency_key=$3',[tenant,actorIds['writer-a'],expected.idempotencyKey])).rows;
+        assert.equal(rows.length,1);const row=rows[0];assert.ok(Number.isFinite(row.created_at.getTime()));
+        assert.deepEqual(row,{tenant_id:tenant,workspace_id:workspace,identity_id:actorIds['writer-a'],idempotency_key:expected.idempotencyKey,
+          request_hash:expected.requestHash,result:expected,created_at:row.created_at});
+      };
+      let mcpFirst,mcpSecond,mcpThird;
+      await check('MCP register actual current signed actor and exact raw canonical digest SQL receipt; fixed retry no extra effects',async()=>{
+        await withMcp(await token('writer-a'),async client=>{
+          const before=await audit(),input=registrationInput(),result=await mcpRegister(client,input);
+          assert.equal(result.isError,false);mcpFirst=await expectedRegistration(input,submitted,canonicalRegistration());assert.deepEqual(result.body,mcpFirst);await assertPersistedReceipt(mcpFirst);
+          const after=await audit();assert.equal(after.schema_versions.length,before.schema_versions.length+1);assert.equal(after.schema_registry_receipts.length,before.schema_registry_receipts.length+1);
+          assert.deepEqual(after.schema_versions.filter(row=>row.schema_id!==mcpSchema),before.schema_versions);
+          assert.deepEqual(after.schema_registry_receipts.filter(row=>row.idempotency_key!==input.idempotencyKey),before.schema_registry_receipts);
+          for(const table of ['documents','document_snapshots','document_receipts','schema_dependencies','workspaces'])assert.deepEqual(after[table],before[table]);
+          const retry=await mcpRegister(client,input);assert.equal(retry.isError,false);assert.deepEqual(retry.body,mcpFirst);assert.deepEqual(await audit(),after);
+          saveAudit('mcp-register-first',after);writeFileSync(join(evidence,'mcp-register-first-receipt.json'),JSON.stringify(mcpFirst,null,2));
+        });
+      });
+      await check('MCP register equivalent new raw bytes keep first stored definition and bind the new exact request hash',async()=>{
+        await withMcp(await token('writer-a'),async client=>{
+          const input=registrationInput(JSON.stringify(declared()),'mcp-register-equivalent'),before=await audit(),result=await mcpRegister(client,input);
+          assert.equal(result.isError,false);const expected=await expectedRegistration(input,submitted,canonicalRegistration());assert.deepEqual(result.body,expected);await assertPersistedReceipt(expected);
+          assert.notEqual(expected.requestHash,mcpFirst.requestHash);assert.equal(expected.record.definitionText,submitted);
+          const after=await audit();for(const table of Object.keys(before).filter(t=>t!=='schema_registry_receipts'))assert.deepEqual(after[table],before[table]);
+          assert.equal(after.schema_registry_receipts.length,before.schema_registry_receipts.length+1);
+          assert.deepEqual(after.schema_registry_receipts.filter(row=>row.idempotency_key!==input.idempotencyKey),before.schema_registry_receipts);
+        });
+      });
+      await check('MCP register complete immutable parent closure and independent SQL edge; no native adoption',async()=>{
+        const ref={schemaId:mcpSchema,version:1,digest:hash(canonicalRegistration())};
+        // Canonical reference field order is explicitly authored, independent of the input object order.
+        const parentCanonical={digest:ref.digest,schemaId:mcpSchema,version:1};
+        const input=registrationInput(JSON.stringify(declared(2,ref),null,2),'mcp-register-parent',2);
+        await withMcp(await token('writer-a'),async client=>{
+          const before=await audit(),result=await mcpRegister(client,input);assert.equal(result.isError,false);
+          mcpSecond=await expectedRegistration(input,input.definitionText,canonicalRegistration(2,parentCanonical),[mcpFirst.record]);
+          assert.deepEqual(result.body,mcpSecond);await assertPersistedReceipt(mcpSecond);
+          const after=await audit();for(const table of ['documents','document_snapshots','document_receipts','workspaces'])assert.deepEqual(after[table],before[table]);
+          assert.equal(after.schema_versions.length,before.schema_versions.length+1);assert.equal(after.schema_registry_receipts.length,before.schema_registry_receipts.length+1);
+          assert.deepEqual(after.schema_dependencies.filter(row=>row.schema_id===mcpSchema),[{tenant_id:tenant,workspace_id:workspace,schema_id:mcpSchema,version:2,ordinal:0,kind:'parent',dependency_id:mcpSchema,dependency_version:1,dependency_digest:ref.digest}]);
+        });
+      });
+      await check('MCP register parent plus dependency complete closure exact SQL ordinal edges',async()=>{
+        const parent={schemaId:mcpSchema,version:2,digest:mcpSecond.record.digest},dependency={schemaId:mcpSchema,version:1,digest:mcpFirst.record.digest};
+        const parentCanonical={digest:parent.digest,schemaId:mcpSchema,version:2},dependencyCanonical={digest:dependency.digest,schemaId:mcpSchema,version:1};
+        const input=registrationInput(JSON.stringify(declared(3,parent,[dependency]),null,2),'mcp-register-full-closure',3);
+        await withMcp(await token('writer-a'),async client=>{
+          const before=await audit(),result=await mcpRegister(client,input);assert.equal(result.isError,false);
+          mcpThird=await expectedRegistration(input,input.definitionText,canonicalRegistration(3,parentCanonical,[dependencyCanonical]),[mcpSecond.record,mcpFirst.record]);
+          assert.deepEqual(result.body,mcpThird);await assertPersistedReceipt(mcpThird);
+          const after=await audit();for(const table of ['documents','document_snapshots','document_receipts','workspaces'])assert.deepEqual(after[table],before[table]);
+          assert.equal(after.schema_versions.length,before.schema_versions.length+1);assert.equal(after.schema_registry_receipts.length,before.schema_registry_receipts.length+1);
+          assert.deepEqual(after.schema_dependencies.filter(row=>row.schema_id===mcpSchema&&row.version===3),[
+            {tenant_id:tenant,workspace_id:workspace,schema_id:mcpSchema,version:3,ordinal:0,kind:'parent',dependency_id:mcpSchema,dependency_version:2,dependency_digest:parent.digest},
+            {tenant_id:tenant,workspace_id:workspace,schema_id:mcpSchema,version:3,ordinal:1,kind:'dependency',dependency_id:mcpSchema,dependency_version:1,dependency_digest:dependency.digest}]);
+        });
+      });
+      await check('MCP register raw key reuse immutable conflict missing cycle executable oversized and forged arguments all no effects',async()=>{
+        await withMcp(await token('writer-a'),async client=>{
+          await registrationDenied(client,'key-reuse',registrationInput(' '+submitted),'key_reuse');
+          const conflict=declared();conflict.dataset.name='Changed meaning';await registrationDenied(client,'immutable',registrationInput(JSON.stringify(conflict),'mcp-register-conflict'),'immutable_version_conflict');
+          const missing={schemaId:'ffffffff-ffff-4fff-8fff-ffffffffffff',version:1,digest:'0'.repeat(64)};
+          await registrationDenied(client,'missing',registrationInput(JSON.stringify(declared(1,null,[missing])),'mcp-register-missing'),'dependency_missing');
+          const cycle={schemaId:mcpSchema,version:1,digest:'0'.repeat(64)};
+          await registrationDenied(client,'cycle',registrationInput(JSON.stringify(declared(1,null,[cycle])),'mcp-register-cycle'),'dependency_cycle');
+          await registrationDenied(client,'executable',registrationInput(JSON.stringify({...declared(),validator:'execute()'}),'mcp-register-executable'),'unsupported_definition');
+          await registrationDenied(client,'oversized',registrationInput(' '.repeat(65537),'mcp-register-oversized'),'definition_too_large');
+          for(const [label,change] of [['role',{role:'owner'}],['token',{token:'caller-token'}],['url',{url:'http://invalid.test'}],['grant',{approved:true}],['version',{version:0}]]){const before=await audit();saveAudit('mcp-register-invalid-'+label+'-before',before);const response=await client.callTool({name:'register_schema',arguments:{...registrationInput(),...change}});assert.equal(response.isError,true);assert.ok(response.content.every(item=>item.type==='text'));const after=await audit();assert.deepEqual(after,before);saveAudit('mcp-register-invalid-'+label+'-after',after);}
+        });
+      });
+      await check('MCP register current viewer foreign missing forged expired and same-child revoked actor cannot publish or replay',async()=>{
+        for(const [label,bearer,reason] of [['viewer',await token('native-viewer'),'scope_forbidden'],['foreign',await token('foreign'),'scope_forbidden'],['anonymous',undefined,'unauthorized'],['forged','invalid.jwt.value','unauthorized'],['expired',await token('writer-a',{expiration:1}),'unauthorized']]){
+          await withMcp(bearer,client=>registrationDenied(client,label,registrationInput(),'scope_forbidden'===reason?reason:'unauthorized'));
+        }
+        const bearer=await token('writer-a');await withMcp(bearer,async client=>{
+          assert.deepEqual((await mcpRegister(client,registrationInput())).body,mcpFirst);
+          await applyMembershipChange(owner,{action:'revoke',tenantId:tenant,issuer,subject:'writer-a',role:'editor',approvalRef:'mcp-register-revoke'});
+          await registrationDenied(client,'current-revoked-replay',registrationInput(),'scope_forbidden');
+          await registrationDenied(client,'current-revoked-new',registrationInput(JSON.stringify(declared(4,{schemaId:mcpSchema,version:3,digest:mcpThird.record.digest})),'mcp-register-revoked-new',4),'scope_forbidden');
+        });
+        await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject:'writer-a',role:'editor',approvalRef:'mcp-register-restore'});
+      });
+      await check('MCP register current operator capability withdrawal denies saved retry and new publication without effects',async()=>{
+        const restricted=join(evidence,'mcp-register-policy-restricted.json');writeFileSync(restricted,JSON.stringify(policy.map(p=>p.tenantId===tenant&&p.workspaceId===workspace?{...p,capabilities:['note.field.number.v1']}:p)),{mode:0o600});
+        await stopServer();await startServer(restricted,'server-mcp-register-capability-denied',documentPolicyFile);
+        await withMcp(await token('writer-a'),async client=>{
+          await registrationDenied(client,'capability-replay',registrationInput(),'scope_forbidden');
+          await registrationDenied(client,'capability-new',registrationInput(JSON.stringify(declared(4,{schemaId:mcpSchema,version:3,digest:mcpThird.record.digest})),'mcp-register-capability-new',4),'scope_forbidden');
+        });
+        await stopServer();await startServer(policyFile,'server-mcp-register-capability-restored',documentPolicyFile);
+        await withMcp(await token('writer-a'),async client=>{const before=await audit();assert.deepEqual((await mcpRegister(client,registrationInput())).body,mcpFirst);assert.deepEqual(await audit(),before);});
+      });
+      report.mcpRegistration={status:'passed',qualification:'Actual staged SDK MCP PUT through existing current signedJWT/operator policy/private PostgreSQL, not genuine provider/LLM/UI or adoption',tools:['get_schema_bundle','register_schema'],originalReceipt:mcpFirst,parentReceipt:mcpSecond,completeClosureReceipt:mcpThird,noSecondStore:true};
+      report.mcp={status:'passed',qualification:'Actual independent SDK/staged compiled MCP/current signedJWKS/privatePG service, not genuine user login/LLM/UI or adoption',children:mcpResources,tools:['get_schema_bundle','register_schema'],noSecondStore:true};save();
     }
 
     const fresh=async label=>{const receipt=await createNative(label,sourceA);return {receipt,before:copiedRaw(HTTP_NATIVE_FIXTURES.COPY_A_ORACLE,receipt.document.pageId,pathsA),after:copiedRaw(targetA,receipt.document.pageId,pathsA)};};
