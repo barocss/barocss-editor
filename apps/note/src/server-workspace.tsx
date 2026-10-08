@@ -10,6 +10,7 @@ import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, Document
 import { useNoteCommandSearch } from './use-note-command-search';
 import { pageTemplate } from './workspace-library';
 import { ServerLocalNoteCopy } from './server-local-copy';
+import { createExperimentalNative2ReadStage, type Native2ReadonlyStage, type Native2StageReadFactory } from './experimental-native2-authenticated-stage';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
   type NoteSaveAttempt, type OpenServerNote, type ServerNoteHead } from './server-documents';
 import { createServerPendingStore, newPendingNoteDraftId, type PendingNoteBase, type PendingNoteRecord,
@@ -20,6 +21,12 @@ export interface ServerNoteWorkspaceProps {
   workspaceId: string;
   issuer: string;
   subject: string;
+  /** Supplied by the verified Office identity for explicit native2 reads. */
+  currentUserId?: string | null;
+  createNative2ReadLease?: () => Promise<Native2StageReadFactory>;
+  isAuthorized?: () => boolean;
+  authorityEpoch?: number;
+  subscribeAuthority?: (retire: () => void) => () => void;
   initialDocumentId?: string;
   authorizedFetch: typeof fetch;
   role: 'owner' | 'admin' | 'editor' | 'viewer';
@@ -52,7 +59,8 @@ function saveProblem(error: unknown): Omit<Problem, 'owner'> {
 
 /** Office supplies an authorized fetch only after it has verified the protected workspace context. */
 export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, authorizedFetch,
-  issuer, subject, role, onNavigate, onLeave, onUnsafeChange, headerNavigation, hostSlot, onNativeFailure, workspaceNavigation = false }: ServerNoteWorkspaceProps) {
+  issuer, subject, currentUserId, createNative2ReadLease, isAuthorized, authorityEpoch, subscribeAuthority,
+  role, onNavigate, onLeave, onUnsafeChange, headerNavigation, hostSlot, onNativeFailure, workspaceNavigation = false }: ServerNoteWorkspaceProps) {
   const { t } = useOfficeLocale();
   const client = useMemo(() => createServerNoteClient({ tenantId, workspaceId, authorizedFetch }),
     [tenantId, workspaceId, authorizedFetch, issuer, subject]);
@@ -86,6 +94,12 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const [navigationRequest, setNavigationRequest] = useState<{ mode: 'find' | 'outline'; id: number; generation: string }>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [native2TargetId, setNative2TargetId] = useState('');
+  const [native2Stage, setNative2Stage] = useState<{ generation: string; value: Native2ReadonlyStage }>();
+  const [native2StageError, setNative2StageError] = useState('');
+  const native2Controller = useRef<{ dispose: () => void } | undefined>(undefined);
+  const native2Intent = useRef(0);
+  const authorityEpochRef = useRef(authorityEpoch); authorityEpochRef.current = authorityEpoch;
   const [session, setSession] = useState<{ owner: object; generation: string; documentId: string | null; editable: boolean; value: NoteSession }>();
   const draftRef = useRef<DraftState | null>(null);
   const versionRef = useRef(0);
@@ -618,6 +632,106 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     const tree = noteTreeOf(native.editor.dataStore, native.rootId);
     return tree ? snapshotWithConfirmedSavedAt(one, { ...one.note, content: tree.content as unknown[] }) : undefined;
   };
+  useEffect(() => () => {
+    native2Intent.current++;
+    native2Controller.current?.dispose();
+    native2Controller.current = undefined;
+  }, [client, roleOwner, authorityEpoch, currentOpen?.generation, currentSession]);
+
+  const closeNative2Stage = () => {
+    native2Intent.current++;
+    native2Controller.current?.dispose();
+    native2Controller.current = undefined;
+    setNative2Stage(undefined);
+    setNative2StageError('');
+  };
+  const readNative2Stage = async () => {
+    closeNative2Stage();
+    const intent = native2Intent.current;
+    const one = access.current.open, native = access.current.session, authority = roleRef.current;
+    const targetId = native2TargetId.trim();
+    const deliveries = [...snapshotDeliveries.current];
+    const inputs = deliveries.map(delivery => delivery.captureInputIntent?.());
+    const inputCurrent = () => {
+      try {
+        return deliveries.length > 0 && deliveries.length === snapshotDeliveries.current.size &&
+          deliveries.every((delivery, index) => snapshotDeliveries.current.has(delivery) &&
+            !!delivery.hasPendingInput && !delivery.hasPendingInput() && !!inputs[index]?.());
+      } catch { return false; }
+    };
+    const current = () => {
+      try {
+        const draft = draftRef.current;
+        return native2Intent.current === intent && !!one?.documentId && !!native &&
+          activeClient.current === client && access.current.client === client && access.current.open === one &&
+          access.current.session === native && roleRef.current === authority && authorityEpochRef.current === authorityEpoch &&
+          !!isAuthorized?.() && !access.current.denied && !access.current.busy && !opening.current &&
+          one.version === one.confirmedVersion && !pendingRef.current && !savePending.current &&
+          !(draft?.owner === pendingStore && draft.generation === one.generation && draft.record.status !== 'confirmed') &&
+          (!hostSlot || isNativeHostSlotActive(hostSlot)) && inputCurrent();
+      } catch { return false; }
+    };
+    const refuse = () => { if (native2Intent.current === intent) setNative2StageError('현재 원본 상태를 확인할 수 없어 읽기를 시작하지 않았습니다.'); };
+    if (!createNative2ReadLease || !subscribeAuthority || currentUserId === undefined ||
+      authorityEpoch === undefined || !isAuthorized || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId) ||
+      !one?.confirmedText || !native || !current()) { refuse(); return; }
+    const sourceSnapshot = () => {
+      if (!current() || !one.confirmedText) throw new Error('native2_stage_source_changed');
+      const parsed = readNoteSnapshotFile(one.confirmedText);
+      if ('error' in parsed || nativeSnapshot(one, native) !== one.confirmedText) throw new Error('native2_stage_source_changed');
+      return one.confirmedText;
+    };
+    try { sourceSnapshot(); } catch { refuse(); return; }
+    const resourceIds = [...native.editor.dataStore.getNodes().values()]
+      .filter(node => node.stype === 'richText' && !!node.sid).map(node => node.sid!);
+    let stage: ReturnType<typeof createExperimentalNative2ReadStage>;
+    try { stage = createExperimentalNative2ReadStage({ source: {
+      session: native, authority: native, resourceIds,
+      scope: { issuer, subject, currentUserId, tenantId, workspaceId, documentId: targetId },
+      sourceSnapshot, isCurrent: current,
+      subscribeAuthority: retire => {
+        const retireVisible = () => { retire(); if (native2Intent.current === intent) setNative2Stage(undefined); };
+        const offHost = subscribeAuthority(retireVisible);
+        try {
+          native.editor.on('editor:content.change', retireVisible);
+          native.editor.on('editor:editable.change', retireVisible);
+        } catch (error) {
+          offHost();
+          native.editor.off('editor:content.change', retireVisible);
+          native.editor.off('editor:editable.change', retireVisible);
+          throw error;
+        }
+        return () => {
+          offHost();
+          native.editor.off('editor:content.change', retireVisible);
+          native.editor.off('editor:editable.change', retireVisible);
+        };
+      }
+    }, readFresh: async () => {
+      const factory = await createNative2ReadLease();
+      if (!current() || !factory.isCurrent()) { factory.retire(); throw new Error('native2_stage_source_changed'); }
+      try {
+        const result = await factory.open({ tenantId, workspaceId, documentId: targetId });
+        if (!current() || !factory.isCurrent() || !result.isCurrent()) {
+          result.retire(); factory.retire(); throw new Error('native2_stage_source_changed');
+        }
+        return { ...result, isCurrent: () => factory.isCurrent() && result.isCurrent(),
+          retire: () => { result.retire(); factory.retire(); } };
+      } catch (error) { factory.retire(); throw error; }
+    } }); } catch { refuse(); return; }
+    native2Controller.current = stage;
+    try {
+      const value = await stage.stage();
+      if (!current() || native2Controller.current !== stage || !value.isCurrent()) {
+        stage.dispose(); refuse(); return;
+      }
+      setNative2Stage({ generation: one.generation, value });
+    } catch {
+      stage.dispose();
+      if (native2Controller.current === stage) native2Controller.current = undefined;
+      refuse();
+    }
+  };
   const captureOwner = (intentCurrent = () => true) => {
     const captured = access.current, one = captured.open, native = captured.session;
     const host = nativeHost.current, authority = roleRef.current;
@@ -921,6 +1035,10 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     return () => { active = false; captures.forEach(capture => capture.dispose()); captures.clear(); unregister(); };
   }, [client, currentSession, currentOpen?.generation, currentOpen?.documentId, currentProblem?.kind === 'denied', hostSlot]);
   const quietSaved = !!currentOpen && !loading && !busy && !currentProblem && !currentProtection?.error && !opening.current && !recoveryError && !isDirty && !currentPending;
+  const native2Available = !!createNative2ReadLease && currentUserId !== undefined && !!isAuthorized &&
+    authorityEpoch !== undefined && !!subscribeAuthority;
+  const visibleNative2Stage = native2Stage && native2Stage.generation === currentOpen?.generation && native2Stage.value.isCurrent()
+    ? native2Stage.value : undefined;
 
   return <div ref={workspace} className="nw-shell" data-server-note-workspace onKeyDown={event => {
     if (workspaceNavigation && documentActionsOpen && event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) {
@@ -998,6 +1116,20 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         {currentProblem?.kind !== 'denied' && currentOpen && <section className="nw-document" aria-label="노트 편집">
           <h1>{currentOpen.note.attributes.title}</h1>
           {currentSession && <NoteEditor key={currentSession.session} registerCommandTarget={commands.registerCommandTarget} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.generation === currentOpen.generation ? navigationRequest : undefined} writeAllowed={canEdit && ((!busy && !currentPending) || updateResponsePending) && !(currentDraft?.record.source && currentDraft.record.status !== 'confirmed')} editor={currentSession.editor} rootId={currentSession.rootId} />}
+        </section>}
+        {native2Available && currentSession && currentOpen?.documentId && currentProblem?.kind !== 'denied' && <section aria-label="별도 native2 읽기" data-native2-read>
+          <h2>별도 문서 읽기</h2>
+          <label>문서 ID <input aria-label="읽을 native2 문서 ID" value={native2TargetId} onChange={event => {
+            closeNative2Stage(); setNative2TargetId(event.target.value);
+          }} /></label>
+          <Button disabled={busy || !native2TargetId.trim()} onClick={() => void readNative2Stage()}>읽기 전용으로 확인</Button>
+          {native2StageError && <p role="alert">{native2StageError}</p>}
+        </section>}
+        {visibleNative2Stage && <section aria-label="읽기 전용 native2 문서" data-native2-stage>
+          <h2>읽기 전용 문서</h2>
+          <Button tone="quiet" onClick={closeNative2Stage}>닫기</Button>
+          <NoteEditor key={visibleNative2Stage.session.session} editor={visibleNative2Stage.session.editor}
+            rootId={visibleNative2Stage.session.rootId} writeAllowed={false} />
         </section>}
         {!currentOpen && !loading && !currentProblem && <p>노트를 선택하거나 새로 만드세요.</p>}
       </main>

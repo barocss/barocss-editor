@@ -25,13 +25,14 @@ type View =
   | { phase: 'opened'; intent: EntryIntent; tenant: TenantAccess; role: TenantRole; workspaces?: WorkspaceAccess[]; workspaceCursor?: string | null }
   | { phase: 'library'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; product: SnapshotProduct; documents: DocumentAccess[]; cursor: string | null }
   | { phase: 'project'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess }
-  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; context: VerifiedSnapshotContext; principal: Pick<Identity, 'issuer' | 'subject'> }
+  | { phase: 'note'; tenant: TenantAccess; role: TenantRole; workspace: WorkspaceAccess; context: VerifiedSnapshotContext; principal: NativePrincipal }
   | { phase: 'operator-opened' }
   | { phase: 'operator-denied' }
   | { phase: 'denied'; tenant: TenantAccess; role: TenantRole }
   | { phase: 'error'; error: AuthError };
 
 type NativeView = Extract<View, { phase: 'note' }>;
+type NativePrincipal = Pick<Identity, 'issuer' | 'subject'> & { currentUserId: string | null };
 type NativeSlot = { token: symbol; key: string; session: ReturnType<typeof captureAuthorizedSession>; hostSlot?: NativeHostSlot };
 export type NativeEntryBinding = { isAuthorized?: () => boolean; authorityEpoch?: number; subscribeAuthority?: (retire: () => void) => () => void; hostSlot?: NativeHostSlot; onNativeFailure?: (message: string) => void };
 class NativeEntryBoundary extends Component<{ children: ReactNode; onFailure: (message: string) => void }, { failed: boolean }> {
@@ -72,7 +73,7 @@ function asAuthError(error: unknown) {
   return error instanceof AuthError ? error : new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 시도해 주세요.');
 }
 
-export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (context: VerifiedSnapshotContext, principal: Pick<Identity, 'issuer' | 'subject'>,
+export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (context: VerifiedSnapshotContext, principal: NativePrincipal,
   onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void, headerNavigation: ReactNode, binding?: NativeEntryBinding) => ReactNode; noteRenderer?: (context: VerifiedNoteContext, principal: Pick<Identity, 'issuer' | 'subject'>,
   onUnsafeChange: (unsafe: boolean) => void, onDocumentNavigate: (documentId: string) => void) => ReactNode } = {}) {
   const { t } = useOfficeLocale();
@@ -151,7 +152,8 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
       }
       return slot.session.requestFetch(...args);
     }) as typeof fetch };
-    const retained = { ...next, principal: { issuer: identity.issuer, subject: identity.subject }, context: guardedContext };
+    const retained = { ...next, principal: { issuer: identity.issuer, subject: identity.subject,
+      currentUserId: identity.currentUserId ?? null }, context: guardedContext };
     verifiedIdentity.current = identity;
     noteAccount.current = account;
     noteAccess.current = true;
@@ -602,7 +604,8 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
             return session.requestFetch(...args);
           }) as typeof fetch;
           const targetView: NativeView = { phase: 'note', tenant: scope.tenant, workspace: scope.workspace, role,
-            principal: { issuer: identity.issuer, subject: identity.subject }, context: { ...context, authorizedFetch: targetFetch } };
+            principal: { issuer: identity.issuer, subject: identity.subject, currentUserId: identity.currentUserId ?? null },
+            context: { ...context, authorizedFetch: targetFetch } };
           const fail = (message: string) => { if (pendingNative.current?.slot === target) { setTreeError(message); ready(false); } };
           pendingNative.current = { slot: target, cancel: () => ready(false) };
           setStagedNative({ value: targetView, slot: target, fail });
