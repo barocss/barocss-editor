@@ -11,12 +11,15 @@ export interface Native2StageReadLease {
   readonly provenance: Scope & Readonly<{ role: 'owner' | 'admin' | 'editor' | 'viewer' }>;
   readonly isCurrent: () => boolean;
   readonly retire: () => void;
+  /** Terminal notification; an already retired lease calls the subscriber synchronously. */
+  readonly subscribeRetirement: (retire: () => void) => () => void;
 }
 
 export interface Native2StageReadFactory {
   readonly open: (scope: Readonly<{ tenantId: string; workspaceId: string; documentId: string }>) => Promise<Native2StageReadLease>;
   readonly isCurrent: () => boolean;
   readonly retire: () => void;
+  readonly subscribeRetirement: (retire: () => void) => () => void;
 }
 
 export interface Native2StageSource {
@@ -76,13 +79,22 @@ function captureSource(source: Native2StageSource): () => boolean {
 }
 
 /** Explicit, non-mounting Note staging. The Office host alone supplies a real read lease and authority subscription. */
-export function createExperimentalNative2ReadStage({ source, readFresh }: {
+export function createExperimentalNative2ReadStage({ source, readFresh, onRetire }: {
   source: Native2StageSource;
   readFresh: () => Promise<Native2StageReadLease>;
+  onRetire?: () => void;
 }) {
   let disposed = false, generation = 0, active: Native2ReadonlyStage | undefined;
-  const retire = () => { disposed = true; ++generation; active?.dispose(); active = undefined; };
-  const unsubscribe = source.subscribeAuthority(retire);
+  let unsubscribe: (() => void) | undefined;
+  const retire = () => {
+    if (disposed) return;
+    disposed = true; ++generation;
+    active?.dispose(); active = undefined;
+    const stop = unsubscribe; unsubscribe = undefined; stop?.();
+    onRetire?.();
+  };
+  unsubscribe = source.subscribeAuthority(retire);
+  if (disposed) { unsubscribe(); unsubscribe = undefined; }
   const stage = async (): Promise<Native2ReadonlyStage> => {
     if (disposed) changed();
     active?.dispose(); active = undefined;
@@ -91,6 +103,10 @@ export function createExperimentalNative2ReadStage({ source, readFresh }: {
     if (!sourceCurrent()) changed();
     let lease: Native2StageReadLease | undefined;
     let candidate: NativeNoteSession | undefined;
+    let unsubscribeRead: (() => void) | undefined;
+    const stopReadSubscription = () => {
+      const stop = unsubscribeRead; unsubscribeRead = undefined; stop?.();
+    };
     const current = () => {
       try { return !disposed && generation === own && sourceCurrent() && !!lease?.isCurrent(); }
       catch { return false; }
@@ -98,6 +114,7 @@ export function createExperimentalNative2ReadStage({ source, readFresh }: {
     try {
       lease = await readFresh();
       if (!sourceCurrent() || disposed || generation !== own) changed();
+      unsubscribeRead = lease.subscribeRetirement(() => { if (generation === own) retire(); });
       if (!lease.isCurrent()) readRetired();
       const { read, provenance } = lease;
       if (provenance.issuer !== source.scope.issuer || provenance.subject !== source.scope.subject ||
@@ -121,7 +138,12 @@ export function createExperimentalNative2ReadStage({ source, readFresh }: {
         !native2Equal(candidate.exportNativeDocument(), context.document)) invalid();
       const session = candidate, held = lease;
       let retired = false;
-      const dispose = () => { if (retired) return; retired = true; held.retire(); session.close(); };
+      const dispose = () => {
+        if (retired) return;
+        retired = true;
+        stopReadSubscription();
+        held.retire(); session.close();
+      };
       const result: Native2ReadonlyStage = Object.freeze({ session, read,
         isCurrent: () => {
           if (retired) return false;
@@ -131,10 +153,11 @@ export function createExperimentalNative2ReadStage({ source, readFresh }: {
       active = result;
       return result;
     } catch (error) {
+      stopReadSubscription();
       candidate?.close();
       lease?.retire();
       throw error;
     }
   };
-  return Object.freeze({ stage, dispose: () => { retire(); unsubscribe(); } });
+  return Object.freeze({ stage, dispose: retire });
 }

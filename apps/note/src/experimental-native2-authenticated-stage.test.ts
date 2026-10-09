@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createNoteNative2Context, openNoteNativeSnapshot, openNoteTree } from '@barocss/office-note';
 import { NATIVE_NOTE_FIXTURES } from './native2-scenario-fixtures';
 import { createExperimentalNative2NoteReader } from './experimental-native2-reader';
@@ -110,8 +110,20 @@ async function controlledLease(original: Original) {
     } });
   const read = await reader.open(documentId);
   let retired = false;
+  const listeners = new Set<() => void>();
   return { lease: { read, provenance: { ...scope, role: 'editor' as const },
-    isCurrent: () => !retired, retire: () => { retired = true; } }, calls };
+    isCurrent: () => !retired,
+    retire: () => {
+      if (retired) return;
+      retired = true;
+      for (const listener of [...listeners]) listener();
+      listeners.clear();
+    },
+    subscribeRetirement: (listener: () => void) => {
+      if (retired) listener();
+      else listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    } }, calls, listeners };
 }
 
 function mountedSource() {
@@ -128,6 +140,150 @@ function mountedSource() {
 }
 
 describe('explicit controlled stage lifetime, pending authenticated Office wiring', () => {
+  it('closes only the staged model immediately on read retirement and unsubscribes permanently', async () => {
+    const mounted = mountedSource();
+    const prepared = await controlledLease(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    const onRetire = vi.fn();
+    const heading = [...mounted.session.editor.dataStore.getNodes().values()].find(node => node.text === '목표 A');
+    if (!heading?.sid) throw new Error('Original source heading required');
+    expect(await mounted.session.editor.executeCommand('replaceText', { range: { type: 'range',
+      startNodeId: heading.sid, endNodeId: heading.sid, startOffset: 4, endOffset: 4, collapsed: true },
+    text: ' / retained root input' })).toBe(true);
+    const child = mounted.session.openChildResource(mounted.resourceId);
+    try {
+      const leaf = [...child.editor.dataStore.getNodes().values()].find(node => node.text === '항목 본문 A');
+      if (!leaf?.sid) throw new Error('Original nested SID required');
+      expect(await child.editor.executeCommand('replaceText', { range: { type: 'range', startNodeId: leaf.sid,
+        endNodeId: leaf.sid, startOffset: 7, endOffset: 7, collapsed: true }, text: ' / retained nested input' })).toBe(true);
+      expect(await mounted.session.commitChildResource(mounted.resourceId, child)).toBe(true);
+    } finally { child.close(); }
+    const before = { raw: mounted.session.exportSnapshot(), model: mounted.session.editor.exportDocument(),
+      history: mounted.session.editor.historyManager, entries: mounted.session.editor.historyManager.getHistory(),
+      index: mounted.session.editor.historyManager.getCurrentIndex(), selection: mounted.session.editor.selection };
+    const references = before.entries.map(entry => ({ entry, forward: entry.operations, inverse: entry.inverseOperations }));
+    expect(before.entries.length).toBeGreaterThan(0);
+    expect(before.raw).toContain('retained root input');
+    expect(before.raw).toContain('retained nested input');
+    const stage = createExperimentalNative2ReadStage({ source: mounted.source, readFresh: async () => prepared.lease, onRetire });
+    try {
+      const value = await stage.stage();
+      const close = vi.spyOn(value.session, 'close');
+      expect(prepared.listeners.size).toBe(1);
+      prepared.lease.retire();
+      // No isCurrent call drives cleanup: the terminal event closes the model.
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(() => value.session.exportNativeDocument()).toThrow('native_context_changed');
+      expect(onRetire).toHaveBeenCalledTimes(1);
+      expect(prepared.listeners.size).toBe(0);
+      expect(mounted.listeners.size).toBe(0);
+      prepared.lease.retire(); stage.dispose(); value.dispose();
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(onRetire).toHaveBeenCalledTimes(1);
+      await expect(stage.stage()).rejects.toThrow('native2_stage_source_changed');
+      expect(mounted.session.exportSnapshot()).toBe(before.raw);
+      expect(mounted.session.editor.exportDocument()).toEqual(before.model);
+      expect(mounted.session.editor.historyManager).toBe(before.history);
+      expect(before.history.getHistory()).toEqual(before.entries);
+      for (const [index, reference] of references.entries()) {
+        const entry = before.history.getHistory()[index];
+        expect(entry).toBe(reference.entry);
+        expect(entry.operations).toBe(reference.forward);
+        expect(entry.inverseOperations).toBe(reference.inverse);
+      }
+      expect(before.history.getCurrentIndex()).toBe(before.index);
+      expect(mounted.session.editor.selection).toEqual(before.selection);
+      expect(mounted.session.editor.isEditable).toBe(true);
+    } finally { stage.dispose(); mounted.session.close(); mounted.authority.close(); }
+  });
+
+  it('refuses a lease that retires synchronously during subscription', async () => {
+    const mounted = mountedSource();
+    const prepared = await controlledLease(NATIVE_NOTE_FIXTURES.TARGET_A2);
+    prepared.lease.retire();
+    const onRetire = vi.fn();
+    const stage = createExperimentalNative2ReadStage({ source: mounted.source, readFresh: async () => prepared.lease, onRetire });
+    try {
+      await expect(stage.stage()).rejects.toThrow('native2_stage_read_retired');
+      expect(onRetire).toHaveBeenCalledTimes(1);
+      expect(prepared.listeners.size).toBe(0);
+      expect(mounted.listeners.size).toBe(0);
+      expect(mounted.session.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_A));
+    } finally { stage.dispose(); mounted.session.close(); mounted.authority.close(); }
+  });
+
+  it('does not retire a newer visible stage when an older retired read arrives late', async () => {
+    const mounted = mountedSource();
+    const first = await controlledLease(NATIVE_NOTE_FIXTURES.TARGET_A2);
+    const second = await controlledLease(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    let release!: (value: typeof first.lease) => void;
+    const firstRead = new Promise<typeof first.lease>(resolve => { release = resolve; });
+    const onRetire = vi.fn();
+    let reads = 0;
+    const stage = createExperimentalNative2ReadStage({ source: mounted.source,
+      readFresh: () => reads++ === 0 ? firstRead : Promise.resolve(second.lease), onRetire });
+    try {
+      const older = stage.stage();
+      const refusal = expect(older).rejects.toThrow('native2_stage_source_changed');
+      const newer = await stage.stage();
+      first.lease.retire(); release(first.lease);
+      await refusal;
+      expect(newer.isCurrent()).toBe(true);
+      expect(newer.session.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
+      expect(onRetire).not.toHaveBeenCalled();
+      expect(first.listeners.size).toBe(0);
+      expect(second.listeners.size).toBe(1);
+    } finally { stage.dispose(); mounted.session.close(); mounted.authority.close(); }
+  });
+
+  it('refuses retirement while the read hash is awaiting completion', async () => {
+    const mounted = mountedSource();
+    const prepared = await controlledLease(NATIVE_NOTE_FIXTURES.TARGET_A2);
+    const digest = createHash('sha256').update(prepared.lease.read.snapshotText).digest();
+    let release!: (bytes: ArrayBuffer) => void;
+    const hash = vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const onRetire = vi.fn();
+    const stage = createExperimentalNative2ReadStage({ source: mounted.source, readFresh: async () => prepared.lease, onRetire });
+    try {
+      const pending = stage.stage();
+      const refusal = expect(pending).rejects.toThrow('native2_stage_source_changed');
+      await vi.waitFor(() => expect(hash).toHaveBeenCalledTimes(1));
+      prepared.lease.retire();
+      expect(onRetire).toHaveBeenCalledTimes(1);
+      release(Uint8Array.from(digest).buffer);
+      await refusal;
+      expect(prepared.listeners.size).toBe(0);
+      expect(mounted.session.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_A));
+    } finally { hash.mockRestore(); stage.dispose(); mounted.session.close(); mounted.authority.close(); }
+  });
+
+  it('keeps the replacement stage when an older hash-pending lease later retires', async () => {
+    const mounted = mountedSource();
+    const first = await controlledLease(NATIVE_NOTE_FIXTURES.TARGET_A2);
+    const second = await controlledLease(NATIVE_NOTE_FIXTURES.SOURCE_B);
+    const digest = createHash('sha256').update(first.lease.read.snapshotText).digest();
+    let release!: (bytes: ArrayBuffer) => void;
+    const hash = vi.spyOn(crypto.subtle, 'digest').mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const onRetire = vi.fn();
+    let reads = 0;
+    const stage = createExperimentalNative2ReadStage({ source: mounted.source,
+      readFresh: async () => reads++ === 0 ? first.lease : second.lease, onRetire });
+    try {
+      const older = stage.stage();
+      const refusal = expect(older).rejects.toThrow('native2_stage_source_changed');
+      await vi.waitFor(() => expect(hash).toHaveBeenCalledTimes(1));
+      const newer = await stage.stage();
+      first.lease.retire();
+      expect(onRetire).not.toHaveBeenCalled();
+      expect(newer.isCurrent()).toBe(true);
+      release(Uint8Array.from(digest).buffer);
+      await refusal;
+      expect(newer.isCurrent()).toBe(true);
+      expect(newer.session.exportSnapshot()).toBe(raw(NATIVE_NOTE_FIXTURES.SOURCE_B));
+      expect(first.listeners.size).toBe(0);
+      expect(second.listeners.size).toBe(1);
+    } finally { hash.mockRestore(); stage.dispose(); mounted.session.close(); mounted.authority.close(); }
+  });
+
   it('stages complete A1, A2 and supported B reads without retiring or editing the original', async () => {
     const mounted = mountedSource();
     const before = { model: mounted.session.editor.exportDocument(), raw: mounted.session.exportSnapshot(),

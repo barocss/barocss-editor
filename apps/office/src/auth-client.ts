@@ -1,4 +1,5 @@
 import { authRouteRequest } from './auth-route';
+import { isNotePageId } from '@barocss/office-note/file';
 import { createTranslator, type Translator } from '@barocss/shared';
 
 export type EntryIntent = 'user' | 'admin' | 'operator';
@@ -24,6 +25,11 @@ const issuer = import.meta.env.VITE_OFFICE_OIDC_ISSUER?.replace(/\/$/, '');
 const clientId = import.meta.env.VITE_OFFICE_OIDC_CLIENT_ID;
 let activeSession: Session | null = null;
 let sessionEpoch = 0;
+// Only the private native2 read leases subscribe; ordinary session consumers are unchanged.
+const native2ReadRetirements = new Set<() => void>();
+function retireNative2ReadSessions(): void {
+  for (const retire of [...native2ReadRetirements]) retire();
+}
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type WorkspaceAccess = { id: string; name: string };
 export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; creatorUserId?: string | null; mode: string; revision: number; fileFormat: string; fileVersion: number };
@@ -177,6 +183,7 @@ export async function finishLogin(): Promise<EntryIntent> {
     expiresAt: Date.now() + token.expires_in * 1000,
     intent: pending.intent,
   };
+  retireNative2ReadSessions();
   sessionStorage.setItem(resumeKey, pending.intent);
   if (pending.returnPath?.startsWith('/') && !pending.returnPath.startsWith('//')) {
     // Restore the requested identity only. Normalization waits for server metadata and current access.
@@ -192,7 +199,7 @@ export function consumeResumeIntent(): EntryIntent | null {
   sessionStorage.removeItem(resumeKey);
   return value === 'user' || value === 'admin' || value === 'operator' ? value : null;
 }
-export function clearSession() { ++sessionEpoch; activeSession = null; sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(resumeKey); }
+export function clearSession() { ++sessionEpoch; activeSession = null; retireNative2ReadSessions(); sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(resumeKey); }
 export function announceLogout() { localStorage.setItem(logoutKey, String(Date.now())); }
 export function isLogoutEvent(event: StorageEvent) { return event.key === logoutKey; }
 export function consumeLogoutReturn() {
@@ -264,11 +271,41 @@ function native2ReadUrl(url: URL): boolean {
 }
 
 /** One private, read-only lease for the current memory login; never an editor grant. */
-export function captureNative2ReadSession(): { requestFetch: typeof fetch; isCurrent: () => boolean; retire: () => void } {
+export function captureNative2ReadSession(): { requestFetch: typeof fetch; isCurrent: () => boolean; retire: () => void; subscribeRetirement: (callback: () => void) => () => void } {
   const token = activeSession, epoch = sessionEpoch;
   if (!token || token.expiresAt <= Date.now()) throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.');
   let retired = false;
-  const isCurrent = () => !retired && activeSession === token && sessionEpoch === epoch && token.expiresAt > Date.now();
+  const callbacks = new Set<() => void>();
+  let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+  const notify = (callback: () => void) => {
+    // One faulty consumer must not prevent logout or retirement of other leases.
+    try { callback(); } catch { /* The read lifetime is already terminal. */ }
+  };
+  const retire = () => {
+    if (retired) return;
+    retired = true;
+    clearTimeout(expiryTimer);
+    native2ReadRetirements.delete(retire);
+    const pending = [...callbacks];
+    callbacks.clear();
+    for (const callback of pending) notify(callback);
+  };
+  const isCurrent = () => {
+    if (!retired && (activeSession !== token || sessionEpoch !== epoch || token.expiresAt <= Date.now())) retire();
+    return !retired;
+  };
+  const subscribeRetirement = (callback: () => void) => {
+    if (!isCurrent()) { notify(callback); return () => {}; }
+    callbacks.add(callback);
+    return () => { callbacks.delete(callback); };
+  };
+  const awaitExpiry = () => {
+    if (!isCurrent()) return;
+    // Cap long deadlines to the platform timer range; this is not a polling loop.
+    expiryTimer = setTimeout(awaitExpiry, Math.min(token.expiresAt - Date.now(), 2147483647));
+  };
+  native2ReadRetirements.add(retire);
+  awaitExpiry();
   const check = () => {
     if (!isCurrent()) throw new AuthError(token.expiresAt <= Date.now() ? 'unauthorized' : 'cancelled',
       '현재 계정의 읽기 권한이 끝났습니다. 문서를 다시 여세요.');
@@ -290,7 +327,7 @@ export function captureNative2ReadSession(): { requestFetch: typeof fetch; isCur
     response.json = async () => { check(); const value: unknown = await readJson(); check(); return value; };
     return response;
   };
-  return Object.freeze({ requestFetch, isCurrent, retire: () => { retired = true; } });
+  return Object.freeze({ requestFetch, isCurrent, retire, subscribeRetirement });
 }
 
 async function apiGet(path: string, requestFetch: typeof fetch = authorizedFetch): Promise<unknown> {
@@ -362,8 +399,9 @@ export function readCatalogHead(item: unknown, tenantId: string, workspaceId: st
       !catalogRevision(item.revision) || !catalogRevision(item.metadataRevision) ||
       !['snapshot', 'initializing', 'collaborative'].includes(item.mode as string) ||
       item.fileFormat !== catalogFormats[item.product as keyof typeof catalogFormats] ||
-      (item.fileVersion !== 1 && !(item.product === 'slides' && item.fileVersion === 2)) ||
-      (item.product === 'note' ? typeof item.pageId !== 'string' || !uuid.test(item.pageId) : item.pageId !== null) ||
+      (item.fileVersion !== 1 && !(['note', 'slides'].includes(item.product) && item.fileVersion === 2)) ||
+      (item.product === 'note' ? (item.fileVersion === 2 ? !isNotePageId(item.pageId)
+        : typeof item.pageId !== 'string' || !uuid.test(item.pageId)) : item.pageId !== null) ||
       item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
       typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash)) throw catalogError(t);
   return { ...item, creatorUserId: Object.hasOwn(item, 'creatorUserId') ? item.creatorUserId : null } as CatalogDocumentHead;
@@ -430,6 +468,7 @@ export async function openVerifiedSnapshot(tenantId: string, workspaceId: string
   const head = data?.document as Record<string, unknown> | undefined;
   if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
     head.product !== product || (product !== 'note' && product !== 'word' && product !== 'slides' && product !== 'site') ||
+    (product === 'note' && (head.fileFormat !== 'barocss-note' || head.fileVersion !== 1)) ||
     (product === 'word' && (head.fileFormat !== 'barocss-word' || head.fileVersion !== 1 || head.pageId !== null)) ||
     (product === 'slides' && (head.fileFormat !== 'barocss-slides' || (head.fileVersion !== 1 && head.fileVersion !== 2) || head.pageId !== null)) ||
     (product === 'site' && (head.fileFormat !== 'barocss-site' || head.fileVersion !== 1 || head.pageId !== null)) ||

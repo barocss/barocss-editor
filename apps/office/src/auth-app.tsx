@@ -732,9 +732,10 @@ export function AuthApp({ noteRenderer, editorRenderer }: { editorRenderer?: (co
           if (item.kind !== 'document' || item.product !== source.context.product) throw new Error(t('workspace.tree.nativeUnavailable'));
           const context = await openVerifiedSnapshot(source.tenant.tenantId, source.workspace.id, item.id, role, item.product, session.requestFetch);
           if (!current()) return;
-          if (context.product !== item.product || context.documentId !== item.id) throw new Error(t('workspace.tree.nativeUnavailable'));
+          if (context.product !== item.product || context.documentId !== item.id || !context.document) throw new Error(t('workspace.tree.nativeUnavailable'));
           const row: ServerCatalogRow = { key: JSON.stringify([source.tenant.tenantId, source.workspace.id, item.product, item.id]),
-            title: '', product: item.product, documentId: item.id, mode: 'snapshot', revision: 0, nativeOpenSupported: true };
+            title: '', product: item.product, documentId: item.id, mode: 'snapshot', revision: 0,
+            fileFormat: context.document.fileFormat, fileVersion: context.document.fileVersion, nativeOpenSupported: true };
           if (!await openTreeOriginal(row, request.route.projectId, { index: entry.index, epoch, url })) restore();
         } catch (error) {
           if (current()) { setTreeError(error instanceof Error ? error.message : t('workspace.tree.nativeUnavailable')); restore(); }

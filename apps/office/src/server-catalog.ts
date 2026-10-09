@@ -7,6 +7,8 @@ export interface ServerCatalogRow extends WorkspaceFrameRow {
   documentId: string;
   mode: CatalogDocumentHead['mode'];
   revision: number;
+  fileFormat: string;
+  fileVersion: number;
   /** Discovery is not permission to open a native renderer. */
   nativeOpenSupported: boolean;
 }
@@ -60,7 +62,8 @@ export function serverCatalogGroups(catalog: AuthorizedWorkspaceCatalog, options
   const rows = catalog.documents.map(head => ({
     key: JSON.stringify([head.tenantId, head.workspaceId, head.product, head.documentId]),
     documentId: head.documentId, title: head.title, product: head.product, mode: head.mode, revision: head.revision,
-    nativeOpenSupported: head.mode === 'snapshot'
+    fileFormat: head.fileFormat, fileVersion: head.fileVersion,
+    nativeOpenSupported: head.mode === 'snapshot' && !(head.product === 'note' && head.fileVersion === 2)
   }));
   const visible = rows.filter(row => (options.product === 'all' || row.product === options.product) &&
     (!needle || row.title.normalize('NFC').toLocaleLowerCase().includes(needle)));

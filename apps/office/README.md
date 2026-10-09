@@ -51,3 +51,13 @@ SCHEMA_SERVER_PROXY_TARGET=http://127.0.0.1:14102
 `createAuthenticatedNative2Reader()`는 Office 내부의 명시적 읽기 진입점이다. 활성 로그인과 현재 회사·작업 공간을 확인하고, 원본 전체와 고정된 bundle을 검증한 뒤 읽기 전용 provenance를 준다. 계정 전환, 만료, 새 읽기 요청 또는 `retire()` 뒤에는 기존 결과를 사용하지 않는다. 서버에서 관찰하지 못한 권한 회수와 권한 ABA는 이 로컬 lease만으로 증명할 수 없다. 실제 OIDC 두 계정, 현재 권한 회수, PostgreSQL 원본과 5186 callback 검사는 별도 운영 준비가 필요하다.
 
 `apps/office/src/native2-authenticated-reader.test.ts`는 모의 응답을 쓴 단위 검사다. `apps/office/tests/native2-authenticated-read.spec.ts`는 브라우저의 실제 Office 모듈을 쓰지만 OIDC/API 응답을 모의한다. 이 검사는 실제 provider나 PostgreSQL 인수 근거가 아니다.
+
+
+### Mixed Note catalog metadata (#495/#497)
+
+Authorized metadata discovery retains native2 Note originals with exact IDs, format/version, page ID, mode, revision and snapshot hash. The catalog decoder uses the existing native page-ID guard for file version 2 and keeps the version-1 UUID requirement. No raw snapshot or caller writable/capability flag is accepted in a catalog head.
+
+Project, Sources and My keep these rows visible with `nativeOpenSupported: false` and ordinary navigation disabled. Snapshot mode alone does not authorize a native2 renderer or writer. Metadata does not enable ordinary open/edit/save, or replace the explicit experimental readonly stage with its current private reader, registered bundle admission and retirement checks. Current denied/replaced/expired session handling and bounded paging remain in force. Controlled catalog tests are separate from genuine API/privatePG/native DOM/history/focus checks.
+
+
+The ordinary `openVerifiedSnapshot` verifier accepts Note format `barocss-note` at file version 1 only. Catalog metadata version 2 never becomes an ordinary verified Note context. History traversal uses file format/version from the actual freshly verified ordinary context; it does not infer either field from a route or a placeholder catalog row.

@@ -277,9 +277,11 @@ describe('strict native2 service policy and preservation boundaries', () => {
     codecValid(raw); const f = fixture(), before = f.state(); if (kind === 'missing') f.registry.delete(definitionRows[1].reference.schemaId); else f.tamperEdge();
     await expect(f.store.updateSnapshot(principal, tenant, doc, attempt())).rejects.toMatchObject({ status: kind === 'missing' ? 422 : 409, reason: kind === 'missing' ? 'dependency_missing' : 'bundle_incomplete' }); expect(f.state()).toBe(before);
   });
-  it('keeps unaware2 listing/metadata explicit and leaves snapshots untouched', async () => {
+  it('discovers native2 metadata without enabling metadata writes or changing snapshots', async () => {
     codecValid(raw); const f = fixture(), before = f.state();
-    await expect(f.store.list(principal, tenant)).rejects.toMatchObject({ status: 422, reason: 'unsupported_native_format' });
+    const listed = await f.store.list(principal, tenant);
+    expect(listed.documents).toHaveLength(1); expect(listed.documents[0]).toMatchObject({ documentId: doc, fileVersion: 2, fileFormat: 'barocss-note' });
+    expect(listed.documents[0]).not.toHaveProperty('snapshotText'); expect(f.state()).toBe(before);
     await expect(f.store.updateMetadata(principal, tenant, doc, { expectedMetadataRevision: 1, title: 'Changed', idempotencyKey: 'metadata2' })).rejects.toMatchObject({ status: 422, reason: 'unsupported_native_format' }); expect(f.state()).toBe(before);
   });
   it.each(['initializing', 'collaborative'] as const)('keeps native2 open closed in %s mode', async mode => {

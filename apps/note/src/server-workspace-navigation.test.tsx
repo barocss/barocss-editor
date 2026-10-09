@@ -10,7 +10,7 @@ import type { NoteSaveAttempt } from './server-documents';
 import { ServerNoteWorkspace } from './server-workspace';
 
 type BoxProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; actions?: ReactNode; menus?: ReactNode };
-type NativeFixture = { editor: { id: string }; close: ReturnType<typeof vi.fn>; change: (content: unknown[]) => void; flush: () => void; retireRoot: () => void };
+type NativeFixture = { editor: { id: string; setEditable: ReturnType<typeof vi.fn> }; close: ReturnType<typeof vi.fn>; change: (content: unknown[]) => void; flush: () => void; retireRoot: () => void };
 type ClientFixture = { list: ReturnType<typeof vi.fn>; open: ReturnType<typeof vi.fn>; receipt: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn>; confirm: ReturnType<typeof vi.fn> };
 const f = vi.hoisted(() => ({
   sessions: [] as NativeFixture[], client: undefined as unknown as ClientFixture,
@@ -24,7 +24,7 @@ vi.mock('@barocss/office-ui', async original => {
   const { AdaptiveWorkspace, WorkspaceSidePanel } = await import('../../../packages/office-ui/src/adaptive-workspace');
   const { DocumentMenu } = await import('../../../packages/office-ui/src/document-bar');
   const Box = ({ children }: BoxProps) => React.createElement('div', {}, children);
-  return { ...await original<typeof import('@barocss/office-ui')>(), useOfficeLocale, AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem: ({ children, onClick }: BoxProps) => React.createElement('button', { onClick }, children),
+  return { ...await original<typeof import('@barocss/office-ui')>(), useOfficeLocale, AdaptiveWorkspace, WorkspaceSidePanel,
     Button: ({ children, ...props }: React.ComponentPropsWithRef<'button'>) => React.createElement('button', props, children),
     DocumentMenu, EditorHeader: ({ children, actions, menus }: BoxProps) => React.createElement('div', {}, children, menus, actions), StatusIndicator: Box, StatusNotice: Box };
 });
@@ -57,7 +57,7 @@ const note = (id: string) => ({ stype: 'note' as const, attributes: { title: id,
   content: [{ stype: 'paragraph', attributes: { custom: 'preserved' }, content: [{ stype: 'inline-text', text: 'before', marks: [{ type: 'bold' }] }] }] });
 const opened = (id: string, snapshotText = serializeNoteFile(note(id))) => {
   const read = readNoteSnapshotFile(snapshotText); if ('error' in read) throw new Error(read.error);
-  return { mode: 'snapshot', document: { documentId: id, tenantId, workspaceId, product: 'note', title: id, revision: 1, pageId: id }, note: read.document, snapshotText };
+  return { mode: 'snapshot', document: { documentId: id, tenantId, workspaceId, product: 'note', title: id, revision: 1, pageId: id, fileFormat: 'barocss-note', fileVersion: 1 }, note: read.document, snapshotText };
 };
 let root: Root, container: HTMLDivElement;
 const render = (role: 'editor' | 'viewer' = 'editor', subject = 'A', workspaceNavigation = false) => flushSync(() => root.render(<ServerNoteWorkspace tenantId={tenantId} workspaceId={workspaceId}
@@ -405,4 +405,48 @@ it('does not refresh the tree from a late confirmation after the native root ret
     expect(await opening).toBe(false);
     expect(refresh).not.toHaveBeenCalled();
   } finally { window.removeEventListener('wonffice:catalog-refresh', refresh); }
+});
+
+
+it('keeps known native2 rows visible and disabled while retaining the original mounted Note and avoiding open/save effects', async () => {
+  const sourceId = productDocumentHost()?.id(), session = f.sessions.at(-1)!;
+  expect(sourceId).toBe(a);
+  expect(container.querySelector('[data-native-note]')?.getAttribute('data-native-note')).toBe(session.editor.id);
+  const sessions = f.sessions.length, closes = session.close.mock.calls.length;
+  f.client.list.mockResolvedValue([opened(a).document, ...(['snapshot', 'initializing', 'collaborative'] as const).map((mode, index) => ({
+    ...opened(b).document, documentId: `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`, title: `Native2 ${mode}`,
+    fileFormat: 'barocss-note', fileVersion: 2, mode, pageId: `native2-note-${index}` }))]);
+  const opens = f.client.open.mock.calls.length, saves = f.client.save.mock.calls.length;
+  const refresh = [...container.querySelectorAll('button')].find(node => node.textContent === '목록 새로고침')!;
+  refresh.click();
+  await vi.waitFor(() => expect(container.textContent).toContain('Native2 collaborative'));
+  for (const mode of ['snapshot', 'initializing', 'collaborative']) {
+    const row = [...container.querySelectorAll('button')].find(node => node.textContent?.startsWith(`Native2 ${mode}`))!;
+    expect(row).toBeTruthy(); expect(row.disabled).toBe(true); row.click();
+  }
+  expect(productDocumentHost()?.id()).toBe(sourceId); expect(f.sessions.at(-1)).toBe(session); expect(f.sessions).toHaveLength(sessions); expect(session.close).toHaveBeenCalledTimes(closes);
+  expect(f.client.open).toHaveBeenCalledTimes(opens); expect(f.client.save).toHaveBeenCalledTimes(saves);
+});
+
+
+it.each([401, 403, 503])('metadata refresh %s retains mounted source and later input but retires publication until a fresh owner', async status => {
+  const { ServerNoteError } = await import('./server-documents');
+  const session = f.sessions.at(-1)!, closes = session.close.mock.calls.length, count = f.sessions.length;
+  // This input exists before denial but has not been delivered/acknowledged yet.
+  session.change([{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'latest source input retained' }] }]);
+  f.client.list.mockRejectedValueOnce(new ServerNoteError(status, status === 503 ? 'http_error' : 'forbidden'));
+  const refresh = [...container.querySelectorAll('button')].find(node => node.textContent === '목록 새로고침')!;
+  refresh.click();
+  await vi.waitFor(() => expect(session.editor.setEditable).toHaveBeenCalledWith(false));
+  expect(f.sessions.at(-1)).toBe(session); expect(f.sessions).toHaveLength(count); expect(session.close).toHaveBeenCalledTimes(closes);
+  session.flush();
+  await vi.waitFor(() => expect(Array.from({ length: localStorage.length }, (_, i) => localStorage.getItem(localStorage.key(i)!)).join('')).toContain('latest source input retained'));
+  const writes = f.client.save.mock.calls.length, opens = f.client.open.mock.calls.length;
+  const saved = [...container.querySelectorAll('button')].find(node => /저장 확인/.test(node.textContent ?? ''));
+  saved?.click(); expect(f.client.save).toHaveBeenCalledTimes(writes); expect(f.client.open).toHaveBeenCalledTimes(opens);
+  expect(session.close).toHaveBeenCalledTimes(closes);
+  f.client.list.mockResolvedValue([opened(a).document, opened(b).document]);
+  const metadataRefresh = [...container.querySelectorAll('button')].find(node => node.textContent === '목록 새로고침');
+  metadataRefresh?.click(); await new Promise(resolve => setTimeout(resolve, 0));
+  expect(session.editor.setEditable).not.toHaveBeenCalledWith(true);
 });

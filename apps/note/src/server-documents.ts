@@ -20,6 +20,12 @@ export interface ServerNoteHead {
   snapshotHash: string;
 }
 
+/** List data only. Neither format/version nor creator provides a private read or write grant. */
+export interface ServerNoteMetadataHead extends Omit<ServerNoteHead, 'fileVersion'> {
+  fileVersion: 1 | 2;
+  creatorUserId?: string | null;
+}
+
 export interface ServerNoteReceipt {
   operation: SaveOperation;
   idempotencyKey: string;
@@ -57,17 +63,26 @@ const protocolError = (): never => { throw new ServerNoteError(null, 'invalid_se
 const isUuid = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
-function noteHead(value: unknown, tenantId: string, workspaceId: string): ServerNoteHead {
+function noteMetadataHead(value: unknown, tenantId: string, workspaceId: string): ServerNoteMetadataHead {
   if (!isRecord(value) || value.tenantId !== tenantId || value.workspaceId !== workspaceId ||
     value.product !== 'note' || !isUuid(value.documentId) ||
     typeof value.title !== 'string' || typeof value.documentKey !== 'string' ||
     !Number.isSafeInteger(value.metadataRevision) || (value.metadataRevision as number) < 1 ||
     !['snapshot', 'initializing', 'collaborative'].includes(value.mode as string) ||
     !isNotePageId(value.pageId) || value.fileFormat !== NOTE_FILE_FORMAT ||
-    value.fileVersion !== NOTE_FILE_VERSION || !Number.isSafeInteger(value.revision) ||
+    (value.fileVersion !== NOTE_FILE_VERSION && value.fileVersion !== 2) || !Number.isSafeInteger(value.revision) ||
     (value.revision as number) < 1 || typeof value.snapshotHash !== 'string' ||
     !/^[0-9a-f]{64}$/.test(value.snapshotHash)) return protocolError();
-  return value as unknown as ServerNoteHead;
+  if (Object.hasOwn(value, 'creatorUserId') && value.creatorUserId !== null && !isUuid(value.creatorUserId)) return protocolError();
+  return value as unknown as ServerNoteMetadataHead;
+}
+
+
+// Metadata discovery never widens the ordinary v1 source/receipt/write boundary.
+function noteHead(value: unknown, tenantId: string, workspaceId: string): ServerNoteHead {
+  const head = noteMetadataHead(value, tenantId, workspaceId);
+  if (head.fileVersion !== NOTE_FILE_VERSION) return protocolError();
+  return head as ServerNoteHead;
 }
 
 async function sha256(text: string): Promise<string> {
@@ -198,8 +213,8 @@ export function createServerNoteClient({ authorizedFetch, tenantId, workspaceId,
     return reopened;
   };
 
-  const list = async (): Promise<ServerNoteHead[]> => {
-    const documents: ServerNoteHead[] = [];
+  const list = async (): Promise<ServerNoteMetadataHead[]> => {
+    const documents: ServerNoteMetadataHead[] = [];
     const visited = new Set<string>();
     const ids = new Set<string>();
     let after: string | null = null;
@@ -211,7 +226,7 @@ export function createServerNoteClient({ authorizedFetch, tenantId, workspaceId,
         result.documents.length > 50 || (result.nextCursor !== null && !isUuid(result.nextCursor)) ||
         (result.nextCursor !== null && result.documents.length === 0)) return protocolError();
       for (const value of result.documents) {
-        const document = noteHead(value, tenantId, workspaceId);
+        const document = noteMetadataHead(value, tenantId, workspaceId);
         if (ids.has(document.documentId)) return protocolError();
         ids.add(document.documentId);
         documents.push(document);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthError, listCatalogDocuments, readDocumentCatalog, snapshotIntentFromSearch } from './auth-client';
+import { AuthError, listCatalogDocuments, readDocumentCatalog, snapshotIntentFromSearch, openVerifiedSnapshot } from './auth-client';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const workspaceId = '22222222-2222-4222-8222-222222222222';
@@ -151,4 +151,44 @@ it.each(['not-a-user', '', 123, {}, undefined])('rejects malformed present creat
   const requestFetch = creatorUserId === undefined ? vi.fn<typeof fetch>().mockResolvedValue({ ok: true, status: 200,
     json: async () => page([{ ...head(), creatorUserId }]) } as Response) : transport(page([{ ...head(), creatorUserId }]));
   await expect(readDocumentCatalog(tenantId, workspaceId, requestFetch)).rejects.toMatchObject({ kind: 'unavailable' });
+});
+
+
+it('keeps every mixed Note metadata row and its original version/page/mode without an open grant', async () => {
+  const heads = [head(1, 'note'), { ...head(2, 'note'), fileVersion: 2, pageId: 'native2-note-A' },
+    { ...head(3, 'note'), fileVersion: 2, pageId: 'native2-note-B', mode: 'initializing' }];
+  const requestFetch = transport(page(heads));
+  expect(await readDocumentCatalog(tenantId, workspaceId, requestFetch)).toEqual(heads);
+  expect(requestFetch).toHaveBeenCalledTimes(1);
+});
+it.each(['', '__proto__', 'constructor', 'prototype', 'bad page', 'a'.repeat(129), null])('refuses native2 metadata pageId %s', async pageId => {
+  await expect(readDocumentCatalog(tenantId, workspaceId, transport(page([{ ...head(1, 'note'), fileVersion: 2, pageId }]))))
+    .rejects.toMatchObject({ kind: 'unavailable' });
+});
+it('keeps native-v1 page UUID and unsupported native2 metadata fields closed', async () => {
+  for (const changes of [{ pageId: 'native2-note-A' }, { fileVersion: 3 }, { fileVersion: 2, snapshotText: 'private body' },
+    { fileVersion: 2, writable: true }, { fileVersion: 2, tenantId: workspaceId }, { fileVersion: 2, workspaceId: tenantId }]) {
+    await expect(readDocumentCatalog(tenantId, workspaceId, transport(page([{ ...head(1, 'note'), ...changes }]))))
+      .rejects.toMatchObject({ kind: 'unavailable' });
+  }
+});
+
+
+it('does not turn native2 discovery metadata into an ordinary verified Note open', async () => {
+  const nativeHead = { ...head(2, 'note'), fileVersion: 2, pageId: 'native2-note-A' };
+  const requestFetch = transport({ document: nativeHead, snapshotText: 'original native2 bytes' });
+  await expect(openVerifiedSnapshot(tenantId, workspaceId, nativeHead.documentId, 'editor', 'note', requestFetch))
+    .rejects.toMatchObject({ kind: 'forbidden' });
+});
+
+
+it('preserves exact ordinary Note-v1 context while refusing other Note wire formats or versions', async () => {
+  const original = '{"format":"barocss-note","version":1,"document":{"stype":"note","attributes":{"title":"Independent source S","pageId":"source-S"},"content":[{"stype":"paragraph","content":[{"stype":"inline-text","text":"Keep Café and marks","marks":[{"stype":"bold","range":[0,4]}]}]}]}}\n';
+  const valid = head(1, 'note');
+  const context = await openVerifiedSnapshot(tenantId, workspaceId, valid.documentId, 'editor', 'note', transport({ document: valid, snapshotText: original }));
+  expect(context.document).toEqual(valid); expect(context.snapshotText).toBe(original);
+  for (const changed of [{ ...valid, fileVersion: 3 }, { ...valid, fileFormat: 'foreign-note-format' }]) {
+    await expect(openVerifiedSnapshot(tenantId, workspaceId, valid.documentId, 'editor', 'note', transport({ document: changed, snapshotText: original })))
+      .rejects.toMatchObject({ kind: 'forbidden' });
+  }
 });

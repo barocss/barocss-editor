@@ -29,6 +29,8 @@ interface ControlledState {
   calls: Array<{ path: string; method: string; authPresent: boolean }>;
 }
 
+const sessions: Array<{ clearSession: () => void }> = [];
+
 async function login(overrides: Partial<ControlledState> = {}) {
   vi.resetModules();
   vi.stubEnv('VITE_OFFICE_OIDC_ISSUER', issuer);
@@ -66,6 +68,7 @@ async function login(overrides: Partial<ControlledState> = {}) {
     }
   });
   const auth = await import('./auth-client');
+  sessions.push(auth);
   sessionStorage.setItem('wonffice.oidc.pending', JSON.stringify({ state: 'state', verifier: 'verifier', intent: 'user' }));
   history.replaceState(null, '', '/auth/callback?state=state&code=code');
   await auth.finishLogin();
@@ -73,9 +76,157 @@ async function login(overrides: Partial<ControlledState> = {}) {
   return { auth, reader, state, fetchMock };
 }
 
-afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); sessionStorage.clear(); });
+afterEach(() => { for (const session of sessions.splice(0)) session.clearSession(); vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); sessionStorage.clear(); });
 
 describe('authenticated Office-private native2 read', () => {
+  it('notifies both read lifetimes synchronously on private session clear without a currentness query or host render', async () => {
+    const { auth, reader, state } = await login();
+    const factory = reader.createAuthenticatedNative2Reader();
+    const result = await factory.open(scope);
+    const onFactory = vi.fn(), onResult = vi.fn(), removed = vi.fn();
+    factory.subscribeRetirement(onFactory);
+    result.subscribeRetirement(onResult);
+    const unsubscribe = result.subscribeRetirement(removed);
+    unsubscribe(); unsubscribe();
+    const requestCount = state.calls.length;
+    auth.clearSession();
+    expect(onFactory).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(removed).not.toHaveBeenCalled();
+    expect(state.calls).toHaveLength(requestCount);
+    auth.clearSession(); factory.retire(); result.retire();
+    expect(onFactory).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledTimes(1);
+    const late = vi.fn();
+    result.subscribeRetirement(late)();
+    expect(late).toHaveBeenCalledTimes(1);
+    expect(result.isCurrent()).toBe(false);
+  });
+
+  it('notifies at the captured expiry deadline without another request or currentness query', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-09T10:00:00Z'));
+    const { reader, state } = await login({ expiresIn: 1 });
+    const factory = reader.createAuthenticatedNative2Reader();
+    const result = await factory.open(scope);
+    const onFactory = vi.fn(), onResult = vi.fn();
+    factory.subscribeRetirement(onFactory);
+    result.subscribeRetirement(onResult);
+    const requestCount = state.calls.length;
+    vi.advanceTimersByTime(999);
+    expect(onFactory).not.toHaveBeenCalled();
+    expect(onResult).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onFactory).toHaveBeenCalledTimes(1);
+    expect(onResult).toHaveBeenCalledTimes(1);
+    expect(state.calls).toHaveLength(requestCount);
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(60000);
+    expect(onResult).toHaveBeenCalledTimes(1);
+  });
+
+  it('permanently retires the old reader on login replacement even when the controlled token string is unchanged', async () => {
+    const { auth, reader } = await login();
+    const factory = reader.createAuthenticatedNative2Reader();
+    const result = await factory.open(scope);
+    const retired = vi.fn();
+    result.subscribeRetirement(retired);
+    sessionStorage.setItem('wonffice.oidc.pending', JSON.stringify({ state: 'next', verifier: 'next', intent: 'user' }));
+    history.replaceState(null, '', '/auth/callback?state=next&code=code');
+    await auth.finishLogin();
+    expect(retired).toHaveBeenCalledTimes(1);
+    expect(factory.isCurrent()).toBe(false);
+    expect(result.isCurrent()).toBe(false);
+    const current = reader.createAuthenticatedNative2Reader();
+    expect((await current.open(scope)).isCurrent()).toBe(true);
+    current.retire();
+    expect(retired).toHaveBeenCalledTimes(1);
+  });
+
+  it('retires only the replaced result and keeps the factory and next result current', async () => {
+    const { reader } = await login();
+    const factory = reader.createAuthenticatedNative2Reader();
+    const first = await factory.open(scope);
+    const old = vi.fn(), parent = vi.fn();
+    first.subscribeRetirement(old);
+    factory.subscribeRetirement(parent);
+    const pending = factory.open(scope);
+    expect(old).toHaveBeenCalledTimes(1);
+    expect(parent).not.toHaveBeenCalled();
+    const next = await pending;
+    const current = vi.fn();
+    next.subscribeRetirement(current);
+    first.retire();
+    expect(next.isCurrent()).toBe(true);
+    next.retire(); next.retire();
+    expect(current).toHaveBeenCalledTimes(1);
+    expect(factory.isCurrent()).toBe(true);
+    factory.retire();
+    expect(parent).toHaveBeenCalledTimes(1);
+    expect(old).toHaveBeenCalledTimes(1);
+    expect(current).toHaveBeenCalledTimes(1);
+  });
+
+  it('delivers terminal subscriptions after a clock jump and removes explicitly retired timers', async () => {
+    vi.useFakeTimers();
+    const { reader } = await login({ expiresIn: 1 });
+    const schedule = vi.spyOn(globalThis, 'setTimeout'), clear = vi.spyOn(globalThis, 'clearTimeout');
+    const factory = reader.createAuthenticatedNative2Reader();
+    const expiry = schedule.mock.results[0].value;
+    const result = await factory.open(scope);
+    const existing = vi.fn(), lateFactory = vi.fn(), lateResult = vi.fn();
+    result.subscribeRetirement(existing);
+    vi.setSystemTime(Date.now() + 2000);
+    factory.subscribeRetirement(lateFactory)();
+    result.subscribeRetirement(lateResult)();
+    expect(existing).toHaveBeenCalledTimes(1);
+    expect(lateFactory).toHaveBeenCalledTimes(1);
+    expect(lateResult).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledWith(expiry);
+  });
+
+  it('clears long bounded deadline timers on explicit retirement and keeps other observers notified after one throws', async () => {
+    vi.useFakeTimers();
+    const { auth, reader } = await login({ expiresIn: 3000000 });
+    const schedule = vi.spyOn(globalThis, 'setTimeout'), clear = vi.spyOn(globalThis, 'clearTimeout');
+    const factory = reader.createAuthenticatedNative2Reader();
+    const result = await factory.open(scope);
+    const next = vi.fn(), parent = vi.fn();
+    result.subscribeRetirement(() => { throw new Error('controlled consumer fault'); });
+    result.subscribeRetirement(next);
+    factory.subscribeRetirement(parent);
+    expect(schedule.mock.calls.filter(([, delay]) => delay === 2147483647)).toHaveLength(1);
+    vi.advanceTimersByTime(2147483647);
+    expect(next).not.toHaveBeenCalled();
+    const expiry = schedule.mock.results.at(-1)?.value;
+    expect(() => auth.clearSession()).not.toThrow();
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(parent).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledWith(expiry);
+  });
+
+  it('notifies expiry while a native body is held and refuses its late delivery', async () => {
+    vi.useFakeTimers();
+    let release!: () => void, entered!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const waiting = new Promise<void>(resolve => { entered = resolve; });
+    const { reader } = await login({ expiresIn: 1, onDocumentResponse: response => {
+      const text = response.text.bind(response);
+      response.text = async () => { entered(); await held; return text(); };
+      return response;
+    } });
+    const factory = reader.createAuthenticatedNative2Reader();
+    const ended = vi.fn();
+    factory.subscribeRetirement(ended);
+    const pending = factory.open(scope);
+    await waiting;
+    vi.advanceTimersByTime(1000);
+    expect(ended).toHaveBeenCalledTimes(1);
+    release();
+    await expect(pending).rejects.toMatchObject({ code: 'stale_native2_context' });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('returns the exact full raw/native/bundle and server-derived readonly provenance from one memory login', async () => {
     const { reader, state } = await login();
     const factory = reader.createAuthenticatedNative2Reader();

@@ -443,7 +443,10 @@ export class DocumentStore {
         ORDER BY d.id LIMIT 51`,
       [tenantId, query.workspaceId ?? null, query.product ?? null, query.after ?? null]);
       const documents = rows.rows.slice(0, 50).map(head);
-      if (documents.some(d => d.product === 'note' && d.fileVersion !== 1)) throw new DocumentError(422, 'unsupported_native_format');
+      // Metadata discovery grants no native read/write capability. Preserve mixed originals;
+      // actual raw reads and mutations still perform their separate current schema admission.
+      if (documents.some(d => d.product === 'note' && d.fileVersion !== 1 &&
+        !(d.fileVersion === 2 && d.fileFormat === 'barocss-note'))) throw new DocumentError(422, 'unsupported_native_format');
       return { documents, nextCursor: rows.rows.length > 50 ? documents[49].documentId : null };
     });
   }

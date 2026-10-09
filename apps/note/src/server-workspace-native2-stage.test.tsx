@@ -55,6 +55,25 @@ let subject = 'controlled-subject', authorized = true, epoch = 1;
 const listeners = new Set<() => void>();
 const fetcher = vi.fn() as unknown as typeof fetch;
 const openFactory = vi.fn();
+function readLifetime() {
+  let current = true;
+  const callbacks = new Set<() => void>();
+  return {
+    isCurrent: () => current,
+    retire: () => {
+      if (!current) return;
+      current = false;
+      for (const callback of [...callbacks]) callback();
+      callbacks.clear();
+    },
+    subscribeRetirement: (callback: () => void) => {
+      if (!current) callback();
+      else callbacks.add(callback);
+      return () => { callbacks.delete(callback); };
+    },
+    listenerCount: () => callbacks.size,
+  };
+}
 const render = () => root.render(<ServerNoteWorkspace tenantId={tenantId} workspaceId={workspaceId}
   issuer="controlled-issuer" subject={subject} currentUserId={null} initialDocumentId={sourceId}
   authorizedFetch={fetcher} role="editor" authorityEpoch={epoch} isAuthorized={() => authorized}
@@ -94,12 +113,11 @@ afterEach(async () => {
 
 it('opens an exact supported B in a second readonly Note view and closes only that view', async () => {
   const prepared = await targetRead();
-  const openedFactory = { current: true, resultCurrent: true };
-  const factory = { open: vi.fn(async () => ({ read: prepared.read,
+  const factoryLife = readLifetime(), resultLife = readLifetime();
+  factoryLife.subscribeRetirement(resultLife.retire);
+  const factory = { ...factoryLife, open: vi.fn(async () => ({ ...resultLife, read: prepared.read,
     provenance: { issuer: 'controlled-issuer', subject, currentUserId: null, tenantId, workspaceId,
-      documentId: targetId, role: 'editor' as const },
-    isCurrent: () => openedFactory.resultCurrent, retire: () => { openedFactory.resultCurrent = false; } })),
-    isCurrent: () => openedFactory.current, retire: () => { openedFactory.current = false; } };
+      documentId: targetId, role: 'editor' as const } })) };
   openFactory.mockResolvedValue(factory);
   const source = host.querySelector<HTMLElement>('.nw-document')!;
   const sourceText = source.textContent, stored = original;
@@ -134,8 +152,8 @@ it('opens an exact supported B in a second readonly Note view and closes only th
   await act(async () => { staged.querySelector<HTMLButtonElement>('button')!.click(); });
   expect(host.querySelector('[data-native2-stage]')).toBeNull();
   expect(source.isConnected).toBe(true);
-  expect(openedFactory.current).toBe(false);
-  expect(openedFactory.resultCurrent).toBe(false);
+  expect(factoryLife.isCurrent()).toBe(false);
+  expect(resultLife.isCurrent()).toBe(false);
 });
 
 it('refuses nonexact legacy source bytes before opening an authenticated factory', async () => {
@@ -166,11 +184,10 @@ it('refuses a composing source without flushing or acknowledging the input', asy
 
 it('retires a visible stage after observed authority loss and keeps the source mounted', async () => {
   const prepared = await targetRead();
-  let current = true;
-  const factory = { open: vi.fn(async () => ({ read: prepared.read,
+  const lifetime = readLifetime();
+  const factory = { ...lifetime, open: vi.fn(async () => ({ ...lifetime, read: prepared.read,
     provenance: { issuer: 'controlled-issuer', subject, currentUserId: null, tenantId, workspaceId,
-      documentId: targetId, role: 'viewer' as const }, isCurrent: () => current, retire: () => { current = false; } })),
-    isCurrent: () => current, retire: () => { current = false; } };
+      documentId: targetId, role: 'viewer' as const } })) };
   openFactory.mockResolvedValue(factory);
   await setTarget(); await readClick();
   expect(openFactory).toHaveBeenCalledTimes(1);
@@ -178,20 +195,18 @@ it('retires a visible stage after observed authority loss and keeps the source m
   authorized = false; epoch++;
   await act(async () => { for (const retire of [...listeners]) retire(); render(); });
   expect(host.querySelector('[data-native2-stage]')).toBeNull();
-  expect(current).toBe(false);
+  expect(lifetime.isCurrent()).toBe(false);
   expect(host.querySelector('.nw-document .on-doc p')?.textContent).toBe('Original retained body');
   expect(fixtures.client.save).not.toHaveBeenCalled();
 });
 
 it('retires a late factory after an observed account ABA without displaying its result', async () => {
   const prepared = await targetRead();
-  let release!: (factory: { open: ReturnType<typeof vi.fn>; isCurrent: () => boolean; retire: () => void }) => void;
-  let current = true;
-  const factory = { open: vi.fn(async () => ({ read: prepared.read,
+  let release!: (value: typeof factory) => void;
+  const lifetime = readLifetime();
+  const factory = { ...lifetime, open: vi.fn(async () => ({ ...lifetime, read: prepared.read,
     provenance: { issuer: 'controlled-issuer', subject: 'controlled-subject', currentUserId: null,
-      tenantId, workspaceId, documentId: targetId, role: 'editor' as const },
-    isCurrent: () => current, retire: () => { current = false; } })),
-    isCurrent: () => current, retire: () => { current = false; } };
+      tenantId, workspaceId, documentId: targetId, role: 'editor' as const } })) };
   openFactory.mockImplementation(() => new Promise(resolve => { release = resolve; }));
   await setTarget(); await readClick();
   expect(openFactory).toHaveBeenCalledTimes(1);
@@ -199,8 +214,47 @@ it('retires a late factory after an observed account ABA without displaying its 
   subject = 'controlled-subject'; await act(async () => { render(); });
   await act(async () => { release(factory); });
   expect(factory.open).not.toHaveBeenCalled();
-  expect(current).toBe(false);
+  expect(lifetime.isCurrent()).toBe(false);
   expect(host.querySelector('[data-native2-stage]')).toBeNull();
   expect(host.querySelector('.nw-document .on-doc p')?.textContent).toBe('Original retained body');
   expect(fixtures.client.save).not.toHaveBeenCalled();
 });
+
+for (const retiredOwner of ['factory', 'result'] as const) {
+  it(`removes a visible stage on ${retiredOwner} retirement without a source event or host rerender`, async () => {
+    const prepared = await targetRead();
+    const factoryLife = readLifetime(), resultLife = readLifetime();
+    factoryLife.subscribeRetirement(resultLife.retire);
+    const factory = { ...factoryLife, open: vi.fn(async () => ({ ...resultLife, read: prepared.read,
+      provenance: { issuer: 'controlled-issuer', subject, currentUserId: null, tenantId, workspaceId,
+        documentId: targetId, role: 'editor' as const } })) };
+    openFactory.mockResolvedValue(factory);
+    const source = host.querySelector<HTMLElement>('.nw-document')!;
+    const sourceEditor = source.querySelector<HTMLElement>('[data-note-editor]')!;
+    sourceEditor.tabIndex = -1; sourceEditor.focus(); sourceEditor.scrollTop = 31;
+    const leaf = document.createTreeWalker(source.querySelector('.on-doc p')!, NodeFilter.SHOW_TEXT).nextNode()!;
+    const range = document.createRange(); range.setStart(leaf, 0); range.setEnd(leaf, 8);
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+    const selected = range.toString();
+    const focus = document.activeElement, text = source.textContent, storage = localStorage.length;
+    await setTarget(); await readClick();
+    await vi.waitFor(() => expect(host.querySelector('[data-native2-stage]')).not.toBeNull());
+    // This terminal signal is the captured read's own lifetime. No prop, source
+    // content event or host-authority notification causes a React render here.
+    await act(async () => { (retiredOwner === 'factory' ? factoryLife : resultLife).retire(); });
+    expect(host.querySelector('[data-native2-stage]')).toBeNull();
+    expect(source.isConnected).toBe(true);
+    expect(source.textContent).toBe(text);
+    expect(sourceEditor.scrollTop).toBe(31);
+    expect(document.activeElement).toBe(focus);
+    expect(selection.rangeCount).toBe(1);
+    expect(selection.getRangeAt(0).toString()).toBe(selected);
+    expect(selection.getRangeAt(0).startContainer).toBe(leaf);
+    expect(original).toBe(serializeNoteFile(note));
+    expect(localStorage.length).toBe(storage);
+    expect(fixtures.client.save).not.toHaveBeenCalled();
+    expect(fixtures.client.receipt).not.toHaveBeenCalled();
+    expect(fixtures.client.confirm).not.toHaveBeenCalled();
+    expect(resultLife.listenerCount()).toBe(0);
+  });
+}

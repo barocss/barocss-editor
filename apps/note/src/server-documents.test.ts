@@ -208,3 +208,39 @@ it('refuses an otherwise valid native2 before fixed-attempt admission or request
   expect(calls).toEqual([]);
   expect(input.snapshotText).toBe(text); expect(input.idempotencyKey).toBe('fixed-native2');
 });
+
+
+describe('mixed known Note metadata is not ordinary open/save authority', () => {
+  const nativeHead = (index: number, mode: ServerDocumentMode = 'snapshot') => ({ ...head(copy.snapshotText),
+    documentId: `55555555-5555-4555-8555-${String(index).padStart(12, '0')}`,
+    documentKey: `wonffice-${tenantId}-55555555-5555-4555-8555-${String(index).padStart(12, '0')}`,
+    title: `Full native2 ${index}`, fileVersion: 2, pageId: `native2-note-${index}`, mode, creatorUserId: null });
+  it('retains the full mixed metadata order/versions/page/hash across pages with GET-only requests', async () => {
+    const rows = [head(copy.snapshotText), nativeHead(1), nativeHead(2)];
+    const { client, calls } = transport(reply({ documents: rows.slice(0, 2), nextCursor: rows[1].documentId }),
+      reply({ documents: rows.slice(2), nextCursor: null }));
+    expect(await client.list()).toEqual(rows);
+    expect(calls).toHaveLength(2); expect(calls.every(call => call.init?.method === 'GET' && call.init?.body === undefined)).toBe(true);
+    expect(calls[1].url).toContain('after=' + rows[1].documentId);
+  });
+  it.each(['snapshot', 'initializing', 'collaborative'] as const)('known native2 %s metadata lists, while ordinary open/receipt stays closed', async mode => {
+    const row = nativeHead(1, mode);
+    expect(await transport(reply({ documents: [row], nextCursor: null })).client.list()).toEqual([row]);
+    await expect(transport(reply({ document: row, snapshotText: JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_B) })).client.open(row.documentId)).rejects.toMatchObject({ code: 'invalid_server_response' });
+    await expect(transport(reply({ operation: 'update', idempotencyKey: 'meta-only', requestHash: 'a'.repeat(64), document: row,
+      snapshotText: JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_B) })).client.receipt('update', 'meta-only')).rejects.toMatchObject({ code: 'invalid_server_response' });
+  });
+  it('legacy absent creator is retained as unknown; malformed present creator rejects', async () => {
+    const { creatorUserId, ...row } = nativeHead(1);
+    expect(creatorUserId).toBeNull();
+    expect(await transport(reply({ documents: [row], nextCursor: null })).client.list()).toEqual([row]);
+    await expect(transport(reply({ documents: [{ ...row, creatorUserId: 'owner-by-label' }], nextCursor: null })).client.list()).rejects.toMatchObject({ code: 'invalid_server_response' });
+  });
+  it.each(['unknown-version', 'foreign', 'invalid-page', 'invalid-hash', 'duplicate'] as const)('malformed %s metadata refuses without dropping just the native2 row', async damage => {
+    const row = nativeHead(1);
+    const bad = { ...row,
+      ...(damage === 'unknown-version' ? { fileVersion: 3 } : {}), ...(damage === 'foreign' ? { workspaceId: documentId } : {}),
+      ...(damage === 'invalid-page' ? { pageId: '' } : {}), ...(damage === 'invalid-hash' ? { snapshotHash: 'bad' } : {}) };
+    await expect(transport(reply({ documents: [head(copy.snapshotText), bad, ...(damage === 'duplicate' ? [bad] : [])], nextCursor: null })).client.list()).rejects.toMatchObject({ code: 'invalid_server_response' });
+  });
+});

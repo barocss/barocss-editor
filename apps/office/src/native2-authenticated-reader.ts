@@ -15,6 +15,31 @@ export interface AuthenticatedNative2Read {
   /** Local lease currentness only. Unobserved server role ABA is not detectable here. */
   readonly isCurrent: () => boolean;
   readonly retire: () => void;
+  readonly subscribeRetirement: (callback: () => void) => () => void;
+}
+
+/** Terminal subscriptions are local lifetime signals, not server authority evidence. */
+function retirementSignal() {
+  let retired = false;
+  const callbacks = new Set<() => void>();
+  const notify = (callback: () => void) => {
+    try { callback(); } catch { /* Keep every consumer's retirement independent. */ }
+  };
+  return {
+    isRetired: () => retired,
+    retire: () => {
+      if (retired) return;
+      retired = true;
+      const pending = [...callbacks];
+      callbacks.clear();
+      for (const callback of pending) notify(callback);
+    },
+    subscribeRetirement: (callback: () => void) => {
+      if (retired) { notify(callback); return () => {}; }
+      callbacks.add(callback);
+      return () => { callbacks.delete(callback); };
+    },
+  };
 }
 
 function requireCurrent(isCurrent: () => boolean): void {
@@ -57,17 +82,41 @@ async function currentScope(tenantId: string, workspaceId: string, isCurrent: ()
 /** One Office-host-private reader per login/host intent. It never installs an editor or grants writing. */
 export function createAuthenticatedNative2Reader() {
   const session = captureNative2ReadSession();
-  let retired = false, generation = 0;
-  const current = () => !retired && session.isCurrent();
-  const retire = () => { retired = true; ++generation; session.retire(); };
+  let generation = 0, retired = false;
+  const lifetime = retirementSignal();
+  let resultLifetime: ReturnType<typeof retirementSignal> | undefined;
+  let unsubscribeSession: (() => void) | undefined;
+  const retire = () => {
+    if (retired) return;
+    retired = true;
+    ++generation;
+    lifetime.retire();
+    resultLifetime?.retire();
+    resultLifetime = undefined;
+    const stopSession = unsubscribeSession;
+    unsubscribeSession = undefined;
+    stopSession?.();
+    session.retire();
+  };
+  const current = () => {
+    if (!retired && !session.isCurrent()) retire();
+    return !retired;
+  };
+  unsubscribeSession = session.subscribeRetirement(retire);
+  if (retired) unsubscribeSession();
   const open = async ({ tenantId, workspaceId, documentId }: Native2ReadScope): Promise<AuthenticatedNative2Read> => {
     requireCurrent(current);
     if (![tenantId, workspaceId, documentId].every(value => uuid.test(value))) {
       throw new AuthError('configuration', '잘못된 문서 주소입니다.');
     }
     const requestGeneration = ++generation;
-    let resultRetired = false;
-    const isCurrent = () => !resultRetired && current() && generation === requestGeneration;
+    resultLifetime?.retire();
+    resultLifetime = undefined;
+    const resultSignal = retirementSignal();
+    const isCurrent = () => {
+      if (!resultSignal.isRetired() && (!current() || generation !== requestGeneration)) resultSignal.retire();
+      return !resultSignal.isRetired();
+    };
     const first = await currentScope(tenantId, workspaceId, isCurrent);
     requireCurrent(isCurrent);
     const reader = createExperimentalNative2NoteReader({ tenantId, workspaceId, apiBase: '/api',
@@ -89,9 +138,16 @@ export function createAuthenticatedNative2Reader() {
       subject: second.identity.subject, currentUserId: second.identity.currentUserId,
       tenantId, workspaceId, documentId, role: second.role });
     const result: AuthenticatedNative2Read = Object.freeze({ read, provenance, isCurrent,
-      retire: () => { resultRetired = true; } });
+      retire: resultSignal.retire, subscribeRetirement: (callback: () => void) => {
+        isCurrent();
+        return resultSignal.subscribeRetirement(callback);
+      } });
     requireCurrent(isCurrent);
+    resultLifetime = resultSignal;
     return result;
   };
-  return Object.freeze({ open, isCurrent: current, retire });
+  return Object.freeze({ open, isCurrent: current, retire, subscribeRetirement: (callback: () => void) => {
+    current();
+    return lifetime.subscribeRetirement(callback);
+  } });
 }

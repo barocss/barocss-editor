@@ -1,7 +1,7 @@
 import { execFileSync, fork } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, closeSync, constants, fstatSync, lstatSync, openSync,
-  readFileSync, mkdtempSync, mkdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+  readFileSync, mkdtempSync, mkdirSync, realpathSync, rmSync, statSync, writeFileSync, ftruncateSync, writeSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:net';
@@ -15,6 +15,8 @@ import { applyPlatformOperatorChange } from '../../office-service/dist/platform-
 import { createApiServer } from '../dist/server.js';
 import { createOidcVerifier } from '../dist/oidc.js';
 import { readAuthConfig } from '../dist/auth-config.js';
+import { SchemaRegistryStore } from '../../office-service/dist/schema-registry-store.js';
+import { native2Corpus, native2FixtureScope, native2OriginalSource } from './native2-auth-ui-corpus.mjs';
 
 // Playwright starts this server only for the local real-IdP Office check.
 // Keycloak accounts are read-only; all grants and tenant data live in a new
@@ -31,6 +33,14 @@ const port = Number(process.env.OFFICE_AUTH_API_PORT ?? '14101');
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('invalid_local_api_port');
 // Opt-in controls never use the product HTTP API or the shared PostgreSQL server.
 const controlFile = process.env.OFFICE_AUTH_CONTROL_FILE;
+const native2Mode = process.env.OFFICE_AUTH_NATIVE2_READ_FIXTURE;
+if (native2Mode !== undefined && !['true', 'false'].includes(native2Mode)) throw new Error('invalid_native2_fixture_mode');
+const native2Enabled = native2Mode === 'true';
+if (native2Enabled && !controlFile) throw new Error('native2_fixture_requires_private_control');
+const schemaPort = Number(process.env.OFFICE_AUTH_SCHEMA_PORT ?? '14102');
+if (native2Enabled && (!Number.isInteger(schemaPort) || schemaPort < 1024 || schemaPort > 65535 || schemaPort === port)) {
+  throw new Error('invalid_local_schema_port');
+}
 let controlFd;
 if (controlFile) {
   const parent = lstatSync(dirname(controlFile));
@@ -62,6 +72,9 @@ let owner;
 let admin;
 let closing = false;
 let apiChild;
+let schemaChild;
+let native2Mapping;
+const fixtureExit = {};
 let criterionExecutorMode = 'live';
 let controlServer;
 const controlConnections = new Set();
@@ -83,6 +96,7 @@ async function startApi() {
     return;
   }
   if (apiChild && apiChild.exitCode === null && apiChild.signalCode === null) return;
+  delete fixtureExit.api;
   const child = fork(fileURLToPath(new URL('./office-auth-ui.api-child.mjs', import.meta.url)), [],
     { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
   apiChild = child;
@@ -102,12 +116,74 @@ async function startApi() {
 }
 async function stopApi() {
   const child = apiChild;
-  if (!child || child.exitCode !== null || child.signalCode !== null) return;
-  await new Promise(resolve => {
-    const timeout = setTimeout(() => { child.kill('SIGKILL'); }, 5000);
-    child.once('exit', () => { clearTimeout(timeout); resolve(); });
+  if (!child) return;
+  if (child.exitCode !== null || child.signalCode !== null) {
+    if (native2Enabled) {
+      fixtureExit.api = { pid: child.pid, code: child.exitCode, signal: child.signalCode,
+        forced: fixtureExit.api?.pid === child.pid ? fixtureExit.api.forced : false };
+      if (child.exitCode !== 0 || child.signalCode !== null || fixtureExit.api.forced) throw new Error('local_api_shutdown_failed');
+    }
+    return;
+  }
+  let forced = false;
+  const end = await new Promise(resolve => {
+    const timeout = setTimeout(() => { forced = true; child.kill('SIGKILL'); }, 5000);
+    child.once('exit', (code, signal) => { clearTimeout(timeout); resolve({ code, signal, forced }); });
     child.kill('SIGTERM');
   });
+  if (native2Enabled) {
+    fixtureExit.api = { pid: child.pid, ...end };
+    if (end.code !== 0 || end.signal !== null || end.forced) throw new Error('local_api_shutdown_failed');
+  }
+}
+async function startSchema() {
+  if (!native2Enabled || schemaChild && schemaChild.exitCode === null && schemaChild.signalCode === null) return;
+  delete fixtureExit.schema;
+  const child = fork(fileURLToPath(new URL('./office-auth-ui.schema-child.mjs', import.meta.url)), [],
+    { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+  schemaChild = child;
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('local_schema_start_timeout')); }, 15000);
+    const fail = () => { clearTimeout(timer); reject(new Error('local_schema_start_failed')); };
+    child.once('error', fail); child.once('exit', fail);
+    child.once('message', message => {
+      clearTimeout(timer); child.removeListener('error', fail); child.removeListener('exit', fail);
+      if (message.ready) resolve(); else reject(new Error('local_schema_start_failed'));
+    });
+    child.send({ database: config('wonffice_app'), issuer: fixture.issuer, audience: fixture.audience,
+      port: schemaPort, tenantId: alpha, workspaceId: alphaWorkspace });
+  });
+}
+async function schemaCommand(action, parameters = {}) {
+  const child = schemaChild;
+  if (!native2Enabled || !child?.connected) throw new Error('local_schema_not_running');
+  const requestId = randomUUID();
+  return new Promise((resolve, reject) => {
+    const finish = () => { clearTimeout(timer); child.removeListener('message', receive); child.removeListener('exit', fail); };
+    const fail = () => { finish(); reject(new Error('local_schema_command_failed')); };
+    const receive = message => { if (message.requestId !== requestId) return; finish();
+      if (message.error) reject(new Error('local_schema_command_failed')); else resolve(message.result); };
+    const timer = setTimeout(fail, 5000);
+    child.on('message', receive); child.once('exit', fail);
+    child.send({ action, requestId, ...parameters });
+  });
+}
+async function stopSchema() {
+  const child = schemaChild;
+  if (!child) return;
+  if (child.exitCode !== null || child.signalCode !== null) {
+    fixtureExit.schema = { pid: child.pid, code: child.exitCode, signal: child.signalCode,
+      forced: fixtureExit.schema?.pid === child.pid ? fixtureExit.schema.forced : false };
+    if (child.exitCode !== 0 || child.signalCode !== null || fixtureExit.schema.forced) throw new Error('local_schema_shutdown_failed');
+    return;
+  }
+  let forced = false;
+  const end = await new Promise(resolve => {
+    const timer = setTimeout(() => { forced = true; child.kill('SIGKILL'); }, 5000);
+    child.once('exit', (code, signal) => { clearTimeout(timer); resolve({ code, signal, forced }); }); child.kill('SIGTERM');
+  });
+  fixtureExit.schema = { pid: child.pid, ...end };
+  if (end.code !== 0 || end.signal !== null || end.forced) throw new Error('local_schema_shutdown_failed');
 }
 async function ownerQuery(sql, values = []) {
   if (!started) throw new Error('local_database_stopped');
@@ -121,15 +197,48 @@ const status = () => ({ databaseGeneration, databaseRunning: started,
   databaseIdentity: databaseIdentity(),
   supervisorPid: process.pid, apiPid: apiChild?.pid ?? null,
   apiRunning: !!apiChild && apiChild.exitCode === null && apiChild.signalCode === null,
-  tenantId: alpha, workspaceId: alphaWorkspace, betaTenantId: beta, betaWorkspaceId: betaWorkspace });
+  tenantId: alpha, workspaceId: alphaWorkspace, betaTenantId: beta, betaWorkspaceId: betaWorkspace,
+  ...(native2Enabled ? { native2: native2Mapping, schemaPid: schemaChild?.pid ?? null, schemaPort } : {}) });
 async function control(command) {
   if (closing || !command || typeof command !== 'object' || Array.isArray(command)) throw new Error('invalid_local_command');
-  const allowed = command.action === 'inspect' ? ['action', 'documentId', 'operation', 'idempotencyKey', 'actor', 'tenant', 'product']
+  const allowed = command.action === 'native2-hold' ? ['action', 'documentId', 'part']
+    : command.action === 'inspect' ? ['action', 'documentId', 'operation', 'idempotencyKey', 'actor', 'tenant', 'product']
     : command.action === 'criterion-executor-mode' ? ['action', 'mode']
     : command.action === 'beta-role' ? ['action', 'role'] : command.action === 'beta-active' ? ['action', 'active'] : ['action'];
   if (Object.keys(command).some(key => !allowed.includes(key))) throw new Error('invalid_local_command');
   switch (command.action) {
     case 'status': return status();
+    case 'native2-hold':
+      if (!native2Mapping || ![native2Mapping.targetA, native2Mapping.targetB].includes(command.documentId)) throw new Error('invalid_native2_fixture_document');
+      return schemaCommand('hold', { documentId: command.documentId, part: command.part });
+    case 'native2-release': return schemaCommand('release');
+    case 'native2-held': return schemaCommand('status');
+    case 'native2-state': {
+      if (!native2Mapping) throw new Error('native2_fixture_not_enabled');
+      const tables = (await ownerQuery("SELECT tablename FROM pg_tables WHERE schemaname='wonffice' ORDER BY tablename")).rows;
+      const audit = {};
+      for (const { tablename } of tables) {
+        if (!/^[a-z_]+$/.test(tablename)) throw new Error('invalid_fixture_audit_table');
+        const rows = (await ownerQuery(`SELECT row_to_json(t) AS row FROM wonffice."${tablename}" t`)).rows.map(r => JSON.stringify(r.row)).sort();
+        audit[tablename] = { rows: rows.length, hash: createHash('sha256').update(JSON.stringify(rows)).digest('hex') };
+      }
+      const heads = await ownerQuery(`SELECT d.id AS "documentId",d.page_id AS "pageId",s.revision,
+        s.file_version AS "fileVersion",s.snapshot_hash AS "snapshotHash",s.snapshot_text AS "snapshotText"
+        FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id
+        WHERE d.tenant_id=$1 AND d.id=ANY($2::uuid[]) ORDER BY d.id`,
+      [alpha, [native2Mapping.sourceS, native2Mapping.targetA, native2Mapping.targetB]]);
+      return { ...status(), heads: heads.rows, audit };
+    }
+    case 'native2-advance-a2': {
+      if (!native2Mapping) throw new Error('native2_fixture_not_enabled');
+      const raw = JSON.stringify(native2Corpus.A2), hash = createHash('sha256').update(raw).digest('hex');
+      const priorHash = createHash('sha256').update(JSON.stringify(native2Corpus.A1)).digest('hex');
+      const changed = await ownerQuery(`UPDATE wonffice.document_snapshots SET snapshot_text=$3,snapshot_hash=$4,revision=2
+        WHERE tenant_id=$1 AND document_id=$2 AND revision=1 AND snapshot_hash=$5 RETURNING revision`,
+      [alpha, native2Mapping.targetA, raw, hash, priorHash]);
+      if (changed.rowCount !== 1) throw new Error('native2_fixture_revision_conflict');
+      return { ...status(), setupEffect: 'protected fixture head A1→A2; not a product adoption', revision: 2, snapshotHash: hash };
+    }
     case 'criterion-executor-mode':
       if (!['live', 'unavailable'].includes(command.mode)) throw new Error('invalid_local_executor_mode');
       await stopApi();
@@ -234,14 +343,21 @@ async function close() {
     for (const connection of controlConnections) connection.destroy();
     if (controlServer) await new Promise(resolve => controlServer.close(resolve));
     await commandQueue;
-    await stopApi();
+    const stopErrors = [];
+    try { await stopSchema(); } catch (error) { stopErrors.push(error); }
+    try { await stopApi(); } catch (error) { stopErrors.push(error); }
     if (app) await app.close();
+    if (stopErrors.length) throw stopErrors[0];
   } finally {
     if (pool) await pool.end();
     if (owner) await owner.end();
     if (admin) await admin.end();
-    if (started) run('pg_ctl', ['-D', data, '-m', 'fast', '-w', 'stop']);
+    if (started) { run('pg_ctl', ['-D', data, '-m', 'fast', '-w', 'stop']); started = false; }
     rmSync(directory, { recursive: true, force: true });
+    if (native2Enabled && controlFd !== undefined) {
+      ftruncateSync(controlFd, 0);
+      writeSync(controlFd, JSON.stringify({ cleanup: fixtureExit, databaseStopped: !started }) + '\n', 0, 'utf8');
+    }
     if (controlFd !== undefined) closeSync(controlFd);
   }
 }
@@ -262,8 +378,8 @@ try {
   owner = new pg.Client(config('wonffice_owner'));
   await owner.connect();
   await migrate(owner);
-  alpha = randomUUID(); beta = randomUUID();
-  alphaWorkspace = randomUUID(); betaWorkspace = randomUUID();
+  alpha = native2Enabled ? native2FixtureScope.tenantId : randomUUID(); beta = randomUUID();
+  alphaWorkspace = native2Enabled ? native2FixtureScope.workspaceId : randomUUID(); betaWorkspace = randomUUID();
   alice = randomUUID(); bob = randomUUID();
   await owner.query('INSERT INTO wonffice.tenants (id, name) VALUES ($1, $2), ($3, $4)',
     [alpha, 'Synthetic Alpha', beta, 'Synthetic Beta']);
@@ -278,12 +394,55 @@ try {
   await applyPlatformOperatorChange(owner, { action: 'grant', issuer: fixture.issuer,
     subject: fixture.users['alpha-editor'].id, actorRef: 'synthetic-test',
     approvalRef: 'synthetic-office-auth-ui-369' });
+  if (native2Enabled) await seedNative2();
   await startApi();
+  await startSchema();
   if (controlFile) await startControl();
   console.log(JSON.stringify({ event: 'office_auth_ui_local_api_ready', port }));
 } catch (error) {
   await close();
   throw error;
+}
+
+async function seedNative2() {
+  const seedPool = new pg.Pool({ ...config('wonffice_app'), max: 1 });
+  try {
+    const capabilities = ['note.field.text.v1', 'note.field.choice.v1', 'note.field.boolean.v1', 'note.field.number.v1'];
+    const registry = new SchemaRegistryStore(seedPool, [{ tenantId: alpha, workspaceId: alphaWorkspace,
+      readRoles: ['owner'], registerRoles: ['owner'], capabilities }]);
+    const principal = { issuer: fixture.issuer, subject: fixture.users['alpha-editor'].id };
+    const pending = new Map();
+    for (const corpus of Object.values(native2Corpus)) for (const row of corpus.schemaBundle.definitions) {
+      const key = `${row.reference.schemaId}:${row.reference.version}`;
+      if (pending.has(key) && pending.get(key).definitionText !== row.definitionText) throw new Error('conflicting_fixture_definition');
+      pending.set(key, row);
+    }
+    const registered = new Set();
+    while (pending.size) {
+      let progressed = false;
+      for (const [key, row] of pending) {
+        // Ordering only; the actual registry validates each complete definition before persistence.
+        const definition = JSON.parse(row.definitionText);
+        const refs = [...(definition.parent ? [definition.parent] : []), ...definition.dependencies];
+        if (refs.some(ref => !registered.has(`${ref.schemaId}:${ref.version}`))) continue;
+        await registry.register(principal, alpha, alphaWorkspace, row.reference.schemaId, row.reference.version,
+          { definitionText: row.definitionText, idempotencyKey: `fixture-${row.reference.schemaId}-${row.reference.version}` });
+        registered.add(key); pending.delete(key); progressed = true;
+      }
+      if (!progressed) throw new Error('unresolved_fixture_definition');
+    }
+    // Operator fixture installation preserves the declared bytes/page IDs; this is not product create/adopt evidence.
+    native2Mapping = { sourceS: randomUUID(), targetA: randomUUID(), targetB: randomUUID(),
+      targetARevisions: { A1: 1, A2: 2 }, corpusEncoding: 'JSON.stringify compact UTF-8' };
+    for (const [documentId, title, file] of [[native2Mapping.sourceS, 'Original source S', native2OriginalSource],
+      [native2Mapping.targetA, 'Native2 full A', native2Corpus.A1], [native2Mapping.targetB, 'Native2 full B', native2Corpus.B]]) {
+      const raw = JSON.stringify(file), hash = createHash('sha256').update(raw).digest('hex');
+      await owner.query(`INSERT INTO wonffice.documents(tenant_id,id,workspace_id,product,title,page_id,document_key,creator_user_id)
+        VALUES($1,$2,$3,'note',$4,$5,$6,$7)`, [alpha,documentId,alphaWorkspace,title,file.document.attributes.pageId,`wonffice-${alpha}-${documentId}`,alice]);
+      await owner.query(`INSERT INTO wonffice.document_snapshots(tenant_id,document_id,file_format,file_version,snapshot_text,snapshot_hash,revision)
+        VALUES($1,$2,'barocss-note',$3,$4,$5,1)`, [alpha,documentId,file.version,raw,hash]);
+    }
+  } finally { await seedPool.end(); }
 }
 
 function databaseIdentity() {

@@ -12,7 +12,7 @@ import { pageTemplate } from './workspace-library';
 import { ServerLocalNoteCopy } from './server-local-copy';
 import { createExperimentalNative2ReadStage, type Native2ReadonlyStage, type Native2StageReadFactory } from './experimental-native2-authenticated-stage';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
-  type NoteSaveAttempt, type OpenServerNote, type ServerNoteHead } from './server-documents';
+  type NoteSaveAttempt, type OpenServerNote, type ServerNoteHead, type ServerNoteMetadataHead } from './server-documents';
 import { createServerPendingStore, newPendingNoteDraftId, type PendingNoteBase, type PendingNoteRecord,
   type PendingNoteScope } from './server-pending';
 
@@ -81,11 +81,12 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const navigate = useRef(onNavigate);
   navigate.current = onNavigate;
   const confirmedNavigation = useRef<{ client: object; generation: string; documentId: string; authority: object } | undefined>(undefined);
-  const [heads, setHeads] = useState<{ owner: object; rows: ServerNoteHead[] }>();
+  const [heads, setHeads] = useState<{ owner: object; rows: ServerNoteMetadataHead[] }>();
   const [open, setOpen] = useState<OpenState>();
   const [pending, setPending] = useState<Pending>();
   const [draftState, setDraftState] = useState<DraftState>();
   const [recoveryState, setRecoveryState] = useState<RecoveryState>();
+  const [metadataAuthorityProblem, setMetadataAuthorityProblem] = useState<{ owner: object; denied: boolean }>();
   const [listError, setListError] = useState<{ owner: object; message: string }>();
   const [recoveryError, setRecoveryError] = useState<{ owner: object; message: string }>();
   const [protection, setProtection] = useState<ProtectionState>();
@@ -141,11 +142,13 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const currentDraft = draftState?.owner === pendingStore && draftState.generation === currentOpen?.generation ? draftState : undefined;
   const recoveryRecords = recoveryState?.owner === pendingStore ? recoveryState.records : [];
   const currentProtection = protection?.owner === client && protection.generation === currentOpen?.generation ? protection : undefined;
-  const canEdit = role !== 'viewer';
+  const roleCanEdit = role !== 'viewer';
+  const metadataBlocked = metadataAuthorityProblem?.owner === client;
+  const canEdit = roleCanEdit && !metadataBlocked;
   const isDirty = !!currentOpen && currentOpen.version !== currentOpen.confirmedVersion;
 
-  const access = useRef({ client, session: currentSession, open: currentOpen, canEdit, busy, denied: currentProblem?.kind === 'denied' });
-  access.current = { client, session: currentSession, open: currentOpen, canEdit, busy, denied: currentProblem?.kind === 'denied' };
+  const access = useRef({ client, session: currentSession, open: currentOpen, canEdit, busy, denied: currentProblem?.kind === 'denied' || metadataBlocked });
+  access.current = { client, session: currentSession, open: currentOpen, canEdit, busy, denied: currentProblem?.kind === 'denied' || metadataBlocked };
   useEffect(() => {
     const find = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f' || event.target !== document.body) return;
@@ -321,7 +324,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     const one = staged?.client === client && staged.generation === currentOpen.generation ? (() => {
       staged.deliver = persistBlocks; stagedSession.current = undefined; return staged.value;
     })() : openNoteTree(currentOpen.note, { onChange: persistBlocks, after: 150 });
-    if (!canEdit) one.editor.setEditable(false);
+    if (!roleCanEdit) one.editor.setEditable(false);
     const changed = () => {
       if (!alive || activeClient.current !== client) return;
       const tree = noteTreeOf(one.editor.dataStore, one.rootId);
@@ -329,10 +332,10 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       persistBlocks(tree.content as unknown[]);
     };
     one.editor.on('editor:content.change' as never, changed);
-    setSession({ owner: client, generation: currentOpen.generation, documentId, editable: canEdit, value: one });
+    setSession({ owner: client, generation: currentOpen.generation, documentId, editable: roleCanEdit, value: one });
     return () => { alive = false; one.editor.off('editor:content.change' as never, changed); one.close(); };
   // Recreate the editor only when the opened document changes, not after each keystroke.
-  }, [client, currentOpen?.generation, currentOpen?.documentId, canEdit, currentProblem?.kind === 'denied',
+  }, [client, currentOpen?.generation, currentOpen?.documentId, roleCanEdit, currentProblem?.kind === 'denied',
     persistDraft, recordProtectionFailure, workspaceId]);
 
 
@@ -353,6 +356,25 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
         ? { owner: client, kind: 'denied', message: '이 작업 공간에 접근할 수 없습니다.' }
         : { owner: client, kind: 'load', message: '문서를 열지 못했습니다. 다시 시도하세요.' });
     } finally { if (activeClient.current === client) setBusy(false); }
+  };
+
+  useEffect(() => {
+    if (metadataBlocked) currentSession?.editor.setEditable(false);
+  }, [metadataBlocked, currentSession]);
+
+  // A catalog refresh is metadata-only: retain the mounted source, history and input generation.
+  const refreshMetadata = async () => {
+    setLoading(true); setListError(undefined);
+    try {
+      const rows = await client.list();
+      if (activeClient.current === client) setHeads({ owner: client, rows });
+    } catch (error) {
+      if (activeClient.current === client) {
+        const denied = error instanceof ServerNoteError && (error.status === 401 || error.status === 403);
+        setMetadataAuthorityProblem({ owner: client, denied });
+        setListError({ owner: client, message: t('workspace.route.listUnavailable') });
+      }
+    } finally { if (activeClient.current === client) setLoading(false); }
   };
 
   const create = () => {
@@ -690,24 +712,23 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       scope: { issuer, subject, currentUserId, tenantId, workspaceId, documentId: targetId },
       sourceSnapshot, isCurrent: current,
       subscribeAuthority: retire => {
-        const retireVisible = () => { retire(); if (native2Intent.current === intent) setNative2Stage(undefined); };
-        const offHost = subscribeAuthority(retireVisible);
+        const offHost = subscribeAuthority(retire);
         try {
-          native.editor.on('editor:content.change', retireVisible);
-          native.editor.on('editor:editable.change', retireVisible);
+          native.editor.on('editor:content.change', retire);
+          native.editor.on('editor:editable.change', retire);
         } catch (error) {
           offHost();
-          native.editor.off('editor:content.change', retireVisible);
-          native.editor.off('editor:editable.change', retireVisible);
+          native.editor.off('editor:content.change', retire);
+          native.editor.off('editor:editable.change', retire);
           throw error;
         }
         return () => {
           offHost();
-          native.editor.off('editor:content.change', retireVisible);
-          native.editor.off('editor:editable.change', retireVisible);
+          native.editor.off('editor:content.change', retire);
+          native.editor.off('editor:editable.change', retire);
         };
       }
-    }, readFresh: async () => {
+    }, onRetire: () => { if (native2Intent.current === intent) setNative2Stage(undefined); }, readFresh: async () => {
       const factory = await createNative2ReadLease();
       if (!current() || !factory.isCurrent()) { factory.retire(); throw new Error('native2_stage_source_changed'); }
       try {
@@ -1088,15 +1109,17 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
             </div>;
           })}
         </section>}
-        {!workspaceNavigation && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={() => void load()}>목록 새로고침</Button>}
+        {!workspaceNavigation && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={() => void refreshMetadata()}>목록 새로고침</Button>}
         {!workspaceNavigation && <nav aria-label="서버 문서 목록" className="nw-list">{currentHeads.map(row =>
           <NavigationItem key={row.documentId} selected={currentOpen?.documentId === row.documentId} aria-current={currentOpen?.documentId === row.documentId ? 'page' : undefined}
-            disabled={busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'}
-            onClick={() => void openDocument(row.documentId)}>{row.title}</NavigationItem>)}</nav>}
+            disabled={row.fileVersion !== 1 || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'}
+            title={row.fileVersion === 2 ? `일반 열기 미지원 · 문서 ID ${row.documentId}` : undefined}
+            onClick={() => { if (row.fileVersion === 1) void openDocument(row.documentId); }}>{row.title}{row.fileVersion === 2 && <small> · 일반 열기 미지원</small>}</NavigationItem>)}</nav>}
         {!workspaceNavigation && !loading && !currentHeads.length && <p>문서가 없습니다.</p>}
       </aside></WorkspaceSidePanel>
       <main className="nw-main" data-workspace-main aria-label="서버 노트 편집">
         {listError?.owner === client && <p role="alert">{listError.message}</p>}
+        {metadataBlocked && <p role="alert">{metadataAuthorityProblem.denied ? '접근이 거부되어 작성·저장을 중지했습니다.' : '현재 권한을 확인하지 못해 작성·저장을 중지했습니다.'} 원본과 입력은 유지됩니다. 현재 계정의 권한과 원문을 다시 확인해야 합니다.</p>}
         {recoveryError?.owner === pendingStore && <StatusNotice tone="danger" title="초안 목록을 확인하지 못했습니다">{recoveryError.message}</StatusNotice>}
         {currentProtection?.error && <StatusNotice tone="danger" title="현재 입력을 보관하지 못했습니다">{currentProtection.error}</StatusNotice>}
         {currentDraft?.record.source && <StatusNotice tone="warning" title={currentDraft.record.status === 'confirmed' ? '서버 사본 확인됨' : '로컬 노트 사본 확인 필요'}>

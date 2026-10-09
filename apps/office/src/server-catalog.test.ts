@@ -168,3 +168,23 @@ it('Site snapshot aliases stay one original while initializing and collaborative
   expect(groups[0].entries.map(entry => [entry.row.documentId, entry.disabled])).toEqual([[id(2), false], [id(3), true], [id(4), true]]);
   expect(groups[0].entries[0].row.key).toContain(workspaceId);
 });
+
+
+it('retains native2 metadata visibly with ordinary open disabled in Project, Sources and My', () => {
+  const value = { ...catalog(), currentUserId: person };
+  value.documents = [head(1), head(2, 'note'), { ...head(3, 'note'), fileVersion: 2, pageId: 'native2-note-A', creatorUserId: person },
+    { ...head(4, 'note'), fileVersion: 2, pageId: 'native2-note-B', creatorUserId: otherPerson },
+    { ...head(5, 'note'), fileVersion: 2, mode: 'initializing' }];
+  value.projects[0].record.results.push({ id: 'native2-placement', name: 'alias', document: { product: 'note', id: id(3) }, inputs: [] });
+  const before = JSON.stringify(value);
+  for (const perspective of ['project', 'sources', 'my'] as const) {
+    const entries = serverCatalogGroups(value, { ...options, perspective }).flatMap(group => group.entries);
+    expect(new Set(entries.map(entry => entry.row.documentId))).toEqual(new Set(value.documents.map(one => one.documentId)));
+    for (const entry of entries.filter(one => [id(3), id(4), id(5)].includes(one.row.documentId))) {
+      expect(entry.disabled).toBe(true);
+      expect(entry.row).toMatchObject({ nativeOpenSupported: false, fileFormat: 'barocss-note', fileVersion: 2 });
+    }
+    for (const entry of entries.filter(one => [id(1), id(2)].includes(one.row.documentId))) expect(entry.disabled).toBe(false);
+  }
+  expect(JSON.stringify(value)).toBe(before);
+});

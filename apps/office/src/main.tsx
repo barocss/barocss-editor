@@ -14,6 +14,7 @@ type Native2ReadFactory = Readonly<{
   open: (scope: Native2ReadScope) => Promise<AuthenticatedNative2Read>;
   isCurrent: () => boolean;
   retire: () => void;
+  subscribeRetirement: (callback: () => void) => () => void;
 }>;
 
 function noteReadLeaseFactory(tenantId: string, workspaceId: string, binding?: NativeEntryBinding): () => Promise<Native2ReadFactory> {
@@ -28,18 +29,24 @@ function noteReadLeaseFactory(tenantId: string, workspaceId: string, binding?: N
     const reader = createAuthenticatedNative2Reader();
     let retired = false;
     let unsubscribe: (() => void) | undefined;
+    let unsubscribeReader: (() => void) | undefined;
     const retire = () => {
-      const stop = unsubscribe;
+      const stop = unsubscribe, stopReader = unsubscribeReader;
       unsubscribe = undefined;
+      unsubscribeReader = undefined;
       if (!retired) { retired = true; reader.retire(); }
       stop?.();
+      stopReader?.();
     };
     const isCurrent = () => {
       if (retired) return false;
       if (!isAuthorized() || !reader.isCurrent()) { retire(); return false; }
       return true;
     };
-    try { unsubscribe = subscribeAuthority(retire); }
+    try {
+      unsubscribeReader = reader.subscribeRetirement(retire);
+      if (!retired) unsubscribe = subscribeAuthority(retire);
+    }
     catch (error) { retire(); throw error; }
     if (retired) retire();
     if (!isCurrent()) { retire(); throw unavailable(); }
@@ -56,6 +63,7 @@ function noteReadLeaseFactory(tenantId: string, workspaceId: string, binding?: N
       },
       isCurrent,
       retire,
+      subscribeRetirement: reader.subscribeRetirement,
     });
   };
 }
