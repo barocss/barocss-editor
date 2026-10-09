@@ -10,7 +10,10 @@ import { AdaptiveWorkspace, WorkspaceSidePanel, NavigationItem, Button, Document
 import { useNoteCommandSearch } from './use-note-command-search';
 import { pageTemplate } from './workspace-library';
 import { ServerLocalNoteCopy } from './server-local-copy';
-import { createExperimentalNative2ReadStage, type Native2ReadonlyStage, type Native2StageReadFactory } from './experimental-native2-authenticated-stage';
+import { createExperimentalNative2ReadStage, type Native2ReadonlyStage, type Native2StageReadFactory, type Native2StageSource } from './experimental-native2-authenticated-stage';
+import { createNative2SchemaAdoptionOperation } from './native2-schema-adoption-operation';
+import { createExperimentalNative2AdoptJournal } from './experimental-native2-adopt-pending';
+import { Native2SchemaAdoptionPanel } from './native2-schema-adoption-panel';
 import { createServerNoteClient, noteSaveAttempt, ServerNoteError,
   type NoteSaveAttempt, type OpenServerNote, type ServerNoteHead, type ServerNoteMetadataHead } from './server-documents';
 import { createServerPendingStore, newPendingNoteDraftId, type PendingNoteBase, type PendingNoteRecord,
@@ -24,6 +27,8 @@ export interface ServerNoteWorkspaceProps {
   /** Supplied by the verified Office identity for explicit native2 reads. */
   currentUserId?: string | null;
   createNative2ReadLease?: () => Promise<Native2StageReadFactory>;
+  createNative2MutationLease?: Parameters<typeof createNative2SchemaAdoptionOperation>[0]['createMutationLease'];
+  createNative2ReceiptRecoveryLease?: Parameters<typeof createNative2SchemaAdoptionOperation>[0]['createReceiptRecoveryLease'];
   isAuthorized?: () => boolean;
   authorityEpoch?: number;
   subscribeAuthority?: (retire: () => void) => () => void;
@@ -59,7 +64,7 @@ function saveProblem(error: unknown): Omit<Problem, 'owner'> {
 
 /** Office supplies an authorized fetch only after it has verified the protected workspace context. */
 export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, authorizedFetch,
-  issuer, subject, currentUserId, createNative2ReadLease, isAuthorized, authorityEpoch, subscribeAuthority,
+  issuer, subject, currentUserId, createNative2ReadLease, createNative2MutationLease, createNative2ReceiptRecoveryLease, isAuthorized, authorityEpoch, subscribeAuthority,
   role, onNavigate, onLeave, onUnsafeChange, headerNavigation, hostSlot, onNativeFailure, workspaceNavigation = false }: ServerNoteWorkspaceProps) {
   const { t } = useOfficeLocale();
   const client = useMemo(() => createServerNoteClient({ tenantId, workspaceId, authorizedFetch }),
@@ -96,9 +101,11 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [native2TargetId, setNative2TargetId] = useState('');
-  const [native2Stage, setNative2Stage] = useState<{ generation: string; value: Native2ReadonlyStage }>();
+  const [native2Stage, setNative2Stage] = useState<{ generation: string; value: Native2ReadonlyStage; createAdoptionOperation?: () => ReturnType<typeof createNative2SchemaAdoptionOperation> }>();
   const [native2StageError, setNative2StageError] = useState('');
   const native2Controller = useRef<{ dispose: () => void } | undefined>(undefined);
+  const native2Adoption = useRef<ReturnType<typeof createNative2SchemaAdoptionOperation> | undefined>(undefined);
+  const disposeNative2Adoption = () => { const own = native2Adoption.current; native2Adoption.current = undefined; own?.dispose(); };
   const native2Intent = useRef(0);
   const authorityEpochRef = useRef(authorityEpoch); authorityEpochRef.current = authorityEpoch;
   const [session, setSession] = useState<{ owner: object; generation: string; documentId: string | null; editable: boolean; value: NoteSession }>();
@@ -656,12 +663,14 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
   };
   useEffect(() => () => {
     native2Intent.current++;
+    disposeNative2Adoption();
     native2Controller.current?.dispose();
     native2Controller.current = undefined;
   }, [client, roleOwner, authorityEpoch, currentOpen?.generation, currentSession]);
 
   const closeNative2Stage = () => {
     native2Intent.current++;
+    disposeNative2Adoption();
     native2Controller.current?.dispose();
     native2Controller.current = undefined;
     setNative2Stage(undefined);
@@ -707,7 +716,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
     const resourceIds = [...native.editor.dataStore.getNodes().values()]
       .filter(node => node.stype === 'richText' && !!node.sid).map(node => node.sid!);
     let stage: ReturnType<typeof createExperimentalNative2ReadStage>;
-    try { stage = createExperimentalNative2ReadStage({ source: {
+    const source: Native2StageSource = {
       session: native, authority: native, resourceIds,
       scope: { issuer, subject, currentUserId, tenantId, workspaceId, documentId: targetId },
       sourceSnapshot, isCurrent: current,
@@ -728,7 +737,10 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
           native.editor.off('editor:editable.change', retire);
         };
       }
-    }, onRetire: () => { if (native2Intent.current === intent) setNative2Stage(undefined); }, readFresh: async () => {
+    };
+    try { stage = createExperimentalNative2ReadStage({ source, onRetire: () => {
+      if (native2Intent.current === intent) { disposeNative2Adoption(); setNative2Stage(undefined); }
+    }, readFresh: async () => {
       const factory = await createNative2ReadLease();
       if (!current() || !factory.isCurrent()) { factory.retire(); throw new Error('native2_stage_source_changed'); }
       try {
@@ -746,7 +758,17 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
       if (!current() || native2Controller.current !== stage || !value.isCurrent()) {
         stage.dispose(); refuse(); return;
       }
-      setNative2Stage({ generation: one.generation, value });
+      const createAdoptionOperation = createNative2MutationLease && createNative2ReceiptRecoveryLease ? () => {
+        if (!current() || !value.isCurrent()) throw Error('native2_adoption_operation_retired');
+        disposeNative2Adoption();
+        const journal = createExperimentalNative2AdoptJournal({ scope: { issuer, subject, tenantId, workspaceId },
+          documentId: targetId, isWritableCurrent: () => current() && value.isCurrent() });
+        const operation = createNative2SchemaAdoptionOperation({ source, stage: value, journal: journal.office,
+          createMutationLease: createNative2MutationLease, createReceiptRecoveryLease: createNative2ReceiptRecoveryLease,
+          createReadLease: createNative2ReadLease });
+        native2Adoption.current = operation; return operation;
+      } : undefined;
+      setNative2Stage({ generation: one.generation, value, createAdoptionOperation });
     } catch {
       stage.dispose();
       if (native2Controller.current === stage) native2Controller.current = undefined;
@@ -1154,6 +1176,9 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
           <NoteEditor key={visibleNative2Stage.session.session} editor={visibleNative2Stage.session.editor}
             rootId={visibleNative2Stage.session.rootId} writeAllowed={false} />
         </section>}
+        {visibleNative2Stage && native2Stage?.createAdoptionOperation &&
+          <Native2SchemaAdoptionPanel key={native2Stage.generation + ':' + visibleNative2Stage.session.session}
+            createOperation={native2Stage.createAdoptionOperation} />}
         {!currentOpen && !loading && !currentProblem && <p>노트를 선택하거나 새로 만드세요.</p>}
       </main>
     </AdaptiveWorkspace>

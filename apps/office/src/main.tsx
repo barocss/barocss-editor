@@ -9,6 +9,7 @@ import { LocalNativeFrame } from './local-native-frame';
 import { localNativeFrameRoute, reportLocalNativeFrameFailure } from './local-native-bridge';
 import type { NativeEntryBinding } from './auth-app';
 import type { AuthenticatedNative2Read, Native2ReadScope } from './native2-authenticated-reader';
+import { noteMutationLeaseFactory, noteReceiptRecoveryLeaseFactory } from './native2-authenticated-host';
 
 type Native2ReadFactory = Readonly<{
   open: (scope: Native2ReadScope) => Promise<AuthenticatedNative2Read>;
@@ -88,6 +89,8 @@ if (import.meta.env.VITE_OFFICE_AUTH_MODE === 'oidc') {
         issuer={principal.issuer}
         subject={principal.subject}
         {...(context.product === 'note' ? { currentUserId: principal.currentUserId,
+          createNative2MutationLease: noteMutationLeaseFactory(context.tenantId, context.workspaceId, binding),
+          createNative2ReceiptRecoveryLease: noteReceiptRecoveryLeaseFactory(context.tenantId, context.workspaceId, binding),
           createNative2ReadLease: noteReadLeaseFactory(context.tenantId, context.workspaceId, binding) } : {})}
         initialDocumentId={context.documentId}
         authorizedFetch={context.authorizedFetch}

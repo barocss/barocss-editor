@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as policy from './native2-proxy-policy';
 import { createNative2ReadProxyPolicy, isAllowedNative2ReadRequest } from './native2-proxy-policy';
 
 const tenant = '11111111-1111-4111-8111-111111111111';
@@ -46,5 +47,70 @@ describe('explicit Note native2 read proxy', () => {
       { upgrade: 'websocket' }, { connection: 'keep-alive, Upgrade' }, { expect: '100-continue' }]) {
       expect(isAllowedNative2ReadRequest(documentPath, 'GET', headers)).toBe(false);
     }
+  });
+});
+
+it('exposes an explicit mutation policy while the original read policy refuses writes', () => {
+  expect(isAllowedNative2ReadRequest(`${documentPath}/snapshot`, 'PUT', {})).toBe(false);
+  expect(Reflect.get(policy, 'createNative2MutationProxyPolicy')).toBeTypeOf('function');
+});
+
+const bodyHeaders = { 'content-type': 'application/json', 'content-length': '250' };
+it('executes the original bounded bridge refusal of exact existing POST/PUT operations with valid JSON headers', () => {
+  const entries = createNative2ReadProxyPolicy(config);
+  const rule = Object.values(entries)[0];
+  for (const [method, url] of [['POST', `${documentPath}/validation`], ['PUT', `${documentPath}/snapshot`]]) {
+    expect(rule.bypass).toBeTypeOf('function');
+    expect(isAllowedNative2ReadRequest(url, method, bodyHeaders)).toBe(false);
+  }
+});
+
+describe('separately enabled native2 mutation policy', () => {
+  it('retains disabled maps and requires explicit OIDC/root-only loopback enablement', () => {
+    expect(policy.createNative2MutationProxyPolicy({ ...config, flag: undefined })).toEqual({});
+    expect(policy.createNative2MutationProxyPolicy({ ...config, flag: '' })).toEqual({});
+    for (const options of [{ ...config, flag: 'true' }, { ...config, authMode: 'demo' },
+      { ...config, target: 'http://other.test:4101' }, { ...config, target: 'http://localhost:4101/private' }]) {
+      expect(() => policy.createNative2MutationProxyPolicy(options)).toThrow();
+    }
+    const entries = policy.createNative2MutationProxyPolicy(config);
+    expect(Object.keys(entries)).toHaveLength(1);
+    expect(Object.keys(entries)).toEqual(Object.keys(createNative2ReadProxyPolicy(config)));
+    expect(Object.values(entries)[0]).toMatchObject({ target: config.target, changeOrigin: false, ws: false });
+  });
+
+  it('permits only existing exact read/validation/snapshot/update receipt endpoints', () => {
+    const allowed = policy.isAllowedNative2MutationRequest;
+    expect(allowed(documentPath, 'GET', {})).toBe(true);
+    expect(allowed(`${documentPath}/schema-bundle`, 'GET', {})).toBe(true);
+    expect(allowed(`${documentPath}/validation`, 'POST', bodyHeaders)).toBe(true);
+    expect(allowed(`${documentPath}/snapshot`, 'PUT', bodyHeaders)).toBe(true);
+    expect(allowed(`${root}/receipts/update/fixed:503._-`, 'GET', {})).toBe(true);
+    for (const path of [`${documentPath}/snapshot?extra=1`, `${documentPath}/%73napshot`, `${documentPath}/snapshot/extra`,
+      `${root}/documents`, `${root}/registry/versions`, `${root}/receipts/create/key`, `${root}/receipts/update/%61`,
+      `${root}/receipts/update/.`, `${root}/receipts/update/../key`, `${root}/receipts/update/key?x=1`,
+      `http://foreign.test${documentPath}/snapshot`, documentPath.replace(tenant, 'NOT-A-UUID') + '/snapshot']) {
+      for (const method of ['GET', 'PUT', 'POST']) expect(allowed(path, method, bodyHeaders)).toBe(false);
+    }
+    for (const method of ['GET', 'POST', 'DELETE', 'HEAD', 'OPTIONS']) expect(allowed(`${documentPath}/snapshot`, method, bodyHeaders)).toBe(false);
+    expect(allowed(`${root}/receipts/update/key`, 'GET', { 'content-length': '0' })).toBe(false);
+  });
+
+  it('refuses unbounded or ambiguous JSON bodies and unsafe forwarding/upgrade headers', () => {
+    for (const extra of [{ 'content-length': undefined }, { 'content-length': '0' }, { 'content-length': '1048577' },
+      { 'content-length': '0250' }, { 'content-type': 'text/plain' },
+      { 'transfer-encoding': 'chunked' }, { upgrade: 'websocket' }, { connection: 'keep-alive, Upgrade' },
+      { expect: '100-continue' }, { cookie: 'session=untrusted' }, { 'x-http-method-override': 'DELETE' },
+      { 'x-forwarded-host': 'foreign.test' }, { forwarded: 'host=foreign' }]) {
+      expect(policy.isAllowedNative2MutationRequest(`${documentPath}/snapshot`, 'PUT', { ...bodyHeaders, ...extra })).toBe(false);
+    }
+    const ambiguous = { ...bodyHeaders };
+    Object.defineProperty(ambiguous, 'content-length', { value: ['250', '250'] });
+    expect(policy.isAllowedNative2MutationRequest(`${documentPath}/snapshot`, 'PUT', ambiguous)).toBe(false);
+    const ambiguousAuthorization = { ...bodyHeaders };
+    Object.defineProperty(ambiguousAuthorization, 'authorization', { value: ['one', 'two'] });
+    expect(policy.isAllowedNative2MutationRequest(`${documentPath}/snapshot`, 'PUT', ambiguousAuthorization)).toBe(false);
+    expect(policy.isAllowedNative2MutationRequest(`${documentPath}/snapshot`, 'PUT', {
+      'content-type': 'application/json; charset=utf-8', 'content-length': '1048576' })).toBe(true);
   });
 });

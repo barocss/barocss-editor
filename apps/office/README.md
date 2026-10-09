@@ -61,3 +61,154 @@ Project, Sources and My keep these rows visible with `nativeOpenSupported: false
 
 
 The ordinary `openVerifiedSnapshot` verifier accepts Note format `barocss-note` at file version 1 only. Catalog metadata version 2 never becomes an ordinary verified Note context. History traversal uses file format/version from the actual freshly verified ordinary context; it does not infer either field from a route or a placeholder catalog row.
+
+
+### Private native2 validation, update and receipt transport (#503)
+
+`src/native2-authenticated-mutation.ts` is a private transport. It does not mount,
+edit, apply or save a native model. The server is the current authority for every
+operation. A local read lifetime is not a writer grant or evidence of unseen
+membership ABA. Validation returns `structurally_valid`, never a saved result.
+
+- Create `createAuthenticatedNative2Mutation()` in the current Office login. No
+  caller token, fetcher, origin, role, actor or approval grant is accepted.
+- `open({tenantId, workspaceId, documentId})` reads and verifies the exact native2
+  head, raw file and registered bundle through the existing authenticated reader.
+  It returns `source`, `prepare`, `validateSource`, `validate`, `update`, `recover`,
+  `isCurrent`, `retire` and terminal `subscribeRetirement`. A new open retires the
+  old context. Host/source retirement must call `retire`; private logout, login
+  replacement and token deadline retire without a render or polling.
+- `prepare({snapshotText, schemaAction: 'preserve' | 'adopt', idempotencyKey})`
+  copies exact raw bytes before hashing. It freezes source revision/hash/prior-pin
+  digest, candidate hash, key/action and service request hash. Inputs are bounded
+  to 512 KiB of valid UTF-8 native2 JSON for the same page and definition scope.
+  JSON request and streamed response limits are 1 MiB; transport lifetime is 10
+  seconds. An oversized escaped JSON body is refused even if raw input fits.
+- `validateSource()` and `validate(attempt)` POST to the existing validation route.
+  `update(attempt)` PUTs the fixed snapshot body. The existing service performs
+  current actor checks, registered-policy admission, CAS and durable receipts.
+  Same-key changed bytes refuse locally. Attempts copied through JSON or from a
+  different private context cannot authorize these methods.
+- `recover(attempt)` GETs only `/receipts/update/:key`. Recovery checks the original
+  operation/key/request hash, exact scope, next revision, raw hash/text and native2
+  page/head. It does not read a latest head, replace the attempt with a later draft
+  or retry a write. An explicit `update(attempt)` retry keeps identical bytes.
+  Retain the original private context/attempt for this response-loss recovery;
+  browser-restart persistence and reacquiring a retired attempt are not provided.
+- `selectedPinsChanged` reports a checked selected-reference delta. A noop
+  `schemaAction: 'adopt'` result has `selectedPinsChanged: false`. Neither value
+  proves model adoption, business correctness or whole #495 completion. Editor
+  must independently recheck current host/source/input/history before any native
+  effect. This transport performs no such effect.
+
+Integration owns the explicit Vite opt-in and shared runtime. The explicit
+`VITE_OFFICE_NATIVE2_MUTATION_BRIDGE=enabled` switch selects
+`createNative2MutationProxyPolicy` in OIDC mode with the same validated root-only
+loopback `SCHEMA_SERVER_PROXY_TARGET`. Use its single native2 prefix entry before
+ordinary `/api`; do not stack competing read and mutation entries. Without this
+explicit opt-in, the existing default/read bridge stays GET-only.
+The enabled policy permits only existing document/bundle GET, validation POST,
+snapshot PUT and update receipt GET. POST/PUT require a positive canonical
+Content-Length at most 1 MiB and JSON Content-Type. Chunked bodies, upgrades,
+method overrides, cookies, forwarded hosts, query/encoded/foreign paths, create
+and registry writes refuse. It is routing, not an authority grant; the existing
+service still validates body shape, content, current identity and permissions.
+
+Author tests use controlled network replies with the real Office memory-session
+code. Integration must separately bind exact source/compiled bytes and run the
+same HTTP/current signed-JWT/private PostgreSQL A/B, CAS, denial, committed-ACK
+loss and recovery checks before #503 closure. Genuine provider/product UI and all
+original parent criteria remain separate. Product code is local; this section
+is not a deployment or release instruction.
+
+
+### Historical receipt after a fresh login (#506)
+
+`createAuthenticatedNative2ReceiptRecovery()` in
+`src/native2-authenticated-receipt-recovery.ts` captures the current private Office
+login. Its only service operation is GET of the original update receipt. It does
+not restore a persisted writer attempt. Current service identity, membership and
+document policy still decide whether the receipt can be read.
+
+Retain these nine original operation fields separately from a later draft:
+`tenantId`, `workspaceId`, `documentId`, `expectedRevision`,
+`expectedSnapshotHash`, `expectedPriorPinDigest`, `snapshotText`, `schemaAction`
+and `idempotencyKey`. `recover(record)` treats restored data as untrusted. It
+rejects extra fields, malformed keys, invalid UTF-8, foreign bundle scope and
+unsupported native files. It copies the record before any await and recomputes
+the candidate hash and service request hash. Caller hashes, tokens, fetchers,
+origins, roles and approvals are not inputs. Raw input is limited to 512 KiB;
+the strict streamed JSON response is limited to 1 MiB and the lookup to 10 seconds.
+
+The shared pure `verifyNative2UpdateReceipt` checks operation, original key and
+request hash, complete scope, next revision, raw text/hash and native2 page/head.
+It returns data only. Existing #503 mutation methods still require their private
+live attempt brand. `recover` returns `kind: 'historical_acknowledgment'`, the
+fixed original record, the checked receipt and terminal lifetime methods. It
+does not return a write method, approval, model-adoption proof or selected-pin
+change claim. No latest-head read, validation POST, PUT, native effect, automatic
+retry or draft replacement occurs. A missing receipt returns `not_found` and
+leaves the outcome unresolved. Denial and service failure do not start a write.
+
+Logout, login replacement, token deadline, host retirement and a newer lookup
+retire pending or returned results. Held headers/body and late replies refuse;
+late bodies are cancelled. Retirement callbacks are terminal and synchronous.
+Retiring a result leaves the factory available for a new lookup while its login
+is current. A historical acknowledgment is not a new writer or native grant.
+Editor #504 owns persistence, host/source/history checks and user feedback. A
+later explicit write retry requires fresh #503 qualification and exact equality
+of every original field; a newer head must not replace the original operation.
+
+The author tests reload modules and obtain a fresh controlled login. They are
+source evidence. Integration separately owns compiled/current signed-JWT/private
+PostgreSQL/browser reload checks after committed reply loss, current identity and
+revocation denials, one durable effect and unchanged later drafts. Those original
+#506 criteria must pass before whole-Issue closure.
+
+
+### Current Note host factories (#507)
+
+The OIDC Note host supplies optional async zero-argument callbacks
+`createNative2MutationLease` and `createNative2ReceiptRecoveryLease`. Other
+products and local entries do not receive these callbacks. Their types are the
+actual private #503 and #506 factory return types; the existing read callback is
+preserved. Callback availability is not current writer permission or user
+confirmation. Creation sends no service operation. Editor #504 owns the native
+preview, explicit confirmation, persistence, input/source/history and late-draft
+checks before and after a deliberate operation.
+
+`src/native2-authenticated-host.ts` binds each factory to the captured Office
+tenant/workspace and trusted `NativeEntryBinding` authority subscription. It
+checks the host before and after producer loading and every asynchronous
+operation. Foreign mutation scope or restored receipt scope refuses before a
+service call. Restored original data is copied once before scope admission; the
+producer still rejects extra fields and recomputes its exact hashes. Caller
+tokens, roles, approvals, fetchers or native grants are not accepted.
+
+Host retirement and private producer retirement are terminal. Factories,
+contexts and historical results forward synchronous retirement subscriptions;
+old values cannot revive when a role label returns. Result-only retirement keeps
+its valid factory usable, while a new producer read/lookup retires its predecessor.
+Subscriptions detach on retirement. Held imports and responses cannot deliver a
+current value. The existing mutation request now cancels an ignored-abort late
+response body before it can escape the request abort race. A request already
+entered at the service can have committed; local retirement does not roll it back.
+Recovery still uses the original fixed request and never a later draft.
+
+Source tests use actual Office private producers with controlled HTTP replies and
+a controlled trusted host subscription. Static main assembly is labelled static.
+Integration must separately join the exact Editor consumer, build the graph and
+run the actual browser/current signed-JWT/private PostgreSQL flow and original
+#507 acceptance checks. This source connection does not claim actual UI adoption,
+whole #504/#495 completion or release.
+
+### Integration configuration checkpoint (#503)
+
+The actual Office Vite configuration chooses exactly one native2 prefix policy.
+Explicit mutation mode retains the existing early HTTP rejection and upgrade
+refusal before ordinary API fallback. It does not enable registry or create
+writes. Invalid mutation settings refuse during configuration loading.
+`node --test apps/office/tests/native2-proxy-config.test.mjs` exercises the actual
+Vite loader and route decisions without opening a listener. This configuration
+checkpoint and imported author tests are source evidence; current OIDC, separate
+SchemaServer/private PostgreSQL and full product browser acceptance are pending.

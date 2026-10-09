@@ -22,6 +22,21 @@ const fixtures = vi.hoisted(() => ({ client: undefined as unknown as {
 vi.mock('./server-documents', async original => ({ ...await original<typeof import('./server-documents')>(),
   createServerNoteClient: () => fixtures.client }));
 
+// Capture the actual operation's disposal, without replacing its native/private logic.
+const adoption = vi.hoisted(() => {
+  const operations: { value: ReturnType<typeof import('./native2-schema-adoption-operation')['createNative2SchemaAdoptionOperation']>; dispose: ReturnType<typeof vi.fn>; input: Parameters<typeof import('./native2-schema-adoption-operation')['createNative2SchemaAdoptionOperation']>[0] }[] = [];
+  return { enabled: false, operations };
+});
+vi.mock('./native2-schema-adoption-operation', async original => {
+  const actual = await original<typeof import('./native2-schema-adoption-operation')>();
+  return { ...actual, createNative2SchemaAdoptionOperation: (input: Parameters<typeof actual.createNative2SchemaAdoptionOperation>[0]) => {
+    const value = actual.createNative2SchemaAdoptionOperation(input), dispose = vi.fn(value.dispose);
+    adoption.operations.push({ value, dispose, input }); return { ...value, dispose };
+  } };
+});
+const mutationFactory = vi.fn(async () => { throw Error('No private mutation transport from idle panel'); });
+const recoveryFactory = vi.fn(async () => { throw Error('No private recovery transport from idle panel'); });
+
 const opened = (snapshotText: string) => {
   const parsed = readNoteV1SnapshotFile(snapshotText);
   if ('error' in parsed) throw new Error(parsed.error);
@@ -29,8 +44,8 @@ const opened = (snapshotText: string) => {
     title: 'Mounted legacy source', revision: 1, pageId: sourceId }, note: parsed.document, snapshotText };
 };
 
-async function targetRead() {
-  const original = NATIVE_NOTE_FIXTURES.SOURCE_B;
+async function targetRead(kind: 'SOURCE_A' | 'SOURCE_B' = 'SOURCE_B') {
+  const original = NATIVE_NOTE_FIXTURES[kind];
   const snapshotText = JSON.stringify(original);
   const snapshotHash = createHash('sha256').update(snapshotText).digest('hex');
   const document = { documentId: targetId, tenantId, workspaceId, product: 'note', title: 'Pinned B',
@@ -78,7 +93,9 @@ const render = () => root.render(<ServerNoteWorkspace tenantId={tenantId} worksp
   issuer="controlled-issuer" subject={subject} currentUserId={null} initialDocumentId={sourceId}
   authorizedFetch={fetcher} role="editor" authorityEpoch={epoch} isAuthorized={() => authorized}
   subscribeAuthority={retire => { listeners.add(retire); return () => { listeners.delete(retire); }; }}
-  createNative2ReadLease={openFactory} />);
+  createNative2ReadLease={openFactory}
+  createNative2MutationLease={adoption.enabled ? mutationFactory : undefined}
+  createNative2ReceiptRecoveryLease={adoption.enabled ? recoveryFactory : undefined} />);
 
 async function setTarget() {
   const input = host.querySelector<HTMLInputElement>('input[aria-label="읽을 native2 문서 ID"]')!;
@@ -100,7 +117,7 @@ beforeEach(async () => {
   Object.defineProperty(Range.prototype, 'getClientRects', { configurable: true, value: () => [] });
   Object.defineProperty(Range.prototype, 'getBoundingClientRect', { configurable: true, value: () => new DOMRect() });
   localStorage.clear(); original = serializeNoteFile(note); subject = 'controlled-subject'; authorized = true; epoch = 1;
-  listeners.clear(); openFactory.mockReset();
+  listeners.clear(); openFactory.mockReset(); adoption.enabled = false; adoption.operations.length = 0; mutationFactory.mockClear(); recoveryFactory.mockClear();
   fixtures.client = { list: vi.fn(async () => [opened(original).document]), open: vi.fn(async () => opened(original)),
     save: vi.fn(async (attempt: NoteSaveAttempt) => attempt), receipt: vi.fn(), confirm: vi.fn() };
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
@@ -258,3 +275,70 @@ for (const retiredOwner of ['factory', 'result'] as const) {
     expect(resultLife.listenerCount()).toBe(0);
   });
 }
+
+async function stageWithAdoption(kind: 'SOURCE_A' | 'SOURCE_B' = 'SOURCE_B') {
+  const prepared = await targetRead(kind), factoryLife = readLifetime(), resultLife = readLifetime();
+  factoryLife.subscribeRetirement(resultLife.retire);
+  openFactory.mockResolvedValue({ ...factoryLife, open: vi.fn(async () => ({ ...resultLife, read: prepared.read,
+    provenance: { issuer: 'controlled-issuer', subject, currentUserId: null, tenantId, workspaceId, documentId: targetId, role: 'editor' as const } })) });
+  adoption.enabled = true; await act(async () => render()); await setTarget(); await readClick();
+  await vi.waitFor(() => expect(host.querySelector('[aria-label="스키마 채택"]')).not.toBeNull());
+  expect(adoption.operations).toHaveLength(1); expect(adoption.operations[0].value.isCurrent()).toBe(true);
+  expect(mutationFactory).not.toHaveBeenCalled(); expect(recoveryFactory).not.toHaveBeenCalled();
+  expect(localStorage.length).toBe(0);
+  return { factoryLife, resultLife, operation: adoption.operations[0] };
+}
+for (const owner of ['factory', 'result'] as const) {
+  it(`disposes idle adoption immediately on ${owner} read retirement before React unmount`, async () => {
+    const source = host.querySelector('.nw-document')!, text = source.textContent;
+    const h = await stageWithAdoption();
+    await act(async () => {
+      (owner === 'factory' ? h.factoryLife : h.resultLife).retire();
+      // This assertion runs synchronously inside the terminal callback, before React flush.
+      expect(h.operation.dispose).toHaveBeenCalled();
+      expect(h.operation.value.isCurrent()).toBe(false);
+    });
+    expect(host.querySelector('[data-native2-stage]')).toBeNull(); expect(host.querySelector('[aria-label="스키마 채택"]')).toBeNull();
+    expect(source.isConnected).toBe(true); expect(source.textContent).toBe(text);
+    expect(fixtures.client.save).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0);
+  });
+}
+it('explicit stage close disposes own adoption while source/history/input owner remains mounted', async () => {
+  const source = host.querySelector('.nw-document')!, text = source.textContent;
+  const h = await stageWithAdoption();
+  const native = h.operation.input.source.session, body = native.editor.exportDocument(), history = native.editor.historyManager.getCurrentIndex();
+  expect(h.operation.input.source.sourceSnapshot()).toBe(original);
+  expect(h.operation.input.source.scope.documentId).toBe(targetId);
+  expect(h.operation.input.stage.read.document.documentId).toBe(targetId);
+  await act(async () => {
+    const stage = host.querySelector('[data-native2-stage]')!;
+    [...stage.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '닫기')!.click();
+    expect(h.operation.dispose).toHaveBeenCalled();
+  });
+  expect(source.isConnected).toBe(true); expect(source.textContent).toBe(text);
+  expect(host.querySelector('[aria-label="스키마 채택"]')).toBeNull(); expect(h.factoryLife.isCurrent()).toBe(false);
+  expect(native.editor.exportDocument()).toEqual(body); expect(native.editor.historyManager.getCurrentIndex()).toBe(history);
+  expect(fixtures.client.save).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0);
+});
+
+it('passes the existing private mutation callback only after explicit valid preview and validation', async () => {
+  await stageWithAdoption('SOURCE_A');
+  async function fill(label: string, value: string) {
+    const field = host.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[aria-label="${label}"]`)!;
+    const prototype = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    await act(async () => { Object.getOwnPropertyDescriptor(prototype, 'value')!.set!.call(field, value); field.dispatchEvent(new Event('input', { bubbles: true })); });
+  }
+  const click = async (label: string) => act(async () => { [...host.querySelectorAll<HTMLButtonElement>('button')].find(one => one.textContent === label)!.click(); });
+  await fill('전체 후보 문서', JSON.stringify(NATIVE_NOTE_FIXTURES.TARGET_A2)); await fill('데이터 경로', '4,0'); await fill('요청 키', 'host-adopt-1');
+  await click('후보 미리보기'); expect(host.querySelector('[aria-label="채택 후보 읽기 전용"]')).not.toBeNull();
+  expect(mutationFactory).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0);
+  await click('구조 검사'); expect(mutationFactory).toHaveBeenCalledTimes(1);
+  expect(host.textContent).toContain('No private mutation transport from idle panel');
+  expect(recoveryFactory).not.toHaveBeenCalled(); expect(fixtures.client.save).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0);
+});
+it('host authority callback disposes idle operation synchronously without a host rerender', async () => {
+  const h = await stageWithAdoption(), native = h.operation.input.source.session, body = native.editor.exportDocument();
+  await act(async () => { authorized = false; for (const callback of [...listeners]) callback(); expect(h.operation.dispose).toHaveBeenCalled(); });
+  expect(host.querySelector('[data-native2-stage]')).toBeNull(); expect(native.editor.exportDocument()).toEqual(body);
+  expect(fixtures.client.save).not.toHaveBeenCalled(); expect(localStorage.length).toBe(0);
+});

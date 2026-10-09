@@ -76,6 +76,19 @@ function atPath(document: unknown, path: readonly number[]): Record<string, unkn
   if (!native2Record(node) || node.stype !== 'dataset' || !native2Record(node.attributes)) return fail('invalid_native2_dataset_path');
   return node;
 }
+/** Pure native declaration plan. Parsed definition data never grants remote writing. */
+export function planNative2OwnerDeclaration(document: ReturnType<typeof readPreserveNative2>['document'],
+  previous: RegistryReference, original: RegistryDefinition, next: RegistryDefinition, path: readonly number[]) {
+  if (next.schemaId !== previous.schemaId || next.version !== previous.version + 1 ||
+    !native2Equal(next.parent, previous) || !native2Equal(next.scope, original.scope)) return fail('unsupported_native2_adoption');
+  const fields = next.dataset.fields, priorFields = original.dataset.fields;
+  if (next.dataset.name !== original.dataset.name || fields.length !== priorFields.length + 1 ||
+    !native2Equal(fields.slice(0, priorFields.length), priorFields) || !native2Equal(fields.at(-1), { name: 'Owner', kind: 'text', label: '담당자' })) return fail('unsupported_native2_adoption');
+  const planned = structuredClone(document), node = atPath(planned, path), attrs = node.attributes;
+  if (!native2Record(attrs) || attrs.name !== original.dataset.name || !native2Equal(attrs.fields, priorFields)) return fail('native2_dataset_binding_conflict');
+  attrs.fields = structuredClone(fields);
+  return planned;
+}
 function target(source: string, base: Native2PreserveBase, choice: ResolvedNative2Version, path: readonly number[], scope: PendingNoteScope): string {
   validateNative2Draft(base, source, scope); const file = readPreserveNative2(source, scope), old = file.schemaBundle;
   if (old.selected.length !== 1) return fail('unsupported_native2_adoption');
@@ -84,11 +97,7 @@ function target(source: string, base: Native2PreserveBase, choice: ResolvedNativ
   if (choice.reference.schemaId !== previous.schemaId || choice.reference.version !== previous.version + 1 || !native2Equal(next.parent, previous)) return fail('unsupported_native2_adoption');
   const oldEntry = old.definitions.find(e => native2Equal(e.reference, previous)); if (!oldEntry) return fail('native2_version_conflict');
   const original = parseRegistryDefinition(oldEntry.definitionText).definition;
-  const fields = next.dataset.fields, priorFields = original.dataset.fields;
-  if (next.dataset.name !== original.dataset.name || fields.length !== priorFields.length + 1 ||
-    !native2Equal(fields.slice(0, priorFields.length), priorFields) || !native2Equal(fields.at(-1), { name: 'Owner', kind: 'text', label: '담당자' })) return fail('unsupported_native2_adoption');
-  const document = structuredClone(file.document), node = atPath(document, path), attrs = node.attributes;
-  if (!native2Record(attrs) || attrs.name !== original.dataset.name || !native2Equal(attrs.fields, priorFields)) return fail('native2_dataset_binding_conflict');
+  const document = planNative2OwnerDeclaration(file.document, previous, original, next, path);
   const records = [choice.record, ...choice.dependencies];
   const definitions: RegistryBundle['definitions'][number][] = old.definitions.map(entry => {
     const r = records.find(r => r.schemaId === entry.reference.schemaId && r.version === entry.reference.version);
@@ -99,7 +108,6 @@ function target(source: string, base: Native2PreserveBase, choice: ResolvedNativ
     definitions.push({ reference: { schemaId: r.schemaId, version: r.version, digest: r.digest }, definitionText: r.definitionText });
   }
   const bundle = validateRegistryBundle({ bundleVersion: 1, digestAlgorithm: REGISTRY_DIGEST, selected: [choice.reference], definitions }).bundle;
-  attrs.fields = structuredClone(fields);
   return serializeNoteFile(document, { fileVersion: 2, schemaBundle: bundle, ...(file.savedAt !== undefined ? { savedAt: file.savedAt } : {}) });
 }
 async function frozen(scope: PendingNoteScope, baseValue: unknown, source: string, choice: ResolvedNative2Version, path: readonly number[], key: string, generation: number, current: () => boolean): Promise<Native2AdoptAttempt> {

@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { parseRegistryDefinition, REGISTRY_DIGEST } from '@barocss/schema/registry-contract';
 import { NATIVE_NOTE_FIXTURES, NATIVE_NOTE_EXPECTED_VARIANTS } from './native2-scenario-fixtures';
 import { createExperimentalNative2Adopter } from './experimental-native2-adopt';
+import type { Native2OriginalUpdate } from '../../office/src/native2-authenticated-receipt-recovery';
 import { createExperimentalNative2AdoptJournal } from './experimental-native2-adopt-pending';
 const scope = { issuer: 'controlled-issuer', subject: 'controlled-writer', tenantId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', workspaceId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' };
 const documentId = '33333333-3333-4333-8333-333333333333', original = JSON.stringify(NATIVE_NOTE_FIXTURES.SOURCE_A);
@@ -99,4 +100,189 @@ describe('private adoption target and original-context draft recovery', () => {
       JSON.stringify({ ...value, fixed: { ...h.attempt, schemaAction: 'preserve' } });
     h.storage.setItem(h.journal.key, raw); await expect(h.journal.read()).rejects.toThrow('corrupt_native2_adopt_record'); expect(h.storage.getItem(h.journal.key)).toBe(raw);
   });
+});
+
+
+const officeOriginal: Native2OriginalUpdate = {
+  tenantId: scope.tenantId, workspaceId: scope.workspaceId, documentId, expectedRevision: 1,
+  expectedSnapshotHash: hash(original),
+  expectedPriorPinDigest: hash(JSON.stringify(['wonffice.note.snapshot-pins.cas.v1', scope.tenantId,
+    scope.workspaceId, documentId, 'pinned', NATIVE_NOTE_FIXTURES.SOURCE_A.schemaBundle.selected.map(r => [r.schemaId, r.version, r.digest])])),
+  snapshotText: target, schemaAction: 'adopt', idempotencyKey: 'office-adopt-original-1',
+};
+const officeRequestHash = hash(JSON.stringify(['note-native2-snapshot-v1', scope.tenantId, scope.workspaceId,
+  documentId, 'adopt', 1, hash(original), officeOriginal.expectedPriorPinDigest, target]));
+function officeSetup(storage = new MemoryStorage()) {
+  let current = true;
+  const journal = createExperimentalNative2AdoptJournal({ scope, documentId, storage, isWritableCurrent: () => current });
+  return { journal, storage, retire: () => { current = false; } };
+}
+async function officeFixed(h = officeSetup()) {
+  await h.journal.office.writeCandidate(base, { generation: 1, snapshotText: target });
+  const value = await h.journal.office.fix(officeOriginal, [4, 0], 1);
+  return { ...h, fixed: value.fixed! };
+}
+describe('Office original-operation recovery in the existing adoption journal', () => {
+  it('retains exact original9 and a later invalid candidate across a fresh reload without restoring a writer', async () => {
+    const h = await officeFixed();
+    const later = '{later incomplete candidate';
+    await h.journal.office.writeCandidate(base, { generation: 2, snapshotText: later });
+    await h.journal.office.markUnknown(h.fixed);
+    const recovered = await officeSetup(h.storage).journal.office.read();
+    expect(recovered?.fixed?.original).toEqual(officeOriginal);
+    expect(Object.keys(recovered!.fixed!.original)).toHaveLength(9);
+    expect(recovered?.latestCandidate).toEqual({ generation: 2, snapshotText: later });
+    expect(recovered?.phase).toBe('unknown');
+    expect(recovered?.fixed?.requestHash).toBe(officeRequestHash);
+    expect(Object.isFrozen(recovered?.fixed?.original)).toBe(true);
+    expect(Object.keys(recovered!.fixed!)).toEqual(['generation', 'datasetPath', 'original', 'requestHash', 'candidateSnapshotHash']);
+    expect(recovered!.scope).toEqual({ ...scope, documentId });
+    expect(h.storage.length).toBe(1);
+  });
+  it('refuses cross-version writes and preserves every original byte under the same key', async () => {
+    const legacy = await fixed(); const legacyRaw = legacy.storage.getItem(legacy.journal.key);
+    const office = officeSetup(legacy.storage);
+    expect(office.journal.key).toBe(legacy.journal.key);
+    await expect(office.journal.office.writeCandidate(base, { generation: 1, snapshotText: target })).rejects.toThrow('corrupt_native2_office_adopt_record');
+    expect(legacy.storage.getItem(legacy.journal.key)).toBe(legacyRaw);
+    const h = await officeFixed(); const raw = h.storage.getItem(h.journal.key);
+    await expect(h.journal.writeDraft(base, { generation: 1, snapshotText: original })).rejects.toThrow('corrupt_native2_adopt_record');
+    expect(h.storage.getItem(h.journal.key)).toBe(raw);
+  });
+  it.each(['scope', 'revision', 'source-hash', 'pin-hash', 'action', 'extra', 'pin-only', 'path'] as const)('refuses altered %s before freezing an original', async kind => {
+    const h = officeSetup(); await h.journal.office.writeCandidate(base, { generation: 1, snapshotText: target });
+    const before = h.storage.getItem(h.journal.key);
+    const changed = { ...officeOriginal,
+      ...(kind === 'scope' ? { documentId: '77777777-7777-4777-8777-777777777777' } : {}),
+      ...(kind === 'revision' ? { expectedRevision: 2 } : {}),
+      ...(kind === 'source-hash' ? { expectedSnapshotHash: 'a'.repeat(64) } : {}),
+      ...(kind === 'pin-hash' ? { expectedPriorPinDigest: 'a'.repeat(64) } : {}),
+      ...(kind === 'action' ? { schemaAction: 'preserve' } : {}),
+      ...(kind === 'extra' ? { token: 'not-authority' } : {}),
+      ...(kind === 'pin-only' ? { snapshotText: JSON.stringify({ ...NATIVE_NOTE_FIXTURES.SOURCE_A, schemaBundle: NATIVE_NOTE_FIXTURES.TARGET_A2.schemaBundle }) } : {}),
+    };
+    await expect(h.journal.office.fix(changed, kind === 'path' ? [0] : [4, 0], 1)).rejects.toThrow();
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+  });
+  it('a fixed key/body/base cannot be replaced or advanced by a later candidate', async () => {
+    const h = await officeFixed();
+    await h.journal.office.writeCandidate(base, { generation: 2, snapshotText: target + ' ' });
+    const before = h.storage.getItem(h.journal.key);
+    await expect(h.journal.office.fix({ ...officeOriginal, snapshotText: target + ' ' }, [4, 0], 2)).rejects.toThrow('fixed_native2_adoption_cannot_be_replaced');
+    await expect(h.journal.office.writeCandidate({ ...base, document: { ...base.document, revision: 2 } }, { generation: 3, snapshotText: target })).rejects.toThrow('native2_adopt_base_cannot_advance');
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+  });
+  it('historical ACK remains historical and retains the later candidate; forged correlation refuses', async () => {
+    const h = await officeFixed();
+    await h.journal.office.writeCandidate(base, { generation: 2, snapshotText: 'later incomplete' });
+    const acknowledgment = { kind: 'historical_acknowledgment' as const, original: officeOriginal,
+      receipt: { operation: 'update' as const, idempotencyKey: officeOriginal.idempotencyKey, requestHash: officeRequestHash,
+        document: { ...base.document, revision: 2, snapshotHash: hash(target) }, snapshotText: target },
+      isCurrent: () => true, retire: () => {}, subscribeRetirement: () => () => {} };
+    const before = h.storage.getItem(h.journal.key);
+    await expect(h.journal.office.observeHistorical(h.fixed, { ...acknowledgment, receipt: { ...acknowledgment.receipt, requestHash: 'f'.repeat(64) } })).rejects.toThrow();
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+    const observed = await h.journal.office.observeHistorical(h.fixed, acknowledgment);
+    expect(observed.phase).toBe('historical-acknowledgment');
+    expect(observed.latestCandidate.snapshotText).toBe('later incomplete');
+    await expect(h.journal.office.markUnknown(h.fixed)).rejects.toThrow('native2_adopt_confirmation_cannot_regress');
+    expect((await officeSetup(h.storage).journal.office.read())?.phase).toBe('historical-acknowledgment');
+  });
+  it('currentness expiry during a hash await cannot write or delete recovery bytes', async () => {
+    const h = await officeFixed(); const before = h.storage.getItem(h.journal.key);
+    const realDigest = crypto.subtle.digest.bind(crypto.subtle);
+    const spy = vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (...args) => { const value = await realDigest(...args); h.retire(); return value; });
+    try { await expect(h.journal.office.markUnknown(h.fixed)).rejects.toThrow('stale_native2_writable_context'); }
+    finally { spy.mockRestore(); }
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+  });
+  it('quota and competing storage changes refuse with the original record retained', async () => {
+    const h = await officeFixed(); const before = h.storage.getItem(h.journal.key); h.storage.fail = true;
+    await expect(h.journal.office.markUnknown(h.fixed)).rejects.toThrow('controlled quota');
+    expect(h.storage.getItem(h.journal.key)).toBe(before); h.storage.fail = false;
+    const realDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let once = false;
+    const spy = vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (...args) => {
+      const value = await realDigest(...args); if (!once) { once = true; h.storage.setItem(h.journal.key, before! + ' '); } return value;
+    });
+    try { await expect(h.journal.office.markUnknown(h.fixed)).rejects.toThrow('native2_adopt_changed_during_read'); }
+    finally { spy.mockRestore(); }
+    expect(h.storage.getItem(h.journal.key)).toBe(before! + ' ');
+  });
+  it('malformed persisted fields and forged request hashes retain raw bytes', async () => {
+    const h = await officeFixed(); const raw = h.storage.getItem(h.journal.key)!;
+    const record = JSON.parse(raw);
+    for (const value of [ { ...record, fixed: { ...record.fixed, requestHash: 'f'.repeat(64) } },
+      { ...record, fixed: { ...record.fixed, original: { ...officeOriginal, role: 'writer' } } },
+      { ...record, latestCandidate: { generation: 1, snapshotText: target + ' ' } } ]) {
+      const bad = JSON.stringify(value); h.storage.setItem(h.journal.key, bad);
+      await expect(h.journal.office.read()).rejects.toThrow('corrupt_native2_office_adopt_record');
+      expect(h.storage.getItem(h.journal.key)).toBe(bad);
+    }
+  });
+  it('caller mutation during capture cannot substitute the fixed candidate or path', async () => {
+    const h = officeSetup(); await h.journal.office.writeCandidate(base, { generation: 1, snapshotText: target });
+    const supplied = { ...officeOriginal }; const path = [4, 0];
+    const realDigest = crypto.subtle.digest.bind(crypto.subtle); let once = false;
+    const spy = vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (...args) => {
+      const value = await realDigest(...args);
+      if (!once) { once = true; supplied.snapshotText = 'later caller text'; supplied.idempotencyKey = 'another-key'; path[0] = 0; }
+      return value;
+    });
+    try {
+      const result = await h.journal.office.fix(supplied, path, 1);
+      expect(result.fixed?.original).toEqual(officeOriginal); expect(result.fixed?.datasetPath).toEqual([4, 0]);
+    } finally { spy.mockRestore(); }
+  });
+  it('historical origin retirement during durable decode cannot change the old phase or later draft', async () => {
+    const h = await officeFixed(); const before = h.storage.getItem(h.journal.key); let originCurrent = true;
+    const realDigest = crypto.subtle.digest.bind(crypto.subtle);
+    const spy = vi.spyOn(crypto.subtle, 'digest').mockImplementation(async (...args) => {
+      const value = await realDigest(...args); originCurrent = false; return value;
+    });
+    try {
+      await expect(h.journal.office.observeHistorical(h.fixed, { kind: 'historical_acknowledgment', original: officeOriginal,
+        receipt: { operation: 'update', idempotencyKey: officeOriginal.idempotencyKey, requestHash: officeRequestHash,
+          document: { ...base.document, revision: 2, snapshotHash: hash(target) }, snapshotText: target },
+        isCurrent: () => originCurrent, retire: () => {}, subscribeRetirement: () => () => {} })).rejects.toThrow('stale_native2_writable_context');
+    } finally { spy.mockRestore(); }
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+  });
+  it('separate issuer and subject cannot read or replace the original account record', async () => {
+    const h = await officeFixed(); const before = h.storage.getItem(h.journal.key);
+    for (const account of [{ ...scope, subject: 'other' }, { ...scope, issuer: 'other' }]) {
+      const other = createExperimentalNative2AdoptJournal({ scope: account, documentId, storage: h.storage, isWritableCurrent: () => true });
+      expect(await other.office.read()).toBeUndefined();
+    }
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+  });
+
+  it('refuses an additional foreign-scope definition even when its native body and chosen pin match', async () => {
+    const h = officeSetup();
+    const originalDefinition = parseRegistryDefinition(NATIVE_NOTE_FIXTURES.TARGET_A2.schemaBundle.definitions[0].definitionText).definition;
+    const fields = originalDefinition;
+    const definitionText = JSON.stringify({ ...fields, schemaId: '77777777-7777-4777-8777-777777777777', version: 1, parent: null,
+      dependencies: [], scope: { ...originalDefinition.scope, tenantId: '99999999-9999-4999-8999-999999999999' } });
+    const parsed = parseRegistryDefinition(definitionText);
+    const foreignText = JSON.stringify({ ...NATIVE_NOTE_FIXTURES.TARGET_A2, schemaBundle: { ...NATIVE_NOTE_FIXTURES.TARGET_A2.schemaBundle,
+      definitions: [...NATIVE_NOTE_FIXTURES.TARGET_A2.schemaBundle.definitions,
+        { reference: { schemaId: parsed.definition.schemaId, version: 1, digest: hash(parsed.canonicalText) }, definitionText }] } });
+    await h.journal.office.writeCandidate(base, { generation: 1, snapshotText: foreignText });
+    const before = h.storage.getItem(h.journal.key);
+    expect(parsed.definition.scope.tenantId).toBe('99999999-9999-4999-8999-999999999999');
+    await expect(h.journal.office.fix({ ...officeOriginal, snapshotText: foreignText }, [4, 0], 1)).rejects.toThrow('invalid_native_context');
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+  });
+
+});
+
+it.each(['candidate', 'fixed'] as const)('Office journal rejects an already canceled %s operation origin without changing prior bytes', async kind => {
+  const h = officeSetup();
+  if (kind === 'fixed') await h.journal.office.writeCandidate(base, { generation: 1, snapshotText: target });
+  const before = h.storage.getItem(h.journal.key);
+  const waiting = kind === 'candidate'
+    ? h.journal.office.writeCandidate(base, { generation: 1, snapshotText: target }, () => false)
+    : h.journal.office.fix(officeOriginal, [4, 0], 1, () => false);
+  await expect(waiting).rejects.toThrow('stale_native2_writable_context');
+  expect(h.storage.getItem(h.journal.key)).toBe(before);
 });

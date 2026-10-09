@@ -44,7 +44,7 @@ const changed = (): never => { throw new Error('native2_stage_source_changed'); 
 const invalid = (): never => { throw new Error('native2_stage_read_invalid'); };
 const readRetired = (): never => { throw new Error('native2_stage_read_retired'); };
 
-function captureSource(source: Native2StageSource): () => boolean {
+export function captureNative2StageSource(source: Native2StageSource): () => boolean {
   const { session, authority } = source;
   const root = session.rootId, sid = session.session, epoch = session.editor.dataStore.getDocumentEpoch();
   const rootNode = session.editor.dataStore.getNode(root);
@@ -99,7 +99,7 @@ export function createExperimentalNative2ReadStage({ source, readFresh, onRetire
     if (disposed) changed();
     active?.dispose(); active = undefined;
     const own = ++generation;
-    const sourceCurrent = captureSource(source);
+    const sourceCurrent = captureNative2StageSource(source);
     if (!sourceCurrent()) changed();
     let lease: Native2StageReadLease | undefined;
     let candidate: NativeNoteSession | undefined;

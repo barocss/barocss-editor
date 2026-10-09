@@ -1,5 +1,5 @@
 import { defineConfig, loadEnv, type ViteDevServer } from 'vite';
-import { createNative2ReadProxyPolicy } from './src/native2-proxy-policy';
+import { createNative2MutationProxyPolicy, createNative2ReadProxyPolicy } from './src/native2-proxy-policy';
 import react from '@vitejs/plugin-react';
 import tailwind from '@tailwindcss/vite';
 import { fileURLToPath, URL } from 'node:url';
@@ -9,16 +9,21 @@ export default defineConfig(({ mode }) => {
  const env = loadEnv(mode, process.cwd(), '');
  const apiTarget = process.env.OFFICE_API_PROXY_TARGET || env.OFFICE_API_PROXY_TARGET || 'http://127.0.0.1:4100';
  const authMode = process.env.VITE_OFFICE_AUTH_MODE || env.VITE_OFFICE_AUTH_MODE;
+ const schemaTarget = process.env.SCHEMA_SERVER_PROXY_TARGET || env.SCHEMA_SERVER_PROXY_TARGET;
  const native2ReadProxy = createNative2ReadProxyPolicy({
   authMode,
   flag: process.env.VITE_OFFICE_NATIVE2_READ_BRIDGE || env.VITE_OFFICE_NATIVE2_READ_BRIDGE,
-  target: process.env.SCHEMA_SERVER_PROXY_TARGET || env.SCHEMA_SERVER_PROXY_TARGET,
+  target: schemaTarget,
  });
+ const mutationFlag = process.env.VITE_OFFICE_NATIVE2_MUTATION_BRIDGE || env.VITE_OFFICE_NATIVE2_MUTATION_BRIDGE;
+ const native2Proxy = mutationFlag
+  ? createNative2MutationProxyPolicy({ authMode, flag: mutationFlag, target: schemaTarget })
+  : native2ReadProxy;
  if (!/^http:\/\/(127\.0\.0\.1|localhost):\d{1,5}$/.test(apiTarget)) throw new Error('OFFICE_API_PROXY_TARGET must be a loopback HTTP origin');
  const native2ReadBoundary = {
   name: 'office-native2-read-boundary',
   configureServer(server: ViteDevServer) {
-   const entries = Object.entries(native2ReadProxy);
+   const entries = Object.entries(native2Proxy);
    if (!entries.length) return;
    server.middlewares.use((request, response, next) => {
     const matched = entries.find(([context]) => new RegExp(context).test(request.url ?? ''));
@@ -45,7 +50,7 @@ export default defineConfig(({ mode }) => {
    port: 5186,
    strictPort: authMode === 'oidc',
    proxy: authMode === 'oidc' ? {
-    ...native2ReadProxy,
+    ...native2Proxy,
     '/api': { target: apiTarget, changeOrigin: false, rewrite: path => path.replace(/^\/api(?=\/|$)/, '') },
    } : undefined,
   },
