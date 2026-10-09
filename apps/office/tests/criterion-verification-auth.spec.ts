@@ -459,6 +459,8 @@ test('author, confirm and really execute an exact fictional criterion through au
     await runButton(page).click(); const replayFresh = await freshRetry; expect(replayFresh.request().postDataJSON()).toStrictEqual(freshBody);
     expect(await replayFresh.json()).toStrictEqual(freshReceipt); expect(await runs()).toStrictEqual(terminal);
     await expect(verification(page).getByRole('status')).toHaveText('실행 결과 · 통과');
+    expect(freshReceipt!.outcome).toBe('passed');
+    expect(assertOutput(freshReceipt!).evaluation.ratio).toBe(21);
 
     phase = 'executed-original-local-backup-new-id-restore'; checkpoint();
     // Reuse the actual #428 UI backup/restore path with this genuinely confirmed
