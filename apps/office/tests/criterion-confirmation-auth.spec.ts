@@ -201,6 +201,8 @@ async function ensureBusinessPanel(page: Page) {
   await expect(panel(page)).toBeVisible();
 }
 async function openServerActions(page: Page) {
+  // An unsaved server entry exposes import controls before the native App/menu exists.
+  if (await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인', exact: true }).isVisible()) return;
   const actions = workspace(page).getByRole('region', { name: '문서 작업', exact: true });
   if (!await actions.isVisible()) {
     await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
