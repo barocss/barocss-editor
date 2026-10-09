@@ -89,19 +89,26 @@ describe('fixed paragraph preview safety', () => {
     } finally { dispose(); }
   });
 
-  it('retains omitted marks and records the concrete existing native undo limitation', async () => {
-    const { editor, range, native, dispose } = setup();
+  it('restores exact native content through repeated undo/redo without reviving unavailable preview apply', async () => {
+    const { editor, preview, range, native, dispose } = setup();
     try {
-      const before = JSON.parse(native());
-      const neighbors = [before.document.content[0].content[0], before.document.content[0].content[2], before.document.content[0].content[3]];
+      const beforeText = native(), before = JSON.parse(beforeText);
       expect(before.document.content[0].content[1].content[0]).not.toHaveProperty('marks');
+      expect(preview.make(range, () => true)).toBe(true);
+      expect(preview.apply()).toBe(false); expect(native()).toBe(beforeText);
       expect(await editor.executeCommand('replaceText', { range, text: PARAGRAPH_PROPOSAL_SAMPLE.proposal })).toBe(true);
-      expect(await editor.executeCommand('undo')).toBe(true);
-      const undone = JSON.parse(native());
-      expect(undone.document.content[0].content[1].content[0].text).toBe(PARAGRAPH_PROPOSAL_SAMPLE.original);
-      expect(undone.document.content[0].content[1].content[0].marks).toEqual([]);
-      expect(undone).not.toEqual(before);
-      expect([undone.document.content[0].content[0], undone.document.content[0].content[2], undone.document.content[0].content[3]]).toEqual(neighbors);
+      const editedText = native(), expectedEdited = structuredClone(before);
+      expectedEdited.document.content[0].content[1].content[0].text = PARAGRAPH_PROPOSAL_SAMPLE.proposal;
+      expectedEdited.document.content[0].content[1].content[0].marks = [];
+      expect(JSON.parse(editedText)).toStrictEqual(expectedEdited);
+      for (let repeat = 0; repeat < 2; repeat += 1) {
+        expect(await editor.executeCommand('undo')).toBe(true);
+        expect(native()).toBe(beforeText); expect(JSON.parse(native())).toStrictEqual(before);
+        expect(JSON.parse(native()).document.content[0].content[1].content[0]).not.toHaveProperty('marks');
+        expect(preview.state).toBe('stale'); expect(preview.apply()).toBe(false); expect(native()).toBe(beforeText);
+        expect(await editor.executeCommand('redo')).toBe(true); expect(native()).toBe(editedText);
+      }
+      expect(await editor.executeCommand('undo')).toBe(true); expect(native()).toBe(beforeText);
+      expect(preview.apply()).toBe(false); expect(native()).toBe(beforeText);
     } finally { dispose(); }
-  });
-});
+  });});

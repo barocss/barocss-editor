@@ -6,9 +6,13 @@ import type { INode } from '../../../packages/datastore/src/types';
 import { createStarterDocument } from '../../../packages/office-word/src/starter-document';
 import { createSampleDocument } from '../../../packages/office-word/src/sample-document';
 import { wordFileText } from '../../../packages/office-word/src/word-file';
+import { openLocalLibrary } from './helpers/local-library';
+import { nativeEditor } from './helpers/native-editor';
 import { privateControl, launchPrivateProfile, stopPrivateProfile, type Inspection, type RealStatus } from './helpers/real-recovery-control';
 
 const origin = process.env.OFFICE_AUTH_ORIGIN ?? 'http://127.0.0.1:5191';
+const localOrigin = process.env.OFFICE_CRITERION_LOCAL_ORIGIN;
+const sourceRoot = process.env.CRITERION_CONFIRMATION_WORKSPACE_ROOT;
 const requirementText = 'Fictional requirement: preserve customer-authored formatting and exact revision references.';
 const decisionText = 'Fictional decision: retain full native evidence and use the existing editor history.';
 const decisionAddition = ' Include a separate recovery check.';
@@ -36,6 +40,8 @@ test.use({ actionTimeout: 15_000, navigationTimeout: 30_000 });
 test.beforeAll(() => {
   if (!process.env.OFFICE_AUTH_REAL_FILE || !process.env.OFFICE_AUTH_CONTROL_FILE)
     throw new Error('Protected real OIDC fixture and disposable PostgreSQL supervisor are required.');
+  if (localOrigin !== 'http://127.0.0.1:5186' || !sourceRoot)
+    throw new Error('The same-source local Office on port 5186 and its source root are required for actual backup/restore.');
 });
 
 async function login(page: Page, alias: Alias, url = origin) {
@@ -99,7 +105,8 @@ function nativeParagraph(document: INode, text: string): INode {
 }
 async function exported(page: Page): Promise<INode> {
   const download = page.waitForEvent('download');
-  await workspace(page).getByRole('button', { name: 'Word 파일 내보내기', exact: true }).click();
+  await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Word 파일 내보내기', exact: true }).click();
   return JSON.parse(readFileSync((await (await download).path())!, 'utf8')).document as INode;
 }
 async function caret(page: Page, text: string, position: 'Home' | 'End' = 'Home') {
@@ -129,7 +136,7 @@ async function canonical(page: Page, root: string, bearer: string, documentId: s
   return db;
 }
 async function seedAndOpen(page: Page) {
-  await page.getByRole('button', { name: '자료함', exact: true }).click();
+  await page.getByRole('button', { name: '파일 자료함', exact: true }).click();
   await page.getByRole('button', { name: 'Word 자료', exact: true }).click();
   await page.getByRole('button', { name: '새 Word 만들기', exact: true }).click();
   await expect(workspace(page)).toBeVisible({ timeout: 30_000 });
@@ -155,6 +162,7 @@ async function seedAndOpen(page: Page) {
       tx.oncomplete = () => { db.close(); resolve(); }; tx.onabort = () => reject(tx.error);
     };
   }), { name, title, text });
+  await openServerActions(page);
   await workspace(page).getByRole('button', { name: '이 기기의 로컬 문서 목록 확인' }).click();
   await workspace(page).getByRole('button', { name: `${title} · 새 서버 사본 준비`, exact: true }).click();
   const response = page.waitForResponse(response => response.request().method() === 'POST' && /\/documents$/.test(new URL(response.url()).pathname));
@@ -186,9 +194,64 @@ const frozenRequest = (capture: Capture, idempotencyKey: string) => ({ schemaVer
   snapshotHash: capture.snapshotHash, snapshotText: capture.snapshotText, context: capture.context, authorityEpoch: capture.authorityEpoch, idempotencyKey });
 
 async function ensureBusinessPanel(page: Page) {
-  if (!await panel(page).isVisible()) await page.getByRole('button', { name: '요구·결정', exact: true }).click();
+  if (!await panel(page).isVisible()) {
+    await workspace(page).getByRole('menuitem', { name: '문서 패널', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '요구·결정', exact: true }).click();
+  }
   await expect(panel(page)).toBeVisible();
 }
+async function openServerActions(page: Page) {
+  const actions = workspace(page).getByRole('region', { name: '문서 작업', exact: true });
+  if (!await actions.isVisible()) {
+    await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitem', { name: '열기…', exact: true }).click();
+  }
+  await expect(actions).toBeVisible();
+}
+interface LocalSnapshot { row: { name: string; title?: string; revision?: number }; text: string }
+async function localSnapshots(page: Page): Promise<LocalSnapshot[]> {
+  return page.evaluate(async root => {
+    const { productStore } = await import(`/@fs${root}/packages/office-workspace/src/index.ts`);
+    return productStore('word').snapshots();
+  }, sourceRoot!) as Promise<LocalSnapshot[]>;
+}
+async function importLocalFile(page: Page, name: string, text: string) {
+  await page.getByRole('button', { name: '백업 및 가져오기', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '백업 및 가져오기', exact: true });
+  await dialog.getByLabel('백업 또는 제품 JSON 파일', { exact: true }).setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(text) });
+  await dialog.getByRole('button', { name: '새 사본으로 복원', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+}
+async function downloadLocalBackup(page: Page): Promise<string> {
+  await page.getByRole('button', { name: '백업 및 가져오기', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '백업 및 가져오기', exact: true });
+  const download = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: '전체 자료 백업', exact: true }).click();
+  const text = readFileSync((await (await download).path())!, 'utf8');
+  await page.keyboard.press('Escape'); await expect(dialog).not.toBeVisible();
+  return text;
+}
+function derivedNative(original: INode, copied: INode, title: string): INode {
+  const expected = structuredClone(original), sourcePair = original.metadata!.wonfficeBusinessPair as Pair;
+  const expectedPair = expected.metadata!.wonfficeBusinessPair as Pair, actualPair = copied.metadata!.wonfficeBusinessPair as Pair;
+  expect(actualPair.items).toHaveLength(2);
+  const ids = actualPair.items.map(item => item.id);
+  expect(ids[0]).not.toBe(ids[1]);
+  expectedPair.items.forEach((item, index) => {
+    expect(ids[index]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    sourcePair.items.forEach(source => expect(ids[index]).not.toBe(source.id));
+    item.derivedFrom = { itemId: item.id, version: item.currentVersion }; item.id = ids[index];
+  });
+  expectedPair.relations[0].source.itemId = ids[0]; expectedPair.relations[0].target.itemId = ids[1];
+  let titles = 0;
+  const rename = (node: INode) => {
+    if (node.stype === 'docTitle') { node.content = [{ stype: 'inline-text', text: title }]; titles++; }
+    node.content?.forEach(child => { if (typeof child !== 'string') rename(child); });
+  };
+  rename(expected); expect(titles).toBe(1); expect(copied).toStrictEqual(expected);
+  return expected;
+}
+
 async function installDigestGate(page: Page) {
   await page.evaluate(() => {
       const host = window as typeof window & { __criterionGate?: { entered: boolean; release: () => void; restore: () => void } };
@@ -304,6 +367,7 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     await caret(page, requirementText); await installDigestGate(page);
     try {
       await confirmCriterion(page).click(); await enteredDigestGate(page);
+      await openServerActions(page);
       await workspace(page).getByRole('button', { name: '새 Word', exact: true }).click();
       const starter = JSON.parse(wordFileText(createStarterDocument(), '')).document as INode;
       await expect.poll(async () => await exported(page)).toStrictEqual(starter);
@@ -366,7 +430,7 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     await caret(page, decisionText, 'End'); await page.keyboard.insertText(decisionAddition);
     const ordinaryEdit = structuredClone(expectedAuthored);
     const ordinaryRun = nativeParagraph(ordinaryEdit, decisionText).content!.find(node => typeof node !== 'string' && node.stype === 'inline-text') as INode;
-    ordinaryRun.text = decisionText + decisionAddition; ordinaryRun.marks = [];
+    ordinaryRun.text = decisionText + decisionAddition;
     expect(await exported(page)).toStrictEqual(ordinaryEdit);
     await caret(page, decisionText + decisionAddition, 'End'); await page.keyboard.press('Meta+z');
     expect(await exported(page)).toStrictEqual(expectedAuthored);
@@ -395,12 +459,103 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     await page.reload(); await expect(status(page)).toHaveText('서버 저장 확인됨'); await ensureBusinessPanel(page); await refreshConfirmation(page).click();
     await expect(confirmation(page)).toContainText('확인됨'); expect(await records()).toStrictEqual([receipt]);
     expect((await canonical(page, root, requests.bearer, source.documentId, expectedAuthored)).document).toStrictEqual(committed.document);
+    phase = 'trusted-original-local-backup-new-id-restore'; checkpoint();
+    // These are the genuinely authored, currently confirmed source bytes. The
+    // independent local UI imports them, downloads a backup and restores it.
+    const trustedDownload = page.waitForEvent('download');
+    await workspace(page).getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Word 파일 내보내기', exact: true }).click();
+    const trustedFile = readFileSync((await (await trustedDownload).path())!, 'utf8');
+    expect(JSON.parse(trustedFile).document).toStrictEqual(expectedAuthored);
+    const local = await a.context.newPage();
+    try {
+      await local.goto(localOrigin!); await openLocalLibrary(local);
+      expect(await localSnapshots(local)).toEqual([]);
+      await importLocalFile(local, 'confirmed-original.word.json', trustedFile);
+      await expect(local.locator('[data-document]')).toHaveCount(1);
+      const imported = (await localSnapshots(local))[0];
+      expect(imported.row.title).toBe('Barocss Word (복원)');
+      const expectedImported = derivedNative(expectedAuthored, JSON.parse(imported.text).document, 'Barocss Word (복원)');
+      const archive = await downloadLocalBackup(local);
+      const backup = JSON.parse(archive) as { documents: Array<{ product: string; row: { name: string }; text: string }> };
+      expect(backup.documents).toHaveLength(1); expect(backup.documents[0].product).toBe('word');
+      expect(backup.documents[0].row.name).toBe(imported.row.name); expect(backup.documents[0].text).toBe(imported.text);
+      writeFileSync(join(directory, 'confirmed-source-local-backup.json'), archive, { mode: 0o600 });
+      await importLocalFile(local, 'confirmed-source-backup.json', archive);
+      await expect(local.locator('[data-document]')).toHaveCount(2);
+      const localCopies = await localSnapshots(local);
+      expect(localCopies.find(row => row.row.name === imported.row.name)).toStrictEqual(imported);
+      const restored = localCopies.find(row => row.row.name !== imported.row.name)!;
+      expect(restored.row.title).toBe('Barocss Word (복원) (복원)');
+      const expectedRestored = derivedNative(expectedImported, JSON.parse(restored.text).document, 'Barocss Word (복원) (복원)');
+      const restoredPair = expectedRestored.metadata!.wonfficeBusinessPair as Pair;
+      for (const item of restoredPair.items) {
+        (expectedAuthored.metadata!.wonfficeBusinessPair as Pair).items.forEach(source => expect(item.id).not.toBe(source.id));
+      }
+      // Inspect the mounted local Word and its deliberately untrusted confirmation UI.
+      await local.getByRole('button', { name: 'Word Barocss Word (복원) (복원)', exact: true }).click();
+      await expect(nativeEditor(local).locator('.w-paragraph').filter({ hasText: requirementText })).toBeVisible({ timeout: 30_000 });
+      await nativeEditor(local).getByRole('menuitem', { name: '문서 패널', exact: true }).click();
+      await nativeEditor(local).getByRole('menuitemcheckbox', { name: '요구·결정', exact: true }).click();
+      const localConfirmation = nativeEditor(local).getByLabel('정확한 요구사항 버전 확인', { exact: true });
+      await expect(localConfirmation).toContainText('로그인한 서버 문서의 작성자가 직접 확인해야 합니다.');
+      await expect(localConfirmation).toContainText('검증 · 실행하지 않음');
+      await expect(localConfirmation).not.toContainText(receipt.confirmationId);
+      await expect(localConfirmation).not.toContainText(receipt.actorIdentityId);
+      await local.screenshot({ path: join(directory, 'local-restored-unconfirmed.png'), animations: 'disabled' });
+      await local.getByRole('button', { name: '파일 자료함', exact: true }).click(); await openLocalLibrary(local);
+      const restoredArchive = await downloadLocalBackup(local);
+      const restoredBackup = JSON.parse(restoredArchive) as typeof backup;
+      const transported = restoredBackup.documents.find(entry => entry.row.name === restored.row.name)!;
+      expect(transported.text).toBe(restored.text);
+      writeFileSync(join(directory, 'actual-restored-local-backup.json'), restoredArchive, { mode: 0o600 });
+      // The native file is extracted unchanged from the actual downloaded backup;
+      // transport between origins is controlled, while import/backup/restore are real UI.
+      await openServerActions(page);
+      await workspace(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({ name: 'restored-new-id.word.json', mimeType: 'application/json', buffer: Buffer.from(transported.text) });
+      const response = page.waitForResponse(response => response.request().method() === 'POST' && /\/documents$/.test(new URL(response.url()).pathname));
+      await save(page).click(); const created = await response; expect(created.status()).toBe(201);
+      const raw = await created.json() as { document: { documentId: string }; snapshotText: string };
+      expect(raw.document.documentId).not.toBe(source.documentId);
+      const expectedRestoredServer = derivedNative(expectedRestored, JSON.parse(raw.snapshotText).document, 'Barocss Word (복원) (복원)');
+      const originalIds = (expectedAuthored.metadata!.wonfficeBusinessPair as Pair).items.map(item => item.id);
+      const importedIds = (expectedImported.metadata!.wonfficeBusinessPair as Pair).items.map(item => item.id);
+      for (const item of (expectedRestoredServer.metadata!.wonfficeBusinessPair as Pair).items) {
+        expect(originalIds).not.toContain(item.id); expect(importedIds).not.toContain(item.id);
+      }
+      await expect(status(page)).toHaveText('서버 저장 확인됨');
+      await canonical(page, root, requests.bearer, raw.document.documentId, expectedRestoredServer);
+      const restoredEndpoint = `${root}/documents/${raw.document.documentId}/criterion-confirmations`;
+      for (const reopen of [false, true]) {
+        if (reopen) { await page.reload(); await expect(status(page)).toHaveText('서버 저장 확인됨'); }
+        expect(await records(restoredEndpoint)).toEqual([]);
+        expect(await exported(page)).toStrictEqual(expectedRestoredServer);
+        await ensureBusinessPanel(page); await refreshConfirmation(page).click();
+        await expect(confirmation(page).getByRole('status')).toHaveText('현재 버전의 서버 확인 기록은 미확인입니다.');
+        await expect(confirmation(page)).toContainText('검증 · 실행하지 않음');
+        await expect(confirmCriterion(page)).toBeEnabled();
+        for (const trusted of [receipt.confirmationId, receipt.actorIdentityId, receipt.confirmedAt]) await expect(confirmation(page)).not.toContainText(trusted);
+        await expect(confirmation(page).getByText('이전 확인 기록 · 현재 권한으로 조회', { exact: true })).toHaveCount(0);
+        expect(await records()).toStrictEqual([receipt]);
+        expect((await inspect(source.documentId)).document).toStrictEqual(committed.document);
+      }
+      await page.screenshot({ path: join(directory, 'server-restored-unconfirmed.png'), animations: 'disabled' });
+      evidence.push({ kind: 'trusted-original-actual-local-backup-new-id-restore', originalDocumentId: source.documentId,
+        originalConfirmationId: receipt.confirmationId, importedLocalId: imported.row.name, restoredLocalId: restored.row.name,
+        restoredServerDocumentId: raw.document.documentId, archiveHash: hash(archive), restoredArchiveHash: hash(restoredArchive),
+        currentPrivateReceiptsEmpty: true, currentUnconfirmedUI: true, originalNativeAndReceiptUnchanged: true,
+        controlledTransport: 'unchanged native file extracted from actual downloaded local backup between two application origins' });
+    } finally { await local.close(); }
+    await page.goto(documentUrl); await expect(status(page)).toHaveText('서버 저장 확인됨');
+    await ensureBusinessPanel(page); await refreshConfirmation(page).click(); await expect(confirmation(page)).toContainText('확인됨');
+    expect(await exported(page)).toStrictEqual(expectedAuthored); expect(await records()).toStrictEqual([receipt]);
+    expect((await inspect(source.documentId)).document).toStrictEqual(committed.document);
     phase = 'new-decision-version'; checkpoint();
     await ensureBusinessPanel(page);
     await caret(page, decisionText, 'End'); await page.keyboard.insertText(decisionAddition);
     const expectedEdited = structuredClone(expectedAuthored);
     const run = nativeParagraph(expectedEdited, decisionText).content!.find(node => typeof node !== 'string' && node.stype === 'inline-text') as INode;
-    run.text = decisionText + decisionAddition; run.marks = [];
+    run.text = decisionText + decisionAddition;
     expect(await exported(page)).toStrictEqual(expectedEdited);
     await panel(page).getByRole('button', { name: '현재 결정 내용을 새 버전으로 보관', exact: true }).click();
     const expectedV2 = structuredClone(expectedEdited), nextPair = expectedV2.metadata!.wonfficeBusinessPair as Pair;
@@ -438,6 +593,7 @@ test('explicit exact native criterion confirmation is durable, idempotent and pr
     nextCommitted = await canonical(page, root, requests.bearer, source.documentId, expectedV2);
     await page.reload(); await expect(status(page)).toHaveText('서버 저장 확인됨'); expect(await exported(page)).toStrictEqual(expectedV2);
     phase = 'independent-copy-unconfirmed'; checkpoint();
+    await openServerActions(page);
     await workspace(page).getByLabel('Word 원본 파일로 새 서버 사본 준비').setInputFiles({ name: 'criterion-copy.word.json', mimeType: 'application/json', buffer: Buffer.from(nextCommitted.document!.snapshotText) });
     const copiedResponse = page.waitForResponse(response => response.request().method() === 'POST' && /\/documents$/.test(new URL(response.url()).pathname));
     await save(page).click(); const copiedRaw = await (await copiedResponse).json() as { document: { documentId: string }; snapshotText: string };
