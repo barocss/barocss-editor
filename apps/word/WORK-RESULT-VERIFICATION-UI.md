@@ -1,0 +1,17 @@
+# Word work-result verification UI (#449)
+
+This Word panel uses the existing business-pair and writer-confirmation controls. A person writes the supported preservation sentence in the requirement, saves that native Word document, and confirms that input revision. The person then applies a connected project Word work result through the existing project flow, opens the saved output Word document, selects that exact applied attempt and historical confirmation, and deliberately runs the registered preservation check.
+
+## Authority and evidence
+
+- Project and execution GETs supply a currently authorized project, work, result and server-owned attempt. The client checks IDs, input bytes/hash, pinned source and output revision/hash before offering a run. The service checks the same records and current authority again in one transaction.
+- The applied attempt's actor is work provenance. The project response actor is the current requester. The confirmation and request hash bind to the current requester; they need not belong to the work performer.
+- The confirmation list supplies the historical writer confirmation for the attempt's **input** revision/hash. The ordinary verification `/context` endpoint refers to the **current output** and may not be usable when the protected paragraph changed.
+- The work-result POST contains only exact selectors, output revision/hash, current confirmation authority epoch, the registered evaluator descriptor and one idempotency key. It never submits a verdict, output body, actor or time. The service records the immutable comparison and returns its receipt.
+- The panel distinguishes proposal, applied attempt, saved output, confirmed input, not run, running, passed, failed, unsupported, error and historical evidence. It compares the current server authority epoch with a receipt before marking it current. A changed protected paragraph can make the existing criterion-context endpoint unavailable; in that case the stored result remains visible with its outcome but current authority is unverified. It does not promote a prior result after a source, output, confirmation or authority change. The full Word original and pinned reference remain visible.
+- Only the exact `409 criterion_unavailable` response from the current criterion context is shown as a semantic refusal. It leaves the authenticated catalog and historical outcome visible with current actor and epoch unset. A person can select the saved applied attempt and request a new server check. A `401/403` response clears the private view and explains access denial. Other conflicts, malformed responses and network failures also clear the view and retain their distinct error path. The UI does not infer current authority from a previous receipt.
+- A request is frozen in local recovery storage before POST. An uncertain response keeps its exact key and bytes for deliberate retry. A new attempt gets a new key only after a known result. Local recovery data is not a trusted server receipt.
+
+## Safe limits
+
+The panel performs no model dispatch, native edit, ordinary save, Apply or business approval. It does not relax #420 or #434. A source or role change retires the pending UI action. The server owns current membership, output, pinned input and comparison. Controlled client/component tests prove only their stated boundaries; Integration owns the real source/compiled browser and private PostgreSQL/OIDC checks. #449 remains open until its original criteria pass.

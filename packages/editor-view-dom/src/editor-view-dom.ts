@@ -602,7 +602,7 @@ export class EditorViewDOM implements IEditorViewDOM {
         this._nodeSelectionHoldsUntilGesture = true;
       }
 
-      this._pendingModelSelection = selectionEvent.selection;
+      this.queueModelSelection(selectionEvent.selection);
       
       // Wait until rendering completes if rendering is in progress (applied in rendering completion callback)
       // Apply immediately if rendering is complete
@@ -1204,7 +1204,40 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private handleMouseDown(event: MouseEvent): void {
+    this.clearPointerFocusIntent();
     if (this.isEmbeddedInput(event.target)) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const sid = target?.closest('[data-bc-sid]')?.getAttribute('data-bc-sid');
+    const editableHost = target?.closest('[contenteditable]');
+    const scope = this._viewRootId ?? this.editor.getRootId?.();
+    let drawnRoot: Element | null = target;
+    while (drawnRoot && drawnRoot !== this.contentEditableElement && drawnRoot.getAttribute('data-bc-sid') !== scope) {
+      drawnRoot = drawnRoot.parentElement;
+    }
+    if (
+      event.button === 0 && !event.defaultPrevented && !this._isComposing &&
+      target && drawnRoot && drawnRoot !== this.contentEditableElement && this.contentEditableElement.contains(target) &&
+      !target.closest('input, textarea, select, button, [contenteditable="false"]') &&
+      (!editableHost || editableHost === this.contentEditableElement) &&
+      sid && holdsText(this.editor.dataStore.getNode(sid)) &&
+      !insideLockedRegion(this.editor.dataStore, sid)
+    ) {
+      const owns = this.captureInputOwner();
+      const selection = this.editor.selection;
+      const session = this.editor.dataStore.getSessionId();
+      const generation = this._modelSelectionGeneration;
+      const intent = () => !event.defaultPrevented && owns() &&
+        this.editor.dataStore.getSessionId() === session &&
+        this.editor.selection === selection && this._modelSelectionGeneration === generation;
+      this._pointerFocusIntent = intent;
+      // A prevented gesture can never claim a later Tab/programmatic focus.
+      this._pointerFocusExpiry = window.setTimeout(() => this.clearPointerFocusIntent(), 0);
+      // For an already focused view, there is no focus event. Retire only the
+      // selection owed before this gesture, after all mousedown listeners ran.
+      queueMicrotask(() => {
+        if (this._pointerFocusIntent === intent && intent()) this.clearPendingModelSelection();
+      });
+    }
     // Check drag possibility on mouse down
     this._isDragging = false;
     // A pointer moves the caret, so nothing the input handler remembers about
@@ -1220,6 +1253,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private handleMouseUp(event: MouseEvent): void {
+    this.clearPointerFocusIntent();
     // End drag on mouse up
     if (this._isDragging) {
       this._isDragging = false;
@@ -1296,6 +1330,36 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private _pendingModelSelection: any | null = null;
+  private _pendingModelSelectionOwner: (() => boolean) | null = null;
+  private _modelSelectionGeneration = 0;
+  private _pointerFocusIntent: (() => boolean) | null = null;
+  private _pointerFocusExpiry: number | null = null;
+
+  private clearPointerFocusIntent(): void {
+    if (this._pointerFocusExpiry !== null) window.clearTimeout(this._pointerFocusExpiry);
+    this._pointerFocusExpiry = null;
+    this._pointerFocusIntent = null;
+  }
+
+  private clearPendingModelSelection(): void {
+    this._pendingModelSelection = null;
+    this._pendingModelSelectionOwner = null;
+    this._retryCount = 0;
+  }
+
+  private queueModelSelection(selection: ModelSelection | null): void {
+    const root = this.editor.getRootId?.(), store = this.editor.dataStore;
+    const epoch = store?.getDocumentEpoch?.(), session = store?.getSessionId?.();
+    const current = this.editor.selection;
+    const authority = this.inputAuthorityGeneration, composition = this._compositionGeneration;
+    this._modelSelectionGeneration += 1;
+    this._pendingModelSelection = selection;
+    this._retryCount = 0;
+    this._pendingModelSelectionOwner = () => !this.inputDisposed && this.contentEditableElement.isConnected &&
+      this.editor.getRootId?.() === root && this.editor.dataStore === store && store?.getDocumentEpoch?.() === epoch &&
+      store?.getSessionId?.() === session && this.editor.selection === current &&
+      this.inputAuthorityGeneration === authority && this._compositionGeneration === composition;
+  }
   /** Whether a node selection is still the reader's meaning. See setupEventListeners. */
   /**
    * The reader has gone into the text, by a route the editor cannot see.
@@ -1344,7 +1408,12 @@ export class EditorViewDOM implements IEditorViewDOM {
     };
   }
 
-  private applyModelSelectionWithRetry(): void {
+  private applyModelSelectionWithRetry(generation = this._modelSelectionGeneration): void {
+    if (generation !== this._modelSelectionGeneration) return;
+    if (this._pendingModelSelectionOwner && !this._pendingModelSelectionOwner()) {
+      this.clearPendingModelSelection();
+      return;
+    }
     const sel = this._pendingModelSelection;
     if (!sel || sel.type === 'none') return;
     
@@ -1353,8 +1422,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     if (found) {
       this.applyModelSelectionToDOM(sel);
-      this._pendingModelSelection = null;
-      this._retryCount = 0;
+      this.clearPendingModelSelection();
       return;
     }
     if (this._retryCount > 10) {
@@ -1363,22 +1431,31 @@ export class EditorViewDOM implements IEditorViewDOM {
       return;
     }
     this._retryCount++;
-    requestAnimationFrame(() => this.applyModelSelectionWithRetry());
+    requestAnimationFrame(() => this.applyModelSelectionWithRetry(generation));
   }
 
   private handleFocus(): void {
     this.editor.emit('editor:selection.focus');
+    const pointerOwnsFocus = this._pointerFocusIntent?.() ?? false;
+    this.clearPointerFocusIntent();
+    if (pointerOwnsFocus) {
+      // Native caret placement follows focus. Replaying the old range here
+      // steals that gesture and can also leave a retry queued for a later render.
+      this.clearPendingModelSelection();
+      return;
+    }
     // Try to reapply last model selection to DOM when focus returns
     try {
       const current = this.editor.selectionManager.getCurrentSelection();
       if (current) {
-        this._pendingModelSelection = current;
+        this.queueModelSelection(current);
         this.applyModelSelectionWithRetry();
       }
     } catch {}
   }
 
   private handleBlur(): void {
+    this.clearPointerFocusIntent();
     // Detect input end when focus leaves
     this._onInputEnd();
     this.editor.emit('editor:selection.blur');
@@ -1524,6 +1601,8 @@ export class EditorViewDOM implements IEditorViewDOM {
   // Lifecycle
   destroy(): void {
     this.inputDisposed = true;
+    this.clearPointerFocusIntent();
+    this.clearPendingModelSelection();
     this.editor.off('editor:editable.change', this.retireInputAuthority);
     if (this._selectionChangeTimeout !== null) {
       window.clearTimeout(this._selectionChangeTimeout);
@@ -2189,8 +2268,9 @@ export class EditorViewDOM implements IEditorViewDOM {
               // Apply pending selection after Reconcile completes
               if (this._pendingModelSelection) {
                 // Apply in next frame (ensure DOM update completes)
+                const generation = this._modelSelectionGeneration;
                 requestAnimationFrame(() => {
-                  this.applyModelSelectionWithRetry();
+                  this.applyModelSelectionWithRetry(generation);
                 });
               }
             }
@@ -2218,8 +2298,9 @@ export class EditorViewDOM implements IEditorViewDOM {
               // Apply pending selection after Reconcile completes
               if (this._pendingModelSelection) {
                 // Apply in next frame (ensure DOM update completes)
+                const generation = this._modelSelectionGeneration;
                 requestAnimationFrame(() => {
-                  this.applyModelSelectionWithRetry();
+                  this.applyModelSelectionWithRetry(generation);
                 });
               }
             }
@@ -2377,7 +2458,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (!hasSelection) {
         const current = this.editor.selection;
         if (current) {
-          this._pendingModelSelection = current;
+          this.queueModelSelection(current);
           this.applyModelSelectionWithRetry();
         }
       }

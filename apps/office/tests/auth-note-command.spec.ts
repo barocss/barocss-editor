@@ -136,7 +136,7 @@ for (const role of ['editor', 'viewer'] as const) test(`controlled authenticated
     await assertActualHit(moreTrigger); await moreTrigger.click();
     const more = page.getByRole('menu', { name: '추가 서식', exact: true });
     await assertContained(more, width, height); await expect(primary).toBeVisible();
-    await expect(more.getByRole('menuitem', { name: '밑줄', exact: true })).toBeFocused();
+    await expect(more.getByRole('menuitemcheckbox', { name: '밑줄', exact: true })).toBeFocused();
     await page.screenshot({ path: info.outputPath(`${width}-${theme}-${role}-owned-more.png`), animations: 'disabled' });
     await page.keyboard.press('Escape'); await expect(more).toHaveCount(0);
     await expect(moreTrigger).toBeFocused(); await expect(primary).toBeVisible();

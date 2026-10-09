@@ -1,5 +1,7 @@
 import { createVerificationClient, verificationRequest, type CriterionVerificationHost, type VerificationRequest, type VerificationBasis } from './criterion-verification-client';
 import { createCriterionClient, criterionRequest, criterionHash, type CriterionConfirmationHost, type CriterionRequest } from './criterion-confirmation-client';
+import { createWordWorkClient, matchingWorkConfirmations, readCurrentWorkAuthority, wordWorkKey, wordWorkRequest,
+  type WordWorkHost, type WordWorkOption } from './work-result-verification-client';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createStarterDocument, wordFileName, wordTitle } from '@barocss/office-word';
 import { Button, StatusIndicator, useOfficeLocale } from '@barocss/office-ui';
@@ -597,6 +599,85 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
       }
     };
   }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject]);
+  const workVerification = useMemo<WordWorkHost>(() => {
+    const recoveryKey = (documentId: string, option: WordWorkOption, confirmationId: string, authorityEpoch: string) =>
+      `wonffice.word-work-verification.v1:${encodeURIComponent(JSON.stringify([
+        issuer, subject, tenantId, workspaceId, documentId, option.requesterIdentityId,
+        option.projectId, option.workId, option.attemptId, option.resultId, confirmationId,
+        option.outputRevision, option.outputHash, authorityEpoch]))}`;
+    const captureOwner = (writable: boolean) => {
+      const one = currentRef.current, live = runtime.current;
+      if (!one?.documentId || !one.head || one.confirmed === null || !live || live.generation !== one.generation ||
+        active.current !== client || !authority.current || writable && (!canEdit || !live.value.editor.isEditable) ||
+        nestedRef.current || busyRef.current || fixed.current || problemRef.current || !protectedRef.current)
+        throw new Error('work_verification_not_ready');
+      const native = () => stableWordSnapshotText(serverWordFileText(live.value.exportNativeDocument(), ''));
+      const before = native();
+      if (before !== stableWordSnapshotText(one.confirmed)) throw new Error('save_before_work_verification');
+      const root = live.value.editor.getRootId(), epoch = live.value.editor.dataStore.getDocumentEpoch();
+      const roleOwner = openRole.current, accessOwner = criterionAuthority.current;
+      const input = live.value.captureInputIntent({ selection: 'gesture' });
+      if (!input) throw new Error('work_input_pending');
+      const current = () => active.current === client && authority.current && (!hostSlot || isNativeHostSlotActive(hostSlot)) && openRole.current === roleOwner &&
+        criterionAuthority.current === accessOwner && (!writable || live.value.editor.isEditable) &&
+        runtime.current === live && currentRef.current?.generation === one.generation &&
+        currentRef.current.documentId === one.documentId && live.value.editor.getRootId() === root &&
+        live.value.editor.dataStore.getDocumentEpoch() === epoch && native() === before && input() &&
+        !nestedRef.current && !busyRef.current && !fixed.current && !problemRef.current && protectedRef.current;
+      return { one, current, transport: createWordWorkClient(authorizedFetch, tenantId, workspaceId, one.documentId) };
+    };
+    return {
+      async load() {
+        const { one, current, transport } = captureOwner(false);
+        const catalog = await transport.load();
+        const authority = await readCurrentWorkAuthority(authorizedFetch, tenantId, one.documentId!,
+          one.head!.revision, one.head!.snapshotHash);
+        if (!current()) throw new Error('work_verification_context_changed');
+        const pendingKeys: string[] = [];
+        for (const option of catalog.options) for (const confirmation of matchingWorkConfirmations(option, catalog.confirmations)) {
+          const base = recoveryKey(one.documentId!, option, confirmation.confirmationId, confirmation.authorityEpoch);
+          const activeKey = localStorage.getItem(base + '.active');
+          if (activeKey && (activeKey === base || activeKey.startsWith(base + ':')) &&
+            localStorage.getItem(activeKey) && !localStorage.getItem(activeKey + '.ack'))
+            pendingKeys.push(wordWorkKey(option, confirmation));
+        }
+        if (!current()) throw new Error('work_verification_context_changed');
+        return { ...catalog, currentRevision: one.head!.revision, currentHash: one.head!.snapshotHash,
+          currentText: one.confirmed!, pendingKeys,
+          currentActorIdentityId: authority.actorIdentityId,
+          currentAuthorityEpoch: authority.authorityEpoch, currentCriterionContext: authority.kind };
+      },
+      async run(option, confirmation, intent, fresh) {
+        const { one, current, transport } = captureOwner(true);
+        if (!intent() || option.phase !== 'applied' || option.outputRevision !== one.head!.revision ||
+          option.outputHash !== one.head!.snapshotHash) throw new Error('work_verification_context_changed');
+        const catalog = await transport.load();
+        if (!current() || !intent()) throw new Error('work_verification_context_changed');
+        const latest = catalog.options.find(value => wordWorkKey(value, confirmation) === wordWorkKey(option, confirmation) &&
+          value.inputRevision === option.inputRevision && value.inputHash === option.inputHash &&
+          value.referenceText === option.referenceText && value.requesterIdentityId === option.requesterIdentityId &&
+          value.attemptActorIdentityId === option.attemptActorIdentityId);
+        const confirmed = latest && matchingWorkConfirmations(latest, catalog.confirmations)
+          .find(value => value.confirmationId === confirmation.confirmationId && value.authorityEpoch === confirmation.authorityEpoch);
+        if (!latest || !confirmed || !current() || !intent()) throw new Error('work_verification_context_changed');
+        const base = recoveryKey(one.documentId!, latest, confirmed.confirmationId, confirmed.authorityEpoch);
+        const pointer = base + '.active';
+        const activeKey = fresh ? base + ':' + crypto.randomUUID() : localStorage.getItem(pointer) ?? base;
+        if (activeKey !== base && !activeKey.startsWith(base + ':')) throw new Error('invalid_work_recovery_pointer');
+        const stored = localStorage.getItem(activeKey);
+        const attempt = stored ? JSON.parse(stored) as ReturnType<typeof wordWorkRequest> :
+          wordWorkRequest(latest, confirmed);
+        if (stored && JSON.stringify(attempt) !== JSON.stringify(wordWorkRequest(latest, confirmed, attempt.idempotencyKey)))
+          throw new Error('invalid_work_recovery');
+        if (!stored) { localStorage.setItem(activeKey, JSON.stringify(attempt)); localStorage.setItem(pointer, activeKey); }
+        if (!current() || !intent()) throw new Error('work_verification_intent_changed');
+        const receipt = await transport.run(attempt, latest.requesterIdentityId);
+        if (!current() || !intent()) throw new Error('work_verification_acknowledgement_for_old_context');
+        localStorage.setItem(activeKey + '.ack', JSON.stringify([receipt.runId, receipt.requestHash]));
+        return receipt;
+      }
+    };
+  }, [client, authorizedFetch, tenantId, workspaceId, issuer, subject, canEdit, hostSlot]);
   const actions = <><StatusIndicator data-save-status quiet busy={busy} tone={!protectedInput || problem ? (problem?.kind === 'conflict' ? 'warning' : 'danger') : current && !nestedInput && !fixed.current && !dirty ? 'success' : 'neutral'}>{status}</StatusIndicator>{canEdit && <Button disabled={!current || busy || nestedInput || problem?.kind === 'conflict' || (!dirty && !fixed.current)} onClick={() => void save()}>{fixed.current ? '저장 확인·재시도' : '저장'}</Button>}</>;
   const navigation = <aside aria-label={workspaceNavigation ? t('workspace.document.actions') : '서버 Word 목록'}>
       {canEdit && <Button disabled={loading || busy || !protectedInput || nestedInput} onClick={() => void prepare(serverWordFileText(createStarterDocument(), ''))}>새 Word</Button>}
@@ -616,7 +697,7 @@ export function ServerWordWorkspace({ tenantId, workspaceId, issuer, subject, in
     {!protectedInput && <p role="alert">현재 입력을 보관하지 못했습니다. 저장소 공간을 확보하고 저장을 다시 시도하세요. 화면을 나갈 수 없습니다.</p>}
     {problem?.kind === 'conflict' && <><Button onClick={() => { const text = capture(); if (text) void navigator.clipboard.writeText(text).then(() => setCopied(text)).catch(() => setCopied(undefined)); }}>충돌 초안 복사</Button><Button disabled={!copied || copied !== current?.text || busy} onClick={() => { if (current?.documentId) void openDocument(current.documentId); }}>서버 최신본 열기</Button></>}
     {loading && <p role="status">Word 자료를 확인하는 중입니다.</p>}
-    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ workspaceNavigation, headerActions: actions, headerNavigation, active: !hostSlot || isNativeHostSlotActive(hostSlot), isActive: () => !hostSlot || isNativeHostSlotActive(hostSlot), navigation, criterionConfirmation, criterionVerification,
+    {current && problem?.kind !== 'denied' && <App key={current.generation} mount={mount} server={{ workspaceNavigation, headerActions: actions, headerNavigation, active: !hostSlot || isNativeHostSlotActive(hostSlot), isActive: () => !hostSlot || isNativeHostSlotActive(hostSlot), navigation, criterionConfirmation, criterionVerification, workVerification,
       feedbackDocumentId: () => active.current === client && currentRef.current?.generation === current.generation ? currentRef.current.documentId ?? '' : '',
       canComment: () => active.current === client && currentRef.current?.generation === current.generation && authority.current &&
         !busyRef.current && !nestedRef.current && problemRef.current?.kind !== 'conflict' && protectedRef.current,

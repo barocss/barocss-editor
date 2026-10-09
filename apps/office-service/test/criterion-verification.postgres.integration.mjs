@@ -34,7 +34,7 @@ try{
  await migrate(owner,migrations.filter(m=>m.id<'0014'));
  const historical=(await owner.query('SELECT id,checksum FROM wonffice_meta.migrations ORDER BY id')).rows;
  await check('new verification migration preserves complete older checksums and is idempotent',async()=>{
-  assert.deepEqual(await migrate(owner),['0014_criterion_verifications']);
+  assert.deepEqual(await migrate(owner),['0014_criterion_verifications','0015_document_creator_attribution','0016_schema_registry']);
   assert.deepEqual((await owner.query("SELECT id,checksum FROM wonffice_meta.migrations WHERE id<'0014' ORDER BY id")).rows,historical);
   assert.deepEqual(await migrate(owner),[]);
  });

@@ -1,4 +1,5 @@
 import type { CriterionVerificationHost } from './criterion-verification-client';
+import type { WordWorkHost } from './work-result-verification-client';
 import type { CriterionConfirmationHost } from './criterion-confirmation-client';
 import { EditorHeader, DocumentMenu, CommandSearch, CommandSearchTrigger, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
@@ -85,6 +86,7 @@ function ReadOnlyControls({ enabled, children }: { enabled?: boolean; children: 
 export interface WordServerHost {
   criterionConfirmation?: CriterionConfirmationHost;
   criterionVerification?: CriterionVerificationHost;
+  workVerification?: WordWorkHost;
   active?: boolean;
   isActive?: () => boolean;
   headerActions?: ReactNode;
@@ -599,7 +601,7 @@ export function App({ mount, server }: {
             onToggle={() => togglePanel('navigation')}
             /* 어느 요소에 문서가 그려졌는지는 조립하는 쪽이 안다 — `#editor` 는 이 파일의 id 다. */
             host={host.current}
-          /></div>{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} />}</WorkspaceSidePanel> : null}
+          /></div>{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} workVerification={server?.workVerification} />}</WorkspaceSidePanel> : null}
 
         <div className="w-document-slot" data-workspace-main tabIndex={-1}>
         <AppMain className="w-shell-document relative">

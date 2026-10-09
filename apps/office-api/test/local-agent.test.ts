@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createServer, request, type Server } from 'node:http';
 import { once } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { createLocalAgent, createLocalGenerationTransport, LocalAgentError, type LocalAgentInput } from '../src/local-agent.js';
+import { createLocalAgent, createLocalGenerationTransport, decodeLocalAgentPromptContext, LocalAgentError, type LocalAgentInput } from '../src/local-agent.js';
 
 // Deterministic transport fixtures verify the adapter boundary, not live inference.
 const digest = '3a12a518a499223fc5be0a6b43589f5c2809275e59572c29a73e0506ff67a735';
@@ -14,6 +14,13 @@ const input = (): LocalAgentInput => ({ attemptId: id, tenantId: id, workspaceId
   documentId: id, revision: 3, snapshotHash: hash(native), snapshotText: native,
   target: { nodeId: 'comment-1', text: 'Original', from: 0, to: 8 }, inputs: [] });
 const proposal = { replacement: 'First close the running app.', reason: 'The requested running-app step was absent.', assumptions: ['Fictional beta installer.'] };
+const duplicateRootPin = (value: LocalAgentInput) => ({ id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  documentId: value.documentId, revision: value.revision, snapshotHash: value.snapshotHash, snapshotText: value.snapshotText });
+const promptContext = (calls: Array<{ url: string; init?: RequestInit }>) => {
+  const prompt = JSON.parse(calls.find(call => call.url.endsWith('/api/generate'))!.init!.body as string).prompt as string;
+  return prompt.slice(prompt.indexOf('Authorized request and exact pinned sources:\n') +
+    'Authorized request and exact pinned sources:\n'.length);
+};
 function fixture(generate: () => Response | Promise<Response> = () => Response.json({ model: 'qwen3.6:27b-coding',
   done: true, done_reason: 'stop', response: JSON.stringify(proposal), thinking: 'Do not expose this.', total_duration: 123,
   prompt_eval_count: 1000, eval_count: 30 })) {
@@ -29,6 +36,84 @@ function fixture(generate: () => Response | Promise<Response> = () => Response.j
 }
 
 describe('local Agent deterministic transport boundary', () => {
+  it('sends one exact complete root snapshot for an identical pin and reconstructs original input bytes', async () => {
+    const value = input();
+    const completeNative = JSON.stringify({ format: 'barocss-word', version: 1, document: { stype: 'document',
+      attributes: { locale: 'ko-KR' }, content: [{ stype: 'paragraph', attributes: { id: 'protected' },
+        content: [{ stype: 'inline-text', text: '원문😀'.repeat(1600), marks: [{ type: 'bold' }] }] }] } });
+    value.snapshotText = completeNative; value.snapshotHash = hash(completeNative);
+    value.inputs = [duplicateRootPin(value)];
+    const original = JSON.stringify(value);
+    expect(Buffer.byteLength(original)).toBeGreaterThan(24576);
+    const before = structuredClone(value);
+    const { agent, calls } = fixture();
+    const result = await agent.generate(value);
+    const wire = promptContext(calls);
+    expect(decodeLocalAgentPromptContext(wire)).toBe(original);
+    expect(wire.split(JSON.stringify(completeNative)).length - 1).toBe(1);
+    expect(JSON.parse(wire).input.inputs[0].snapshotText).toEqual({ $snapshotRef: 'root' });
+    expect(result.provenance.inputHash).toBe(hash(original));
+    expect(result.provenance.adapterVersion).toBe('4');
+    expect(result.provenance.promptBytes).toBe(Buffer.byteLength(JSON.parse(calls[3].init!.body as string).prompt));
+    expect(value).toEqual(before);
+  });
+  it('keeps other documents, versions and distinct valid content complete and rejects false root reuse', async () => {
+    const value = input();
+    const sameText = duplicateRootPin(value);
+    const otherDocument = { ...sameText, id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      documentId: 'dddddddd-dddd-dddd-dddd-dddddddddddd' };
+    const otherVersion = { ...sameText, id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', revision: 4 };
+    const otherText = `${native} different`;
+    const otherHash = { ...sameText, id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      snapshotText: otherText, snapshotHash: hash(otherText) };
+    value.inputs = [sameText, otherDocument, otherVersion, otherHash];
+    const { agent, calls } = fixture();
+    await agent.generate(value);
+    const wire = promptContext(calls);
+    const pins = JSON.parse(wire).input.inputs;
+    expect(pins.map((pin: { id: string }) => pin.id)).toEqual(value.inputs.map(pin => pin.id));
+    expect(pins.map((pin: { snapshotText: unknown }) => pin.snapshotText)).toEqual([
+      { $snapshotRef: 'root' }, native, native, otherText]);
+    expect(decodeLocalAgentPromptContext(wire)).toBe(JSON.stringify(value));
+    for (const changed of [
+      { ...JSON.parse(wire), input: { ...JSON.parse(wire).input, snapshotText: null } },
+      { ...JSON.parse(wire), input: { ...JSON.parse(wire).input, inputs: [{ ...pins[0], documentId: otherDocument.documentId }] } },
+      { ...JSON.parse(wire), input: { ...JSON.parse(wire).input, inputs: [{ ...pins[0], snapshotHash: 'f'.repeat(64) }] } },
+      { ...JSON.parse(wire), input: { ...JSON.parse(wire).input, inputs: [{ ...pins[0], snapshotText: { $snapshotRef: 'other' } }] } },
+      { ...JSON.parse(wire), input: { ...JSON.parse(wire).input, inputs: [{ ...pins[0], snapshotText: { $snapshotRef: 'root', extra: true } }] } },
+      { ...JSON.parse(wire), input: { ...JSON.parse(wire).input, inputs: [{ ...pins[0], snapshotText: undefined }] } },
+      { ...JSON.parse(wire), input: { ...JSON.parse(wire).input, inputs: [{ ...pins[0], id: undefined }] } },
+    ]) expect(() => decodeLocalAgentPromptContext(JSON.stringify(changed))).toThrow(LocalAgentError);
+    const invalid = { ...value, inputs: [{ ...sameText, snapshotText: `${native} changed` }] };
+    const separate = fixture();
+    await expect(separate.agent.generate(invalid)).rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'invalid_input' });
+    expect(separate.calls).toEqual([]);
+  });
+  it('retains Unicode, exact property order and refusal for omitted or duplicated pin identity', async () => {
+    const original = input(); original.snapshotText = `${native}\n😀\u2028`; original.snapshotHash = hash(original.snapshotText);
+    const reordered = { inputs: [duplicateRootPin(original)], target: original.target,
+      snapshotText: original.snapshotText, snapshotHash: original.snapshotHash, revision: original.revision,
+      documentId: original.documentId, request: original.request, actorId: original.actorId,
+      workId: original.workId, projectId: original.projectId, workspaceId: original.workspaceId,
+      tenantId: original.tenantId, attemptId: original.attemptId };
+    const { agent, calls } = fixture();
+    await agent.generate(reordered);
+    expect(decodeLocalAgentPromptContext(promptContext(calls))).toBe(JSON.stringify(reordered));
+    for (const invalid of [{ ...original, inputs: [{ ...duplicateRootPin(original), id: undefined }] },
+      { ...original, inputs: [duplicateRootPin(original), duplicateRootPin(original)] },
+      { ...original, inputs: [{ ...duplicateRootPin(original), snapshotText: null }] }]) {
+      const refusal = fixture();
+      await expect(refusal.agent.generate(invalid as LocalAgentInput)).rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'invalid_input' });
+      expect(refusal.calls).toEqual([]);
+    }
+  });
+  it('still refuses an encoded root and pin when the full prompt exceeds the unchanged bound', async () => {
+    const value = input(); value.snapshotText = `${native}${' '.repeat(24500)}`;
+    value.snapshotHash = hash(value.snapshotText); value.inputs = [duplicateRootPin(value)];
+    const { agent, calls } = fixture();
+    await expect(agent.generate(value)).rejects.toMatchObject({ outcome: 'not_dispatched', reason: 'context_limit' });
+    expect(calls).toEqual([]);
+  });
   it('requires explicit opt-in and never uses a caller-selected endpoint or model', async () => {
     expect(createLocalAgent({})).toBeNull();
     expect(() => createLocalAgent({ OFFICE_LOCAL_AGENT_ENABLED: 'yes' })).toThrow(LocalAgentError);

@@ -1,6 +1,7 @@
 import { captureExecutableCriterion, evaluateRenderedCriterion, CRITERION_EVALUATOR, getCriterionSpecimen, listCriterionSpecimens, compareCriterionContext, type CriterionContext, type CriterionSpecimen, type RenderedCriterionInput } from '../../../packages/office-word/src/criterion-confirmation';
 import { contextShape, criterionHash, criterionRequest, type CriterionBasis, type CriterionRequest } from './criterion-confirmation-client';
 import { ServerWordError } from './server-documents';
+import { readWordWorkReceipt } from './work-result-verification-client';
 
 export interface VerificationBasis extends CriterionBasis {
   confirmationId: string | null;
@@ -104,7 +105,13 @@ export function createVerificationClient(fetcher: typeof fetch, tenantId: string
     async list(): Promise<VerificationReceipt[]> {
       const v = await send('');
       if (!object(v) || !Array.isArray(v.runs)) return invalid();
-      return Promise.all(v.runs.map(receipt));
+      const runs: VerificationReceipt[] = [];
+      for (const value of v.runs) {
+        if (object(value) && object(value.specimen) && value.specimen.kind === 'native-word-work-result') {
+          await readWordWorkReceipt(value, { tenantId, documentId });
+        } else runs.push(await receipt(value));
+      }
+      return runs;
     },
     async run(attempt: VerificationRequest, actorIdentityId: string): Promise<VerificationReceipt> {
       if (!uuid(actorIdentityId) || Object.keys(attempt).length !== 10 || !uuid(attempt.confirmationId) ||

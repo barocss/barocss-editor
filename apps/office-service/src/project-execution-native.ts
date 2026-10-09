@@ -84,23 +84,36 @@ export function captureExecutionTarget(snapshotText: string, target: ProjectTarg
   const threads = resources[0].content.filter(node => object(node) && node.stype === 'commentThread'
     && object(node.attributes) && node.attributes.id === target.id);
   const found: CapturedTarget[] = [];
+  const bookmarkCounts = new Map<string, number>();
+  let selectedBookmarkId: string | undefined;
   const visit = (node: unknown, path: number[], parent?: Record<string, unknown>, protectedPath = false) => {
     if (!object(node) || node.stype === 'resources') return;
+    if (node.stype === 'bookmarkAnchor' && object(node.attributes) && typeof node.attributes.id === 'string')
+      bookmarkCounts.set(node.attributes.id, (bookmarkCounts.get(node.attributes.id) ?? 0) + 1);
     const protectedNode = protectedPath || (object(node.attributes) && node.attributes.locked === true)
       || ['commentThread', 'contentControl'].includes(String(node.stype));
     const marks = Array.isArray(node.marks) ? node.marks : [];
     for (const mark of marks) {
       if (!object(mark) || mark.stype !== 'commentRef' || !object(mark.attrs) || mark.attrs.id !== target.id) continue;
+      const siblings = parent?.stype === 'paragraph' && Array.isArray(parent.content) ? parent.content : [];
+      const bookmark = siblings.length === 2 ? siblings[0] : undefined;
+      const pointBookmark = object(bookmark) && bookmark.stype === 'bookmarkAnchor' &&
+        Object.keys(bookmark).every(key => ['stype', 'attributes'].includes(key)) && object(bookmark.attributes) &&
+        Object.keys(bookmark.attributes).length === 1 && typeof bookmark.attributes.id === 'string' && !!bookmark.attributes.id;
+      const supportedChildren = (siblings.length === 1 && siblings[0] === node) ||
+        (pointBookmark && siblings[1] === node);
       if (protectedNode || node.stype !== 'inline-text' || typeof node.text !== 'string' || !node.text.length || node.text.length > 8000
-        || parent?.stype !== 'paragraph' || !Array.isArray(parent.content) || parent.content.length !== 1
+        || !supportedChildren
         || marks.length !== 1 || !Array.isArray(mark.range) || mark.range.length !== 2
         || mark.range[0] !== 0 || mark.range[1] !== node.text.length) throw new ProjectError(422, 'unsupported_target');
+      if (pointBookmark && object(bookmark) && object(bookmark.attributes)) selectedBookmarkId = bookmark.attributes.id as string;
       found.push({ nodeId: target.id, text: node.text, from: 0, to: node.text.length, path });
     }
     if (Array.isArray(node.content)) node.content.forEach((child, index) => visit(child, [...path, index], node, protectedNode));
   };
   visit(doc, []);
-  if (threads.length !== 1 || found.length !== 1 || found[0].text !== target.quote) throw new ProjectError(409, 'target_conflict');
+  if (threads.length !== 1 || found.length !== 1 || found[0].text !== target.quote ||
+    (selectedBookmarkId && bookmarkCounts.get(selectedBookmarkId) !== 1)) throw new ProjectError(409, 'target_conflict');
   return found[0];
 }
 

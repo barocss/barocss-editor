@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { captureExecutionTarget, expectedExecutionSnapshot } from '../src/project-execution-native.js';
 
 const target = { kind: 'word-comment' as const, id: 'stable-thread', quote: 'Original guide' };
@@ -16,8 +17,47 @@ const documentFixture = (): FixtureNode => ({ stype: 'document', metadata: { unt
   ] }
 ] });
 const encode = (document: unknown) => `${JSON.stringify({ format: 'barocss-word', version: 1, document }, null, 2)}\n`;
+const linkedPointFixture = () => {
+  const linked = JSON.parse(readFileSync(new URL('./fixtures/criterion-confirmation-word.json', import.meta.url), 'utf8')) as { document: FixtureNode };
+  const original = linked.document;
+  const paragraph = original.content![0].content![1];
+  const text = paragraph.content![1];
+  text.marks = [{ stype: 'commentRef', attrs: { id: target.id }, range: [0, text.text!.length] }];
+  original.content!.push({ stype: 'resources', content: [
+    { stype: 'commentThread', attributes: { id: target.id, author: 'Original author' }, content: [] }
+  ] });
+  return { original, paragraph, actualTarget: { ...target, quote: text.text! } };
+};
 
 describe('the bounded native execution target', () => {
+  it('changes only the full marked run beside a pinned point bookmark', () => {
+    const { original, paragraph, actualTarget } = linkedPointFixture();
+    const bookmark = structuredClone(paragraph.content![0]);
+    const source = encode(original), expected = structuredClone(original);
+    const expectedText = expected.content![0].content![1].content![1];
+    expectedText.text = 'Store the reviewed decision.';
+    expectedText.marks![0].range = [0, expectedText.text.length];
+    expect(captureExecutionTarget(source, actualTarget)).toEqual({ nodeId: target.id, text: actualTarget.quote,
+      from: 0, to: actualTarget.quote.length, path: [0, 1, 1] });
+    expect(expectedExecutionSnapshot(source, actualTarget, expectedText.text)).toBe(encode(expected));
+    expect(paragraph.content![0]).toEqual(bookmark);
+    expect(encode(original)).toBe(source);
+  });
+  it.each(['duplicate-bookmark', 'third-child', 'reversed', 'extra-bookmark-field', 'marked-bookmark', 'locked-bookmark', 'partial-comment'])(
+    'refuses an unsafe point bookmark shape: %s', change => {
+      const { original, paragraph, actualTarget } = linkedPointFixture();
+      const bookmark = paragraph.content![0], run = paragraph.content![1];
+      if (change === 'duplicate-bookmark') original.content![0].content!.push({ stype: 'paragraph', content: [structuredClone(bookmark)] });
+      if (change === 'third-child') paragraph.content!.push({ stype: 'inline-text', text: 'unselected' });
+      if (change === 'reversed') paragraph.content!.reverse();
+      if (change === 'extra-bookmark-field') bookmark.attributes!.title = 'not a plain point';
+      if (change === 'marked-bookmark') bookmark.marks = [];
+      if (change === 'locked-bookmark') bookmark.attributes!.locked = true;
+      if (change === 'partial-comment') run.marks![0].range[1]--;
+      const source = encode(original);
+      expect(() => captureExecutionTarget(source, actualTarget)).toThrow(change === 'duplicate-bookmark' ? 'target_conflict' : 'unsupported_target');
+      expect(encode(original)).toBe(source);
+    });
   it('captures the unique full run through native comment identity, never a session ID', () => {
     const text = encode(documentFixture());
     expect(captureExecutionTarget(text, target)).toEqual({ nodeId: target.id, text: target.quote,

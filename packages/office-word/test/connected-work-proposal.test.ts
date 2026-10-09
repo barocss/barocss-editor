@@ -1,4 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { registerPreCommitGuard } from '@barocss/model';
 import { createStarterDocument, createWordFeedbackHost, wordFileText } from '../src/index';
@@ -39,6 +41,229 @@ async function fixture(strictRevision = false) {
   return { editor, host, target, before, expected, node,
     proposal: { targetId: target.id, replacement, snapshotText: wordFileText(before, ''), expectedSnapshotText: wordFileText(expected, '') } };
 }
+async function linkedPointFixture(extraSibling = false, metadataBearing = false) {
+  vi.spyOn(EditorViewDOM.prototype, 'render').mockImplementation(() => {});
+  surface = document.createElement('div'); document.body.append(surface);
+  const linked = JSON.parse(readFileSync(resolve(process.cwd(), '../../apps/office-service/test/fixtures/criterion-confirmation-word.json'), 'utf8')) as {
+    document: { metadata: Record<string, unknown>; content: unknown[] }
+  };
+  const source = structuredClone(linked.document);
+  if (metadataBearing) {
+    let decorated = 0;
+    const decorate = (value: unknown): void => {
+      if (!value || typeof value !== 'object') return;
+      const one = value as Record<string, unknown>;
+      if (one.stype === 'inline-text' && one.text === 'Store exact rich reference.') {
+        one.metadata = { nativeRun: { author: 'pinned', ordinal: 7 } }; decorated++;
+      }
+      if (Array.isArray(one.content)) one.content.forEach(decorate);
+    };
+    decorate(source); expect(decorated).toBe(1);
+  }
+  if (extraSibling) {
+    const flow = source.content[0] as { content: Array<{ content: unknown[] }> };
+    flow.content[1].content.push({ stype: 'inline-text', text: 'Unselected sibling' });
+  }
+  const resources = createStarterDocument().content!.find(one => typeof one !== 'string' && one.stype === 'resources')!;
+  source.content.push(resources);
+  runtime = mountWordRuntime(surface, { initialDocument: source, editable: true });
+  const editor = runtime.editor;
+  const node = [...editor.dataStore.getNodes().values()].find(one => one.text === 'Store exact rich reference.')!;
+  editor.updateSelection({ type: 'range', startNodeId: node.sid!, endNodeId: node.sid!,
+    startOffset: 0, endOffset: node.text!.length, collapsed: false });
+  const host = createWordFeedbackHost({ editor, id: () => 'pinned-word', canComment: () => true,
+    captureSelection: () => editor.selection, nativeDocument: () => runtime!.exportNativeDocument() });
+  const target = host.capture()!;
+  expect(target).not.toBeNull();
+  await host.comment(target, 'Review this pinned decision.');
+  const before = runtime.exportNativeDocument() as Record<string, unknown>;
+  const expected = structuredClone(before);
+  const replacement = 'Store the reviewed decision.';
+  let changed = 0;
+  const change = (value: unknown): void => {
+    if (!value || typeof value !== 'object') return;
+    const one = value as Record<string, unknown>;
+    if (one.text === target.quote && Array.isArray(one.marks) &&
+      one.marks.some(mark => mark?.stype === 'commentRef' && mark.attrs?.id === target.id)) {
+      one.text = replacement;
+      one.marks[0].range = [0, replacement.length];
+      changed++;
+    }
+    if (Array.isArray(one.content)) one.content.forEach(change);
+  };
+  change(expected); expect(changed).toBe(1);
+  const proposal = { targetId: target.id, replacement, snapshotText: wordFileText(before, ''),
+    expectedSnapshotText: wordFileText(expected, '') };
+  return { editor, host, before, expected, proposal };
+}
+it('applies one complete commented run beside the pinned decision bookmark without changing the business pair', async () => {
+  const { editor, host, before, expected, proposal } = await linkedPointFixture();
+  const preview = host.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  expect(preview.current()).toBe(true);
+  const applied = await preview.apply();
+  expect(runtime!.exportNativeDocument()).toEqual(expected);
+  expect(applied).toBe(true);
+  expect(await editor.undo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(await editor.redo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(expected);
+  runtime!.loadNativeDocument(expected); expect(runtime!.exportNativeDocument()).toEqual(expected);
+  preview.dispose(); host.dispose();
+});
+it('keeps an authored metadata-bearing point-bookmark run in the complete native document and history', async () => {
+  const { editor, host, before, expected, proposal } = await linkedPointFixture(false, true);
+  expect(JSON.stringify(before)).toContain('nativeRun');
+  expect(JSON.stringify(expected)).toContain('nativeRun');
+  const node = [...editor.dataStore.getNodes().values()].find(one => one.text === 'Store exact rich reference.')!;
+  const originalId = node.sid!;
+  const originalMetadata = structuredClone(node.metadata);
+  const preview = host.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(await preview.apply()).toBe(true);
+  expect(runtime!.exportNativeDocument()).toEqual(expected);
+  expect(editor.dataStore.getNode(originalId)?.metadata).toEqual(originalMetadata);
+  expect(editor.dataStore.getNode(originalId)?.text).toBe(proposal.replacement);
+  expect(await editor.undo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(await editor.redo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(expected);
+  runtime!.loadNativeDocument(expected); expect(runtime!.exportNativeDocument()).toEqual(expected);
+  preview.dispose(); host.dispose();
+});
+it('refuses a metadata-bearing point-bookmark edit when authority changes while its native transaction is queued', async () => {
+  const { editor, host, before, proposal } = await linkedPointFixture(false, true);
+  const history = editor.getHistoryStats();
+  let authorized = true;
+  const preview = previewConnectedWordRevision({ editor, proposal,
+    nativeDocument: () => runtime!.exportNativeDocument(), current: () => authorized })!;
+  expect(preview).not.toBeNull();
+  let entered!: () => void, finish!: () => void;
+  const waiting = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { finish = resolve; });
+  const off = registerPreCommitGuard(editor, async () => { entered(); await gate; });
+  const applying = preview.apply(); await waiting; authorized = false; finish();
+  expect(await applying).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(editor.getHistoryStats()).toEqual(history);
+  off(); preview.dispose(); host.dispose();
+});
+it('checks the metadata-bearing point-bookmark candidate under the existing native commit guard', async () => {
+  const { editor, host, before, expected, proposal } = await linkedPointFixture(false, true);
+  const node = [...editor.dataStore.getNodes().values()].find(one => one.text === 'Store exact rich reference.')!;
+  let checked = false;
+  const off = registerPreCommitGuard(editor, async ({ candidate }) => {
+    checked = true;
+    const run = candidate.getNode(node.sid!);
+    expect(run?.text).toBe(proposal.replacement);
+    expect(run?.metadata).toEqual(node.metadata);
+  });
+  const preview = host.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(await preview.apply()).toBe(true);
+  expect(checked).toBe(true);
+  expect(runtime!.exportNativeDocument()).toEqual(expected);
+  off();
+  expect(await editor.undo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(await editor.redo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(expected);
+  preview.dispose(); host.dispose();
+});
+it('reports a committed metadata edit as unconfirmed when the postcommit host changes', async () => {
+  const { editor, host, before, expected, proposal } = await linkedPointFixture(false, true);
+  const preview = previewConnectedWordRevision({ editor, proposal,
+    nativeDocument: () => runtime!.exportNativeDocument(), current: () => true, afterCommitCurrent: () => false })!;
+  expect(preview).not.toBeNull();
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  await expect(preview.apply()).rejects.toThrow('edit committed');
+  expect(runtime!.exportNativeDocument()).toEqual(expected);
+  expect(await editor.undo()).toBe(true); expect(runtime!.exportNativeDocument()).toEqual(before);
+  preview.dispose(); host.dispose();
+});
+it('refuses a foreign root object with the same identity and native bytes before a metadata edit', async () => {
+  const { editor, host, before, proposal } = await linkedPointFixture(false, true);
+  const preview = host.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  const history = editor.getHistoryStats();
+  const root = editor.dataStore.getNode(editor.getRootId()!)!;
+  editor.dataStore.setNode({ ...root }, false);
+  expect(editor.dataStore.getNode(root.sid!)).not.toBe(root);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(await preview.apply()).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(editor.getHistoryStats()).toEqual(history);
+  preview.dispose(); host.dispose();
+});
+it('refuses a same-byte foreign root replacement while a metadata edit awaits the native guard', async () => {
+  const { editor, host, before, proposal } = await linkedPointFixture(false, true);
+  const preview = host.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  const history = editor.getHistoryStats();
+  let entered!: () => void, finish!: () => void;
+  const waiting = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { finish = resolve; });
+  const off = registerPreCommitGuard(editor, async () => { entered(); await gate; });
+  const applying = preview.apply(); await waiting;
+  const root = editor.dataStore.getNode(editor.getRootId()!)!;
+  editor.dataStore.setNode({ ...root }, false);
+  expect(editor.dataStore.getNode(root.sid!)).not.toBe(root);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  finish();
+  expect(await applying).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(editor.getHistoryStats()).toEqual(history);
+  off(); preview.dispose(); host.dispose();
+});
+it('refuses metadata editing after a queued role A-B-A while keeping the original native document', async () => {
+  const { editor, host, before, proposal } = await linkedPointFixture(false, true);
+  let role = true, generation = 0;
+  const guardedHost = createWordFeedbackHost({ editor, id: () => 'pinned-word', canComment: () => role,
+    captureSelection: () => editor.selection, nativeDocument: () => runtime!.exportNativeDocument(),
+    captureRevisionIntent: () => { const captured = generation; return () => generation === captured; } });
+  const preview = guardedHost.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  const history = editor.getHistoryStats();
+  let entered!: () => void, finish!: () => void;
+  const waiting = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { finish = resolve; });
+  const off = registerPreCommitGuard(editor, async () => { entered(); await gate; });
+  const applying = preview.apply(); await waiting;
+  role = false; generation++; role = true; generation++; finish();
+  expect(await applying).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(editor.getHistoryStats()).toEqual(history);
+  off(); preview.dispose(); guardedHost.dispose(); host.dispose();
+});
+it('refuses metadata editing after queued composition input A-B-A without changing the original', async () => {
+  const { editor, host, before, proposal } = await linkedPointFixture(false, true);
+  const inputHost = createWordFeedbackHost({ editor, id: () => 'pinned-word', canComment: () => true,
+    captureSelection: () => editor.selection, nativeDocument: () => runtime!.exportNativeDocument(),
+    captureInputIntent: () => runtime!.captureInputIntent() });
+  const preview = inputHost.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  const history = editor.getHistoryStats();
+  let entered!: () => void, finish!: () => void;
+  const waiting = new Promise<void>(resolve => { entered = resolve; }), gate = new Promise<void>(resolve => { finish = resolve; });
+  const off = registerPreCommitGuard(editor, async () => { entered(); await gate; });
+  const applying = preview.apply(); await waiting;
+  surface!.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+  surface!.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })); finish();
+  expect(await applying).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(editor.getHistoryStats()).toEqual(history);
+  off(); preview.dispose(); inputHost.dispose(); host.dispose();
+});
+it('refuses a failed native guard for a metadata-bearing point run without an edit or history entry', async () => {
+  const { editor, host, before, proposal } = await linkedPointFixture(false, true);
+  const history = editor.getHistoryStats();
+  const off = registerPreCommitGuard(editor, () => 'The authenticated document changed');
+  const preview = host.previewRevision!(proposal)!;
+  expect(preview).not.toBeNull();
+  expect(await preview.apply()).toBe(false);
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  expect(editor.getHistoryStats()).toEqual(history);
+  off(); preview.dispose(); host.dispose();
+});
+it('refuses a second text run beside the pinned decision bookmark without changing the source', async () => {
+  const { host, before, proposal } = await linkedPointFixture(true);
+  expect(host.previewRevision!(proposal)).toBeNull();
+  expect(runtime!.exportNativeDocument()).toEqual(before);
+  host.dispose();
+});
 it('validates a supplied delta on the actual native Word original, then exact undo/redo and reopen', async () => {
   const f = await fixture();
   const ids = [...f.editor.dataStore.getNodes().keys()];

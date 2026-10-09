@@ -74,6 +74,74 @@ it('refuses a mismatched accepted attempt without applying the proposal', async 
   await render(f.repository); await click('이 변경 승인 및 저장');
   expect(f.apply).not.toHaveBeenCalled(); expect(f.acknowledge).not.toHaveBeenCalled(); expect(f.execute).not.toHaveBeenCalled();
 });
+it('accepts the same Word attempt after JSONB reorders object keys, without changing native bytes or array order', async () => {
+  const f = setup(), original = (await f.repository.execution!('project', 'work'))!;
+  const input = { ...original.input, metadata: { reviewed: false, nullable: null, nested: { kind: 'fixture', tags: ['A', 'B'] } }, inputs: [
+    { id: 'first', documentId: 'word', revision: 1, snapshotHash: 'first-hash', snapshotText: 'first-native' },
+    { id: 'second', documentId: 'word', revision: 2, snapshotHash: 'second-hash', snapshotText: 'second-native' }
+  ] };
+  const proposal = { replacement: 'declared replacement', reason: 'declared reason', assumptions: ['first', 'second'] };
+  f.repository.execution = async () => ({ ...original, input, proposal });
+  f.repository.acceptExecution = async () => ({ ...original, phase: 'accepted',
+    input: { metadata: { nested: { tags: ['A', 'B'], kind: 'fixture' }, nullable: null, reviewed: false },
+      inputs: input.inputs.map(pin => ({ snapshotText: pin.snapshotText, snapshotHash: pin.snapshotHash,
+      revision: pin.revision, documentId: pin.documentId, id: pin.id })),
+      target: { to: input.target.to, from: input.target.from, text: input.target.text, nodeId: input.target.nodeId },
+      snapshotText: input.snapshotText, snapshotHash: input.snapshotHash, revision: input.revision, request: input.request },
+    proposal: { assumptions: [...proposal.assumptions], reason: proposal.reason, replacement: proposal.replacement }
+  });
+  await render(f.repository); await click('이 변경 승인 및 저장');
+  expect(f.apply).toHaveBeenCalledTimes(1); expect(f.acknowledge).toHaveBeenCalledTimes(1);
+  expect(f.nativeText()).toBe('declared after bytes'); expect(f.execute).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('원본 반영 확인');
+});
+it.each(['native bytes', 'pin order', 'proposal order', 'proposal replacement', 'false metadata', 'null metadata', 'extra key'] as const)('refuses a changed %s during Word acceptance without native effects', async change => {
+  const f = setup(), original = (await f.repository.execution!('project', 'work'))!;
+  const input = { ...original.input, metadata: { reviewed: false, nullable: null as string | null }, inputs: [
+    { id: 'first', documentId: 'word', revision: 1, snapshotHash: 'first-hash', snapshotText: 'first-native' },
+    { id: 'second', documentId: 'word', revision: 2, snapshotHash: 'second-hash', snapshotText: 'second-native' }
+  ] };
+  const proposal = { ...original.proposal!, assumptions: ['first', 'second'] };
+  f.repository.execution = async () => ({ ...original, input, proposal });
+  f.repository.acceptExecution = async () => ({ ...original, phase: 'accepted',
+    input: change === 'native bytes' ? { ...input, snapshotText: `${input.snapshotText} ` } :
+      change === 'pin order' ? { ...input, inputs: [...input.inputs].reverse() } :
+      change === 'false metadata' ? { ...input, metadata: { ...input.metadata, reviewed: true } } :
+      change === 'null metadata' ? { ...input, metadata: { ...input.metadata, nullable: 'changed' } } :
+      change === 'extra key' ? { ...input, metadata: { ...input.metadata, unexpected: 'extra' } } : input,
+    proposal: change === 'proposal order' ? { ...proposal, assumptions: [...proposal.assumptions].reverse() } :
+      change === 'proposal replacement' ? { ...proposal, replacement: 'different replacement' } : proposal
+  });
+  await render(f.repository); await click('이 변경 승인 및 저장');
+  expect(f.apply).not.toHaveBeenCalled(); expect(f.acknowledge).not.toHaveBeenCalled();
+  expect(f.nativeText()).toBe('original native bytes'); expect(f.execute).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('승인 중 원본 또는 권한이 바뀌었습니다.');
+});
+it.each(['input hash', 'expected hash', 'actor', 'document'] as const)('refuses a changed %s after Word acceptance without native effects', async change => {
+  const f = setup(), original = (await f.repository.execution!('project', 'work'))!;
+  f.repository.acceptExecution = async () => ({ ...original, phase: 'accepted',
+    input: change === 'input hash' ? { ...original.input, snapshotHash: 'different input hash' } : original.input,
+    expectedSnapshotHash: change === 'expected hash' ? 'different expected hash' : original.expectedSnapshotHash,
+    actorId: change === 'actor' ? 'different actor' : original.actorId,
+    documentId: change === 'document' ? 'different document' : original.documentId
+  });
+  await render(f.repository); await click('이 변경 승인 및 저장');
+  expect(f.apply).not.toHaveBeenCalled(); expect(f.acknowledge).not.toHaveBeenCalled();
+  expect(f.nativeText()).toBe('original native bytes'); expect(f.execute).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('승인 중 원본 또는 권한이 바뀌었습니다.');
+});
+it('retires a Word selection changed while acceptance is pending without applying the proposal', async () => {
+  const f = setup(), original = (await f.repository.execution!('project', 'work'))!;
+  let finish!: (value: ProjectExecution) => void;
+  f.repository.acceptExecution = () => new Promise(resolve => { finish = resolve; });
+  await render(f.repository);
+  const button = [...container.querySelectorAll('button')].find(one => one.textContent === '이 변경 승인 및 저장')!;
+  await act(async () => { button.click(); await Promise.resolve(); });
+  f.selectionABA();
+  await act(async () => finish({ ...original, phase: 'accepted' }));
+  expect(f.apply).not.toHaveBeenCalled(); expect(f.acknowledge).not.toHaveBeenCalled();
+  expect(f.nativeText()).toBe('original native bytes'); expect(f.execute).not.toHaveBeenCalled();
+});
 it('refuses unfinished native input before server acceptance', async () => {
   const f = setup(); disposers.push(registerProductDocumentHost({ product: 'word', id: () => 'word', beforeNavigate: async () => false }));
   await render(f.repository); await click('이 변경 승인 및 저장');

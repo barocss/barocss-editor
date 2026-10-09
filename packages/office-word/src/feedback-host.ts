@@ -181,8 +181,12 @@ export function createWordFeedbackHost(options: WordFeedbackOptions): WordFeedba
       return previewConnectedWordRevision({ editor, proposal, nativeDocument: options.nativeDocument,
         current: () => owns() && (!inputCurrent || inputCurrent()) && editable() && options.id() === documentId && editor.getRootId() === rootId &&
           store.getNodes().get(rootId!) === root && store.getDocumentEpoch() === epoch && store.getSessionId() === session,
+        // The transaction's guarded draft publishes a new root object. This
+        // callback runs only after its own committed result and exact expected
+        // native document were checked. Keep the document/session/role/input
+        // guards; the precommit callback above still pins the original root.
         afterCommitCurrent: () => owns() && (!inputCurrent || (revisionCurrent ? revisionCurrent(true) : inputCurrent())) && editable() &&
-          options.id() === documentId && editor.getRootId() === rootId && store.getNodes().get(rootId!) === root &&
+          options.id() === documentId && editor.getRootId() === rootId && store.getNodes().get(rootId!)?.sid === rootId &&
           store.getDocumentEpoch() === epoch && store.getSessionId() === session });
     },
     dispose() {

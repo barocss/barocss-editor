@@ -9,10 +9,12 @@ import { CriterionConfirmationPanel } from './criterion-confirmation-panel';
 import type { CriterionConfirmationHost } from './criterion-confirmation-client';
 import { CriterionVerificationPanel } from './criterion-verification-panel';
 import type { CriterionVerificationHost } from './criterion-verification-client';
+import { WorkResultVerificationPanel } from './work-result-verification-panel';
+import type { WordWorkHost } from './work-result-verification-client';
 import { watchAnswers } from '@barocss/editor-core';
 
 /** Product ownership stays here; the shared buttons carry no document semantics. */
-export function BusinessPairPanel({ runtime, readOnly, confirmation, verification }: { runtime: WordRuntime; readOnly: boolean; confirmation?: CriterionConfirmationHost; verification?: CriterionVerificationHost }) {
+export function BusinessPairPanel({ runtime, readOnly, confirmation, verification, workVerification }: { runtime: WordRuntime; readOnly: boolean; confirmation?: CriterionConfirmationHost; verification?: CriterionVerificationHost; workVerification?: WordWorkHost }) {
   useRevision(reread => watchAnswers(runtime.editor, reread), [runtime]);
   const authority = useRef(readOnly); authority.current = readOnly;
   const authorityStamp = useRef({ readOnly, version: 0 });
@@ -121,11 +123,13 @@ export function BusinessPairPanel({ runtime, readOnly, confirmation, verificatio
       </section> : <p>요구사항 v{result.payload.relations[0].source.version} → supported_by → 결정 v{result.payload.relations[0].target.version}</p>}
       <p role="status">{result.review === 'needed' ? '다시 검토해야 합니다. 기존 참조 버전은 유지됩니다.' : result.lifecycle === 'unlinked' ? '직접 작성한 요구사항입니다. 아직 결정과 연결하지 않았습니다.' : '작성한 버전 관계입니다. 사람의 승인은 확인되지 않았습니다.'}</p>
       {result.lifecycle === 'linked' && <details><summary>가상 색상 기준 작성</summary><p>원래 문장을 유지하고 요구사항 문단 끝에 직접 입력하세요: <code>Fictional active-button contrast: minimum 4.5:1.</code> 숫자는 이 가상 기준의 값이며 회사·법적 기준이 아닙니다. 새 버전 보관 → 저장 → 직접 확인 후 실행합니다.</p></details>}
+      {result.lifecycle === 'linked' && <details><summary>Word 원문 보존 기준 작성</summary><p>보관된 결정 문단을 그대로 유지할 기준을 직접 작성하려면 요구사항 문단에 이 문장을 입력하세요: <code>Preserve the linked decision paragraph exactly as pinned.</code> 새 버전 보관, 서버 저장, 작성자 확인을 먼저 마칩니다. 실제 프로젝트 Word 작업 적용 뒤 아래에서 그 적용 결과를 골라 검사합니다.</p></details>}
       <Button disabled={!writable} onMouseDown={event => event.preventDefault()} onClick={() => void write('requirement')}>현재 요구사항 내용을 새 버전으로 보관</Button>
       <Button disabled={!writable || result.lifecycle !== 'linked'} onMouseDown={event => event.preventDefault()} onClick={() => void write('decision')}>현재 결정 내용을 새 버전으로 보관</Button>
     </>}
     {result.status === 'valid' && result.lifecycle === 'linked' && <CriterionConfirmationPanel runtime={runtime} host={confirmation} readOnly={readOnly} />}
     {result.status === 'valid' && result.lifecycle === 'linked' && <CriterionVerificationPanel runtime={runtime} host={verification} readOnly={readOnly} />}
+    {result.status === 'valid' && result.lifecycle === 'linked' && <WorkResultVerificationPanel runtime={runtime} host={workVerification} readOnly={readOnly} />}
     {pin && pin.rootId === rootId && <section><Button tone="quiet" onClick={() => setPin(undefined)}>보관 내용 닫기</Button><PinnedContent text={pin.text} /></section>}
     {problem && <p role="alert">{problem}</p>}
   </details>;

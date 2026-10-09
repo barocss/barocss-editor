@@ -86,8 +86,9 @@ export function ConnectedWorkControl({ repository, project, work, revision, docu
     const accepted = await repository.acceptExecution!(project, work, one.id); requireOwn();
     if (accepted.phase !== 'accepted' || accepted.id !== one.id || accepted.documentId !== one.documentId ||
       accepted.actorId !== one.actorId || accepted.expectedSnapshotText !== one.expectedSnapshotText ||
-      accepted.expectedSnapshotHash !== one.expectedSnapshotHash || (noteTask ? !sameValue(accepted.input, one.input) || !sameValue(accepted.proposal, one.proposal) || !sameValue(accepted.binding, one.binding)
-        : JSON.stringify(accepted.input) !== JSON.stringify(one.input) || JSON.stringify(accepted.proposal) !== JSON.stringify(one.proposal))) throw new Error(message('workspace.task.approvalChanged', '승인 중 원본 또는 권한이 바뀌었습니다. 다시 확인하세요.'));
+      accepted.expectedSnapshotHash !== one.expectedSnapshotHash || !sameValue(accepted.input, one.input) ||
+      !sameValue(accepted.proposal, one.proposal) || (noteTask && !sameValue(accepted.binding, one.binding)))
+      throw new Error(message('workspace.task.approvalChanged', '승인 중 원본 또는 권한이 바뀌었습니다. 다시 확인하세요.'));
     requirePreview(capture);
     if (!await capture.preview.apply()) throw new Error(message('workspace.task.applyUnconfirmed', '원본 적용을 확인하지 못했습니다. 현재 초안과 제안을 유지합니다.'));
     requireOwn(); setExecution(accepted);

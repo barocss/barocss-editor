@@ -3,7 +3,7 @@ import { lstatSync, mkdirSync, readFileSync } from 'node:fs';
 import { connect } from 'node:net';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { chromium, type BrowserContext } from '@playwright/test';
+import { chromium, type Browser, type BrowserContext } from '@playwright/test';
 
 export interface RealStatus {
   databaseGeneration: string;
@@ -106,6 +106,9 @@ export async function privateControl<T>(command: Record<string, unknown>): Promi
   });
 }
 
+type OwnedProfile = { pid: number; path: string; browser: Browser; contextClosed: boolean; disconnected: boolean; shutdown?: Promise<void> };
+const ownedProfiles = new WeakMap<BrowserContext, OwnedProfile>();
+
 function exists(pid: number): boolean {
   try { process.kill(pid, 0); return true; }
   catch (error) {
@@ -165,19 +168,80 @@ export async function launchPrivateProfile(profilePath: string): Promise<{ conte
   });
   context.setDefaultTimeout(15_000);
   context.setDefaultNavigationTimeout(30_000);
-  try { return { context, pid: await bounded(profilePid(context, path), 10000, 'private_browser_process_unconfirmed') }; }
+  try {
+    const pid = await bounded(profilePid(context, path), 10000, 'private_browser_process_unconfirmed');
+    const browser = context.browser();
+    if (!browser || browser.contexts().length !== 1 || browser.contexts()[0] !== context)
+      throw new Error('private_browser_process_unconfirmed');
+    const owner: OwnedProfile = { pid, path, browser, contextClosed: false, disconnected: false };
+    context.once('close', () => { owner.contextClosed = true; });
+    browser.once('disconnected', () => { owner.disconnected = true; });
+    ownedProfiles.set(context, owner);
+    return { context, pid };
+  }
   catch {
     await bounded(context.close(), 15000, 'private_browser_close_timeout');
     throw new Error('private_browser_process_unconfirmed');
   }
 }
 
-export async function stopPrivateProfile(context: BrowserContext, pid: number): Promise<void> {
+export type PrivateProfileCloseStage = 'pages-close-entered' | 'pages-close-returned' | 'browser-close-entered' | 'browser-close-returned'
+  | 'request-dispose-entered' | 'request-dispose-returned' | 'shutdown-reused' | 'release-confirmed' | 'process-exit-confirmed';
+
+export async function stopPrivateProfile(context: BrowserContext, pid: number,
+  observe?: (stage: PrivateProfileCloseStage) => void): Promise<void> {
   if (!Number.isSafeInteger(pid) || pid <= 0 || pid === process.pid) throw new Error('private_browser_process_unconfirmed');
-  await bounded(context.close(), 15000, 'private_browser_close_timeout');
+  const owner = ownedProfiles.get(context);
+  if (!owner || owner.pid !== pid || context.browser() !== owner.browser)
+    throw new Error('private_browser_process_unconfirmed');
+  const directory = lstatSync(owner.path);
+  if (!directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== process.getuid?.()
+    || (directory.mode & 0o777) !== 0o700) throw new Error('private_browser_profile_required');
+  if (!owner.shutdown) {
+    if (!owner.contextClosed || !owner.disconnected) {
+      if (!owner.browser.isConnected() || owner.browser.contexts().length !== 1 || owner.browser.contexts()[0] !== context)
+        throw new Error('private_browser_process_unconfirmed');
+      try {
+        const confirmedPid = await bounded(profilePid(context, owner.path), 10000, 'private_browser_process_unconfirmed');
+        if (!owner.shutdown && confirmedPid !== pid) throw new Error('private_browser_process_unconfirmed');
+      } catch (error) {
+        // Another caller can finish ownership validation and start closing this
+        // same lifetime while its peer is still reading the process identity.
+        if (!owner.shutdown) throw error;
+      }
+    }
+    // Keep the original resource-release operation for this lifetime. A later
+    // cleanup must await it; native close events alone cannot acknowledge API
+    // request disposal or turn an earlier rejected operation into success.
+    // Recheck after the ownership await. Only the first validated caller creates
+    // the operation; peers join it, including its original disposal failure.
+    owner.shutdown ??= (async () => {
+      if (!owner.contextClosed || !owner.disconnected) {
+        observe?.('pages-close-entered');
+        await Promise.all(context.pages().map(page => page.close()));
+        if (context.pages().length !== 0) throw new Error('private_browser_process_unconfirmed');
+        observe?.('pages-close-returned');
+      }
+      observe?.('request-dispose-entered');
+      await context.request.dispose();
+      observe?.('request-dispose-returned');
+      if (!owner.contextClosed || !owner.disconnected) {
+        if (!owner.browser.isConnected() || owner.browser.contexts().length !== 1 || owner.browser.contexts()[0] !== context)
+          throw new Error('private_browser_process_unconfirmed');
+        observe?.('browser-close-entered');
+        await owner.browser.close();
+        observe?.('browser-close-returned');
+      }
+    })();
+  } else observe?.('shutdown-reused');
+  await bounded(owner.shutdown, 15000, 'private_browser_close_timeout');
+  if (!owner.contextClosed || !owner.disconnected || owner.browser.isConnected())
+    throw new Error('private_browser_process_unconfirmed');
+  observe?.('release-confirmed');
   const deadline = Date.now() + 10000;
   while (exists(pid)) {
     if (Date.now() >= deadline) throw new Error('private_browser_process_still_running');
     await new Promise(resolveWait => setTimeout(resolveWait, 100));
   }
+  observe?.('process-exit-confirmed');
 }
