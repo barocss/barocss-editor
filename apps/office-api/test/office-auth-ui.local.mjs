@@ -37,6 +37,16 @@ const native2Mode = process.env.OFFICE_AUTH_NATIVE2_READ_FIXTURE;
 if (native2Mode !== undefined && !['true', 'false'].includes(native2Mode)) throw new Error('invalid_native2_fixture_mode');
 const native2Enabled = native2Mode === 'true';
 if (native2Enabled && !controlFile) throw new Error('native2_fixture_requires_private_control');
+const mutationMode = process.env.OFFICE_AUTH_NATIVE2_MUTATION_FIXTURE;
+if (mutationMode !== undefined && !['true', 'false'].includes(mutationMode)) throw new Error('invalid_native2_mutation_fixture_mode');
+const mutationEnabled = mutationMode === 'true';
+if (mutationEnabled && (!native2Enabled || !controlFile || process.env.OFFICE_LOCAL_AGENT_ENABLED !== 'false')) {
+  throw new Error('native2_mutation_fixture_requires_private_read_fixture_and_disabled_model');
+}
+const snapshotText = file => mutationEnabled ? JSON.stringify(file, null, 2) + '\n' : JSON.stringify(file);
+const schemaPolicy = { readRoles: mutationEnabled ? ['owner', 'editor', 'viewer'] : ['owner', 'viewer'],
+  preserveRoles: mutationEnabled ? ['owner', 'editor'] : [], adoptRoles: mutationEnabled ? ['owner', 'editor'] : [],
+  registerRoles: [] };
 const schemaPort = Number(process.env.OFFICE_AUTH_SCHEMA_PORT ?? '14102');
 if (native2Enabled && (!Number.isInteger(schemaPort) || schemaPort < 1024 || schemaPort > 65535 || schemaPort === port)) {
   throw new Error('invalid_local_schema_port');
@@ -151,7 +161,7 @@ async function startSchema() {
       if (message.ready) resolve(); else reject(new Error('local_schema_start_failed'));
     });
     child.send({ database: config('wonffice_app'), issuer: fixture.issuer, audience: fixture.audience,
-      port: schemaPort, tenantId: alpha, workspaceId: alphaWorkspace });
+      port: schemaPort, tenantId: alpha, workspaceId: alphaWorkspace, fixtureMode: mutationEnabled ? 'mutation' : 'read' });
   });
 }
 async function schemaCommand(action, parameters = {}) {
@@ -198,7 +208,8 @@ const status = () => ({ databaseGeneration, databaseRunning: started,
   supervisorPid: process.pid, apiPid: apiChild?.pid ?? null,
   apiRunning: !!apiChild && apiChild.exitCode === null && apiChild.signalCode === null,
   tenantId: alpha, workspaceId: alphaWorkspace, betaTenantId: beta, betaWorkspaceId: betaWorkspace,
-  ...(native2Enabled ? { native2: native2Mapping, schemaPid: schemaChild?.pid ?? null, schemaPort } : {}) });
+  ...(native2Enabled ? { native2: native2Mapping, schemaPid: schemaChild?.pid ?? null, schemaPort,
+    ...(mutationEnabled ? { fixtureMode: 'mutation', schemaPolicy } : {}) } : {}) });
 async function control(command) {
   if (closing || !command || typeof command !== 'object' || Array.isArray(command)) throw new Error('invalid_local_command');
   const allowed = command.action === 'native2-hold' ? ['action', 'documentId', 'part']
@@ -216,23 +227,24 @@ async function control(command) {
     case 'native2-state': {
       if (!native2Mapping) throw new Error('native2_fixture_not_enabled');
       const tables = (await ownerQuery("SELECT tablename FROM pg_tables WHERE schemaname='wonffice' ORDER BY tablename")).rows;
-      const audit = {};
+      const audit = {}, ledger = {};
       for (const { tablename } of tables) {
         if (!/^[a-z_]+$/.test(tablename)) throw new Error('invalid_fixture_audit_table');
         const rows = (await ownerQuery(`SELECT row_to_json(t) AS row FROM wonffice."${tablename}" t`)).rows.map(r => JSON.stringify(r.row)).sort();
         audit[tablename] = { rows: rows.length, hash: createHash('sha256').update(JSON.stringify(rows)).digest('hex') };
+        if (mutationEnabled) ledger[tablename] = rows;
       }
       const heads = await ownerQuery(`SELECT d.id AS "documentId",d.page_id AS "pageId",s.revision,
         s.file_version AS "fileVersion",s.snapshot_hash AS "snapshotHash",s.snapshot_text AS "snapshotText"
         FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id
         WHERE d.tenant_id=$1 AND d.id=ANY($2::uuid[]) ORDER BY d.id`,
       [alpha, [native2Mapping.sourceS, native2Mapping.targetA, native2Mapping.targetB]]);
-      return { ...status(), heads: heads.rows, audit };
+      return { ...status(), heads: heads.rows, audit, ...(mutationEnabled ? { ledger } : {}) };
     }
     case 'native2-advance-a2': {
       if (!native2Mapping) throw new Error('native2_fixture_not_enabled');
-      const raw = JSON.stringify(native2Corpus.A2), hash = createHash('sha256').update(raw).digest('hex');
-      const priorHash = createHash('sha256').update(JSON.stringify(native2Corpus.A1)).digest('hex');
+      const raw = snapshotText(native2Corpus.A2), hash = createHash('sha256').update(raw).digest('hex');
+      const priorHash = createHash('sha256').update(snapshotText(native2Corpus.A1)).digest('hex');
       const changed = await ownerQuery(`UPDATE wonffice.document_snapshots SET snapshot_text=$3,snapshot_hash=$4,revision=2
         WHERE tenant_id=$1 AND document_id=$2 AND revision=1 AND snapshot_hash=$5 RETURNING revision`,
       [alpha, native2Mapping.targetA, raw, hash, priorHash]);
@@ -247,6 +259,12 @@ async function control(command) {
       return { ...status(), executorMode: criterionExecutorMode };
     case 'api-stop': await stopApi(); return status();
     case 'api-start': await startApi(); return status();
+    case 'schema-stop':
+      if (!mutationEnabled) throw new Error('invalid_local_command');
+      await stopSchema(); return status();
+    case 'schema-start':
+      if (!mutationEnabled) throw new Error('invalid_local_command');
+      await startSchema(); return status();
     case 'db-stop':
       if (owner) { await owner.end(); owner = undefined; }
       if (admin) { await admin.end(); admin = undefined; }
@@ -433,10 +451,10 @@ async function seedNative2() {
     }
     // Operator fixture installation preserves the declared bytes/page IDs; this is not product create/adopt evidence.
     native2Mapping = { sourceS: randomUUID(), targetA: randomUUID(), targetB: randomUUID(),
-      targetARevisions: { A1: 1, A2: 2 }, corpusEncoding: 'JSON.stringify compact UTF-8' };
+      targetARevisions: { A1: 1, A2: 2 }, corpusEncoding: mutationEnabled ? 'JSON.stringify pretty UTF-8 plus LF' : 'JSON.stringify compact UTF-8' };
     for (const [documentId, title, file] of [[native2Mapping.sourceS, 'Original source S', native2OriginalSource],
       [native2Mapping.targetA, 'Native2 full A', native2Corpus.A1], [native2Mapping.targetB, 'Native2 full B', native2Corpus.B]]) {
-      const raw = JSON.stringify(file), hash = createHash('sha256').update(raw).digest('hex');
+      const raw = snapshotText(file), hash = createHash('sha256').update(raw).digest('hex');
       await owner.query(`INSERT INTO wonffice.documents(tenant_id,id,workspace_id,product,title,page_id,document_key,creator_user_id)
         VALUES($1,$2,$3,'note',$4,$5,$6,$7)`, [alpha,documentId,alphaWorkspace,title,file.document.attributes.pageId,`wonffice-${alpha}-${documentId}`,alice]);
       await owner.query(`INSERT INTO wonffice.document_snapshots(tenant_id,document_id,file_format,file_version,snapshot_text,snapshot_hash,revision)

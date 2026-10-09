@@ -30,7 +30,8 @@ process.on('message', async message => {
     try {
       if (!app || closing) throw new Error('schema_fixture_not_running');
       if (message.action === 'hold') {
-        if (hold || held || !['snapshot', 'bundle'].includes(message.part) ||
+        const parts = ['snapshot', 'bundle', ...(app.mutationFixture ? ['validation', 'update'] : [])];
+        if (hold || held || !parts.includes(message.part) ||
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(message.documentId)) {
           throw new Error('invalid_schema_fixture_hold');
         }
@@ -39,14 +40,16 @@ process.on('message', async message => {
       } else if (message.action === 'release') release();
       else if (message.action !== 'status') throw new Error('invalid_schema_fixture_command');
       process.send?.({ requestId: message.requestId, result: { schemaPid: process.pid, armed: !!hold,
-        held: held ? { documentId: held.documentId, part: held.part, responseHash: held.responseHash } : null,
+        held: held ? { documentId: held.documentId, part: held.part, responseHash: held.responseHash,
+          ...(held.completion ? { completion: held.completion } : {}) } : null,
         lastRelease: lastRelease ?? null } });
     } catch { process.send?.({ requestId: message.requestId, error: 'schema_fixture_command_failed' }); }
     return;
   }
   try {
     if (app || pool || closing || message.tenantId !== native2FixtureScope.tenantId ||
-      message.workspaceId !== native2FixtureScope.workspaceId || !Number.isInteger(message.port) ||
+      message.workspaceId !== native2FixtureScope.workspaceId ||
+      message.fixtureMode !== undefined && !['read', 'mutation'].includes(message.fixtureMode) || !Number.isInteger(message.port) ||
       message.port < 1024 || message.port > 65535) throw new Error('invalid_schema_fixture_configuration');
     pool = new pg.Pool({ ...message.database, max: 3, connectionTimeoutMillis: 2000 });
     pool.on('error', () => {});
@@ -54,25 +57,35 @@ process.on('message', async message => {
       OFFICE_OIDC_JWKS_URL: `${message.issuer}/protocol/openid-connect/certs`,
       OFFICE_OIDC_AUDIENCE: message.audience, OFFICE_API_DATABASE_URL: 'postgresql://synthetic/unused' });
     if (!auth) throw new Error('schema_fixture_auth_missing');
+    const mutationEnabled = message.fixtureMode === 'mutation';
     const scope = { tenantId: message.tenantId, workspaceId: message.workspaceId,
-      readRoles: ['owner', 'viewer'], capabilities };
+      readRoles: mutationEnabled ? ['owner', 'editor', 'viewer'] : ['owner', 'viewer'], capabilities };
     const policy = [{ ...scope, registerRoles: [] }];
     app = createSchemaServer({ verifier: createOidcVerifier(auth), memberships: new MembershipStore(pool),
       registry: new SchemaRegistryStore(pool, policy), policy,
-      documents: new DocumentStore(pool, { noteSchemaPolicy: [{ ...scope, preserveRoles: [], adoptRoles: [] }] }) });
+      documents: new DocumentStore(pool, { noteSchemaPolicy: [{ ...scope,
+        preserveRoles: mutationEnabled ? ['owner', 'editor'] : [], adoptRoles: mutationEnabled ? ['owner', 'editor'] : [] }] }) });
+    app.decorate('mutationFixture', mutationEnabled);
     app.addHook('onSend', async (request, reply, payload) => {
-      const suffix = hold?.part === 'bundle' ? '/schema-bundle' : '';
+      const suffix = hold?.part === 'bundle' ? '/schema-bundle' : hold?.part === 'validation' ? '/validation'
+        : hold?.part === 'update' ? '/snapshot' : '';
+      const method = hold?.part === 'validation' ? 'POST' : hold?.part === 'update' ? 'PUT' : 'GET';
       const path = hold && `/v1/tenants/${message.tenantId}/note-native2/documents/${hold.documentId}${suffix}`;
-      if (!hold || request.method !== 'GET' || request.url !== path || reply.statusCode !== 200) return payload;
+      if (!hold || request.method !== method || request.url !== path || reply.statusCode !== 200) return payload;
       if (typeof payload !== 'string' && !Buffer.isBuffer(payload)) throw new Error('unexpected_schema_fixture_payload');
       const selected = hold;
       hold = undefined;
+      const completion = mutationEnabled ? { method: request.method, path: request.url, status: reply.statusCode,
+        bodyHash: createHash('sha256').update(JSON.stringify(request.body ?? null)).digest('hex'),
+        bodyHashEncoding: 'JSON.stringify parsed body, UTF-8; transport whitespace is not captured',
+        result: JSON.parse(payload.toString()), reached: true,
+        timing: selected.part === 'update' ? 'after actual service completion and durable commit' : 'after actual service completion' } : undefined;
       await new Promise(resolve => {
         const timer = setTimeout(() => finish('timeout'), 45000);
         function finish(reason) { clearTimeout(timer);
-          lastRelease = { ...selected, responseHash: held.responseHash, reason };
+          lastRelease = { ...selected, responseHash: held.responseHash, ...(completion ? { completion } : {}), reason };
           held = undefined; resolve(); }
-        held = { ...selected, responseHash: createHash('sha256').update(payload).digest('hex'), release: finish };
+        held = { ...selected, responseHash: createHash('sha256').update(payload).digest('hex'), completion, release: finish };
       });
       return payload;
     });
