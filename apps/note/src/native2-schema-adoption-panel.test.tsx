@@ -10,6 +10,7 @@ import type { Native2StageSource, Native2ReadonlyStage, Native2StageReadFactory 
 import { NATIVE_NOTE_FIXTURES } from './native2-scenario-fixtures';
 import { createNative2SchemaAdoptionOperation } from './native2-schema-adoption-operation';
 import { createExperimentalNative2AdoptJournal } from './experimental-native2-adopt-pending';
+import { Native2MutationError } from '../../office/src/native2-authenticated-mutation';
 import { Native2SchemaAdoptionPanel } from './native2-schema-adoption-panel';
 const tenantId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', workspaceId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const documentId = '33333333-3333-4333-8333-333333333333';
@@ -99,6 +100,7 @@ function panelOperation(operation: ReturnType<typeof createNative2SchemaAdoption
     confirm: () => { const task = operation.confirm(); lastTask = task; return task; },
     recordCandidate: (text: string) => { const task = operation.recordCandidate(text); lastTask = task; return task; },
     recoverHistorical: () => { const task = operation.recoverHistorical(); lastTask = task; return task; },
+    retryFixed: () => { const task = operation.retryFixed(); lastTask = task; return task; },
   };
 }
 beforeEach(async () => {
@@ -227,4 +229,44 @@ it('refuses a captured authority retirement at action time even before the host 
   await click('구조 검사', true);
   expect(h.createMutationLease).not.toHaveBeenCalled(); expect(h.context.update).not.toHaveBeenCalled();
   expect(h.storage.length).toBe(0); expect(h.operation.isCurrent()).toBe(false);
+});
+
+async function lostAck() {
+  await preview(); await click('구조 검사', true); vi.mocked(h.context.update).mockRejectedValueOnce(Error('controlled_lost_ack'));
+  await click('채택 확인', true); expect((await h.journal.office.read())?.phase).toBe('unknown');
+}
+it('only explicit original retry submits the immutable fixed operation while later text/key/path/durable draft stay separate', async () => {
+  await lostAck(); const fixed = (await h.journal.office.read())!.fixed!;
+  await fill('전체 후보 문서', '{later retry UI draft'); await fill('데이터 경로', '0'); await fill('요청 키', 'later-ui-key');
+  await click('초안 보관', true); const stored = h.storage.getItem(h.journal.key);
+  expect(h.context.update).toHaveBeenCalledTimes(1); expect(h.recovery.recover).not.toHaveBeenCalled();
+  vi.mocked(h.recovery.recover).mockRejectedValueOnce(new Native2MutationError('not_found', 404));
+  await click('고정 원래 요청 재시도', true);
+  expect(h.context.update).toHaveBeenCalledTimes(2); const attempt = vi.mocked(h.context.update).mock.calls[1][0];
+  expect(attempt.snapshotText).toBe(fixed.original.snapshotText); expect(attempt.idempotencyKey).toBe('panel-1');
+  expect(attempt.requestHash).toBe(fixed.requestHash); expect(h.storage.getItem(h.journal.key)).toBe(stored);
+  expect(host.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('{later retry UI draft');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="요청 키"]')!.value).toBe('later-ui-key');
+  expect(host.querySelector<HTMLInputElement>('[aria-label="데이터 경로"]')!.value).toBe('0');
+  expect(host.querySelector('[aria-label="영수증과 일치하는 현재 문서"]')).not.toBeNull();
+  expect(button('고정 원래 요청 재시도').disabled).toBe(true); expect(h.stage.dispose).not.toHaveBeenCalled();
+});
+it('known receipt refuses explicit retry without a second PUT or current-read success', async () => {
+  await lostAck(); const stored = h.storage.getItem(h.journal.key);
+  await click('고정 원래 요청 재시도', true);
+  expect(h.context.update).toHaveBeenCalledTimes(1); expect(host.textContent).toContain('receipt_already_exists');
+  expect(host.querySelector('[aria-label="영수증과 일치하는 현재 문서"]')).toBeNull(); expect(h.storage.getItem(h.journal.key)).toBe(stored);
+});
+it('close during held retry qualification prevents a new writer and late UI installation', async () => {
+  await lostAck(); let release!: () => void;
+  vi.mocked(h.recovery.recover).mockImplementationOnce(async () => { await new Promise<void>(resolve => { release = resolve; }); throw new Native2MutationError('not_found', 404); });
+  await click('고정 원래 요청 재시도'); await settle(() => expect(release).toBeTypeOf('function'));
+  await click('채택 화면 닫기'); await act(async () => release());
+  expect(h.createMutationLease).toHaveBeenCalledTimes(2); // Advisory and original confirm only.
+  expect(h.context.update).toHaveBeenCalledTimes(1); expect(host.childElementCount).toBe(0); expect(h.stage.dispose).not.toHaveBeenCalled();
+});
+it('a missing fixed operation is a named refusal and does not infer authority from the current textarea', async () => {
+  await preview(); await click('고정 원래 요청 재시도', true);
+  expect(host.textContent).toContain('no_fixed_operation'); expect(h.context.update).not.toHaveBeenCalled();
+  expect(h.createMutationLease).not.toHaveBeenCalled(); expect(h.storage.length).toBe(0);
 });

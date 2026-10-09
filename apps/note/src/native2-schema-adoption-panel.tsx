@@ -62,6 +62,12 @@ export function Native2SchemaAdoptionPanel({ createOperation, onClose }: {
       setProposal(undefined); setError(failure instanceof Error ? failure.message : 'native2_adoption_failed');
     }
   };
+  const acceptRead = (operation: Operation, value: ReceiptRead) => {
+    const own = lifetime.current;
+    if (!own || own.operation !== operation || !value.isCurrent()) { value.dispose(); return; }
+    own.receipt?.dispose(); own.receipt = value; setReceipt(value);
+    setMessage('영수증과 현재 읽기 결과가 일치합니다. 읽기 전용 문서를 확인하세요.');
+  };
   if (closed) return null;
   return <section aria-label="스키마 채택">
     <h2>스키마 채택</h2>
@@ -87,15 +93,18 @@ export function Native2SchemaAdoptionPanel({ createOperation, onClose }: {
         if (!matches || !proposal?.value.isCurrent() || !advisory?.isCurrent()) throw Error('native2_adoption_confirmation_unavailable');
         setConfirmationStarted(true);
         const value = await operation.confirm();
-        const own = lifetime.current;
-        if (!own || own.operation !== operation || !value.isCurrent()) { value.dispose(); return; }
-        own.receipt?.dispose(); own.receipt = value; setReceipt(value);
-        setMessage('영수증과 현재 읽기 결과가 일치합니다. 읽기 전용 문서를 확인하세요.');
+        acceptRead(operation, value);
       })}>채택 확인</Button>
     <Button disabled={!current || busy} onClick={() => void run(async operation => {
       await operation.recoverHistorical();
       if (lifetime.current?.operation === operation) setMessage('과거 요청 영수증을 확인했습니다. 현재 저장 상태는 별도입니다.');
     })}>과거 요청 영수증 확인</Button>
+    <p>재시도는 보관된 원래 요청과 요청 키를 사용합니다. 후속 초안은 유지합니다.</p>
+    <Button disabled={!current || busy || !!receipt?.isCurrent()} onClick={() => void run(async operation => {
+      setMessage('보관된 원래 요청의 영수증과 현재 권한을 확인합니다.');
+      const value = await operation.retryFixed();
+      acceptRead(operation, value);
+    })}>고정 원래 요청 재시도</Button>
     <Button tone="quiet" onClick={close}>채택 화면 닫기</Button>
     {message && <p role="status">{message}</p>}
     {error && <p role="alert">{error}</p>}

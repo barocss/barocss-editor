@@ -1,4 +1,4 @@
-import { verifyNative2UpdateReceipt, type createAuthenticatedNative2Mutation } from '../../office/src/native2-authenticated-mutation';
+import { Native2MutationError, verifyNative2UpdateReceipt, type createAuthenticatedNative2Mutation } from '../../office/src/native2-authenticated-mutation';
 import type { createAuthenticatedNative2ReceiptRecovery, Native2OriginalUpdate } from '../../office/src/native2-authenticated-receipt-recovery';
 import { createExperimentalNative2ReadStage, captureNative2StageSource, type Native2StageSource,
   type Native2ReadonlyStage, type Native2StageReadFactory } from './experimental-native2-authenticated-stage';
@@ -140,5 +140,62 @@ export function createNative2SchemaAdoptionOperation({ source, stage, journal, c
       return Object.freeze({ status: 'historical-acknowledgment' as const, original });
     } finally { busy = false; release?.(); }
   };
-  return Object.freeze({ preview, confirm, recordCandidate, recoverHistorical, isCurrent, dispose });
+  // A separate human action requalifies the original request; later drafts are never substituted.
+  const retryFixed = async () => {
+    check(); if (busy) throw Error('native2_adoption_operation_busy'); busy = true;
+    let original: Native2OfficeAdoptFixed | undefined, sent = false;
+    let releaseRecovery: (() => void) | undefined, releaseFactory: (() => void) | undefined, releaseContext: (() => void) | undefined;
+    try {
+      const record = await journal.read(); check();
+      if (!record?.fixed) throw Error('native2_adoption_no_fixed_operation');
+      if (record.phase === 'historical-acknowledgment') throw Error('native2_adoption_receipt_already_exists');
+      original = record.fixed;
+      const recovery = await createReceiptRecoveryLease();
+      if (!isCurrent()) { recovery.retire(); check(); }
+      releaseRecovery = attach(recovery); check();
+      try {
+        const acknowledgment = await recovery.recover(original.original);
+        acknowledgment.retire(); check();
+        throw Error('native2_adoption_receipt_already_exists');
+      } catch (error) {
+        check();
+        if (!recovery.isCurrent() || !(error instanceof Native2MutationError) || error.code !== 'not_found' || error.status !== 404) throw error;
+      }
+      releaseRecovery(); releaseRecovery = undefined;
+      const factory = await createMutationLease();
+      if (!isCurrent()) { factory.retire(); check(); }
+      releaseFactory = attach(factory); check();
+      const context = await factory.open(scope);
+      if (!isCurrent()) { context.retire(); check(); }
+      releaseContext = attach(context);
+      const current = () => { check(); if (!factory.isCurrent() || !context.isCurrent()) throw Error('native2_adoption_operation_retired'); };
+      current();
+      if (!native2Equal(context.source.document, stage.read.document) || context.source.snapshotText !== stage.read.snapshotText ||
+        !native2Equal(context.source.file, stage.read.file) || !native2Equal(record.base,
+          { document: stage.read.document, snapshotText: stage.read.snapshotText })) throw Error('native2_adoption_source_changed');
+      const old = original.original;
+      const attempt = await context.prepare({ snapshotText: old.snapshotText, schemaAction: old.schemaAction, idempotencyKey: old.idempotencyKey });
+      current();
+      const qualified: Native2OriginalUpdate = { ...scope, expectedRevision: attempt.expectedRevision,
+        expectedSnapshotHash: attempt.expectedSnapshotHash, expectedPriorPinDigest: attempt.expectedPriorPinDigest,
+        snapshotText: attempt.snapshotText, schemaAction: attempt.schemaAction, idempotencyKey: attempt.idempotencyKey };
+      if (!native2Equal(qualified, old) || attempt.requestHash !== original.requestHash ||
+        attempt.candidateSnapshotHash !== original.candidateSnapshotHash) throw Error('native2_adoption_fixed_hash_changed');
+      await context.validateSource(); current(); await context.validate(attempt); current();
+      const durable = await journal.read(); current();
+      if (!native2Equal(durable?.fixed, original) || durable?.phase === 'historical-acknowledgment')
+        throw Error('native2_adoption_fixed_changed');
+      // The original durable request and the live private attempt are exact. No draft/fixed write occurs here.
+      fixed = original; sent = true;
+      const value = await context.update(attempt); current();
+      const receipt = verifyNative2UpdateReceipt({ operation: value.operation, idempotencyKey: value.idempotencyKey,
+        requestHash: value.requestHash, document: value.document, snapshotText: value.snapshotText },
+      { ...old, pageId: stage.read.document.pageId, requestHash: original.requestHash, candidateSnapshotHash: original.candidateSnapshotHash });
+      return await reread(receipt);
+    } catch (error) {
+      if (sent && original) { try { await journal.markUnknown(original); } catch { /* Retain durable pending/unknown bytes and original error. */ } }
+      throw error;
+    } finally { busy = false; releaseContext?.(); releaseFactory?.(); releaseRecovery?.(); }
+  };
+  return Object.freeze({ preview, confirm, recordCandidate, recoverHistorical, retryFixed, isCurrent, dispose });
 }

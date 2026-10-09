@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createNoteNative2Context, openNoteNativeSnapshot, openNoteTree } from '@barocss/office-note';
-import type { createAuthenticatedNative2Mutation, Native2MutationAttempt, Native2Validation } from '../../office/src/native2-authenticated-mutation';
+import { Native2MutationError, type createAuthenticatedNative2Mutation, type Native2MutationAttempt, type Native2Validation } from '../../office/src/native2-authenticated-mutation';
 import { createExperimentalNative2ReadStage, type Native2StageSource, type Native2ReadonlyStage } from './experimental-native2-authenticated-stage';
 import { NATIVE_NOTE_FIXTURES } from './native2-scenario-fixtures';
 import { createNative2SchemaAdoptionOperation } from './native2-schema-adoption-operation';
@@ -193,7 +193,7 @@ it('reload candidate generation advances from durable state; a persisted fixed o
 });
 
 
-it('joins actual private Office mutation/reader/WeakMap attempt with real journal and native models under controlled HTTP', async () => {
+it.each(['confirm', 'retry'] as const)('joins actual private Office %s/reader/WeakMap attempt with real journal and native models under controlled HTTP', async mode => {
   vi.resetModules();
   const issuer = 'https://controlled-operation.example.test', subject = 'controlled-operation-person';
   vi.stubEnv('VITE_OFFICE_OIDC_ISSUER', issuer); vi.stubEnv('VITE_OFFICE_OIDC_CLIENT_ID', 'controlled-operation');
@@ -209,7 +209,7 @@ it('joins actual private Office mutation/reader/WeakMap attempt with real journa
     fileFormat: 'barocss-note' as const, fileVersion: 2 as const, revision: 1, snapshotHash: hash(sourceText) };
   const prior = hash(JSON.stringify(['wonffice.note.snapshot-pins.cas.v1', tenantId, workspaceId, documentId, 'pinned',
     NATIVE_NOTE_FIXTURES.SOURCE_A.schemaBundle.selected.map(r => [r.schemaId, r.version, r.digest])]));
-  let updated = false, effects = 0;
+  let updated = false, effects = 0, lost = false;
   const calls: { path: string; method: string; body: string }[] = [];
   let journal: ReturnType<typeof createExperimentalNative2AdoptJournal>;
   vi.stubGlobal('fetch', vi.fn(async (input: string | Request, init?: RequestInit) => {
@@ -236,11 +236,15 @@ it('joins actual private Office mutation/reader/WeakMap attempt with real journa
           [...checks, 'candidate_file', 'candidate_registered_bundle', 'candidate_action_policy', 'pin_transition'],
         ...(value.kind === 'candidate' ? { candidateSnapshotHash: hash(candidateText), action: 'adopt' } : {}) });
     }
+    if (url.pathname.includes('/receipts/update/') && request.method === 'GET') {
+      expect(updated).toBe(false); return Response.json({ status: 'not_found' }, { status: 404 });
+    }
     if (url.pathname.endsWith('/snapshot') && request.method === 'PUT') {
       const fixed = (await journal.office.read())?.fixed;
       expect(fixed?.original.snapshotText).toBe(candidateText); expect(fixed?.original.idempotencyKey).toBe('real-operation-1');
       expect(JSON.parse(body)).toEqual({ schemaAction: 'adopt', expectedRevision: 1, expectedSnapshotHash: hash(sourceText),
         expectedPriorPinDigest: prior, snapshotText: candidateText, idempotencyKey: 'real-operation-1' });
+      if (mode === 'retry' && !lost) { lost = true; throw Error('controlled_lost_before_commit'); }
       effects++; updated = true;
       return Response.json({ operation: 'update', idempotencyKey: 'real-operation-1', requestHash: fixed?.requestHash,
         document: { ...base, revision: 2, snapshotHash: hash(candidateText) }, snapshotText: candidateText });
@@ -255,6 +259,7 @@ it('joins actual private Office mutation/reader/WeakMap attempt with real journa
     sessionStorage.setItem('wonffice.oidc.pending', JSON.stringify({ state: 'state', verifier: 'verifier', intent: 'user' }));
     history.replaceState(null, '', '/auth/callback?state=state&code=code'); await auth.finishLogin();
     const host = await import('../../office/src/native2-authenticated-host');
+    const operationApi = await import('./native2-schema-adoption-operation');
     const readerApi = await import('../../office/src/native2-authenticated-reader');
     const binding = { isAuthorized: () => true, subscribeAuthority: (callback: () => void) => { callbacks.add(callback); return () => { callbacks.delete(callback); }; } };
     const source: Native2StageSource = { session: authority, authority, resourceIds: [], scope: { issuer, subject, currentUserId: null, tenantId, workspaceId, documentId },
@@ -270,14 +275,21 @@ it('joins actual private Office mutation/reader/WeakMap attempt with real journa
     initial = createExperimentalNative2ReadStage({ source, readFresh: () => first.open({ tenantId, workspaceId, documentId }) });
     const stage = await initial.stage();
     journal = createExperimentalNative2AdoptJournal({ scope: { issuer, subject, tenantId, workspaceId }, documentId, storage, isWritableCurrent: () => stage.isCurrent() });
-    operation = createNative2SchemaAdoptionOperation({ source, stage, journal: journal.office, createReadLease,
+    operation = operationApi.createNative2SchemaAdoptionOperation({ source, stage, journal: journal.office, createReadLease,
       createMutationLease: host.noteMutationLeaseFactory(tenantId, workspaceId, binding),
       createReceiptRecoveryLease: host.noteReceiptRecoveryLeaseFactory(tenantId, workspaceId, binding) });
     await operation.preview({ snapshotText: candidateText, datasetPath: [4, 0], idempotencyKey: 'real-operation-1' }).validate();
-    expect(effects).toBe(0); const result = await operation.confirm();
+    expect(effects).toBe(0);
+    let beforeRetry: string | null = null;
+    if (mode === 'retry') {
+      await expect(operation.confirm()).rejects.toThrow('unavailable');
+      await operation.recordCandidate('{later real private draft'); beforeRetry = storage.getItem(journal.key);
+    }
+    const result = mode === 'confirm' ? await operation.confirm() : await operation.retryFixed();
+    if (mode === 'retry') expect(storage.getItem(journal.key)).toBe(beforeRetry);
     expect(effects).toBe(1); expect(result.isCurrent()).toBe(true); expect(stage.isCurrent()).toBe(true);
     expect(result.stage.session.exportSnapshot()).toBe(candidateText); expect(stage.session.exportSnapshot()).toBe(sourceText);
-    expect(readers).toHaveLength(2); expect(calls.filter(c => c.method === 'PUT')).toHaveLength(1);
+    expect(readers).toHaveLength(2); expect(calls.filter(c => c.method === 'PUT')).toHaveLength(mode === 'confirm' ? 1 : 2);
     expect(authority.editor.exportDocument()).toEqual(originalModel); expect(authority.editor.historyManager).toBe(manager);
     expect(manager.getCurrentIndex()).toBe(originalIndex);
     entries.forEach((before, index) => { const now = manager.getHistory()[index]; expect(now).toBe(before.entry);
@@ -324,4 +336,114 @@ it.each(['candidate', 'fixed'] as const)('operation-only dispose during real jou
     expect(h.storage.getItem(h.journal.key)).toBe(before); expect(h.context.update).not.toHaveBeenCalled();
     expect(h.stage.dispose).not.toHaveBeenCalled();
   } finally { release(); spy.mockRestore(); h.cleanup(); }
+});
+
+async function unknownFixed(h: ReturnType<typeof setup>) {
+  proposal(h); vi.mocked(h.context.update).mockRejectedValueOnce(Error('controlled_lost_ack'));
+  await expect(h.operation.confirm()).rejects.toThrow('controlled_lost_ack');
+  await h.operation.recordCandidate('{later incomplete retry draft');
+  vi.mocked(h.recovery.recover).mockRejectedValue(new Native2MutationError('not_found', 404));
+  return (await h.journal.office.read())!.fixed!;
+}
+it('retry requalifies all original fields and hashes, preserves later durable draft, and returns independent whole readonly A2', async () => {
+  const h = setup();
+  try {
+    const fixed = await unknownFixed(h), before = h.storage.getItem(h.journal.key), body = h.authority.editor.exportDocument();
+    const result = await h.operation.retryFixed();
+    expect(h.recovery.recover).toHaveBeenCalledWith(fixed.original); expect(h.context.update).toHaveBeenCalledTimes(2);
+    const attempt = vi.mocked(h.context.update).mock.calls[1][0];
+    expect(attempt.snapshotText).toBe(fixed.original.snapshotText); expect(attempt.idempotencyKey).toBe(fixed.original.idempotencyKey);
+    expect(attempt.requestHash).toBe(fixed.requestHash); expect(attempt.candidateSnapshotHash).toBe(fixed.candidateSnapshotHash);
+    expect(h.storage.getItem(h.journal.key)).toBe(before); expect(result.stage.session.exportSnapshot()).toBe(candidateText);
+    expect(h.authority.editor.exportDocument()).toEqual(body); expect(h.stage.dispose).not.toHaveBeenCalled(); result.dispose();
+  } finally { h.cleanup(); }
+});
+it.each([new Native2MutationError('service_unavailable', 503), new Native2MutationError('scope_forbidden', 403),
+  new Native2MutationError('not_found', 500), Error('network failure'), { code: 'not_found', status: 404 }])('refuses retry on nonqualified receipt failure %#', async error => {
+  const h = setup();
+  try {
+    await unknownFixed(h); vi.mocked(h.recovery.recover).mockRejectedValueOnce(error); const before = h.storage.getItem(h.journal.key);
+    await expect(h.operation.retryFixed()).rejects.toBeDefined();
+    expect(h.context.update).toHaveBeenCalledTimes(1); expect(h.createMutationLease).toHaveBeenCalledTimes(1);
+    expect(h.storage.getItem(h.journal.key)).toBe(before);
+  } finally { h.cleanup(); }
+});
+it('an existing historical receipt refuses retry without a PUT or persisted grant', async () => {
+  const h = setup();
+  try {
+    await unknownFixed(h); vi.mocked(h.recovery.recover).mockReset();
+    const fixed = (await h.journal.office.read())!.fixed!;
+    vi.mocked(h.recovery.recover).mockResolvedValueOnce({ kind: 'historical_acknowledgment', original: fixed.original,
+      receipt: h.receipt(await h.context.prepare({ snapshotText: candidateText, schemaAction: 'adopt', idempotencyKey: 'confirm-1' })),
+      isCurrent: () => true, retire: vi.fn(), subscribeRetirement: h.recovery.subscribeRetirement });
+    const before = h.storage.getItem(h.journal.key); await expect(h.operation.retryFixed()).rejects.toThrow('receipt_already_exists');
+    expect(h.context.update).toHaveBeenCalledTimes(1); expect(h.storage.getItem(h.journal.key)).toBe(before);
+  } finally { h.cleanup(); }
+});
+it.each(['head', 'request', 'candidate', 'prior', 'key', 'raw', 'action', 'revision', 'sourceHash'] as const)('refuses retry when fresh %s differs from fixed original', async changed => {
+  const h = setup();
+  try {
+    await unknownFixed(h); const before = h.storage.getItem(h.journal.key);
+    if (changed === 'head') vi.mocked(h.factory.open).mockResolvedValueOnce({ ...h.context, source: { ...h.context.source, document: { ...h.context.source.document, revision: 2 } } });
+    else {
+      const actual = vi.mocked(h.context.prepare).getMockImplementation()!;
+      vi.mocked(h.context.prepare).mockImplementationOnce(async input => {
+        const value = await actual(input);
+        return { ...value, ...(changed === 'request' ? { requestHash: '0'.repeat(64) } : changed === 'candidate' ? { candidateSnapshotHash: '0'.repeat(64) } :
+          changed === 'prior' ? { expectedPriorPinDigest: '0'.repeat(64) } : changed === 'raw' ? { snapshotText: candidateText+' ' } :
+          changed === 'action' ? { schemaAction: 'preserve' as const } : changed === 'revision' ? { expectedRevision: 2 } :
+          changed === 'sourceHash' ? { expectedSnapshotHash: '0'.repeat(64) } : { idempotencyKey: 'different-key' }) };
+      });
+    }
+    await expect(h.operation.retryFixed()).rejects.toThrow(changed === 'head' ? 'source_changed' : 'fixed_hash_changed');
+    expect(h.context.update).toHaveBeenCalledTimes(1); expect(h.storage.getItem(h.journal.key)).toBe(before);
+  } finally { h.cleanup(); }
+});
+it('reload exact retry needs fresh private qualifications, not a reconstructed JSON attempt', async () => {
+  const h = setup();
+  try {
+    await unknownFixed(h); h.operation.dispose();
+    const next = createNative2SchemaAdoptionOperation({ source: h.source, stage: h.stage, journal: h.journal.office,
+      createMutationLease: h.createMutationLease, createReadLease: h.createReadLease, createReceiptRecoveryLease: h.createReceiptRecoveryLease });
+    try { const result = await next.retryFixed(); expect(h.context.prepare).toHaveBeenCalledTimes(2); expect(result.isCurrent()).toBe(true); }
+    finally { next.dispose(); }
+    expect(h.stage.dispose).not.toHaveBeenCalled();
+  } finally { h.cleanup(); }
+});
+it('cancellation during held missing-receipt GET cannot create a new private writer or change durable bytes', async () => {
+  const h = setup(); let release!: () => void;
+  try {
+    await unknownFixed(h); const before = h.storage.getItem(h.journal.key);
+    vi.mocked(h.recovery.recover).mockImplementationOnce(async () => { await new Promise<void>(resolve => { release = resolve; }); throw new Native2MutationError('not_found', 404); });
+    const waiting = h.operation.retryFixed(); void waiting.catch(() => {}); await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    h.operation.dispose(); release(); await expect(waiting).rejects.toThrow('operation_retired');
+    expect(h.createMutationLease).toHaveBeenCalledTimes(1); expect(h.storage.getItem(h.journal.key)).toBe(before);
+  } finally { release?.(); h.cleanup(); }
+});
+
+it('later incomplete candidate during held retry validation remains byte-exact while original request retries', async () => {
+  const h = setup(); let release!: (value: Native2Validation) => void;
+  try {
+    await unknownFixed(h); const validation = await h.context.validate(await h.context.prepare({ snapshotText: candidateText, schemaAction: 'adopt', idempotencyKey: 'confirm-1' }));
+    vi.mocked(h.context.validate).mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    const waiting = h.operation.retryFixed(); void waiting.catch(() => {}); await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    await h.operation.recordCandidate('{later during retry validation'); const before = h.storage.getItem(h.journal.key);
+    release(validation); const result = await waiting;
+    expect(h.storage.getItem(h.journal.key)).toBe(before); expect(result.isCurrent()).toBe(true); expect(h.context.update).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(h.context.update).mock.calls[1][0].snapshotText).toBe(candidateText);
+  } finally { h.cleanup(); }
+});
+it('actual native source input during held retry validation is retained and prevents the old PUT', async () => {
+  const h = setup(); let release!: (value: Native2Validation) => void;
+  try {
+    await unknownFixed(h); const validation = await h.context.validate(await h.context.prepare({ snapshotText: candidateText, schemaAction: 'adopt', idempotencyKey: 'confirm-1' }));
+    vi.mocked(h.context.validate).mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    const waiting = h.operation.retryFixed(); void waiting.catch(() => {}); await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+    const node = [...h.authority.editor.dataStore.getNodes().values()].find(one => one.text === 'Preserved mounted source S')!;
+    await h.authority.editor.executeCommand('replaceText', { range: { type: 'range', startNodeId: node.sid!, endNodeId: node.sid!, startOffset: 0, endOffset: 0, collapsed: true }, text: 'New root input during retry / ' });
+    const body = h.authority.editor.exportDocument(), index = h.authority.editor.historyManager.getCurrentIndex(), before = h.storage.getItem(h.journal.key);
+    release(validation); await expect(waiting).rejects.toThrow('operation_retired');
+    expect(h.authority.editor.exportDocument()).toEqual(body); expect(h.authority.editor.historyManager.getCurrentIndex()).toBe(index);
+    expect(h.context.update).toHaveBeenCalledTimes(1); expect(h.storage.getItem(h.journal.key)).toBe(before);
+  } finally { h.cleanup(); }
 });
