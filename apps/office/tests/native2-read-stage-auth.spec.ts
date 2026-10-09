@@ -466,7 +466,11 @@ test('genuine current native2 read stages full A1/A2/B and preserves the whole m
       expect(records.records.slice(count).filter(one => one.path.includes('/note-native2/') || ['POST', 'PUT', 'PATCH', 'DELETE'].includes(one.method))).toEqual([]);
       phases.push({ phase: nested ? 'actual nested input refusal' : 'actual root input refusal', qualification: 'Real keyboard/editor and genuine authority; client scheduling and public button activation timing controlled to hold unflushed last input without implicit blur/flush' });
       await nestedHeld?.dispose(); await held.dispose(); await page.clock.resume();
-      if (nested) await page.locator('[data-db-item-body]').getByRole('button', { name: '닫기', exact: true }).click();
+      if (nested) {
+        const dialog = page.getByRole('dialog', { name: '데이터베이스 항목', exact: true });
+        await dialog.getByRole('button', { name: '닫기', exact: true }).click();
+        await expect(dialog).toHaveCount(0);
+      }
       await host(page).getByRole('button', { name: '저장', exact: true }).click(); await expect(host(page).locator('[data-save-status]')).toHaveText('서버 저장 확인됨');
     }
     await fixedAttemptAndLaterDraft(page, info, records);
