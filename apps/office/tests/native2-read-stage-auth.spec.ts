@@ -479,9 +479,21 @@ test('genuine current native2 read stages full A1/A2/B and preserves the whole m
     await target(page, status.native2.targetB); const sourceChangedBefore = await state(); const changing = await hold(page, status.native2.targetB);
     await paragraph(page).click(); await page.keyboard.press('End'); await page.keyboard.insertText(' / later source generation');
     await expect(paragraph(page)).toContainText('later source generation');
-    const waiting = await holdSource(page);
-    await expect.poll(async () => (await sourceObservation(page, waiting)).value.draftRecord?.snapshotText.includes('later source generation')).toBe(true);
+    const delivering = await holdSource(page);
+    await expect.poll(async () => (await sourceObservation(page, delivering)).value.draftRecord?.snapshotText.includes('later source generation')).toBe(true);
+    await delivering.dispose();
+    const waiting = await holdSource(page), preparationBefore = await waiting.evaluate(one => one.snapshot), preparationWrites = records.mutations().length;
+    // Explicit public preparation delivers input before this separate settled-source baseline.
+    // Opening then dismissing search executes no command or save; earlier pending-input cases stay separate.
+    await host(page).getByRole('button', { name: '명령 검색', exact: true }).click();
+    const searchDialog = page.getByRole('dialog', { name: '명령 검색', exact: true });
+    await expect(searchDialog).toBeVisible(); await page.keyboard.press('Escape'); await expect(searchDialog).toHaveCount(0);
     await expect.poll(async () => (await sourceObservation(page, waiting)).value.inputPending.some(Boolean)).toBe(false);
+    const prepared = await sourceObservation(page, waiting);
+    // Delivery and public focus preparation may change only pending flags/selection BEFORE the final baseline.
+    expect(prepared.value).toEqual({ ...preparationBefore, inputPending: prepared.value.inputPending, selection: prepared.value.selection });
+    expect(prepared.refs).toBe(true); expect(prepared.registeredInputs).toBe(true);
+    expect(records.mutations()).toHaveLength(preparationWrites); expect(await state()).toEqual(sourceChangedBefore);
     await waiting.dispose();
     const changed = await holdSource(page); await release(changing); await expect(stage(page)).toHaveCount(0); await unchanged(page, changed);
     expect(await state()).toEqual(sourceChangedBefore); await changed.dispose();
