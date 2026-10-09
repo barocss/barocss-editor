@@ -233,8 +233,7 @@ test('authored native business pair retains exact evidence and identity across h
     const expectedEdited = structuredClone(expectedAuthored);
     const changedRun = nativeParagraph(expectedEdited, decisionText).content!.find(node => typeof node !== 'string' && node.stype === 'inline-text') as INode;
     changedRun.text = decisionText + decisionAddition;
-    // Existing native text insertion explicitly writes the adjusted mark list.
-    changedRun.marks = [];
+    // Plain insertion preserves the authored absence of marks.
     expect(await exported(page)).toStrictEqual(expectedEdited);
     await caret(page, decisionText + decisionAddition, 'End'); await page.keyboard.press('Meta+z');
     expect(await exported(page)).toStrictEqual(expectedAuthored);
