@@ -393,6 +393,9 @@ importers:
 
   apps/office:
     dependencies:
+      '@barocss/office-note':
+        specifier: workspace:*
+        version: link:../../packages/office-note
       '@barocss/office-ui':
         specifier: workspace:*
         version: link:../../packages/office-ui

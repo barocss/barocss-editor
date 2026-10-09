@@ -11,6 +11,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@barocss/office-note": "workspace:*",
     "@barocss/office-workspace": "workspace:*",
     "@barocss/shared": "workspace:*",
     "@barocss/office-ui": "workspace:*",
