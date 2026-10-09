@@ -1109,7 +1109,7 @@ export function ServerNoteWorkspace({ tenantId, workspaceId, initialDocumentId, 
             </div>;
           })}
         </section>}
-        {!workspaceNavigation && <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={() => void refreshMetadata()}>목록 새로고침</Button>}
+        <Button tone="quiet" disabled={busy || isDirty || !!currentPending} onClick={() => void refreshMetadata()}>목록 새로고침</Button>
         {!workspaceNavigation && <nav aria-label="서버 문서 목록" className="nw-list">{currentHeads.map(row =>
           <NavigationItem key={row.documentId} selected={currentOpen?.documentId === row.documentId} aria-current={currentOpen?.documentId === row.documentId ? 'page' : undefined}
             disabled={row.fileVersion !== 1 || busy || isDirty || !!currentPending || currentProblem?.kind === 'denied'}

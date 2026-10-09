@@ -89,6 +89,17 @@ function network(page: Page) {
   });
   return { records, identity, bearer: () => bearer, tokenLifetime: () => tokenLifetime, mutations: () => records.filter(one => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(one.method)) };
 }
+async function refreshMetadata(page: Page) {
+  const panel = host(page).locator('[data-workspace-panel="navigation"]');
+  if (!(await panel.isVisible())) {
+    await host(page).locator('[data-menu="document"]').click();
+    const actions = page.locator('[data-menu-item="document-actions"]');
+    await expect(actions).toHaveText('문서 작업');
+    await actions.click();
+  }
+  await expect(panel).toBeVisible();
+  await panel.getByRole('button', { name: '목록 새로고침', exact: true }).click();
+}
 async function target(page: Page, documentId: string) {
   await host(page).getByRole('textbox', { name: '읽을 native2 문서 ID' }).fill(documentId);
 }
@@ -326,7 +337,7 @@ async function metadataAuthorityFailure(page: Page, status: FixtureStatus, info:
   try {
     const stopped = await privateControl<FixtureStatus>({ action: 'api-stop' });
     expect(stopped.apiRunning).toBe(false); expect(stopped.schemaPid).toBe(before.schemaPid);
-    await host(page).getByRole('button', { name: '목록 새로고침', exact: true }).click();
+    await refreshMetadata(page);
     await expect(source(page)).toHaveAttribute('data-note-editable', 'false');
     await unchanged(page, held);
     const resumed = await privateControl<FixtureStatus>({ action: 'api-start' });
@@ -334,7 +345,7 @@ async function metadataAuthorityFailure(page: Page, status: FixtureStatus, info:
     expect(resumed.databaseGeneration).toBe(before.databaseGeneration); expect(resumed.schemaPid).toBe(before.schemaPid);
     await release(pending); await expect(stage(page)).toHaveCount(0); await unchanged(page, held);
     const after = await state(); expect(after.heads).toEqual(before.heads); expect(after.audit).toEqual(before.audit);
-    await host(page).getByRole('button', { name: '목록 새로고침', exact: true }).click();
+    await refreshMetadata(page);
     await expect(source(page)).toHaveAttribute('data-note-editable', 'false'); await unchanged(page, held);
     expect((await state()).heads).toEqual(before.heads); expect((await state()).audit).toEqual(before.audit);
     await info.attach('actual-metadata-authority-failure', { body: JSON.stringify({ beforePid: before.apiPid, afterPid: resumed.apiPid,
@@ -437,7 +448,7 @@ test('genuine current native2 read stages full A1/A2/B and preserves the whole m
     await fullStage(page, status, 'A2', info, records);
     // A visible metadata refresh must not replace the source or its operated history.
     const refreshHeld = await holdSource(page), refreshBefore = await state(), refreshWrites = records.mutations().length;
-    await host(page).getByRole('button', { name: '목록 새로고침', exact: true }).click();
+    await refreshMetadata(page);
     await unchanged(page, refreshHeld); expect(await state()).toEqual(refreshBefore); expect(records.mutations()).toHaveLength(refreshWrites); await refreshHeld.dispose();
     for (const nested of [false, true]) {
       await target(page, status.native2.targetB);

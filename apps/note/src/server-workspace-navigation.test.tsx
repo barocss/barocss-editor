@@ -320,7 +320,7 @@ it.each([1200, 600])('keeps optional native document actions closed at width %s 
   const toggle = container.querySelector<HTMLButtonElement>('[data-menu="document"]')!;
   expect(panel.hidden).toBe(true); expect(toggle.getAttribute('aria-expanded')).toBe('false');
   expect(container.querySelector('[aria-label="서버 문서 목록"]')).toBeNull();
-  expect(container.textContent).not.toContain('목록 새로고침');
+  expect([...panel.querySelectorAll('button')].find(node => node.textContent === '목록 새로고침')).toBeTruthy();
   expect(container.querySelector('[aria-label="문서 작업"]')?.textContent).toContain('새 노트');
   expect(container.querySelector('.office-workspace-panel-controls')).toBeNull();
   const openActions = () => {
@@ -449,4 +449,22 @@ it.each([401, 403, 503])('metadata refresh %s retains mounted source and later i
   const metadataRefresh = [...container.querySelectorAll('button')].find(node => node.textContent === '목록 새로고침');
   metadataRefresh?.click(); await new Promise(resolve => setTimeout(resolve, 0));
   expect(session.editor.setEditable).not.toHaveBeenCalledWith(true);
+});
+
+
+it('hosted DocumentMenu exposes the real metadata-only refresh without replacing the current source', async () => {
+  render('editor', 'A', true); await mounted();
+  const panel = container.querySelector<HTMLElement>('[data-workspace-panel="navigation"]')!;
+  const toggle = container.querySelector<HTMLButtonElement>('[data-menu="document"]')!;
+  expect(panel.hidden).toBe(true); flushSync(() => toggle.click());
+  const action = document.querySelector<HTMLButtonElement>('[data-menu-item="document-actions"]')!;
+  expect(action.textContent).toContain('문서 작업'); flushSync(() => action.click()); expect(panel.hidden).toBe(false);
+  const refresh = [...panel.querySelectorAll('button')].find(node => node.textContent === '목록 새로고침');
+  expect(refresh).toBeTruthy(); if (!refresh) throw Error('Required public hosted refresh'); expect(refresh.disabled).toBe(false);
+  const session = f.sessions.at(-1)!, closes = session.close.mock.calls.length, sessions = f.sessions.length;
+  const source = productDocumentHost()?.id(), opens = f.client.open.mock.calls.length, saves = f.client.save.mock.calls.length, lists = f.client.list.mock.calls.length;
+  refresh.click(); await vi.waitFor(() => expect(f.client.list).toHaveBeenCalledTimes(lists + 1));
+  expect(productDocumentHost()?.id()).toBe(source); expect(f.sessions.at(-1)).toBe(session); expect(f.sessions).toHaveLength(sessions);
+  expect(session.close).toHaveBeenCalledTimes(closes); expect(f.client.open).toHaveBeenCalledTimes(opens); expect(f.client.save).toHaveBeenCalledTimes(saves);
+  expect(container.querySelector('[aria-label="서버 문서 목록"]')).toBeNull();
 });
