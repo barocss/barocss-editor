@@ -225,18 +225,35 @@ async function fullStage(page: Page, status: FixtureStatus, key: keyof typeof co
   await paragraph(page).click(); await page.keyboard.press('Home'); await page.keyboard.press('Shift+ArrowRight');
   const sid = await paragraph(page).locator('.w-text[data-bc-sid]').first().getAttribute('data-bc-sid');
   expect(sid).toBeTruthy();
+  const preparation = await holdSource(page);
+  try {
+    // Selection delivery is asynchronous. Require the real native and DOM range
+    // while its input host still owns focus, before moving focus to the read action.
+    await expect.poll(async () => source(page).evaluate((el, original) => {
+      const actual = original.inspect(el), selected = actual.editor.selection, dom = getSelection();
+      return { type: selected?.type ?? null, collapsed: selected?.collapsed ?? null,
+        startNodeId: selected?.startNodeId ?? null, endNodeId: selected?.endNodeId ?? null,
+        startOffset: selected?.startOffset ?? null, endOffset: selected?.endOffset ?? null, domText: dom?.toString() ?? '' };
+    }, preparation)).toEqual({ type: 'range', collapsed: false, startNodeId: sid, endNodeId: sid, startOffset: 0, endOffset: 1, domText: 'T' });
+    const after = await sourceObservation(page, preparation), original = await preparation.evaluate(one => one.snapshot);
+    expect(after.value.model).toEqual(original.model); expect(after.value.raw).toBe(original.raw);
+    expect(after.value.fixedAttempt).toEqual(original.fixedAttempt); expect(after.value.draftRecord).toEqual(original.draftRecord);
+    expect(after.refs).toBe(true);
+    await info.attach(`positive-${key}-before-read`, { body: JSON.stringify({ selection: after.value.selection,
+      qualification: 'Actual keyboard selection delivery establishes live DOM and positive native range before read producer; no public command/direct editor setter; source body/history/input/draft unchanged' }), contentType: 'application/json' });
+  } finally { await preparation.dispose(); }
   // Prepare focus for the explicit public read intent before capturing the positive original baseline.
   await read(page).focus();
   const retained = await source(page).elementHandle(), held = await holdSource(page), view = await viewState(page);
   const before = await state(), mutationCount = records.mutations().length, requestCount = records.records.length, start = Date.now();
   try {
-    const reached = await hold(page, documentId);
-    await unchanged(page, held); expect(await viewState(page)).toEqual(view); expect(await state()).toEqual(before);
     const sourceBefore = await held.evaluate(one => one.snapshot);
     expect(sourceBefore.selection.type).toBe('range'); expect(sourceBefore.selection.collapsed).toBe(false);
     expect(sourceBefore.selection.startNodeId).toBe(sid); expect(sourceBefore.selection.endNodeId).toBe(sid);
     expect(sourceBefore.selection.startOffset).toBe(0); expect(sourceBefore.selection.endOffset).toBe(1);
     expect(view.range?.text.length).toBeGreaterThan(0); expect(sourceBefore.historyIndex).toBeGreaterThanOrEqual(0);
+    const reached = await hold(page, documentId);
+    await unchanged(page, held); expect(await viewState(page)).toEqual(view); expect(await state()).toEqual(before);
     const response = page.waitForResponse(one => new URL(one.url()).pathname.endsWith(`/note-native2/documents/${documentId}/schema-bundle`) && one.request().method() === 'GET');
     await release(reached); await expect(stage(page)).toBeVisible();
     expect(hash(await (await response).body())).toBe(reached.responseHash);
