@@ -3,9 +3,10 @@
 The document read is [#498](https://github.com/barocss/barocss-editor/issues/498). The bounded
 registration tool is [#500](https://github.com/barocss/barocss-editor/issues/500). The bounded
 structural validation tools are [#501](https://github.com/barocss/barocss-editor/issues/501).
+The bounded adoption tool is [#502](https://github.com/barocss/barocss-editor/issues/502).
 It requires the separately running, configured `@barocss/schema-server` HTTP process and its
 operator schema policy. The read also requires `SCHEMA_SERVER_NOTE_DOCUMENT_POLICY_FILE`.
-It does not start a second registry or document store, or enable adoption, save or native UI actions.
+It does not start a second registry or document store, or enable native UI actions.
 
 ## Run
 
@@ -65,10 +66,10 @@ private tool output. This operation registers a definition only. It never change
 
 `test/mcp-protocol.integration.mjs` launches the compiled entry with an independent SDK client
 against a controlled loopback HTTP service. It verifies initialization, discovery, exact read,
-registration, structural validation, fixed retry, argument rejection, denied access, cancellation
+registration, structural validation, adoption, fixed retry, argument rejection, denied access, cancellation
 and shutdown. That controlled check
 does not prove PostgreSQL authority or genuine login. Integration runs the serial private
-PostgreSQL/JWKS check separately. The parent #495 Agent adoption and whole flow remain open.
+PostgreSQL/JWKS check separately. The parent #495 whole flow remains open.
 No LLM is needed or claimed by this fixed protocol client.
 
 ## Validate a Note native2 document or candidate
@@ -102,3 +103,95 @@ passed for that observed source. It does not prove business field truth, rendere
 human criterion confirmation or future write authority. It creates no snapshot, adoption,
 reservation, receipt or approval. A later write must check current authority and revision/pins
 again. The host protects document text in tool arguments and results as private content.
+
+## Adopt an exact Note native2 snapshot
+
+`adopt_schema` accepts exact `tenantId`, `documentId`, `expectedRevision`,
+`expectedSnapshotHash`, `expectedPriorPinDigest`, original `snapshotText` and stable
+`idempotencyKey`. It accepts no actor, role, token, workspace, permission, approval, URL or
+action field. The adapter fixes `schemaAction: "adopt"` and sends one authenticated PUT to the
+existing native2 snapshot route. The HTTP service checks current membership and capabilities,
+the locked source revision, raw hash and prior pin digest, the complete registered bundle, and
+current adoption policy. The adapter cannot grant adoption authority.
+
+The caller must retain the same key and exact raw text for a fixed retry after an uncertain
+response. The service returns its durable original `update` receipt for a completed retry. A
+changed request with the same key returns `key_reuse`; a new draft needs a new key and fresh
+source preconditions. The tool does not rebase, substitute a live head or retry automatically.
+
+Before success, the adapter checks the receipt's exact key and request hash, tenant/document
+scope, returned workspace ID, native2 head, next revision, page ID, raw text and SHA-256. It also
+checks the candidate's declarative bundle closure and returned workspace scope. It refuses a
+forged, partial or cross-scope receipt. The original snapshot text is private tool output.
+Input text is limited to 512 KiB UTF-8; HTTP response is limited to 2 MiB. Loopback origin,
+redirect refusal, cancellation and a 10 second timeout apply.
+
+An adoption request can currently pass even when selected pins are unchanged. A successful
+receipt alone does not prove a v1-to-v2 transition. The controlled #502 integration check must
+show that A changes its selected pin while B stays byte-identical. Product Note reopen,
+renderer behavior, genuine human login and full #495 acceptance need separate evidence.
+
+## Independent current-backend SDK probe for #502
+
+`test/mcp-protocol.integration.mjs` keeps its original no-argument controlled HTTP test. That
+test uses the compiled MCP child, 19 controlled HTTP calls, cancellation and owned-child shutdown.
+It does not connect to PostgreSQL or establish current authority. The separate exported
+`runCurrentBackendProbe` is source preparation for Execute Integration's serial real-backend run.
+Importing the module does not start the controlled server. Only direct no-argument execution does.
+
+Execute Integration calls `runCurrentBackendProbe({ entryPath, baseUrl, fixture, tokens, hooks,
+resultPath })` from its own private PostgreSQL/JWKS/API harness. `entryPath` is its exact absolute,
+compiled `dist/mcp-main.js`. `baseUrl` is an exact `http://127.0.0.1:<port>` origin. The runner
+starts one independent `@modelcontextprotocol/client` and `StdioClientTransport` child for each of
+`writer`, `viewer`, `foreign` and `revocable`. The token for each account exists only in the
+in-memory `tokens` object. The child receives only `SCHEMA_SERVER_MCP_BASE_URL` and
+`SCHEMA_SERVER_MCP_BEARER_TOKEN`. Do not put tokens in `fixture`, logs or the result file.
+
+`fixture.version` is `wonffice.mcp-adopt.current-backend.v1`. It declares `tenantId`,
+`workspaceId`, `selectedSchemaId`, `A`, `B`, three distinct fixed `keys`, two complete
+`expectedReceipts`, `lostAckError` and at least the five `negativeCases` below. `A.before` and
+`B.before` each contain the complete server document head and original raw `snapshotText`.
+`A` also contains `candidateSnapshotText`, `changedCandidateSnapshotText`, `priorPinDigest` and
+`expectedAfter` with the complete head and exact candidate text. The selected schema must be
+v1 in both source documents and v2 only in A's candidate. The runner checks the complete
+definition closure, old definition bytes, unchanged native document and other selected pins,
+raw SHA-256, expected next head and exact independently declared receipt for either race key.
+Each `negativeCases` item has `{ id, account, arguments, expectedError }`; the required IDs are
+`viewer`, `foreign`, `malformed`, `unsupported` and `executable`. These carry exact public
+`adopt_schema` arguments and named refusal outcomes. `invalid_arguments` is a classification of
+the SDK input-schema rejection, not a service status. Service errors require an exact single
+JSON text block `{ "status": "..." }`.
+
+The Root harness implements `hooks.audit(label)`, `armConcurrentLostAck()`,
+`releaseConcurrentAfterBothEntered()`, `confirmCommitted()` and `revokeActor()`. The two SDK
+adoption requests use the same A1 revision, hash, prior pin and exact A2 bytes, with different
+fixed keys. Root's PostgreSQL barrier must prove both reached the locked service before release.
+Root drops the committed operation's reply only after its SQL audit proves the write. Its
+`confirmCommitted()` returns `{ winnerIndex, bothEntered: true, committedAfterLostAck: true,
+bWholeUnchanged: true }`. The runner requires one declared lost-ACK error and one
+`revision_conflict`, then retries the winning key with identical arguments and checks the
+complete durable receipt. It also checks A2 and B1 read results, key reuse, stale source,
+each refusal with Root's before/after SQL audit, and same-child access loss after `revokeActor()`.
+The runner does not create accounts, grants, registered definitions, database fixtures or a
+barrier. Root owns every shared runtime and whole-SQL/no-effect assertion.
+
+`resultPath` has an owned mode-0700 parent. The runner creates a mode-0600 result and a
+`resultPath + '.events'` JSONL file. Events include case entry/return, SDK child PID and closure,
+response status, byte count and SHA-256; they contain no token, raw snapshot or definition text.
+Root can use `call-entered` to coordinate its own database barrier, but an event alone does not
+prove the SQL operation was reached. A missing compiled entry, token, fixture field, hook, or
+cleanup fails closed. A passed runner means the declared SDK calls passed against the
+configured HTTP backend. Root must separately prove signed-JWT/current authority and bind the
+staged source, full private PostgreSQL audit and original #502 criteria before closing the
+Issue. This is not genuine human login, an LLM run, the Note product UI or full #495 acceptance.
+
+
+### Serial controlled backend adoption verification
+
+Execute Integration extends the existing private PostgreSQL producer with `--mcp --mcp-adopt`. After exact Node 22.22.0 emission, run `PG_BIN=<owned PostgreSQL 16 bin> SCHEMA_SERVER_EVIDENCE=<fresh private directory> node apps/schema-server/test/schema-server.postgres-oidc.integration.mjs --mcp --mcp-adopt` from the repository root. Only Integration starts these shared runtime resources.
+
+This producer runs the independent compiled SDK client against the same HTTP service and controlled signed-JWT/private PostgreSQL. It authors a fresh full native A1/B1 pair and a compatible registered v2 whose version and exact parent change while native dataset fields remain unchanged. All old definitions stay in the pinned dependency closure. A selects v2; B's whole native document and rows stay at v1. This tests actual pin/version adoption; it does not test field-label evolution.
+
+Two distinct fixed requests must reach real PostgreSQL lock waiters before release. The producer drops the successful HTTP response only after independently observing its committed receipt and snapshot. It verifies one winner, one stale loser, exact durable retries, all-table allowed-effect boundaries, viewer/foreign/invalid/executable refusals and revocation within the same MCP child. Owned child shutdown and server/database cleanup are required. The earlier HTTP/SDK cases remain. An old absent-tool assertion now checks the advertised tool's missing-argument refusal instead.
+
+Controlled account verification does not establish genuine human login, an actual LLM, product Note UI/renderer, field evolution, actual adoption cancellation, full parent #495 acceptance or release. Earlier failed producers remain evidence; only a terminal passing producer counts.

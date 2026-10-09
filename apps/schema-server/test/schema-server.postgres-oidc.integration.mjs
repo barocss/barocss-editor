@@ -10,9 +10,11 @@ import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { parseRegistryDefinition } from '@barocss/schema/registry-contract';
+import { runCurrentBackendProbe } from './mcp-protocol.integration.mjs';
 
 // Actual own compiled HTTP process/private PostgreSQL with controlled signed JWKS.
-// No browser login, LLM, document schema adoption, MCP or external deployment claim.
+// No genuine browser login, LLM, product UI or external deployment claim.
+// --mcp-adopt adds an actual native pin adoption by an independent compiled SDK client.
 const HTTP_NATIVE_FIXTURES = {
   "SOURCE_A": {
     "format": "barocss-note",
@@ -1204,6 +1206,8 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 const stageOnly=process.argv[2]==='--stage-only';
 const originalBaseline=process.argv[2]==='--original-native2-baseline';
 const mcpEnabled=process.argv.includes('--mcp');
+const mcpAdoptEnabled=process.argv.includes('--mcp-adopt');
+if(mcpAdoptEnabled && !mcpEnabled)throw new Error('MCP adoption requires the existing MCP runtime');
 if(stageOnly && !process.argv[3])throw new Error('Stage destination is required');
 const evidence=stageOnly?resolve(process.argv[3]):process.env.SCHEMA_SERVER_EVIDENCE;
 if(stageOnly)assert.equal(existsSync(evidence),false,'Refuse existing artifact destination');
@@ -1336,7 +1340,7 @@ async function withMcp(bearer,work){
   try{
     await client.connect(transport);item.pid=transport.pid;assert.ok(item.pid>0);transport.stderr?.pipe(out);
     item.protocol=client.getNegotiatedProtocolVersion();assert.equal(item.protocol,'2025-11-25');
-    assert.deepEqual((await client.listTools()).tools.map(tool=>tool.name),['get_schema_bundle','register_schema','validate_document','validate_candidate']);
+    assert.deepEqual((await client.listTools()).tools.map(tool=>tool.name),['get_schema_bundle','register_schema','validate_document','validate_candidate','adopt_schema']);
     lease.mcpChildren=mcpResources;saveLease();return await work(client);
   }finally{
     await client.close();await new Promise(resolve=>out.end(resolve));
@@ -1559,7 +1563,8 @@ try{
       await check('MCP actual staged SDK initialize expanded tools exact A2 B1 C2 and complete SQL no-effects',async()=>{
         await withMcp(await token('writer-a'),async client=>{
           for(const [receipt,title,creator,text,revision] of [[A,'A',actorIds['writer-a'],rawA2,2],[B,'B',actorIds['writer-b'],rawB,1],[C,'C',actorIds['writer-a'],rawC,1]])await mcpReadNoEffects(client,receipt,title,creator,text,revision);
-          const before=await audit();await assert.rejects(client.callTool({name:'adopt_schema',arguments:{tenantId:tenant,documentId:A.document.documentId}}));
+          const before=await audit(),missing=await client.callTool({name:'adopt_schema',arguments:{tenantId:tenant,documentId:A.document.documentId}});
+          assert.equal(missing.isError,true);assert.ok(missing.content[0].text.startsWith('Input validation error:'));
           for(const argumentsValue of [{tenantId:tenant,documentId:A.document.documentId,role:'owner',approved:true},{tenantId:tenant,documentId:'not-a-uuid'}]){
             const result=await client.callTool({name:'get_schema_bundle',arguments:argumentsValue});assert.equal(result.isError,true);
           }
@@ -1908,6 +1913,106 @@ try{
       }
       throw new Error('actual_HTTP_PG_barrier_NOT_REACHED:'+label+':'+JSON.stringify(rows));
     };
+    if(mcpAdoptEnabled)await check('independent compiled MCP adopts a fresh exact A pin with real CAS, committed reply loss, current authority and complete B preservation',async()=>{
+      // A new immutable version/parent transition keeps all authored dataset fields exact.
+      // The earlier TARGET_A2 adds a field and has already been adopted over HTTP.
+      // Neither that changed document nor an already-adopted no-op is this SDK oracle.
+      const selectedId=randomUUID(),oldSelected=sourceA.schemaBundle.selected[0];
+      const prior=JSON.parse(sourceA.schemaBundle.definitions.find(e=>e.reference.schemaId===oldSelected.schemaId && e.reference.version===1).definitionText);
+      const firstDefinition={...prior,schemaId:selectedId,version:1,parent:null,dependencies:[oldSelected]};
+      const firstText=JSON.stringify(firstDefinition,null,2);
+      const firstRef={schemaId:selectedId,version:1,digest:hash(parseRegistryDefinition(firstText).canonicalText)};
+      const secondDefinition={...firstDefinition,version:2,parent:firstRef};
+      const secondText=JSON.stringify(secondDefinition,null,2);
+      const secondRef={schemaId:selectedId,version:2,digest:hash(parseRegistryDefinition(secondText).canonicalText)};
+      await registerNative(selectedId,1,{definitionText:firstText,reference:firstRef},'mcp-adopt-register1');
+      await registerNative(selectedId,2,{definitionText:secondText,reference:secondRef},'mcp-adopt-register2');
+      const firstFile=structuredClone(sourceA);
+      firstFile.schemaBundle.selected=[firstRef];
+      firstFile.schemaBundle.definitions.push({reference:firstRef,definitionText:firstText});
+      const secondFile=structuredClone(firstFile);
+      secondFile.schemaBundle.selected=[secondRef];
+      secondFile.schemaBundle.definitions.push({reference:secondRef,definitionText:secondText});
+      const a=await createNative('mcp-adopt-A',firstFile),b=await createNative('mcp-adopt-B',firstFile,'writer-b');
+      const a1=copiedRaw(firstFile,a.document.pageId,pathsA),b1=copiedRaw(firstFile,b.document.pageId,pathsA),a2=copiedRaw(secondFile,a.document.pageId,pathsA);
+      assert.equal(a.snapshotText,a1);assert.equal(b.snapshotText,b1);
+      assert.deepEqual(JSON.parse(a1).document,JSON.parse(a2).document);
+      assert.deepEqual(JSON.parse(a2).schemaBundle.definitions.slice(0,3),sourceA.schemaBundle.definitions);
+      const pinned=(receipt,title,creator,text,revision)=>({document:expectedHead(receipt.document,title,creator,text,revision),snapshotText:text});
+      const beforeA=pinned(a,'mcp-adopt-A',actorIds['writer-a'],a1,1),beforeB=pinned(b,'mcp-adopt-B',actorIds['writer-b'],b1,1);
+      const afterA=pinned(a,'mcp-adopt-A',actorIds['writer-a'],a2,2),keys=['mcp-adopt-race-a','mcp-adopt-race-b','mcp-adopt-stale'];
+      const priorDigest=pins(a.document.documentId,a1);
+      const receiptFor=key=>({operation:'update',idempotencyKey:key,requestHash:hash(JSON.stringify(['note-native2-snapshot-v1',tenant,workspace,a.document.documentId,'adopt',1,hash(a1),priorDigest,a2])),document:afterA.document,snapshotText:a2});
+      const argsFor=key=>({tenantId:tenant,documentId:a.document.documentId,expectedRevision:1,expectedSnapshotHash:hash(a1),expectedPriorPinDigest:priorDigest,snapshotText:a2,idempotencyKey:key});
+      const unsupported=JSON.parse(a2);unsupported.version=3;
+      const executable=JSON.parse(a2);executable.document.content[0].content[0].marks=[{stype:'untrusted-executable-mark'}];
+      const fixture={version:'wonffice.mcp-adopt.current-backend.v1',tenantId:tenant,workspaceId:workspace,selectedSchemaId:selectedId,A:{before:beforeA,candidateSnapshotText:a2,changedCandidateSnapshotText:a2+' ',expectedAfter:afterA,priorPinDigest:priorDigest},B:{before:beforeB},keys,expectedReceipts:keys.slice(0,2).map(receiptFor),lostAckError:'schema_service_unavailable',negativeCases:[
+        {id:'viewer',account:'viewer',arguments:argsFor('mcp-adopt-viewer'),expectedError:'scope_forbidden'},
+        {id:'foreign',account:'foreign',arguments:argsFor('mcp-adopt-foreign'),expectedError:'scope_forbidden'},
+        {id:'malformed',account:'writer',arguments:{...argsFor('mcp-adopt-malformed'),approved:true},expectedError:'invalid_arguments'},
+        {id:'unsupported',account:'writer',arguments:{...argsFor('mcp-adopt-unsupported'),snapshotText:raw(unsupported)},expectedError:'invalid_snapshot'},
+        {id:'executable',account:'writer',arguments:{...argsFor('mcp-adopt-executable'),snapshotText:raw(executable)},expectedError:'invalid_snapshot'}]};
+      writeFileSync(join(evidence,'mcp-adopt-declared-fixture.json'),JSON.stringify(fixture,null,2),{mode:0o600});
+      await applyMembershipChange(owner,{action:'grant',tenantId:tenant,issuer,subject:'mcp-adopt-revocable',role:'editor',approvalRef:'mcp-adopt-private-fixture'});
+      const auditClient=await connect('schema_test_admin');
+      const tables=(await auditClient.query("SELECT schemaname,tablename FROM pg_tables WHERE schemaname IN ('wonffice','wonffice_meta') ORDER BY schemaname,tablename")).rows;
+      const allAudit=async()=>{
+        const value={};for(const {schemaname,tablename} of tables){assert.match(schemaname,/^[a-z_]+$/);assert.match(tablename,/^[a-z_]+$/);value[schemaname+'.'+tablename]=(await auditClient.query('SELECT * FROM '+schemaname+'.'+tablename+' t ORDER BY to_jsonb(t)::text')).rows;}
+        return JSON.parse(JSON.stringify(value));
+      };
+      const saveAll=(label,value)=>writeFileSync(join(evidence,'mcp-adopt-'+label+'.json'),JSON.stringify(value,null,2),{mode:0o600});
+      let locked=false,bothEntered=false,ownerPid,baseline,committed,afterRevocation,winnerIndex,proxyError,omittedWinner;
+      forwarder=createServer((request,response)=>{
+        const upstream=httpRequest(new URL(request.url,origin),{method:request.method,headers:request.headers},result=>{
+          const chunks=[];result.on('data',bytes=>chunks.push(bytes));result.on('end',()=>{void (async()=>{
+            const bytes=Buffer.concat(chunks);
+            if(request.method==='PUT' && request.url===nbase+'/documents/'+a.document.documentId+'/snapshot' && result.statusCode===200 && omittedWinner===undefined){
+              const body=JSON.parse(bytes.toString('utf8')),index=keys.indexOf(body.idempotencyKey);
+              assert.ok(index===0 || index===1);assert.deepEqual(body,fixture.expectedReceipts[index]);
+              const actual=await allAudit(),stored=actual['wonffice.document_receipts'].filter(row=>row.document_id===a.document.documentId && row.operation==='update');
+              assert.equal(stored.length,1);assert.equal(stored[0].idempotency_key,body.idempotencyKey);assert.equal(stored[0].request_hash,body.requestHash);
+              assert.equal(actual['wonffice.document_snapshots'].find(row=>row.document_id===a.document.documentId).snapshot_text,a2);
+              omittedWinner={winnerIndex:index,upstreamStatus:200,committedReceiptObserved:true,responseBytes:bytes.length};saveAll('lost-ack-commit',actual);
+              response.destroy();return;
+            }
+            response.writeHead(result.statusCode,result.headers);response.end(bytes);
+          })().catch(error=>{proxyError=error;response.destroy();});});
+        });upstream.on('error',error=>{proxyError=error;response.destroy();});request.pipe(upstream);
+      });
+      await new Promise((resolve,reject)=>{forwarder.once('error',reject);forwarder.listen(0,'127.0.0.1',resolve);});
+      const proxyOrigin='http://127.0.0.1:'+forwarder.address().port;
+      try{
+        const summary=await runCurrentBackendProbe({entryPath:realpathSync(join(stage,'dist/mcp-main.js')),baseUrl:proxyOrigin,fixture,tokens:{writer:await token('writer-a'),viewer:await token('native-viewer'),foreign:await token('foreign'),revocable:await token('mcp-adopt-revocable')},resultPath:join(evidence,'mcp-adopt-sdk-result.json'),hooks:{
+          audit:async label=>{const state=await allAudit();saveAll(label,state);return state;},
+          armConcurrentLostAck:async()=>{baseline=await allAudit();saveAll('before-race',baseline);await owner.query('BEGIN');locked=true;ownerPid=(await owner.query('SELECT pg_backend_pid() pid')).rows[0].pid;await owner.query('SELECT d.id FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id WHERE d.id=$1 FOR UPDATE OF d,s',[a.document.documentId]);},
+          releaseConcurrentAfterBothEntered:async()=>{try{await barrier("query LIKE '%FOR UPDATE OF d,s%'",[],ownerPid,'mcp-adopt-two-entered',2);bothEntered=true;}finally{await owner.query('COMMIT');locked=false;}},
+          confirmCommitted:async()=>{
+            if(proxyError)throw proxyError;assert.ok(bothEntered && omittedWinner?.committedReceiptObserved);
+            committed=await allAudit();saveAll('after-race',committed);winnerIndex=omittedWinner.winnerIndex;
+            const changes=['wonffice.documents','wonffice.document_snapshots','wonffice.document_receipts'];
+            for(const table of Object.keys(baseline))if(!changes.includes(table))assert.deepEqual(committed[table],baseline[table]);
+            const id=a.document.documentId,without=(rows,key)=>rows.filter(row=>row[key]!==id);
+            assert.deepEqual(without(committed[changes[0]],'id'),without(baseline[changes[0]],'id'));
+            assert.deepEqual(without(committed[changes[1]],'document_id'),without(baseline[changes[1]],'document_id'));
+            assert.deepEqual(without(committed[changes[2]],'document_id'),without(baseline[changes[2]],'document_id'));
+            const previous=baseline[changes[0]].find(row=>row.id===id),current=committed[changes[0]].find(row=>row.id===id);
+            assert.deepEqual(current,{...previous,updated_at:current.updated_at});assert.ok(Date.parse(current.updated_at)>=Date.parse(previous.updated_at));
+            const old=baseline[changes[1]].find(row=>row.document_id===id),now=committed[changes[1]].find(row=>row.document_id===id);
+            assert.deepEqual(now,{...old,revision:2,snapshot_text:a2,snapshot_hash:hash(a2),updated_at:now.updated_at});
+            const oldRows=baseline[changes[2]].filter(row=>row.document_id===id),newRows=committed[changes[2]].filter(row=>row.document_id===id);
+            assert.equal(newRows.length,oldRows.length+1);assert.deepEqual(newRows.filter(row=>row.operation!=='update'),oldRows);
+            const update=newRows.find(row=>row.operation==='update');assert.equal(update.idempotency_key,keys[winnerIndex]);assert.equal(update.request_hash,fixture.expectedReceipts[winnerIndex].requestHash);
+            assert.deepEqual(committed[changes[1]].find(row=>row.document_id===b.document.documentId),baseline[changes[1]].find(row=>row.document_id===b.document.documentId));
+            return {winnerIndex,bothEntered,committedAfterLostAck:omittedWinner.committedReceiptObserved,bWholeUnchanged:true};
+          },
+          revokeActor:async()=>{assert.deepEqual(await allAudit(),committed);await applyMembershipChange(owner,{action:'revoke',tenantId:tenant,issuer,subject:'mcp-adopt-revocable',role:'editor',approvalRef:'mcp-adopt-current-revocation'});afterRevocation=await allAudit();for(const table of Object.keys(committed))if(!['wonffice.tenant_memberships','wonffice.membership_events'].includes(table))assert.deepEqual(afterRevocation[table],committed[table]);saveAll('after-revoke',afterRevocation);}
+        }});
+        assert.equal(summary.status,'declared_sdk_cases_passed');assert.deepEqual(await allAudit(),afterRevocation);
+        const events=readFileSync(summary.eventsPath,'utf8').trim().split('\n').map(line=>JSON.parse(line));
+        assert.equal(events.filter(event=>event.kind==='child-closed' && event.exited===true).length,4);
+        lease.mcpAdopt={selectedSchemaId:selectedId,actualPinTransition:[1,2],fixtureHash:hash(JSON.stringify(fixture)),winnerIndex,sqlAuditTables:tables.length,ownedChildren:summary.childPids,notClaimed:['field-label evolution','actual adoption cancellation','genuine human login','LLM/native product UI','full495 acceptance']};saveLease();
+      }finally{if(locked){await owner.query('ROLLBACK');locked=false;}forwarder.closeAllConnections();await new Promise(resolve=>forwarder.close(resolve));forwarder=undefined;}
+    });
     await check('two actual HTTP writers real distinct blocked PG backends oneCAS winner one409 oneeffect and fixedsamekey retry',async()=>{
       const x=await fresh('race'),id=x.receipt.document.documentId;await owner.query('BEGIN');const ownerPid=(await owner.query('SELECT pg_backend_pid() pid')).rows[0].pid;
       await owner.query('SELECT d.id FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id WHERE d.id=$1 FOR UPDATE OF d,s',[id]);

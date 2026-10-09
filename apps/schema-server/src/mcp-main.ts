@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 import { McpBundleReadError, readExactDocumentBundle } from './mcp-bundle-reader.js';
+import { adoptSchema } from './mcp-adopt.js';
 import { registerSchema } from './mcp-register.js';
 import { validateNative2 } from './mcp-validate.js';
 
@@ -64,6 +65,22 @@ function createServer() {
       const result = await validateNative2({ baseUrl: process.env.SCHEMA_SERVER_MCP_BASE_URL ?? '',
         bearerToken: process.env.SCHEMA_SERVER_MCP_BEARER_TOKEN },
       { ...input, kind: 'candidate' }, context.mcpReq.signal);
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
+    } catch (error) {
+      const reason = error instanceof McpBundleReadError ? error.reason : 'schema_service_unavailable';
+      return { isError: true, content: [{ type: 'text' as const, text: JSON.stringify({ status: reason }) }] };
+    }
+  });
+  server.registerTool('adopt_schema', {
+    description: 'Adopt exact Note native2 snapshot bytes through current Schema Server authority and source CAS.',
+    inputSchema: z.strictObject({ ...validationFields,
+      expectedRevision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER - 1),
+      snapshotText: z.string().max(524288),
+      idempotencyKey: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/) }),
+  }, async (input, context) => {
+    try {
+      const result = await adoptSchema({ baseUrl: process.env.SCHEMA_SERVER_MCP_BASE_URL ?? '',
+        bearerToken: process.env.SCHEMA_SERVER_MCP_BEARER_TOKEN }, input, context.mcpReq.signal);
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
     } catch (error) {
       const reason = error instanceof McpBundleReadError ? error.reason : 'schema_service_unavailable';
