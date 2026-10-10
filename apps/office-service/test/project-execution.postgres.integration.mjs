@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
 import { migrate } from '../dist/migrate.js';
+import { provisionMemberDirectory } from '../dist/member-directory-admin.js';
 import { migrations } from '../dist/migrations.js';
 import { DocumentStore } from '../dist/document-store.js';
 import { CompanyMemberStore } from '../dist/company-member-store.js';
@@ -39,7 +40,7 @@ try {
   await migrate(owner, migrations.filter(m => m.id < '0012'));
   const history = (await owner.query('SELECT id,checksum FROM wonffice_meta.migrations ORDER BY id')).rows;
   await check('execution migration preserves every existing migration and is idempotent', async () => {
-    assert.deepEqual(await migrate(owner), ['0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications']);
+    assert.deepEqual(await migrate(owner), ['0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry', '0017_company_member_confirmation']);
     assert.deepEqual((await owner.query("SELECT id,checksum FROM wonffice_meta.migrations WHERE id<'0012' ORDER BY id")).rows, history);
     assert.deepEqual(await migrate(owner), []);
   });
@@ -54,7 +55,16 @@ try {
     await owner.query('INSERT INTO wonffice.identities(id,issuer,subject) VALUES($1,$2,$3)', [id,issuer,subject]);
     await owner.query('INSERT INTO wonffice.tenant_memberships(tenant_id,identity_id,role) VALUES($1,$2,$3)', [tenant,id,role]);
   }
+
+  await provisionMemberDirectory(owner, { tenantId, memberId: actorId,
+    displayLabel: 'Synthetic execution editor', sourceCategory: 'company_roster',
+    sourceRef: 'roster:377-execution', approvalRef: 'approval:377-execution-editor',
+    actorRef: 'synthetic:private-owner', expectedRevision: null });
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 5 }); pools.push(pool);
+  const displayedActor = (await new CompanyMemberStore(pool).listMembers(companyAdmin, tenantId)).members.find(member => member.memberId === actorId);
+  assert.equal(displayedActor.identification.state, 'identified');
+  const displayedDirectoryRevision = displayedActor.identification.revision;
+
   const documents = new DocumentStore(pool), projects = new ProjectStore(pool);
   const seed = async (unsupported = false) => {
     const thread = randomUUID(), text = 'Keep the running app open.';
@@ -121,11 +131,11 @@ try {
     source:(await owner.query('SELECT revision,snapshot_hash,snapshot_text FROM wonffice.document_snapshots WHERE tenant_id=$1 AND document_id=$2',[tenantId,s.documentId])).rows[0],
   });
   const restoreRole = async () => {
-    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'viewer')).changed,true);
-    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor')).changed,true);
+    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'viewer', displayedDirectoryRevision)).changed,true);
+    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor', displayedDirectoryRevision)).changed,true);
   };
   const restoreRevocation = async () => {
-    assert.equal((await companyMembers.revoke(companyAdmin,tenantId,actorId)).changed,true);
+    assert.equal((await companyMembers.revoke(companyAdmin,tenantId,actorId,displayedDirectoryRevision)).changed,true);
     // Existing protected test-owner control restores membership. No audit event
     // is manufactured, and no product endpoint or administrator right is added.
     await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at=NULL WHERE tenant_id=$1 AND identity_id=$2',[tenantId,actorId]);
@@ -142,7 +152,7 @@ try {
     const s=await seed(),result=(await execution.execute(...s.args(),{expectedRevision:s.current().project.revision})).execution;
     const beforeEpoch=await authorityEpoch(s),events=await eventCount();
     const xmin=(await owner.query('SELECT xmin::text AS version FROM wonffice.tenant_memberships WHERE tenant_id=$1 AND identity_id=$2',[tenantId,actorId])).rows[0].version;
-    assert.deepEqual(await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor'),{memberId:actorId,role:'editor',active:true,changed:false});
+    assert.deepEqual(await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor', displayedDirectoryRevision),{memberId:actorId,role:'editor',active:true,changed:false});
     assert.equal(await eventCount(),events);assert.equal(await authorityEpoch(s),beforeEpoch);
     assert.equal((await owner.query('SELECT xmin::text AS version FROM wonffice.tenant_memberships WHERE tenant_id=$1 AND identity_id=$2',[tenantId,actorId])).rows[0].version,xmin);
     assert.equal((await execution.authorizeAcceptance(...s.args(),result.id,{})).execution.phase,'accepted');
@@ -183,21 +193,21 @@ try {
     const before=await frozenRows(s),events=await eventCount(),control=await connect('wonffice_app');
     await control.query('BEGIN');
     await control.query("SELECT set_config('wonffice.tenant_id',$1,true),set_config('wonffice.oidc_issuer',$2,true),set_config('wonffice.oidc_subject',$3,true)",[tenantId,companyAdmin.issuer,companyAdmin.subject]);
-    assert.equal((await control.query("SELECT * FROM wonffice.company_member_change($1,$2,'set_role','viewer',$3)",[tenantId,actorId,randomUUID()])).rows[0].status,'applied');
+    assert.equal((await control.query("SELECT * FROM wonffice.company_member_change_confirmed($1,$2,'set_role','viewer',$3,$4)",[tenantId,actorId,displayedDirectoryRevision,randomUUID()])).rows[0].status,'applied');
     const pending=execution.authorizeAcceptance(...s.args(),result.id,{}),refusal=assert.rejects(pending,error=>error.status===409&&error.reason==='authority_changed');
     await waitForLock('project_current_actor');
-    assert.equal((await control.query("SELECT * FROM wonffice.company_member_change($1,$2,'set_role','editor',$3)",[tenantId,actorId,randomUUID()])).rows[0].status,'applied');
+    assert.equal((await control.query("SELECT * FROM wonffice.company_member_change_confirmed($1,$2,'set_role','editor',$3,$4)",[tenantId,actorId,displayedDirectoryRevision,randomUUID()])).rows[0].status,'applied');
     await control.query('COMMIT');await refusal;assert.equal(await eventCount(),events);assert.deepEqual(await frozenRows(s),before);
   });
   await check('document lock waiting holds membership authority until acceptance commits before a queued downgrade',async()=>{
     const s=await seed(),result=(await execution.execute(...s.args(),{expectedRevision:s.current().project.revision})).execution;
     await owner.query('BEGIN');await owner.query('SELECT 1 FROM wonffice.documents WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[tenantId,s.documentId]);
     const pending=execution.authorizeAcceptance(...s.args(),result.id,{});await waitForLock('FROM wonffice.documents');
-    const downgrade=companyMembers.setRole(companyAdmin,tenantId,actorId,'viewer');await waitForLock('company_member_change');
+    const downgrade=companyMembers.setRole(companyAdmin,tenantId,actorId,'viewer', displayedDirectoryRevision);await waitForLock('company_member_change');
     // The operation already owns FOR SHARE on the membership. Its acceptance
     // linearizes before the waiting role change, not in a fabricated mid-commit gap.
     await owner.query('COMMIT');assert.equal((await pending).execution.phase,'accepted');assert.equal((await downgrade).changed,true);
-    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor')).changed,true);
+    assert.equal((await companyMembers.setRole(companyAdmin,tenantId,actorId,'editor', displayedDirectoryRevision)).changed,true);
     const before=await frozenRows(s);
     await assert.rejects(execution.acknowledge(...s.args(),result.id,{revision:2,snapshotHash:result.expectedSnapshotHash}),error=>error.status===409&&error.reason==='authority_changed');
     assert.deepEqual(await frozenRows(s),before);assert.equal(before.source.snapshot_text,s.snapshotText);

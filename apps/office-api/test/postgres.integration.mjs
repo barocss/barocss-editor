@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import pg from 'pg';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { migrate } from '../../office-service/dist/migrate.js';
+import { provisionMemberDirectory } from '../../office-service/dist/member-directory-admin.js';
 import { MembershipStore } from '@barocss/office-service/membership-store';
 import { DocumentStore } from '@barocss/office-service/document-store';
 import { CollaborationStore } from '@barocss/office-service/collaboration-store';
@@ -408,10 +409,15 @@ try {
     const alphaAdmin = { authorization: `Bearer ${await token('alpha-admin')}` };
     const betaOwner = { authorization: `Bearer ${await token('beta-owner')}` };
     const unknown = { authorization: `Bearer ${await token('unknown-member')}` };
+    await provisionMemberDirectory(owner, { tenantId: alpha, memberId: aliceId, displayLabel: 'Synthetic Alice',
+      sourceCategory: 'company_roster', sourceRef: 'roster:377-api', approvalRef: 'approval:377-api',
+      actorRef: 'synthetic:private-owner', expectedRevision: null });
     const membersUrl = `/v1/tenants/${alpha}/members`;
+    const displayed = (await app.inject({ url: membersUrl, headers: alphaOwner })).json().members.find(member => member.memberId === aliceId).identification;
+    assert.equal(displayed.state, 'identified'); const expectedDirectoryRevision = displayed.revision;
     const get = (url, headers) => app.inject({ url, headers });
     const patch = (memberId, headers, role) => app.inject({ method: 'PATCH',
-      url: `${membersUrl}/${memberId}`, headers, payload: { role } });
+      url: `${membersUrl}/${memberId}`, headers, payload: { role, expectedDirectoryRevision } });
     assert.equal((await app.inject(membersUrl)).statusCode, 401);
     assert.equal((await get(membersUrl, alice)).statusCode, 403);
     assert.equal((await get(membersUrl, bob)).statusCode, 403);
@@ -433,7 +439,7 @@ try {
     assert.equal((await patch(aliceId, alphaOwner, 'owner')).statusCode, 400);
     assert.equal((await patch(aliceId, unknown, 'viewer')).statusCode, 403);
     const revoke = await app.inject({ method: 'DELETE', url: `${membersUrl}/${aliceId}`,
-      headers: alphaOwner });
+      headers: alphaOwner, payload: { expectedDirectoryRevision } });
     assert.equal(revoke.statusCode, 200, revoke.body);
     assert.equal((await get(`/v1/tenants/${alpha}/access`, alice)).statusCode, 403);
     assert.equal((await get(workspaceUrl, alice)).statusCode, 403);

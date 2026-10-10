@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CompanyMemberAccessDeniedError, CompanyMemberConflictError } from
   '@barocss/office-service/company-member-store';
 import { createApiServer } from '../src/server.js';
@@ -68,9 +68,9 @@ describe('company member HTTP boundary', () => {
       expect((await app.inject({ method: 'PATCH', url: target, headers,
         payload: { role: 'editor', issuer: principal.issuer } })).statusCode).toBe(400);
       expect((await app.inject({ method: 'PATCH', url: target, headers,
-        payload: { role: 'editor' } })).json()).toEqual({ memberId, role: 'editor',
+        payload: { role: 'editor', expectedDirectoryRevision: 2 } })).json()).toEqual({ memberId, role: 'editor',
         active: true, changed: true });
-      expect((await app.inject({ method: 'DELETE', url: target, headers })).json()).toEqual({
+      expect((await app.inject({ method: 'DELETE', url: target, headers, payload: { expectedDirectoryRevision: 2 } })).json()).toEqual({
         memberId, role: 'editor', active: false, changed: true });
     } finally { await app.close(); }
   });
@@ -92,11 +92,42 @@ describe('company member HTTP boundary', () => {
       const path = `/v1/tenants/${tenantId}/members/${memberId}`;
       expect((await app.inject({ url: `/v1/tenants/${tenantId}/members`, headers })).statusCode).toBe(403);
       mode = 'conflict';
-      expect((await app.inject({ method: 'DELETE', url: path, headers })).statusCode).toBe(409);
+      expect((await app.inject({ method: 'DELETE', url: path, headers, payload: { expectedDirectoryRevision: 2 } })).statusCode).toBe(409);
       mode = 'outage';
-      const outage = await app.inject({ method: 'DELETE', url: path, headers });
+      const outage = await app.inject({ method: 'DELETE', url: path, headers, payload: { expectedDirectoryRevision: 2 } });
       expect(outage.statusCode).toBe(503);
       expect(outage.body).not.toContain('synthetic_database_outage');
     } finally { await app.close(); }
   });
+  it('passes only the exact displayed revision and refuses missing, coercible or extra input', async () => {
+    const change = vi.fn(async () => ({ memberId, role: 'viewer' as const, active: true, changed: false }));
+    const app = createApiServer({ verifier: { verify: async () => principal },
+      memberships: { getTenantAccess: async () => { throw new Error('unused'); },
+        listTenantAccess: async () => { throw new Error('unused'); } },
+      companyMembers: { listMembers: async () => { throw new Error('no_latest_lookup'); },
+        setRole: change, revoke: change },
+    });
+    try {
+      const url = `/v1/tenants/${tenantId}/members/${memberId}`, headers = { authorization: 'Bearer valid' };
+      for (const method of ['PATCH', 'DELETE'] as const) {
+        const valid = method === 'PATCH' ? { role: 'viewer' } : {};
+        for (const revision of [undefined, null, '2', 0, -1, 1.5, 2147483648]) {
+          const response = await app.inject({ method, url, headers,
+            payload: { ...valid, ...(revision === undefined ? {} : { expectedDirectoryRevision: revision }) } });
+          expect(response.statusCode).toBe(400);
+        }
+        expect((await app.inject({ method, url, headers,
+          payload: { ...valid, expectedDirectoryRevision: 2, displayLabel: 'forged' } })).statusCode).toBe(400);
+      }
+      expect((await app.inject({ method: 'DELETE', url, headers })).statusCode).toBe(400);
+      expect(change).not.toHaveBeenCalled();
+      expect((await app.inject({ method: 'PATCH', url, headers,
+        payload: { role: 'viewer', expectedDirectoryRevision: 2147483647 } })).statusCode).toBe(200);
+      expect(change).toHaveBeenLastCalledWith(principal, tenantId, memberId, 'viewer', 2147483647);
+      expect((await app.inject({ method: 'DELETE', url, headers,
+        payload: { expectedDirectoryRevision: 2 } })).statusCode).toBe(200);
+      expect(change).toHaveBeenLastCalledWith(principal, tenantId, memberId, 2);
+    } finally { await app.close(); }
+  });
+
 });

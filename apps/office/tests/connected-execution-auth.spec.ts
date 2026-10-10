@@ -443,10 +443,13 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
     // event or a direct role UPDATE, to retire the beta writer's captured intent.
     const membersResponse = await page.request.get(`${tenantRoot}/members`, { headers: { Authorization: requests.bearer } });
     expect(membersResponse.status()).toBe(200);
-    const members = await membersResponse.json() as { members: Array<{ memberId: string; isSelf: boolean }> };
+    const members = await membersResponse.json() as { members: Array<{ memberId: string; isSelf: boolean; identification: { state: string; revision: number | null } }> };
     const betaMember = members.members.find(member => !member.isSelf)!; expect(betaMember).toBeDefined();
+    expect(betaMember.identification.state).toBe('identified');
+    const expectedDirectoryRevision = betaMember.identification.revision;
+    expect(expectedDirectoryRevision).toBeGreaterThan(0);
     const setBetaRole = async (role: 'editor' | 'viewer') => {
-      const response = await page.request.patch(`${tenantRoot}/members/${betaMember.memberId}`, { headers: { Authorization: requests.bearer }, data: { role } });
+      const response = await page.request.patch(`${tenantRoot}/members/${betaMember.memberId}`, { headers: { Authorization: requests.bearer }, data: { role, expectedDirectoryRevision } });
       expect(response.status()).toBe(200); return response.json() as Promise<{ changed: boolean }>;
     };
     expect((await setBetaRole('editor')).changed).toBe(true);
@@ -492,7 +495,7 @@ test('live local proposal uses exact native Word, human acceptance, durable atte
       expect((await readExecution())!.provenance).toEqual(proposed.provenance);
     };
     await retired();
-    const revokeResponse = await page.request.delete(`${tenantRoot}/members/${betaMember.memberId}`, { headers: { Authorization: requests.bearer } }); expect(revokeResponse.status()).toBe(200);
+    const revokeResponse = await page.request.delete(`${tenantRoot}/members/${betaMember.memberId}`, { headers: { Authorization: requests.bearer }, data: { expectedDirectoryRevision } }); expect(revokeResponse.status()).toBe(200);
     expect((await viewer.request.get(betaApi, { headers: { Authorization: viewerRequests.bearer } })).status()).toBe(403);
     await privateControl({ action: 'beta-active', active: true }); await retired();
     const beforeRestart = await privateControl<RealStatus>({ action: 'status' });

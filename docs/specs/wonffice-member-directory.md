@@ -65,7 +65,7 @@ This child does not implement role-mutation guards or the human confirmation UI.
 2. #377 requires the displayed positive directory revision, exact memberId and tenantId on every human-targeted mutation; missing revision has no silent fallback. Do not accept a label/code as identity or authority.
 3. In the existing protected database mutation transaction, check the verified actor and lock its active owner/admin membership `FOR SHARE`. Lock the exact target membership `FOR UPDATE`, then lock/read its `member_directory` row `FOR SHARE`. Require an identified entry whose revision equals the displayed revision. Apply the membership change and audit only after this comparison, holding the locks through commit.
 4. Provisioning serializes private administration with advisory `(87142,2)`, then locks target membership `FOR UPDATE`, then directory `FOR UPDATE`. It never waits for an actor-membership row after locking the target. #377 must retain the target-membership→directory order; do not acquire a directory lock before the membership lock. No ordinary app operation needs the private global advisory lock.
-5. A missing entry or stale revision returns an explicit refresh/reconfirmation conflict, with no membership change. If confirmation wins the target lock before a rename, it can only change the member against the verified still-current revision; if rename wins, comparison sees the new revision and refuses. Verify both schedules in #377, including unchanged audit/membership on refusal. #408 concurrency tests validate provisioning updates, not this future mutation race.
+5. A missing entry or stale revision returns an explicit refresh/reconfirmation conflict, with no membership change. If confirmation wins the target lock before a rename, it can only change the member against the verified still-current revision; if rename wins, comparison sees the new revision and refuses. Verify both schedules in #377. A refused confirmation must leave memberships, directory rows, directory provisioning events, membership provisioning events, platform-operator streams and every prior company audit row unchanged. The original #377 refusal-audit requirement still applies: append exactly one `company_member_admin_events` conflict event for the authenticated attempted mutation, with the verified actor, target, action, current previous role, requested role, request ID and database timestamp. Do not include labels, private roster references, tokens or customer content. Compare every table and every prior audit row against an independent expected ledger; allow only that exact conflict append. Audit failure must roll back the transaction. #408 concurrency tests validate provisioning updates, not this future mutation race.
 
 #377/#378 and the complete alpha/release gates remain incomplete. Local directory verification does not approve customer provisioning, invitations, deployment or external publication.
 
@@ -81,3 +81,12 @@ pnpm preflight
 ```
 
 `PG_BIN` can select a local PostgreSQL bin directory. The actual-OIDC test is `apps/office-api/test/member-directory.oidc.integration.mjs`, run from that app after build. Set `WONFFICE_LOCAL_KEYCLOAK_USERS_FILE` to the existing600 synthetic fixture. It uses the existing loopback IdP read-only, PKCE callback18200 and its own API14208; serialize these ports and fixture preparation. It logs no tokens or credentials. It checks two independent login contexts, two tenants, duplicate labels, missing identification, denial, unchanged fixed replay and API/PostgreSQL restart against its own database.
+
+
+## 구성원 변경의 표시 revision 계약 (#377)
+
+PATCH는 `role`과 `expectedDirectoryRevision`, DELETE는 `expectedDirectoryRevision`을 정확한 JSON 본문으로 받는다. 값은 표시한 identified entry의 양의 정수 revision이다(최대 2147483647). 누락, 문자열, null, 소수, 추가 필드는 거부한다. UUID/표시 이름/memberCode는 revision을 대체하지 않는다.
+
+서버는 현재 OIDC actor의 active owner/admin membership, 정확한 대상 membership, directory row를 차례로 잠근다. 대상은 기존 editor/viewer만 가능하다. 표시 revision이 없거나 오래되면 409를 반환한다. 목록을 다시 읽고 선택한 사람과 이전/새 역할을 다시 확인해야 한다. 서버의 latest를 자동 입력하거나 같은 요청을 자동 재시도하지 않는다.
+
+새 `0017_company_member_confirmation`은 과거 0006/0010을 수정하지 않는다. 기존 변경 함수를 owner-only 내부 호출로 재사용하고 app/PUBLIC의 직접 호출을 제거한다. 거부 감사와 전체 원장의 기대 효과는 위 5단계 기준을 따른다. 이 소스 계약은 관리자 UI 활성화나 실제 통합 검사의 통과를 뜻하지 않는다.

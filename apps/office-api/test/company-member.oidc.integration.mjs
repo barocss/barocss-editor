@@ -9,6 +9,7 @@ import pg from 'pg';
 import { migrate } from '../../office-service/dist/migrate.js';
 import { MembershipStore } from '../../office-service/dist/membership-store.js';
 import { CompanyMemberStore } from '../../office-service/dist/company-member-store.js';
+import { provisionMemberDirectory } from '../../office-service/dist/member-directory-admin.js';
 import { createApiServer } from '../dist/server.js';
 import { readAuthConfig } from '../dist/auth-config.js';
 import { createOidcVerifier } from '../dist/oidc.js';
@@ -63,15 +64,13 @@ async function login(username) {
     code_challenge: challenge, state }).toString();
   const callback = new Promise(resolve => { callbacks.set(state, resolve); });
   await page.goto(authorization.href);
-  await page.locator('#username').fill(username);
+  await page.locator('#username').fill(fixture.users[username].username ?? username);
   await page.locator('#password').fill(fixture.users[username].password);
   await page.locator('#kc-login').click();
-  if (new URL(page.url()).pathname.endsWith('/login-actions/required-action')) {
-    await page.locator('input[name="email"]').fill(`${username}@wonffice.invalid`);
-    await page.locator('input[name="firstName"]').fill(username.split('-')[0]);
-    await page.locator('input[name="lastName"]').fill('Synthetic');
-    await page.locator('input[type="submit"]').click();
-  }
+  await page.waitForURL(url => url.pathname === '/callback' ||
+    url.pathname.endsWith('/login-actions/required-action'), { timeout: 15000 });
+  if (new URL(page.url()).pathname.endsWith('/login-actions/required-action'))
+    throw new Error('synthetic_oidc_profile_prerequisite_missing');
   const code = await Promise.race([callback, page.waitForTimeout(10000).then(() => null)]);
   if (!code) throw new Error('synthetic_oidc_authorization_failed');
   const tokenResponse = await fetch(`${fixture.issuer}/protocol/openid-connect/token`, {
@@ -110,6 +109,10 @@ try {
     VALUES ($1, $2, 'owner'), ($1, $3, 'editor'), ($4, $3, 'owner')`,
   [alpha, alphaOwnerId, betaEditorId, beta]);
 
+  await provisionMemberDirectory(owner, { tenantId: alpha, memberId: betaEditorId, displayLabel: 'Synthetic colleague',
+    sourceCategory: 'company_roster', sourceRef: 'roster:377-oidc', approvalRef: 'approval:377-oidc',
+    actorRef: 'synthetic:private-owner', expectedRevision: null });
+
   await new Promise((resolve, reject) => {
     callbackServer.once('error', reject);
     callbackServer.listen(18200, '127.0.0.1', resolve);
@@ -147,12 +150,15 @@ try {
     [betaEditorId]);
   assert.deepEqual(await get(betaToken, alphaMembers, 403), { status: 'forbidden' });
   assert.deepEqual(await get('invalid', alphaMembers, 401), { status: 'unauthorized' });
+  const displayed = (await get(alphaToken, alphaMembers, 200)).members.find(member => member.memberId === betaEditorId).identification;
+  assert.equal(displayed.state, 'identified');
+  const expectedDirectoryRevision = displayed.revision;
   assert.deepEqual(await request(alphaToken, 'PATCH', `${alphaMembers}/${betaEditorId}`, 200,
-    { role: 'viewer' }), { memberId: betaEditorId, role: 'viewer', active: true, changed: true });
+    { role: 'viewer', expectedDirectoryRevision }), { memberId: betaEditorId, role: 'viewer', active: true, changed: true });
   assert.deepEqual(await get(betaToken, `/v1/tenants/${alpha}/access`, 200), { tenantId: alpha, role: 'viewer' });
   assert.deepEqual(await request(alphaToken, 'PATCH', `${alphaMembers}/${alphaOwnerId}`, 403,
-    { role: 'viewer' }), { status: 'forbidden' });
-  assert.deepEqual(await request(alphaToken, 'DELETE', `${alphaMembers}/${betaEditorId}`, 200),
+    { role: 'viewer', expectedDirectoryRevision }), { status: 'forbidden' });
+  assert.deepEqual(await request(alphaToken, 'DELETE', `${alphaMembers}/${betaEditorId}`, 200, { expectedDirectoryRevision }),
     { memberId: betaEditorId, role: 'viewer', active: false, changed: true });
   assert.deepEqual(await get(betaToken, `/v1/tenants/${alpha}/access`, 403), { status: 'forbidden' });
   assert.deepEqual(await get(betaToken, alphaMembers, 403), { status: 'forbidden' });

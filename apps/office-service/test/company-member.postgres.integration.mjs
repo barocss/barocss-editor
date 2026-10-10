@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
 import { migrate } from '../dist/migrate.js';
+import { provisionMemberDirectory } from '../dist/member-directory-admin.js';
 import { CompanyMemberStore, CompanyMemberAccessDeniedError,
   CompanyMemberConflictError } from '../dist/company-member-store.js';
 import { MembershipStore, TenantAccessDeniedError } from '../dist/membership-store.js';
@@ -42,7 +43,7 @@ try {
     '0001_tenant_workspaces', '0002_oidc_memberships', '0003_member_tenant_names',
     '0004_document_snapshots', '0005_platform_operators',
     '0006_company_member_admin', '0007_document_collaboration_seed',
-    '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications',
+    '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry', '0017_company_member_confirmation',
   ]);
   const issuer = 'http://127.0.0.1:18180/realms/wonffice';
   const alpha = randomUUID(), beta = randomUUID();
@@ -64,6 +65,19 @@ try {
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 3 }); pools.push(pool);
   const members = new CompanyMemberStore(pool);
   const access = new MembershipStore(pool);
+  for (const subject of ['editor', 'viewer']) {
+    await provisionMemberDirectory(owner, { tenantId: alpha, memberId: accounts[subject].id,
+      displayLabel: `Synthetic ${subject}`, sourceCategory: 'company_roster',
+      sourceRef: 'roster:377-company', approvalRef: `approval:377-${subject}`,
+      actorRef: 'synthetic:private-owner', expectedRevision: null });
+  }
+  const observed = (await members.listMembers(accounts.owner.principal, alpha)).members;
+  const revision = subject => {
+    const identification = observed.find(member => member.memberId === accounts[subject].id).identification;
+    assert.equal(identification.state, 'identified'); return identification.revision;
+  };
+  const displayedRevision = revision('viewer'), editorRevision = revision('editor');
+
 
   await check('owner and admin list only their company with internal IDs', async () => {
     for (const actor of ['owner', 'admin']) {
@@ -84,38 +98,38 @@ try {
     assert.equal((await pool.query('SELECT * FROM wonffice.tenant_memberships')).rowCount, 0);
   });
   await check('owner and admin can change only active editor or viewer roles', async () => {
-    assert.deepEqual(await members.setRole(accounts.admin.principal, alpha, accounts.viewer.id, 'editor'),
+    assert.deepEqual(await members.setRole(accounts.admin.principal, alpha, accounts.viewer.id, 'editor', displayedRevision),
       { memberId: accounts.viewer.id, role: 'editor', active: true, changed: true });
     assert.deepEqual(await access.getTenantAccess(accounts.viewer.principal, alpha),
       { tenantId: alpha, role: 'editor' });
-    assert.deepEqual(await members.setRole(accounts.owner.principal, alpha, accounts.viewer.id, 'viewer'),
+    assert.deepEqual(await members.setRole(accounts.owner.principal, alpha, accounts.viewer.id, 'viewer', displayedRevision),
       { memberId: accounts.viewer.id, role: 'viewer', active: true, changed: true });
     assert.deepEqual(await access.getTenantAccess(accounts.viewer.principal, alpha),
       { tenantId: alpha, role: 'viewer' });
-    assert.deepEqual(await members.setRole(accounts.admin.principal, alpha, accounts.viewer.id, 'editor'),
+    assert.deepEqual(await members.setRole(accounts.admin.principal, alpha, accounts.viewer.id, 'editor', displayedRevision),
       { memberId: accounts.viewer.id, role: 'editor', active: true, changed: true });
-    assert.deepEqual(await members.setRole(accounts.owner.principal, alpha, accounts.viewer.id, 'editor'),
+    assert.deepEqual(await members.setRole(accounts.owner.principal, alpha, accounts.viewer.id, 'editor', displayedRevision),
       { memberId: accounts.viewer.id, role: 'editor', active: true, changed: false });
     for (const target of [accounts.owner.id, accounts.admin.id, accounts['beta-owner'].id]) {
-      await assert.rejects(members.setRole(accounts.owner.principal, alpha, target, 'viewer'),
+      await assert.rejects(members.setRole(accounts.owner.principal, alpha, target, 'viewer', displayedRevision),
         CompanyMemberAccessDeniedError);
-      await assert.rejects(members.revoke(accounts.owner.principal, alpha, target),
+      await assert.rejects(members.revoke(accounts.owner.principal, alpha, target, editorRevision),
         CompanyMemberAccessDeniedError);
     }
-    await assert.rejects(members.setRole(accounts.owner.principal, alpha, randomUUID(), 'viewer'),
+    await assert.rejects(members.setRole(accounts.owner.principal, alpha, randomUUID(), 'viewer', displayedRevision),
       CompanyMemberAccessDeniedError);
-    await assert.rejects(members.revoke(accounts.owner.principal, randomUUID(), accounts.viewer.id),
+    await assert.rejects(members.revoke(accounts.owner.principal, randomUUID(), accounts.viewer.id, displayedRevision),
       CompanyMemberAccessDeniedError);
-    await assert.rejects(members.setRole(accounts.editor.principal, alpha, accounts.viewer.id, 'viewer'),
+    await assert.rejects(members.setRole(accounts.editor.principal, alpha, accounts.viewer.id, 'viewer', displayedRevision),
       CompanyMemberAccessDeniedError);
   });
   await check('revocation denies the same token on the next tenant operation', async () => {
-    assert.deepEqual(await members.revoke(accounts.owner.principal, alpha, accounts.editor.id),
+    assert.deepEqual(await members.revoke(accounts.owner.principal, alpha, accounts.editor.id, editorRevision),
       { memberId: accounts.editor.id, role: 'editor', active: false, changed: true });
     await assert.rejects(access.getTenantAccess(accounts.editor.principal, alpha), TenantAccessDeniedError);
     await assert.rejects(members.listMembers(accounts.editor.principal, alpha),
       CompanyMemberAccessDeniedError);
-    await assert.rejects(members.revoke(accounts.owner.principal, alpha, accounts.editor.id),
+    await assert.rejects(members.revoke(accounts.owner.principal, alpha, accounts.editor.id, editorRevision),
       CompanyMemberConflictError);
     const page = await members.listMembers(accounts.owner.principal, alpha);
     assert.equal(page.members.find(member => member.memberId === accounts.editor.id).active, false);
@@ -123,7 +137,7 @@ try {
   await check('unregistered verified actor is denied and audited without a target leak', async () => {
     const stranger = { issuer, subject: 'unregistered' };
     await assert.rejects(members.listMembers(stranger, alpha), CompanyMemberAccessDeniedError);
-    await assert.rejects(members.setRole(stranger, alpha, accounts.viewer.id, 'viewer'),
+    await assert.rejects(members.setRole(stranger, alpha, accounts.viewer.id, 'viewer', displayedRevision),
       CompanyMemberAccessDeniedError);
     const rows = (await owner.query(`SELECT actor_identity_id, actor_issuer, actor_subject,
       target_identity_id, action, outcome FROM wonffice.company_member_admin_events
@@ -167,7 +181,7 @@ try {
   });
   await check('audit failure and database outage do not authorize changes', async () => {
     await owner.query('DROP TABLE wonffice.company_member_admin_events');
-    await assert.rejects(members.setRole(accounts.owner.principal, alpha, accounts.viewer.id, 'viewer'));
+    await assert.rejects(members.setRole(accounts.owner.principal, alpha, accounts.viewer.id, 'viewer', displayedRevision));
     await assert.rejects(members.listMembers(accounts.owner.principal, alpha));
     await assert.rejects(members.listMembers({ issuer, subject: 'unknown-after-audit-failure' }, alpha));
     assert.deepEqual(await access.getTenantAccess(accounts.viewer.principal, alpha),

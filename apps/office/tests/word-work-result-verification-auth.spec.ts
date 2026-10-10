@@ -773,10 +773,12 @@ for (const scenario of [{ name: 'preserved', target: editable, outcome: 'passed'
       evidence.documentId = documentId; evidence.authoredPair = authored.pair; evidence.independentAuthored = wordFileText(authored.document, ''); checkpoint();
       // Promote the actual existing second account through the restricted API.
       const membersResponse = await page.request.get(`${tenantRoot}/members`, { headers: { Authorization: requestsA.bearer } }); expect(membersResponse.status()).toBe(200);
-      const members = (await membersResponse.json() as { members: Array<{ memberId: string; isSelf: boolean; role: string }> }).members.filter(one => !one.isSelf);
+      const members = (await membersResponse.json() as { members: Array<{ memberId: string; isSelf: boolean; role: string; identification: { state: string; revision: number | null } }> }).members.filter(one => !one.isSelf);
       expect(members).toHaveLength(1); const member = members[0]; expect(['editor', 'viewer']).toContain(member.role);
+      expect(member.identification.state).toBe('identified');
+      const expectedDirectoryRevision = member.identification.revision; expect(expectedDirectoryRevision).toBeGreaterThan(0);
       const setRole = async (role: string) => { const response = await page.request.patch(`${tenantRoot}/members/${member.memberId}`, {
-        headers: { Authorization: requestsA.bearer }, data: { role } }); expect(response.status()).toBe(200); };
+        headers: { Authorization: requestsA.bearer }, data: { role, expectedDirectoryRevision } }); expect(response.status()).toBe(200); };
       if (member.role !== 'editor') { await setRole('editor'); restoreRole = () => setRole(member.role); }
       // Create the real project/result through UI. The explicit bounded API fixture
       // later links the existing native target without adding another native comment.
@@ -1272,7 +1274,7 @@ for (const scenario of [{ name: 'preserved', target: editable, outcome: 'passed'
         // LAST testcase, terminal state of this disposable DB fixture only.
         // Revoke through the real company API; do not pretend there is a regrant.
         phase = 'terminal-disposable-member-revocation'; checkpoint();
-        const deleting = await page.request.delete(`${tenantRoot}/members/${member.memberId}`, { headers: { Authorization: requestsA.bearer } });
+        const deleting = await page.request.delete(`${tenantRoot}/members/${member.memberId}`, { headers: { Authorization: requestsA.bearer }, data: { expectedDirectoryRevision } });
         expect(deleting.status()).toBe(200);
         const deleted = await deleting.json() as { active: boolean; changed: boolean };
         restoreRole = undefined; // Only after the successful actual DELETE.

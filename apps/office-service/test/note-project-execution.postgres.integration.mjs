@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
 import { migrate } from '../dist/migrate.js';
+import { provisionMemberDirectory } from '../dist/member-directory-admin.js';
 import { serializeNoteFile } from '@barocss/office-note-file';
 import { DocumentStore } from '../dist/document-store.js';
 import { CompanyMemberStore } from '../dist/company-member-store.js';
@@ -46,7 +47,16 @@ try {
     await owner.query('INSERT INTO wonffice.identities(id,issuer,subject) VALUES($1,$2,$3)', [id,issuer,subject]);
     await owner.query('INSERT INTO wonffice.tenant_memberships(tenant_id,identity_id,role) VALUES($1,$2,$3)', [tenant,id,role]);
   }
+
+  await provisionMemberDirectory(owner, { tenantId, memberId: actorId,
+    displayLabel: 'Synthetic execution editor', sourceCategory: 'company_roster',
+    sourceRef: 'roster:377-execution', approvalRef: 'approval:377-execution-editor',
+    actorRef: 'synthetic:private-owner', expectedRevision: null });
   const pool = new pg.Pool({ ...config('wonffice_app'), max: 5 }); pools.push(pool);
+  const displayedActor = (await new CompanyMemberStore(pool).listMembers(companyAdmin, tenantId)).members.find(member => member.memberId === actorId);
+  assert.equal(displayedActor.identification.state, 'identified');
+  const displayedDirectoryRevision = displayedActor.identification.revision;
+
   const documents = new DocumentStore(pool), projects = new ProjectStore(pool);
 
   let calls = 0;
@@ -146,7 +156,7 @@ try {
       snapshotText: s.snapshotText.replace('Unrelated rich sibling', 'Human later sibling'), idempotencyKey: randomUUID() });
     if (mode === 'role-ABA') {
       const members = new CompanyMemberStore(pool);
-      await members.setRole(companyAdmin, tenantId, actorId, 'viewer'); await members.setRole(companyAdmin, tenantId, actorId, 'editor');
+      await members.setRole(companyAdmin, tenantId, actorId, 'viewer', displayedDirectoryRevision); await members.setRole(companyAdmin, tenantId, actorId, 'editor', displayedDirectoryRevision);
     }
     if (mode === 'revoked') await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at=now() WHERE tenant_id=$1 AND identity_id=$2', [tenantId, actorId]);
     if (mode === 'viewer') args = [viewer, ...args.slice(1)];
