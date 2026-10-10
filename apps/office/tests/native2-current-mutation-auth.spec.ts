@@ -195,17 +195,22 @@ test.beforeAll(async () => {
 test('current Office native2 validation, one-winner adoption and fixed lost-ACK recovery preserve exact full sources', async ({ page, browser }, info: TestInfo) => {
   test.setTimeout(180_000);
   const status = await privateControl<Status>({ action: 'status' }), records = network(page), phases: Array<Record<string, unknown>> = [];
+  const checkpoint = async (name: string, evidence: unknown) => {
+    await info.attach(name, { body: JSON.stringify(evidence), contentType: 'application/json' });
+  };
   await page.clock.install();
   const probes: JSHandle<Probe>[] = [];
   let betaContext: Awaited<ReturnType<typeof browser.newContext>> | undefined;
   try {
     await login(page, 'alpha-editor', status); const alpha = await identity(page, records, 'alpha-editor', status);
     const initial = await state(); expect(head(initial, status.native2.targetA).snapshotText).toBe(raw.A1); expect(head(initial, status.native2.targetB).snapshotText).toBe(raw.B);
+    await checkpoint('initial-current-authority-full-state', { status, alpha, initial, expectedHashes });
     const originalElement = await source(page).elementHandle(); if (!originalElement) throw new Error('Real mounted source required');
     const originalDOM = await source(page).evaluate(el => el.outerHTML);
     const a = await probe(page, status, status.native2.targetA), b = await probe(page, status, status.native2.targetB); probes.push(a, b);
+    const observedSources: Record<string, unknown> = {};
     for (const [one, key] of [[a, 'A1'], [b, 'B']] as const) {
-      const observed = await one.evaluate(actual => actual.context.source);
+      const observed = await one.evaluate(actual => actual.context.source); observedSources[key] = observed;
       const expectedFile = { fileVersion: 2, document: files[key].document, schemaBundle: files[key].schemaBundle,
         ...('savedAt' in files[key] ? { savedAt: files[key].savedAt } : {}) };
       expect(observed.snapshotText).toBe(raw[key]); expect(observed.file).toEqual(expectedFile);
@@ -215,6 +220,7 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     const fixed = fixedOracle(status, head(initial, status.native2.targetA), raw.A1, input);
     expect(await prepare(a, input)).toEqual(fixed.expected);
     const beforeValidation = await state();
+    await checkpoint('original-full-sources-fixed-validation-input', { observedSources, input, fixed, beforeValidation });
     const validatedSource = await call(a, 'validateSource'), validatedCandidate = await call(a, 'validate');
     expect(validatedSource.ok).toBe(true); expect(validatedCandidate.ok).toBe(true);
     if (!validatedSource.ok || !validatedCandidate.ok) throw new Error('Actual source and candidate validation required');
@@ -224,7 +230,9 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     expect(validatedSource.value).toEqual({ ...validationBase, kind: 'document', checks: sourceChecks });
     expect(validatedCandidate.value).toEqual({ ...validationBase, kind: 'candidate', candidateSnapshotHash: expectedHashes.A2,
       action: 'adopt', checks: [...sourceChecks, 'candidate_file', 'candidate_registered_bundle', 'candidate_action_policy', 'pin_transition'] });
-    expect(await state()).toEqual(beforeValidation);
+    const afterValidation = await state();
+    await checkpoint('actual-source-candidate-validation-no-effects', { validatedSource, validatedCandidate, beforeValidation, afterValidation });
+    expect(afterValidation).toEqual(beforeValidation);
     const cloned = await a.evaluate(async actual => { try { await actual.context.update(JSON.parse(JSON.stringify(actual.attempt))); return 'unexpected'; }
       catch (error) { return (error as { code: string }).code; } }); expect(cloned).toBe('foreign_attempt');
     const reused = await a.evaluate(async actual => { try { await actual.context.prepare({ ...actual.input!, snapshotText: actual.input!.snapshotText + ' ' }); return 'unexpected'; }
@@ -237,13 +245,18 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     expect(betaIdentity.tenants.find(one => one.tenantId === status.betaTenantId)?.role).toBe('owner');
     const viewer = await probe(beta, status, status.native2.targetA); probes.push(viewer); await prepare(viewer, { ...input, idempotencyKey: '503-viewer-denied' });
     const viewerBefore = await state(); const denial = await call(viewer, 'update'); expect(denial.ok).toBe(false); if (denial.ok) throw new Error('Viewer must refuse'); expect(denial.status).toBe(403);
-    expect(await state()).toEqual(viewerBefore);
+    const viewerAfter = await state();
+    await checkpoint('actual-viewer-denial-no-effects', { betaIdentity, denial, viewerBefore, viewerAfter });
+    expect(viewerAfter).toEqual(viewerBefore);
     await privateControl({ action: 'beta-active', active: false });
     const foreignMe = await beta.request.get(`${origin}/api/v1/me`, { headers: { Authorization: betaRecords.bearer() } }); expect(foreignMe.status()).toBe(200);
     const foreignIdentity = await foreignMe.json() as typeof betaIdentity;
     expect(foreignIdentity.subject).toBe(betaIdentity.subject); expect(foreignIdentity.currentUserId).toBe(betaIdentity.currentUserId);
     expect(foreignIdentity.tenants.some(one => one.tenantId === status.tenantId)).toBe(false); expect(foreignIdentity.tenants.find(one => one.tenantId === status.betaTenantId)?.role).toBe('owner');
-    const foreignBefore = await state(); const revoked = await call(viewer, 'update'); expect(revoked.ok).toBe(false); if (revoked.ok) throw new Error('Foreign-only actor must refuse'); expect(revoked.status).toBe(403); expect(await state()).toEqual(foreignBefore);
+    const foreignBefore = await state(); const revoked = await call(viewer, 'update'); expect(revoked.ok).toBe(false); if (revoked.ok) throw new Error('Foreign-only actor must refuse'); expect(revoked.status).toBe(403);
+    const foreignAfter = await state();
+    await checkpoint('actual-foreign-only-denial-no-effects', { foreignIdentity, revoked, foreignBefore, foreignAfter });
+    expect(foreignAfter).toEqual(foreignBefore);
     await privateControl({ action: 'beta-active', active: true });
     phases.push({ phase: 'genuine viewer write denial and separately observed foreign-only membership', qualification: 'Same actual Beta subject/token; target revocation is explicit setup before fresh baseline; not viewer relabelled foreign or unseen ABA' });
     await betaContext.close(); betaContext = undefined;
@@ -254,6 +267,7 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     const competitorInput = { snapshotText: alternative, schemaAction: 'adopt' as const, idempotencyKey: '503-adopt-A-competitor' };
     const competitor = fixedOracle(status, head(initial, status.native2.targetA), raw.A1, competitorInput);
     expect(await prepare(second, competitorInput)).toEqual(competitor.expected);
+    await checkpoint('declared-cas-two-fixed-requests-before-dispatch', { raceBefore, fixed, competitor });
     const race = await page.evaluate(async ({ first, next }) => {
       const settle = async (one: Probe): Promise<Result> => { try { return { ok: true, value: await one.context.update(one.attempt!) }; }
         catch (error) { const e = error as { code?: string; status?: number }; return { ok: false, code: e.code ?? 'unknown_error', status: e.status ?? null }; } };
@@ -262,7 +276,8 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     expect(race.filter(one => one.ok)).toHaveLength(1); const winner = race[0]!.ok ? 0 : 1, winnerRaw = winner === 0 ? raw.A2 : alternative;
     const winning = winner === 0 ? fixed : competitor; receipt(race[winner]!.ok ? race[winner]!.value : null, status, head(initial, status.native2.targetA), winning, alpha.currentUserId);
     const loser = race[1 - winner]!; expect(loser.ok).toBe(false); if (loser.ok) throw new Error('Exactly one CAS winner'); expect(loser.status).toBe(409); expect(loser.code).toMatch(/^[a-z][a-z0-9_]+$/);
-    const adopted = await state(); expect(head(adopted, status.native2.targetA).revision).toBe(2); expect(head(adopted, status.native2.targetA).snapshotText).toBe(winnerRaw); await invariantExceptA(raceBefore, adopted, status, winnerRaw, 2);
+    const adopted = await state();
+    await checkpoint('actual-one-winner-adoption-full-state', { race, winner, winning, raceBefore, adopted }); expect(head(adopted, status.native2.targetA).revision).toBe(2); expect(head(adopted, status.native2.targetA).snapshotText).toBe(winnerRaw); await invariantExceptA(raceBefore, adopted, status, winnerRaw, 2);
     expect(adopted.audit.document_receipts!.rows - raceBefore.audit.document_receipts!.rows).toBe(1);
     phases.push({ phase: 'actual same-source two-request CAS, one winner with selected schema pin v1→v2', winner, qualification: 'Native file version stays2; full B and registry remain unchanged; both candidates independently declared before dispatch' });
     const staleBefore = await state(), stale = await call(a, 'validateSource'); expect(stale.ok).toBe(false);
@@ -275,6 +290,7 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     const prepared = await current.evaluate(async (actual, data) => { actual.input = data.original; const preparing = actual.context.prepare(actual.input);
       actual.input.snapshotText = data.later; actual.laterDraft = data.later; actual.attempt = await preparing; return actual.attempt; }, { original: lostInput, later: laterDraft });
     expect(prepared).toEqual(lost.expected);
+    await checkpoint('fixed-lost-ack-attempt-later-caller-data-before-dispatch', { adopted, lost, prepared, laterDraft });
     const endpoint = `${origin}/api/v1/tenants/${status.tenantId}/note-native2/documents/${status.native2.targetA}/snapshot`;
     let droppedHash = '';
     await page.route(endpoint, async route => { const response = await route.fetch({ maxRetries: 0 }); expect(response.status()).toBe(200);
@@ -283,21 +299,42 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     try {
       await arm(status.native2.targetA, 'update');
       await current.evaluate(actual => { actual.pending = actual.context.update(actual.attempt!).then(value => ({ ok: true, value }), error => ({ ok: false, code: error.code ?? error.kind ?? 'unknown_error', status: error.status ?? null })); });
-      held = await reached(status.native2.targetA, 'update'); expect(held.completion.bodyHash).toBe(lost.bodyHash);
+      held = await reached(status.native2.targetA, 'update');
+      await checkpoint('actual-held-durable-update-response', { held, lost });
+      expect(held.completion.bodyHash).toBe(lost.bodyHash);
       expect(held.completion.path).toBe(`/v1/tenants/${status.tenantId}/note-native2/documents/${status.native2.targetA}/snapshot`);
       const expectedCompleted = receiptValue(status, head(adopted, status.native2.targetA), lost, alpha.currentUserId);
       expect(held.completion.result).toEqual({ operation: expectedCompleted.operation, idempotencyKey: expectedCompleted.idempotencyKey,
         requestHash: expectedCompleted.requestHash, document: expectedCompleted.document, snapshotText: expectedCompleted.snapshotText });
-      const committed = await state(); expect(head(committed, status.native2.targetA).revision).toBe(3); expect(head(committed, status.native2.targetA).snapshotText).toBe(fixedRaw);
+      const committed = await state();
+      await checkpoint('actual-lost-ack-committed-full-state-before-delivery', { adopted, committed, lost, held, laterDraft }); expect(head(committed, status.native2.targetA).revision).toBe(3); expect(head(committed, status.native2.targetA).snapshotText).toBe(fixedRaw);
       expect(committed.audit.document_receipts!.rows - adopted.audit.document_receipts!.rows).toBe(1); await invariantExceptA(adopted, committed, status, fixedRaw, 3);
       expect(await current.evaluate(actual => actual.laterDraft)).toBe(laterDraft); expect(await current.evaluate(actual => actual.attempt)).toEqual(lost.expected);
-      await release(held); const lostReply = await current.evaluate(actual => actual.pending!); expect(lostReply.ok).toBe(false); expect(droppedHash).toBe(held.responseHash);
+      await release(held); const lostReply = await current.evaluate(actual => actual.pending!);
+      await checkpoint('actual-first-response-loss-result', { lostReply, held, droppedHash, committed });
+      expect(lostReply.ok).toBe(false); expect(droppedHash).toBe(held.responseHash);
       // Loss interception belongs only to the first real ACK; identical retry must receive its actual response.
       await page.unroute(endpoint);
-      const stopped = await privateControl<Status>({ action: 'schema-stop' }); const restarted = await privateControl<Status>({ action: 'schema-start' });
-      expect(stopped.schemaPid).toBeNull(); expect(restarted.schemaPid).not.toBe(committed.schemaPid); expect(restarted.databaseIdentity).toBe(committed.databaseIdentity); expect(restarted.databaseGeneration).toBe(committed.databaseGeneration);
-      const recovered = await call(current, 'recover'); expect(recovered.ok).toBe(true); if (!recovered.ok) throw new Error('Original current-context receipt recovery required'); receipt(recovered.value, status, head(adopted, status.native2.targetA), lost, alpha.currentUserId);
-      const retry = await call(current, 'update'); expect(retry.ok).toBe(true); if (!retry.ok) throw new Error('Same fixed key/body retry required'); receipt(retry.value, status, head(adopted, status.native2.targetA), lost, alpha.currentUserId);
+      const stopped = await privateControl<Status>({ action: 'schema-stop' });
+      await checkpoint('actual-schema-stop-retained-last-pid', { committed, stopped });
+      expect(stopped.schemaPid).toBe(committed.schemaPid);
+      if (typeof stopped.schemaPid !== 'number' || stopped.schemaPid <= 0) throw new Error('Previously observed owned Schema PID required');
+      let stoppedProcessError: string | undefined;
+      try { process.kill(stopped.schemaPid, 0); } catch (error) { stoppedProcessError = (error as NodeJS.ErrnoException).code; }
+      await checkpoint('actual-stopped-schema-process-absence', { schemaPid: stopped.schemaPid, stoppedProcessError });
+      expect(stoppedProcessError).toBe('ESRCH');
+      const restarted = await privateControl<Status>({ action: 'schema-start' });
+      await checkpoint('actual-new-schema-pid-same-private-database', { stopped, restarted });
+      expect(restarted.schemaPid).not.toBe(committed.schemaPid);
+      if (typeof restarted.schemaPid !== 'number' || restarted.schemaPid <= 0) throw new Error('Actual restarted Schema PID required');
+      expect(() => process.kill(restarted.schemaPid!, 0)).not.toThrow();
+      expect(restarted.databaseIdentity).toBe(committed.databaseIdentity); expect(restarted.databaseGeneration).toBe(committed.databaseGeneration);
+      const recovered = await call(current, 'recover');
+      await checkpoint('actual-current-context-recovered-receipt', { recovered, lost, afterRecovery: await state() });
+      expect(recovered.ok).toBe(true); if (!recovered.ok) throw new Error('Original current-context receipt recovery required'); receipt(recovered.value, status, head(adopted, status.native2.targetA), lost, alpha.currentUserId);
+      const retry = await call(current, 'update');
+      await checkpoint('actual-fixed-key-identical-retry-receipt', { retry, lost, committed, afterRetry: await state() });
+      expect(retry.ok).toBe(true); if (!retry.ok) throw new Error('Same fixed key/body retry required'); receipt(retry.value, status, head(adopted, status.native2.targetA), lost, alpha.currentUserId);
       expect((await state()).heads).toEqual(committed.heads); expect((await state()).audit).toEqual(committed.audit); expect((await state()).ledger).toEqual(committed.ledger);
       expect(await current.evaluate(actual => actual.laterDraft)).toBe(laterDraft); expect(await current.evaluate(actual => actual.attempt)).toEqual(lost.expected);
       await info.attach('fixed-request-later-draft-real-commit', { body: JSON.stringify({ lost, laterDraft, held, droppedHash,
@@ -311,6 +348,7 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     await arm(status.native2.targetA, 'validation');
     await late.evaluate(actual => { actual.pending = actual.context.validateSource().then(value => ({ ok: true, value }), error => ({ ok: false, code: error.code ?? error.kind ?? 'unknown_error', status: error.status ?? null })); });
     const validationHeld = await reached(status.native2.targetA, 'validation');
+    await checkpoint('actual-held-validation-before-ui-logout', { validationHeld, lateBefore });
     // Delay only the real provider navigation request, so the actual UI clearSession retirement can be observed
     // before the old JavaScript context is destroyed. Continue that same request afterward; no fake response.
     const providerLogout = (url: URL) => url.origin === new URL(alpha.issuer).origin && url.pathname.endsWith('/protocol/openid-connect/logout');
@@ -324,7 +362,9 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
       await release(validationHeld);
       const retired = await late.evaluate(actual => actual.pending!); expect(retired.ok).toBe(false);
       if (retired.ok) throw new Error('Actual logout must cancel the old private generation'); expect(retired.code).toBe('cancelled');
-      expect((await state()).heads).toEqual(lateBefore.heads); expect((await state()).audit).toEqual(lateBefore.audit);
+      const afterLogout = await state();
+      await checkpoint('actual-ui-logout-retirement-no-effects', { retired, validationHeld, lateBefore, afterLogout, navigationReached });
+      expect(afterLogout.heads).toEqual(lateBefore.heads); expect(afterLogout.audit).toEqual(lateBefore.audit); expect(afterLogout.ledger).toEqual(lateBefore.ledger);
       continueNavigation();
       await expect.poll(() => { const url = new URL(page.url()); return url.origin === new URL(origin).origin && url.pathname === '/'; }, { timeout: 30_000 }).toBe(true);
     } finally { continueNavigation(); await page.unroute(providerLogout); }
@@ -338,6 +378,7 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     const historical = await page.evaluate(async ({ url, data }) => { const module = await import(url) as typeof import('../src/native2-authenticated-receipt-recovery');
       const factory = module.createAuthenticatedNative2ReceiptRecovery(); try { const result = await factory.recover(data); return { kind: result.kind, original: result.original, receipt: result.receipt, current: result.isCurrent() }; }
       finally { factory.retire(); } }, { url: recoveryUrl, data: original });
+    await checkpoint('actual-fresh-login-historical-get-only', { original, historical, historyBefore, historyAfter: await state(), writesBefore: writes, writesAfter: records.updates().length });
     expect(historical.kind).toBe('historical_acknowledgment'); expect(historical.original).toEqual(original); expect(historical.current).toBe(true);
     const expectedHistorical = receiptValue(status, head(adopted, status.native2.targetA), lost, alpha.currentUserId);
     expect(historical.receipt).toEqual({ operation: expectedHistorical.operation, idempotencyKey: expectedHistorical.idempotencyKey,
@@ -350,12 +391,16 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     await page.clock.fastForward(records.tokenLifetime() + 1000);
     expect(await expiring.evaluate(actual => actual.factory.isCurrent())).toBe(false);
     const expiryDenied = await call(expiring, 'validateSource'); expect(expiryDenied.ok).toBe(false);
+    await checkpoint('actual-captured-token-client-clock-deadline', { expiryDenied, tokenLifetime: records.tokenLifetime(), expiryBefore, expiryAfter: await state(), writesBefore: expiryWrites, writesAfter: records.updates().length });
     expect(records.updates()).toHaveLength(expiryWrites); expect(await state()).toEqual(expiryBefore);
     phases.push({ phase: 'captured actual token local deadline retires the private factory', qualification: 'Controlled browser clock against actual captured token lifetime; not elapsed real IdP/server expiry' });
     await info.attach('current-mutation-phases', { body: JSON.stringify({ phases, sourceHashes: expectedHashes,
       requests: records.records.map(one => ({ method: one.method, path: one.path, ...(one.body ? { bodyHash: hash(one.body) } : {}) })),
       qualification: 'Actual current OIDC/private HTTP/PG and real SDK in same AuthApp auth-client session. Signed synthetic roles/setup and delivery timing are labelled. Malformed/forged reply/proxy variants retain exact controlled source tests, not fabricated genuine replies. Whole504 native/UI/497/495eight/Goal/release acceptance is separate.' }), contentType: 'application/json' });
   } finally {
+    await checkpoint('completed-phase-progress-even-on-later-failure', { phases, sourceHashes: expectedHashes,
+      requests: records.records.map(one => ({ method: one.method, path: one.path, ...(one.body ? { bodyHash: hash(one.body) } : {}) })),
+      qualification: 'Retained per-phase actual evidence, including before/after full states. A later failure does not establish whole acceptance; no credentials or authorization header attached.' });
     await privateControl({ action: 'native2-release' }); await privateControl({ action: 'beta-active', active: true }); await privateControl({ action: 'schema-start' });
     for (const one of probes) { try { await one.evaluate(actual => actual.factory.retire()); } catch { /* Closed actual context */ } await one.dispose(); }
     await betaContext?.close();
