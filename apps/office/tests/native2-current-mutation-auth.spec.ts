@@ -349,26 +349,51 @@ test('current Office native2 validation, one-winner adoption and fixed lost-ACK 
     await late.evaluate(actual => { actual.pending = actual.context.validateSource().then(value => ({ ok: true, value }), error => ({ ok: false, code: error.code ?? error.kind ?? 'unknown_error', status: error.status ?? null })); });
     const validationHeld = await reached(status.native2.targetA, 'validation');
     await checkpoint('actual-held-validation-before-ui-logout', { validationHeld, lateBefore });
-    // Delay only the real provider navigation request, so the actual UI clearSession retirement can be observed
-    // before the old JavaScript context is destroyed. Continue that same request afterward; no fake response.
-    const providerLogout = (url: URL) => url.origin === new URL(alpha.issuer).origin && url.pathname.endsWith('/protocol/openid-connect/logout');
-    let navigationReached = false, continueNavigation!: () => void;
-    const navigationGate = new Promise<void>(resolve => { continueNavigation = resolve; });
-    await page.route(providerLogout, async route => { navigationReached = true; await navigationGate; await route.continue(); });
+    // Real UI logout clears the current session before its actual discovery fetch. Delay that fetch,
+    // not a navigation: the original execution context stays intact until our observations finish.
+    const discoveryURL = `${alpha.issuer}/.well-known/openid-configuration`;
+    const retirementPrefix = '503-actual-ui-retirement:';
+    const retirementEvents: Array<{ current: boolean; origin: string; pathname: string }> = [];
+    const observeRetirement = (message: import('@playwright/test').ConsoleMessage) => {
+      if (message.text().startsWith(retirementPrefix)) retirementEvents.push(JSON.parse(message.text().slice(retirementPrefix.length)));
+    };
+    page.on('console', observeRetirement);
+    await late.evaluate((actual, prefix) => { actual.factory.subscribeRetirement(() => {
+      console.info(prefix + JSON.stringify({ current: actual.factory.isCurrent(), origin: location.origin, pathname: location.pathname }));
+    }); }, retirementPrefix);
+    let discoveryReached = false, continueDiscovery!: () => void;
+    const discoveryGate = new Promise<void>(resolve => { continueDiscovery = resolve; });
+    await page.route(discoveryURL, async route => { discoveryReached = true; await discoveryGate; await route.continue(); });
     try {
+      await checkpoint('actual-ui-logout-click-start', { currentURL: page.url(), validationHeld });
       await page.getByRole('button', { name: '로그아웃', exact: true }).click({ noWaitAfter: true });
-      await expect.poll(() => navigationReached, { timeout: 12_000 }).toBe(true);
-      expect(await late.evaluate(actual => actual.factory.isCurrent())).toBe(false);
-      await release(validationHeld);
-      const retired = await late.evaluate(actual => actual.pending!); expect(retired.ok).toBe(false);
+      await checkpoint('actual-ui-logout-click-returned', { discoveryReached, retirementEvents });
+      await expect.poll(() => discoveryReached, { timeout: 5_000, message: 'Real logout discovery request must be reached after account-exit preparation' }).toBe(true);
+      await checkpoint('actual-ui-logout-discovery-request-reached', { discoveryReached, retirementEvents });
+      await expect.poll(() => retirementEvents.length, { timeout: 5_000 }).toBe(1);
+      expect(retirementEvents[0]).toEqual({ current: false, origin: new URL(origin).origin, pathname: '/products/note/' });
+      await checkpoint('actual-ui-logout-terminal-event-before-navigation', { retirementEvents, discoveryReached,
+        qualification: 'Synchronous public SDK retirement subscription during real UI clearSession; actual discovery fetch is held before request continuation, no navigation pending or fake response.' });
+      let cancellationDeadline: ReturnType<typeof setTimeout> | undefined;
+      const retired = await Promise.race([late.evaluate(actual => actual.pending!), new Promise<never>((_, reject) => {
+        cancellationDeadline = setTimeout(() => reject(new Error('Actual logout pending validation cancellation was not observed within 5 seconds')), 5_000);
+      })]).finally(() => clearTimeout(cancellationDeadline));
+      await checkpoint('actual-ui-logout-pending-validation-result', { retired, retirementEvents });
+      expect(retired.ok).toBe(false);
       if (retired.ok) throw new Error('Actual logout must cancel the old private generation'); expect(retired.code).toBe('cancelled');
+      await release(validationHeld);
+      await checkpoint('actual-ui-logout-manual-validation-release', { held: validationHeld, released: await privateControl<HoldStatus>({ action: 'native2-held' }) });
       const afterLogout = await state();
-      await checkpoint('actual-ui-logout-retirement-no-effects', { retired, validationHeld, lateBefore, afterLogout, navigationReached });
+      await checkpoint('actual-ui-logout-retirement-no-effects', { retired, validationHeld, lateBefore, afterLogout, retirementEvents, discoveryReached });
       expect(afterLogout.heads).toEqual(lateBefore.heads); expect(afterLogout.audit).toEqual(lateBefore.audit); expect(afterLogout.ledger).toEqual(lateBefore.ledger);
-      continueNavigation();
+      await checkpoint('actual-ui-logout-continue-real-discovery', { discoveryReached, retirementEvents });
+      continueDiscovery();
       await expect.poll(() => { const url = new URL(page.url()); return url.origin === new URL(origin).origin && url.pathname === '/'; }, { timeout: 30_000 }).toBe(true);
-    } finally { continueNavigation(); await page.unroute(providerLogout); }
-    phases.push({ phase: 'actual logout before late successful validation response, terminal generation refusal', qualification: 'Actual UI clearSession observed while provider navigation was deliberately held before request continuation; same real provider navigation completed afterward. Not context-destruction-as-cancellation, 403 auto-retirement or unseen ABA proof.' });
+      await checkpoint('actual-provider-logout-navigation-completed', { retirementEvents, returnedOrigin: new URL(page.url()).origin,
+        returnedPathname: new URL(page.url()).pathname, qualification: 'Same real discovery request continued and actual provider navigation returned; no old handle evaluated after navigation began.' });
+    } finally { continueDiscovery(); page.off('console', observeRetirement); if (!page.isClosed()) await page.unroute(discoveryURL); }
+    phases.push({ phase: 'actual UI logout terminal subscription and late successful validation refusal before real provider navigation',
+      qualification: 'Actual discovery request delivery timing controlled before navigation; clearSession and pending cancelled observed in the intact source context, manual real validation release/no-effects; same discovery/provider logout completed. Not context-destruction-as-cancellation, fabricated provider response, 403 auto-retirement or unseen ABA.' });
 
     await login(page, 'alpha-editor', status); await identity(page, records, 'alpha-editor', status);
     const original: Native2OriginalUpdate = { tenantId: status.tenantId, workspaceId: status.workspaceId, documentId: status.native2.targetA,
