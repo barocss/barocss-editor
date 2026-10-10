@@ -24,8 +24,11 @@ curl -i http://127.0.0.1:4100/health/ready
 | `OFFICE_OIDC_JWKS_URL` | unset | JWKS URL on the same origin as the issuer |
 | `OFFICE_OIDC_AUDIENCE` | unset | API audience in access tokens |
 | `OFFICE_API_DATABASE_URL` | unset | App-role PostgreSQL URL, never owner/backup |
+| `OFFICE_API_NOTE_DOCUMENT_POLICY_FILE` | unset (native2 admission denied) | Absolute path to a private operator JSON file using `DocumentSchemaScopePolicy[]` |
 
 Set all four auth variables together. Partial configuration fails startup. When absent, authenticated routes do not exist. Configure the issuer and JWKS from trusted installation settings, never from a request or token header. The server accepts only configured signature algorithms and verifies issuer, audience, signature, expiry and token type. It never trusts a browser-selected role or tenant ID as proof of access.
+
+The optional Note policy file uses the same strict scope parser as Schema Server. Invalid configuration fails before the HTTP listener opens. Browser flags and the separate Schema Server policy variable do not configure this API. The API supplies one configured ProjectStore to both project routes and ProjectExecutionStore. Each native2 current or historical input must pass current schema admission within the existing transaction; admission is not permission to edit or adopt. Snapshot DocumentStore remains unchanged. This source connection is part of #508, whose actual model/API/PostgreSQL/browser acceptance remains pending.
 
 `GET /v1/me` requires a `Bearer` access token and returns the verified `{ issuer, subject, tenants, nextCursor }`. Each tenant entry has its UUID, name and current role. The page has at most 50 entries; pass `?after=<nextCursor>` until the cursor is null. A user with no membership receives an empty list. `GET /v1/tenants/:tenantId/access` checks active membership in PostgreSQL on every request and returns `{ tenantId, role }`. A missing, invalid or expired token returns 401. A valid token with no active membership returns 403. Provider or database unavailability returns 503. Responses use `Cache-Control: no-store`. Browser auth-code/PKCE callback, refresh, logout and UI role-based entry remain separate product integration work. There is no CORS allowlist or trusted reverse proxy configuration yet.
 
@@ -131,3 +134,35 @@ Verified, current writers use `/v1/tenants/:tenantId/documents/:documentId/crite
 The receipt includes server requester identity, source revision/hash/context/epoch, confirmation, registered versions, outcome and server timestamps. The immutable output also includes the full frozen request with native source bytes, executor identity/browser version when execution occurred, measured inputs, evaluator calculation, and explicit error/unsupported reasons. The service checks canonical source and current authority before and after execution. Viewer/revoked/private and conflicting-context requests refuse. No run occurs on ordinary save, import, reopen, or criterion confirmation.
 
 The protected local auth supervisor supports only the private IPC command `{action:"criterion-executor-mode",mode:"live"|"unavailable"}` to restart its API child with the live or absent adapter. It adds no production endpoint, browser hook, arbitrary code or authority bypass. The runtime owner restores `live` in test cleanup. Production main always constructs the live adapter.
+
+## Native2 paragraph proposals (#508)
+
+`createNative2AgentProposal(env, transport?)` exposes only
+`generateNative2Review(input, witness)` and returns null when the existing local
+Agent opt-in is disabled. Startup combines this method with the unchanged legacy
+Agent method. The complete model input remains the original thirteen fields.
+The trusted witness is a separate data argument and is never a permission grant.
+
+The wrapper consumes `captureNative2ParagraphReview` from the existing
+`@barocss/office-service/project-execution` public entry. It recomputes the complete
+witness from exact raw bytes and the supplied paragraph index, then compares every
+own field, full bundle, ordered segment, paragraph JSON and hash. Plain and
+null-prototype JSON records with the same values are equivalent; missing, extra,
+accessor and non-enumerable fields and changed array order refuse before model
+transport. Full raw/paragraphJSON/hash strings remain exact. The input target is
+the complete paragraph JSON, from zero to its complete length, without flattening.
+
+The unchanged bounded local engine uses the same installed loopback model/digest,
+parser, prompt/context/output limits and no automatic retry. Its trusted review
+instruction returns replacement prose, reason and assumptions; provenance uses
+`4-native2-review-v1`. Helper refusal codes remain `not_dispatched` reasons;
+inconsistent data uses `native2_paragraph_review_witness_mismatch`.
+
+Canonical stored-selector/current source/actor/policy and durable attempt checks
+remain in ProjectExecutionStore. Equal paragraphs can occur at different indices:
+a coherent alternate-index witness is data-consistent, and the canonical stored
+selector decides which paragraph was requested. The wrapper performs no schema
+registration/adoption, native write, Apply, save acknowledgement or receipt.
+Native2 review accept/ack refuses. Actual current OIDC/API/PostgreSQL/model and
+no-effect verification must pass before closing #508; controlled provider tests
+and source gates do not supply those results.

@@ -1,10 +1,31 @@
 import { isDeepStrictEqual } from 'node:util';
-import { readNoteV1SnapshotFile as readNoteSnapshotFile, serializeNoteFile, type NoteDocument } from '@barocss/office-note-file';
+import { readNoteV1SnapshotFile as readNoteSnapshotFile, serializeNoteFile, captureNative2ParagraphReview,
+  type Native2ParagraphReviewWitness, type NoteDocument } from '@barocss/office-note-file';
 import { ProjectError, type ProjectTarget } from './project-store.js';
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 export interface ExecutionTarget { nodeId: string; text: string; from: number; to: number }
 interface CapturedTarget extends ExecutionTarget { path: number[] }
+
+/** The stored selector, never a quote search, selects the complete review paragraph. */
+export function captureProjectNative2Review(snapshotText: string,
+  target: Extract<ProjectTarget, { kind: 'note-native2-paragraph-review' }>): Native2ParagraphReviewWitness {
+  if (target.selector?.version !== 2) throw new ProjectError(409, 'target_conflict');
+  let witness: Native2ParagraphReviewWitness;
+  try { witness = captureNative2ParagraphReview(snapshotText, target.selector.paragraphIndex); }
+  catch (error) {
+    const code = object(error) ? error.code : undefined;
+    if (code === 'native2_paragraph_review_too_large') throw new ProjectError(413, code);
+    if (code === 'native2_paragraph_review_invalid_target' || code === 'invalid_native_context' || code === 'unsupported_native_editor')
+      throw new ProjectError(422, code);
+    throw error;
+  }
+  if (witness.pageId !== target.selector.pageId || witness.paragraphJSON !== target.quote)
+    throw new ProjectError(409, 'target_conflict');
+  if ([...target.quote].length > 8000 || target.quote.length > 16000)
+    throw new ProjectError(413, 'native2_paragraph_review_too_large');
+  return witness;
+}
 
 function nativeEnvelope(snapshotText: string) {
   let value: unknown;
@@ -75,6 +96,10 @@ function noteWire(value: unknown): unknown {
 
 /** One actual native full-run comment anchor; never reattach by matching quote text. */
 export function captureExecutionTarget(snapshotText: string, target: ProjectTarget): CapturedTarget {
+  if (target.kind === 'note-native2-paragraph-review') {
+    const witness = captureProjectNative2Review(snapshotText, target);
+    return { nodeId: target.id, text: witness.paragraphJSON, from: 0, to: witness.paragraphJSON.length, path: [...witness.nativePath] };
+  }
   if (target.kind === 'note-paragraph') return captureNoteTarget(snapshotText, target);
   if (target.kind !== 'word-comment') throw new ProjectError(422, 'unsupported_target');
   const envelope = nativeEnvelope(snapshotText), doc = envelope.document;
@@ -119,6 +144,7 @@ export function captureExecutionTarget(snapshotText: string, target: ProjectTarg
 
 /** Same Word file envelope as wordFileText(document, ''), based only on captured bytes. */
 export function expectedExecutionSnapshot(snapshotText: string, target: ProjectTarget, replacement: string): string {
+  if (target.kind === 'note-native2-paragraph-review') throw new ProjectError(409, 'native2_review_only');
   if (typeof replacement !== 'string' || !replacement.trim() || replacement.length > 8000
     || [...replacement].some(char => char.charCodeAt(0) < 32 && !'\t\n\r'.includes(char))) throw new ProjectError(422, 'invalid_proposal');
   const captured = captureExecutionTarget(snapshotText, target);

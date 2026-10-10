@@ -155,6 +155,72 @@ Migration `0014_criterion_verifications` stores append-only run identity, exact 
 Validation: `test/criterion-verification.test.ts` checks service contracts with a controlled unit adapter. `test/criterion-verification.postgres.integration.mjs` is the serial runtime owner's private Unix-socket PostgreSQL and actual registered Chromium check; run it only after the service build and existing browser installation. It accepts no external database URL. The real browser/UI verification and final integration gates remain separate from unit tests.
 
 
+### Native2 Project read policy (#508 source preparation)
+
+`new ProjectStore(pool, { noteSchemaPolicy })` uses the existing trusted
+`DocumentSchemaScopePolicy[]`. Its default is an empty list. A native2 Project
+source with no matching read policy is refused with `403 scope_forbidden`.
+Configuration and operator policy file parsing remain owned by the API host.
+Pass the same configured ProjectStore as the third argument to
+`ProjectExecutionStore`; constructing a second default instance loses that policy.
+This option does not configure DocumentStore or permit schema adoption.
+
+Current native2 heads are checked inside the existing Project transaction:
+snapshot mode, Note file format/version, page identity, exact raw SHA, full codec
+and registered bundle/closure/capability policy. Schema admission borrows the
+same PoolClient and rechecks the current schema actor/role/epoch after its reads.
+A policy or registry failure is a named ProjectError; a snapshot above the
+existing 512 KiB bound is `413 snapshot_too_large`. Project execution continues
+to require the existing write role and actor/membership lifetime. A viewer read
+policy does not permit execution.
+
+Every native2 bundle returned in a historical pin or an embedded Project
+result/comment/work is separately admitted under the current policy. The
+original raw bytes remain the source. An allowed current head does not replace
+or authorize an unavailable historical bundle. Receipt replay checks current
+and original Project sources. The service does not use a nested DocumentStore
+transaction, HTTP request or new data store for admission.
+
+This read-policy source component does not enable native2 paragraph execution,
+apply, acknowledgement, schema adoption or ordinary native2 catalog editing.
+The shared pure witness/Node facade and review-only canonical/Agent counterpart
+are separate #508 dependencies. Controlled source/SQL fixture tests are distinct
+from actual API/OIDC/private PostgreSQL/model/browser acceptance.
+
+### Native2 paragraph review (Issue #508)
+
+The distinct `note-native2-paragraph-review` Project target carries a UUID anchor,
+complete paragraph JSON quote and `{version: 2, pageId, paragraphIndex}` selector.
+The current locked source and stored selector select the paragraph. Quote search,
+flattened runs and caller-supplied role or mode are not supported. The same pure
+`captureNative2ParagraphReview` is exported through the existing Node-ready
+`office-note-file` facade and this service's `project-execution` entry.
+
+Configured current Project write authority remains required to start execution.
+Current and historical source bundles additionally pass the registered read
+policy checks above. The optional trusted `generateNative2Review(input, witness)`
+method receives the unchanged 13-field model input plus a complete frozen data
+witness. Missing review wiring refuses with `native2_review_unconnected`; the
+legacy generator is never a fallback. Existing quote, target, prompt and pure
+SHA input limits remain; unsupported or oversized whole sources are not cropped.
+
+The server persists a versioned `note.paragraph.review/native2-v1` binding with
+original target, source revision/hash, ordered selected-pin CAS digest and the
+full witness. Retrieval and retry recheck the current actor/epoch, Project
+context, exact source and binding. Complete JSON values and array order are
+compared across pure null-prototype records and ordinary restored JSON records.
+Held responses after authority, policy, source or request changes are withheld;
+the original one-use completion claim retains the blocked outcome. Unknown
+outcomes are observed without a second dispatch.
+
+These proposals do not carry an expected native snapshot or a write receipt.
+Accept and acknowledgment refuse with `native2_review_only`, including restored
+or altered review metadata. Ordinary native2 editing, schema adoption, document
+writes, API bootstrap and model activation are separate responsibilities.
+Controlled unit tests do not prove actual OIDC, PostgreSQL, installed-model or
+browser acceptance. Issue #508 stays open until its original integrated criteria
+pass. Product source remains local.
+
 ### Mixed Note metadata discovery (#495/#497)
 
 The existing authenticated document list returns both Note file versions 1 and 2 as unchanged `DocumentHead` metadata. It keeps tenant membership/RLS, workspace/product/cursor filters and the 50-row cursor boundary. It does not fetch snapshot bodies, definitions or receipts, normalize native2 originals, or grant raw access from a metadata row. Unsupported Note versions and mismatched native2 format still refuse.

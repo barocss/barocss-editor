@@ -1,4 +1,6 @@
 import { isIP } from 'node:net';
+import { readDocumentSchemaPolicyFile } from '@barocss/office-service/document-schema-policy';
+import type { DocumentSchemaScopePolicy } from '@barocss/office-service/schema-registry-store';
 
 export interface ServerConfig {
   host: string;
@@ -23,4 +25,9 @@ export function readConfig(env: NodeJS.ProcessEnv): ServerConfig {
     shutdownTimeoutMs: integer(env.OFFICE_API_SHUTDOWN_TIMEOUT_MS ?? '10000',
       'OFFICE_API_SHUTDOWN_TIMEOUT_MS', 1, 60000),
   };
+}
+
+/** Trusted operator input; no caller or model permission data is consulted. */
+export function readProjectNoteSchemaPolicy(env: NodeJS.ProcessEnv): DocumentSchemaScopePolicy[] {
+  return readDocumentSchemaPolicyFile(env.OFFICE_API_NOTE_DOCUMENT_POLICY_FILE, 'OFFICE_API_NOTE_DOCUMENT_POLICY_FILE');
 }

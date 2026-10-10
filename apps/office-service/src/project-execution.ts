@@ -3,7 +3,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { TenantAccessDeniedError, type VerifiedPrincipal } from './membership-store.js';
 import { ProjectError, ProjectStore, type ProjectExecutionContext, type ProjectRecord, type ProjectTarget } from './project-store.js';
-import { captureExecutionTarget, expectedExecutionSnapshot, type ExecutionTarget } from './project-execution-native.js';
+import { captureExecutionTarget, captureProjectNative2Review, expectedExecutionSnapshot, type ExecutionTarget } from './project-execution-native.js';
+import type { Native2ParagraphReviewWitness } from '@barocss/office-note-file';
+export { captureNative2ParagraphReview, Native2ParagraphReviewError, type Native2ParagraphReviewWitness } from '@barocss/office-note-file';
 import { withTenant } from './tenant-store.js';
 
 export interface ExecutionPin { id: string; documentId: string; revision: number; snapshotHash: string; snapshotText: string }
@@ -21,12 +23,20 @@ export interface ExecutionProvenance {
 }
 export interface LocalExecutionAdapter {
   generate(input: LocalExecutionInput): Promise<{ proposal: ExecutionProposal; provenance: ExecutionProvenance }>;
+  generateNative2Review?(input: LocalExecutionInput, witness: Native2ParagraphReviewWitness): Promise<{ proposal: ExecutionProposal; provenance: ExecutionProvenance }>;
+}
+export interface Native2ReviewBinding {
+  product: 'note'; operation: 'note.paragraph.review/native2-v1'; envelopeVersion: 1;
+  format: 'barocss-note'; fileVersion: 2;
+  target: Extract<ProjectTarget, { kind: 'note-native2-paragraph-review' }>;
+  source: { documentId: string; revision: number; snapshotHash: string };
+  priorPinDigest: string; witness: Native2ParagraphReviewWitness;
 }
 export type ExecutionPhase = 'unknown' | 'proposal' | 'blocked' | 'failed' | 'accepted' | 'applied' | 'rejected' | 'unsupported';
 export interface ProjectExecutionView {
   id: string; tenantId: string; workspaceId: string; projectId: string; workId: string; resultId: string;
   documentId: string; actorId: string; phase: ExecutionPhase; reason: string | null;
-  binding?: { product: 'note'; operation: 'note.paragraph.replace/v1'; schema: 'barocss-note@1'; target: Extract<ProjectTarget, { kind: 'note-paragraph' }> };
+  binding?: Native2ReviewBinding | { product: 'note'; operation: 'note.paragraph.replace/v1'; schema: 'barocss-note@1'; target: Extract<ProjectTarget, { kind: 'note-paragraph' }> };
   input: Pick<LocalExecutionInput, 'request' | 'revision' | 'snapshotHash' | 'snapshotText' | 'target' | 'inputs'>;
   proposal?: ExecutionProposal; provenance?: ExecutionProvenance;
   expectedSnapshotText?: string; expectedSnapshotHash?: string; appliedRevision?: number;
@@ -48,6 +58,41 @@ function shape(value: unknown, keys: string[]): asserts value is Record<string, 
 }
 const text = (value: unknown, max: number): value is string => typeof value === 'string' && !!value.trim()
   && value.length <= max && ![...value].some(char => char.charCodeAt(0) < 32 && !'\t\n\r'.includes(char));
+
+function native2Review(attempt: Attempt): boolean {
+  if (attempt.target.kind === 'note-native2-paragraph-review' || attempt.binding?.operation === 'note.paragraph.review/native2-v1') return true;
+  // A copied or corrupted result cannot regain native-v1 write semantics by changing metadata.
+  try { const file: unknown = JSON.parse(attempt.input.snapshotText);
+    return object(file) && file.format === 'barocss-note' && file.version === 2;
+  } catch { return false; }
+}
+function reviewBinding(attempt: Pick<Attempt, 'tenantId' | 'workspaceId' | 'documentId' | 'input' | 'target'>): Native2ReviewBinding {
+  if (attempt.target.kind !== 'note-native2-paragraph-review') throw new ProjectError(409, 'native2_review_binding_mismatch');
+  const witness = captureProjectNative2Review(attempt.input.snapshotText, attempt.target);
+  if (witness.snapshotHash !== attempt.input.snapshotHash || attempt.input.target.nodeId !== attempt.target.id ||
+    attempt.input.target.text !== witness.paragraphJSON || attempt.input.target.from !== 0 || attempt.input.target.to !== witness.paragraphJSON.length)
+    throw new ProjectError(409, 'native2_review_binding_mismatch');
+  return { product: 'note', operation: 'note.paragraph.review/native2-v1', envelopeVersion: 1, format: 'barocss-note', fileVersion: 2,
+    target: structuredClone(attempt.target), source: { documentId: attempt.documentId, revision: attempt.input.revision, snapshotHash: witness.snapshotHash },
+    priorPinDigest: hash(JSON.stringify(['wonffice.note.snapshot-pins.cas.v1', attempt.tenantId, attempt.workspaceId, attempt.documentId,
+      'pinned', witness.schemaBundle.selected.map(ref => [ref.schemaId, ref.version, ref.digest])])), witness };
+}
+function freezeReviewValue<T>(value: T): T {
+  if (value && typeof value === 'object') { Object.values(value).forEach(freezeReviewValue); Object.freeze(value); }
+  return value;
+}
+/** Plain and null-prototype JSON records carry the same data, with every own key retained. */
+function sameReviewJSON(left: unknown, right: unknown): boolean {
+  if (left === right && (left === null || typeof left === 'string' || typeof left === 'boolean' ||
+    (typeof left === 'number' && Number.isFinite(left)))) return true;
+  if (Array.isArray(left) || Array.isArray(right)) return Array.isArray(left) && Array.isArray(right) &&
+    left.length === right.length && Object.keys(left).length === left.length && Object.keys(right).length === right.length &&
+    left.every((value, index) => sameReviewJSON(value, right[index]));
+  if (!object(left) || !object(right)) return false;
+  if (![null, Object.prototype].includes(Object.getPrototypeOf(left)) || ![null, Object.prototype].includes(Object.getPrototypeOf(right))) return false;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every(key => Object.hasOwn(right, key) && sameReviewJSON(left[key], right[key]));
+}
 
 /** Sort JSON object keys for PostgreSQL JSONB, preserving every relevant value and array order. */
 function projectContextHash(record: ProjectRecord, workId: string): string {
@@ -109,10 +154,10 @@ export class ProjectExecutionStore {
     return { id: attempt.id, tenantId: attempt.tenantId, workspaceId: attempt.workspaceId, projectId: attempt.projectId,
       workId: attempt.workId, resultId: attempt.resultId, documentId: attempt.documentId, actorId: attempt.actorId,
       input: attempt.input, pendingOutputs: attempt.pendingOutputs,
-      ...(attempt.target.kind === 'note-paragraph' ? { binding: { product: 'note' as const, operation: 'note.paragraph.replace/v1' as const, schema: 'barocss-note@1' as const, target: structuredClone(attempt.target) } } : {}),
+      ...(native2Review(attempt) ? { binding: structuredClone(attempt.binding) } : attempt.target.kind === 'note-paragraph' ? { binding: { product: 'note' as const, operation: 'note.paragraph.replace/v1' as const, schema: 'barocss-note@1' as const, target: structuredClone(attempt.target) } } : {}),
       ...(attempt.proposal ? { proposal: attempt.proposal } : {}), ...(attempt.provenance ? { provenance: attempt.provenance } : {}),
-      ...(attempt.expectedSnapshotText !== undefined ? { expectedSnapshotText: attempt.expectedSnapshotText, expectedSnapshotHash: attempt.expectedSnapshotHash } : {}),
-      ...(attempt.appliedRevision !== undefined ? { appliedRevision: attempt.appliedRevision } : {}), phase: attempt.phase === 'started' ? 'unknown' : attempt.phase,
+      ...(!native2Review(attempt) && attempt.expectedSnapshotText !== undefined ? { expectedSnapshotText: attempt.expectedSnapshotText, expectedSnapshotHash: attempt.expectedSnapshotHash } : {}),
+      ...(!native2Review(attempt) && attempt.appliedRevision !== undefined ? { appliedRevision: attempt.appliedRevision } : {}), phase: attempt.phase === 'started' ? 'unknown' : attempt.phase,
       reason: attempt.phase === 'started' ? 'execution_outcome_unknown' : attempt.reason };
   }
   private async inputs(context: ProjectExecutionContext, tenantId: string, workId: string) {
@@ -122,7 +167,8 @@ export class ProjectExecutionStore {
     if (!['word', 'note'].includes(result.document.product) || comment.pin.document.product !== result.document.product || comment.pin.document.id !== result.document.id)
       throw new ProjectError(422, 'unsupported_target');
     const source = await context.document(result.document.id);
-    if (source.product !== result.document.product || source.mode !== 'snapshot' || source.revision !== comment.pin.revision
+    if ((comment.target.kind === 'note-native2-paragraph-review' && source.id !== result.document.id) ||
+      source.product !== result.document.product || source.mode !== 'snapshot' || source.revision !== comment.pin.revision
       || source.snapshot_hash !== hash(comment.pin.text) || source.snapshot_text !== comment.pin.text)
       throw new ProjectError(409, 'source_conflict');
     const inputs: ExecutionPin[] = [];
@@ -160,6 +206,17 @@ export class ProjectExecutionStore {
           || pin.snapshotHash !== held.snapshotHash || pin.snapshotText !== held.snapshotText;
       })) throw new ProjectError(409, 'source_conflict');
     captureExecutionTarget(input.source.snapshot_text, attempt.target);
+    if (native2Review(attempt)) {
+      // Durable JSONB has ordinary objects; the pure guard intentionally uses null-prototype objects.
+      // Compare complete JSON values and array order, retaining every original raw/paragraph string.
+      if (!attempt.binding || !sameReviewJSON(attempt.binding, reviewBinding(attempt)) ||
+        ['accepted', 'applied'].includes(attempt.phase) ||
+        attempt.expectedSnapshotText !== undefined || attempt.expectedSnapshotHash !== undefined || attempt.appliedRevision !== undefined)
+        throw new ProjectError(409, 'native2_review_binding_mismatch');
+      if (context.actor.id !== attempt.actorId || context.authorityEpoch !== attempt.authorityEpoch)
+        throw new ProjectError(409, 'authority_changed');
+      if (!this.sameProjectContext(context, attempt)) throw new ProjectError(409, 'project_conflict');
+    }
   }
   private async save(context: ProjectExecutionContext, attempt: Attempt) {
     await context.client.query(`UPDATE wonffice.project_executions SET data=$4,updated_at=now()
@@ -194,6 +251,7 @@ export class ProjectExecutionStore {
     return this.projects.withExecutionContext(principal, tenantId, projectId, false, async context => {
       this.work(context, workId);
       const attempt = await this.find(context, tenantId, workId);
+      if (attempt && native2Review(attempt)) await this.current(context, attempt);
       return { execution: attempt ? { ...this.view(attempt),
         pendingOutputs: await this.pendingOutputs(context, tenantId, workId, attempt.resultId) } : null };
     });
@@ -203,10 +261,12 @@ export class ProjectExecutionStore {
     const claim = hash(randomUUID());
     const reserved = await this.projects.withExecutionContext(principal, tenantId, projectId, true, async context => {
       const old = await this.find(context, tenantId, workId);
-      if (old) return { attempt: old, dispatch: false };
+      if (old) { if (native2Review(old)) await this.current(context, old); return { attempt: old, dispatch: false }; }
       if (context.project.revision !== body.expectedRevision) throw new ProjectError(409, 'revision_conflict');
       if (!this.adapter) throw new ProjectError(422, 'execution_unconnected');
       const captured = await this.inputs(context, tenantId, workId);
+      if (captured.comment.target.kind === 'note-native2-paragraph-review' && !this.adapter.generateNative2Review)
+        throw new ProjectError(422, 'native2_review_unconnected');
       let target: ExecutionTarget, unsupported = false;
       try { const held = captureExecutionTarget(captured.source.snapshot_text, captured.comment.target);
         target = { nodeId: held.nodeId, text: held.text, from: held.from, to: held.to }; }
@@ -222,6 +282,7 @@ export class ProjectExecutionStore {
         input: { request: captured.work.request, revision: captured.source.revision, snapshotHash: captured.source.snapshot_hash,
           snapshotText: captured.source.snapshot_text, target, inputs: captured.inputs },
         pendingOutputs: await this.pendingOutputs(context, tenantId, workId, captured.result.id) };
+      if (attempt.target.kind === 'note-native2-paragraph-review') attempt.binding = reviewBinding(attempt);
       await context.client.query(`INSERT INTO wonffice.project_executions
         (tenant_id,project_id,work_id,result_id,document_id,id,actor_id,claim_hash,data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [tenantId, projectId, workId, attempt.resultId, attempt.documentId, attempt.id, attempt.actorId, claim, JSON.stringify(attempt)]);
@@ -232,15 +293,31 @@ export class ProjectExecutionStore {
     const input: LocalExecutionInput = { attemptId: attempt.id, tenantId, workspaceId: attempt.workspaceId, projectId, workId,
       actorId: attempt.actorId, request: attempt.input.request, documentId: attempt.documentId, revision: attempt.input.revision,
       snapshotHash: attempt.input.snapshotHash, snapshotText: attempt.input.snapshotText, target: attempt.input.target, inputs: attempt.input.inputs };
+    const review = native2Review(attempt);
+    // Keep the durable source independent of an injected asynchronous producer.
+    const dispatchInput = review ? freezeReviewValue(structuredClone(input)) : input;
     let completion: Partial<Attempt>;
     try {
-      const response = validateExecutionResponse(input, await this.adapter!.generate(input));
-      const expectedSnapshotText = expectedExecutionSnapshot(input.snapshotText, attempt.target, response.proposal.replacement);
-      completion = { phase: 'proposal', reason: null, ...response, expectedSnapshotText, expectedSnapshotHash: hash(expectedSnapshotText) };
+      const delivered = review
+        ? await this.adapter!.generateNative2Review!(dispatchInput, reviewBinding(attempt).witness)
+        : await this.adapter!.generate(input);
+      let observed = delivered;
+      if (review) {
+        try { observed = structuredClone(delivered); }
+        catch { throw new ProjectError(422, 'invalid_proposal'); }
+      }
+      const response = validateExecutionResponse(input, observed);
+      if (review) {
+        if (response.provenance.adapterVersion !== '4-native2-review-v1') throw new ProjectError(422, 'invalid_provenance');
+        completion = { phase: 'proposal', reason: null, ...response };
+      } else {
+        const expectedSnapshotText = expectedExecutionSnapshot(input.snapshotText, attempt.target, response.proposal.replacement);
+        completion = { phase: 'proposal', reason: null, ...response, expectedSnapshotText, expectedSnapshotHash: hash(expectedSnapshotText) };
+      }
     } catch (error) {
       const outcome = object(error) ? error.outcome : undefined;
       completion = { phase: error instanceof ProjectError || outcome === 'not_dispatched' || outcome === 'invalid_output' ? 'failed' : 'unknown',
-        reason: error instanceof ProjectError ? error.reason : outcome === 'not_dispatched' ? 'adapter_unavailable'
+        reason: error instanceof ProjectError ? error.reason : outcome === 'not_dispatched' ? (review && object(error) && typeof error.code === 'string' ? error.code : 'adapter_unavailable')
           : outcome === 'invalid_output' ? 'invalid_proposal' : 'execution_outcome_unknown' };
     }
     const finish = async (client: PoolClient, result: Partial<Attempt>) => {
@@ -251,7 +328,7 @@ export class ProjectExecutionStore {
       return await this.projects.withExecutionContext(principal, tenantId, projectId, true, async context => {
         try { await this.current(context, attempt); }
         catch (error) {
-          if (!(error instanceof ProjectError)) throw error;
+          if (!(error instanceof ProjectError) || review) throw error;
           if (completion.phase === 'proposal') completion = { ...completion, phase: 'blocked', reason: error.reason };
         }
         await finish(context.client, completion);
@@ -271,6 +348,7 @@ export class ProjectExecutionStore {
     return this.projects.withExecutionContext(principal, tenantId, projectId, true, async context => {
       const attempt = await this.find(context, tenantId, workId, attemptId);
       if (!attempt) throw new ProjectError(404, 'not_found');
+      if (native2Review(attempt)) throw new ProjectError(409, 'native2_review_only');
       const resumable = attempt.phase === 'blocked' && ['work_paused', 'project_conflict'].includes(attempt.reason ?? '');
       if ((!['proposal', 'accepted'].includes(attempt.phase) && !resumable) || !attempt.proposal)
         throw new ProjectError(409, 'execution_not_applicable');
@@ -287,6 +365,7 @@ export class ProjectExecutionStore {
     return this.projects.withExecutionContext(principal, tenantId, projectId, true, async context => {
       const attempt = await this.find(context, tenantId, workId, attemptId);
       if (!attempt) throw new ProjectError(404, 'not_found');
+      if (native2Review(attempt)) throw new ProjectError(409, 'native2_review_only');
       if (!['accepted', 'applied'].includes(attempt.phase)) throw new ProjectError(409, 'execution_not_accepted');
       if (context.actor.id !== attempt.actorId || context.authorityEpoch !== attempt.authorityEpoch) throw new ProjectError(409, 'authority_changed');
       const { work, result, comment } = this.work(context, workId);

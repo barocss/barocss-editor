@@ -20,3 +20,9 @@ export {
   type FullNoteEditProof,
   type FullNoteSeedRoot
 } from './note-full-seed-v2';
+
+export {
+  captureNative2ParagraphReview, Native2ParagraphReviewError,
+  type Native2ReviewValue, type Native2ReviewObject,
+  type Native2ParagraphReviewSegment, type Native2ParagraphReviewWitness
+} from '../../office-note/src/native2-paragraph-review';

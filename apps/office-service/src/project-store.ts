@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
+import { readNoteSnapshotFile } from '@barocss/office-note-file';
+import { currentSchemaActor, admitDocumentSchemaBundle, SchemaRegistryError, type DocumentSchemaScopePolicy } from './schema-registry-store.js';
 import { MembershipStore, TenantAccessDeniedError, type VerifiedPrincipal } from './membership-store.js';
 import type { Product } from './document-store.js';
 import { captureExecutionTarget } from './project-execution-native.js';
@@ -19,6 +21,9 @@ export interface ProjectRecord {
 }
 export type ProjectTarget = { kind: 'document' | 'word-comment'; id: string; quote: string } | {
   kind: 'note-paragraph'; id: string; quote: string; selector: { version: 1; pageId: string; paragraphIndex: number };
+} | {
+  kind: 'note-native2-paragraph-review'; id: string; quote: string;
+  selector: { version: 2; pageId: string; paragraphIndex: number };
 };
 export interface ProjectSource { documentId: string; revision: number; snapshotHash: string }
 export type ProjectAction =
@@ -37,7 +42,7 @@ export interface ProjectView {
   actor: { kind: 'human'; id: string; label: string };
 }
 export class ProjectError extends Error {
-  constructor(public readonly status: 400 | 403 | 404 | 409 | 422, public readonly reason: string) { super(reason); }
+  constructor(public readonly status: 400 | 403 | 404 | 409 | 413 | 422, public readonly reason: string) { super(reason); }
 }
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -85,10 +90,12 @@ export function validateProjectAction(value: unknown): asserts value is ProjectA
     case 'unlink-result': shape(value, ['type', 'resultId']); id(value.resultId); break;
     case 'comment':
       shape(value, ['type', 'resultId', 'target', 'body', 'source']); id(value.resultId); text(value.body, 8000);
-      if (object(value.target) && value.target.kind === 'note-paragraph') {
+      if (object(value.target) && ['note-paragraph', 'note-native2-paragraph-review'].includes(String(value.target.kind))) {
         shape(value.target, ['kind', 'id', 'quote', 'selector']); id(value.target.id); text(value.target.quote, 8000);
-        shape(value.target.selector, ['version', 'pageId', 'paragraphIndex']); id(value.target.selector.pageId);
-        if (value.target.selector.version !== 1 || !Number.isSafeInteger(value.target.selector.paragraphIndex) ||
+        shape(value.target.selector, ['version', 'pageId', 'paragraphIndex']);
+        if (value.target.kind === 'note-paragraph') id(value.target.selector.pageId);
+        else text(value.target.selector.pageId, 120);
+        if (value.target.selector.version !== (value.target.kind === 'note-paragraph' ? 1 : 2) || !Number.isSafeInteger(value.target.selector.paragraphIndex) ||
           Number(value.target.selector.paragraphIndex) < 0) throw new ProjectError(400, 'invalid_request');
       } else {
         shape(value.target, ['kind', 'id', 'quote']); text(value.target.id, 120); text(value.target.quote, 8000, true);
@@ -109,16 +116,18 @@ export function validateProjectAction(value: unknown): asserts value is ProjectA
 }
 interface Row { id: string; workspace_id: string; revision: number; data: ProjectRecord }
 export interface ProjectSourceRow { id: string; product: Product; title: string; mode: string; revision: number;
-  snapshot_hash: string; snapshot_text: string }
+  snapshot_hash: string; snapshot_text: string; file_format?: string; file_version?: number; page_id?: string | null }
 export interface ProjectExecutionContext {
   client: PoolClient; project: Row; actor: ProjectView['actor']; authorityEpoch: string;
   document(documentId: string): Promise<ProjectSourceRow>;
 }
 
+export interface ProjectStoreOptions { noteSchemaPolicy?: readonly DocumentSchemaScopePolicy[] }
+
 /** Every operation checks current membership inside the same RLS transaction. */
 export class ProjectStore {
   private readonly membership: MembershipStore;
-  constructor(pool: Pool) { this.membership = new MembershipStore(pool); }
+  constructor(pool: Pool, private readonly options: ProjectStoreOptions = {}) { this.membership = new MembershipStore(pool); }
   private async actor(client: PoolClient, _principal: VerifiedPrincipal, writable = false) {
     const found = await client.query<{ id: string; role: string }>(`SELECT id,role FROM wonffice.project_current_actor(
       NULLIF(current_setting('wonffice.tenant_id',true),'')::uuid)`);
@@ -142,11 +151,43 @@ export class ProjectStore {
     return found.rows[0];
   }
   private async document(client: PoolClient, tenantId: string, workspaceId: string, documentId: string) {
-    const found = await client.query<ProjectSourceRow>(`SELECT d.id,d.product,d.title,d.mode,s.revision,s.snapshot_hash,s.snapshot_text
+    const found = await client.query<ProjectSourceRow>(`SELECT d.id,d.product,d.title,d.mode,s.file_format,s.file_version,d.page_id,s.revision,s.snapshot_hash,s.snapshot_text
       FROM wonffice.documents d JOIN wonffice.document_snapshots s ON s.tenant_id=d.tenant_id AND s.document_id=d.id
       WHERE d.tenant_id=$1 AND d.workspace_id=$2 AND d.id=$3 FOR SHARE OF d,s`, [tenantId, workspaceId, documentId]);
     if (!found.rows[0]) throw new ProjectError(404, 'source_not_found');
+    await this.admitSnapshot(client, tenantId, workspaceId, found.rows[0], found.rows[0].snapshot_text, found.rows[0].snapshot_hash);
     return found.rows[0];
+  }
+  /** Read admission borrows this Project transaction; it does not open another store or connection. */
+  private async admitSnapshot(client: PoolClient, tenantId: string, workspaceId: string, current: ProjectSourceRow,
+    snapshotText: string, expectedHash?: string) {
+    let native2 = current.file_version === 2 && current.product === 'note';
+    if (!native2 && typeof snapshotText === 'string') {
+      try { const value: unknown = JSON.parse(snapshotText);
+        native2 = object(value) && value.format === 'barocss-note' && value.version === 2; }
+      catch { /* Existing legacy input validation remains at its native boundary. */ }
+    }
+    if (!native2) return;
+    if (current.product !== 'note' || current.file_format !== 'barocss-note' || current.file_version !== 2)
+      throw new ProjectError(409, 'source_conflict');
+    if (current.mode !== 'snapshot') throw new ProjectError(409, 'source_unavailable');
+    if (typeof snapshotText !== 'string') throw new ProjectError(422, 'invalid_snapshot');
+    if (Buffer.byteLength(snapshotText) > 524288) throw new ProjectError(413, 'snapshot_too_large');
+    if (expectedHash !== undefined && hash(snapshotText) !== expectedHash) throw new ProjectError(409, 'source_conflict');
+    const parsed = readNoteSnapshotFile(snapshotText);
+    if ('error' in parsed || !('fileVersion' in parsed) || parsed.fileVersion !== 2)
+      throw new ProjectError(422, 'invalid_snapshot');
+    if (!current.page_id || parsed.document.attributes?.pageId !== current.page_id) throw new ProjectError(409, 'source_conflict');
+    try {
+      const actor = await currentSchemaActor(client, tenantId);
+      await admitDocumentSchemaBundle(client, { tenantId, workspaceId }, parsed.schemaBundle, actor, 'read', this.options.noteSchemaPolicy ?? []);
+      const latest = await currentSchemaActor(client, tenantId);
+      if (latest.id !== actor.id || latest.role !== actor.role || latest.epoch !== actor.epoch)
+        throw new ProjectError(409, 'authority_changed');
+    } catch (error) {
+      if (error instanceof SchemaRegistryError) throw new ProjectError(error.status, error.reason);
+      throw error;
+    }
   }
   private async pin(client: PoolClient, tenantId: string, row: Row, input: ProjectSource) {
     const current = await this.document(client, tenantId, row.workspace_id, input.documentId);
@@ -167,7 +208,16 @@ export class ProjectStore {
     const ids = new Set([...row.data.results.map(r => r.document.id),
       ...row.data.results.flatMap(r => r.inputs.map(p => p.document.id)),
       ...row.data.comments.map(c => c.pin.document.id), ...row.data.works.flatMap(w => w.inputs.map(p => p.document.id))]);
-    for (const documentId of [...ids].sort()) await this.document(client, tenantId, row.workspace_id, documentId);
+    const current = new Map<string, ProjectSourceRow>();
+    for (const documentId of [...ids].sort()) current.set(documentId, await this.document(client, tenantId, row.workspace_id, documentId));
+    // Current allowed bytes never grant every older embedded bundle access.
+    const pins = [...row.data.results.flatMap(r => r.inputs), ...row.data.comments.map(c => c.pin),
+      ...row.data.works.flatMap(w => w.inputs)];
+    for (const pin of pins) {
+      const source = current.get(pin.document.id);
+      if (!source || source.product !== pin.document.product) throw new ProjectError(409, 'source_conflict');
+      await this.admitSnapshot(client, tenantId, row.workspace_id, source, pin.text);
+    }
   }
   private async reserve(client: PoolClient, tenantId: string, actorId: string, idempotencyKey: string, requestHash: string) {
     const inserted = await client.query(`INSERT INTO wonffice.project_receipts
@@ -260,6 +310,8 @@ export class ProjectStore {
       [tenantId, projectId, pinId]);
       const stored = found.rows[0]; if (!stored) throw new ProjectError(404, 'not_found');
       const current = await this.document(client, tenantId, row.workspace_id, stored.document_id);
+      if (current.product !== stored.source_product) throw new ProjectError(409, 'source_conflict');
+      await this.admitSnapshot(client, tenantId, row.workspace_id, current, stored.snapshot_text, stored.snapshot_hash);
       return { pin: { id: pinId, document: { product: stored.source_product, id: stored.document_id },
         revision: stored.snapshot_revision, text: stored.snapshot_text, title: stored.source_title },
       sourceState: current.mode !== 'snapshot' ? 'unavailable' as const
@@ -381,7 +433,7 @@ export function verifyProjectTarget(pin: ProjectPin, target: ProjectTarget) {
     if (target.id !== pin.document.id || target.quote !== '') throw new ProjectError(409, 'target_conflict');
     return;
   }
-  if (target.kind === 'note-paragraph') {
+  if (target.kind === 'note-paragraph' || target.kind === 'note-native2-paragraph-review') {
     if (pin.document.product !== 'note') throw new ProjectError(422, 'unsupported_target');
     captureExecutionTarget(pin.text, target); return;
   }

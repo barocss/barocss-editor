@@ -151,6 +151,22 @@ describe('Fastify API contracts', () => {
 });
 
 describe('compiled server process', () => {
+  it('refuses an invalid native2 operator policy before opening the HTTP listener', async () => {
+    const { server, port } = await listen();
+    await server.close();
+    const running = child({ OFFICE_API_HOST: '127.0.0.1', OFFICE_API_PORT: String(port),
+      OFFICE_API_NOTE_DOCUMENT_POLICY_FILE: 'private-secret/operator-policy.json' });
+    let stderr = '';
+    running.stderr!.on('data', data => { stderr += String(data); });
+    const exited = once(running, 'exit');
+    const first = await Promise.race([
+      once(running.stdout!, 'data').then(([data]) => String(data)),
+      exited.then(([code]) => `exit:${code}`),
+    ]);
+    expect(first).toBe('exit:1');
+    expect(stderr).toContain('api_start_failed');
+    expect(stderr).not.toContain('private-secret');
+  });
   it.each(['SIGTERM', 'SIGINT'] as const)('serves HTTP and exits on %s', async signal => {
     const { server, port, url } = await listen();
     await server.close();

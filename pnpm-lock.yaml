@@ -1399,6 +1399,10 @@ importers:
         version: 1.6.1(@types/node@20.19.30)(@vitest/ui@1.6.1)
 
   packages/office-note-file:
+    dependencies:
+      '@barocss/schema':
+        specifier: workspace:*
+        version: link:../schema
     devDependencies:
       '@barocss/office-note':
         specifier: workspace:*

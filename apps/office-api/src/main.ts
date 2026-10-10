@@ -3,8 +3,9 @@ import { createCriterionBrowserExecutor } from '@barocss/office-service/criterio
 import { CriterionConfirmationStore } from '@barocss/office-service/criterion-confirmation-store';
 import { ProjectExecutionStore } from '@barocss/office-service/project-execution';
 import { createLocalAgent } from './local-agent.js';
+import { createNative2AgentProposal } from './native2-agent-proposal.js';
 import { ProjectStore } from '@barocss/office-service/project-store';
-import { readConfig } from './config.js';
+import { readConfig, readProjectNoteSchemaPolicy } from './config.js';
 import { readAuthConfig } from './auth-config.js';
 import { createOidcVerifier } from './oidc.js';
 import { createApiServer } from './server.js';
@@ -16,18 +17,22 @@ import pg from 'pg';
 
 async function main(): Promise<void> {
   const config = readConfig(process.env);
+  const noteSchemaPolicy = readProjectNoteSchemaPolicy(process.env);
   const authConfig = readAuthConfig(process.env);
   const pool = authConfig ? new pg.Pool({ connectionString: authConfig.databaseUrl,
     max: 10, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000 }) : null;
-  const app = createApiServer(authConfig && pool ? {
+  const projects = pool ? new ProjectStore(pool, { noteSchemaPolicy }) : null;
+  const agent = authConfig && pool ? createLocalAgent(process.env) : null;
+  const executionAgent = agent ? { ...agent, ...createNative2AgentProposal(process.env) } : null;
+  const app = createApiServer(authConfig && pool && projects ? {
     verifier: createOidcVerifier(authConfig),
     memberships: new MembershipStore(pool),
     workspaces: new MembershipStore(pool),
     operators: new PlatformOperatorStore(pool),
     companyMembers: new CompanyMemberStore(pool),
     documents: new DocumentStore(pool), criterionConfirmations: new CriterionConfirmationStore(pool), criterionVerifications: new CriterionVerificationStore(pool, createCriterionBrowserExecutor()),
-    projects: new ProjectStore(pool),
-    projectExecutions: new ProjectExecutionStore(pool, createLocalAgent(process.env)),
+    projects,
+    projectExecutions: new ProjectExecutionStore(pool, executionAgent, projects),
   } : undefined);
   if (pool) app.addHook('onClose', async () => { await pool.end(); });
   let stopping = false;

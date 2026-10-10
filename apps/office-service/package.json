@@ -51,6 +51,10 @@
     "./schema-registry-store": {
       "types": "./src/schema-registry-store.ts",
       "import": "./dist/schema-registry-store.js"
+    },
+    "./document-schema-policy": {
+      "types": "./src/document-schema-policy.ts",
+      "import": "./dist/document-schema-policy.js"
     }
   },
   "files": [
