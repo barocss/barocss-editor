@@ -238,6 +238,48 @@ function nativeRequests(records: ReturnType<typeof network>, offset: number) {
   return records.records.slice(offset).filter(one => one.path.includes('/note-native2/'));
 }
 
+// Independent canonical JSON oracle for the fixed fixture definitions; no service parser/output is used.
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return '{' + Object.keys(record).sort().map(key => JSON.stringify(key) + ':' + canonical(record[key])).join(',') + '}';
+  }
+  const text = JSON.stringify(value); if (text === undefined) throw new Error('Declared canonical JSON value required');
+  return text;
+}
+interface DefinitionOracle { scope: { tenantId: string; workspaceId: string }; schemaId: string; version: number;
+  parent: { schemaId: string; version: number; digest: string } | null;
+  dependencies: Array<{ schemaId: string; version: number; digest: string }> }
+function registeredClosure(status: Status, initial: State, creator: string) {
+  const expectedVersions: Array<Record<string, unknown>> = [], expectedDependencies: Array<Record<string, unknown>> = [];
+  for (const entry of files.A2.schemaBundle.definitions) {
+    const definition = JSON.parse(entry.definitionText) as DefinitionOracle;
+    expect(definition.scope).toEqual({ tenantId: status.tenantId, workspaceId: status.workspaceId });
+    expect({ schemaId: definition.schemaId, version: definition.version }).toEqual({ schemaId: entry.reference.schemaId, version: entry.reference.version });
+    expectedVersions.push({ tenant_id: status.tenantId, workspace_id: status.workspaceId, schema_id: entry.reference.schemaId,
+      version: entry.reference.version, digest: entry.reference.digest, definition_text: entry.definitionText,
+      canonical_text: canonical(JSON.parse(entry.definitionText)), actor_identity_id: creator });
+    const edges = [...(definition.parent ? [{ kind: 'parent', reference: definition.parent }] : []),
+      ...definition.dependencies.map(reference => ({ kind: 'dependency', reference }))];
+    for (const [ordinal, edge] of edges.entries()) expectedDependencies.push({ tenant_id: status.tenantId, workspace_id: status.workspaceId,
+      schema_id: entry.reference.schemaId, version: entry.reference.version, ordinal, kind: edge.kind,
+      dependency_id: edge.reference.schemaId, dependency_version: edge.reference.version, dependency_digest: edge.reference.digest });
+  }
+  const actualVersions = initial.ledger.schema_versions!.map(text => {
+    const row = JSON.parse(text) as Record<string, unknown>; expect(Object.keys(row).sort()).toEqual([...Object.keys(expectedVersions[0]!), 'created_at'].sort());
+    const { created_at: createdAt, ...fixed } = row;
+    expect(typeof createdAt).toBe('string'); expect(Date.parse(String(createdAt))).not.toBeNaN(); return fixed;
+  });
+  const order = (a: Record<string, unknown>, b: Record<string, unknown>) => String(a.schema_id).localeCompare(String(b.schema_id)) || Number(a.version) - Number(b.version) || Number(a.ordinal ?? 0) - Number(b.ordinal ?? 0);
+  expect(expectedVersions).toHaveLength(4); expect(actualVersions.sort(order)).toEqual(expectedVersions.sort(order));
+  expect(initial.ledger.schema_dependencies!.map(text => JSON.parse(text) as Record<string, unknown>).sort(order)).toEqual(expectedDependencies.sort(order));
+  // Every admitted A1/B definition must be byte-identical to a declared member of that complete closure.
+  for (const file of [files.A1, files.B]) for (const entry of file.schemaBundle.definitions)
+    expect(files.A2.schemaBundle.definitions.find(full => full.reference.schemaId === entry.reference.schemaId && full.reference.version === entry.reference.version)).toEqual(entry);
+  return { expectedVersions, expectedDependencies };
+}
+
 test('new current Office login recovers only original own receipts through reload, viewer and revoked authority', async ({ page, browser }, info: TestInfo) => {
   test.setTimeout(180_000);
   const status = await privateControl<Status>({ action: 'status' }), records = network(page);
@@ -250,13 +292,31 @@ test('new current Office login recovers only original own receipts through reloa
   try {
     await page.clock.install(); await login(page, 'alpha-editor', status);
     const alpha = await identity(page, records, 'alpha-editor', status), initial = await state();
-    expect(head(initial, status.native2.targetA).snapshotText).toBe(raw.A1); expect(head(initial, status.native2.targetB).snapshotText).toBe(raw.B);
-    expect(head(initial, status.native2.targetA).revision).toBe(1);
+    const expectedHeads = { A1: { documentId: status.native2.targetA, pageId: files.A1.document.attributes.pageId,
+      fileVersion: 2, revision: 1, snapshotHash: expectedHashes.A1, snapshotText: raw.A1 },
+    B: { documentId: status.native2.targetB, pageId: files.B.document.attributes.pageId,
+      fileVersion: 2, revision: 1, snapshotHash: expectedHashes.B, snapshotText: raw.B } };
+    expect(head(initial, status.native2.targetA)).toEqual(expectedHeads.A1); expect(head(initial, status.native2.targetB)).toEqual(expectedHeads.B);
+    const expectedRegistry = registeredClosure(status, initial, alpha.currentUserId);
     const alphaInput = { snapshotText: raw.A2, schemaAction: 'adopt' as const, idempotencyKey: '506-alpha-original-lost-ack' };
     const alphaFixed = fixedOracle(status, head(initial, status.native2.targetA), raw.A1, alphaInput);
     const original = originalRecord(status, alphaFixed), laterDraft = laterRaw(raw.A2, ' / separate506 later caller draft');
     const originalBytes = JSON.stringify(original), laterBytes = laterDraft;
-    const live = await probe(page, status, status.native2.targetA); mutations.push(live);
+    const live = await probe(page, status, status.native2.targetA), fullB = await probe(page, status, status.native2.targetB); mutations.push(live, fullB);
+    const observedSources: Record<string, unknown> = {}, expectedSources: Record<string, unknown> = {};
+    for (const [one, key, title] of [[live, 'A1', 'Native2 full A'], [fullB, 'B', 'Native2 full B']] as const) {
+      const observed = await one.evaluate(actual => actual.context.source), documentId = key === 'A1' ? status.native2.targetA : status.native2.targetB;
+      const expected = { snapshotText: raw[key], file: { fileVersion: 2, document: files[key].document, schemaBundle: files[key].schemaBundle,
+        ...('savedAt' in files[key] ? { savedAt: files[key].savedAt } : {}) },
+      document: { documentId, tenantId: status.tenantId, workspaceId: status.workspaceId, product: 'note', title,
+        creatorUserId: alpha.currentUserId, metadataRevision: 1, mode: 'snapshot', pageId: files[key].document.attributes.pageId,
+        documentKey: `wonffice-${status.tenantId}-${documentId}`, fileFormat: 'barocss-note', fileVersion: 2, revision: 1, snapshotHash: expectedHashes[key] } };
+      expect(observed.snapshotText).toBe(expected.snapshotText); expect(observed.file).toEqual(expected.file); expect(observed.document).toEqual(expected.document);
+      observedSources[key] = observed; expectedSources[key] = expected;
+    }
+    noEffects(initial, await state());
+    await checkpoint('fresh-initial-whole-independent-heads-files-registered-closure', { initial, expectedHeads, observedSources, expectedSources, expectedRegistry,
+      qualification: 'Fresh actual state must match predeclared corpus/full metadata/parsed native file/all four registry version texts and full parent/dependency closure. No prior503actualDB baseline or service reply becomes the oracle.' });
     expect(await prepare(live, alphaInput)).toEqual(alphaFixed.expected);
     const validation = await call(live, 'validate'); expect(validation.ok).toBe(true); noEffects(initial, await state());
     const alphaExpected = receiptValue(status, head(initial, status.native2.targetA), alphaFixed, alpha.currentUserId);
