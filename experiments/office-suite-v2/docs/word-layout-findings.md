@@ -369,6 +369,57 @@ cases are byte-identical, so run37's eight PASS can be reused with exact source
 binding. Only the corrected supplemental SIX need a new finite lease; there is
 no identical14-case retry or Core profile.
 
+### S supplemental SIX actual browser result
+
+Exact S `07f4f43a35b3f7355f1dc846e80ece59b1361efc` / tree
+`0b9c46490218f06d3340eac3c4d7b9126810cd17` ran40 once under the fresh SIX-only
+serialized lease. All6PASS, exit0/38.224s (Playwright36.607s), zero skips,
+unexpected results, flaky results, retries or suite errors. The source stayed
+clean; port55261 had no remaining listener and the slot was returned. Raw
+results/attachments are primary `.omx/m0/530-S-native-supplemental-results.json`
+and `530-S-native-supplemental-artifacts/`; command receipts are
+`integration-logs/40-S-native-table-print-supplemental.*`.
+
+| Actual native query fixture | Zoom | Source/printed pages | Authored source characters | Visible generated header cells | Unassigned source characters / failed font resources |
+| --- | --- | --- | --- | --- | --- |
+| merged-cell-lines | ordinary | 4 | 4303 | 6 | 0 / 0 |
+| merged-cell | ordinary | 4 | 2379 | 6 | 0 / 0 |
+| merged-cell-columns | ordinary | 4 | 1911 | 6 | 0 / 0 |
+| merged-cell-rows | ordinary | 4 | 1841 | 6 | 0 / 0 |
+| merged-cell-lines | actual visible-button reduction | 4 | 4303 | 6 | 0 / 0 |
+| merged-cell-columns | actual visible-button reduction | 4 | 1911 | 6 | 0 / 0 |
+
+Every authored per-character SID/offset/text and normalized rectangle matches
+its source-assigned print page; all source characters are assigned. Native
+merged-cell counts/SIDs/spans, table/paragraph rectangles, repeated text-header
+characters and generated-header content/style/cell rectangles pass. Native
+export, exact browser selection anchor/focus nodes and offsets survive the
+manual and actual PDF print lifecycles; print output is removed. All six actual
+PDFs are saved/attached and have four pages. Font error faces/resources are zero.
+This test does not create DOM Range rectangles for CSS pseudo-element glyphs or
+claim independent actual-PDF generated-header paint verification; Integration
+has those source-bound PDF files for offline inspection.
+
+The six actual PDF SHA256 values, in table order, are:
+
+```
+517f1435bc1518a36b353acbd43e05725ea10838e01f28c0147ba6314d0fcc88
+8e6150ec5ae735c9473609e189a58bb60bd81181abab4ee96c33727be8ee6705
+c55f9fc2004c77e366d90f7e1b441f66294f79f1dc2a185732bab5dc3f68379f
+6a39a372162af29095abdb5ab7456bcfa26c8f6c233a70f43ca8cc030d05a6f9
+23666ecca45bdd6474e4bc0bf9162331fd9e1a7c906862a29f0ab4f80f24555e
+c9674255d9f79bdae03541218a2c3bd1c035e6fefa2f0103aded8f33187fb936
+```
+
+Integration also reports O-focused23/23 and unchanged root preflight run39 PASS
+at `af4589d91b2ed05b05165443ac1f4f8786c19621` (284.094s). Production O and
+original Stage A8 are byte-identical in S, so run37's actual8PASS is reused with
+that exact source binding. Historical Stage B remains2mathPASS/1pre-printUIFAIL/
+5NOTRUN; its old editing/Save/reload path is not silently accepted. Independent
+affected Word100/300 v1.1 measurement is still required. The previous100 RSS
+miss remains current until actual new source-bound data; neither these browser
+passes nor the ID allocation change establishes512MiB acceptance. M0 stays OPEN.
+
 ## Repair and focused verification
 
 The shared View now waits for the current content renderer's real completion.
