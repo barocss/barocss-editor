@@ -87,7 +87,7 @@ body:
     id: release-commitment
     attributes:
       label: Release commitment
-      description: A milestone alone is not a commitment.
-      options: [none, candidate, committed]
+      description: A milestone alone is not a commitment. No commitment maps to the workflow's `none` state.
+      options: [No commitment, candidate, committed]
     validations:
       required: true
