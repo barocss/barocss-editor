@@ -309,6 +309,37 @@ RSS is the frozen metric, not a precise physical-memory/HWM or leak diagnosis.
 No identical heavy retry or threshold change is authorized by these results.
 M0 remains OPEN, with this memory failure separate from supplemental fidelity.
 
+### Residual RSS: smallest ID traversal allocation change
+
+Corrected supplemental test/doc checkpoint
+`7826b957edcaa7233be8355905a926132e5db561` is preserved clean. It never had an
+active browser lease. Following the latest Planner direction, the next source
+delta changes only `uniqueIds()` in `print-pages.ts`. The broader compact
+snapshot idea remains a separate, unimplemented fallback. Snapshot traversal,
+Typed OM, inheritance, projection, geometry, CSS and native runtime are unchanged.
+
+Previously every print copy constructed an array of all descendants and spread
+every element's `NamedNodeMap`, even if the copy had no nonempty IDs to remap.
+The new rename pass selects actual `[id]` elements plus the root when applicable.
+If its map is empty, it returns without scanning descendant attributes. If IDs
+exist, a lazy element walker reads attribute names/values without materializing
+`Attr` wrappers or an all-descendant array. It retains the original replacement
+rules, first-target mapping for duplicate input IDs and unique output IDs.
+This removes demonstrably unnecessary allocation work. It does not establish
+how many RSS bytes it saves or a512MiB PASS.
+
+Two affected native cases cover external fragments in ID-free projections and
+root/duplicate/local/external references across SVG `xlink:href`, CSS URLs,
+`href`, label `for`, `headers`, `aria-labelledby` and `aria-describedby`.
+The first focused run passes23/23 (10 projection,6 ownership,7 print CSS), with
+zero skips. Strict standalone changed-source TypeScript passes with0 diagnostics;
+office-word test types pass the unchanged7/7 inherited budget. Direct changed
+source/test ESLint has0 errors/0 warnings, and whitespace passes. No browser or
+heavy profile ran on this source checkpoint. Integration owns one meaningful
+joined browser batch; Verification owns the affected unchanged-target Word
+measurement. Another RSS miss must be reported rather than hidden by a threshold,
+workload or GC-method change or repeated speculative optimization/profile loop.
+
 ## Repair and focused verification
 
 The shared View now waits for the current content renderer's real completion.

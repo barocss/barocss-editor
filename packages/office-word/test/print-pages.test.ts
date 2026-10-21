@@ -110,6 +110,44 @@ describe('page-local complete paint projections', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('preserves external fragment references when a projection has no local IDs', () => {
+    const source = fixture();
+    source.querySelector('#seam')!.innerHTML = '<a href="#external" aria-describedby="external-note" data-paint="url(#external)">External reference</a>';
+    source.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    createPrintPages(() => source).build();
+    for (const paper of document.querySelectorAll('.w-print-page')) {
+      const link = paper.querySelector('a')!;
+      expect(link.getAttribute('href')).toBe('#external');
+      expect(link.getAttribute('aria-describedby')).toBe('external-note');
+      expect(link.getAttribute('data-paint')).toBe('url(#external)');
+    }
+  });
+
+  it('remaps root, duplicate, label and namespaced SVG references without changing external targets', () => {
+    const source = fixture(); source.id = 'root-label';
+    source.querySelector('#seam')!.innerHTML = `<label for="control">Control</label><input id="control"><span id="control">Duplicate</span>
+      <a href="#control" aria-labelledby="root-label control external-label" aria-describedby="control" headers="control external-header"
+        data-paint="url('#control') url(#external)">Reference</a><svg><use xlink:href="#control"/></svg>`;
+    createPrintPages(() => source).build();
+    const printedIds: string[] = [];
+    for (const paper of document.querySelectorAll('.w-print-page')) {
+      const input = paper.querySelector('input')!, link = paper.querySelector('a')!;
+      const copy = paper.querySelector('.w-print-copy')!;
+      expect(paper.querySelector('label')!.getAttribute('for')).toBe(input.id);
+      expect(link.getAttribute('href')).toBe(`#${input.id}`);
+      expect(link.getAttribute('aria-labelledby')).toBe(`${copy.id} ${input.id} external-label`);
+      expect(link.getAttribute('aria-describedby')).toBe(input.id);
+      expect(link.getAttribute('headers')).toBe(`${input.id} external-header`);
+      expect(link.getAttribute('data-paint')).toBe(`url(#${input.id}) url(#external)`);
+      expect(paper.querySelector('use')!.getAttribute('xlink:href')).toBe(`#${input.id}`);
+      expect(input.id).not.toBe(paper.querySelector('span[id]')!.id);
+      printedIds.push(...[...paper.querySelectorAll('[id]')].map(el => el.id));
+    }
+    expect(new Set(printedIds).size).toBe(printedIds.length);
+    expect(source.id).toBe('root-label');
+    expect(source.querySelectorAll('#control')).toHaveLength(2);
+  });
+
   it.each(['1.5', '24px'])('preserves computed line-height %s semantics for smaller page furniture', (lineHeight) => {
     const source = fixture();
     // CSSOM getComputedStyle resolves line-height to pixels. Typed computed
