@@ -1,0 +1,1 @@
+{"capturedUtc":"2026-10-21T15:40:23.003Z","load":[15.29345703125,71.4267578125,73.96337890625],"memoryFreePercent":54,"pageBytes":16384,"swapins":6636410,"swapouts":9512130,"swapusage":"vm.swapusage: total = 16384.00M  used = 15661.50M  free = 722.50M  (encrypted)"}
