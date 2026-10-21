@@ -237,6 +237,109 @@ no Stage B or performance run occurred at these failing checkpoints.
 The required 100/300 layout/print, exact fonts and performance budget remain open.
 No product, release or complete-M0 acceptance is claimed.
 
+### P2b browser evidence and supplemental native table scope
+
+Exact P2b `1ff71ac5f1b4d811bc7e9c3794571ff42f420bc6` passed all eight Stage A
+cases in serialized run35 (exit0,19.407s; no skips/retries). This includes the
+actual saved eight-page PDF, source-relative body/furniture geometry, both
+unitless and fixed inherited line-height contexts, native document/selection,
+repeated build/cleanup, and loaded KaTeX faces with zero font request failures.
+The PDF SHA256 is
+`d01522d3325e89879b546d2d1003d181c0be2278b1dbf0cbc81f2f7f3574ca16`.
+Primary `.omx/m0/530-word-print-p2b-stage-a-results.json`, run35 logs and actual
+PDF attachments preserve the evidence. This is not physical paper acceptance.
+
+Run36 Stage B preserves two math PASS, one pre-print UI-flow FAIL and five NOT
+RUN. The first merged-cell case waits for an obsolete `보기` tab before it
+reaches print; the current product exposes view tools differently. Its30s
+timeout, trace and error context remain under primary
+`530-word-print-p2b-stage-b-artifacts` / `36-P2b-rich-print-stage-b` logs. No
+read-only test or app UI was patched, no timeout increased and no old editing,
+Save/reload or zoom acceptance is inferred from separate print coverage.
+
+Integration and Planner initially reported possible page5/6 header occlusion in
+the saved PDF. They retracted that interpretation after byte-bound checks. The
+current PNG hashes are page5
+`196f49c5e535363150a61f0f08be7dd8fbb890c040b2d53a896a5185bd3b654c` and page6
+`889916ea5bd73f6958ab636808cb650ce78b293b90066e1b32f8fcae7b7a0219`.
+Identical header-region pixels on pages2–7 and no extra ink before72px contradict
+the initial near-top/header-absent claim. The independent correction receipt is
+primary `.omx/m0/530-P2b-PDF-header-pixel-check.json`. There is no established
+production defect from that visual reading; its proposed browser diagnostic was
+cancelled. This correction is not a universal PDF fidelity claim.
+
+The supplemental author scope adds four actual native query fixtures in the
+owned `word-print.spec.ts`: `merged-cell-lines`, `merged-cell`,
+`merged-cell-columns` and `merged-cell-rows`. Two additional cases use the
+current visible `축소` button on the lines/parallel-column fixtures and require
+an observed zoom reduction. They do not use the obsolete tab, force a click or
+change source documents. The oracle compares authored per-character SID/offset,
+text and normalized geometry on each source/printed sheet, excluding layout
+chrome; repeated header character paint and complete table/paragraph rectangles
+are compared separately. It requires nonempty native fixtures and source
+character coverage, real saved PDF page counts, unchanged native export and
+selection, cleared print output, and no failed font resources/error faces.
+These table fixtures contain no KaTeX math, so they do not invent a loaded
+KaTeX-face requirement; the original eight math-containing sample gates remain.
+Actual supplemental browser results are pending a fresh serialized source-bound
+lease. A PDF page count alone does not prove PDF character or paint fidelity.
+
+Before any supplemental browser run, read-only review found two harness errors
+in candidate `ac2652b6f281190a8b823ac2547b0a93d4268d3e`. Its lease was returned
+unused. Native inline cell-break headers intentionally contain no text nodes:
+`table-break-widget.ts` emits `data-word-header-text`, which `ui.css` paints
+through `::before`. The successor records generated content, its nonhidden CSS,
+typography/color, cell background/border and source-relative cell rectangle
+separately. It does not invent DOM Range glyphs for pseudo-elements. Real PDF
+files remain available for independent generated-header paint inspection.
+It also clears the explicit media override to `null` before `page.pdf`, with
+the source visible, so that actual PDF print CSS is used. A retained `screen`
+override would exercise the screen-PDF route. The source character snapshot is
+attached before coverage assertions, preserving the first SID/offset failure.
+These are pre-run method corrections, not production fixes or browser passes.
+
+Independent Verification reports six actual candidate100/300 measurements on
+Integration's fixed source. Print DOM deltas are16201/48601 (2.99988x); timing
+targets pass. The100-page aggregate owned RSS is527810560/591446016/604405760
+bytes: two of three exceed the unchanged536870912-byte target. Its corresponding
+pre-print maxima are527810560/530055168/526008320, below that target in this
+window. The300-page RSS717225984/718061568/799506432 remains below1GiB. These are
+Verification's live receipts pending its immutable assessment; summed process
+RSS is the frozen metric, not a precise physical-memory/HWM or leak diagnosis.
+No identical heavy retry or threshold change is authorized by these results.
+M0 remains OPEN, with this memory failure separate from supplemental fidelity.
+
+### Residual RSS: smallest ID traversal allocation change
+
+Corrected supplemental test/doc checkpoint
+`7826b957edcaa7233be8355905a926132e5db561` is preserved clean. It never had an
+active browser lease. Following the latest Planner direction, the next source
+delta changes only `uniqueIds()` in `print-pages.ts`. The broader compact
+snapshot idea remains a separate, unimplemented fallback. Snapshot traversal,
+Typed OM, inheritance, projection, geometry, CSS and native runtime are unchanged.
+
+Previously every print copy constructed an array of all descendants and spread
+every element's `NamedNodeMap`, even if the copy had no nonempty IDs to remap.
+The new rename pass selects actual `[id]` elements plus the root when applicable.
+If its map is empty, it returns without scanning descendant attributes. If IDs
+exist, a lazy element walker reads attribute names/values without materializing
+`Attr` wrappers or an all-descendant array. It retains the original replacement
+rules, first-target mapping for duplicate input IDs and unique output IDs.
+This removes demonstrably unnecessary allocation work. It does not establish
+how many RSS bytes it saves or a512MiB PASS.
+
+Two affected native cases cover external fragments in ID-free projections and
+root/duplicate/local/external references across SVG `xlink:href`, CSS URLs,
+`href`, label `for`, `headers`, `aria-labelledby` and `aria-describedby`.
+The first focused run passes23/23 (10 projection,6 ownership,7 print CSS), with
+zero skips. Strict standalone changed-source TypeScript passes with0 diagnostics;
+office-word test types pass the unchanged7/7 inherited budget. Direct changed
+source/test ESLint has0 errors/0 warnings, and whitespace passes. No browser or
+heavy profile ran on this source checkpoint. Integration owns one meaningful
+joined browser batch; Verification owns the affected unchanged-target Word
+measurement. Another RSS miss must be reported rather than hidden by a threshold,
+workload or GC-method change or repeated speculative optimization/profile loop.
+
 ## Repair and focused verification
 
 The shared View now waits for the current content renderer's real completion.

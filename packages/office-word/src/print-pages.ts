@@ -94,20 +94,24 @@ function inherit(copy: HTMLElement, style: CSSStyleDeclaration, lineHeight: stri
 
 /** Keep SVG paint references and labels valid without duplicating source IDs. */
 function uniqueIds(root: HTMLElement, prefix: string): void {
-  const elements = [root, ...root.querySelectorAll('*')];
   const ids = new Map<string, string>();
   let nextId = 0;
-  for (const element of elements) {
+  const identified = [...root.querySelectorAll('[id]')];
+  if (root.hasAttribute('id')) identified.unshift(root);
+  for (const element of identified) {
     const id = element.getAttribute('id');
     if (id) { const replacement = `${prefix}-${nextId++}`; if (!ids.has(id)) ids.set(id, replacement); element.setAttribute('id', replacement); }
   }
-  for (const element of elements) for (const attribute of [...element.attributes]) {
-    if (attribute.name === 'id') continue;
-    let value = attribute.value.replace(/url\(\s*['"]?#([^\s)'" ]+)['"]?\s*\)/g,
+  if (ids.size === 0) return;
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  for (let element: Element | null = root; element; element = walker.nextNode() as Element | null) for (const name of element.getAttributeNames()) {
+    if (name === 'id') continue;
+    const original = element.getAttribute(name)!;
+    let value = original.replace(/url\(\s*['"]?#([^\s)'" ]+)['"]?\s*\)/g,
       (match, id: string) => ids.has(id) ? `url(#${ids.get(id)})` : match);
-    if (['href', 'xlink:href'].includes(attribute.name) && value.startsWith('#') && ids.has(value.slice(1))) value = `#${ids.get(value.slice(1))}`;
-    if (['for', 'headers', 'aria-labelledby', 'aria-describedby'].includes(attribute.name)) value = value.split(/\s+/).map(id => ids.get(id) ?? id).join(' ');
-    if (value !== attribute.value) element.setAttribute(attribute.name, value);
+    if (['href', 'xlink:href'].includes(name) && value.startsWith('#') && ids.has(value.slice(1))) value = `#${ids.get(value.slice(1))}`;
+    if (['for', 'headers', 'aria-labelledby', 'aria-describedby'].includes(name)) value = value.split(/\s+/).map(id => ids.get(id) ?? id).join(' ');
+    if (value !== original) element.setAttribute(name, value);
   }
 }
 
