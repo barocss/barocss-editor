@@ -6,15 +6,73 @@ not Office, OIDC, PostgreSQL, product UI, full Note blocks or M0 acceptance.
 Environment: scaffold S `9b390602d90e07f496b7b699915b7d605582d8a4`, shared C
 `6ad373b4c31b7ec7aa97b75d8f6cb89b7174fc0e`, Integration correction I1
 `1d443e47f39d9e6009a7f0ae8724d7cc9f9e05da`; Node 22.22.0, pnpm 8.15.0.
+Current source parent is qualified join J
+`a332facd6740c491f761be39dbeee2c6a6a24f70`, containing genuine Core runtime R
+`1458fa7d4c7396bbd8b9edb36f07ee4e1864f326` and the first partial delivery P
+`7f1602c4b2c3519c1af14f4d259de9ee70d89078`. C remains unchanged.
 Root dependencies, locks, configuration and budgets are unchanged.
 
-## Partial delivery boundary
+## First partial delivery
 
-This first immutable delivery contains `prose.ts`, `durable-store.ts`, their two
-test files and this manual. Sheet bindings/tests remain unpublished, unverified
-work. They import the genuine Core runtime once delivered; no substitute engine
-is used. Sheet native operation algebra and reference calculation are not accepted
-by this partial source. The later Sheet delivery must add its own exact evidence.
+P contained `prose.ts`, `durable-store.ts`, their two test files and this manual;
+strict types had 0 diagnostics and the 12 partial tests passed. Sheet code was not
+included or claimed verified in P. This successor adds the binding/tests against
+the actual Core runtime at J and preserves rejection results and opaque IDs in the
+store. There is no substitute engine. Formula calculation is still a separate
+source/verification dependency and is not accepted by AST preservation alone.
+
+## Native Sheet binding
+
+`SheetReplica(context, authenticatedSession, initialUpdate?)` owns a private Yjs
+map named `native-events-v1`. Each key is one native event ID; each value is the
+canonical JSON encoding of that entire immutable event. `commit(command, eventId?)`
+uses Core `createEvent`, current observed event dependencies and the instance's
+actor/session. It returns the event and granular native update bytes. `undo(target,
+eventId?)` creates a normal Core undo command; it never deletes an event from Yjs.
+`events` is a detached projection. `projection` calls only Core `projectWorkbook`.
+The binding does not own a workbook, formula solver, competing snapshot or cached
+editable input. `exportUpdate`, `frontier`, `receive` and `destroy` expose transport
+and lifecycle; `replaceSnapshot` always refuses.
+
+`sheetAdmission(context)` binds the durable service envelope.
+`sheetUpdateValidator(context)` is the server validation callback. It validates
+every native event through Core, including envelope, canonical encoding, bounds
+and collection semantics. Valid native pending/refused events remain in the log;
+the binding never drops one because its reducer outcome is not applied.
+
+The callback also checks the **raw decoded update and all integrated Yjs items**,
+including hidden/conflicting items which a visible map-only check would miss.
+Only one scalar immutable map item per native event is allowed. Binary delete
+sets, replacements, deleted/GC items, duplicate independent event writers, altered
+already-admitted events, unknown roots/types and key/body collisions refuse.
+On server append, each NEW event must match the trusted authenticated actor AND
+session. Already-known foreign events in a full sync/retry remain legal. A generic
+current-access boolean and Core syntax validation are not treated as actor proof.
+The sample's wire rules deliberately reject two independent Yjs writers recreating
+the same native event, even when bodies match. Share the original update bytes;
+retry them with their original packet ID. Versioned migrations must not replay
+events into a newly authored provider map.
+
+Refusal occurs on an isolated trial before server persistence/live replica merge.
+`PendingUpdates` preserves the rejected packet and returned code/receipt. Accepted
+service updates are the broadcast source. The direct peer receive helper in native
+tests is controlled trusted transport, not a production authorization API. General
+row/column move, merge and redo remain Core refusals/unsupported scopes. Formula
+ASTs are atomic inputs; formula reference resolution and calculation are owned by
+Formula and are not duplicated here. Sheet packet size is bounded at 1,000,000
+bytes. Chunked initial-load transport above that limit is not implemented.
+
+| Case | Source authority | Expected result |
+| --- | --- | --- |
+| Concurrent same-cell commits | Core events | Deterministic winner, retained alternatives |
+| Concurrent structure and formula input | Core events + typed Formula AST | Stable identities and atomic input retained |
+| Cell undo after remote edit | Current actor/session Core undo event | Remote contribution retained |
+| Insert undo with foreign contribution | Core conditional undo | Recoverable refusal; foreign content retained |
+| Delete vs concurrent edit | Core tombstone + retained event log | Hidden live cell, retained input; same-ID deletion undo |
+| Raw map overwrite/delete or hidden loser | Binding admission | Reject packet before durable write |
+| New forged actor or session | Authenticated server request | Reject packet, preserve local draft/reason |
+| Missing native dependency | Core projection | Persist pending event, later deterministic replay |
+| Missing binary Yjs dependency | Transport admission | Refuse incomplete packet for retry with base |
 
 ## Bounded prose source and selective undo
 
@@ -107,18 +165,27 @@ next validated CRDT instance after commit; no client content snapshot overwrites
 another writer. `PendingUpdates` records each update separately as `local-pending`,
 `synchronized`, `durable`, `acknowledgment-unknown` or `rejected`. Broadcast is not
 durable success. A late receipt cannot confirm a later update. Rejected/revoked
-draft packets remain retrievable; no automatic reauthorization or upload occurs.
+draft packets remain retrievable; `results(updateId)` retains rejection codes and
+receipts with their input. No automatic reauthorization or upload occurs.
 
 ## Verification and remaining work
 
-The partial source runs only changed-area strict types and tests:
+The final source runs only owned changed-area strict types and tests, with
+direct imports checked. Commands ran sequentially after the bounded Word resource
+hold was released:
 
 ```sh
-pnpm --ignore-workspace type-check -- src/prose.ts src/durable-store.ts test/prose.test.ts test/recovery.test.ts
-pnpm --ignore-workspace test -- test/prose.test.ts test/recovery.test.ts
+pnpm --ignore-workspace type-check -- src/collaboration.ts src/prose.ts src/durable-store.ts test/collaboration.test.ts test/prose.test.ts test/recovery.test.ts
+pnpm --ignore-workspace test -- test/collaboration.test.ts test/prose.test.ts test/recovery.test.ts
 ```
 
-Tests cover independent replicas, same-paragraph insertion and marks, stable
+Result: strict TypeScript 5.9.3, **0 diagnostics**; native Node tests **22/22 PASS**,
+0 failed, 0 skipped. First executed correctness failure: none. Coverage is 9 Sheet
+tests, 6 prose tests and 7 recovery tests. Tests cover independent replicas,
+same-cell alternatives, insert versus cross-sheet typed formula input, delete
+versus remote edit, same-ID deletion undo, insertion-undo refusal, actor/session
+forgery, admitted event deletion/overwrite, hidden Yjs collisions/duplicate writers,
+native pending dependency replay, same-paragraph insertion and marks, stable
 positions, split/join with remote edits, session undo/reload, bounds/refusals,
 COMMIT then ACK loss, idempotent retry after checkpoint compaction, tail replay,
 late ACK/newer draft, current-access revocation, admission mismatch, malformed and
@@ -126,11 +193,22 @@ causally incomplete binary input, snapshot refusal and exclusive-writer refusal.
 One test exits a real child process immediately after COMMIT without closing its
 SQLite handle, then opens a fresh service connection and replays the committed
 text. This is a process-exit experiment, not proof against power loss or storage
-hardware failure. First execution failure: none in the independent partial checks.
+hardware failure. A second native test sends two offline Sheet commits through
+the actual durable service, loses one ACK, checkpoints, reopens, retries the same
+ID, converges both clients, undoes only one session and re-edits a freshly opened
+second sheet. Formula input identity is checked; calculated Formula results are
+not reimplemented in this lane.
 
-Remaining: qualify genuine Core runtime; run Sheet mapping, alternatives,
-structural/reference/undo and authenticated append-only admission tests; hand
-those sources to Integration/Verification. Formula calculations belong to Formula.
+Controlled acceptance mapping: A native convergence/alternatives/structure and
+atomic reference-input preservation PASS; B bounded prose/marks/paragraphs/selection
+and session undo PASS; C disposable durable retry/restart/checkpoint PASS; D current
+access/new-event actor+session/version/malformed refusal seam PASS; E append-only
+event authority/snapshot replacement and exclusive service writer PASS; F targeted
+types/tests PASS. These are source-bound controlled tests, not whole-Issue closure.
+
+Remaining: Integration intake/combined verification of this owned delta and
+Verification's independent source probes. Formula calculations and their combined
+reference results belong to Formula/Verification and remain NOT RUN in this lane.
 Actual Office accounts, network providers, product UI, asset lifecycle, hostile
 parser isolation, production durable history/retention, backups/restore and M1/M2
 acceptance remain unimplemented or unverified. No full-repository suite, shared

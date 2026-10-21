@@ -76,6 +76,7 @@ test('current access is checked on every retry; rejected offline draft remains l
     const offline = packet('offline', client.insert(4, '-offline')); pending.add(offline);
     pending.result('offline', store.append(authenticated, offline));
     assert.equal(pending.state('offline'), 'rejected'); assert.equal(pending.pending().length, 2);
+    assert.deepEqual(pending.results('offline'), [{ status: 'rejected', code: 'current-access-denied' }]);
     assert.equal(client.text, 'base-offline'); assert.deepEqual(store.includedUpdateIds(), ['already-written']); assert.equal(calls, 3);
   } finally { client.destroy(); close(store); }
 });
@@ -119,4 +120,16 @@ test('one live SQLite writer owns disposable durable state; a second writer cann
   const store = DisposableDurableStore.create(options);
   try { assert.throws(() => DisposableDurableStore.reopen(store.directory, options), /locked/); }
   finally { close(store); }
+});
+
+test('service identity strings stay opaque and bound, including Unicode and account punctuation', () => {
+  const unicodeAdmission: Admission = { ...admission, documentId: '문서 1', generation: '세대 1' };
+  const session = { actorId: '사람@example.test', sessionId: '새 탭' };
+  const store = DisposableDurableStore.create({ ...options, admission: unicodeAdmission, currentAccess: actual => actual.actorId === session.actorId });
+  const client = new ProseReplica(session.sessionId);
+  try {
+    const supplied = { admission: unicodeAdmission, updateId: '변경 1', bytes: client.insert(0, '한글') };
+    assert.equal(store.append(session, supplied).status, 'durable');
+    assert.deepEqual(store.includedUpdateIds(), ['변경 1']);
+  } finally { client.destroy(); close(store); }
 });

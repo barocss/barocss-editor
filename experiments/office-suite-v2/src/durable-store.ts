@@ -31,7 +31,7 @@ export type StoreOptions = Readonly<{
 }>;
 export const DURABLE_LIMITS = Object.freeze({ updateBytes: 1_000_000, stateBytes: 8_000_000, updates: 10_000 });
 
-function identity(value: string): boolean { return typeof value === 'string' && /^[A-Za-z0-9._:-]{1,200}$/.test(value); }
+function identity(value: string): boolean { return typeof value === 'string' && value.length > 0 && value.length <= 200; }
 function admissionKey(value: Admission): string {
   if (!identity(value.documentId) || !identity(value.generation) || !['sheet-v1', 'prose-v1'].includes(value.engineId) ||
       value.contractVersion !== 1 || value.engineVersion !== 1 || value.schemaVersion !== 1 || value.adapterVersion !== 1) {
@@ -187,6 +187,7 @@ export type UpdateState = 'local-pending' | 'synchronized' | 'durable' | 'acknow
 export class PendingUpdates {
   #packets = new Map<string, UpdatePacket>();
   #states = new Map<string, UpdateState>();
+  #results = new Map<string, AppendResult[]>();
   add(packet: UpdatePacket): void {
     admissionKey(packet.admission);
     if (this.#packets.has(packet.updateId)) throw new Error('duplicate-local-update-id');
@@ -204,8 +205,11 @@ export class PendingUpdates {
       if (result.receipt.updateId !== updateId || result.receipt.hash !== updateHash(packet.bytes) || admissionKey(result.receipt.admission) !== admissionKey(packet.admission)) throw new Error('receipt-mismatch');
       this.#states.set(updateId, 'durable');
     } else if (this.#states.get(updateId) !== 'durable') this.#states.set(updateId, result.status);
+    const history = this.#results.get(updateId) ?? [];
+    history.push(structuredClone(result)); this.#results.set(updateId, history);
   }
   state(updateId: string): UpdateState | undefined { return this.#states.get(updateId); }
+  results(updateId: string): readonly AppendResult[] { return Object.freeze(structuredClone(this.#results.get(updateId) ?? [])); }
   pending(): readonly UpdatePacket[] {
     return [...this.#packets].filter(([id]) => this.#states.get(id) !== 'durable').map(([, packet]) => ({ ...packet, bytes: new Uint8Array(packet.bytes) }));
   }
