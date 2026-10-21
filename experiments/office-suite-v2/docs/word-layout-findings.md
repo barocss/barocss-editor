@@ -237,6 +237,64 @@ no Stage B or performance run occurred at these failing checkpoints.
 The required 100/300 layout/print, exact fonts and performance budget remain open.
 No product, release or complete-M0 acceptance is claimed.
 
+### P2b browser evidence and supplemental native table scope
+
+Exact P2b `1ff71ac5f1b4d811bc7e9c3794571ff42f420bc6` passed all eight Stage A
+cases in serialized run35 (exit0,19.407s; no skips/retries). This includes the
+actual saved eight-page PDF, source-relative body/furniture geometry, both
+unitless and fixed inherited line-height contexts, native document/selection,
+repeated build/cleanup, and loaded KaTeX faces with zero font request failures.
+The PDF SHA256 is
+`d01522d3325e89879b546d2d1003d181c0be2278b1dbf0cbc81f2f7f3574ca16`.
+Primary `.omx/m0/530-word-print-p2b-stage-a-results.json`, run35 logs and actual
+PDF attachments preserve the evidence. This is not physical paper acceptance.
+
+Run36 Stage B preserves two math PASS, one pre-print UI-flow FAIL and five NOT
+RUN. The first merged-cell case waits for an obsolete `보기` tab before it
+reaches print; the current product exposes view tools differently. Its30s
+timeout, trace and error context remain under primary
+`530-word-print-p2b-stage-b-artifacts` / `36-P2b-rich-print-stage-b` logs. No
+read-only test or app UI was patched, no timeout increased and no old editing,
+Save/reload or zoom acceptance is inferred from separate print coverage.
+
+Integration and Planner initially reported possible page5/6 header occlusion in
+the saved PDF. They retracted that interpretation after byte-bound checks. The
+current PNG hashes are page5
+`196f49c5e535363150a61f0f08be7dd8fbb890c040b2d53a896a5185bd3b654c` and page6
+`889916ea5bd73f6958ab636808cb650ce78b293b90066e1b32f8fcae7b7a0219`.
+Identical header-region pixels on pages2–7 and no extra ink before72px contradict
+the initial near-top/header-absent claim. The independent correction receipt is
+primary `.omx/m0/530-P2b-PDF-header-pixel-check.json`. There is no established
+production defect from that visual reading; its proposed browser diagnostic was
+cancelled. This correction is not a universal PDF fidelity claim.
+
+The supplemental author scope adds four actual native query fixtures in the
+owned `word-print.spec.ts`: `merged-cell-lines`, `merged-cell`,
+`merged-cell-columns` and `merged-cell-rows`. Two additional cases use the
+current visible `축소` button on the lines/parallel-column fixtures and require
+an observed zoom reduction. They do not use the obsolete tab, force a click or
+change source documents. The oracle compares authored per-character SID/offset,
+text and normalized geometry on each source/printed sheet, excluding layout
+chrome; repeated header character paint and complete table/paragraph rectangles
+are compared separately. It requires nonempty native fixtures and source
+character coverage, real saved PDF page counts, unchanged native export and
+selection, cleared print output, and no failed font resources/error faces.
+These table fixtures contain no KaTeX math, so they do not invent a loaded
+KaTeX-face requirement; the original eight math-containing sample gates remain.
+Actual supplemental browser results are pending a fresh serialized source-bound
+lease. A PDF page count alone does not prove PDF character or paint fidelity.
+
+Independent Verification reports six actual candidate100/300 measurements on
+Integration's fixed source. Print DOM deltas are16201/48601 (2.99988x); timing
+targets pass. The100-page aggregate owned RSS is527810560/591446016/604405760
+bytes: two of three exceed the unchanged536870912-byte target. Its corresponding
+pre-print maxima are527810560/530055168/526008320, below that target in this
+window. The300-page RSS717225984/718061568/799506432 remains below1GiB. These are
+Verification's live receipts pending its immutable assessment; summed process
+RSS is the frozen metric, not a precise physical-memory/HWM or leak diagnosis.
+No identical heavy retry or threshold change is authorized by these results.
+M0 remains OPEN, with this memory failure separate from supplemental fidelity.
+
 ## Repair and focused verification
 
 The shared View now waits for the current content renderer's real completion.

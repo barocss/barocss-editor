@@ -302,11 +302,140 @@ test.describe('print', () => {
   });
 });
 
-/**
- * Find and replace.
- *
- * The searching is the product's and is tested there, without a browser. What
- * only a browser can answer is whether the matches are shown where the text is,
- * whether moving between them moves, and whether replacing changes the document
- * the reader is looking at.
- */
+/** Read actual character paint, not the text of a complete off-page clone. */
+async function tablePrintSnapshot(page: Page, printed: boolean) {
+  return page.evaluate(printed => {
+    const papers = [...document.querySelectorAll<HTMLElement>(printed ? '.w-print-page' : '#editor .w-sheet')];
+    const source = document.querySelector<HTMLElement>('#editor .w-document')!;
+    const authored = (node: Node) => !node.parentElement?.closest('[data-bc-chrome], [data-bc-filler], .w-sheets');
+    const rect = (r: DOMRect, paper: DOMRect, scale: number) => ({
+      top: (r.top - paper.top) / scale, left: (r.left - paper.left) / scale,
+      width: r.width / scale, height: r.height / scale,
+    });
+    const unassigned: string[] = [];
+    const sourceCharacters = new Set<string>();
+    const pages = papers.map((paper, pageIndex) => {
+      const bounds = paper.getBoundingClientRect();
+      const scale = bounds.width / parseFloat(getComputedStyle(paper).width);
+      const root = printed ? paper : source;
+      const chars: { key: string; text: string; top: number; left: number; width: number; height: number }[] = [];
+      const chrome: { text: string; top: number; left: number; width: number; height: number }[] = [];
+      const ordinals = new Map<string, number>();
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const belongs = (r: DOMRect) => r.height > 0 && r.top >= bounds.top - 0.5 * scale
+        && r.bottom <= bounds.bottom + 0.5 * scale && r.left >= bounds.left - 0.5 * scale && r.right <= bounds.right + 0.5 * scale;
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('[data-bc-filler], .w-sheets')) continue;
+        const isAuthored = authored(node);
+        const isHeader = !!node.parentElement?.closest('.w-table-header-repeat, .w-cell-header-copy');
+        if (!isAuthored && !isHeader) continue;
+        const sid = node.parentElement?.closest('[data-bc-sid]')?.getAttribute('data-bc-sid') ?? '';
+        const ordinal = ordinals.get(sid) ?? 0; ordinals.set(sid, ordinal + 1);
+        for (let offset = 0; offset < (node.textContent?.length ?? 0); offset++) {
+          const key = `${sid}:${ordinal}:${offset}`;
+          if (!printed && isAuthored) sourceCharacters.add(key);
+          const range = document.createRange(); range.setStart(node, offset); range.setEnd(node, offset + 1);
+          const r = range.getBoundingClientRect();
+          if (!belongs(r)) continue;
+          const glyph = { text: node.textContent![offset], ...rect(r, bounds, scale) };
+          if (isAuthored) chars.push({ key, ...glyph }); else chrome.push(glyph);
+        }
+      }
+      const blocks = [...root.querySelectorAll<HTMLElement>('.w-table[data-bc-sid], .w-paragraph[data-bc-sid]')]
+        .filter(el => !el.closest('[data-bc-chrome], .w-sheets')).flatMap(el => {
+          const r = el.getBoundingClientRect();
+          return r.height > 0 && r.top < bounds.bottom && r.bottom > bounds.top && r.left < bounds.right && r.right > bounds.left
+            ? [{ sid: el.getAttribute('data-bc-sid')!, ...rect(r, bounds, scale) }] : [];
+        });
+      return { pageIndex, chars, chrome, blocks };
+    });
+    if (!printed) {
+      const assigned = new Set(pages.flatMap(paper => paper.chars.map(char => char.key)));
+      for (const key of sourceCharacters) if (!assigned.has(key)) unassigned.push(key);
+    }
+    return { pages, unassigned };
+  }, printed);
+}
+
+test.describe('native table print projection', () => {
+  const fixtures = [
+    { sample: 'merged-cell-lines', marker: '문장 80.', merged: 1 },
+    { sample: 'merged-cell', marker: '병합 문단 54.', merged: 1 },
+    { sample: 'merged-cell-columns', marker: '검토 34.', merged: 2 },
+    { sample: 'merged-cell-rows', marker: '설명 48.', merged: 1 },
+  ];
+  const cases = [...fixtures.map(fixture => ({ ...fixture, reduced: false })),
+    ...[fixtures[0], fixtures[2]].map(fixture => ({ ...fixture, reduced: true }))];
+
+  for (const fixture of cases) test(`${fixture.sample} preserves visible print characters${fixture.reduced ? ' at reduced zoom' : ''}`, async ({ page }, testInfo) => {
+    const fontFailures: string[] = [];
+    page.on('response', response => { if (/\.(woff2?|ttf)(\?|$)/i.test(response.url()) && !response.ok()) fontFailures.push(`${response.status()} ${response.url()}`); });
+    page.on('requestfailed', request => { if (/\.(woff2?|ttf)(\?|$)/i.test(request.url())) fontFailures.push(`${request.failure()?.errorText} ${request.url()}`); });
+    await page.goto(`/?sample=${fixture.sample}`);
+    await settled(page);
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator('#editor td[rowspan]')).toHaveCount(fixture.merged);
+    await expect(page.locator('#editor')).toContainText(fixture.marker);
+    await expect(page.locator('#editor')).toContainText('표 다음의 본문입니다.');
+    expect(await page.locator('#editor .w-sheet').count()).toBeGreaterThan(1);
+    const before = await page.evaluate(() => JSON.stringify(window.editor.exportDocument()));
+    if (fixture.reduced) {
+      const zoom = page.locator('.w-zoom-frame');
+      const initial = Number(await zoom.getAttribute('data-zoom'));
+      const reduce = page.getByRole('button', { name: '축소', exact: true });
+      await expect(reduce).toBeVisible();
+      await reduce.click();
+      await expect.poll(async () => Number(await zoom.getAttribute('data-zoom'))).toBeLessThan(initial);
+      await settled(page);
+      expect(await page.evaluate(() => JSON.stringify(window.editor.exportDocument()))).toBe(before);
+    }
+    const selection = await page.evaluateHandle(() => {
+      const paragraph = [...document.querySelectorAll('#editor .w-paragraph')].find(el => !el.closest('[data-bc-chrome]'))!;
+      const text = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT).nextNode()!;
+      const range = document.createRange(); range.setStart(text, 0); range.setEnd(text, 2);
+      const selected = getSelection()!; selected.removeAllRanges(); selected.addRange(range);
+      return { text: selected.toString(), anchor: selected.anchorNode, focus: selected.focusNode,
+        anchorOffset: selected.anchorOffset, focusOffset: selected.focusOffset };
+    });
+    const source = await tablePrintSnapshot(page, false);
+    expect(source.unassigned, 'Every source authored character must occupy a source sheet').toEqual([]);
+    expect(source.pages.flatMap(paper => paper.chars).length).toBeGreaterThan(100);
+    expect(source.pages.flatMap(paper => paper.chrome).length, 'Native repeated headers must paint').toBeGreaterThan(0);
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await page.emulateMedia({ media: 'print' });
+    const printed = await tablePrintSnapshot(page, true);
+    await testInfo.attach('source-and-printed-character-geometry', { body: JSON.stringify({ source, printed }), contentType: 'application/json' });
+    expect(printed.pages).toHaveLength(source.pages.length);
+    for (const [index, actual] of printed.pages.entries()) {
+      const expected = source.pages[index];
+      expect(actual.chars.map(char => [char.key, char.text]), `Authored characters on page ${index + 1}`).toEqual(expected.chars.map(char => [char.key, char.text]));
+      expect(actual.chrome.map(char => char.text), `Repeated header characters on page ${index + 1}`).toEqual(expected.chrome.map(char => char.text));
+      expect(actual.blocks.map(block => block.sid)).toEqual(expected.blocks.map(block => block.sid));
+      for (const kind of ['chars', 'chrome', 'blocks'] as const) for (const [at, item] of actual[kind].entries()) {
+        const original = expected[kind][at];
+        for (const axis of ['top', 'left', 'width', 'height'] as const) expect(item[axis], `${kind}[${at}].${axis} on page ${index + 1}`).toBeCloseTo(original[axis], 0);
+      }
+    }
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    expect(await page.locator('.w-print-pages').count()).toBe(0);
+    // Let page.pdf fire the real print lifecycle from the visible source. A
+    // manually retained print media override would hide the source beforehand.
+    const path = testInfo.outputPath(`${fixture.sample}${fixture.reduced ? '-reduced' : ''}.pdf`);
+    const pdf = await page.pdf({ path, printBackground: true, preferCSSPageSize: true });
+    await testInfo.attach('actual-native-table-pdf', { path, contentType: 'application/pdf' });
+    expect([...pdf.toString('latin1').matchAll(/\/Count\s+(\d+)/g)].map(match => Number(match[1]))).toContain(source.pages.length);
+    expect(await page.locator('.w-print-pages').count()).toBe(0);
+    expect(await page.evaluate(() => JSON.stringify(window.editor.exportDocument()))).toBe(before);
+    expect(await page.evaluate(original => {
+      const selected = getSelection()!;
+      return selected.toString() === original.text && selected.anchorNode === original.anchor && selected.focusNode === original.focus
+        && selected.anchorOffset === original.anchorOffset && selected.focusOffset === original.focusOffset;
+    }, selection)).toBe(true);
+    await selection.dispose();
+    const fonts = await page.evaluate(() => [...document.fonts].map(face => ({ family: face.family, status: face.status })));
+    await testInfo.attach('actual-native-table-font-status', { body: JSON.stringify({ failures: fontFailures, fonts }), contentType: 'application/json' });
+    expect(fontFailures).toEqual([]);
+    expect(fonts.filter(face => face.status === 'error')).toEqual([]);
+  });
+});
