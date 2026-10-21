@@ -1,0 +1,550 @@
+{
+  "schema": "office-v2-m0/word-phase-c-diagnostic-v1",
+  "lease": {
+    "scope": "office-v2-m0/phase-c-prerequisites",
+    "kind": "bounded-diagnostic-not-performance-qualification",
+    "owner": "Execute Verification #526",
+    "owner_thread": "01a15eca-e1d3-7910-9aa1-d590162dbf18",
+    "status": "granted",
+    "granted_utc": "2026-10-21T15:19:18.914774+00:00",
+    "deadline_utc": "2026-10-21T15:31:18.914774+00:00",
+    "host": "127.0.0.1",
+    "port": 55260,
+    "source_head": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+    "source_root": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor",
+    "dependency_root": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules",
+    "browser_executable": "/Users/user/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+    "allowed": "Actual100fixture schema/root/surface/scheduler/layout-exception source diagnosis, trace/console/font inventory; fresh disposable contexts; read-only production source",
+    "per_probe_wall_seconds": 30,
+    "limits": "No45sidentical retry, no100/300performance sample until separate window. Each source-discriminating probe bounded30s and cleanup; at most3 distinct discriminators in this lease. No new installer or existing DB/account use.",
+    "port55261": "Reserved for Planner-assigned Word Layout owner; not part of this Verification lease.",
+    "heavy_hold": "NONE: other independent light code/targeted checks continue",
+    "qualification": "NOT QUALIFIED for reference/budgets",
+    "loadavg_at_grant": [
+      14.87744140625,
+      29.109375,
+      40.0185546875
+    ],
+    "logical_cpus": 14,
+    "swapusage": "vm.swapusage: total = 16384.00M  used = 15144.25M  free = 1239.75M  (encrypted)"
+  },
+  "environment": {
+    "node": "v22.22.0",
+    "platform": "darwin",
+    "release": "24.6.0",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytesAtStart": 384401408,
+    "capturedUtc": "2026-10-21T15:21:29.537Z"
+  },
+  "loadAtStart": [
+    90.30517578125,
+    50.419921875,
+    46.67578125
+  ],
+  "source": {
+    "head": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+    "tree": "b0093963b96cccf62c2595dca09417e8cab0306d",
+    "dirty": "",
+    "files": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/renderers/page.ts",
+        "sha256": "2f22023f5c0b7afd34a4e70ad864e00d0ec9d845d1bb83a16255f110e18dbcaa"
+      },
+      {
+        "path": "packages/editor-view-dom/src/editor-view-dom.ts",
+        "sha256": "9cc3fc0b55ebea890e2001abb8d4103dc2bbdefa76fb3d50b237ee209d21ce70"
+      },
+      {
+        "path": "packages/renderer-dom/src/dom-renderer.ts",
+        "sha256": "94310528c134fd7877795623c0756c3e97b62091e1dd662abb95652d45276ee1"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+        "sha256": "4c93720795a92e71266373572c1885dbb4040274e7ec6bc0ba6c3cca5a4bd28f"
+      }
+    ]
+  },
+  "harness": [
+    {
+      "path": "word-phase-c-runner.mjs",
+      "sha256": "102567c992b33ea4f5221d8c67ed3241b24072965479bf5aa553e55a38d25fa6"
+    },
+    {
+      "path": "word-phase-c-browser.mjs",
+      "sha256": "52b775b72587c627aaafea6a8b7930488e1f0a2bc1e2c5bc4bdbafee9e56dc8d"
+    },
+    {
+      "path": "profiles.ts",
+      "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+    },
+    {
+      "path": "font-metadata.py",
+      "sha256": "969a6c9f66e6a94b9c492118f4e3252013b231ca83951f7b3d03ee7cbb3c0ab7"
+    }
+  ],
+  "console": [],
+  "pageErrors": [],
+  "status": "EXECUTED: source-path diagnostic",
+  "browser": "145.0.7632.6",
+  "observation": {
+    "profile": {
+      "pages": 100,
+      "paragraphs": 800,
+      "explicitGroups": true
+    },
+    "events": [
+      {
+        "phase": "schema-admission-start",
+        "atMs": 0.20000004768371582
+      },
+      {
+        "phase": "schema-admission-pass",
+        "atMs": 39.60000002384186
+      },
+      {
+        "phase": "mount-start",
+        "atMs": 39.60000002384186
+      },
+      {
+        "phase": "register-layout-pass",
+        "atMs": 55.799999952316284,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "view-render-start",
+        "atMs": 55.799999952316284,
+        "root": "word:1",
+        "surfaceRendererRegistered": true,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "DOM-render-call",
+        "atMs": 72.10000002384186,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "run-layout-path",
+        "atMs": 102.60000002384186,
+        "running": false,
+        "rendering": false,
+        "registered": 1,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "layout-pass-start",
+        "atMs": 102.70000004768372,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0,
+        "modelRoot": "word:1"
+      },
+      {
+        "phase": "layout-pass-end",
+        "atMs": 104.5,
+        "elapsedMs": 1.899999976158142,
+        "patchKeys": [
+          "word"
+        ],
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "view-render-start",
+        "atMs": 104.5,
+        "root": "word:1",
+        "surfaceRendererRegistered": true,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "DOM-render-call",
+        "atMs": 104.60000002384186,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "run-layout-path",
+        "atMs": 129.70000004768372,
+        "running": true,
+        "rendering": false,
+        "registered": 1,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "layout-pass-start",
+        "atMs": 129.79999995231628,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0,
+        "modelRoot": "word:1"
+      },
+      {
+        "phase": "layout-pass-end",
+        "atMs": 129.79999995231628,
+        "elapsedMs": 0.09999990463256836,
+        "patchKeys": [],
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "mount-returned",
+        "atMs": 131.10000002384186,
+        "surfaces": [],
+        "sheets": 0,
+        "paragraphs": 0
+      },
+      {
+        "phase": "DOM-render-onComplete",
+        "atMs": 157.20000004768372,
+        "completeCount": 1,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "first-surface-observed",
+        "atMs": 157.39999997615814,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "normal-observation",
+        "atMs": 344.89999997615814,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "controlled-post-commit-render-start",
+        "atMs": 344.89999997615814
+      },
+      {
+        "phase": "view-render-start",
+        "atMs": 345,
+        "root": "word:1",
+        "surfaceRendererRegistered": true,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "DOM-render-call",
+        "atMs": 345.10000002384186,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "DOM-render-onComplete",
+        "atMs": 389.89999997615814,
+        "completeCount": 2,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "run-layout-path",
+        "atMs": 390,
+        "running": false,
+        "rendering": false,
+        "registered": 1,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "layout-pass-start",
+        "atMs": 390,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800,
+        "modelRoot": "word:1"
+      },
+      {
+        "phase": "layout-pass-end",
+        "atMs": 461.60000002384186,
+        "elapsedMs": 71.5,
+        "patchKeys": [
+          "word"
+        ],
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "view-render-start",
+        "atMs": 461.60000002384186,
+        "root": "word:1",
+        "surfaceRendererRegistered": true,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "DOM-render-call",
+        "atMs": 462.2000000476837,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 0,
+        "paragraphs": 800
+      },
+      {
+        "phase": "DOM-render-onComplete",
+        "atMs": 498.89999997615814,
+        "completeCount": 3,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 100,
+        "paragraphs": 800
+      },
+      {
+        "phase": "run-layout-path",
+        "atMs": 498.89999997615814,
+        "running": true,
+        "rendering": false,
+        "registered": 1,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 100,
+        "paragraphs": 800
+      },
+      {
+        "phase": "layout-pass-start",
+        "atMs": 499,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 100,
+        "paragraphs": 800,
+        "modelRoot": "word:1"
+      },
+      {
+        "phase": "layout-pass-end",
+        "atMs": 566.6000000238419,
+        "elapsedMs": 67.70000004768372,
+        "patchKeys": [],
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 100,
+        "paragraphs": 800
+      },
+      {
+        "phase": "controlled-post-commit-render-end",
+        "atMs": 573.3999999761581,
+        "surfaces": [
+          {
+            "id": "word:6",
+            "children": 801
+          }
+        ],
+        "sheets": 100,
+        "paragraphs": 800
+      }
+    ],
+    "observer": {
+      "surface": ".w-surface",
+      "sheet": ".w-sheet",
+      "paragraph": ".w-paragraph"
+    },
+    "qualification": "diagnostic only; instrumentation and optional forced render are not production/performance acceptance",
+    "schemaAdmission": "PASS",
+    "contentCompleted": true,
+    "normal": {
+      "rootId": "word:1",
+      "rootDomId": "word:1",
+      "documentFaults": [],
+      "modelSurfaces": [
+        {
+          "id": "word:6",
+          "children": 800,
+          "modelType": "surface"
+        }
+      ],
+      "surfaces": [
+        {
+          "id": "word:6",
+          "children": 801
+        }
+      ],
+      "sheets": 0,
+      "paragraphs": 800,
+      "layout": []
+    },
+    "afterControlledRender": {
+      "rootId": "word:1",
+      "rootDomId": "word:1",
+      "documentFaults": [],
+      "modelSurfaces": [
+        {
+          "id": "word:6",
+          "children": 800,
+          "modelType": "surface"
+        }
+      ],
+      "surfaces": [
+        {
+          "id": "word:6",
+          "children": 801
+        }
+      ],
+      "sheets": 100,
+      "paragraphs": 800,
+      "layout": [
+        {
+          "id": "word:6",
+          "pages": 100,
+          "totalHeight": 107976
+        }
+      ]
+    },
+    "fontTarget": {
+      "selector": "[data-m0-font-target=\"true\"]",
+      "tag": "SPAN",
+      "className": "",
+      "textSample": "Page 1, paragraph 1. Synthetic layout sample. 한글 문서와 Latin t",
+      "computedFontFamily": "Arial, sans-serif",
+      "fontSize": "14.6667px"
+    }
+  },
+  "actualFonts": [
+    {
+      "familyName": "Arial",
+      "postScriptName": "ArialMT",
+      "isCustomFont": false,
+      "glyphCount": 124
+    },
+    {
+      "familyName": "Apple SD Gothic Neo",
+      "postScriptName": "AppleSDGothicNeo-Regular",
+      "isCustomFont": false,
+      "glyphCount": 30
+    }
+  ],
+  "installedFontIdentity": {
+    "schema": "office-v2-m0/coretext-font-identities-v1",
+    "fonts": [
+      {
+        "requestedPostScriptName": "ArialMT",
+        "actualPostScriptName": "ArialMT",
+        "family": "Arial",
+        "version": "Version 5.01.2x",
+        "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "exactNameMatched": true,
+        "fileBytes": 773236,
+        "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+        "qualifiedIdentity": true
+      },
+      {
+        "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+        "actualPostScriptName": "AppleSDGothicNeo-Regular",
+        "family": "Apple SD Gothic Neo",
+        "version": "19.0d2e1",
+        "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        "exactNameMatched": true,
+        "fileBytes": 28427796,
+        "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+        "qualifiedIdentity": true
+      }
+    ]
+  },
+  "loadAtEnd": [
+    86.5615234375,
+    50.87939453125,
+    46.87890625
+  ]
+}
