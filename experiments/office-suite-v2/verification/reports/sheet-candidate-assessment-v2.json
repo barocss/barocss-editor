@@ -1,0 +1,409 @@
+{
+  "schema": "office-v2-m0/sheet-candidate-assessment-v2",
+  "sourceHead": "6b3ea4a0669c0796a58711ff01932f5a71b50962",
+  "sourceTree": "f37c61a3595412ca2694b90e2f70c0af19e2173f",
+  "rawReport": "reports/sheet-scale-2026-10-21T20-44-45-509Z-summary.json",
+  "rawSha256": "95bce09dfd12a99ef047605fa54f8db2896f434ddf9d5e4046d0a33dad48b60c",
+  "status": "PASS: frozen v1.1 bounded Headless Core reference workload only",
+  "frozenBudget": "reports/reference-budget-v1.1.json",
+  "frozenBudgetSha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+  "profile": {
+    "rows": 10000,
+    "columns": 100,
+    "populatedCells": 50000,
+    "formulaCells": 10000,
+    "sheetCount": 2
+  },
+  "gates": [
+    {
+      "phase": "cold-native-projection",
+      "samples": [
+        169.03841699999998,
+        152.80237499999998,
+        158.81729199999995
+      ],
+      "worstOfThree": 169.03841699999998,
+      "coarseNearestRankP95": 169.03841699999998,
+      "coefficientOfVariation": 0.04183058752182456,
+      "spreadMs": 16.236041999999998,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    },
+    {
+      "phase": "full-native-diff",
+      "samples": [
+        16.876999999999953,
+        18.78908299999989,
+        17.56812500000001
+      ],
+      "worstOfThree": 18.78908299999989,
+      "coarseNearestRankP95": 18.78908299999989,
+      "coefficientOfVariation": 0.0445501706642229,
+      "spreadMs": 1.9120829999999387,
+      "repeatable": true,
+      "target": 250,
+      "targetMet": true
+    },
+    {
+      "phase": "initial-formula-calculation",
+      "samples": [
+        47.982167000000004,
+        42.32483300000001,
+        42.12541599999997
+      ],
+      "worstOfThree": 47.982167000000004,
+      "coarseNearestRankP95": 47.982167000000004,
+      "coefficientOfVariation": 0.0615057120753439,
+      "spreadMs": 5.856751000000031,
+      "repeatable": true,
+      "target": 250,
+      "targetMet": true
+    },
+    {
+      "phase": "dirty-formula-calculation",
+      "samples": [
+        0.0521249999999327,
+        0.1119170000001759,
+        0.03645800000003874
+      ],
+      "worstOfThree": 0.1119170000001759,
+      "coarseNearestRankP95": 0.1119170000001759,
+      "coefficientOfVariation": 0.4864977812328847,
+      "spreadMs": 0.07545900000013717,
+      "repeatable": true,
+      "target": 16,
+      "targetMet": true
+    },
+    {
+      "phase": "range-paste-native-projection-plus-diff",
+      "samples": [
+        63.11104099999989,
+        72.98333400000001,
+        64.55945900000006
+      ],
+      "worstOfThree": 72.98333400000001,
+      "coarseNearestRankP95": 72.98333400000001,
+      "coefficientOfVariation": 0.06507923405311358,
+      "spreadMs": 9.872293000000127,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    },
+    {
+      "phase": "coldConstructionProjectionCalculationMs",
+      "samples": [
+        898.884376,
+        882.2228749999999,
+        884.5209169999998
+      ],
+      "worstOfThree": 898.884376,
+      "coarseNearestRankP95": 898.884376,
+      "coefficientOfVariation": 0.008297393513044362,
+      "spreadMs": 16.661501000000044,
+      "repeatable": true,
+      "target": 2000,
+      "targetMet": true
+    },
+    {
+      "phase": "oneCellAdmissionProjectionDiffCalculationMs",
+      "samples": [
+        51.555248999999776,
+        54.158250000000066,
+        51.67966600000011
+      ],
+      "worstOfThree": 54.158250000000066,
+      "coarseNearestRankP95": 54.158250000000066,
+      "coefficientOfVariation": 0.022850120321670955,
+      "spreadMs": 2.6030010000002903,
+      "repeatable": true,
+      "target": 200,
+      "targetMet": true
+    },
+    {
+      "phase": "paste1000AdmissionProjectionDiffCalculationMs",
+      "samples": [
+        71.20820800000001,
+        81.31062600000041,
+        73.45437599999991
+      ],
+      "worstOfThree": 81.31062600000041,
+      "coarseNearestRankP95": 81.31062600000041,
+      "coefficientOfVariation": 0.05749911320407737,
+      "spreadMs": 10.102418000000398,
+      "repeatable": true,
+      "target": 500,
+      "targetMet": true
+    }
+  ],
+  "phaseRepeatability": {
+    "construct-native-events": {
+      "samples": [
+        638.794333,
+        641.8009999999999,
+        642.623292
+      ],
+      "worstOfThree": 642.623292,
+      "coarseNearestRankP95": 642.623292,
+      "coefficientOfVariation": 0.002567217699207072,
+      "spreadMs": 3.8289589999999407,
+      "repeatable": true
+    },
+    "cold-native-projection": {
+      "samples": [
+        169.03841699999998,
+        152.80237499999998,
+        158.81729199999995
+      ],
+      "worstOfThree": 169.03841699999998,
+      "coarseNearestRankP95": 169.03841699999998,
+      "coefficientOfVariation": 0.04183058752182456,
+      "spreadMs": 16.236041999999998,
+      "repeatable": true
+    },
+    "register-calculation": {
+      "samples": [
+        43.06945899999994,
+        45.294667000000004,
+        40.95491699999991
+      ],
+      "worstOfThree": 45.294667000000004,
+      "coarseNearestRankP95": 45.294667000000004,
+      "coefficientOfVariation": 0.04110502558884172,
+      "spreadMs": 4.339750000000095,
+      "repeatable": true
+    },
+    "initial-recalculate": {
+      "samples": [
+        47.982167000000004,
+        42.32483300000001,
+        42.12541599999997
+      ],
+      "worstOfThree": 47.982167000000004,
+      "coarseNearestRankP95": 47.982167000000004,
+      "coefficientOfVariation": 0.0615057120753439,
+      "spreadMs": 5.856751000000031,
+      "repeatable": true
+    },
+    "edit-event-admission": {
+      "samples": [
+        0.12366599999995742,
+        0.14150000000006457,
+        0.12020799999993415
+      ],
+      "worstOfThree": 0.14150000000006457,
+      "coarseNearestRankP95": 0.14150000000006457,
+      "coefficientOfVariation": 0.07262696445369501,
+      "spreadMs": 0.02129200000013043,
+      "repeatable": true
+    },
+    "edit-native-projection": {
+      "samples": [
+        34.38799999999992,
+        34.93937499999993,
+        33.82950000000005
+      ],
+      "worstOfThree": 34.93937499999993,
+      "coarseNearestRankP95": 34.93937499999993,
+      "coefficientOfVariation": 0.013177241465790333,
+      "spreadMs": 1.1098749999998745,
+      "repeatable": true
+    },
+    "edit-native-diff": {
+      "samples": [
+        16.876999999999953,
+        18.78908299999989,
+        17.56812500000001
+      ],
+      "worstOfThree": 18.78908299999989,
+      "coarseNearestRankP95": 18.78908299999989,
+      "coefficientOfVariation": 0.0445501706642229,
+      "spreadMs": 1.9120829999999387,
+      "repeatable": true
+    },
+    "edit-calculation-update": {
+      "samples": [
+        0.11445800000001327,
+        0.17637500000000728,
+        0.1253750000000764
+      ],
+      "worstOfThree": 0.17637500000000728,
+      "coarseNearestRankP95": 0.17637500000000728,
+      "coefficientOfVariation": 0.19450883909071637,
+      "spreadMs": 0.061916999999994005,
+      "repeatable": true
+    },
+    "dirty-recalculate": {
+      "samples": [
+        0.0521249999999327,
+        0.1119170000001759,
+        0.03645800000003874
+      ],
+      "worstOfThree": 0.1119170000001759,
+      "coarseNearestRankP95": 0.1119170000001759,
+      "coefficientOfVariation": 0.4864977812328847,
+      "spreadMs": 0.07545900000013717,
+      "repeatable": true
+    },
+    "paste-event-admission": {
+      "samples": [
+        5.573249999999916,
+        5.598375000000033,
+        5.448499999999967
+      ],
+      "worstOfThree": 5.598375000000033,
+      "coarseNearestRankP95": 5.598375000000033,
+      "coefficientOfVariation": 0.011829764566994718,
+      "spreadMs": 0.14987500000006548,
+      "repeatable": true
+    },
+    "paste-native-projection": {
+      "samples": [
+        34.816040999999814,
+        37.134416999999985,
+        36.54166699999996
+      ],
+      "worstOfThree": 37.134416999999985,
+      "coarseNearestRankP95": 37.134416999999985,
+      "coefficientOfVariation": 0.02719326460009865,
+      "spreadMs": 2.318376000000171,
+      "repeatable": true
+    },
+    "paste-native-diff": {
+      "samples": [
+        28.295000000000073,
+        35.84891700000003,
+        28.0177920000001
+      ],
+      "worstOfThree": 35.84891700000003,
+      "coarseNearestRankP95": 35.84891700000003,
+      "coefficientOfVariation": 0.11809854740084837,
+      "spreadMs": 7.831124999999929,
+      "repeatable": true
+    },
+    "paste-calculation-update": {
+      "samples": [
+        1.7257500000000618,
+        1.698042000000214,
+        2.3176249999999072
+      ],
+      "worstOfThree": 2.3176249999999072,
+      "coarseNearestRankP95": 2.3176249999999072,
+      "coefficientOfVariation": 0.14931890020722902,
+      "spreadMs": 0.6195829999996931,
+      "repeatable": true
+    },
+    "paste-recalculate": {
+      "samples": [
+        0.7981670000001486,
+        1.030875000000151,
+        1.1287919999999758
+      ],
+      "worstOfThree": 1.1287919999999758,
+      "coarseNearestRankP95": 1.1287919999999758,
+      "coefficientOfVariation": 0.140642499474486,
+      "spreadMs": 0.3306249999998272,
+      "repeatable": true
+    }
+  },
+  "nonrepeatablePhases": [],
+  "memory": {
+    "samplesBytes": [
+      317259776,
+      314245120,
+      316096512
+    ],
+    "targetBytes": 536870912,
+    "targetMet": true,
+    "definition": "Actual Node process.resourceUsage().maxRSS in KiB multiplied by1024; per fresh child process high-water"
+  },
+  "workload": "3fresh actual native Core/Formula processes; all invariants pass, no guard/time failure",
+  "formulaWork": {
+    "dirtyChangedCells": 1,
+    "dirtyEvaluatedFormulas": 1,
+    "pasteChangedCells": 1000,
+    "pasteEvaluatedFormulas": 250,
+    "source": "Actual engine cumulative statistics deltas in all3samples"
+  },
+  "constructionAndAdmission": "Cold includes construction/admission plus projection/register/calculate; edit/paste include event admission/project/diff/update/recalculate. Evidence serialization and population inventory excluded per frozen method.",
+  "historical": {
+    "priorSource": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+    "priorAssessment": "reports/sheet-candidate-assessment-v1.json",
+    "priorEditTotalsMs": [
+      296.46254299999964,
+      462.17008399999986,
+      268.91920799999957
+    ],
+    "priorFailure": "Every sample missed200ms; edit projection and paste diff repeatability failed",
+    "preservation": "Original raw/assessment remain unchanged; no failed sample dropped, no numeric target changed",
+    "comparisonBoundary": "Two exact source-bound recorded loaded windows with different ambient pressure. Not a controlled A/B comparison or universal/causal speedup guarantee."
+  },
+  "qualification": {
+    "allPhasesRepeatable": true,
+    "tinyDirtyPhase": "CV0.486 but spread0.076ms meets frozen <=10ms noise floor; no new exception",
+    "ambient": "Actual load/memory/swap before and after each child recorded; loaded host reference, no absolute idle prerequisite",
+    "percentile": "Worst-of-three/coarse nearest-rank p95, not population tail",
+    "rootPreflight": "Integration30 at exact6b3ea4a exit0/407.135s, M0native126strict0, printunits19; root/type known-debt boundaries remain Integration-owned",
+    "nativeFallback": "Core42case and Integration126receipts are separate from this workload; this performance run does not claim every fallback shape was benchmarked",
+    "uiCapacity": "NOT VERIFIED: no provider/Canvas/scroll/keystroke/product browser claim",
+    "word": "Separate #530browser and repaired100/300profile pending",
+    "m0": "OPEN"
+  },
+  "reuseBindings": {
+    "workbookGitBlob": "451b22a95cbcfac6e3e8b19551771db141bed64d",
+    "workbookAuthorCandidate": "7032282cab3350867e06fe9ba716a136c826eebf",
+    "workbookSha256": "45f4419c237c459c599857b1747f378687d730b22b5451191ea8f668face09c8",
+    "allNamedSourceAndHarnessFiles": [
+      {
+        "path": "experiments/office-suite-v2/src/contracts.ts",
+        "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/workbook.ts",
+        "sha256": "45f4419c237c459c599857b1747f378687d730b22b5451191ea8f668face09c8"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/sheet-scale.mjs",
+        "sha256": "d40d7d54ea120f75432b7089c14a7545a3ec6ac41d31e60341aa6e132bdda405"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/profiles.ts",
+        "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/performance-guards.ts",
+        "sha256": "5454187e7f79b8613a74467a2ae33eaafcbc0eb112a205484cae90f30ea2dbf4"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/metrics.ts",
+        "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+        "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/calculation.ts",
+        "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/formula.ts",
+        "sha256": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/references.ts",
+        "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393"
+      }
+    ],
+    "runtimeMetadata": {
+      "node": "v22.22.0",
+      "platform": "darwin",
+      "release": "24.6.0",
+      "arch": "arm64",
+      "cpu": "Apple M3 Max",
+      "logicalCpus": 14,
+      "totalMemoryBytes": 38654705664
+    },
+    "rule": "Recorded headless result remains bound to these exact source/harness/budget bytes and runtime contract. Integration may reuse for unrelated Word-only joins with explicit unchanged binding; not moving-head capacity evidence."
+  }
+}

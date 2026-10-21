@@ -1,0 +1,36 @@
+{
+  "schema": "office-v2-m0/phase-c-current-criteria-v2",
+  "capturedUtc": "2026-10-21T20:46:02.300473+00:00",
+  "sourceHead": "6b3ea4a0669c0796a58711ff01932f5a71b50962",
+  "sourceTree": "f37c61a3595412ca2694b90e2f70c0af19e2173f",
+  "priorCurrentMatrix": "reports/criteria-phase-c-v1.json",
+  "historicalRule": "Original criteria/matrix/raw preserved. This CORE ONLY window replaces only Sheet model/profile/budget states; Word failed observations remain bound to oldsource7d902, repairedWord is pending independent profile.",
+  "criteria": [
+    {
+      "criterion": "sheet-model-profile-functional",
+      "status": "PASS bounded Headless workload",
+      "boundary": "3fresh actual Core/Formula processes, exact10000x100/50000populated/10000formulas; no model invariant/guard failure",
+      "evidence": "reports/sheet-scale-2026-10-21T20-44-45-509Z-summary.json"
+    },
+    {
+      "criterion": "sheet-frozen-v1.1-performance-reference",
+      "status": "PASS bounded recorded reference",
+      "boundary": "All8timing gates and512MiBRSS target met; every phase and timing total repeatable under frozen CV/noise-floor rule. Construction/admission included.",
+      "evidence": "reports/sheet-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "repaired-word100-300-print-performance",
+      "status": "PENDING",
+      "boundary": "Previous7d902print resource failure remains historical. Repaired#530source requires separate browser qualification and new exactsource performance lease.",
+      "evidence": "reports/word-candidate-assessment-v1.json"
+    },
+    {
+      "criterion": "M0-whole-acceptance",
+      "status": "OPEN",
+      "boundary": "Core-only performance PASS does not accept repaired Word, provider/UI or the whole M0 decision pack.",
+      "evidence": null
+    }
+  ],
+  "noHeavyRepeat": true,
+  "noProductionEdits": true
+}
