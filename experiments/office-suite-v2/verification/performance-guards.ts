@@ -1,5 +1,27 @@
 import {execFileSync} from 'node:child_process';
 import {loadavg} from 'node:os';
+
+/** Starts before browser launch. Late owned handles must be retired by their caller. */
+export function createSampleWallGuard(limitMs:number,onExpire:()=>void){
+ if(!Number.isFinite(limitMs)||limitMs<=0)throw new Error('Positive sample wall limit required');
+ const deadline=performance.now()+limitMs,error=new Error(`Sample wall exceeded${limitMs}ms`);
+ let expired=false,stopped=false,rejectExpiry:(error:Error)=>void=()=>{};
+ const expiry=new Promise<never>((_,reject)=>{rejectExpiry=reject;});
+ // A guard may expire between awaited operations. Its rejection is observed by run().
+ void expiry.catch(()=>{});
+ const expire=()=>{if(expired||stopped)return;expired=true;rejectExpiry(error);onExpire();};
+ const timer=setTimeout(expire,limitMs);
+ const remainingMs=()=>{if(performance.now()>=deadline)expire();if(expired||stopped)throw error;return Math.max(1,Math.ceil(deadline-performance.now()));};
+ return {
+  remainingMs,
+  async run<T>(operation:()=>Promise<T>,retireLate?:(value:T)=>Promise<unknown>):Promise<T>{
+   remainingMs();
+   const work=Promise.resolve().then(()=>{remainingMs();return operation();}).then(async value=>{if(performance.now()>=deadline)expire();if(expired||stopped){await retireLate?.(value);throw error;}return value;});
+   return Promise.race([work,expiry]);
+  },
+  stop(){stopped=true;clearTimeout(timer);},
+ };
+}
 /** Guard data is limited to the descendants of the browser process we created. */
 export interface ProcessMemory {pid:number;parentPid:number;rssBytes:number;cpuPercent:number}
 export function ownedBrowserMemory(output:string,rootPid:number){

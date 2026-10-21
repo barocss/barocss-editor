@@ -1,0 +1,43 @@
+{
+  "schema": "office-v2-m0/guard-wall-v3-checks",
+  "native": {
+    "chunk_id": "0caf35",
+    "wall_time_seconds": 0.000006,
+    "exit_code": 0,
+    "original_token_count": 475,
+    "output": "TAP version 13\n# Subtest: memory guard includes only the owned browser and all descendant generations\nok 1 - memory guard includes only the owned browser and all descendant generations\n  ---\n  duration_ms: 0.942042\n  type: 'test'\n  ...\n# Subtest: exited owned root cannot adopt unrelated orphan or malformed memory records\nok 2 - exited owned root cannot adopt unrelated orphan or malformed memory records\n  ---\n  duration_ms: 0.141333\n  type: 'test'\n  ...\n# Subtest: repeatability reports actual variation and refuses missing/nonfinite evidence\nok 3 - repeatability reports actual variation and refuses missing/nonfinite evidence\n  ---\n  duration_ms: 0.131875\n  type: 'test'\n  ...\n# Subtest: frozen v1.1 noise floor preserves tiny phases without admitting large unstable phases\nok 4 - frozen v1.1 noise floor preserves tiny phases without admitting large unstable phases\n  ---\n  duration_ms: 0.075708\n  type: 'test'\n  ...\n# Subtest: sample wall expires pending startup and retires its late owned handle\nok 5 - sample wall expires pending startup and retires its late owned handle\n  ---\n  duration_ms: 17.275667\n  type: 'test'\n  ...\n# Subtest: one wall deadline covers completed startup and the following pending phase\nok 6 - one wall deadline covers completed startup and the following pending phase\n  ---\n  duration_ms: 15.977333\n  type: 'test'\n  ...\n# Subtest: successful sample stops its timer and refuses new operations after retirement\nok 7 - successful sample stops its timer and refuses new operations after retirement\n  ---\n  duration_ms: 26.152542\n  type: 'test'\n  ...\n# Subtest: late synchronous settlement cannot outrun the expiry timer and be accepted\nok 8 - late synchronous settlement cannot outrun the expiry timer and be accepted\n  ---\n  duration_ms: 20.413709\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 437.45\n"
+  },
+  "types": {
+    "chunk_id": "7cca02",
+    "wall_time_seconds": 0.000007333,
+    "exit_code": 0,
+    "original_token_count": 18,
+    "output": "Strict TypeScript 5.9.3: 2 root files; imports included; 0 diagnostics.\n"
+  },
+  "lint": {
+    "chunk_id": "ba859c",
+    "wall_time_seconds": 0.000004875,
+    "exit_code": 0,
+    "original_token_count": 303,
+    "output": "[{\"filePath\":\"/Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/performance-guards.test.ts\",\"messages\":[],\"suppressedMessages\":[],\"errorCount\":0,\"fatalErrorCount\":0,\"warningCount\":0,\"fixableErrorCount\":0,\"fixableWarningCount\":0,\"usedDeprecatedRules\":[{\"ruleId\":\"no-extra-semi\",\"replacedBy\":[]},{\"ruleId\":\"no-mixed-spaces-and-tabs\",\"replacedBy\":[]}]},{\"filePath\":\"/Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/performance-guards.ts\",\"messages\":[],\"suppressedMessages\":[],\"errorCount\":0,\"fatalErrorCount\":0,\"warningCount\":0,\"fixableErrorCount\":0,\"fixableWarningCount\":0,\"usedDeprecatedRules\":[{\"ruleId\":\"no-extra-semi\",\"replacedBy\":[]},{\"ruleId\":\"no-mixed-spaces-and-tabs\",\"replacedBy\":[]}]},{\"filePath\":\"/Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-performance-runner.mjs\",\"messages\":[],\"suppressedMessages\":[],\"errorCount\":0,\"fatalErrorCount\":0,\"warningCount\":0,\"fixableErrorCount\":0,\"fixableWarningCount\":0,\"usedDeprecatedRules\":[{\"ruleId\":\"no-extra-semi\",\"replacedBy\":[]},{\"ruleId\":\"no-mixed-spaces-and-tabs\",\"replacedBy\":[]}]}]\n"
+  },
+  "syntax": {
+    "command": "Node22 --check word-performance-runner.mjs",
+    "exitCode": 0
+  },
+  "scope": "Changed guard helper/test and runner only; no actual browser/profile",
+  "review": {
+    "readOnly": true,
+    "initialFindings": [
+      "Monotonic deadline missing at synchronous settlement",
+      "Early close rejection discarded other owned handles",
+      "Post-sample host readout unbounded"
+    ],
+    "final": "All three corrected; no further concrete defect found"
+  },
+  "firstLintFailure": {
+    "rule": "no-unsafe-finally",
+    "line": 71,
+    "reason": "Throw in finally could replace first failure; moved failure propagation after cleanup"
+  }
+}
