@@ -1,3 +1,5 @@
+import {execFileSync} from 'node:child_process';
+import {loadavg} from 'node:os';
 /** Guard data is limited to the descendants of the browser process we created. */
 export interface ProcessMemory {pid:number;parentPid:number;rssBytes:number;cpuPercent:number}
 export function ownedBrowserMemory(output:string,rootPid:number){
@@ -19,4 +21,10 @@ export function variability(values:readonly number[]){
 export function repeatableMeasurements(values:readonly number[]){
  const stats=variability(values),absoluteSpreadMs=Math.max(...values)-Math.min(...values);
  return {...stats,absoluteSpreadMs,qualified:stats.count>=3&&(stats.coefficientOfVariation<=.25||absoluteSpreadMs<=10)};
+}
+
+export function readReferencePressure(){
+ const vm=execFileSync('vm_stat',{encoding:'utf8'}),pressure=execFileSync('memory_pressure',['-Q'],{encoding:'utf8'});
+ const count=(name:string)=>Number(new RegExp(`^${name}:\\s+(\\d+)`,'m').exec(vm)?.[1]??NaN);
+ return {capturedUtc:new Date().toISOString(),load:loadavg(),memoryFreePercent:Number(/free percentage:\s+(\d+)/.exec(pressure)?.[1]??NaN),pageBytes:Number(/page size of (\d+) bytes/.exec(vm)?.[1]??NaN),swapins:count('Swapins'),swapouts:count('Swapouts'),swapusage:execFileSync('sysctl',['vm.swapusage'],{encoding:'utf8'}).trim()};
 }

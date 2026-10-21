@@ -6,16 +6,21 @@ import { environment,sourceBinding,summarize } from './metrics.ts';
 import { readFileSync,writeFileSync,existsSync,mkdirSync } from 'node:fs';
 import { resolve,dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawnSync,execFileSync } from 'node:child_process';
 import { loadavg } from 'node:os';
+import {readReferencePressure} from './performance-guards.ts';
 
 const here=dirname(fileURLToPath(import.meta.url));const root=resolve(here,'../../..');const out=resolve(here,'reports');mkdirSync(out,{recursive:true});
-const paths=['experiments/office-suite-v2/src/contracts.ts','experiments/office-suite-v2/src/workbook.ts','experiments/office-suite-v2/verification/sheet-scale.mjs','experiments/office-suite-v2/verification/profiles.ts'];
+const paths=['experiments/office-suite-v2/src/contracts.ts','experiments/office-suite-v2/src/workbook.ts','experiments/office-suite-v2/verification/sheet-scale.mjs','experiments/office-suite-v2/verification/profiles.ts','experiments/office-suite-v2/verification/performance-guards.ts','experiments/office-suite-v2/verification/metrics.ts','experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json'];
 const calculationPath=resolve(here,'../src/calculation.ts');
 const runId=process.argv[2]==='--child'?process.argv[4]:new Date().toISOString().replace(/[:.]/g,'-');
-const report={runId,schema:'office-v2-m0/sheet-scale-v1',profile:SHEET_PROFILE,environment:environment(),source:sourceBinding(root,[...paths,...(existsSync(calculationPath)?['experiments/office-suite-v2/src/calculation.ts','experiments/office-suite-v2/src/formula.ts','experiments/office-suite-v2/src/references.ts']:[])]),
- bounds:{perSampleTimeoutMs:60000,maxOldSpaceMiB:768,samples:Number(process.env.M0_SCALE_SAMPLES??3)},samples:[],status:'NOT RUN',limitations:['Headless model/calculation only: no Canvas, scroll, keystroke-to-paint or physical IME.','Ambient host contention is uncontrolled; no acceptance budget or clean-machine capacity claim.','Main sheet has10000rows/100columns; second sheet is empty.50k populated include10k formulas.','Formula AST fixtures use the actual frozen native SUM/range contract, not a second parser/evaluator.']};
-const reportFile=resolve(out,'sheet-scale.json');
+const budget=JSON.parse(readFileSync(resolve(out,'reference-budget-v1.1.json'),'utf8'));
+const modelLeasePath=process.env.M0_MODEL_PROFILE_LEASE;if(!modelLeasePath)throw new Error('Current Integration model performance lease required');
+const modelLease=JSON.parse(readFileSync(modelLeasePath,'utf8'));if(modelLease.status!=='granted'||!modelLease.kind?.includes('performance')||Date.parse(modelLease.deadline_utc)<=Date.now())throw new Error('Model performance lease expired/unqualified');
+for(const path of ['experiments/office-suite-v2/src/workbook.ts','experiments/office-suite-v2/src/calculation.ts','experiments/office-suite-v2/src/references.ts'])if(!execFileSync('git',['show',`${modelLease.source_head}:${path}`],{cwd:root}).equals(readFileSync(resolve(root,path))))throw new Error('Model source differs from leased pin: '+path);
+const report={runId,modelLease,budget,schema:'office-v2-m0/sheet-scale-v2',profile:SHEET_PROFILE,environment:environment(),source:sourceBinding(root,[...paths,...(existsSync(calculationPath)?['experiments/office-suite-v2/src/calculation.ts','experiments/office-suite-v2/src/formula.ts','experiments/office-suite-v2/src/references.ts']:[])]),
+ bounds:{perSampleTimeoutMs:45000,maxOldSpaceMiB:768,samples:Number(process.env.M0_SCALE_SAMPLES??3)},samples:[],status:'NOT RUN',limitations:['Headless model/calculation only: no Canvas, scroll, keystroke-to-paint or physical IME.','Frozen v1.1 engineering targets are separate from measured results; ambient before/after contention must be recorded, no clean-machine/interactive capacity claim.','Main sheet has10000rows/100columns; second sheet is empty.50k populated include10k formulas.','Formula AST fixtures use the actual frozen native SUM/range contract, not a second parser/evaluator.']};
+const reportFile=resolve(out,`sheet-scale-${runId}-summary.json`);
 function save(){writeFileSync(reportFile,JSON.stringify(report,null,2)+'\n');}
 if(process.argv[2]==='--child'){
  const sample=Number(process.argv[3]);const sampleFile=resolve(out,`sheet-scale-${runId}-${sample}.json`);
@@ -44,12 +49,18 @@ if(process.argv[2]==='--child'){
   const engine=phase('register-calculation',()=>new CalculationEngine(projection));phase('initial-recalculate',()=>engine.recalculate());row.initialStats={...engine.stats};
   const value=(rowIndex)=>{const result=engine.read({sheetId:'main',rowId:`r${rowIndex}`,columnId:'c4'},engine.token);if(result.status!=='fresh')throw new Error(`Stale formula${rowIndex}`);return result.value;};
   if(value(0)!==10||value(9999)!==40006)throw new Error('Scale formula fixture values differ');
-  emit({kind:'cell.commit',key:{sheetId:'main',rowId:'r0',columnId:'c0'},input:{kind:'literal',value:999}});
+  phase('edit-event-admission',()=>emit({kind:'cell.commit',key:{sheetId:'main',rowId:'r0',columnId:'c0'},input:{kind:'literal',value:999}}));
   const after=phase('edit-native-projection',()=>projectWorkbook(context,events));const diff=phase('edit-native-diff',()=>diffWorkbook(projection,after));
   phase('edit-calculation-update',()=>engine.update(after,diff,engine.token));phase('dirty-recalculate',()=>engine.recalculate());row.dirtyStats={...engine.stats};if(value(0)!==1008)throw new Error('Dirty formula did not update');
   const changes=[];for(let row=100;row<350;row++)for(let column=0;column<4;column++)changes.push({key:{sheetId:'main',rowId:`r${row}`,columnId:`c${column}`},input:{kind:'literal',value:2}});
-  emit({kind:'cells.commit',changes});const pasted=phase('paste-native-projection',()=>projectWorkbook(context,events));const pasteDiff=phase('paste-native-diff',()=>diffWorkbook(after,pasted));
+  phase('paste-event-admission',()=>emit({kind:'cells.commit',changes}));const pasted=phase('paste-native-projection',()=>projectWorkbook(context,events));const pasteDiff=phase('paste-native-diff',()=>diffWorkbook(after,pasted));
   phase('paste-calculation-update',()=>engine.update(pasted,pasteDiff,engine.token));phase('paste-recalculate',()=>engine.recalculate());row.pasteStats={...engine.stats};if(value(100)!==8||value(349)!==8)throw new Error('Pasted cells did not recalculate');
+  const sum=(...names)=>names.reduce((total,name)=>{const entry=row.phases.find(p=>p.name===name);if(!entry)throw new Error('Missing timed phase '+name);return total+entry.elapsedMs;},0);
+  row.totals={coldConstructionProjectionCalculationMs:sum('construct-native-events','cold-native-projection','register-calculation','initial-recalculate'),oneCellAdmissionProjectionDiffCalculationMs:sum('edit-event-admission','edit-native-projection','edit-native-diff','edit-calculation-update','dirty-recalculate'),paste1000AdmissionProjectionDiffCalculationMs:sum('paste-event-admission','paste-native-projection','paste-native-diff','paste-calculation-update','paste-recalculate')};
+  row.totalDefinition='Sum of measured actual native work phases, excluding evidence serialization/population inventory; construction/admission costs included, never hidden in cache';
+  row.processHighWaterRssBytes=process.resourceUsage().maxRSS*1024;
+  row.dirtyStatsDelta=Object.fromEntries(Object.keys(row.initialStats).map(key=>[key,row.dirtyStats[key]-row.initialStats[key]]));
+  row.pasteStatsDelta=Object.fromEntries(Object.keys(row.dirtyStats).map(key=>[key,row.pasteStats[key]-row.dirtyStats[key]]));
   row.status='PASS: bounded real model workload';
  }catch(error){row.status='FAIL';row.firstFailure=String(error);process.exitCode=1;}
  writeFileSync(sampleFile,JSON.stringify(row,null,2)+'\n');console.log(JSON.stringify({sample,status:row.status}));
@@ -58,13 +69,18 @@ if(process.argv[2]==='--child'){
  if(!existsSync(calculationPath)){report.status='NOT RUN';report.reason='Actual delivered Formula src/calculation.ts absent; no fake evaluator used';save();process.exitCode=2;}
  else{
   for(let sample=0;sample<report.bounds.samples;sample++){
-   const child=spawnSync(process.execPath,['--max-old-space-size=768',fileURLToPath(import.meta.url),'--child',String(sample),runId],{cwd:root,encoding:'utf8',timeout:60000,maxBuffer:1024*1024});
+   if(Date.now()>=Date.parse(modelLease.deadline_utc))throw new Error('Model lease expired before next sample');
+   const systemBefore=readReferencePressure();
+   const child=spawnSync(process.execPath,['--max-old-space-size=768',fileURLToPath(import.meta.url),'--child',String(sample),runId],{cwd:root,encoding:'utf8',timeout:45000,maxBuffer:1024*1024});
    const sampleFile=resolve(out,`sheet-scale-${runId}-${sample}.json`);const partial=existsSync(sampleFile)?JSON.parse(readFileSync(sampleFile,'utf8')):{sample,status:'FAIL',phases:[]};
+   partial.systemBefore=systemBefore;partial.systemAfter=readReferencePressure();partial.swapInBytes=(partial.systemAfter.swapins-systemBefore.swapins)*partial.systemAfter.pageBytes;partial.swapOutBytes=(partial.systemAfter.swapouts-systemBefore.swapouts)*partial.systemAfter.pageBytes;
    partial.process={exitCode:child.status,signal:child.signal,error:child.error?String(child.error):null,stdout:child.stdout,stderr:child.stderr};
    if(child.status!==0){partial.status='FAIL';partial.firstFailure??=partial.process.error??`Child exit${child.status}/${child.signal}`;report.samples.push(partial);report.status='FAIL';report.firstFailure=partial.firstFailure;save();process.exitCode=1;break;}
    report.samples.push(partial);save();
   }
   if(report.samples.length===report.bounds.samples&&report.samples.every(s=>s.status.startsWith('PASS'))){report.status='PASS: observational headless workload only';
+   report.totalPercentiles=Object.keys(report.samples[0].totals).map(name=>({name,ms:summarize(report.samples.map(sample=>sample.totals[name]))}));
+   report.processHighWaterRssBytes=summarize(report.samples.map(sample=>sample.processHighWaterRssBytes));
    report.percentiles=report.samples[0].phases.map(phase=>({phase:phase.name,elapsedMs:summarize(report.samples.map(sample=>sample.phases.find(p=>p.name===phase.name).elapsedMs)),rssBytes:summarize(report.samples.map(sample=>sample.phases.find(p=>p.name===phase.name).memory.rss))}));}
   save();console.log(JSON.stringify({status:report.status,samples:report.samples.length}));
  }
