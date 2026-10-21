@@ -35,7 +35,7 @@ test('two-sheet native workbook is sparse, ordered and identity-bound', () => {
   assert.equal(Object.values(result.outcomes).every(outcome => outcome.status === 'applied'), true);
 });
 test('cell key tuple round-trips delimiter and prototype names', () => {
-  const unusual = { sheetId: '__proto__', rowId: 'x,\"y', columnId: '[z]' };
+  const unusual = { sheetId: '__proto__', rowId: 'x,"y', columnId: '[z]' };
   assert.deepEqual(decodeCellKey(encodeCellKey(unusual)), unusual);
   assert.throws(() => decodeCellKey('["x",3,"z"]'), TypeError);
 });
@@ -234,4 +234,159 @@ test('caller-frozen projections retain canonical number and key comparison seman
   assert.deepEqual(diffWorkbook(native, external).changedCellKeys, []);
   record.winner.input.value = 42;
   assert.deepEqual(diffWorkbook(native, external).changedCellKeys, [key]);
+});
+
+
+// Compare the complete public value and diff against a fresh wire replay. The
+// replay deliberately has different object identities and input ordering.
+function assertAppendReplay(prefix: WorkbookEvent[], appended: WorkbookEvent[]): ReturnType<typeof projectWorkbook> {
+  const before = projectWorkbook(context, prefix);
+  const nextEvents = [...prefix, ...appended];
+  const native = projectWorkbook(context, nextEvents);
+  const cold = projectWorkbook(context, JSON.parse(JSON.stringify(nextEvents.toReversed())));
+  assert.deepEqual(native, cold);
+  assert.equal(native.revision, cold.revision);
+  assert.deepEqual(diffWorkbook(before, native), diffWorkbook(JSON.parse(JSON.stringify(before)), cold));
+  assert.equal(Object.getPrototypeOf(native.cells), null);
+  assert.equal(Object.getPrototypeOf(native.outcomes), null);
+  assert.deepEqual(Object.keys(native.cells), Object.keys(cold.cells));
+  assert.deepEqual(Object.keys(native.outcomes), Object.keys(cold.outcomes));
+  return native;
+}
+
+test('native sequential overwrite retains exact undone and alternative history with an earlier ID', () => {
+  const a = event('history-a', { kind: 'cell.commit', key, input: literal(1) }, ['b5']);
+  const b = event('history-b', { kind: 'cell.commit', key, input: literal(2) }, ['b5'], 'B');
+  const undo = event('history-undo', { kind: 'undo', targetEventId: 'history-a' }, ['history-a', 'history-b']);
+  const prefix = [...bootstrap(), a, b, undo];
+  // Causal order and exact revision event-ID order intentionally disagree.
+  const next = event('0-before-bootstrap', { kind: 'cell.commit', key, input: literal(3) }, ['history-undo']);
+  const result = assertAppendReplay(prefix, [next]);
+  const cell = result.cells[encodeCellKey(key)];
+  assert.equal(cell?.winner?.eventId, next.eventId);
+  assert.deepEqual(cell?.alternatives.map(item => [item.eventId, item.state]), [
+    ['history-a', 'undone'], ['history-b', 'superseded'], ['0-before-bootstrap', 'winner'],
+  ]);
+  const again = event('next', { kind: 'cell.commit', key, input: literal(4) }, [next.eventId]);
+  assertAppendReplay([...prefix, next], [again]);
+});
+
+test('one native overwrite batch matches cold replay across existing cells and prior winners', () => {
+  const otherKey = { sheetId: 's2', rowId: 'r2', columnId: 'c2' };
+  const initial = event('initial', { kind: 'cells.commit', changes: [
+    { key, input: literal(1) }, { key: otherKey, input: literal(2) },
+  ] }, ['b5']);
+  const overwrite = event('overwrite', { kind: 'cells.commit', changes: [
+    { key: otherKey, input: literal(20) },
+    { key, input: { kind: 'formula', version: 1, context: key, ast: { kind: 'number', value: 10 } } },
+  ] }, ['initial']);
+  const result = assertAppendReplay([...bootstrap(), initial], [overwrite]);
+  assert.deepEqual(Object.values(result.cells).map(cell => cell.winner?.eventId), ['overwrite', 'overwrite']);
+  assert.deepEqual(diffWorkbook(projectWorkbook(context, [...bootstrap(), initial]), result).changedCellKeys, [key, otherKey]);
+});
+
+test('covering tip and concurrent same-tip suffix preserve causal alternatives', () => {
+  const first = event('first', { kind: 'cell.commit', key, input: literal(1) }, ['b5']);
+  const left = event('left', { kind: 'cell.commit', key, input: literal(2) }, ['first']);
+  const right = event('right', { kind: 'cell.commit', key, input: literal(3) }, ['first'], 'B');
+  const concurrent = assertAppendReplay([...bootstrap(), first, left], [right]);
+  assert.deepEqual(concurrent.cells[encodeCellKey(key)]?.alternatives.map(item => item.state), ['superseded', 'alternative', 'winner']);
+  const observesOnlyRight = event('only-right', { kind: 'cell.commit', key, input: literal(4) }, ['right']);
+  const partial = assertAppendReplay([...bootstrap(), first, left, right], [observesOnlyRight]);
+  assert.equal(partial.cells[encodeCellKey(key)]?.alternatives.find(item => item.eventId === 'left')?.state, 'alternative');
+  const coversBoth = event('covers-both', { kind: 'cell.commit', key, input: literal(5) }, ['left', 'right']);
+  const complete = assertAppendReplay([...bootstrap(), first, left, right], [coversBoth]);
+  assert.equal(complete.cells[encodeCellKey(key)]?.winner?.eventId, 'covers-both');
+  assert.equal(complete.cells[encodeCellKey(key)]?.alternatives.filter(item => item.state === 'alternative').length, 0);
+  // Two appended events are concurrent, even though each sees the stored tip.
+  assertAppendReplay([...bootstrap(), first], [left, right]);
+});
+
+test('raw, shallow-frozen and replaced prefixes never reuse stale admitted content', () => {
+  const first = event('first', { kind: 'cell.commit', key, input: literal(1) }, ['b5']);
+  const prefix = [...bootstrap(), first];
+  const next = event('next', { kind: 'cell.commit', key, input: literal(2) }, ['first']);
+  projectWorkbook(context, prefix);
+  const raw = JSON.parse(JSON.stringify(first));
+  Object.freeze(raw);
+  raw.command.input.value = 9;
+  const changedPrefix = [...prefix.slice(0, -1), raw];
+  const changed = assertAppendReplay(changedPrefix, [next]);
+  assert.deepEqual(changed.cells[encodeCellKey(key)]?.alternatives[0]?.input, literal(9));
+  raw.command.input.value = 10;
+  assert.deepEqual(assertAppendReplay(changedPrefix, [next]).cells[encodeCellKey(key)]?.alternatives[0]?.input, literal(10));
+  const replacement = event('first', { kind: 'cell.commit', key, input: literal(11) }, ['b5']);
+  const replaced = assertAppendReplay([...prefix.slice(0, -1), replacement], [next]);
+  assert.deepEqual(replaced.cells[encodeCellKey(key)]?.alternatives[0]?.input, literal(11));
+  assertAppendReplay(prefix.toReversed(), [next]);
+});
+
+test('duplicate, collision, pending resolution and error recovery match complete replay', () => {
+  const first = event('first', { kind: 'cell.commit', key, input: literal(1) }, ['b5']);
+  const prefix = [...bootstrap(), first];
+  assertAppendReplay(prefix, [first]);
+  const collision = event('first', { kind: 'cell.commit', key, input: literal(2) }, ['b5']);
+  projectWorkbook(context, prefix);
+  assert.throws(() => projectWorkbook(context, [...prefix, collision]), /collision/);
+  const next = event('next', { kind: 'cell.commit', key, input: literal(3) }, ['first']);
+  assertAppendReplay(prefix, [next]);
+  const unknown = event('unknown-dependency', { kind: 'cell.commit', key, input: literal(99) }, ['first', 'not-yet-known']);
+  const stillPending = assertAppendReplay(prefix, [unknown]);
+  assert.deepEqual(stillPending.outcomes['unknown-dependency'], { status: 'pending', missing: ['not-yet-known'] });
+  assert.equal(stillPending.cells[encodeCellKey(key)]?.winner?.eventId, 'first');
+  const pending = event('pending', { kind: 'cell.commit', key, input: literal(5) }, ['missing']);
+  const resolves = event('missing', { kind: 'cell.commit', key, input: literal(4) }, ['first']);
+  const resolved = assertAppendReplay([...prefix, pending], [resolves]);
+  assert.equal(resolved.outcomes.pending?.status, 'applied');
+  assert.equal(resolved.cells[encodeCellKey(key)]?.winner?.eventId, 'pending');
+  const malformed = { ...next, command: { kind: 'cell.commit', key, input: literal(Infinity) } } satisfies WorkbookEvent;
+  projectWorkbook(context, prefix);
+  assert.throws(() => projectWorkbook(context, [...prefix, malformed]), /INVALID_JSON/);
+  assertAppendReplay(prefix, [next]);
+});
+
+test('new and missing batch cells use atomic complete replay semantics', () => {
+  const first = event('first', { kind: 'cell.commit', key, input: literal(1) }, ['b5']);
+  const prefix = [...bootstrap(), first];
+  const otherKey = { sheetId: 's2', rowId: 'r2', columnId: 'c2' };
+  const newCell = event('new-cell', { kind: 'cells.commit', changes: [
+    { key, input: literal(2) }, { key: otherKey, input: literal(3) },
+  ] }, ['first']);
+  assert.equal(Object.keys(assertAppendReplay(prefix, [newCell]).cells).length, 2);
+  const bad = event('bad', { kind: 'cells.commit', changes: [
+    { key, input: literal(7) }, { key: { ...key, rowId: 'missing' }, input: literal(8) },
+  ] }, ['first']);
+  const refused = assertAppendReplay(prefix, [bad]);
+  assert.equal(refused.outcomes.bad?.status, 'refused');
+  assert.deepEqual(refused.cells[encodeCellKey(key)]?.winner?.input, literal(1));
+});
+
+test('repeated and interleaved contexts preserve revisions and reject incompatible reuse', () => {
+  const first = event('first', { kind: 'cell.commit', key, input: literal(1) }, ['b5']);
+  const next = event('next', { kind: 'cell.commit', key, input: literal(2) }, ['first']);
+  const prefix = [...bootstrap(), first];
+  const before = projectWorkbook(context, prefix);
+  const other = createWorkbookContext({ documentId: 'other', workbookId: 'other', generation: 'g2' });
+  const otherEvent = createEvent(other, { eventId: 'other-sheet', actorId: 'actor-A', sessionId: 'A' }, [], { kind: 'sheet.insert', sheetId: 'other', name: 'Other', afterSheetId: null });
+  projectWorkbook(other, [otherEvent]);
+  assert.deepEqual(projectWorkbook(context, prefix), before);
+  const result = projectWorkbook(context, [...prefix, next]);
+  projectWorkbook(other, [otherEvent]);
+  assert.deepEqual(projectWorkbook(context, [...prefix, next]), result);
+  assert.throws(() => projectWorkbook(other, [...prefix, next]), /INVALID_CONTEXT/);
+  assertAppendReplay(prefix, [next]);
+});
+
+
+test('mutable projection contexts are revalidated after an otherwise eligible prefix', () => {
+  const first = event('first', { kind: 'cell.commit', key, input: literal(1) }, ['b5']);
+  const next = event('next', { kind: 'cell.commit', key, input: literal(2) }, ['first']);
+  const prefix = [...bootstrap(), first];
+  const mutableContext = { ...context };
+  projectWorkbook(mutableContext, prefix);
+  mutableContext.generation = 'g2';
+  assert.throws(() => projectWorkbook(mutableContext, [...prefix, next]), /INVALID_CONTEXT/);
+  mutableContext.generation = context.generation;
+  assert.deepEqual(projectWorkbook(mutableContext, [...prefix, next]), projectWorkbook(context, JSON.parse(JSON.stringify([...prefix, next].toReversed()))));
+  assertAppendReplay(prefix, [next]);
 });

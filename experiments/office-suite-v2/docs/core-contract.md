@@ -289,3 +289,57 @@ memoization of complete replay, not saved content or durable state.
 Remaining O(event count + populated cells + revision bytes) work and retained body
 memory remain measurable. Verification owns unchanged v1.1 total/RSS gates and the
 next exact-source profile; this policy claims no latency or whole-M0 acceptance.
+
+### Checkpoint repair implementation and targeted receipt
+
+Independent measured source 7d902 has exactly E's workbook/contracts blobs. Read-only
+inspection of Verification's three raw `sheet-scale-2026-10-21T16-05-01-114Z-{0,1,2}.json`
+receipts confirmed one-cell totals 296.463 / 462.170 / 268.919 ms, each above the frozen
+200 ms gate. Projection was 226.603 / 381.667 / 204.418 ms and diff 69.332 / 79.961 /
+64.080 ms. Admission, calculation update and dirty recalc were individually below
+0.315 ms. All samples had 10152 events, 50000 cells, 10000 formulas and revision
+12466063 bytes. Those are independent before-repair observations; no identical author
+profile was rerun. The cold/paste/RSS and repeatability boundaries remain in #526.
+
+Implementation follows the preceding frozen policy. Full replay may seed the one
+slot only from unique internally admitted native inputs, a complete nonpending
+event set and a proven covering tip. The existing contiguous-prefix proof is a
+sufficient shortcut; at a DAG join an explicit deduplicated causal closure must
+contain every prior event. No rank-only or actor-only inference is used. The next
+single existing-cell update can copy complete enumerable containers and share
+unchanged immutable records/structures while constructing exact touched histories
+and full canonical revision. Old structural undo outcomes remain unchanged because
+the new event observes every old undo and cannot be its concurrent foreign blocker.
+
+The public wrapper clears the slot before attempting reuse and clears on errors.
+Recursive undo-eligibility projections neither use nor populate it. Every successful
+checkpoint replaces the prior slot without a back reference. Over-cap/unsafe calls
+use the original complete reducer; no alternate admission rules are added. O(C + E)
+container/prefix work and O(revision bytes) revision assembly still remain, including
+the full event-ID ordering even when the appended ID sorts before the old IDs.
+
+Parent/helper file ownership was disjoint: parent authored workbook.ts/manual;
+one helper authored only workbook.test.ts and structure.test.ts; another helper
+performed read-only native safety review. Both final source reviews found no concrete
+defect; they are not substitutes for execution evidence. The test helper ran no
+checks or profiles. Parent ran only the same four Core roots and two test files.
+
+Final targeted result on the implementation source: strict 0 diagnostics; native
+42/42 PASS, 0 skipped. All previous 31 cases remain, plus 11 public-result native vs
+cold JSON/permuted replay regressions for sequential append and arbitrary sorted ID,
+old undone/concurrent histories, batches, incomplete/concurrent tips, two-event
+suffix fallback, raw/shallow-frozen/replaced prefixes, duplicate/colliding IDs,
+missing dependencies and later resolution, errors, new/deleted/missing cell atomic
+fallback, repeated/interleaved/mutable contexts and structural undo. Full projections,
+revision, key/prototype invariants and diffs are compared, without private-cache or
+elapsed-time assertions. The suite uses small functional fixtures; no author scale
+or timing profile was run.
+
+First repair failure: the new malformed-event fixture widened kind to string,
+causing two TS2322 diagnostics. The initial native 42/42 run already passed. The
+helper fixed the fixture with `satisfies WorkbookEvent` and froze the test files;
+final strict/native checks passed. No runtime failing assertion was hidden. The
+Integration-reported root lint diagnostic at old workbook.test.ts:38 was also fixed
+by removing the unnecessary double-quote escape while preserving the exact key.
+Root aggregate lint/preflight and independent frozen-budget measurement belong to
+Integration/Verification; this receipt does not label them PASS or relax any gate.

@@ -165,3 +165,68 @@ test('general moves/merges explicitly refuse; undo is not redo or snapshot resto
     assert.deepEqual(liveRows(p), ['row', 'last']);
   }
 });
+
+
+function assertStructuralAppendReplay(prefix: WorkbookEvent[], appended: WorkbookEvent[]): WorkbookProjection {
+  const before = projectWorkbook(context, prefix);
+  const events = [...prefix, ...appended];
+  const native = projectWorkbook(context, events);
+  const cold = projectWorkbook(context, JSON.parse(JSON.stringify(events.toReversed())));
+  assert.deepEqual(native, cold);
+  assert.equal(native.revision, cold.revision);
+  assert.deepEqual(diffWorkbook(before, native), diffWorkbook(JSON.parse(JSON.stringify(before)), cold));
+  return native;
+}
+
+test('native append after successful structural undo cannot retroactively revive its identity', () => {
+  const insert = event('insert', { kind: 'axis.insert', sheetId: 'sheet', axis: 'row', id: 'new', afterId: 'row' }, ['b3']);
+  const original = event('original', { kind: 'cell.commit', key, input: value(1) }, ['insert']);
+  const undo = event('undo', { kind: 'undo', targetEventId: 'insert' }, ['original']);
+  const prefix = [...bootstrap(), insert, original, undo];
+  const late = event('late', { kind: 'cell.commit', key: { ...key, rowId: 'new' }, input: value(99) }, ['undo'], 'B');
+  const refused = assertStructuralAppendReplay(prefix, [late]);
+  assert.equal(refused.outcomes.undo?.status, 'applied');
+  assert.deepEqual(refused.outcomes.late, { status: 'refused', code: 'DELETED_TARGET', recoverable: true });
+  assert.equal(refused.sheets[0]?.rows.find(row => row.id === 'new')?.deleted, true);
+  const safe = event('safe', { kind: 'cell.commit', key, input: value(2) }, ['undo'], 'B');
+  const applied = assertStructuralAppendReplay(prefix, [safe]);
+  assert.equal(applied.outcomes.undo?.status, 'applied');
+  assert.equal(applied.cells[encodeCellKey(key)]?.winner?.eventId, 'safe');
+  // A formula on a live existing cell may refer to the tombstone. Its later
+  // reference cannot turn the successful historical undo into UNDO_CONFLICT.
+  const referencesDeleted: CellInput = { kind: 'formula', version: 1, context: key, ast: { kind: 'reference', reference: { ...key, rowId: 'new', absRow: false, absColumn: false, sheetQualified: true } } };
+  const formula = event('formula-after-undo', { kind: 'cell.commit', key, input: referencesDeleted }, ['undo'], 'B');
+  const result = assertStructuralAppendReplay(prefix, [formula]);
+  assert.equal(result.outcomes.undo?.status, 'applied');
+  assert.equal(result.outcomes['formula-after-undo']?.status, 'applied');
+  assert.equal(result.sheets[0]?.rows.find(row => row.id === 'new')?.deleted, true);
+});
+
+test('prior refused structural undo and concurrent blocker survive native and cold appends', () => {
+  const insert = event('insert', { kind: 'axis.insert', sheetId: 'sheet', axis: 'row', id: 'new', afterId: 'row' }, ['b3']);
+  const undo = event('a-undo', { kind: 'undo', targetEventId: 'insert' }, ['insert']);
+  const newKey = { ...key, rowId: 'new' };
+  const remote = event('z-remote', { kind: 'cell.commit', key: newKey, input: value(1) }, ['insert'], 'B');
+  const prefix = [...bootstrap(), insert, undo, remote];
+  const next = event('next', { kind: 'cell.commit', key: newKey, input: value(2) }, ['a-undo', 'z-remote'], 'B');
+  const result = assertStructuralAppendReplay(prefix, [next]);
+  assert.deepEqual(result.outcomes['a-undo'], { status: 'refused', code: 'UNDO_CONFLICT', recoverable: true });
+  assert.equal(result.cells[encodeCellKey(newKey)]?.deleted, false);
+  assert.equal(result.cells[encodeCellKey(newKey)]?.winner?.eventId, 'next');
+});
+
+test('native batch touching live and tombstoned cells refuses atomically after deletion', () => {
+  const lastKey = { ...key, rowId: 'last' };
+  const initial = event('initial', { kind: 'cells.commit', changes: [{ key, input: value(1) }, { key: lastKey, input: value(2) }] }, ['b3']);
+  const deletion = event('deletion', { kind: 'axis.delete', sheetId: 'sheet', axis: 'row', id: 'last' }, ['initial']);
+  const prefix = [...bootstrap(), initial, deletion];
+  const invalid = event('invalid', { kind: 'cells.commit', changes: [{ key, input: value(7) }, { key: lastKey, input: value(8) }] }, ['deletion']);
+  const result = assertStructuralAppendReplay(prefix, [invalid]);
+  assert.deepEqual(result.outcomes.invalid, { status: 'refused', code: 'DELETED_TARGET', recoverable: true });
+  assert.deepEqual(result.cells[encodeCellKey(key)]?.winner?.input, value(1));
+  assert.deepEqual(result.cells[encodeCellKey(lastKey)]?.winner?.input, value(2));
+  assert.equal(result.cells[encodeCellKey(lastKey)]?.deleted, true);
+  const restore = event('restore', { kind: 'undo', targetEventId: 'deletion' }, ['invalid']);
+  const restored = assertStructuralAppendReplay([...prefix, invalid], [restore]);
+  assert.equal(restored.cells[encodeCellKey(lastKey)]?.deleted, false);
+});
