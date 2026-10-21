@@ -76,6 +76,79 @@ page-count rules remain unchanged. Integration must assess affected shared-view,
 renderer, Word and other layout-consuming product checks for this production
 delta. An experiment-only justification does not cover it.
 
+## Print successor #530 — prepared source, browser proof pending
+
+The original View candidate W is preserved at
+`522b25bd2477e0dde62c7dbf45271aaf182117e0`. This successor starts from joined
+`7d902bc69bf98b0dc6aaf681a24d34c7066703a1`, tree
+`300251a4c121e39c4df43690108669035adda08f`, in managed worktree
+`530-word-print/barocss-editor`, branch `codex/530-word-print`.
+
+Independent normal-path measurements at that parent produced correct 100/300
+layout without forced bootstrap. Print remained a separate failure:
+
+- Each of three fresh 100-page samples added exactly 331,601 CDP DOM nodes.
+  Source has 2,514 descendant elements, 800 text nodes and one root:
+  `100 * 3315 + 100 page wrappers + 1 container = 331601`.
+- Aggregate owned browser RSS reached 1.60–1.63 GB in the print phase. One sample
+  already exceeded the 512 MiB product target before printing; print is not the
+  only demonstrated memory gate.
+- First 300-page print construction returned 537.3 ms, then aggregate RSS
+  reached 2,198,929,408 bytes and the 2 GiB guard closed the owned browser. The
+  after-print DOM counter and remaining 300-page samples were NOT RUN. The
+  source-derived 2,974,801-node / 8.97x projection is a prediction, not an observed
+  300/100 growth measurement.
+- At 100 pages, cumulative browser layout duration grew from approximately
+  0.04–0.05 s to 2.79–3.07 s. The 61–66 ms JavaScript build duration does not
+  include all deferred browser layout. JS heap did not show equivalent growth;
+  RSS is an aggregate process observation, not proof of a JS heap leak.
+
+The exact source cause is `source.cloneNode(true)` once per sheet. The repair
+reads source geometry once and indexes complete paint units into intersecting
+page buckets. Source and surface ancestors are shallow copies. Whole paragraphs,
+tables and lists are copied only to pages their paint reaches. Descendant bounds
+include overflow, and `.w-sheets` furniture is indexed separately from body text.
+Static body blocks remain static; geometric spacers retain omitted flow offsets,
+so absolute images keep their original section containing block. Furniture keeps
+its original position and transforms. Exact computed source width normalizes
+ancestor zoom without using rounded `offsetWidth` when a used width is available.
+Inherited typography is copied at document/surface boundaries. IDs and SVG/label
+references are remapped per print page. A document-long single block can still
+repeat on every intersecting page; no universal linear-growth claim is made.
+
+Each printer now owns its own output container. Repeated build/clear/detach and
+active-to-inactive cleanup cannot delete another printer's pages. Build failures
+restore prepared state through `finally`; partial pages remain detached. Original
+source/model/view/selection/layout/pagination/Fiber code is unchanged. No
+`print.ts` CSS change was necessary for this prepared projection.
+
+Before repair, the new four projection tests failed 4/4, first because page one
+contained unrelated last-page content. Ownership tests failed 4/5: cross-printer
+deletion, inactive detach, missing restore after build failure, and the missing
+page-local partial-clone path. Those failures are retained as the first ledger.
+After the repair, six projection tests, six ownership tests and seven existing
+print-CSS tests pass (19 total, zero skipped), using existing Vitest 1.6.1 with one
+worker and Node 22.22.0. The extra cases protect fractional width, actual overflow
+bounds and SVG paint/label references. Read-only helper review found the rounded
+width and focus-switch cleanup risks; the parent addressed both.
+
+Strict compilation of the changed standalone `print-pages.ts` reports zero
+diagnostics. `node scripts/typecheck-tests.mjs office-word` passes at the existing
+7/7 diagnostic budget; that is not zero diagnostics. A raw package `tsc -p
+packages/office-word` attempt fails on inherited unused-symbol diagnostics across
+its imported View/renderer source closure, first `DecoratorPosition` in
+`decorator-prebuilder.ts`; this attempt is not reported as PASS and no budgets
+were changed. Targeted ESLint has no errors/new warnings in the changed code;
+the existing browser spec's old `any` warning remains.
+
+The prepared browser spec adds block coordinate equality/locality and native
+document/browser-selection/ID/idempotence checks. Actual existing paragraph seam,
+table continuations/repeated headers, furniture/header-edit restore, math/zoom
+and PDF checks need Integration's serialized exact-candidate runtime lease. They
+have not run at this prepared checkpoint. Verification independently owns the
+unchanged-budget normal 100/300 timing/CDP-node/RSS remeasurement after source
+integration. This source/unit result does not pass performance, PDF or M0.
+
 The required 100/300 layout/print, exact fonts and performance budget remain open.
 No product, release or complete-M0 acceptance is claimed.
 

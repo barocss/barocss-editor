@@ -144,6 +144,67 @@ test.describe('print', () => {
     expect(first.footer).toContain('1 / ');
     expect(first.note).toContain('A footnote body');
   });
+
+  test('keeps page-local complete blocks at their original sheet coordinates', async ({ page }) => {
+    await page.goto('/?sample');
+    await settled(page);
+    const source = await page.evaluate(() => {
+      const sheets = [...document.querySelectorAll<HTMLElement>('#editor .w-sheet')].map(el => {
+        const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right, bottom: r.bottom };
+      });
+      return [...document.querySelectorAll<HTMLElement>('#editor .w-surface > [data-bc-sid]:not(.w-sheets)')].map(el => {
+        const r = el.getBoundingClientRect();
+        return { sid: el.getAttribute('data-bc-sid')!, width: r.width, height: r.height,
+          pages: sheets.flatMap((sheet, index) => r.top < sheet.bottom && r.bottom > sheet.top && r.left < sheet.right && r.right > sheet.left
+            ? [{ index, top: r.top - sheet.top, left: r.left - sheet.left }] : []) };
+      });
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await page.emulateMedia({ media: 'print' });
+    const projected = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.w-print-page')].flatMap((paper, index) => {
+      const p = paper.getBoundingClientRect();
+      return [...paper.querySelectorAll<HTMLElement>('.w-surface > [data-bc-sid]:not(.w-sheets)')].map(el => {
+        const r = el.getBoundingClientRect();
+        return { index, sid: el.getAttribute('data-bc-sid')!, top: r.top - p.top, left: r.left - p.left, width: r.width, height: r.height };
+      });
+    }));
+    for (const block of source) for (const expected of block.pages) {
+      const actual = projected.find(item => item.index === expected.index && item.sid === block.sid);
+      expect(actual, `${block.sid} on page ${expected.index + 1}`).toBeDefined();
+      expect(actual!.top).toBeCloseTo(expected.top, 0);
+      expect(actual!.left).toBeCloseTo(expected.left, 0);
+      expect(actual!.width).toBeCloseTo(block.width, 0);
+      expect(actual!.height).toBeCloseTo(block.height, 0);
+    }
+    // The sample spans many pages. A page projection must not contain every
+    // block in the document merely because the print page clips most of it.
+    expect(projected.length).toBeLessThan(source.length * await page.locator('.w-print-page').count());
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  });
+
+  test('preserves the native document and browser selection across repeated print builds', async ({ page }) => {
+    await page.goto('/?sample');
+    await settled(page);
+    const result = await page.evaluate(() => {
+      const editor = (window as Window & { editor: { exportDocument(): unknown } }).editor;
+      const paragraph = document.querySelector('#editor .w-paragraph')!;
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+      const text = walker.nextNode()!;
+      const range = document.createRange(); range.setStart(text, 0); range.setEnd(text, Math.min(2, text.textContent!.length));
+      const selection = getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+      const anchor = selection.anchorNode, focus = selection.focusNode, anchorOffset = selection.anchorOffset, focusOffset = selection.focusOffset;
+      const native = JSON.stringify(editor.exportDocument());
+      window.dispatchEvent(new Event('beforeprint')); window.dispatchEvent(new Event('beforeprint'));
+      const containers = document.querySelectorAll('.w-print-pages').length;
+      const ids = [...document.querySelectorAll('[id]')].map(el => el.id);
+      window.dispatchEvent(new Event('afterprint')); window.dispatchEvent(new Event('afterprint'));
+      return { containers, uniqueIds: new Set(ids).size === ids.length, native: native === JSON.stringify(editor.exportDocument()),
+        selection: selection.anchorNode === anchor && selection.focusNode === focus && selection.anchorOffset === anchorOffset && selection.focusOffset === focusOffset,
+        cleared: document.querySelector('.w-print-pages') === null };
+    });
+    expect(result).toEqual({ containers: 1, uniqueIds: true, native: true, selection: true, cleared: true });
+  });
 });
 
 /**
