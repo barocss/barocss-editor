@@ -1,0 +1,27 @@
+{
+  "schema": "office-v2-m0/coretext-font-identities-v1",
+  "fonts": [
+    {
+      "requestedPostScriptName": "ArialMT",
+      "actualPostScriptName": "ArialMT",
+      "family": "Arial",
+      "version": "Version 5.01.2x",
+      "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "exactNameMatched": true,
+      "fileBytes": 773236,
+      "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+      "qualifiedIdentity": true
+    },
+    {
+      "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+      "actualPostScriptName": "AppleSDGothicNeo-Regular",
+      "family": "Apple SD Gothic Neo",
+      "version": "19.0d2e1",
+      "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+      "exactNameMatched": true,
+      "fileBytes": 28427796,
+      "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+      "qualifiedIdentity": true
+    }
+  ]
+}
