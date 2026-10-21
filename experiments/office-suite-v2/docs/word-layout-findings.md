@@ -211,6 +211,29 @@ The new unitless case failed before the change. The final focused set now passes
 line-height), six ownership and seven print CSS tests. Actual corrected PDF and
 geometry checks require a fresh source-bound lease and remain pending here.
 
+### P2 actual result and furniture-oracle followup
+
+Exact P2 `086dfc892f4c38949cd0a971616b434908f998df` ran32 on the valid-font
+serialized harness. It exited1 after15.409s with five PASS, one failure and two
+NOT RUN. The source-relative header geometry and mid-edit restore now PASS;
+so do actual saved PDF page count, paragraph seam and paper CSS. The next old
+furniture assertion searched page one's DOM for `A footnote body` and received
+null. Retained trace shows source area `notes-1`, top2040px with
+`translateY(-100%)`, and the same note/body on printed page two. The native
+renderer assigns it through `layout.footnotesByPage`; the fixture does not
+declare it a first-page note. Whole-source copies had made the first print page
+contain every off-page note in its DOM.
+
+The test-only successor compares preprint SOURCE visible header, footer and
+footnote text/type/rectangles per actual sheet with every printed page. It still
+requires first-page `Draft` / `1 / ` and the nonempty known footnote body on its
+source-assigned page. Any missing or shifted source-visible note fails. It also
+extends the existing header case with a small actual fixed24px inherited context
+and the same source-rectangle oracle; case count remains eight. This separates
+actual browser unitless/fixed geometry from the two stubbed unit-copy cases.
+No production source changes after P2. All previous raw failures are preserved;
+no Stage B or performance run occurred at these failing checkpoints.
+
 The required 100/300 layout/print, exact fonts and performance budget remain open.
 No product, release or complete-M0 acceptance is claimed.
 

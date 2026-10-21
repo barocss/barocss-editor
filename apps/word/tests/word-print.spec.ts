@@ -109,7 +109,7 @@ test.describe('print', () => {
     await page.goto('/?sample');
     await settled(page);
 
-    const sourceHeaders = await page.evaluate(() => {
+    const readSourceHeaders = () => page.evaluate(() => {
       const headers = [...document.querySelectorAll<HTMLElement>('#editor .w-header')];
       return [...document.querySelectorAll<HTMLElement>('#editor .w-sheet')].map(sheet => {
         const paper = sheet.getBoundingClientRect();
@@ -120,6 +120,7 @@ test.describe('print', () => {
         });
       });
     });
+    const sourceHeaders = await readSourceHeaders();
     const headersPerPage = async () => {
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
       await page.emulateMedia({ media: 'print' });
@@ -140,14 +141,17 @@ test.describe('print', () => {
     expect(normal.length).toBeGreaterThan(1);
     expect(new Set(sourceHeaders.flat().map(header => header.text)).size).toBeGreaterThan(1);
     expect(sourceHeaders.some(headers => headers.length === 0)).toBe(true); // Section 2 has no header binding.
-    expect(normal.map(headers => headers.map(header => header.text))).toEqual(sourceHeaders.map(headers => headers.map(header => header.text)));
-    for (const [index, headers] of normal.entries()) for (const [at, actual] of headers.entries()) {
-      const expected = sourceHeaders[index][at];
-      expect(actual.top).toBeCloseTo(expected.top, 0);
-      expect(actual.left).toBeCloseTo(expected.left, 0);
-      expect(actual.width).toBeCloseTo(expected.width, 0);
-      expect(actual.height).toBeCloseTo(expected.height, 0);
-    }
+    const compareHeaders = (actualPages: typeof sourceHeaders, expectedPages: typeof sourceHeaders) => {
+      expect(actualPages.map(headers => headers.map(header => header.text))).toEqual(expectedPages.map(headers => headers.map(header => header.text)));
+      for (const [index, headers] of actualPages.entries()) for (const [at, actual] of headers.entries()) {
+        const expected = expectedPages[index][at];
+        expect(actual.top).toBeCloseTo(expected.top, 0);
+        expect(actual.left).toBeCloseTo(expected.left, 0);
+        expect(actual.width).toBeCloseTo(expected.width, 0);
+        expect(actual.height).toBeCloseTo(expected.height, 0);
+      }
+    };
+    compareHeaders(normal, sourceHeaders);
 
     // Editing a header shows the real node in place of the copy on the first
     // page and suppresses the copies on all the others — right for editing,
@@ -162,6 +166,15 @@ test.describe('print', () => {
 
     // And the reader is still in the header when the printing is over.
     await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
+
+    // The native sample above exercises unitless inheritance. A fixed inherited
+    // length must retain its different semantics when furniture has smaller type.
+    await page.evaluate(() => window.setEditingFurniture?.(undefined));
+    await settled(page);
+    await page.locator('#editor .w-document').evaluate(el => { (el as HTMLElement).style.lineHeight = '24px'; });
+    const fixedSource = await readSourceHeaders();
+    expect(fixedSource.flat()[0].height).toBeGreaterThan(sourceHeaders.flat()[0].height);
+    compareHeaders(await headersPerPage(), fixedSource);
   });
 
   test('prints the paper the section describes', async ({ page }) => {
@@ -180,7 +193,19 @@ test.describe('print', () => {
   test('carries the page furniture onto the paper', async ({ page }) => {
     await page.goto('/?sample');
     await settled(page);
+    const expectedFurniture = await page.evaluate(() => {
+      const notes = [...document.querySelectorAll<HTMLElement>('#editor .w-header, #editor .w-footer, #editor .w-footnotes')];
+      return [...document.querySelectorAll<HTMLElement>('#editor .w-sheet')].map(sheet => {
+        const paper = sheet.getBoundingClientRect();
+        return notes.flatMap(note => {
+          const r = note.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < paper.bottom && r.bottom > paper.top
+            ? [{ kind: note.className, text: note.textContent?.trim(), top: r.top - paper.top, left: r.left - paper.left, width: r.width, height: r.height }] : [];
+        });
+      });
+    });
     await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+    await page.emulateMedia({ media: 'print' });
 
     // Headers, footers, page numbers and footnotes are drawn per page on the
     // sheet layer. Clipping is what gives each printed page the ones that belong
@@ -189,12 +214,30 @@ test.describe('print', () => {
     const first = await page.evaluate(() => {
       const page = document.querySelectorAll('.w-print-page')[0];
       const text = (selector: string) => page.querySelector(selector)?.textContent?.trim() ?? null;
-      return { header: text('.w-header'), footer: text('.w-footer'), note: text('.w-footnotes') };
+      return { header: text('.w-header'), footer: text('.w-footer') };
     });
+
+    const actualFurniture = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.w-print-page')].map(paper => {
+      const p = paper.getBoundingClientRect();
+      return [...paper.querySelectorAll<HTMLElement>('.w-header, .w-footer, .w-footnotes')].map(note => {
+        const r = note.getBoundingClientRect();
+        return { kind: note.className, text: note.textContent?.trim(), top: r.top - p.top, left: r.left - p.left, width: r.width, height: r.height };
+      });
+    }));
 
     expect(first.header).toContain('Draft');
     expect(first.footer).toContain('1 / ');
-    expect(first.note).toContain('A footnote body');
+    expect(expectedFurniture.flat().map(note => note.text).join(' ')).toContain('A footnote body');
+    expect(actualFurniture.map(notes => notes.map(note => [note.kind, note.text]))).toEqual(expectedFurniture.map(notes => notes.map(note => [note.kind, note.text])));
+    for (const [index, notes] of actualFurniture.entries()) for (const [at, note] of notes.entries()) {
+      const expected = expectedFurniture[index][at];
+      expect(note.top).toBeCloseTo(expected.top, 0);
+      expect(note.left).toBeCloseTo(expected.left, 0);
+      expect(note.width).toBeCloseTo(expected.width, 0);
+      expect(note.height).toBeCloseTo(expected.height, 0);
+    }
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   });
 
   test('keeps page-local complete blocks at their original sheet coordinates', async ({ page }) => {
