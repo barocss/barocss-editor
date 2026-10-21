@@ -174,3 +174,64 @@ test('revision includes body/context; diff identifies changed cell and structure
   const different = projectWorkbook(createWorkbookContext({ documentId: 'other', workbookId: 'other', generation: 'g1' }), []);
   assert.throws(() => diffWorkbook(before, different), TypeError);
 });
+
+test('replayed immutable input stays equivalent and external JSON stays untrusted', () => {
+  const input: CellInput = { kind: 'formula', version: 1, context: key, ast: { kind: 'number', value: 7 } };
+  const accepted = event('accepted', { kind: 'cell.commit', key, input }, ['b5']);
+  const before = projectWorkbook(context, [...bootstrap(), accepted]);
+  const after = projectWorkbook(context, [...bootstrap().reverse(), accepted]);
+  assert.deepEqual(before, after);
+  assert.equal(Object.isFrozen(after.cells[encodeCellKey(key)]?.winner?.input), true);
+
+  const raw = { ...accepted, command: { kind: 'cell.commit', key: { ...key }, input: { kind: 'literal', value: 5 } } } satisfies WorkbookEvent;
+  const checked = validateEvent(raw, context);
+  assert.equal(checked.ok, true);
+  if (!checked.ok) return;
+  Object.freeze(raw); // A caller's shallow freeze is not a Core admission receipt.
+  raw.command.input.value = 99;
+  assert.deepEqual(projectWorkbook(context, [...bootstrap(), checked.event]).cells[encodeCellKey(key)]?.winner?.input, literal(5));
+  assert.deepEqual(projectWorkbook(context, [...bootstrap(), raw]).cells[encodeCellKey(key)]?.winner?.input, literal(99));
+  raw.command.input.value = Infinity;
+  assert.throws(() => projectWorkbook(context, [...bootstrap(), raw]), /INVALID_JSON/);
+  const anotherGeneration = createWorkbookContext({ documentId: 'doc', workbookId: 'book', generation: 'g2' });
+  assert.throws(() => projectWorkbook(anotherGeneration, [accepted]), /INVALID_CONTEXT/);
+});
+
+test('native reuse and JSON replay produce exact equal revisions, records and diffs', () => {
+  const events = bootstrap();
+  let previous = projectWorkbook(context, events);
+  const steps: WorkbookCommand[] = [
+    { kind: 'cell.commit', key, input: { kind: 'formula', version: 1, context: key, ast: { kind: 'number', value: 7 } } },
+    { kind: 'cell.commit', key, input: literal(8) },
+    { kind: 'undo', targetEventId: 'step1' },
+    { kind: 'axis.delete', sheetId: 's1', axis: 'row', id: 'r1' },
+    { kind: 'undo', targetEventId: 'step3' },
+    { kind: 'unsupported', operation: 'merge' },
+  ];
+  for (let i = 0; i < steps.length; i++) {
+    const command = steps[i];
+    if (!command) throw new Error('Missing test step');
+    events.push(event('step' + i, command, [events.at(-1)?.eventId ?? 'b5']));
+    const next = projectWorkbook(context, events);
+    const cold = projectWorkbook(context, JSON.parse(JSON.stringify(events.toReversed())));
+    assert.deepEqual(next, cold);
+    const reparsedBefore = JSON.parse(JSON.stringify(previous));
+    const reparsedAfter = JSON.parse(JSON.stringify(next));
+    assert.deepEqual(diffWorkbook(previous, next), diffWorkbook(reparsedBefore, reparsedAfter));
+    assert.deepEqual(diffWorkbook(previous, next), diffWorkbook(previous, reparsedAfter));
+    previous = next;
+  }
+});
+
+test('caller-frozen projections retain canonical number and key comparison semantics', () => {
+  const zero = event('zero', { kind: 'cell.commit', key, input: literal(0) }, ['b5']);
+  const native = projectWorkbook(context, [...bootstrap(), zero]);
+  const external = JSON.parse(JSON.stringify(native));
+  const record = external.cells[encodeCellKey(key)];
+  record.winner.input.value = -0;
+  record.key = Object.fromEntries(Object.entries(record.key).reverse());
+  Object.freeze(external); // Provenance cannot be forged with a shallow freeze.
+  assert.deepEqual(diffWorkbook(native, external).changedCellKeys, []);
+  record.winner.input.value = 42;
+  assert.deepEqual(diffWorkbook(native, external).changedCellKeys, [key]);
+});

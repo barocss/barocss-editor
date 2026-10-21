@@ -6,6 +6,11 @@ import type {
   RefusalCode, WorkbookDiff, Axis,
 } from './contracts.ts';
 
+// Only Core's detached, deeply frozen validation outputs acquire this provenance.
+// Caller-frozen objects and reparsed event bodies must still pass full admission.
+const admittedEvents = new WeakMap<WorkbookEvent, { contextBody: string; body: string }>();
+const nativeProjections = new WeakSet<WorkbookProjection>();
+
 const compare = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
 const id = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= CORE_LIMITS.idLength;
 const text = (v: unknown): v is string => typeof v === 'string' && v.length <= CORE_LIMITS.textLength;
@@ -27,6 +32,20 @@ function canonical(v: unknown): string {
   if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']';
   if (object(v)) return '{' + Object.keys(v).sort(compare).map(key => JSON.stringify(key) + ':' + canonical(v[key])).join(',') + '}';
   return JSON.stringify(v);
+}
+/** Exact JSON equality for Core-owned immutable data, without serialized copies. */
+function sameNativeValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!sameNativeValue(a[i], b[i])) return false;
+    return true;
+  }
+  if (!object(a) || !object(b)) return false;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  for (const key of keys) if (!Object.hasOwn(b, key) || !sameNativeValue(a[key], b[key])) return false;
+  return true;
 }
 /** Inspect descriptors before touching values: accessors cannot run during admission. */
 function jsonProblem(value: unknown, ancestors = new Set<object>(), depth = 0): string | null {
@@ -137,18 +156,23 @@ export function createWorkbookContext(identity: Pick<WorkbookContext, 'documentI
 export function validateEvent(value: unknown, context: WorkbookContext): ValidationResult {
   const problem = jsonProblem(value);
   if (problem) return { ok: false, code: 'INVALID_JSON', message: problem };
-  if (new TextEncoder().encode(canonical(value)).length > CORE_LIMITS.eventBytes) return { ok: false, code: 'LIMIT', message: 'Event exceeds byte limit' };
-  if (jsonProblem(context) || !contextShape(context) || !object(value) || !contextShape(value.context) || canonical(context) !== canonical(value.context)) {
+  const body = canonical(value);
+  if (new TextEncoder().encode(body).length > CORE_LIMITS.eventBytes) return { ok: false, code: 'LIMIT', message: 'Event exceeds byte limit' };
+  if (jsonProblem(context) || !contextShape(context) || !object(value) || !contextShape(value.context)) {
     return { ok: false, code: 'INVALID_CONTEXT', message: 'Context/version mismatch' };
   }
+  const contextBody = canonical(context);
+  if (contextBody !== canonical(value.context)) return { ok: false, code: 'INVALID_CONTEXT', message: 'Context/version mismatch' };
   if (object(value.command) && !['sheet.insert', 'axis.insert', 'axis.delete', 'cell.commit', 'cells.commit', 'undo', 'unsupported'].includes(String(value.command.kind))) {
     return { ok: false, code: 'UNKNOWN_COMMAND', message: 'Unknown command' };
   }
   if (!eventShape(value)) return { ok: false, code: 'INVALID_EVENT', message: 'Malformed event, input, dependencies or limits' };
   // Use the native JSON wire representation, including JSON's -0 -> 0 rule.
-  const cloned: unknown = JSON.parse(canonical(value));
+  const cloned: unknown = JSON.parse(body);
   if (!eventShape(cloned)) return { ok: false, code: 'INVALID_EVENT', message: 'Invalid canonical event' };
-  return { ok: true, event: frozen(cloned) };
+  const event = frozen(cloned);
+  admittedEvents.set(event, { contextBody, body });
+  return { ok: true, event };
 }
 export function createEvent(context: WorkbookContext, identity: EventIdentity, dependencies: readonly string[], command: WorkbookCommand): WorkbookEvent {
   if (jsonProblem(identity) || !object(identity) || !fields(identity, ['eventId', 'actorId', 'sessionId']) || jsonProblem(context) || jsonProblem(dependencies) || jsonProblem(command)) throw new TypeError('Invalid event constructor input');
@@ -253,6 +277,7 @@ function heapPop(heap: string[]): string | undefined {
 
 export function projectWorkbook(context: WorkbookContext, input: readonly WorkbookEvent[]): WorkbookProjection {
   if (jsonProblem(context) || !contextShape(context)) throw new TypeError('Invalid projection context');
+  const contextBody = canonical(context);
   if (!Array.isArray(input) || Object.getPrototypeOf(input) !== Array.prototype || input.length > CORE_LIMITS.events ||
       Reflect.ownKeys(input).length !== input.length + 1 || Array.from({ length: input.length }, (_, i) => {
         const descriptor = Object.getOwnPropertyDescriptor(input, i);
@@ -261,10 +286,18 @@ export function projectWorkbook(context: WorkbookContext, input: readonly Workbo
   const events = new Map<string, WorkbookEvent>();
   const bodies = new Map<string, string>();
   for (const raw of input) {
-    const checked = validateEvent(raw, context);
-    if (!checked.ok) throw new TypeError(checked.code + ': ' + checked.message);
-    const event = checked.event;
-    const body = canonical(event);
+    const admitted = admittedEvents.get(raw);
+    let event: WorkbookEvent;
+    let body: string;
+    if (admitted?.contextBody === contextBody) {
+      event = raw;
+      body = admitted.body;
+    } else {
+      const checked = validateEvent(raw, context);
+      if (!checked.ok) throw new TypeError(checked.code + ': ' + checked.message);
+      event = checked.event;
+      body = admittedEvents.get(event)?.body ?? canonical(event);
+    }
     if (bodies.has(event.eventId) && bodies.get(event.eventId) !== body) throw new TypeError('Event ID body collision: ' + event.eventId);
     events.set(event.eventId, event);
     bodies.set(event.eventId, body);
@@ -491,14 +524,18 @@ export function projectWorkbook(context: WorkbookContext, input: readonly Workbo
     cellResult[encoded] = { key: cell.key, deleted, winner: alternatives.find(item => item.state === 'winner') ?? null, alternatives };
   }
   const eventIds = [...events.keys()].sort(compare);
-  return frozen({ context: structuredClone(context), revision: canonical(context) + '[' + eventIds.map(eventId => bodies.get(eventId)).join(',') + ']', sheets: sheetResult, cells: cellResult, outcomes, eventIds });
+  const projection = frozen({ context: structuredClone(context), revision: contextBody + '[' + eventIds.map(eventId => bodies.get(eventId)).join(',') + ']', sheets: sheetResult, cells: cellResult, outcomes, eventIds });
+  nativeProjections.add(projection);
+  return projection;
 }
 
 export function diffWorkbook(before: WorkbookProjection, after: WorkbookProjection): WorkbookDiff {
   if (canonical(before.context) !== canonical(after.context)) throw new TypeError('Cannot diff different workbook contexts');
+  const native = nativeProjections.has(before) && nativeProjections.has(after);
+  const same = native ? sameNativeValue : (a: unknown, b: unknown): boolean => canonical(a) === canonical(b);
   const changedCellKeys: CellKey[] = [];
   for (const key of [...new Set([...Object.keys(before.cells), ...Object.keys(after.cells)])].sort(compare)) {
-    if (canonical(before.cells[key] ?? null) !== canonical(after.cells[key] ?? null)) {
+    if (!same(before.cells[key] ?? null, after.cells[key] ?? null)) {
       const cell = after.cells[key] ?? before.cells[key];
       if (cell) changedCellKeys.push(cell.key);
     }
@@ -506,6 +543,6 @@ export function diffWorkbook(before: WorkbookProjection, after: WorkbookProjecti
   const prior = new Map(before.sheets.map(sheet => [sheet.id, sheet]));
   const later = new Map(after.sheets.map(sheet => [sheet.id, sheet]));
   const changedStructureSheetIds = [...new Set([...prior.keys(), ...later.keys()])].sort(compare)
-    .filter(sheetId => canonical(prior.get(sheetId) ?? null) !== canonical(later.get(sheetId) ?? null));
+    .filter(sheetId => !same(prior.get(sheetId) ?? null, later.get(sheetId) ?? null));
   return frozen({ changedCellKeys, changedStructureSheetIds, revision: after.revision });
 }

@@ -34,7 +34,9 @@ collation determines a winner. Canonical encoding sorts object keys, preserves
 array order and uses JSON's negative-zero-to-zero canonicalization. Admission clones
 through that wire representation so local and transported native numbers agree.
 Other invalid/unknown values are rejected, not normalized. Projection is recursively
-frozen and detached from caller objects.
+frozen and detached from caller-owned mutable data. Internally admitted immutable
+events/inputs may be shared between projections; callers cannot forge admission by
+freezing an object.
 `revision` is the exact canonical encoding of context and sorted unique events,
 not a hash, save acknowledgment or monotonic revision number. It trades memory for
 collision-free M0 cache binding; the scale probe must measure this cost.
@@ -160,7 +162,7 @@ undo, same-account other-session refusal, concurrent deletion markers/restoratio
 post-undo edit refusal without revival, invalid/pending blocker exclusion, atomic
 batch refusal, JSON/dependency/AST/byte limits and immutable projections.
 
-No Core targeted command failed. First semantic defects were source-review findings:
+No initial R targeted command failed. First semantic defects were source-review findings:
 the initial all-sibling ID order broke interior insertion (Formula), and raw
 foreign payload lookahead could revive a row after successful undo (Planner).
 Both were corrected and have explicit native regressions above. A patch application
@@ -172,3 +174,78 @@ copy/cut runtime checks, the required scale benchmark and genuine Office flows a
 NOT RUN by this lane. Formula and Collaboration must consume this actual runtime;
 Integration owns their common source base and combined checks. No M0, Issue closure,
 product, release or deployment acceptance follows this Core candidate.
+
+## 2026-10-22 bounded allocation investigation
+
+Scope remains #523 / core-v1, with the same five leased paths. Analysis and candidate
+base is exact final checkpoint `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`, tree
+`b0093963b96cccf62c2595dca09417e8cab0306d`. The author worktree fast-forwarded cleanly
+from R; no inherited WIP, dependency, contract or other lane source was edited.
+
+The resumed assignment reports approximately 866 ms cold projection, 883 ms edit
+projection, 543 ms edit diff and 0.047 ms dirty calculation for the real 10k-row /
+50k-cell / 10k-formula probe, with a 12.46 MB revision and 10152 events. These are
+received observations, not a new author measurement or a qualified latency budget.
+
+Source evidence at f4, ranked by direct support:
+
+1. `workbook.ts:137` validation walks descriptors and AST, serializes for the byte
+   limit, serializes again for JSON clone, reparses/rechecks and freezes each event.
+   `workbook.ts:263` does this again for all input events on every projection, then
+   serializes them a third time for bodies. This includes immutable events already
+   returned by Core admission. Repeated payload-size work and allocations are
+   directly visible; their exact share of elapsed time is not instrumented.
+2. `workbook.ts:497` diff serializes both versions of every cell and each whole
+   sheet structure. A single cell edit therefore allocates full comparison strings
+   for unchanged inputs and axes as well. It does not exploit immutable input identity.
+3. `workbook.ts:272` still rebuilds causal graph/order; `workbook.ts:479` rebuilds
+   all structure/cell projections and `workbook.ts:494` assembles the full exact
+   revision. These are independent whole-state costs. Causal maxima per hot cell
+   can take quadratic history comparisons, and structural undo lookahead can replay
+   smaller closures. The supplied profile does not isolate those worst cases.
+
+The narrow correction preserves replay, public signatures, all refusal/undo rules,
+error precedence, version bounds and the complete collision-free revision:
+
+- Admission computes one exact canonical body and privately records it against the
+  detached deeply frozen event clone in a WeakMap. Projection reuses that event and
+  body only for this private provenance and exact canonical context equality.
+  Mutable/raw, caller-frozen, reparsed and incompatible-context inputs still take
+  full admission. validateEvent itself continues to detach and validate its input.
+- Core privately recognizes its own immutable projection roots in a WeakSet. Diff
+  between two native roots compares actual JSON structure without serialized copies;
+  immutable shared subtrees have an identity fast path. JSON-native finite values,
+  canonicalized signed zero, object key sets and ordered arrays have exactly the
+  same equality as the original canonical comparison. If either projection was
+  externally built/reparsed, the original canonical comparison remains in use.
+
+These are derived memoized facts, not a second editable workbook or a persistent
+incremental engine. Weak keys do not retain dead events/projections. Live admitted
+events do retain their canonical bodies, so retained-body memory is O(retained
+payload bytes); this cost must be included in Verification measurements. Every
+projection still replays, rebuilds records and emits the complete exact revision.
+Diff still scans/sorts the key union and scans structures. No speedup or capacity
+claim follows from the source change alone. An externally reparsed event on each
+call does not gain cross-call admission reuse; the Collaboration API is unchanged.
+
+Targeted validation uses the same four roots and two Core test files listed above.
+Final result: strict 0 diagnostics; native 31/31 PASS, 0 skipped. The original 28
+cases remain, plus native cold/warm/permuted JSON replay and exact revision/diff
+equivalence, mutable/shallow-frozen raw input isolation and context rejection, and
+external projection key-order/signed-zero/mutation fallback coverage. Assertions
+compare observable results, not private cache entries or timing thresholds.
+
+First Phase C failures are preserved separately: an initial diagnostic asserted
+shared input reference identity on the old engine and failed (29/30). Planner asked
+for observable equality regressions rather than implementation assertions; that
+diagnostic was replaced by cold/warm projection equality. The next targeted type
+run reported four TS2322 diagnostics because the new mutable raw-event fixture's
+literal discriminants widened to string; native 30/30 already passed. The fixture
+now uses `satisfies WorkbookEvent` without casts/suppression, and the final expanded
+31-case run plus strict check passed. Neither is a claimed protocol failure or a
+permission to relax the existing semantic tests.
+
+No whole repository suite, other lane tests or full-scale/timing profile ran here.
+Integration owns combined source checks; Verification owns before/after measurement
+on exact immutable candidates in a bounded window. M0 and performance acceptance
+remain open, including the separate Word timeout and unqualified environment.
