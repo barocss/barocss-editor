@@ -1,0 +1,199 @@
+{
+  "schema": "office-v2-m0/word-memory-diagnostic-protocol-v1",
+  "status": "FROZEN BEFORE DATA: diagnostic only, never qualification PASS",
+  "authority": "Planner #521 direct diagnostic dispatch under existing Verification #526 ownership",
+  "referenceProductionHead": "4579f1030174bf87e4679888458d5631a35fe492",
+  "productionFiles": [
+    {
+      "path": "apps/word/src/runtime.ts",
+      "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+    },
+    {
+      "path": "packages/editor-view-dom/src/editor-view-dom.ts",
+      "sha256": "df476aec72a812df0e2c49ef657204cedd00a0cf24ee66892e16d9da466a9bfa"
+    },
+    {
+      "path": "packages/office-word/src/word-layout-pass.ts",
+      "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+    },
+    {
+      "path": "packages/office-word/src/measurement.ts",
+      "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+    },
+    {
+      "path": "packages/office-word/src/layout.ts",
+      "sha256": "664e15e422665531a6ecd4a37559fd28c16994c3a3b6c593967ceea94ec8ce89"
+    },
+    {
+      "path": "packages/office-word/src/pagination.ts",
+      "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+    },
+    {
+      "path": "packages/office-word/src/print-pages.ts",
+      "sha256": "7de7bf402c10fa444502ff17ad2f9a835bd82bb14efeb8f9963c6729119eac21"
+    },
+    {
+      "path": "packages/office-word/src/renderers/page.ts",
+      "sha256": "2f22023f5c0b7afd34a4e70ad864e00d0ec9d845d1bb83a16255f110e18dbcaa"
+    },
+    {
+      "path": "packages/office-word/src/ui.css",
+      "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+    },
+    {
+      "path": "packages/office-text/src/text.css",
+      "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+    },
+    {
+      "path": "packages/office-word/src/render-context.ts",
+      "sha256": "fe4e8f6a0acc3f0331f3abe2fa7362e95efbe8e09225e3c1bada85f653d84367"
+    },
+    {
+      "path": "packages/office-word/src/font-loader.ts",
+      "sha256": "6519ab82874bc8b1f0397838038a86f5e60743f06a806acf71901cee2968149d"
+    },
+    {
+      "path": "packages/renderer-dom/src/dom-renderer.ts",
+      "sha256": "94310528c134fd7877795623c0756c3e97b62091e1dd662abb95652d45276ee1"
+    },
+    {
+      "path": "packages/renderer-dom/src/scheduler.ts",
+      "sha256": "e79fa52c853b9bbc4511c2f6ae0318885ffea101504679639cf3def650551c9d"
+    },
+    {
+      "path": "packages/renderer-dom/src/reconcile/reconciler.ts",
+      "sha256": "e229a6d7edd632a80ba3f2f7011bffa07cf9355ff3ccf75dd737e32a76513872"
+    },
+    {
+      "path": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+      "sha256": "d190c6361aa73532da42af1b8e1b835e5c2126ecd596fc8f8a90008e18c84ce9"
+    },
+    {
+      "path": "packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+      "sha256": "4c93720795a92e71266373572c1885dbb4040274e7ec6bc0ba6c3cca5a4bd28f"
+    }
+  ],
+  "normalHarnessFiles": [
+    {
+      "path": "word-performance-runner.mjs",
+      "sha256": "9f51c8c97b97270819660ee29f5f22dc9aa94e1b5777f46f8195a1939db2eb24"
+    },
+    {
+      "path": "word-performance-browser.mjs",
+      "sha256": "75fbfe2dee394bf0576d964da941af010b49bc1ec1bc19799e5b826bad7fe4d0"
+    },
+    {
+      "path": "performance-guards.ts",
+      "sha256": "5454187e7f79b8613a74467a2ae33eaafcbc0eb112a205484cae90f30ea2dbf4"
+    },
+    {
+      "path": "profiles.ts",
+      "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+    },
+    {
+      "path": "metrics.ts",
+      "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+    },
+    {
+      "path": "font-metadata.py",
+      "sha256": "969a6c9f66e6a94b9c492118f4e3252013b231ca83951f7b3d03ee7cbb3c0ab7"
+    },
+    {
+      "path": "word-performance.html",
+      "sha256": "c967f2a610a5d5669bea064f13408fafff2edf7181226d1f58a1fa11c97e0708"
+    }
+  ],
+  "frozenBudgetSha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+  "input": {
+    "pages": 100,
+    "paragraphs": 800,
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "sameNativeProfile": true
+  },
+  "seams": [
+    "module-ready-before-dom-css",
+    "module-ready-after-dom-css",
+    "combined-native-open-layout-and-inventory",
+    "after-actual-font-query",
+    "after-full-warm-native-completion-before-print",
+    "immediate-print-return",
+    "after-explicit-geometry-readout-and-three-raf",
+    "after-clearPrint",
+    "after-runtime-dispose",
+    "after-dom-css-release-before-diagnostic-gc",
+    "after-one-final-diagnostic-gc"
+  ],
+  "collection": {
+    "snapshotsPerSeam": 2,
+    "order": [
+      "ownedPID-parent-RSS",
+      "page-used-total-JSheap-numeric-state",
+      "CDPPerformance-JSheap-and-layout",
+      "native-CDP-DOM-counters"
+    ],
+    "clock": "Every read and seam brackets runner UTC+monotonic time; page has separate timeOrigin+performance.now. Total bracket/skew is recorded; no atomic claim.",
+    "inlineEdges": "Browser wrapper returns numeric page heap at actual API return, particularly synchronous print, before the cross-process readout pair.",
+    "storage": "Numbers/strings/JSON arrays only, no stored DOM or remote object handles",
+    "Performance": "Enable before first snapshot. Missing page heap/CDP metrics are unavailable/null, never zero.",
+    "observers": "DOM/CSS enable is deliberately observed before cold open, matching existing harness order. Font walk/computed style/CDP query cost is separate from warm render. Release only after dispose.",
+    "nativeOpenBoundary": "Existing API fixture/admission/mount/fonts/stable native layout plus source TreeWalker inventory are combined; no invented admission-only memory seam.",
+    "deferredBoundary": "Explicit geometry reads can force browser style/layout. Three RAF callbacks do not certify paint completion.",
+    "finalGC": "Exactly one HeapProfiler.collectGarbage after dispose and observer release; before/after diagnostic values never qualify any performance target.",
+    "media": "No media mode/emulateMedia change. Record matchMedia(print) at each numeric snapshot. At explicit deferred layout seam ONLY, record effective display/position/overflow of container/representative page/copy and print stylesheet rule-presence booleans. The immediate print pair precedes these style reads. Observed screen print-DOM build is not an actual print-media benchmark and does not explain preprint RSS by itself.",
+    "failureRecords": "Persist each read RUNNING start before IO, then completed or failed/aborted bracket. Retain actual offending owned RSS/PID measurement before failclosed threshold exception. Phase deadlines checked on monotonic settlement as well as timers."
+  },
+  "guards": {
+    "sampleWallMs": 45000,
+    "coldMs": 10000,
+    "printMs": 15000,
+    "ownedAggregateRssBytes": 2147483648,
+    "pollMs": 200,
+    "cleanupWallMs": 5000,
+    "hostReadoutPerCommandMs": 1000,
+    "failure": "First guard/monitor/console/cleanup error stops; no automatic retry or identical second attempt.",
+    "pidReadoutPerCommandMs": 1500,
+    "fontMetadataProcessMs": 5000,
+    "hostReadoutPerCommandMsMeaning": "vm_stat, memory_pressure and sysctl only; PID ps and font metadata have separate explicit limits, all within full samplewall where applicable"
+  },
+  "pinnedProtocol": {
+    "playwright": "1.58.0",
+    "playwrightCore": "1.58.0",
+    "sourcePath": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules/.pnpm/playwright-core@1.58.0/node_modules/playwright-core/types/protocol.d.ts",
+    "sha256": "99a323dc5a6e506c78b69913b32beba93453bcd87aae8b507520234f387a4c30",
+    "commandsChecked": [
+      "SystemInfo.getProcessInfo",
+      "HeapProfiler.collectGarbage",
+      "Performance.getMetrics",
+      "Memory.getDOMCounters",
+      "DOM.enable",
+      "CSS.enable",
+      "DOM.disable",
+      "CSS.disable"
+    ],
+    "processMetadata": "SystemInfo.ProcessInfo defines type:string/id:number/cpuTime:number. Use only returned type joined on exact numeric PID if browser-root ID also matches; otherwise unavailable. Never infer roles from size or process order."
+  },
+  "lease": {
+    "env": "M0_WORD_MEMORY_DIAGNOSTIC_LEASE",
+    "kind": "diagnostic-word-memory-v1",
+    "max_runs": 1,
+    "protocol_sha256": "Integration supplies SHA256 of this committed file",
+    "source_head": "Exact evidence/harness descendant with all17Oproduction and7normal-harness hashes unchanged",
+    "port": 55260,
+    "oneAttemptClaim": "Exclusive local ignored .cache claim per protocol version; a failed attempt is not automatically retried."
+  },
+  "limits": [
+    "Observer, pairing, font query and readout perturb allocation; deltas describe this diagnostic, not unobserved normal product memory.",
+    "OwnedRSS sum includes shared pages and is sampled, not physical bytes or continuous HWM.",
+    "DOM counters are global native counters, not an independent traversal or ownership allocation proof.",
+    "No heap snapshots, heavy tracing, copied engine/bootstrap, production patch, forced native bootstrap, fixture reduction or semantic edit.",
+    "No numerical budget/method change, Core rerun, M0 acceptance, root/dependency write or unrelated process stop."
+  ],
+  "referenceFontReport": {
+    "path": "reports/word-phase-c-diagnostic.json",
+    "sha256": "dd2ed6442339c018b7890904a69617f1794eba385d5d339cdf9b8e40e7e67286"
+  }
+}
