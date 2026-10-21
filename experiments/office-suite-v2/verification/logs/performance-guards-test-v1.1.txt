@@ -1,0 +1,39 @@
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs "verification/performance-guards.test.ts"
+
+Native Node TypeScript tests: 1 files.
+TAP version 13
+# Subtest: memory guard includes only the owned browser and all descendant generations
+ok 1 - memory guard includes only the owned browser and all descendant generations
+  ---
+  duration_ms: 0.892208
+  type: 'test'
+  ...
+# Subtest: exited owned root cannot adopt unrelated orphan or malformed memory records
+ok 2 - exited owned root cannot adopt unrelated orphan or malformed memory records
+  ---
+  duration_ms: 0.141125
+  type: 'test'
+  ...
+# Subtest: repeatability reports actual variation and refuses missing/nonfinite evidence
+ok 3 - repeatability reports actual variation and refuses missing/nonfinite evidence
+  ---
+  duration_ms: 0.136167
+  type: 'test'
+  ...
+# Subtest: frozen v1.1 noise floor preserves tiny phases without admitting large unstable phases
+ok 4 - frozen v1.1 noise floor preserves tiny phases without admitting large unstable phases
+  ---
+  duration_ms: 0.080208
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 109.310459

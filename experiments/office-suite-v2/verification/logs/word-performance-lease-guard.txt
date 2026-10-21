@@ -1,0 +1,13 @@
+Expected negative setup check: no performance lease supplied
+exit=1
+file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-performance-runner.mjs:12
+const leasePath=process.env.M0_WORD_PERFORMANCE_LEASE;if(!leasePath)throw new Error('A separate Integration performance lease is required');
+                                                                          ^
+
+Error: A separate Integration performance lease is required
+    at file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-performance-runner.mjs:12:75
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.22.0

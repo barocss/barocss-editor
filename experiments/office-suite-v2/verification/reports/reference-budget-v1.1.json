@@ -1,0 +1,96 @@
+{
+  "schema": "office-v2-m0/reference-budget-v1.1",
+  "status": "FROZEN before fixed E/W measured baseline; no current result PASS",
+  "reference": "Apple M3 Max14logical/36GiB, Darwin24.6, Node22.22, Chromium145.0.7632.6, desktop1280x900,DPR1",
+  "measurementQuality": {
+    "exactSourcePin": true,
+    "actualFontFaceVersionHash": true,
+    "successfulFreshBrowserSamplesPerWordProfile": 3,
+    "maximumPhaseCoefficientOfVariation": 0.25,
+    "absoluteIdleMachineRequired": false,
+    "ambientConditions": "record load/memory and actual swap-in/out before and after each sample; qualify recorded loaded reference, never silently suppress resource pressure",
+    "resourceGuard": "2GiB aggregate owned browser RSS,15sprint/10sopen phase guards,45ssample wall cap; first guard failure stops remaining heavy samples",
+    "coarsePercentile": "Three observations: report worst-of-three/nearest-rank p95, not population tail",
+    "repeatability": "For each phase3fresh sequential samples: CV<=0.25 OR max-min<=10ms",
+    "absoluteSpreadNoiseFloorMs": 10
+  },
+  "wordTargets": [
+    {
+      "phase": "normal-native-cold-open-to-stable-pages",
+      "pages100P95ms": 1000,
+      "pages300P95ms": 3000
+    },
+    {
+      "phase": "full-native-view-layout-completion-plus3stableframes",
+      "pages100P95ms": 250,
+      "pages300P95ms": 750,
+      "observer": "Read-only W private completion flags bound to exact source; never repaint workaround or paint inference"
+    },
+    {
+      "phase": "actual-print-DOM-build",
+      "pages100P95ms": 1000,
+      "pages300P95ms": 3000
+    },
+    {
+      "phase": "peak-owned-browser-aggregate-RSS",
+      "pages100Bytes": 536870912,
+      "pages300Bytes": 1073741824
+    },
+    {
+      "phase": "printed-element-growth-300-vs-100",
+      "maximumRatio": 3.5,
+      "intent": "3x source content should not create9x printed content"
+    }
+  ],
+  "sheetModelTargets": [
+    {
+      "phase": "cold-native-projection",
+      "p95ms": 1000
+    },
+    {
+      "phase": "full-native-diff",
+      "p95ms": 250
+    },
+    {
+      "phase": "initial-formula-calculation",
+      "p95ms": 250
+    },
+    {
+      "phase": "dirty-formula-calculation",
+      "p95ms": 16
+    },
+    {
+      "phase": "range-paste-native-projection-plus-diff",
+      "p95ms": 1000
+    },
+    {
+      "phase": "peak-child-RSS",
+      "bytes": 536870912
+    },
+    {
+      "phase": "cold-TOTAL-construction-admission-projection-calculation",
+      "p95ms": 2000
+    },
+    {
+      "phase": "one-cell-TOTAL-admission-projection-diff-calculation",
+      "p95ms": 200
+    },
+    {
+      "phase": "paste1000-TOTAL-admission-projection-diff-calculation",
+      "p95ms": 500
+    }
+  ],
+  "excludedClaims": [
+    "No benchmark result is recorded in this proposal",
+    "Targets do not increase to fit a later failure",
+    "Full native lifecycle completion is distinct from browser paint; source-bound completion observer required",
+    "No physicalIME/Canvas/scroll/keystroke-to-paint claim",
+    "PDF/spool/paper fidelity remains separate",
+    "No fullSheetprovider/UI capacity from a model workload"
+  ],
+  "authority": "Planner M0 authority, direct message2026-10-22Asia/Seoul, parent#521",
+  "version": "1.1",
+  "frozenRecordedUtc": "2026-10-21T15:35:40.382890+00:00",
+  "sourceBeforeMeasurement": "WordW522b25bd + CoreE9e823ba3 + VerificationDccdaf138, exact Integration join pending",
+  "supersededDraft": "Integration looser draft values are NOT adopted. v1 phase gates retained; v1.1 total gates added before measurements."
+}

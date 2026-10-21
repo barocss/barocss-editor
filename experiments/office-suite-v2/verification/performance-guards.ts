@@ -1,0 +1,22 @@
+/** Guard data is limited to the descendants of the browser process we created. */
+export interface ProcessMemory {pid:number;parentPid:number;rssBytes:number;cpuPercent:number}
+export function ownedBrowserMemory(output:string,rootPid:number){
+ if(!Number.isSafeInteger(rootPid)||rootPid<=0)throw new Error('Invalid owned browser PID');
+ const rows:ProcessMemory[]=output.split('\n').flatMap(line=>{const parts=line.trim().split(/\s+/);if(parts.length!==4)return [];const [pid,parentPid,kib,cpuPercent]=parts.map(Number);
+  if(![pid,parentPid,kib,cpuPercent].every(Number.isFinite)||!Number.isInteger(pid)||!Number.isInteger(parentPid)||pid!<=0||parentPid!<0||kib!<0||cpuPercent!<0)return [];
+  return [{pid:pid!,parentPid:parentPid!,rssBytes:kib!*1024,cpuPercent:cpuPercent!}];});
+ if(!rows.some(row=>row.pid===rootPid))return {rootPresent:false,processes:[] as ProcessMemory[],aggregateRssBytes:0};
+ const owned=new Set([rootPid]);let changed=true;while(changed){changed=false;for(const row of rows)if(owned.has(row.parentPid)&&!owned.has(row.pid)){owned.add(row.pid);changed=true;}}
+ const processes=rows.filter(row=>owned.has(row.pid));return {rootPresent:true,processes,aggregateRssBytes:processes.reduce((sum,row)=>sum+row.rssBytes,0)};
+}
+export function variability(values:readonly number[]){
+ if(!values.length||values.some(v=>!Number.isFinite(v)||v<0))throw new Error('Expected finite nonnegative observations');
+ const mean=values.reduce((sum,n)=>sum+n,0)/values.length;
+ const standardDeviation=Math.sqrt(values.reduce((sum,n)=>sum+(n-mean)**2,0)/values.length);
+ return {count:values.length,mean,populationStandardDeviation:standardDeviation,coefficientOfVariation:mean===0?0:standardDeviation/mean};
+}
+
+export function repeatableMeasurements(values:readonly number[]){
+ const stats=variability(values),absoluteSpreadMs=Math.max(...values)-Math.min(...values);
+ return {...stats,absoluteSpreadMs,qualified:stats.count>=3&&(stats.coefficientOfVariation<=.25||absoluteSpreadMs<=10)};
+}

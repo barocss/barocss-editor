@@ -182,3 +182,45 @@ Q focused arithmetic validation passed both4and64 expectations. The original K
 failure stays in `logs/formula-exponent-K-first-failure.json`; the passing source
 is bound to Q in `logs/formula-adverse-final-Q.txt`. Heavy scale raw data remains
 F observational evidence. It is not final-Q capacity or numerical-budget acceptance.
+
+## Phase C: confirmed completion cause and frozen reference budget v1.1
+
+The original V and45second failure remain immutable. At diagnostic D
+`ccdaf138bd6ef7603b5319dc6c5dd14244620c48`, actual full100fixture admission
+passed; model/DOM root and800paragraph surface were correct. The actual first
+layout callbacks ran before async DOM completion, then were not resumed after
+that completion. One explicitly diagnostic post-commit render produced100pages.
+This now demonstrates the source scheduling cause; it is not a performance pass
+or a shipped workaround. `reports/word-phase-c-diagnostic.json` retains the
+ordered callbacks, exact source/harness hashes and normal0page versus controlled
+100page observations. Word Layout#527 owns the production view correction.
+
+The paragraph's actual text-bearing span uses ArialMT and
+AppleSDGothicNeo-Regular according to CDP glyph counts. CoreText resolves each
+exact face to its installed version/file SHA-256, recorded in that report. Font
+bytes are not redistributed. Later reference measurements must match these
+actual faces/version hashes, not merely a CSS family string.
+
+`reports/reference-budget-v1.1.json` is the ONE Planner-frozen target/method
+record, committed BEFORE fixed E/W measurements. Earlier Integration looser
+draft values are not adopted. Targets and observed results remain separate.
+Three fresh sequential samples, complete normal page output, exact source/font
+identity, raw load/swap/memory and phase repeatability qualify a recorded loaded
+reference; absolute host idleness is not required. Repeatability uses CV<=0.25
+OR absolute max-minus-min<=10ms. Report worst-of-three/coarse nearest-rank p95;
+three samples do not establish a population tail. A target miss stays a miss.
+
+New Word performance harness never forces cold layout or patches a method. The
+source-bound W completion flags are READ ONLY to observe actual content/layout
+completion plus3stable frames, including warm full-render timing. It starts a
+fresh loopback browser server/context per sample. The RSS guard sums only that
+owned PID tree, samples200ms, and kills only its own browser if2GiB is exceeded.
+Cold10second/print15second/sample45second guards stop remaining heavy samples
+on the first failure. Current print source still clones the whole document per
+page; measure its node/heap growth before any separately leased repair.
+Print-DOM generation remains distinct from PDF/paper fidelity.
+
+Core E may move validation work into event construction. The new profile will
+therefore report construction/admission and TOTAL cold/edit/paste costs beside
+projection/diff/calculation phases, with both original phase and new v1.1 total
+gates. No hidden admission-cost shift can become a claimed latency win.
