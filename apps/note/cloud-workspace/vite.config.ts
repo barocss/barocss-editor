@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 export default defineConfig(({ mode }) => mode === 'api' || mode === 'worker' ? {
-  root,
+  root, define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   build: { outDir: mode === 'api' ? 'dist/api' : 'dist/server', emptyOutDir: true, target: 'es2022',
     lib: { entry: mode === 'api' ? `${root}server.ts` : `${root}dist/entry.mjs`, formats: ['es'],
       fileName: () => mode === 'api' ? 'workspace-api.mjs' : 'index.js' } }

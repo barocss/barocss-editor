@@ -16,7 +16,7 @@ const snapshot = text => JSON.stringify({ format: 'barocss-note', version: 1, do
 const attempt = (baseRevision = 0, documentId = randomUUID(), text) => ({ documentId, baseRevision, requestId: randomUUID(), snapshotText: snapshot(text) });
 function request(db, path, method = 'GET', input, owner = 'fictional-owner-a', extra = {}) {
   return handleWorkspaceApi(new Request(`${origin}/api/workspace${path}`, { method,
-    headers: { ...(owner ? { 'oai-authenticated-user-id': owner } : {}),
+    headers: { ...(owner ? { 'oai-authenticated-user-id': owner, 'X-Workspace-Expected-Scope': owner } : {}),
       ...(input === undefined ? {} : { 'Content-Type': 'application/json', Origin: origin }), ...extra },
     ...(input === undefined ? {} : { body: JSON.stringify(input) }) }), db);
 }
@@ -134,5 +134,20 @@ test('page identity cannot alias a second document and discovery paginates witho
     assert.equal(second.documents.length, 1); assert.equal(second.nextCursor, null);
     assert.equal(new Set([...first.documents, ...second.documents].map(one => one.documentId)).size, 51);
     assert.equal(first.documents.some(one => 'snapshotText' in one), false);
+  } finally { db.close(); }
+});
+
+test('an old owner scope is rejected before unsaved create and existing save when current identity changes', async () => {
+  const db = openTestDB(), first = attempt(), unsaved = attempt();
+  try {
+    assert.equal((await save(db.api, first)).status, 200);
+    const mismatch = { 'X-Workspace-Expected-Scope': 'fictional-owner-a' };
+    assert.equal((await request(db.api, '/documents', 'POST', unsaved, 'fictional-owner-b', mismatch)).status, 401);
+    assert.equal((await request(db.api, `/documents/${first.documentId}`, 'PUT', attempt(1, first.documentId, 'Retired owner input'), 'fictional-owner-b', mismatch)).status, 401);
+    assert.equal(count(db), 1);
+    assert.equal(db.sqlite.prepare('SELECT COUNT(*) AS n FROM workspace_document_revisions WHERE owner_id = ?').get('fictional-owner-b').n, 0);
+    const noReads = { prepare() { throw new Error('A mismatched scope must be rejected before the first database access'); } };
+    assert.equal((await request(noReads, '/documents', 'GET', undefined, 'fictional-owner-b', mismatch)).status, 401);
+    assert.equal((await request(noReads, '/documents', 'POST', unsaved, 'fictional-owner-a', { 'X-Workspace-Expected-Scope': '' })).status, 401);
   } finally { db.close(); }
 });

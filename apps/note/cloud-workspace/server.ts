@@ -82,6 +82,9 @@ async function route(request: Request, db?: WorkspaceDB): Promise<Response | nul
     authenticated: true, userScope: owner, storageAvailable: !!db,
     ai: { available: false, code: 'runtime_not_configured' }
   });
+  // Expected scope is a frozen client precondition, never an authentication credential. Check it
+  // before reading a body or touching D1, so a retired draft cannot be written as the new actor.
+  if (request.headers.get('X-Workspace-Expected-Scope') !== owner) return problem(401, 'identity_changed');
   if (!db) return problem(503, 'storage_not_configured');
   if (!['GET', 'POST', 'PUT'].includes(request.method)) return problem(405, 'method_not_allowed');
   if (request.method !== 'GET' && request.headers.get('Origin') !== url.origin) return problem(403, 'origin_denied');

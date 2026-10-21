@@ -77,11 +77,13 @@ export function Workspace() {
     if (id && id === open?.id) return;
     loading.current = true;
     try {
-      if (!await guard.current()) { setError('현재 문서에 저장되지 않은 변경이 있습니다. 저장한 뒤 이동하세요.'); return; }
+      const openingGuard = guard.current;
+      if (!await openingGuard()) { setError('현재 문서에 저장되지 않은 변경이 있습니다. 저장한 뒤 이동하세요.'); return; }
       setError(''); setBusy(true);
       if (id) {
         const saved = await client.open(id);
-        if (retired.current) return;
+        if (retired.current || guard.current !== openingGuard) return;
+        if (!await openingGuard()) { setError('문서를 여는 동안 새 입력이 생겼습니다. 현재 초안을 저장한 뒤 이동하세요.'); return; }
         setOpen(decode(saved));
       } else {
         const documentId = crypto.randomUUID();
@@ -103,7 +105,10 @@ export function Workspace() {
     history.replaceState(null, '', url);
     setDocuments(rows => [saved, ...rows.filter(row => row.documentId !== saved.documentId)]);
     // Saving is already confirmed. A later discovery failure must not turn it into a failed save.
-    try { await refresh(client); } catch { setError('문서는 저장됐습니다. 목록 새로고침은 다음에 다시 시도하세요.'); }
+    try { await refresh(client); } catch (problem) {
+      if (problem instanceof WorkspaceError && problem.status === 401) retire();
+      else setError('문서는 저장됐습니다. 목록 새로고침은 다음에 다시 시도하세요.');
+    }
   };
   if (denied) return <main className="cw-access"><span className="cw-mark">w</span><h1>비공개 작업공간입니다</h1><p>로그인 상태가 변경되었거나 접근 권한이 없습니다.</p><a className="cw-primary" href="/signin-with-chatgpt?return_to=%2F" target="_top">ChatGPT로 로그인</a></main>;
   return <div className="cw-app">
@@ -124,10 +129,15 @@ export function Workspace() {
     <div className="cw-work">
       <header className="cw-top"><span>내 작업공간 <b>/</b> 문서</span><span className="cw-private"><Symbol name="lock" /> 비공개</span></header>
       {error && <div className="cw-notice" role="alert">{error}<button aria-label="안내 닫기" onClick={() => setError('')}>×</button></div>}
-      {busy && !open ? <div className="cw-loading" role="status">작업공간을 여는 중…</div> : open && client ? <DocumentEditor key={open.generation} opened={open} client={client} guard={guard} onSaved={onSaved} onDenied={retire} onReopen={async () => {
+      {busy && !open ? <div className="cw-loading" role="status">작업공간을 여는 중…</div> : open && client ? <DocumentEditor key={open.generation} opened={open} client={client} guard={guard} onSaved={onSaved} onDenied={retire} onReopen={async stillCurrent => {
         if (!open.saved && !documents.some(row => row.documentId === open.id)) return;
         if (!window.confirm('현재 화면의 저장되지 않은 초안을 버리고 서버의 최신본을 여시겠습니까? 필요한 초안은 먼저 내려받으세요.')) return;
-        try { const latest = await client.open(open.id); setOpen(undefined); guard.current = async () => true; setOpen(decode(latest)); }
+        try {
+          const latest = await client.open(open.id);
+          if (retired.current) return;
+          if (!stillCurrent()) { setError('최신본을 여는 동안 새 입력이 생겼습니다. 현재 초안을 유지합니다.'); return; }
+          setOpen(decode(latest));
+        }
         catch (problem) { if (problem instanceof WorkspaceError && problem.status === 401) retire(); else setError('최신본을 열지 못했습니다. 초안을 유지합니다.'); }
       }} /> : <main className="cw-welcome"><div className="cw-welcome-icon"><Symbol name="file" /></div><span className="cw-eyebrow">YOUR NEXT IDEA STARTS HERE</span><h1>생각을 적고,<br />작업을 이어가세요.</h1><p>문서를 직접 편집하고 서버에 저장하세요.<br />다시 열어도 같은 문서에서 이어갈 수 있습니다.</p><button className="cw-primary" disabled={!session?.storageAvailable} onClick={() => void change()}>첫 문서 만들기 <Symbol name="arrow" /></button><div className="cw-welcome-detail"><Symbol name="lock" /> 나만 볼 수 있는 비공개 테스트 공간</div><div className="cw-step-row"><div><b>01</b><strong>직접 편집</strong><span>기존 Note 편집기로 자유롭게</span></div><div><b>02</b><strong>서버 저장</strong><span>문서 revision으로 변경 보관</span></div><div><b>03</b><strong>AI 제안 검토</strong><span>런타임 연결 후 사용 가능</span></div></div></main>}
     </div>
@@ -136,7 +146,7 @@ export function Workspace() {
 
 function DocumentEditor({ opened, client, guard, onSaved, onDenied, onReopen }: {
   opened: OpenDocument; client: WorkspaceClient; guard: React.MutableRefObject<() => Promise<boolean>>;
-  onSaved(saved: SavedDocument): Promise<void>; onDenied(): void; onReopen(): Promise<void>;
+  onSaved(saved: SavedDocument): Promise<void>; onDenied(): void; onReopen(stillCurrent: () => boolean): Promise<void>;
 }) {
   const [native] = useState(() => openNoteTree(opened.document));
   const [title, setTitle] = useState(opened.document.attributes.title);
@@ -151,6 +161,7 @@ function DocumentEditor({ opened, client, guard, onSaved, onDenied, onReopen }: 
   const [pendingRequest, setPendingRequest] = useState(false);
   const pending = useRef<Readonly<SaveAttempt> | null>(null);
   const savingRef = useRef(false), live = useRef(true);
+  const editEpoch = useRef(0);
   const deliveries = useRef(new Set<NoteInputDelivery>());
   const register = useCallback((flush: NoteInputDelivery) => {
     deliveries.current.add(flush); return () => { deliveries.current.delete(flush); };
@@ -170,6 +181,7 @@ function DocumentEditor({ opened, client, guard, onSaved, onDenied, onReopen }: 
     live.current = true;
     const changed = () => {
       if (!live.current) return;
+      editEpoch.current++;
       setDirty(snapshot() !== confirmedRef.current?.snapshotText);
       setHistoryState({ undo: native.editor.canUndo(), redo: native.editor.canRedo() });
     };
@@ -223,12 +235,18 @@ function DocumentEditor({ opened, client, guard, onSaved, onDenied, onReopen }: 
     const link = document.createElement('a'); link.href = url; link.download = 'workspace-draft.note.json'; link.click();
     URL.revokeObjectURL(url);
   };
+  const reopen = async () => {
+    if (!await flush()) { setError('입력 중인 글자를 마무리한 뒤 최신본을 여세요.'); return; }
+    const epoch = editEpoch.current, before = snapshot();
+    await onReopen(() => live.current && editEpoch.current === epoch && snapshot() === before &&
+      ![...deliveries.current].some(delivery => delivery.hasPendingInput?.()));
+  };
   const pointer = (event: React.MouseEvent<HTMLButtonElement>) => event.preventDefault();
   return <div className="cw-editor-layout">
     <section className="cw-editor-column" aria-label="문서 편집">
       <div className="cw-editor-toolbar"><span className={`cw-status ${dirty ? 'unsaved' : ''}`} role="status" data-save-state={saving ? 'saving' : pendingRequest ? 'unconfirmed' : dirty ? 'dirty' : 'saved'}><i />{saving ? '서버 저장 확인 중…' : pendingRequest ? '저장 확인 필요' : dirty ? '저장되지 않은 변경' : '서버에 저장됨'}</span><div className="cw-actions"><button aria-label="실행 취소" title="실행 취소" onMouseDown={pointer} onClick={() => void historyAction('undo')} disabled={!historyState.undo}><Symbol name="undo" /></button><button aria-label="다시 실행" title="다시 실행" onMouseDown={pointer} onClick={() => void historyAction('redo')} disabled={!historyState.redo}><Symbol name="redo" /></button><span className="cw-toolbar-divider" /><button className="cw-primary" disabled={saving || conflict || (!dirty && !pendingRequest)} onMouseDown={pointer} onClick={() => void save()}>{saving ? '저장 확인 중' : pendingRequest ? '저장 확인·재시도' : '서버에 저장'}</button></div></div>
-      {error && <div className="cw-save-problem" role="alert"><strong>{conflict ? '새로운 서버 변경이 있습니다' : '초안을 유지하고 있습니다'}</strong><p>{error}</p><div><button onClick={() => void download()}>초안 내려받기</button>{confirmed && <button onClick={() => void onReopen()}>최신본 열기</button>}</div></div>}
-      <main className="cw-paper"><div className="cw-document-kicker"><Symbol name="file" /> NOTE <span>{confirmed ? `문서 revision ${confirmed.revision}` : '새 문서 · 저장 전'}</span></div><input className="cw-title" aria-label="문서 제목" value={title} maxLength={120} placeholder="문서 제목" onChange={event => { setTitle(event.target.value); titleRef.current = event.target.value; setDirty(snapshot() !== confirmedRef.current?.snapshotText); }} /><div className="cw-paper-rule" /><div className="cw-native" onInputCapture={() => setDirty(true)}><NoteEditor editor={native.editor} rootId={native.rootId} writeAllowed registerBeforeSnapshot={register} /></div><div className="cw-paper-foot">자유롭게 편집하세요. 변경은 저장 버튼을 누른 뒤 서버에 보관됩니다.</div></main>
+      {error && <div className="cw-save-problem" role="alert"><strong>{conflict ? '새로운 서버 변경이 있습니다' : '초안을 유지하고 있습니다'}</strong><p>{error}</p><div><button onClick={() => void download()}>초안 내려받기</button>{confirmed && <button onClick={() => void reopen()}>최신본 열기</button>}</div></div>}
+      <main className="cw-paper"><div className="cw-document-kicker"><Symbol name="file" /> NOTE <span>{confirmed ? `문서 revision ${confirmed.revision}` : '새 문서 · 저장 전'}</span></div><input className="cw-title" aria-label="문서 제목" value={title} maxLength={120} placeholder="문서 제목" onChange={event => { editEpoch.current++; setTitle(event.target.value); titleRef.current = event.target.value; setDirty(snapshot() !== confirmedRef.current?.snapshotText); }} /><div className="cw-paper-rule" /><div className="cw-native" onInputCapture={() => { editEpoch.current++; setDirty(true); }}><NoteEditor editor={native.editor} rootId={native.rootId} writeAllowed registerBeforeSnapshot={register} /></div><div className="cw-paper-foot">자유롭게 편집하세요. 변경은 저장 버튼을 누른 뒤 서버에 보관됩니다.</div></main>
       <footer className="cw-editor-footer"><span>Note 기본 편집기 · 실행 취소 / 다시 실행</span><span>{confirmed ? `문서 revision ${confirmed.revision}` : '아직 서버 저장 전'}</span></footer>
     </section>
     <aside className="cw-ai" aria-label="AI 제안"><div className="cw-ai-heading"><span><Symbol name="spark" /></span><h2>함께 다듬는 문서</h2></div><span className="cw-ai-badge">AI 연결 안 됨</span><p className="cw-ai-intro">작성은 지금 시작하세요.<br />AI는 연결되면 제안으로 참여합니다.</p><div className="cw-ai-flow"><div><b>1</b><span><strong>변경 요청</strong><small>고칠 부분과 원하는 방향을 전달</small></span></div><div><b>2</b><span><strong>제안 검토</strong><small>원문과 변경 내용을 비교</small></span></div><div><b>3</b><span><strong>직접 적용</strong><small>승인한 내용만 편집기에 반영</small></span></div></div><div className="cw-ai-disabled"><Symbol name="lock" /><strong>연결 가능한 런타임이 필요합니다</strong><p>이 테스트에는 AI 실행 서비스가 연결되어 있지 않습니다. 문서 전송과 모델 호출은 수행되지 않습니다.</p><button disabled>AI 제안 요청</button></div><p className="cw-ai-note">제안 적용과 서버 저장은 별도 단계입니다. 적용 후에도 직접 저장해야 합니다.</p></aside>

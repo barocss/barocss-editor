@@ -20,7 +20,8 @@ export function createWorkspaceClient(scope: string, send: typeof fetch = fetch)
   const request = async (path: string, method = 'GET', body?: unknown) => {
     let response: Response;
     try { response = await send(`${API_ROOT}${path}`, { method, cache: 'no-store',
-      ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) }); }
+      headers: { 'X-Workspace-Expected-Scope': scope, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }) }); }
     catch { throw new WorkspaceError('network_error'); }
     if (response.status === 401 || response.status === 403 || response.headers.get('X-Workspace-User-Scope') !== scope) {
       throw new WorkspaceError('identity_changed', 401);

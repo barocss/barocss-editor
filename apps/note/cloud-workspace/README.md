@@ -26,6 +26,7 @@ pnpm install --frozen-lockfile
 pnpm --filter @barocss/schema build
 pnpm --dir apps/note exec node cloud-workspace/build-worker.mjs
 pnpm --dir apps/note exec node --test cloud-workspace/server.test.mjs
+pnpm --dir apps/note exec node --experimental-vm-modules --test cloud-workspace/worker.test.mjs
 pnpm --dir apps/note exec playwright test --config cloud-workspace/playwright.config.ts --reporter=line
 pnpm --filter @barocss/office-note test:run test/note-proposal-native-history.test.ts test/connected-proposal.test.ts
 pnpm preflight
@@ -40,6 +41,8 @@ The server tests separately close and reopen an on-disk SQLite database to verif
 
 `test-db.mjs`, `test-server.mjs`, test cookies and Node SQLite are test infrastructure only.
 Production output contains no test identity or test endpoints and uses no Node APIs.
+The built Worker is also loaded in an isolated VM with web APIs and no Node `process` or
+`Buffer` globals, then exercised for authenticated save/reopen, anonymous denial and asset serving.
 
 The application build emits:
 
@@ -79,6 +82,12 @@ grant access. Do not expose this Worker behind an origin that forwards visitor-s
 identity headers. Do not add an identity/test override to deployed code. Reserved sign-in,
 sign-out and callback endpoints remain platform-owned. The sign-in link uses top-level navigation.
 The UI rejects an identity mismatch on every response and retires the previous editor.
+After initial session discovery, every API request also carries the immutable client scope as
+`X-Workspace-Expected-Scope`. The server compares it with the trusted Sites identity **before**
+body parsing or database access. It is a precondition, not an authentication source. A session
+switch cannot create an old owner's unsaved draft under the new owner. Auth failures during
+post-save discovery retire the editor too. Pending navigation rechecks the same native editor's
+flush/dirty guard before replacing it; new input during a delayed open cancels navigation.
 
 ## Save and recovery contract
 
