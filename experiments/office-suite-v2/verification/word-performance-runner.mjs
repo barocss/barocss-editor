@@ -1,0 +1,67 @@
+/** Source-pinned measured runtime. Never patches a production method or forces cold layout. */
+import {createRequire} from 'node:module';
+import {resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import {loadavg} from 'node:os';
+import {environment,sourceBinding,summarize} from './metrics.ts';
+import {ownedBrowserMemory,repeatableMeasurements} from './performance-guards.ts';
+const here=dirname(fileURLToPath(import.meta.url));
+const leasePath=process.env.M0_WORD_PERFORMANCE_LEASE;if(!leasePath)throw new Error('A separate Integration performance lease is required');
+const lease=JSON.parse(readFileSync(leasePath,'utf8'));if(lease.status!=='granted'||lease.port!==55260||Date.parse(lease.deadline_utc)<=Date.now()||!lease.kind?.includes('performance'))throw new Error('Not a current performance lease');
+if(!/^[a-f0-9]{40}$/.test(lease.source_head))throw new Error('Exact source pin required');
+const root=lease.source_root,requireRoot=createRequire(resolve(root,'package.json'));
+const {createServer}=await import(resolve(dirname(requireRoot.resolve('vite/package.json')),'dist/node/index.js'));const {chromium}=requireRoot('playwright');
+const files=['apps/word/src/runtime.ts','packages/editor-view-dom/src/editor-view-dom.ts','packages/office-word/src/word-layout-pass.ts','packages/office-word/src/measurement.ts','packages/office-word/src/layout.ts','packages/office-word/src/pagination.ts','packages/office-word/src/print-pages.ts','packages/office-word/src/renderers/page.ts','packages/office-word/src/ui.css','packages/office-text/src/text.css','packages/office-word/src/render-context.ts','packages/office-word/src/font-loader.ts','packages/renderer-dom/src/dom-renderer.ts','packages/renderer-dom/src/scheduler.ts','packages/renderer-dom/src/reconcile/reconciler.ts','packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts','packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts'];
+for(const path of files)if(!execFileSync('git',['show',`${lease.source_head}:${path}`],{cwd:root}).equals(readFileSync(resolve(root,path))))throw new Error(`Measured source differs from pin: ${path}`);
+const samples=Number(process.env.M0_WORD_SAMPLES??3);if(!Number.isInteger(samples)||samples<1||samples>5)throw new Error('M0_WORD_SAMPLES must be1..5');
+const runId=new Date().toISOString().replace(/[:.]/g,'-'),out=resolve(here,'reports',`word-performance-${runId}`);mkdirSync(out,{recursive:true});
+const hash=path=>createHash('sha256').update(readFileSync(resolve(here,path))).digest('hex');
+function system(){const vm=execFileSync('vm_stat',{encoding:'utf8'}),pressure=execFileSync('memory_pressure',['-Q'],{encoding:'utf8'});const count=name=>Number(new RegExp(`^${name}:\\s+(\\d+)`, 'm').exec(vm)?.[1]??NaN);return {capturedUtc:new Date().toISOString(),load:loadavg(),memoryFreePercent:Number(/free percentage:\s+(\d+)/.exec(pressure)?.[1]??NaN),pageBytes:Number(/page size of (\d+) bytes/.exec(vm)?.[1]??NaN),swapins:count('Swapins'),swapouts:count('Swapouts'),swapusage:execFileSync('sysctl',['vm.swapusage'],{encoding:'utf8'}).trim()};}
+const frozenBudget=JSON.parse(readFileSync(resolve(here,'reports/reference-budget-v1.1.json'),'utf8'));
+const report={frozenBudget,schema:'office-v2-m0/word-reference-performance-v2',runId,lease,environment:environment(),source:sourceBinding(root,files),harness:['word-performance-runner.mjs','word-performance-browser.mjs','performance-guards.ts','profiles.ts','metrics.ts','font-metadata.py','word-performance.html'].map(path=>({path,sha256:hash(path)})),
+ workload:{pages:[100,300],samplesPerPage:samples,paragraphsPerPage:8,explicitBreaks:true,normalColdRuntimeOnly:true,freshBrowserProcessEachSample:true},
+ guards:{aggregateOwnedBrowserRssBytes:2*1024**3,pollMs:200,openPhaseMs:10000,renderPhaseMs:10000,printPhaseMs:15000,sampleWallMs:45000},samples:[],status:'NOT RUN',
+ qualification:{namedReference:'M3Max14-36GiB-macOS24.6-Chromium145-DPR1-WordM0',exclusiveHost:false,ruleStatus:'Planner frozen reference-budget-v1.1, no root debt-budget change',conditions:['exact immutable source and harness','actual100/300page counts','CDP text-child faces match known CoreText name/version/file hashes','three successful sequential fresh-process samples per profile','no resource/time guard or console/page error','per-profile open/render/print CV<=0.25 OR max-min<=10ms; loaded host conditions recorded, no idle prerequisite']},
+ limits:['Actual Word layout/render/print-DOM construction only; no PDF/spool/paper-fidelity acceptance.','No forced post-commit render or diagnostic monkeypatch in cold path.','Full native view/layout completion uses read-only source-bound W completion flags plus3stableframes; no paint or keystroke claim.','No keystroke-to-paint, physical IME, Canvas or scroll timing claim.','Owned-process aggregate RSS includes shared pages; JS heap is recorded separately.']};
+const write=()=>writeFileSync(resolve(out,'report.json'),JSON.stringify(report,null,2)+'\n');
+const expectedFontReport=JSON.parse(readFileSync(resolve(here,'reports/word-phase-c-diagnostic.json'),'utf8'));const expectedFonts=expectedFontReport.installedFontIdentity.fonts;
+const expectedNames=expectedFonts.map(f=>f.actualPostScriptName).sort();
+const vite=await createServer({configFile:false,root:here,cacheDir:resolve(here,'.cache/vite-performance'),optimizeDeps:{entries:['word-performance.html']},resolve:{alias:{'@m0-word-runtime':resolve(root,'apps/word/src/runtime.ts'),'@m0-word-css':resolve(root,'packages/office-word/src/ui.css'),'@m0-text-css':resolve(root,'packages/office-text/src/text.css')}},server:{host:'127.0.0.1',port:55260,strictPort:true,fs:{allow:[here,root]}},logLevel:'warn'});
+let activeServer,activeBrowser;
+try{await vite.listen();report.status='RUNNING';write();
+ for(const pages of report.workload.pages)for(let sample=0;sample<samples;sample++){
+  if(Date.now()>=Date.parse(lease.deadline_utc))throw new Error('Performance lease expired before next sample');
+  const row={pages,sample,systemBefore:system(),phases:[],rssSamples:[],consoleErrors:[],pageErrors:[],status:'RUNNING'};report.samples.push(row);write();let monitor,timer,phase='browser-start';
+  const stopOwned=async reason=>{row.guardFailure??=reason;await activeServer?.kill().catch(()=>{});};
+  const stage=async(name,limitMs,operation)=>{if(Date.now()>=Date.parse(lease.deadline_utc))throw new Error('Lease expired before phase '+name);phase=name;const started=performance.now();let phaseTimer;try{const result=await Promise.race([operation(),new Promise((_,reject)=>{phaseTimer=setTimeout(()=>{void stopOwned(`${name} exceeded${limitMs}ms`);reject(new Error(`${name} phase limit`));},limitMs);})]);row.phases.push({name,elapsedMs:performance.now()-started,completed:true});write();return result;}catch(error){row.phases.push({name,elapsedMs:performance.now()-started,completed:false,error:String(error)});write();throw error;}finally{clearTimeout(phaseTimer);}};
+  try{
+   activeServer=await chromium.launchServer({host:'127.0.0.1',headless:true,executablePath:lease.browser_executable,args:['--enable-precise-memory-info']});const pid=activeServer.process().pid;row.ownedBrowserRootPid=pid;activeBrowser=await chromium.connect(activeServer.wsEndpoint());row.browserVersion=activeBrowser.version();
+   timer=setTimeout(()=>void stopOwned('Sample45s wall bound'),45000);
+   monitor=setInterval(()=>{try{const memory=ownedBrowserMemory(execFileSync('ps',['-axo','pid=,ppid=,rss=,%cpu='],{encoding:'utf8',timeout:1500}),pid);row.rssSamples.push({atUtc:new Date().toISOString(),phase,...memory});if(memory.aggregateRssBytes>report.guards.aggregateOwnedBrowserRssBytes)void stopOwned('Owned browser RSS exceeded2GiB');}catch(error){row.monitorError??=String(error);}},200);
+   const context=await activeBrowser.newContext({viewport:{width:1280,height:900},deviceScaleFactor:1});await context.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());const page=await context.newPage();page.setDefaultTimeout(10000);
+   page.on('console',m=>{if(m.type()==='error')row.consoleErrors.push(m.text());});page.on('pageerror',e=>row.pageErrors.push({error:String(e),stack:e.stack}));
+   await stage('module-navigation',10000,async()=>{await page.goto('http://127.0.0.1:55260/word-performance.html');await page.waitForFunction(()=>!!window.m0WordPerformance);});
+   const cdp=await context.newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');await cdp.send('Performance.enable');
+   const heap=async()=>Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.filter(m=>['JSHeapUsedSize','JSHeapTotalSize','Nodes','Documents','LayoutCount','LayoutDuration'].includes(m.name)).map(m=>[m.name,m.value]));
+   row.memoryBefore=await heap();row.open=await stage('normal-cold-open',10000,()=>page.evaluate(pages=>window.m0WordPerformance.open(pages),pages));
+   if(row.open.pages!==pages||row.open.paragraphs!==pages*8||row.open.surfaceCount!==1||row.open.rootId!==row.open.domRoot||row.open.documentFaults.length)throw new Error('Normal source/page/admission/root invariant failed');row.memoryAfterOpen=await heap();
+   const targets=await page.evaluate(()=>window.m0WordPerformance.fonts());const doc=await cdp.send('DOM.getDocument');row.fonts=[];
+   for(const target of targets){const node=await cdp.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:target.selector});const actual=(await cdp.send('CSS.getPlatformFontsForNode',{nodeId:node.nodeId})).fonts;if(!actual.length)throw new Error('Actual text-child font evidence absent');row.fonts.push({...target,actual});}
+   const names=[...new Set(row.fonts.flatMap(t=>t.actual.map(f=>f.postScriptName)))].sort();if(JSON.stringify(names)!==JSON.stringify(expectedNames))throw new Error('Actual font fallback differs from recorded reference faces');
+   row.installedFonts=JSON.parse(execFileSync('python3',[resolve(here,'font-metadata.py'),JSON.stringify(names)],{encoding:'utf8',timeout:5000}));
+   row.fontsQualified=row.installedFonts.fonts.length===expectedFonts.length&&row.installedFonts.fonts.every(f=>f.qualifiedIdentity&&expectedFonts.some(expected=>expected.actualPostScriptName===f.actualPostScriptName&&expected.version===f.version&&expected.sha256===f.sha256));if(!row.fontsQualified)throw new Error('Actual font identity/version/hash mismatch');
+   row.render=await stage('full-native-view-layout-completion',10000,()=>page.evaluate(pages=>window.m0WordPerformance.render(pages),pages));
+   row.print=await stage('actual-print-DOM-build',15000,()=>page.evaluate(()=>window.m0WordPerformance.print()));if(row.print.pages!==pages)throw new Error('Actual print page count differs');row.memoryAfterPrint=await heap();
+   row.printedNodes=await stage('print-node-inventory',10000,()=>page.evaluate(()=>window.m0WordPerformance.printedNodes()));if(row.printedNodes.pages!==pages)throw new Error('Printed DOM page inventory differs');
+   await page.evaluate(()=>{window.m0WordPerformance.clearPrint();window.m0WordPerformance.dispose();});if(row.consoleErrors.length||row.pageErrors.length)throw new Error('Browser console/page errors during measured phases');row.status='PASS: measured normal runtime phases';
+  }catch(error){row.status='FAIL';row.firstFailure=String(error);throw error;}
+  finally{clearInterval(monitor);clearTimeout(timer);await activeBrowser?.close().catch(()=>{});await activeServer?.close().catch(()=>{});activeBrowser=undefined;activeServer=undefined;row.systemAfter=system();row.peakAggregateOwnedRssBytes=Math.max(0,...row.rssSamples.map(s=>s.aggregateRssBytes));row.swapInBytes=(row.systemAfter.swapins-row.systemBefore.swapins)*row.systemAfter.pageBytes;row.swapOutBytes=(row.systemAfter.swapouts-row.systemBefore.swapouts)*row.systemAfter.pageBytes;write();console.log(JSON.stringify({pages,sample,status:row.status,openMs:row.open?.coldOpenMs,printMs:row.print?.buildMs,rss:row.peakAggregateOwnedRssBytes,error:row.firstFailure}));}
+ }
+ report.status='COMPLETED: normal measured runtime baseline';
+ report.summaries=report.workload.pages.map(pages=>{const rows=report.samples.filter(r=>r.pages===pages);return {pages,openMs:summarize(rows.map(r=>r.open.coldOpenMs)),warmRenderMs:summarize(rows.map(r=>r.render.elapsedMs)),printBuildMs:summarize(rows.map(r=>r.print.buildMs)),aggregateRssBytes:summarize(rows.map(r=>r.peakAggregateOwnedRssBytes)),variation:{open:repeatableMeasurements(rows.map(r=>r.open.coldOpenMs)),render:repeatableMeasurements(rows.map(r=>r.render.elapsedMs)),print:repeatableMeasurements(rows.map(r=>r.print.buildMs))}};});
+ report.qualification.observedRepeatability=report.summaries.every(s=>Object.values(s.variation).every(v=>v.qualified));report.qualification.allActualFontsKnown=report.samples.every(row=>row.fontsQualified);
+}catch(error){report.status='FAIL: remaining samples NOT RUN';report.firstFailure=String(error);process.exitCode=1;}
+finally{await activeBrowser?.close().catch(()=>{});await activeServer?.close().catch(()=>{});await vite.close();write();console.log(JSON.stringify({status:report.status,report:resolve(out,'report.json')}));}
