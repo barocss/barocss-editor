@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { settled } from './helpers';
 
 /**
@@ -8,12 +8,36 @@ import { settled } from './helpers';
  */
 
 test.describe('print', () => {
-  test('puts the same number of pages on paper as on screen', async ({ page }) => {
+  const fontFailures = new WeakMap<Page, string[]>();
+  test.beforeEach(async ({ page }) => {
+    const failures: string[] = []; fontFailures.set(page, failures);
+    page.on('response', response => {
+      if (/katex.*\/fonts\//i.test(response.url()) && !response.ok()) failures.push(`${response.status()} ${response.url()}`);
+    });
+    page.on('requestfailed', request => {
+      if (/katex.*\/fonts\//i.test(request.url())) failures.push(`${request.failure()?.errorText} ${request.url()}`);
+    });
+  });
+  test.afterEach(async ({ page }, testInfo) => {
+    const faces = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return [...document.fonts].filter(face => face.family.includes('KaTeX')).map(face => ({ family: face.family, status: face.status }));
+    });
+    const failures = fontFailures.get(page) ?? [];
+    await testInfo.attach('actual-katex-font-status', { body: JSON.stringify({ failures, faces }), contentType: 'application/json' });
+    expect(failures, 'KaTeX font requests must succeed').toEqual([]);
+    expect(faces.some(face => face.status === 'loaded'), 'The actual sample must load its KaTeX fonts').toBe(true);
+    expect(faces.filter(face => face.status === 'error')).toEqual([]);
+  });
+
+  test('puts the same number of pages on paper as on screen', async ({ page }, testInfo) => {
     await page.goto('/?sample');
     await settled(page);
     const sheets = await page.locator('.w-sheet').count();
 
-    const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+    const path = testInfo.outputPath('word-print.pdf');
+    const pdf = await page.pdf({ path, printBackground: true, preferCSSPageSize: true });
+    await testInfo.attach('actual-word-print', { path, contentType: 'application/pdf' });
 
     // Read out of the PDF itself rather than from anything the app says. A page
     // tree records how many pages it holds, and that is the only number a
@@ -85,18 +109,45 @@ test.describe('print', () => {
     await page.goto('/?sample');
     await settled(page);
 
+    const sourceHeaders = await page.evaluate(() => {
+      const headers = [...document.querySelectorAll<HTMLElement>('#editor .w-header')];
+      return [...document.querySelectorAll<HTMLElement>('#editor .w-sheet')].map(sheet => {
+        const paper = sheet.getBoundingClientRect();
+        return headers.flatMap(header => {
+          const r = header.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < paper.bottom && r.bottom > paper.top && r.left < paper.right && r.right > paper.left
+            ? [{ text: header.textContent?.trim(), top: r.top - paper.top, left: r.left - paper.left, width: r.width, height: r.height }] : [];
+        });
+      });
+    });
     const headersPerPage = async () => {
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
-      const counts = await page.evaluate(() =>
-        [...document.querySelectorAll('.w-print-page')].map((p) => p.querySelectorAll('.w-header').length)
-      );
+      await page.emulateMedia({ media: 'print' });
+      const headers = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.w-print-page')].map(paper => {
+        const p = paper.getBoundingClientRect();
+        return [...paper.querySelectorAll<HTMLElement>('.w-header')].flatMap(header => {
+          const r = header.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < p.bottom && r.bottom > p.top && r.left < p.right && r.right > p.left
+            ? [{ text: header.textContent?.trim(), top: r.top - p.top, left: r.left - p.left, width: r.width, height: r.height }] : [];
+        });
+      }));
+      await page.emulateMedia({ media: 'screen' });
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-      return counts;
+      return headers;
     };
 
     const normal = await headersPerPage();
     expect(normal.length).toBeGreaterThan(1);
-    expect(new Set(normal).size).toBe(1);
+    expect(new Set(sourceHeaders.flat().map(header => header.text)).size).toBeGreaterThan(1);
+    expect(sourceHeaders.some(headers => headers.length === 0)).toBe(true); // Section 2 has no header binding.
+    expect(normal.map(headers => headers.map(header => header.text))).toEqual(sourceHeaders.map(headers => headers.map(header => header.text)));
+    for (const [index, headers] of normal.entries()) for (const [at, actual] of headers.entries()) {
+      const expected = sourceHeaders[index][at];
+      expect(actual.top).toBeCloseTo(expected.top, 0);
+      expect(actual.left).toBeCloseTo(expected.left, 0);
+      expect(actual.width).toBeCloseTo(expected.width, 0);
+      expect(actual.height).toBeCloseTo(expected.height, 0);
+    }
 
     // Editing a header shows the real node in place of the copy on the first
     // page and suppresses the copies on all the others — right for editing,
@@ -106,7 +157,8 @@ test.describe('print', () => {
     await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
     await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
 
-    expect(await headersPerPage()).toEqual(normal);
+    const editingHeaders = await headersPerPage();
+    expect(editingHeaders).toEqual(normal);
 
     // And the reader is still in the header when the printing is over.
     await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
