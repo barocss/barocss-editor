@@ -224,3 +224,9 @@ Core E may move validation work into event construction. The new profile will
 therefore report construction/admission and TOTAL cold/edit/paste costs beside
 projection/diff/calculation phases, with both original phase and new v1.1 total
 gates. No hidden admission-cost shift can become a claimed latency win.
+
+Printed growth is measured with the actual native CDP DOM node counter delta
+before/after print construction. The driver does not walk millions of printed
+nodes in JavaScript and thereby inflate its own memory observation. Source
+element/text counts and actual print page-container count remain separate.
+The frozen3.5growth target applies to actual printed DOM nodes; no limit changes.
