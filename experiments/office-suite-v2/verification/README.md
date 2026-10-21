@@ -523,3 +523,32 @@ The source pin must contain the committed diagnostic harness and unchanged O
 production. Old diagnostic/performance leases do not satisfy this contract.
 After the one run, report which observed phase grows, what remains unidentifiable
 and the smallest source boundary justified by data. Whole M0 remains OPEN.
+
+## ONE memory diagnostic v1 — completed, qualification unchanged
+
+Raw: `reports/word-memory-diagnostic-2026-10-21T23-06-26-563Z/report.json`.
+Assessment: `reports/word-memory-diagnostic-assessment-v1.json` and readable
+`reports/word-memory-diagnostic-v1.md`. Current matrix:
+`reports/criteria-phase-c-v5.json`; prior matrices remain intact.
+
+The source was clean `6e3bcc03a5e2cb1f50fe7291e582aa92e85f659e`, with the same17
+O production and7normal harness files. One fresh100/800 run completed all11seams
+and22sequential readsets in15.435seconds. Actual font identity matched. All4owned
+PIDs and55260 were absent after cleanup; the slot was returned before analysis.
+Raw SHA256: `b6a6ca09f07d104df6252b6b694d2727d26091572d09c8a8cb3ab80635505ef8`.
+
+In this instrumented run, adjacent readsets show about12.7MBused JS heap growth
+at warm/native completion and about1.8MBat print. Nodes stay3356through warm and
+rise4501at print. RSS falls during warm despite the heap rise. Page heap and CDP
+heap differ by about17–18MB and remain separate series. Screen media staysfalse;
+print container/page are block/static/visible and copy isflex. Final disposal,
+observer release and oneGC reduce global nodes to31; this does not prove a leak
+or its absence. The next justified read-only source boundary is the existing
+warm `view.render` content/reconciliation and native layout completion path.
+No particular cache, allocation owner or source fix is established.
+
+Diagnostic observation delays and host swap-in affect interpretation. The
+observed diagnostic RSS maximum464273408bytes does not replace the normal O
+Word100failure at577470464/598196224/575438848bytes. Frozen budget, normal method,
+Corev2 evidence and original first failures remain unchanged. No retry or
+production optimization follows. Whole M0 remains OPEN.
