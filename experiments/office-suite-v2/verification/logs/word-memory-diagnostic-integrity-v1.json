@@ -1,0 +1,43 @@
+{
+  "schema": "office-v2-m0/word-memory-diagnostic-integrity-v1",
+  "capturedUtc": "2026-10-21T23:08:59.285Z",
+  "rawSha256": "b6a6ca09f07d104df6252b6b694d2727d26091572d09c8a8cb3ab80635505ef8",
+  "checks": {
+    "statusAnd11x2Coverage": "PASS",
+    "completedBracketRecords": 99,
+    "perPidSums": "PASS",
+    "allNativeLiveCounts": "PASS runner checked",
+    "allExactRoles": "PASS",
+    "allSourceFilesAtImmutableAndWorkingRoot": 30,
+    "protocolHash": "PASS",
+    "gcCalls": 1,
+    "guardWallMs": 15434.571125,
+    "firstFailure": null,
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "actualFontIdentity": "PASS"
+  },
+  "cleanup": {
+    "observedPids": [
+      49168,
+      49205,
+      49206,
+      49218
+    ],
+    "psExit": 1,
+    "psStdout": "",
+    "port": 55260,
+    "lsofExit": 1,
+    "lsofStdout": "",
+    "runnerCleanup": "Owned browser/server/Vite close completed within5s",
+    "slotReturnedBeforeInterpretation": true
+  },
+  "qualification": "UNCHANGED; this is integrity evidence only",
+  "runtimeCommand": "PATH=/Users/user/.nvm/versions/node/v22.22.0/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin M0_WORD_MEMORY_DIAGNOSTIC_LEASE=/Users/user/barocss-editor/.omx/m0/phase-c-word-memory-diagnostic-lease.json /Users/user/.nvm/versions/node/v22.22.0/bin/node experiments/office-suite-v2/verification/word-memory-diagnostic-runner.mjs",
+  "runtimeExitCode": 0,
+  "offlineValidation": {
+    "exitCode": 0,
+    "result": "Assessment/raw arithmetic;11x2 exact copied values and native live/disposed states; all previous matrix criteria unchanged; normal/Core/budget/guard bytes unchanged; heldsource exactHEAD/clean; no runtime rerun",
+    "sourceFilesChecked": 30
+  }
+}
