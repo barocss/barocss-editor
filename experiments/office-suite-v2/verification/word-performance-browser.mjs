@@ -27,7 +27,7 @@ window.m0WordPerformance={
  fonts(){const paragraphs=[...document.querySelectorAll('.w-paragraph')];const selected=[0,Math.floor(paragraphs.length/2),paragraphs.length-1];return selected.map((paragraphIndex,i)=>{const paragraph=paragraphs[paragraphIndex];if(!paragraph)throw new Error('No rendered paragraph');const walker=document.createTreeWalker(paragraph,NodeFilter.SHOW_TEXT);let text;
   while((text=walker.nextNode()))if(text.textContent.trim()){const target=text.parentElement,anchor=target.closest('[data-bc-sid]');if(!anchor)throw new Error('No native font target anchor');let selector=`[data-bc-sid="${CSS.escape(anchor.getAttribute('data-bc-sid'))}"]`;const tail=[];for(let node=target;node!==anchor;node=node.parentElement){tail.unshift(`${node.tagName.toLowerCase()}:nth-child(${[...node.parentElement.children].indexOf(node)+1})`);}if(tail.length)selector+=' > '+tail.join(' > ');const style=getComputedStyle(target);return {paragraphIndex,selector,fontFamily:style.fontFamily,fontSize:style.fontSize,textSample:text.textContent.slice(0,60)};}throw new Error('Paragraph has no rendered text');});},
  print(){const started=performance.now();const pages=window.wordPrintPages.build();return {pages,buildMs:performance.now()-started};},
- printedNodes(){return {...nodeCounts(document.querySelector('.w-print-pages')),copies:document.querySelectorAll('.w-print-copy').length,pages:document.querySelectorAll('.w-print-page').length};},
+ printedNodes(){const container=document.querySelector('.w-print-pages');if(!container)throw new Error('No actual print container');return {pages:container.children.length};},
  clearPrint(){window.wordPrintPages.clear();},
  dispose(){runtime?.dispose();runtime=undefined;}
 };

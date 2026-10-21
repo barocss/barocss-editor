@@ -12,7 +12,8 @@
     "resourceGuard": "2GiB aggregate owned browser RSS,15sprint/10sopen phase guards,45ssample wall cap; first guard failure stops remaining heavy samples",
     "coarsePercentile": "Three observations: report worst-of-three/nearest-rank p95, not population tail",
     "repeatability": "For each phase3fresh sequential samples: CV<=0.25 OR max-min<=10ms",
-    "absoluteSpreadNoiseFloorMs": 10
+    "absoluteSpreadNoiseFloorMs": 10,
+    "printNodeInventory": "Native CDP DOM node counter delta before/after build, avoiding millions of JS wrappers during print readout; source element/text counts separately recorded"
   },
   "wordTargets": [
     {
@@ -37,7 +38,7 @@
       "pages300Bytes": 1073741824
     },
     {
-      "phase": "printed-element-growth-300-vs-100",
+      "phase": "printed-DOM-node-growth-300-vs-100",
       "maximumRatio": 3.5,
       "intent": "3x source content should not create9x printed content"
     }
