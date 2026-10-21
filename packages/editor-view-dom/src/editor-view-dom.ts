@@ -185,9 +185,10 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   /** Guard so a pass's own re-render does not run the passes again. */
   private _runningLayoutPasses = false;
-
-
-
+  /** Completion and convergence belong to the newest render, including yielded work. */
+  private _renderGeneration = 0;
+  private _contentRenderPending = false;
+  private _layoutRounds = 0;
   private _decoratorRenderer?: DOMRenderer;    // For Decorator layer
   private _selectionRenderer?: DOMRenderer;    // For Selection layer
   private _contextRenderer?: DOMRenderer;     // For Context layer
@@ -1601,6 +1602,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   // Lifecycle
   destroy(): void {
     this.inputDisposed = true;
+    this._renderGeneration++;
     this.clearPointerFocusIntent();
     this.clearPendingModelSelection();
     this.editor.off('editor:editable.change', this.retireInputAuthority);
@@ -1982,12 +1984,19 @@ export class EditorViewDOM implements IEditorViewDOM {
   private static readonly MAX_LAYOUT_ROUNDS = 3;
 
   private _runLayoutPasses(): void {
-    if (this._runningLayoutPasses || this._layoutPasses.length === 0) return;
-
+    if (this.inputDisposed || this._isRendering || this._contentRenderPending ||
+      this._runningLayoutPasses || this._layoutPasses.length === 0) return;
+    if (this._isComposing) {
+      // Completion can arrive after an IME starts. The existing composition-end
+      // path pays off this render without repainting an open composition.
+      this._renderMissedAChange = true;
+      return;
+    }
 
     this._runningLayoutPasses = true;
     try {
-      for (let round = 0; round < EditorViewDOM.MAX_LAYOUT_ROUNDS; round++) {
+      while (this._layoutRounds < EditorViewDOM.MAX_LAYOUT_ROUNDS) {
+        this._layoutRounds++;
         let patch: RenderEnv | undefined;
         for (const pass of this._layoutPasses) {
           const result = pass(this);
@@ -2000,6 +2009,10 @@ export class EditorViewDOM implements IEditorViewDOM {
 
         this.setEnv(patch);
         this.render();
+        // A yielded render resumes this same bounded attempt on completion.
+        // Measuring now would read the previous DOM and could cancel the work
+        // that is meant to draw this environment.
+        if (this._contentRenderPending) return;
       }
     } finally {
       this._runningLayoutPasses = false;
@@ -2028,6 +2041,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   render(tree?: ModelData | any, options?: { sync?: boolean }): void {
+    if (this.inputDisposed) return;
     if (!this._domRenderer) {
       console.warn('[EditorViewDOM] No DOM renderer available');
       return;
@@ -2044,6 +2058,17 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
     logger.debug(LogCategory.DOM, 'render: start');
     this._isRendering = true;
+    const generation = ++this._renderGeneration;
+    const root = this.editor.getRootId?.();
+    const epoch = this.editor.dataStore?.getDocumentEpoch?.();
+    const viewRoot = this._viewRootId;
+    const ownsCompletion = () => !this.inputDisposed && generation === this._renderGeneration &&
+      root === this.editor.getRootId?.() && epoch === this.editor.dataStore?.getDocumentEpoch?.() &&
+      viewRoot === this._viewRootId;
+    this._contentRenderPending = false;
+    // A pass-induced render continues its existing budget even across idle
+    // callbacks. Only a new external render starts another convergence attempt.
+    if (!this._runningLayoutPasses) this._layoutRounds = 0;
     
     // Set Model-First change flag (for MutationObserver filtering)
     this._modelDrivenRenders++;
@@ -2254,9 +2279,24 @@ export class EditorViewDOM implements IEditorViewDOM {
     // Render Content if modelData exists, otherwise render only decorators
     // Re-render content even when reusing _lastRenderedModelData (reflect decorator updates)
     const contentLayerDecorators = this._filterDecoratorsForContentLayer(allDecorators);
+    const onContentComplete = () => {
+      if (!ownsCompletion()) return;
+      this._contentRenderPending = false;
+      // Apply pending selection only after the current content has committed.
+      if (this._pendingModelSelection) {
+        const selectionGeneration = this._modelSelectionGeneration;
+        requestAnimationFrame(() => {
+          if (ownsCompletion()) this.applyModelSelectionWithRetry(selectionGeneration);
+        });
+      }
+      // Synchronous completion still runs through render's tail. Yielded
+      // completion has no such tail left to run, so it resumes layout here.
+      if (!this._isRendering) this._runLayoutPasses();
+    };
 
     if (modelData) {
       try {
+        this._contentRenderPending = true;
         this._domRenderer?.render(
           this.layers.content, 
           modelData, 
@@ -2264,22 +2304,14 @@ export class EditorViewDOM implements IEditorViewDOM {
           undefined, 
           selectionContext,
           {
-            onComplete: () => {
-              // Apply pending selection after Reconcile completes
-              if (this._pendingModelSelection) {
-                // Apply in next frame (ensure DOM update completes)
-                const generation = this._modelSelectionGeneration;
-                requestAnimationFrame(() => {
-                  this.applyModelSelectionWithRetry(generation);
-                });
-              }
-            }
+            onComplete: onContentComplete
           }
         );
         this._hasRendered = true;
         // Store last rendered modelData (reuse when only decorator is updated)
         this._lastRenderedModelData = modelData;
       } catch (error) {
+        this._contentRenderPending = false;
         console.error('[EditorViewDOM] Error rendering content:', error);
         // Try rendering decorator even if Content rendering fails
       }
@@ -2287,6 +2319,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       // If no modelData but decorator exists and previous rendered data exists, re-render content
       // (to reflect decorator updates in content layer)
       try {
+        this._contentRenderPending = true;
         this._domRenderer?.render(
           this.layers.content, 
           this._lastRenderedModelData, 
@@ -2294,19 +2327,11 @@ export class EditorViewDOM implements IEditorViewDOM {
           undefined, 
           selectionContext,
           {
-            onComplete: () => {
-              // Apply pending selection after Reconcile completes
-              if (this._pendingModelSelection) {
-                // Apply in next frame (ensure DOM update completes)
-                const generation = this._modelSelectionGeneration;
-                requestAnimationFrame(() => {
-                  this.applyModelSelectionWithRetry(generation);
-                });
-              }
-            }
+            onComplete: onContentComplete
           }
         );
       } catch (error) {
+        this._contentRenderPending = false;
         console.error('[EditorViewDOM] Error re-rendering content with decorators:', error);
       }
     }
