@@ -1,0 +1,45 @@
+{
+  "scope": "Three directly changed MJS files; no root check/profile rerun",
+  "files": [
+    "sheet-scale.mjs",
+    "word-performance-browser.mjs",
+    "word-phase-c-browser.mjs"
+  ],
+  "changes": [
+    "Remove unused encodeCellKey import",
+    "Remove unused map index parameter",
+    "Use const for once-assigned diagnostic runtime"
+  ],
+  "runtime": "Node22.22.0",
+  "eslintVersion": "8.57.1",
+  "configSha256": "81c37bbcf0061bbd2ea22f0369181cf293807a48c57c3fff4ca58bcce7ad1ad7",
+  "configMatch": "Exact local/Integration .eslintrc.js bytes match",
+  "dependencyReuse": "Existing frozen Integration modules; no install/root config changes",
+  "firstAttempts": [
+    {
+      "command": "./node_modules/.bin/eslint <3owned files>",
+      "result": "NOT RUN: no root node_modules bin in author worktree"
+    },
+    {
+      "command": "Integration ESLint --resolve-plugins-relative-to Integration <3owned files>",
+      "exit": 2,
+      "result": "Parser resolution from author config failed; no source diagnostics obtained"
+    }
+  ],
+  "successfulLint": {
+    "command": "Integration node_modules/.bin/eslint --no-eslintrc --config Integration/.eslintrc.js --resolve-plugins-relative-to Integration <3owned files> --format json",
+    "exit": 0,
+    "files": 3,
+    "errors": 0,
+    "warnings": 0,
+    "suppressed": 0
+  },
+  "syntax": {
+    "command": "Node22 node --check each named MJS",
+    "exit": 0,
+    "files": 3
+  },
+  "typescript": "Not applicable: only MJS imports/parameter/declaration lint cleanup; no TS source changed",
+  "historicalEvidence": "Measured rawsource7d902 and historical harness hashes untouched; later lint-only harness successor differs and is not presented as measured",
+  "guards": "No guard/target/profile/timing method changes"
+}

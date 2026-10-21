@@ -1,6 +1,5 @@
 /** Bounded real Core/Formula workload. No alternate model or evaluator. */
 import { createEvent,createWorkbookContext,projectWorkbook,diffWorkbook } from '../src/workbook.ts';
-import { encodeCellKey } from '../src/contracts.ts';
 import { SHEET_PROFILE,sheetInputs } from './profiles.ts';
 import { environment,sourceBinding,summarize } from './metrics.ts';
 import { readFileSync,writeFileSync,existsSync,mkdirSync } from 'node:fs';
