@@ -1,0 +1,236 @@
+# Connected revision execution
+
+This boundary extends existing project feedback. It does not replace the original
+editor, document store, authentication, comment receipts, or collaboration engine.
+A recorded opinion never starts inference. A user must link a revision request and
+then explicitly request a proposal. Model interpretation is not a confirmed business
+criterion. Proposal acceptance is separate from native application and confirmed save.
+
+## Supported original
+
+The initial target is one complete plain inline-text run in a Word paragraph with
+one native commentRef mark and a unique existing comment thread. The paragraph has
+one child. Protected ancestors, incomplete ranges, ambiguous/deleted comments,
+unknown marks, stale source versions and unsupported products are refused.
+The stable target is the native comment identity; it is never reattached by quote.
+
+The server derives the declared output from complete captured native bytes. Only
+the run text and its commentRef end change. The product independently checks that
+declaration before calling its existing FragmentEditor transaction. Native content,
+resources, attributes, omitted fields and unrelated runs remain exact. The native
+transaction owns history; there is no second document or synthetic undo stack.
+
+Approval first completes pending input/save preparation. Composition, unfinished
+math, changed input, selection, document or account generations retire the preview.
+The frozen intent is checked under the existing transaction lock and after awaited
+guards. The guard permits only the captured original or its exact declared candidate.
+After application, existing authenticated save/recovery owns persistence. The server
+acknowledges only the declared next canonical revision and exact snapshot hash.
+
+## Durable lineage and recovery
+
+One attempt is reserved per tenant/project/work before dispatch. Its one-use private
+completion claim retains bounded outcome even if the caller loses permission while
+the provider is running. The claim is not an HTTP credential and cannot write a
+native document. Normal reads and all human operations require current membership.
+Captured authority, request/result context and exact source versions guard acceptance.
+Only the same work's pause/resume state and presentation activity/drafts are excluded
+from its frozen context fingerprint. A paused work cannot accept or acknowledge.
+After resume, unchanged source and context can explicitly continue the same proposal
+without inference. Other requests, goals, comments, result links and input pins remain
+frozen; a changed source or authority still refuses the proposal.
+
+The phases are proposal, blocked, failed, accepted, applied, rejected, unsupported,
+and unknown. A dispatched attempt with a lost/unfinished outcome remains unknown.
+Opening a project, reading status, replaying execution or restarting the API never
+reinvokes the provider. There is no scheduler or automatic retry. A rejected proposal
+preserves the original. An accepted attempt cannot be labeled rejected.
+
+After lost acceptance/save acknowledgements, explicit recovery checks canonical
+bytes. Exact declared output is acknowledged. Exact unchanged input can resume the
+same accepted proposal under fresh authority. Any other content is retained and
+reported for review. Recovery never dispatches another inference or blindly reapplies
+a delta. Historical work inputs remain retrievable subject to current authorization.
+
+## Local adapter
+
+Production execution is opt-in with `OFFICE_LOCAL_AGENT_ENABLED=true`. With no
+configured adapter, the request remains unconnected. The current adapter uses only
+the installed loopback Ollama service, fixed model `qwen3.6:27b-coding`, and recorded
+model digest. It does not download a model, enable tools, follow redirects, fetch
+external URLs or call a paid provider.
+
+Instructions, output schema, the free request, complete native original and pinned
+inputs form one literal `raw` prompt. The full prompt must fit 24,576 UTF-8 bytes
+before transport. Explicit context is 32,768 tokens and output limit is 4,096 tokens;
+installed metadata must support that context. This conservative bound prevents
+silent source truncation. Provider token counts and exact hashes are evidence of
+submission and response, not proof of semantic understanding. Hidden reasoning and
+credentials are not stored in public execution records.
+
+The adapter requests `think: false` only when installed `/api/show` metadata supports
+that value. It keeps the complete declared output and refuses unfinished or length-limited
+responses. See [Ollama generate](https://docs.ollama.com/api/generate).
+
+Generation uses a fixed loopback Node HTTP request with a hard 600-second deadline
+for headers and the complete bounded body. It does not rely on the default Node fetch
+header timeout. Only the exact authenticated execution
+POST has a 610-second browser transport wait. Ordinary reads, writes and approval
+retain their existing 10-second wait and login generation checks.
+
+## Follow-up limits
+
+A deliberately linked training result shows the exact guide input version and an
+explicit pending/unsupported reason. This version does not update when the guide
+changes. A source change signals review. Slides training editing is not implemented
+by this boundary; neither an accepted guide revision nor a stored pin claims it is.
+This bounded implementation does not establish external alpha/release readiness,
+physical OS Korean IME behavior, Site publication, or complete multi-product Agent
+execution. Deterministic contract tests, real database checks and live model/browser
+checks must be reported separately against the exact candidate and integration SHA.
+
+## Unfinished local checkpoint — 2026-10-03
+
+Developer status: incomplete. Product release readiness: unconfirmed.
+This candidate preserves the implementation and evidence; it is not an integrated
+or release-ready version. Accepted local develop remains
+`dfb03a03ce48b419a2fee1860098370abb53b3a9`. No push, PR change, Issue closure,
+model retry, publication or deployment is part of this checkpoint.
+
+The previously frozen `5309ade6` plus owned changes passed Node 22.22.0
+`pnpm preflight` and 59 service/API, 17 native and 13 client focused tests.
+Before/after manifests matched all 3,330 source paths. Lint and type-check results
+retain the existing repository diagnostic baseline; no budget was relaxed.
+Isolated PostgreSQL execution checks passed 15 groups with an injected adapter;
+the existing project PostgreSQL checks passed 13 groups. These are distinct
+from actual model acceptance.
+
+The actual authenticated desktop suite passed the existing project scenario and
+failed the new live-model scenario at its 960-second deadline. Its recorded
+request had no observed response or native application. A 949-second thermal
+sleep interval overlapped the request; the provider outcome remains unconfirmed.
+The original earlier unknown outcome, cold-route failure, duplicate-title picker
+failure and all raw diagnostics remain preserved. They are not passing evidence.
+
+A later test-only diagnostic change, from helper commit `900cbfc6`, persists
+evidence before long waits and records each cleanup outcome. It retains the
+existing own-PID guards and acceptance timeout. Unconfirmed profiles are preserved,
+and incomplete cleanup cannot produce a passed status. The copied final test
+passed its scoped lint and Office test type check; its browser behavior and a
+new final source-bound preflight still require verification.
+
+Remaining gate: confirm a normally awake physical runtime, then verify the
+actual model proposal, human acceptance, exact native Undo/Redo, canonical save,
+same-attempt pause/resume, pinned training follow-up, browser/API restart and
+current authorization against this exact candidate. Retain all seven #439
+criteria and all thirteen Goal requirements. Training automatic editing remains
+unsupported and explicitly pending. Full Goal and alpha readiness are not claimed.
+
+## Resumed authenticated acceptance — 2026-10-03
+
+The later normally interactive runtime produced a real local-model proposal.
+The first resumed case retained a test-instrumentation failure: it counted both
+the request and its response as dispatches. The correction filters only request
+events; the expected count remains one. No assertion, model fixture or timeout
+was relaxed. That failed run and its actual proposal/provenance remain preserved.
+
+The corrected desktop case passed with actual OIDC, disposable PostgreSQL/API,
+one installed-model call and two independent browser profiles. It verified:
+
+- Comment-only makes no inference. Exact native input and live provenance bind
+  the deliberate request to the proposal.
+- Pause/reload/resume retains the same proposal and attempt without inference.
+- Explicit approval applies one declared Word delta and saves canonical revision
+  3. Complete native Undo/Redo returns exact before/after bytes using the existing
+  editor history and save path.
+- A deliberately linked training original uses guide revision 3, preserves its
+  exact pin and remains visibly pending/unsupported. Its own native bytes are
+  unchanged. Historical guide bytes remain retrievable after human changes.
+- Actual browser-process/API restart and explicit replay retain the same attempt,
+  proposal and provenance. Viewer acceptance and revoked evidence reads return
+  403. All private profile cleanup steps complete.
+
+The provider measured 44.327 seconds, 14,823 prompt bytes, 3,914 input tokens and
+138 output tokens in that passing case. These are measurements of one run, not a
+performance comparison. Before/after source manifests matched 3,330 paths.
+The native and client refusal/recovery tests and injected-adapter PostgreSQL
+checks remain separately attributed; they are not relabeled as physical IME or
+additional live-model calls.
+
+QA prerequisite: the existing installed model, protected fictional OIDC accounts,
+local Keycloak, Node 22.22.0, PostgreSQL binaries, and a disposable outside-repository
+0700 control directory with an empty 0600 control file. Run the existing
+`apps/office/playwright.auth.real.config.ts` with
+`connected-execution-auth.spec.ts`; it creates and cleans private API/database
+and browser resources. Missing prerequisites fail rather than skip.
+`OFFICE_LOCAL_AGENT_ENABLED=true` explicitly enables the adapter; production
+defaults remain unconnected. No new credentials, model download or service setup
+is needed or authorized by this acceptance.
+
+The owner's latest local-Git instruction closed PR #440 without merging or
+deleting its branch. Release-only PR publication remains required. Final
+source-bound preflight and serial local integration are recorded in the local
+evidence manifest. This bounded Word execution does not complete the full Goal,
+four-product editing, semantic business criteria, training automatic editing or
+external alpha/release readiness.
+
+
+## Project authority lifetime (#444)
+
+Captured project execution authority binds the existing membership-event epoch and
+the committed membership row version (`xmin`). `project_current_actor` holds the
+current actor row with `FOR SHARE` before both observations. Company role changes
+write their own audit table; they need not fabricate membership events. An actual
+editor → viewer → editor transition, or revoke/restore, retires old acceptance,
+rejection and apply acknowledgement. A genuine no-change role request does not
+update that row and does not retire intent. Existing migration checksums are unchanged.
+
+If a role change commits while acceptance waits for the membership lock, the fresh
+statement observes the new lifetime and refuses the old request with 409. If
+acceptance already holds that lock while waiting on a document lock, it linearizes
+before the queued role change. Deferred provider completion retains its frozen
+input/provenance and records a blocked outcome after authority retirement.
+Historical evidence remains readable only under current ACL; retry never dispatches
+the model again or rewrites the captured actor. Same-database restart preserves it.
+
+The Word approval gesture captures its native preview before awaiting draft/save
+preparation. That exact preview stays bound through acceptance or explicit
+lost-acknowledgement recovery. Selection/input/root/account retirement cannot be
+silently recaptured by the waiting gesture. An already-applied exact canonical
+snapshot needs only acknowledgement and does not apply another native change.
+This is a bounded mutation-boundary check, not continuous server authorization for
+every keystroke. Rich target-run editing remains outside this plain-run executor;
+untouched rich siblings, resources and stable references must be preserved.
+
+QA: use Node 22.22.0, the protected local OIDC fixture, existing installed local model
+and a fresh private PostgreSQL supervisor. Run the project execution PG suite and
+`connected-execution-auth.spec.ts`. The desktop scenario creates the guide/training
+project, previews a real local proposal, changes selection during a delayed actual
+acceptance response, loses a repeated acceptance acknowledgement, explicitly
+recovers the same attempt, and checks full canonical Undo/Redo/save/reopen. A second
+authenticated writer obtains a separate proposal; the owner uses the restricted
+company API for role ABA and revocation. Old acceptance/rejection must return409
+after restoration; native/project bytes and provenance must remain unchanged,
+including after real API and PostgreSQL process restart. Synthetic service
+provider tests do not constitute model inference or physical OS IME verification.
+
+Operator/Technical Writer handoff: no configuration, deployment, external service,
+new migration or permission grant is required. The private test-only authority
+observation is not a product HTTP endpoint. Independent recipient acknowledgement
+is not claimed. Full Goal/alpha and release preparation remain incomplete.
+
+The actual DOM selection can change before the view's debounced model event.
+The revision-specific runtime guard therefore samples owned DOM node identities
+and offsets at the commit check, and retires on editor navigation/pointer gestures.
+It does not wait for a timer or infer unchanged DOM selection from model events.
+Ordinary input captures and the existing bookmark-command exception retain their
+previous behavior. A navigation gesture may conservatively retire a proposal even
+when its final caret returns to the original range; the user can explicitly recover
+the same immutable attempt. No native mutation or model redispatch is automatic.
+
+Precommit observations remain strict, including raw DOM selection. After the exact
+native transaction reports success and committed=true and its full canonical bytes
+match the declared candidate, the dedicated postcommit observation permits the
+owned renderer's caret/node update. It still checks gesture, input, composition,
+command, root, account and host lifetimes. This distinction prevents reporting a
+failed apply after a valid native commit without allowing stale precommit input.

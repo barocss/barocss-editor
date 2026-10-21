@@ -3,6 +3,8 @@ import { transaction, toggleMark } from '@barocss/model';
 
 export interface StrikeThroughExtensionOptions {
   enabled?: boolean;
+  /** Trusted product capability; the shared default remains canonical. */
+  markType?: 'strike' | 'strikethrough';
 }
 
 /**
@@ -58,7 +60,7 @@ export class StrikeThroughExtension implements Extension {
       selection.startOffset,
       selection.endNodeId,
       selection.endOffset,
-      'strikethrough'
+      this._options.markType ?? 'strikethrough'
     );
     const result = await transaction(editor, [op]).commit();
     return result.success;

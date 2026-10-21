@@ -134,7 +134,8 @@ const DECLARED: SlidesMenu[] = [
         items: [
           { view: 'audit', label: '검사' },
           { view: 'map', label: '지도' },
-          { view: 'focus', label: '전체 보기' }
+          { view: 'focus', label: '전체 보기' },
+          { view: 'ruler', label: '눈금자 표시' }
         ]
       },
       {

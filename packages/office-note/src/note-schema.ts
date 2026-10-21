@@ -82,7 +82,7 @@ export function isNotePageId(value: unknown): value is string {
     && !['__proto__', 'prototype', 'constructor'].includes(value);
 }
 
-export function getNoteSchemaDefinition(): SchemaDefinition {
+export function getNoteSchemaDefinition(options: { literalStrike?: boolean } = {}): SchemaDefinition {
   const office = getOfficeSchemaDefinition();
   const nodes = office.nodes as Record<string, any>;
   /**
@@ -100,6 +100,7 @@ export function getNoteSchemaDefinition(): SchemaDefinition {
 
   return {
     ...office,
+    ...(options.literalStrike ? { marks: { ...office.marks, strike: { name: 'strike', group: 'text-style', attrs: { style: { type: 'string', default: 'line-through' } } } } } : {}),
     /**
      * **Where a note starts.** The store validates against this, which is the whole point of the
      * package: a `form` written into a body is refused by the model rather than merely not offered

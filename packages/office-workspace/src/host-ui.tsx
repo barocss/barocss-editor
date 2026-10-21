@@ -1,21 +1,84 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button, SearchSelect, Dialog, ProductMenu, type EditorNavigationProps } from '@barocss/office-ui';
-import { prepareProductNavigation, productDocumentHost } from '@barocss/shared';
-import { OfficeWorkspace, workspaceIdentity, type WorkspaceDocument } from './workspace';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, SearchSelect, Dialog, ProductMenu, useOfficeLocale, type EditorNavigationProps } from '@barocss/office-ui';
+import { captureProductNavigation, prepareProductNavigation, productDocumentHost, type ProductNavigationGuard } from '@barocss/shared';
+import { beginWorkspaceNavigation, registerWorkspaceBeforeLeave } from './workspace-navigation';
+import { workspaceReturnURL } from './catalog-origin';
+import { OfficeWorkspace, readProductDocument, workspaceIdentity, type WorkspaceDocument } from './workspace';
 import { documentURL, products, referenceKey } from './products';
+import { localProjectRepository } from './project-local';
+import { ProjectFeedback, type FeedbackBeforeLeave } from './project-feedback';
+import './project-ui.css';
+
+interface LocalWorkspacePreparation { prepare(): Promise<boolean>; isPrepared(): boolean; }
+let localPreparation: LocalWorkspacePreparation | undefined;
+let committedPreparation: { boundary: LocalWorkspacePreparation; host: ReturnType<typeof productDocumentHost>; id: string | undefined; epoch: number | undefined } | undefined;
+const preparationWaiters = new Set<{ guard: ProductNavigationGuard; resolve(value: boolean): void }>();
+function settlePreparationWaiters(retired = false) {
+  for (const waiter of preparationWaiters) {
+    const committed = committedPreparation;
+    const host = productDocumentHost();
+    if (retired || !waiter.guard.isCurrent()) { preparationWaiters.delete(waiter); waiter.resolve(false); }
+    else if (committed && committed.boundary === localPreparation && committed.host === host &&
+      committed.id === waiter.guard.id && host?.product === waiter.guard.product &&
+      committed.epoch === host.identityEpoch?.()) { preparationWaiters.delete(waiter); waiter.resolve(true); }
+  }
+}
+/** Await the exact header/feedback registration commit, without preparing or retrying storage. */
+export function waitForLocalWorkspacePreparation(guard: ProductNavigationGuard): Promise<boolean> {
+  if (!localPreparation || !guard.isCurrent()) return Promise.resolve(false);
+  return new Promise(resolve => { preparationWaiters.add({ guard, resolve }); settlePreparationWaiters(); });
+}
+/** The child bridge retains the exact header/feedback preparation through native awaits. */
+export function captureLocalWorkspaceBeforeLeave(): LocalWorkspacePreparation {
+  const captured = localPreparation;
+  let prepared = false;
+  return {
+    prepare: async () => { prepared = false; const result = !captured || await captured.prepare(); prepared = result && localPreparation === captured; return prepared; },
+    isPrepared: () => prepared && localPreparation === captured && (!captured || captured.isPrepared())
+  };
+}
 
 /** This shell never reads editor internals. The mounted product owns its flush contract. */
-export function ProductNavigation({ product }: EditorNavigationProps) {
+export function ProductNavigation({ product, navigate }: EditorNavigationProps & { navigate?: (url: string) => Promise<boolean> }) {
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
-  const [ready, setReady] = useState(!!productDocumentHost()), [busy, setBusy] = useState(false);
+  const projectId = new URLSearchParams(location.search).get('project');
+  const repository = useMemo(() => localProjectRepository(workspace), [workspace]);
+  const beforeLeave = useRef<FeedbackBeforeLeave | undefined>(undefined);
+  const navigationLock = useRef(false);
+  useEffect(() => {
+    let prepared: FeedbackBeforeLeave | undefined, settled = false;
+    const boundary: LocalWorkspacePreparation = {
+      prepare: async () => {
+        settled = false; prepared = beforeLeave.current;
+        const result = !prepared || await prepared();
+        settled = result && localPreparation === boundary && beforeLeave.current === prepared;
+        return boundary.isPrepared();
+      },
+      isPrepared: () => settled && localPreparation === boundary && beforeLeave.current === prepared &&
+        (!prepared || prepared.isPrepared?.() === true)
+    };
+    localPreparation = boundary;
+    const unregister = registerWorkspaceBeforeLeave(boundary.prepare);
+    return () => { if (localPreparation === boundary) { localPreparation = undefined; committedPreparation = undefined; settlePreparationWaiters(true); } unregister(); };
+  }, []);
+  const [mountedHost, setMountedHost] = useState(() => ({ host: productDocumentHost(), id: productDocumentHost()?.id(), identityEpoch: productDocumentHost()?.identityEpoch?.(), epoch: 0 })), [busy, setBusy] = useState(false);
+  const ready = !!mountedHost.host;
   const [error, setError] = useState(''), [open, setOpen] = useState(false);
   const [rows, setRows] = useState<WorkspaceDocument[]>([]), [current, setCurrent] = useState<WorkspaceDocument>();
   const [target, setTarget] = useState('');
   useEffect(() => {
-    const update = () => setReady(!!productDocumentHost());
+    const update = () => { committedPreparation = undefined; settlePreparationWaiters(); const host = productDocumentHost(); setMountedHost(previous => ({ host, id: host?.id(), identityEpoch: host?.identityEpoch?.(), epoch: previous.epoch + 1 })); };
     window.addEventListener('wonffice:host-change', update); update();
     return () => window.removeEventListener('wonffice:host-change', update);
   }, []);
+  // Child feedback effects publish their callback before this parent effect.
+  useEffect(() => {
+    const host = productDocumentHost();
+    if (!localPreparation || host !== mountedHost.host || host?.id() !== mountedHost.id ||
+      host?.identityEpoch?.() !== mountedHost.identityEpoch) return;
+    committedPreparation = { boundary: localPreparation, host, id: mountedHost.id, epoch: mountedHost.identityEpoch };
+    settlePreparationWaiters();
+  }, [mountedHost]);
   const run = async (action: () => Promise<void>) => {
     if (busy) return;
     setBusy(true); setError('');
@@ -24,16 +87,32 @@ export function ProductNavigation({ product }: EditorNavigationProps) {
   };
   const flush = async () => { if (!await prepareProductNavigation()) throw new Error('마지막 입력을 저장하지 못했습니다. 현재 화면에서 저장을 다시 시도하세요.'); };
   const go = async (row?: WorkspaceDocument) => {
+    const mounted = productDocumentHost();
+    if (row && mounted?.product === row.product && mounted.id() === row.id) return;
+    if (navigationLock.current) return;
+    const release = beginWorkspaceNavigation(); if (!release) return;
+    navigationLock.current = true;
+    const guard = captureProductNavigation();
+    const current = () => { if (!guard?.isCurrent()) throw new Error('열려 있는 자료가 바뀌었습니다. 현재 자료에서 다시 시도하세요.'); };
     const root = document.getElementById('root');
-    if (root) root.inert = true;
     try {
-      await flush();
+    if (beforeLeave.current && !await beforeLeave.current()) throw new Error('작성 중인 의견을 저장하지 못했습니다. 현재 화면을 유지합니다.');
+    current();
+    if (root && !navigate) root.inert = true;
+      if (!navigate && !await guard!.prepare()) throw new Error('마지막 입력을 저장하지 못했습니다. 현재 화면에서 저장을 다시 시도하세요.');
+      current();
       if (row) {
+        const source = await workspace.require(row.product, row.id); current();
+        await readProductDocument(row.product, source.text); current();
         if ((await workspace.meta(row.key)).trashedAt !== null) throw new Error('휴지통에 있는 자료입니다. 자료함에서 복원하세요.');
-        await workspace.update(row.key, { openedAt: Date.now() });
+        current();
       }
-      location.assign(row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id }) : `/?workspace=${encodeURIComponent(workspace.id)}`);
-    } catch (error) { if (root) root.inert = false; throw error; }
+      current();
+      const destinationURL = row ? documentURL({ workspace: workspace.id, product: row.product, id: row.id, ...(projectId ? { project: projectId } : {}) }) : workspaceReturnURL(workspace.id, projectId);
+      if (navigate) { if (!await navigate(destinationURL)) throw new Error('열려 있는 자료가 바뀌었습니다. 현재 자료에서 다시 시도하세요.'); }
+      else location.assign(destinationURL);
+    } catch (error) { if (root && !navigate) root.inert = false; throw error; }
+    finally { navigationLock.current = false; release(); }
   };
   const refresh = async () => {
     const host = productDocumentHost();
@@ -43,11 +122,13 @@ export function ProductNavigation({ product }: EditorNavigationProps) {
   return <><nav className="ow-shell-nav office-command-surface" aria-label="Wonffice 작업 공간">
     <ProductMenu product={product} id="workspace" label="작업 공간 메뉴" blocks={[{ id: 'navigation', items: [
       { id: 'home', label: '자료함', disabled: !ready || busy },
+      ...(projectId ? [{ id: 'project', label: '프로젝트로 돌아가기', disabled: !ready || busy }] : []),
       { id: 'references', label: '연결한 자료', disabled: !ready || busy }
     ] }]} onPick={id => {
-      if (id === 'home') void run(() => go());
+      if (id === 'home' || id === 'project') void run(() => go());
       if (id === 'references') void run(async () => { await flush(); await refresh(); setOpen(true); });
     }} />
+    {ready && projectId && mountedHost.host && mountedHost.id && <ProjectFeedback key={mountedHost.epoch} repository={repository} projectId={projectId} beforeLeave={beforeLeave} document={{ product: mountedHost.host.product, id: mountedHost.id }} />}
     {error && <span role="alert">{error}</span>}
   </nav><Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }} title="연결한 자료" description="같은 작업 공간의 원본 자료를 연결합니다. 사본을 만들려면 자료함의 관리 메뉴를 사용하세요.">
     <div className="ow-manage">{current?.references.map(key => { const row = rows.find(one => one.key === key); return <div key={key} className="ow-link-row">
@@ -59,3 +140,29 @@ export function ProductNavigation({ product }: EditorNavigationProps) {
     <Button disabled={busy || !target || !current} onClick={() => void run(async () => { await workspace.link(current!.key, target); setTarget(''); await refresh(); })}>원본 참조 추가</Button>{error && <p role="alert">{error}</p>}
     </div></Dialog></>;
 }
+
+/** Local route context is descriptive only; aliases never switch feedback scope. */
+export function ProductLocation() {
+  const { t } = useOfficeLocale();
+  const projectId = new URLSearchParams(location.search).get('project');
+  const [project, setProject] = useState<{ id: string; title: string }>();
+  useEffect(() => {
+    let live = true, request = 0;
+    if (!projectId) { setProject(undefined); return; }
+    const workspace = new OfficeWorkspace(workspaceIdentity());
+    const refresh = async () => {
+      const current = ++request;
+      try {
+        const found = (await workspace.projects()).find(one => one.record.id === projectId);
+        if (live && current === request) setProject({ id: projectId, title: found?.record.title || t('workspace.context.unavailableProject') });
+      } catch { if (live && current === request) setProject({ id: projectId, title: t('workspace.context.unavailableProject') }); }
+    };
+    void refresh(); window.addEventListener('wonffice:catalog-refresh', refresh);
+    return () => { live = false; window.removeEventListener('wonffice:catalog-refresh', refresh); };
+  }, [projectId, t]);
+  const caption = `${t('workspace.heading.localWorkspace')}${projectId ? ` · ${project?.id === projectId ? project.title : t('workspace.context.loadingProject')}` : ''}`;
+  return <span aria-label={t('workspace.context.current')} title={caption}>{caption}</span>;
+}
+
+export { WorkspaceFramePresentation } from './workspace-frame-presentation';
+export type { WorkspaceFrameRow, WorkspaceFrameEntry, WorkspaceFrameGroup, WorkspaceTreeView, WorkspaceFrameLabels, WorkspaceFramePresentationProps } from './workspace-frame-presentation';

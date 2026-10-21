@@ -1,3 +1,6 @@
+export { captureNoteParagraph, type NoteParagraphCapture } from './connected-proposal';
+export { createNoteNative2Context, openNoteNativeSnapshot, NativeNoteError,
+  type NativeNoteContext, type NativeNoteSession, type NativeNoteOptions } from './native-session';
 /**
  * **한 편의 글** — the schema, the kit and the editing session a body of prose needs.
  *
@@ -31,7 +34,7 @@ export {
 } from './note-schema';
 
 export { createNoteEditor, createNoteExtensions, noteSlashItems } from './note-kit';
-export { openNote, openNoteTree, noteTreeOf, type NoteSession } from './session';
+export { openNote, openNoteTree, noteTreeOf, noteNodeTreeOf, rememberNoteNativeSource, hasNoteNativeSource, observeNoteSessionChanges, type NoteSession } from './session';
 export { createNoteElementCommands, NOTE_INSERTS } from './element-commands';
 export { noteRegistry, registerNoteRenderers, registerNoteStandalone } from './renderers';
 export { NOTE_PICKED, NOTE_PICKED_WRITTEN, NOTE_WRITTEN, cellAt, holdsWriting, isPicked, pickedAt } from './selection';

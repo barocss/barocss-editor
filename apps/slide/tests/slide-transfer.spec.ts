@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickMenu, currentSlide, setPanel } from './helpers';
 
 async function fixture(page: import('@playwright/test').Page) {
   await openDeck(page);
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   await expect(page.locator('[data-board-label]')).toHaveCount(6);
   const first = await page.locator('[data-board-label]').nth(0).getAttribute('data-board-label');
   const second = await page.locator('[data-board-label]').nth(1).getAttribute('data-board-label');
@@ -24,7 +24,7 @@ test('drags a text object into another slide, then undoes and restores its saved
   await page.mouse.move(f.to.x, f.to.y, { steps: 12 });
   await expect(page.locator('[data-slide-transfer]')).toHaveAttribute('data-slide-transfer', f.second!);
   await page.mouse.up();
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(f.second);
   const targetBox = page.locator(`.sl-stage .sl-slide[data-bc-sid="${f.second}"] [data-bc-sid="${f.sid}"]`);
   await expect(targetBox).toContainText(text);
   const landed = await targetBox.boundingBox();
@@ -32,13 +32,13 @@ test('drags a text object into another slide, then undoes and restores its saved
   expect(landed!.y + landed!.height / 2).toBeCloseTo(f.to.y, 0);
   await page.evaluate(() => (window as any).editor.undo());
   await expect(f.box).toBeAttached();
-  await expect(page.locator('.sl-count')).toHaveText('1 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(f.first);
   await page.evaluate(() => (window as any).editor.redo());
   await expect(targetBox).toBeAttached();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   const second = await page.locator('[data-board-label]').nth(1).getAttribute('data-board-label');
   await expect(page.locator(`.sl-stage .sl-slide[data-bc-sid="${second}"]`)).toContainText(text);
 });
@@ -79,7 +79,7 @@ test('Alt-drag copies to another slide and preserves the source through undo and
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   for (const index of [0, 1]) {
     const slide = await page.locator('[data-board-label]').nth(index).getAttribute('data-board-label');
     await expect(page.locator(`.sl-stage .sl-slide[data-bc-sid="${slide}"]`)).toContainText(text);
@@ -100,7 +100,8 @@ async function selectAcrossSlides(page: import('@playwright/test').Page) {
 
 test('selects objects across slides and edits a shared property through the inspector', async ({ page }) => {
   const f = await selectAcrossSlides(page);
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(f.second);
+  await setPanel(page, 'properties', true);
   await expect(page.locator('.sl-properties')).toContainText('2개 선택');
   await expect(page.locator('[data-cross-slide-selected]')).toHaveAttribute('data-cross-slide-selected', f.sid!);
   const opacity = page.getByRole('spinbutton', { name: '불투명도', exact: true });
@@ -114,7 +115,7 @@ test('selects objects across slides and edits a shared property through the insp
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   for (const index of [0, 1]) {
     const slide = await page.locator('[data-board-label]').nth(index).getAttribute('data-board-label');
     const sid = await page.locator(`.sl-stage .sl-slide[data-bc-sid="${slide}"] .sl-text-frame`).first().getAttribute('data-bc-sid');

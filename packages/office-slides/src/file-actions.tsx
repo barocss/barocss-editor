@@ -10,7 +10,9 @@ export interface FileActionsProps {
   editor: Editor | null;
   onOpened?: () => void;
   beforeReplace?: () => Promise<boolean>;
+  beforeSave?: () => Promise<boolean>;
   ref?: Ref<DeckFileActions>;
+  showTrigger?: boolean;
 }
 
 const deckKind: DocumentFileKind = {
@@ -28,8 +30,8 @@ const deckKind: DocumentFileKind = {
   prefix: 'sl',
 };
 
-export function FileActions({ editor, onOpened, beforeReplace, ref }: FileActionsProps) {
-  return <DocumentFiles ref={ref} editor={editor} kind={deckKind} onOpened={onOpened} beforeReplace={beforeReplace}
+export function FileActions({ editor, onOpened, beforeReplace, beforeSave, ref, showTrigger }: FileActionsProps) {
+  return <DocumentFiles ref={ref} editor={editor} kind={deckKind} onOpened={onOpened} beforeReplace={beforeReplace} beforeSave={beforeSave} showTrigger={showTrigger}
     // Slides confirms before its persistence hook, including in a hosted workspace.
     confirmReplace={() => !editor?.canUndo() || window.confirm('저장하지 않은 변경이 사라집니다. 계속할까요?')} />;
 }

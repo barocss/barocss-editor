@@ -1641,65 +1641,22 @@ ComponentManager events:
 
 ## 7. How selection docs are organized (for reference)
 
-### 7.1 Current selection-related docs
+This document contains selection types, ComponentManager communication, UI rendering,
+Model ↔ DOM conversion, synchronization timing, and selection scenarios.
 
-1. **`selection-system.md`** (this doc)  
-   - Selection types, ComponentManager communication, UI rendering, Model ↔ DOM conversion, troubleshooting  
-   - Acts as the integrated spec
-
-2. **`selection-algorithm.md`**  
-   - Range selection conversion algorithms (Text Run Index, offset mapping)
-
-3. **`selection-handling.md`**  
-   - DOM ↔ Model conversion guide, troubleshooting
-
-4. **`selection-sync-validation.md`**  
-   - Selection sync validation and tests
-
-### 7.2 Proposed organization
-
-**Current integrated structure** (already merged):
-```
-selection-system.md
-├── 1. Selection types
-├── 2. ComponentManager communication
-├── 3. Selection UI rendering
-├── 4. Model ↔ DOM conversion
-│   ├── 4.1 Text representation
-│   ├── 4.2 Text Run Index
-│   ├── 4.3 Model → DOM selection
-│   ├── 4.4 DOM → Model selection
-│   ├── 4.5 Sync timing
-│   └── 4.6 Text node splitting rules
-├── 5. Selection change scenarios
-├── 6. Node ↔ Range conversion
-├── 7. Troubleshooting and notes
-├── 8. Checklist
-└── 9. References
-```
-
-**Merged content includes:**
-- ✅ Core from `selection-algorithm.md` (Text Run Index, conversion)
-- ✅ Troubleshooting from `selection-handling.md`
-- ✅ Validation summary from `selection-sync-validation.md`
-
-**Still useful separately (optional references):**
-- `selection-algorithm.md`: deeper algorithm details
-- `selection-handling.md`: troubleshooting guide
-- `selection-sync-validation.md`: validation/tests
+Earlier references named `selection-algorithm.md`, `selection-handling.md`, and
+`selection-sync-validation.md`. These files are not present in this checkout.
+Use the sections below for the material in this document.
 
 ---
 
 ## 8. References
 
-### 8.1 Selection docs (reference)
-- [Selection Algorithm](./selection-algorithm.md) — detailed algorithms
-- [Selection Handling](./selection-handling.md) — troubleshooting
-- [Selection Sync Validation](./selection-sync-validation.md) — validation/tests
-
-*(Note: Key material has been merged into `selection-system.md`; use the above only if you need deeper detail.)*
+### 8.1 Sections in this document
+- [Model ↔ DOM Selection Conversion](#4-model--dom-selection-conversion) — Text Run Index and offset mapping
+- [Selection Sync Timing](#45-selection-sync-timing-model--dom-and-dom--model) — model/view synchronization timing
 
 ### 8.2 Related docs
-- [Backspace Detailed Spec](./backspace-detailed-spec.md): selection rules after Backspace
-- [Selection Spec](../../paper/selection-spec.md): selection type definitions (paper)
-
+- [Editor Selection and Operation Semantics](../../../docs/specs/editor.md) — selection guarantees, including backward deletion
+- [Selection Types and Command Guards](../../../docs/specs/selection.md) — range, node, cell, and table selection
+- [Selection Application Flow](../../../docs/selection-application-flow.md) — selectionAfter from model to view

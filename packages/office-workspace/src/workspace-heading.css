@@ -1,0 +1,13 @@
+.ow-workspace-heading{height:56px;min-height:56px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 24px;border-bottom:1px solid var(--ou-line);background:var(--ou-panel);flex:none}
+.ow-workspace-heading-identity{min-width:0;flex:1}
+.ow-workspace-breadcrumb{display:flex;gap:5px;margin:0;color:var(--ou-muted);font-size:10px;line-height:14px}
+.ow-workspace-heading h1{margin:0;font-size:16px;font-weight:650;line-height:24px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ow-workspace-heading-actions{display:flex;align-items:center;gap:6px;flex:none}
+.ow-workspace-heading button{min-height:32px}
+.ow-library-view-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.ow-library-view-controls select{min-height:32px;border:1px solid var(--ou-line);border-radius:var(--ou-radius,8px);background:var(--ou-panel);color:var(--ou-ink);font:inherit;padding:4px 8px;max-width:240px}
+.ow-library-view-controls input{min-height:32px;width:240px;max-width:100%}
+.ow-home.ow-library-embedded>.ow-main{min-height:0}
+.ow-project-home.ow-project-embedded{height:100%;display:flex;flex-direction:column;overflow:hidden}
+.ow-project-embedded>.ow-project-main{min-height:0;overflow:auto;width:100%;box-sizing:border-box;padding:24px 32px 64px;margin:0 auto}
+.ow-project-embedded .ow-project-goal{margin:0 0 20px;font-size:14px}

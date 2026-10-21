@@ -41,7 +41,7 @@ test('adaptive panels preserve fields, show one compact panel and restore the do
 test('Site retains usable canvas width and panel tabs through narrow and wide viewports', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Site 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Site 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('반응형 작업 공간');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await expect(page.locator('[data-admin-open]')).toHaveCount(1);
@@ -75,7 +75,7 @@ test('Site retains usable canvas width and panel tabs through narrow and wide vi
 test('Slides keeps object properties and navigation across compact panels and presentation', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Slides 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Slides 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('반응형 슬라이드');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   const root = page.locator('.sl-body');
@@ -127,7 +127,7 @@ test('Slides keeps object properties and navigation across compact panels and pr
 test('Note compact navigation preserves search and writing while opening another page', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'N Note 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Note 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('패널 검증 첫 페이지');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   const root = page.locator('.nw-workspace');

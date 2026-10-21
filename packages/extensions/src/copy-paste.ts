@@ -22,6 +22,7 @@ interface ClipboardLike {
   fragment?: DocumentFragment;
 }
 interface NativeClipboardPayload {
+  canApply?: () => boolean;
   selection?: ModelSelection;
   clipboardData?: Pick<DataTransfer, 'setData'>;
   /** Called synchronously while the native clipboard event is still writable. */
@@ -86,6 +87,7 @@ export class CopyPasteExtension implements Extension {
     editor.registerCommand({
       name: 'copy',
       execute: async (ed: Editor, payload?: NativeClipboardPayload) => {
+        if (payload?.canApply && !payload.canApply()) return false;
         const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range') {
           return false;
@@ -129,7 +131,9 @@ export class CopyPasteExtension implements Extension {
         clipboardText?: string;
         clipboardFragment?: string;
         acceptLosses?: boolean;
+        canApply?: () => boolean;
       }) => {
+        if (payload?.canApply && !payload.canApply()) return false;
         const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range') {
           return false;
@@ -142,15 +146,15 @@ export class CopyPasteExtension implements Extension {
         try { decoded = this._fragmentFromClipboard(payload?.clipboardFragment, payload?.clipboardHtml); }
         catch { return false; }
         if (decoded) {
-          if (literalTarget && editing) return this._pasteLiteral(ed, editing, decoded, payload?.clipboardText, selection);
-          return this._pasteFragment(ed, editing, decoded, selection, payload?.acceptLosses);
+          if (literalTarget && editing) return this._pasteLiteral(ed, editing, decoded, payload?.clipboardText, selection, payload?.canApply);
+          return this._pasteFragment(ed, editing, decoded, selection, payload?.acceptLosses, payload?.canApply);
         }
 
         // Code is literal text, including tabs, blank lines and Markdown punctuation.
         if (literalTarget && payload?.clipboardText !== undefined) {
           const literal = payload.clipboardText.replace(/\r\n?/g, '\n');
-          if (editing) return this._pasteFragment(ed, editing, editing.plainText(literal, selection.startNodeId, true), selection, payload?.acceptLosses);
-          const result = await transaction(ed, [replaceTextOp(selection.startNodeId, selection.startOffset, selection.endNodeId, selection.endOffset, literal)]).commit();
+          if (editing) return this._pasteFragment(ed, editing, editing.plainText(literal, selection.startNodeId, true), selection, payload?.acceptLosses, payload?.canApply);
+          const result = await transaction(ed, [replaceTextOp(selection.startNodeId, selection.startOffset, selection.endNodeId, selection.endOffset, literal)], { validateIntent: () => payload?.canApply && !payload.canApply() ? 'Stale native input' : undefined }).commit();
           return !!result && result.success !== false;
         }
 
@@ -165,10 +169,11 @@ export class CopyPasteExtension implements Extension {
             const checkpoint = editing?.checkpoint();
             const target = this._targetStamp(ed, selection);
             const clip = await this._readClipboard();
+            if (payload?.canApply && !payload.canApply()) return false;
             if (checkpoint && !editing!.isCurrent(checkpoint) || target !== this._targetStamp(ed, selection)) return false;
             if (clip.fragment) {
-              if (literalTarget && editing) return this._pasteLiteral(ed, editing, clip.fragment, clip.text, selection);
-              return this._pasteFragment(ed, editing, clip.fragment, selection, payload?.acceptLosses);
+              if (literalTarget && editing) return this._pasteLiteral(ed, editing, clip.fragment, clip.text, selection, payload?.canApply);
+              return this._pasteFragment(ed, editing, clip.fragment, selection, payload?.acceptLosses, payload?.canApply);
             }
             clipHtml = clip.html;
             clipText = clip.text;
@@ -177,7 +182,7 @@ export class CopyPasteExtension implements Extension {
             }
           }
           if (editing && clipText !== undefined && (literalTarget || !clipHtml && !this._looksLikeMarkdown(clipText))) {
-            return this._pasteFragment(ed, editing, editing.plainText(clipText, selection.startNodeId, literalTarget), selection, payload?.acceptLosses);
+            return this._pasteFragment(ed, editing, editing.plainText(clipText, selection.startNodeId, literalTarget), selection, payload?.acceptLosses, payload?.canApply);
           }
 
           // 1) HTML format: distinguish Office / Google Docs / Notion / general HTML
@@ -211,7 +216,7 @@ export class CopyPasteExtension implements Extension {
         if (!nodes || nodes.length === 0) {
           return false;
         }
-        if (editing) return this._pasteFragment(ed, editing, standardClipboardFragment(nodes), selection, payload?.acceptLosses);
+        if (editing) return this._pasteFragment(ed, editing, standardClipboardFragment(nodes), selection, payload?.acceptLosses, payload?.canApply);
 
         // A document without workspace-reference vocabulary keeps the readable label.
         if (!ed.dataStore?.getActiveSchema()?.getNodeType('pageReference')) {
@@ -220,7 +225,7 @@ export class CopyPasteExtension implements Extension {
             : { ...node, ...(node.content ? { content: node.content.map(child => typeof child === 'string' ? child : readable(child)) } : {}) };
           nodes = nodes.map(readable);
         }
-        const builder = transaction(ed, [pasteOp(nodes as any, selection as any)]);
+        const builder = transaction(ed, [pasteOp(nodes as any, selection as any)], { validateIntent: () => payload?.canApply && !payload.canApply() ? 'Stale native input' : undefined });
         const result = await builder.commit();
         return !!result && (result as any).success !== false;
       },
@@ -234,6 +239,7 @@ export class CopyPasteExtension implements Extension {
     editor.registerCommand({
       name: 'cut',
       execute: async (ed: Editor, payload?: NativeClipboardPayload) => {
+        if (payload?.canApply && !payload.canApply()) return false;
         const selection = structuredClone(payload?.selection || ed.selection);
         if (!selection || selection.type !== 'range' || selection.collapsed) {
           return false;
@@ -252,7 +258,7 @@ export class CopyPasteExtension implements Extension {
         if (ed.isEditable === false || checkpoint && !editing!.isCurrent(checkpoint) || target !== this._targetStamp(ed, selection)) return false;
 
         // Use the same reversible range deletion as Backspace, including block joins.
-        const builder = transaction(ed, deleteRangeOperations(selection, ed) as never);
+        const builder = transaction(ed, deleteRangeOperations(selection, ed) as never, { validateIntent: () => payload?.canApply && !payload.canApply() ? 'Stale native input' : undefined });
         const result = await builder.commit();
         return !!result && (result as any).success !== false;
       },
@@ -275,8 +281,8 @@ export class CopyPasteExtension implements Extension {
     const value = parsed.querySelector(`[${FRAGMENT_HTML_ATTRIBUTE}]`)?.getAttribute(FRAGMENT_HTML_ATTRIBUTE);
     return value === undefined || value === null ? undefined : decodeClipboardFragment(decodeURIComponent(value));
   }
-  private async _pasteFragment(editor: Editor, editing: FragmentEditor | undefined, fragment: DocumentFragment, selection: ModelSelection, acceptLosses = false, inputLosses: EditingLoss[] = []): Promise<boolean> {
-    if (!editing) return false;
+  private async _pasteFragment(editor: Editor, editing: FragmentEditor | undefined, fragment: DocumentFragment, selection: ModelSelection, acceptLosses = false, canApply?: () => boolean, inputLosses: EditingLoss[] = []): Promise<boolean> {
+    if (!editing || canApply && !canApply()) return false;
     let decision = editing.plan({ intent: 'copy', fragment, target: { kind: 'text', nodeId: selection.startNodeId, from: selection.startOffset, endNodeId: selection.endNodeId, to: selection.endOffset } });
     if (decision.ok && inputLosses.length) {
       const actions = ['transform' as const, ...decision.plan.actions], losses = [...inputLosses, ...decision.plan.losses];
@@ -285,11 +291,11 @@ export class CopyPasteExtension implements Extension {
     }
     editor.emit('editor:clipboard.plan', decision);
     if (editor.isEditable === false || !decision.ok || decision.plan.losses.length && !acceptLosses) return false;
-    return (await editing.apply(decision.plan)).committed === true;
+    return (await editing.apply(decision.plan, { validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined })).committed === true;
   }
-  private _pasteLiteral(editor: Editor, editing: FragmentEditor, source: DocumentFragment, text: string | undefined, selection: ModelSelection): Promise<boolean> {
+  private _pasteLiteral(editor: Editor, editing: FragmentEditor, source: DocumentFragment, text: string | undefined, selection: ModelSelection, canApply?: () => boolean): Promise<boolean> {
     const input = this._literalInput(editor, editing, source, text, selection.startNodeId);
-    return this._pasteFragment(editor, editing, input.fragment, selection, true, input.losses);
+    return this._pasteFragment(editor, editing, input.fragment, selection, true, canApply, input.losses);
   }
   private _literalInput(editor: Editor, editing: FragmentEditor, source: DocumentFragment, text: string | undefined, nodeId: string): { fragment: DocumentFragment; losses: EditingLoss[] } {
     // A schema code region explicitly chooses literal input. Report that conversion even though

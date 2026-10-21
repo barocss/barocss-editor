@@ -13,7 +13,8 @@ import { SITE_SURFACE_KIND } from './site-schema';
  *
  * ## What is in it, and what deliberately is not
  *
- * One page at `/`, named 홈, with one empty text block. That is the whole of it.
+ * One page at `/`, named 홈, with one empty text block and an empty resources box.
+ * The box lets the first dataset be added without changing the page.
  *
  * - **No sample copy.** Prose a reader has to delete before they can write is worse than an empty
  *   page — the fixture problem in miniature.
@@ -58,6 +59,10 @@ export function createStarterSite(): unknown {
             ]
           }
         ]
+      },
+      {
+        stype: 'resources',
+        content: []
       }
     ]
   };

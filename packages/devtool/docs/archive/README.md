@@ -1,18 +1,11 @@
 # Archived Documentation
 
-This directory contains planning and architecture documents.
+## Archive status
 
-## Contents
+This directory contains only this README in the current checkout. No archived
+documents are tracked here. The previous contents list named files that are not
+present in this directory, so it is no longer listed as an available archive.
 
-- `auto-tracing-architecture.md` - Auto-tracing architecture
-- `auto-tracing-integration-plan.md` - Integration plan
-- `execution-flow-monitoring-pattern-v2.md` - Monitoring pattern v2
-- `execution-flow-monitoring-pattern.md` - Monitoring pattern
-- `flow-reconstructor-role-analysis.md` - Role analysis
-- `input-debug-plan.md` - Debug plan
+## Package documentation
 
-## Note
-
-These are planning documents. For current implementation, refer to:
-- [Devtool README](../README.md)
-
+- [Devtool README](../../README.md)

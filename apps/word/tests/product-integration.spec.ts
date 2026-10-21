@@ -1,3 +1,4 @@
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { settled, placeCaret } from './helpers';
 
@@ -9,7 +10,7 @@ async function snapshot(page: Page) {
   });
 }
 
-test('reviewed report with a long table survives reopen and prints each row once', async ({ page }) => {
+test('reviewed report with a long table survives reopen and prints each row once', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   await page.goto('/');
   await expect(page.locator('#editor .w-paragraph').first()).toBeVisible();
@@ -30,10 +31,14 @@ test('reviewed report with a long table survives reopen and prints each row once
     ] }] });
   });
   await settled(page);
+  await setWordWholeTools(page, true);
+  await expect(page.getByRole('toolbar', { name: '문서 편집 도구' })).toBeVisible();
   await page.getByRole('tab', { name: '검토', exact: true }).click();
   await page.getByRole('button', { name: '변경 내용 추적', exact: true }).click();
   const statusText = page.locator('#editor .w-paragraph').filter({ hasText: /^Status: draft/ });
-  await statusText.click(); await page.keyboard.press('End'); await page.keyboard.type(' Reviewed.');
+  await placeCaret(page, '#editor .w-paragraph', await statusText.evaluate(el =>
+    Array.from(document.querySelectorAll('#editor .w-paragraph')).indexOf(el)));
+  await page.keyboard.press('End'); await page.keyboard.type(' Reviewed.');
   await expect(statusText).toContainText('Reviewed.');
   await expect(page.locator('#editor .w-insertion')).not.toHaveCount(0);
   await page.getByRole('tab', { name: '검토', exact: true }).click();
@@ -49,6 +54,19 @@ test('reviewed report with a long table survives reopen and prints each row once
   await page.getByRole('dialog').getByRole('button', { name: '적용', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  // Screen pages repeat the header; count the 147 source cells, not the copies.
+  await expect.poll(() => page.evaluate(() => {
+    const margins: unknown[] = [];
+    const visit = (node: any) => {
+      if (node.stype === 'bTableCell' || node.stype === 'bTableHeaderCell') margins.push(node.attributes?.marginTop);
+      for (const child of node.content ?? []) visit(child);
+    };
+    visit((window as any).editor.exportDocument());
+    return margins;
+  })).toEqual(Array(147).fill(85));
+  await expect.poll(() => page.locator('#editor .w-cell').evaluateAll(cells =>
+    cells.length > 0 && cells.every(cell => Math.abs(parseFloat(getComputedStyle(cell).paddingTop) - 85 / 15) < 0.01)
+  )).toBe(true);
   const before = await snapshot(page);
   await page.reload(); await settled(page);
   expect(await snapshot(page)).toEqual(before);
@@ -67,13 +85,13 @@ test('reviewed report with a long table survives reopen and prints each row once
     });
   }));
   expect(rows).toEqual(Array.from({ length: 48 }, (_, index) => `ROW-${String(index + 1).padStart(3, '0')}`));
-  await page.screenshot({ path: '/tmp/word-integrated-print.png', animations: 'disabled' });
+  await page.screenshot({ path: testInfo.outputPath('word-integrated-print.png'), animations: 'disabled' });
   await page.emulateMedia({ media: 'screen' });
   await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   await expect(page.locator('.w-print-page')).toHaveCount(0);
   // Release the explicit screen override so PDF uses the browser's print media.
   await page.emulateMedia({ media: null });
-  const pdf = await page.pdf({ path: '/tmp/word-integrated-report.pdf', printBackground: true, preferCSSPageSize: true });
+  const pdf = await page.pdf({ path: testInfo.outputPath('word-integrated-report.pdf'), printBackground: true, preferCSSPageSize: true });
   expect([...pdf.toString('latin1').matchAll(/\/Count\s+(\d+)/g)].map(match => Number(match[1]))).toContain(sheets);
   expect(await snapshot(page)).toEqual(before);
 });

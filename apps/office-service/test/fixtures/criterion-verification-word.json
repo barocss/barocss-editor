@@ -1,0 +1,94 @@
+{
+  "format": "barocss-word",
+  "version": 1,
+  "document": {
+    "stype": "document",
+    "metadata": {
+      "wonfficeBusinessPair": {
+        "schemaVersion": 1,
+        "items": [
+          {
+            "id": "b7ba72f1-84c0-4943-a488-e3bb2ebf214d",
+            "kind": "requirement",
+            "currentVersion": 1,
+            "locator": {
+              "kind": "point-bookmark",
+              "bookmarkId": "requirement"
+            },
+            "versions": [
+              {
+                "version": 1,
+                "snapshotText": "{\n  \"format\": \"barocss-word\",\n  \"version\": 1,\n  \"document\": {\n    \"stype\": \"document\",\n    \"metadata\": {},\n    \"content\": [\n      {\n        \"stype\": \"surface\",\n        \"content\": [\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"requirement\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Fictional active-button contrast: minimum 4.5:1.\"\n              }\n            ]\n          },\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"decision\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Measure the controlled local active button. Preserve original qualitative proposal separately.\"\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n}\n"
+              }
+            ]
+          },
+          {
+            "id": "530a0d15-17f5-4958-bf76-4d2188772f49",
+            "kind": "decision",
+            "currentVersion": 1,
+            "locator": {
+              "kind": "point-bookmark",
+              "bookmarkId": "decision"
+            },
+            "versions": [
+              {
+                "version": 1,
+                "snapshotText": "{\n  \"format\": \"barocss-word\",\n  \"version\": 1,\n  \"document\": {\n    \"stype\": \"document\",\n    \"metadata\": {},\n    \"content\": [\n      {\n        \"stype\": \"surface\",\n        \"content\": [\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"requirement\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Fictional active-button contrast: minimum 4.5:1.\"\n              }\n            ]\n          },\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"decision\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Measure the controlled local active button. Preserve original qualitative proposal separately.\"\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n}\n"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "kind": "supported_by",
+            "source": {
+              "itemId": "b7ba72f1-84c0-4943-a488-e3bb2ebf214d",
+              "version": 1
+            },
+            "target": {
+              "itemId": "530a0d15-17f5-4958-bf76-4d2188772f49",
+              "version": 1
+            }
+          }
+        ]
+      }
+    },
+    "content": [
+      {
+        "stype": "surface",
+        "content": [
+          {
+            "stype": "paragraph",
+            "content": [
+              {
+                "stype": "bookmarkAnchor",
+                "attributes": {
+                  "id": "requirement"
+                }
+              },
+              {
+                "stype": "inline-text",
+                "text": "Fictional active-button contrast: minimum 4.5:1."
+              }
+            ]
+          },
+          {
+            "stype": "paragraph",
+            "content": [
+              {
+                "stype": "bookmarkAnchor",
+                "attributes": {
+                  "id": "decision"
+                }
+              },
+              {
+                "stype": "inline-text",
+                "text": "Measure the controlled local active button. Preserve original qualitative proposal separately."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

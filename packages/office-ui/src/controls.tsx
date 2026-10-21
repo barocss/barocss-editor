@@ -135,10 +135,13 @@ export function IconButton({
   size = 'md',
   className,
   testClass,
-  data
+  data, controls, expanded, elementRef
 }: {
   /** What it does, in words. Becomes the accessible name, and the tooltip unless one is given. */
   label: string;
+  controls?: string;
+  expanded?: boolean;
+  elementRef?: React.Ref<HTMLButtonElement>;
   /**
    * The chord that reaches it, written the way a reader reads it — `keyLabel` in `office-controls`.
    *
@@ -202,6 +205,9 @@ export function IconButton({
         aria-keyshortcuts={shortcut}
         aria-label={label}
         aria-pressed={pressed}
+        aria-controls={controls}
+        aria-expanded={expanded}
+        ref={elementRef}
         disabled={disabled}
         onClick={onClick}
         onMouseDown={preserveFocus ? event => event.preventDefault() : undefined}
@@ -636,6 +642,7 @@ export function NumberField({
       <input
         ref={box}
         type="number"
+        data-office-field-draft=""
         min={min}
         max={max}
         step={step}
@@ -840,6 +847,7 @@ export function TextField({
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
       data-office-text-field=""
+      data-office-field-draft={!live ? '' : undefined}
       disabled={disabled}
       readOnly={readOnly}
       maxLength={maxLength}
@@ -985,9 +993,9 @@ export function FieldGroup({
   );
 }
 
-/** Capture-phase dismiss handlers leave draft cancellation to the field. */
-export function keepsDraftTextAreaEscape(event: KeyboardEvent): boolean {
-  return event.key === 'Escape' && event.target instanceof Element && event.target.matches('textarea[data-office-textarea-draft]');
+/** Committed fields cancel their draft before their containing layer can dismiss. */
+export function keepsDraftFieldEscape(event: KeyboardEvent): boolean {
+  return event.key === 'Escape' && event.target instanceof Element && event.target.matches('input[data-office-field-draft], textarea[data-office-textarea-draft]');
 }
 
 /** Live values use onChange. Draft values commit on blur or Ctrl/Command+Enter. */

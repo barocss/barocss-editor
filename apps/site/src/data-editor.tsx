@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEditorRevision } from '@barocss/office-editor-ui';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   Button,
@@ -17,11 +18,12 @@ import {
   type ChoiceOption
 } from '@barocss/office-ui';
 import { openNote, type NoteSession } from '@barocss/office-note';
-import { NoteEditor } from '@barocss/office-note/view';
+import { NoteEditor, type NoteInputDelivery } from '@barocss/office-note/view';
 import {
   assetsOf,
   assetSrc,
   richPlain,
+  isRichRef,
   richTextNamed,
   DATA_FIELD_KINDS,
   DATA_FIELD_KIND_ICONS,
@@ -35,7 +37,12 @@ import {
   type DataFieldKind
 } from '@barocss/office-site';
 
-export type RegisterBodyFlush = (flush: () => Promise<void>) => () => void;
+export type BodyInputDelivery = (() => Promise<void>) & {
+  hasFailedInputDeliveryError?: (error: unknown) => boolean;
+  retryInputDelivery?: (isCurrent: () => boolean) => Promise<boolean>;
+  captureInputIntent?: () => (() => boolean) | null;
+};
+export type RegisterBodyFlush = (flush: BodyInputDelivery) => () => void;
 
 /**
  * The data itself, in a table — **in the main area**, where a page is.
@@ -88,6 +95,7 @@ function Cell({
   value,
   plain,
   richAt,
+  richResolved,
   pages,
   assets,
   onCommit,
@@ -99,6 +107,7 @@ function Cell({
   value: unknown;
   /** The **words** a rich value resolves to — a reference has none of its own to draw. */
   plain?: string;
+  richResolved?: boolean;
   /**
    * Where the rich value's nodes are, when this cell is somewhere they can be **edited**.
    *
@@ -112,7 +121,7 @@ function Cell({
    * body holds no 버튼 — and that answer changes as the caret moves.
    */
   /** Where a 서식 있는 글 column's words live in the **host's** document — see `NoteField`. */
-  richAt?: { host: Editor; sid: string; onBlocks: (blocks: unknown[]) => Promise<boolean>; registerFlush?: RegisterBodyFlush };
+  richAt?: { host: Editor; sid: string; onBlocks: (blocks: unknown[], canApply: () => boolean) => Promise<boolean>; registerFlush?: RegisterBodyFlush };
   /** The document's pages, for a column that holds a page reference. */
   pages: ChoiceOption[];
   /** And its pictures, for one that holds an `asset:`. */
@@ -147,7 +156,7 @@ function Cell({
         <NoteField host={richAt.host} sid={richAt.sid} onBlocks={richAt.onBlocks} registerFlush={richAt.registerFlush} />
       ) : (
         <span className="st-cell-rich" title={text}>
-          {plain || <em>비어 있음</em>}
+          {plain || (isRichRef(value) ? <em>{richResolved ? '비어 있음' : '본문을 찾을 수 없습니다'}</em> : text || <em>비어 있음</em>)}
         </span>
       );
 
@@ -268,9 +277,13 @@ function NoteField({
 }: {
   host: Editor;
   sid: string;
-  onBlocks: (blocks: unknown[]) => Promise<boolean>;
+  onBlocks: (blocks: unknown[], canApply: () => boolean) => Promise<boolean>;
   registerFlush?: RegisterBodyFlush;
 }) {
+  useEditorRevision(host);
+  const documentEpoch = host.dataStore.getDocumentEpoch();
+  const input = useMemo(() => ({ pending: false, version: 0 }), [host, sid, documentEpoch]);
+  const fieldHost = useRef<HTMLDivElement>(null);
   const [held, setHeld] = useState<NoteSession | undefined>(undefined);
   const [problem, setProblem] = useState<string>();
   /*
@@ -279,56 +292,118 @@ function NoteField({
    */
   const told = useMemo(() => ({ current: onBlocks }), [host, sid]);
   told.current = onBlocks;
-  const childFlushes = useMemo(() => new Set<() => Promise<boolean>>(), [host, sid]);
-  const registerChild = useMemo(() => (flush: () => Promise<boolean>) => {
+  const childFlushes = useMemo(() => new Set<NoteInputDelivery>(), [host, sid]);
+  const registerChild = useMemo(() => (flush: NoteInputDelivery) => {
     childFlushes.add(flush);
-    return () => { childFlushes.delete(flush); };
-  }, [childFlushes]);
+    input.version++;
+    return () => {
+      if (flush.hasPendingInput?.()) input.pending = true;
+      else childFlushes.delete(flush);
+      input.version++;
+    };
+  }, [childFlushes, input]);
 
   useEffect(() => {
-    const store = (host as never as { dataStore: { getNode: (one: string) => never } }).dataStore;
+    const store = host.dataStore;
     const sourceRoot = host.getRootId();
+    let sourceNode = store.getNodes().get(sid);
+    let authority = 0;
+    const permission = () => { authority++; };
+    host.on('editor:editable.change', permission);
     let latest: unknown[] | undefined;
     let writing = Promise.resolve();
+    let pendingWrites = 0;
+    let pendingFlushes = 0;
     let disposed = false;
+    let dispatch: { snapshot: unknown[]; owns: () => boolean } | undefined;
+    let failed: { error: unknown; owns: () => boolean } | undefined;
+    const commandFailed = ({ command, payload, error }: { command: string; payload?: Record<string, unknown>; error: unknown }) => {
+      const current = dispatch;
+      if (command === 'setRichText' && current && payload?.nodeId === sid && payload.blocks === current.snapshot && current.owns())
+        failed = { error, owns: current.owns };
+    };
+    host.on('error:command', commandFailed);
     const deliver = (blocks: unknown[]) => {
       latest = blocks;
+      const capturedAuthority = authority;
+      const owns = () => !disposed && host.isEditable && authority === capturedAuthority &&
+        host.getRootId() === sourceRoot && host.dataStore.getDocumentEpoch() === documentEpoch && store.getNodes().get(sid) === sourceNode;
+      pendingWrites++;
       writing = writing.catch(() => {}).then(async () => {
         const snapshot = latest;
         if (!snapshot) return;
         // A replaced host document must never receive a delayed body from the old session.
-        if (host.getRootId() !== sourceRoot || !store.getNode(sid)) { latest = undefined; return; }
-        if (!await told.current(snapshot)) throw new Error('마지막 본문 입력을 반영하지 못했습니다. 다시 저장하거나 내보내세요.');
+        if (!owns()) throw new Error('본문의 문서 또는 권한이 변경되었습니다. 현재 입력은 유지합니다.');
+        dispatch = { snapshot, owns };
+        try {
+          if (!await told.current(snapshot, owns)) throw new Error('마지막 본문 입력을 반영하지 못했습니다. 다시 저장하거나 내보내세요.');
+        } finally { dispatch = undefined; }
+        if (!disposed && host.getRootId() === sourceRoot && host.dataStore.getDocumentEpoch() === documentEpoch && authority === capturedAuthority) sourceNode = store.getNodes().get(sid);
         if (latest === snapshot) latest = undefined;
         if (!disposed) setProblem(undefined);
-      });
+      }).finally(() => { pendingWrites--; });
       // A failed idle write remains available for explicit save/export retry.
       void writing.catch(() => { if (!disposed) setProblem('마지막 본문 입력을 반영하지 못했습니다. 다시 저장하거나 내보내세요.'); });
     };
-    const one = openNote({ getNode: (at: string) => store.getNode(at) } as never, sid, { onChange: deliver });
+    const one = openNote(store, sid, { authority: host, onChange: deliver });
     const flush = async () => {
-      for (const child of [...childFlushes].reverse()) {
-        if (!await child()) throw new Error('중첩된 항목의 마지막 입력을 반영하지 못했습니다. 다시 저장하세요.');
-      }
-      one.flush();
-      if (latest) deliver(latest);
-      await writing;
-      if (disposed) unregister?.();
+      if (disposed || host.getRootId() !== sourceRoot || store.getDocumentEpoch() !== documentEpoch) throw new Error('본문 입력의 소유자가 변경되었습니다.');
+      const version = input.version;
+      pendingFlushes++;
+      try {
+        for (const child of [...childFlushes].reverse()) {
+          if (!await child()) throw new Error('중첩된 항목의 마지막 입력을 반영하지 못했습니다. 다시 저장하세요.');
+        }
+        one.flush();
+        if (latest) deliver(latest);
+        await writing;
+        if (disposed || host.getRootId() !== sourceRoot || store.getDocumentEpoch() !== documentEpoch || input.version !== version) throw new Error('본문 입력이 저장 중에 변경되었습니다.');
+        input.pending = false;
+      } finally { pendingFlushes--; }
     };
-    const unregister = registerFlush?.(flush);
+    const delivery: BodyInputDelivery = Object.assign(flush, {
+      captureInputIntent: () => {
+        const version = input.version, role = authority;
+        const registered = [...childFlushes];
+        const children = registered.flatMap(child => child.captureInputIntent ? [child.captureInputIntent()] : []);
+        const current = () => !disposed && host.getRootId() === sourceRoot && store.getDocumentEpoch() === documentEpoch &&
+          store.getNodes().get(sid) === sourceNode && authority === role && input.version === version && !input.pending && !pendingWrites && !pendingFlushes && !latest &&
+          registered.length === childFlushes.size && registered.every(child => childFlushes.has(child)) && children.every(child => !!child && child());
+        return current() ? current : null;
+      },
+      hasFailedInputDeliveryError: (error: unknown) => !!failed && failed.error === error && failed.owns(),
+      retryInputDelivery: async (isCurrent: () => boolean) => {
+        if (disposed || !isCurrent()) return false;
+        try { await flush(); } catch { return false; }
+        return !disposed && isCurrent();
+      }
+    });
+    const unregister = registerFlush?.(delivery);
     setHeld(one);
     return () => {
       disposed = true;
+      host.off('editor:editable.change', permission);
+      host.off('error:command', commandFailed);
       one.close();
-      // Keep an in-flight or failed delivery registered until it is safely in the host.
-      void writing.then(() => { if (!latest) unregister?.(); }, () => {});
+      // Keep a refused delivery witness when actual input or a write is still pending.
+      if (!input.pending && !latest && !pendingWrites && !pendingFlushes) unregister?.();
+      void writing.catch(() => {});
       setHeld(undefined);
     };
-  }, [host, sid, told, registerFlush, childFlushes]);
+  }, [host, sid, documentEpoch, told, registerFlush, childFlushes, input]);
 
+  useEffect(() => {
+    const element = fieldHost.current;
+    if (!element) return;
+    const changed = () => { input.pending = true; input.version++; };
+    const events = ['beforeinput', 'input', 'compositionstart', 'compositionend'] as const;
+    events.forEach(event => element.addEventListener(event, changed, true));
+    return () => { events.forEach(event => element.removeEventListener(event, changed, true)); };
+  }, [input, held]);
   if (!held) return <div className="on-note" data-note-loading={sid} />;
-  return <><NoteEditor key={held.session} editor={held.editor} rootId={held.rootId} registerBeforeSnapshot={registerChild} />
-    {problem && <p role="alert" data-note-delivery-problem>{problem}</p>}</>;
+  const changed = () => { input.pending = true; input.version++; };
+  return <div ref={fieldHost} data-site-note-field={sid} onInputCapture={changed} onBeforeInputCapture={changed} onCompositionStartCapture={changed}><NoteEditor key={held.session} editor={held.editor} rootId={held.rootId} registerBeforeSnapshot={registerChild} />
+    {problem && <p role="alert" data-note-delivery-problem>{problem}</p>}</div>;
 }
 
 /*
@@ -858,6 +933,7 @@ export function DataTable({
                         field={field}
                         value={row[field.name]}
                         plain={richPlain(doc, row[field.name])}
+                        richResolved={!!richTextNamed(doc, row[field.name])}
                         pages={pages}
                         assets={assets}
                         onCommit={(value) =>
@@ -891,6 +967,34 @@ export function DataTable({
       </div>
     </div>
   );
+}
+
+function CreateRichText({ editor, nodeId, row, field }: {
+  editor: Editor;
+  nodeId: string;
+  row: number;
+  field: DataField;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState('');
+  const payload = { nodeId, row, field: field.name };
+  const create = async () => {
+    if (busy) return;
+    setBusy(true); setProblem('');
+    try {
+      if (!await editor.executeCommand('createDatasetRichText', payload)) {
+        setProblem(`${field.label ?? field.name} 작성에 실패했습니다. 다시 시도하세요.`);
+      }
+    } catch {
+      setProblem(`${field.label ?? field.name} 작성에 실패했습니다. 다시 시도하세요.`);
+    } finally { setBusy(false); }
+  };
+  return <div>
+    <Button ariaLabel={`${field.label ?? field.name} 작성`} disabled={busy || !editor.canRun('createDatasetRichText', payload)} onClick={() => void create()}>
+      {field.label ?? field.name} 작성
+    </Button>
+    {problem && <p role="alert">{problem}</p>}
+  </div>;
 }
 
 /**
@@ -1012,10 +1116,13 @@ export function RowForm({
               */}
               <em className="st-row-kind">{DATA_FIELD_KIND_NAMES[field.kind]}</em>
             </span>
-            <Cell key={`${at.sid}:${at.row}:${field.name}`}
+            {field.kind === 'richText' && (shown.record[field.name] === undefined || shown.record[field.name] === null || shown.record[field.name] === '') ? (
+              <CreateRichText key={`${at.sid}:${at.row}:${field.name}`} editor={editor} nodeId={at.sid} row={at.row} field={field} />
+            ) : <Cell key={`${at.sid}:${at.row}:${field.name}`}
               field={field}
               value={shown.record[field.name]}
               plain={richPlain(doc, shown.record[field.name])}
+              richResolved={!!richTextNamed(doc, shown.record[field.name])}
               /*
                * And **where those words live**, so the form draws the editor rather than the words.
                * A reference that resolves to nothing hands back nothing, and the cell falls back to
@@ -1034,8 +1141,8 @@ export function RowForm({
                        * `setRichText` is the host's transaction — see `data-commands.ts`.
                        */
                       registerFlush,
-                      onBlocks: (blocks: unknown[]) =>
-                        editor.executeCommand('setRichText', { nodeId: String(one.sid), blocks })
+                      onBlocks: (blocks: unknown[], canApply: () => boolean) =>
+                        editor.executeCommand('setRichText', { nodeId: String(one.sid), blocks, canApply })
                     }
                   : undefined;
               })()}
@@ -1044,7 +1151,7 @@ export function RowForm({
               onCommit={(value) => run('setDatasetCell', { nodeId: at.sid, row: at.row, field: field.name, value })}
               ariaLabel={`${field.name}`}
               data={{ 'row-cell': field.name }}
-            />
+            />}
           </label>
         ))}
 

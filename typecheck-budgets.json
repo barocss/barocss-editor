@@ -1,6 +1,7 @@
 {
   "apps/editor-react": 0,
   "apps/editor-test": 12,
+  "apps/gallery": 0,
   "apps/note": 0,
   "apps/office": 0,
   "apps/site": 4,
@@ -28,6 +29,7 @@
   "packages/office-slides": 38,
   "packages/office-text": 0,
   "packages/office-ui": 0,
+  "packages/office-workspace": 0,
   "packages/office-word": 7,
   "packages/query-editor": 0,
   "packages/renderer-dom": 123,
@@ -36,5 +38,6 @@
   "packages/shared": 0,
   "packages/text-analyzer": 0,
   "apps/office-api": 0,
-  "apps/office-service": 0
+  "apps/office-service": 0,
+  "apps/schema-server": 0
 }

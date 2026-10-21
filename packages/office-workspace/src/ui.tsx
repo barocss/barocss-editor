@@ -1,25 +1,52 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dialog, EmptyState, FileItem, FilePick, Icon, SearchSelect, StatusIndicator, StatusNotice, TextField } from '@barocss/office-ui';
+import { Button, Dialog, EmptyState, FileItem, FilePick, Icon, SearchSelect, StatusIndicator, StatusNotice, TextField, useOfficeLocale } from '@barocss/office-ui';
 import { OfficeWorkspace, workspaceIdentity, type WorkspaceDocument } from './workspace';
 import { documentURL, productKeys, products, type Product } from './products';
+import { ProjectHome } from './project-ui';
+import { localProjectRepository } from './project-local';
+import { WorkspaceFrame } from './workspace-frame';
+import { readLibraryOrigin, saveLibraryOrigin } from './catalog-origin';
+import { formatWorkspaceRoute, parseWorkspaceRoute } from './routes';
+import './project-ui.css';
+import { WorkspaceHeading } from './workspace-heading';
 
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function WorkspaceHome() {
+export function WorkspaceHome({ initialProjectId }: { initialProjectId?: string } = {}) {
+  const [projectId, setProjectId] = useState(initialProjectId);
+  return <WorkspaceFrame projectId={projectId}><WorkspaceHomeContent initialProjectId={projectId} onProjectChange={setProjectId} /></WorkspaceFrame>;
+}
+function WorkspaceHomeContent({ initialProjectId, onProjectChange }: { initialProjectId?: string; onProjectChange(id?: string): void }) {
+  const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
+  const repository = useMemo(() => localProjectRepository(workspace), [workspace]);
+  const [library, setLibrary] = useState(() => { const parsed = parseWorkspaceRoute(location.href); return !initialProjectId && ('error' in parsed || parsed.route?.view !== 'projects'); });
+  const show = (view: 'projects' | 'library') => { onProjectChange(undefined); history.replaceState(history.state, '', formatWorkspaceRoute({ kind: 'workspace', workspaceId: workspace.id, view })); setLibrary(view === 'library'); };
+  if (library) return <DocumentLibrary embedded onProjects={() => show('projects')} />;
+  return <ProjectHome embedded repository={repository} initialProjectId={initialProjectId} onLocationChange={id => { onProjectChange(id); history.replaceState(history.state, '', formatWorkspaceRoute(id ? { kind: 'item', workspaceId: workspace.id, itemId: id } : { kind: 'workspace', workspaceId: workspace.id, view: 'projects' })); }} onLibrary={() => show('library')} onOpen={async (project, row) => {
+    if ((await workspace.meta(`${row.product}:${row.id}`)).trashedAt !== null) throw new Error('휴지통에서 복원한 뒤 열 수 있습니다.');
+    location.assign(documentURL({ workspace: workspace.id, product: row.product, id: row.id, project, mode: 'read' }));
+  }} />;
+}
+export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?: () => void; embedded?: boolean } = {}) {
+  const { t } = useOfficeLocale();
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const [rows, setRows] = useState<WorkspaceDocument[]>([]), [ready, setReady] = useState(false);
-  const [query, setQuery] = useState(''), [view, setView] = useState<'all' | 'recent' | 'favorites' | 'trash'>('all');
-  const [product, setProduct] = useState<Product | 'all'>('all'), [folder, setFolder] = useState('');
+  const [origin] = useState(() => readLibraryOrigin(workspace.id));
+  const main = useRef<HTMLElement>(null);
+  const [query, setQuery] = useState(origin.query), [view, setView] = useState(origin.view);
+  const [product, setProduct] = useState<Product | 'all'>(origin.product), [folder, setFolder] = useState(origin.folder);
+  useEffect(() => { if (ready && main.current) main.current.scrollTop = origin.scroll; }, [ready, origin]);
+  useEffect(() => { saveLibraryOrigin(workspace.id, { query, view, product, folder, scroll: main.current?.scrollTop ?? origin.scroll }); }, [workspace, query, view, product, folder, origin]);
   const [problem, setProblem] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState<Product>(), [name, setName] = useState('');
   const [managing, setManaging] = useState<WorkspaceDocument>(), [destination, setDestination] = useState('');
   const [linkTarget, setLinkTarget] = useState('');
   const [backupOpen, setBackupOpen] = useState(false), [restoreFile, setRestoreFile] = useState<File>();
   const lock = useRef(false);
-  const refresh = async () => { setRows(await workspace.list()); setReady(true); };
+  const refresh = async () => { setRows(await workspace.list()); setReady(true); window.dispatchEvent(new Event('wonffice:catalog-refresh')); };
   const perform = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setProblem(''); setNotice('');
@@ -31,7 +58,6 @@ export function WorkspaceHome() {
   const open = async (row: Pick<WorkspaceDocument, 'id' | 'key' | 'product'>) => {
     const meta = await workspace.meta(row.key);
     if (meta.trashedAt !== null) throw new Error('휴지통에서 복원한 뒤 열 수 있습니다.');
-    await workspace.update(row.key, { openedAt: Date.now() });
     location.assign(documentURL({ workspace: workspace.id, product: row.product, id: row.id }));
   };
   const manage = (row: WorkspaceDocument) => { setManaging(row); setName(row.title); setDestination(row.folder); setLinkTarget(''); setProblem(''); };
@@ -41,9 +67,14 @@ export function WorkspaceHome() {
     && (product === 'all' || row.product === product) && (!folder || row.folder === folder)
     && (!needle || `${row.title} ${row.searchText}`.normalize('NFC').toLocaleLowerCase().includes(needle)));
   const folders = [...new Set<string>(rows.map(row => row.folder).filter(Boolean))].sort();
-  return <div className="ow-home">
-    <aside className="ow-sidebar">
+  return <div className={`ow-home${embedded ? ' ow-library-embedded' : ''}`}>
+    {embedded ? <WorkspaceHeading workspaceLabel={t('workspace.heading.localWorkspace')} location={t('workspace.heading.library')}
+      title={folder || t(`workspace.heading.${view}`)} actions={<>
+        {onProjects && <Button tone="quiet" disabled={busy} onClick={onProjects}>{t('workspace.heading.projects')}</Button>}
+        <Button tone="quiet" disabled={busy} onClick={() => { setProblem(''); setNotice(''); setBackupOpen(true); }}>{t('workspace.heading.backup')}</Button>
+      </>} /> : <aside className="ow-sidebar">
       <a className="ow-brand" href="/">wonffice<span>하나의 작업 공간</span></a>
+      {onProjects && <Button onClick={onProjects}>프로젝트</Button>}
       <nav aria-label="자료함">
         {([['all', '전체 자료'], ['recent', '최근 자료'], ['favorites', '즐겨찾기'], ['trash', '휴지통']] as const).map(([key, label]) =>
           <Button key={key} pressed={view === key && !folder} onClick={() => { setView(key); setFolder(''); }}>{label}</Button>)}
@@ -51,14 +82,22 @@ export function WorkspaceHome() {
       {folders.length > 0 && <><p className="ow-section-label">폴더</p><nav aria-label="폴더">{folders.map(value =>
         <Button key={value} pressed={folder === value} onClick={() => { setView('all'); setFolder(value); }}>{value}</Button>)}</nav></>}
       <div className="ow-sidebar-bottom"><Button disabled={busy} onClick={() => { setProblem(''); setNotice(''); setBackupOpen(true); }}>백업 및 가져오기</Button><p>이 브라우저에 저장됩니다.</p></div>
-    </aside>
-    <main className="ow-main">
-      <header className="ow-heading"><div><p className="ow-eyebrow">WORKSPACE</p><h1>{folder || { all: '전체 자료', recent: '최근 자료', favorites: '즐겨찾기', trash: '휴지통' }[view]}</h1></div>
+    </aside>}
+    <main className="ow-main" ref={main} onScroll={event => saveLibraryOrigin(workspace.id, { query, view, product, folder, scroll: event.currentTarget.scrollTop })}>
+      {embedded ? <div className="ow-library-view-controls">
+        <select aria-label={t('workspace.heading.views')} value={view} onChange={event => {
+          const next = event.target.value; if (next === 'all' || next === 'recent' || next === 'favorites' || next === 'trash') { setView(next); setFolder(''); }
+        }}>{(['all', 'recent', 'favorites', 'trash'] as const).map(key => <option key={key} value={key}>{t(`workspace.heading.${key}`)}</option>)}</select>
+        {folders.length > 0 && <select aria-label={t('workspace.heading.folder')} value={folder} onChange={event => { setFolder(event.target.value); setView('all'); }}>
+          <option value="">{t('workspace.heading.allFolders')}</option>{folders.map(value => <option key={value} value={value}>{value}</option>)}
+        </select>}
+        <TextField ariaLabel={t('workspace.heading.search')} placeholder={t('workspace.heading.search')} value={query} onChange={setQuery} />
+      </div> : <header className="ow-heading"><div><p className="ow-eyebrow">WORKSPACE</p><h1>{folder || { all: '전체 자료', recent: '최근 자료', favorites: '즐겨찾기', trash: '휴지통' }[view]}</h1></div>
         <TextField ariaLabel="자료 검색" placeholder="이름과 본문 검색" value={query} onChange={setQuery} />
-      </header>
+      </header>}
       {view !== 'trash' && <div className="ow-create" aria-label="제품별 새 자료">
         {productKeys.map(key => <Button key={key} disabled={busy} onClick={() => { setCreating(key); setName(''); }}>
-          <span className="ow-product-mark" style={{ color: products[key].color }}>{products[key].label.charAt(0)}</span><span><strong>{products[key].label}</strong><small>새 자료 만들기</small></span><span aria-hidden><Icon name="add" /></span>
+          <span className="ow-product-mark" style={{ color: products[key].color }}><Icon name={products[key].icon} /></span><span><strong>{products[key].label}</strong><small>새 자료 만들기</small></span><span aria-hidden><Icon name="add" /></span>
         </Button>)}
       </div>}
       <div className="ow-filters" aria-label="제품 필터"><Button pressed={product === 'all'} onClick={() => setProduct('all')}>모든 제품</Button>
@@ -75,8 +114,8 @@ export function WorkspaceHome() {
           {needle || product !== 'all' || folder ? '검색어와 필터를 확인하거나 전체 자료를 보세요.' : view === 'trash' ? '휴지통으로 옮긴 자료를 여기에서 복원할 수 있습니다.' : 'Note, Word, Slides, Site 자료를 한곳에서 관리합니다.'}
         </EmptyState> :
         <table className="ow-table"><thead><tr><th>이름</th><th>제품</th><th>폴더</th><th>수정일</th><th><span className="sr-only">작업</span></th></tr></thead><tbody>{shown.map(row =>
-          <tr key={row.key} data-document={row.key}><td><Button tone="quiet" disabled={busy || row.trashedAt !== null} onClick={() => void perform(() => open(row))}>
-            <span className="ow-file-mark" style={{ color: products[row.product].color }}>{products[row.product].label.charAt(0)}</span><span>{row.title}{row.error && <small>{row.error}</small>}</span>
+          <tr key={row.key} data-document={row.key}><td><Button ariaLabel={`${products[row.product].label} ${row.title}`} tone="quiet" disabled={busy || row.trashedAt !== null} onClick={() => void perform(() => open(row))}>
+            <span className="ow-file-mark" style={{ color: products[row.product].color }}><Icon name={products[row.product].icon} /></span><span>{row.title}{row.error && <small>{row.error}</small>}</span>
           </Button>{row.references.length > 0 && <small className="ow-reference-count">연결 {row.references.length}</small>}</td><td>{products[row.product].label}</td><td>{row.folder || '—'}</td><td>{new Date(row.savedAt).toLocaleDateString('ko-KR')}</td>
             <td><Button ariaLabel={`${row.title} 즐겨찾기`} pressed={row.favorite} disabled={busy} onClick={() => void perform(async () => { await workspace.update(row.key, { favorite: !row.favorite }); await refresh(); })}><Icon name="favorite" /></Button>
               <Button ariaLabel={`${row.title} 관리`} disabled={busy} onClick={() => manage(row)}>관리</Button></td></tr>)}</tbody></table>}

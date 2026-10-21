@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
+import { isOfficePortalInactive, useOfficePortalContainer } from './portal-owner';
 import { dismissOwnedControlLayer } from './stack';
 import { dismissOwnedFloatingLayer } from './floating';
 import './side-peek.css';
@@ -20,6 +21,7 @@ export interface SidePeekProps {
 
 /** A page beside its collection. The collection stays interactive while this panel is open. */
 export function SidePeek({ open, onOpenChange, title, breadcrumb, actions, expanded = false, onExpandedChange, children, className }: SidePeekProps) {
+  const container = useOfficePortalContainer();
   const [width, setWidth] = useState(680);
   const [viewport, setViewport] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
   useEffect(() => { const resize = () => setViewport(window.innerWidth); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize); }, []);
@@ -30,7 +32,7 @@ export function SidePeek({ open, onOpenChange, title, breadcrumb, actions, expan
   const clamp = (value: number) => Math.max(360, Math.min(value, maximum));
   const visibleWidth = viewport <= 600 ? viewport : clamp(width);
   return <Dialog.Root modal={false} open={open} onOpenChange={onOpenChange}>
-    <Dialog.Portal>
+    {container !== null && <Dialog.Portal container={container}>
       <Dialog.Content ref={content} className={cn('ou-side-peek', className)} data-side-peek data-expanded={expanded || undefined}
         style={{ width: expanded ? '100vw' : `${visibleWidth}px` }} aria-describedby={undefined}
         onOpenAutoFocus={event => {
@@ -40,6 +42,7 @@ export function SidePeek({ open, onOpenChange, title, breadcrumb, actions, expan
         }}
         onCloseAutoFocus={event => { event.preventDefault(); if (returnTo.current?.isConnected) returnTo.current.focus({ preventScroll: true }); }}
         onEscapeKeyDown={event => {
+          if (isOfficePortalInactive(container)) { event.preventDefault(); return; }
           // Radix's capture listener may run before a later portal's listener. Delegate first.
           if (dismissOwnedControlLayer(event) || dismissOwnedFloatingLayer(event)) return;
           // An in-progress property/text edit owns Escape; its bubble handler cancels the draft.
@@ -70,6 +73,6 @@ export function SidePeek({ open, onOpenChange, title, breadcrumb, actions, expan
         </header>
         <div className="ou-side-peek-content">{children}</div>
       </Dialog.Content>
-    </Dialog.Portal>
+    </Dialog.Portal>}
   </Dialog.Root>;
 }

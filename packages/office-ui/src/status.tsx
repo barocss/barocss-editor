@@ -5,10 +5,13 @@ import { cn } from './cn';
 export type StatusTone = 'neutral' | 'success' | 'warning' | 'danger';
 
 /** A compact status. The host supplies the message and owns the operation. */
-export function StatusIndicator({ tone = 'neutral', busy = false, children, className, ...props }: HTMLAttributes<HTMLSpanElement> & {
+export function StatusIndicator({ tone = 'neutral', busy = false, quiet = false, children, className, ...props }: HTMLAttributes<HTMLSpanElement> & {
   tone?: StatusTone; busy?: boolean;
+  /** Only a confirmed idle state may use reduced visual emphasis. */
+  quiet?: boolean;
 }) {
-  return <span {...props} role="status" aria-live="polite" aria-atomic="true"
+  const idleQuiet = quiet && tone === 'success' && !busy;
+  return <span {...props} title={props.title ?? (idleQuiet && typeof children === 'string' ? children : undefined)} data-quiet={idleQuiet || undefined} role="status" aria-live="polite" aria-atomic="true"
     className={cn('office-status', className)} data-tone={tone} data-busy={busy || undefined}>
     <span className="office-status-symbol" aria-hidden="true">{busy
       ? <span className="office-status-spinner" />

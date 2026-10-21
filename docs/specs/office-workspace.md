@@ -42,6 +42,8 @@ Word·Slides·Site는 공통 `DocumentSession`을 사용한다. Note는 기존 �
 
 다른 탭과 저장 revision이 충돌하면 원본을 유지하고 초안을 따로 보관한다. 저장 실패 시 새 문서나 템플릿으로 교체하지 않는다. 없는 파일과 휴지통 파일의 직접 주소는 오류를 표시하며 샘플로 대체하지 않는다.
 
+Slides·Site의 최근 자료와 Word 보관함은 휴지통 자료를 일반 열기 목록에서 제외한다. 열기 직전에 휴지통 상태를 다시 확인한다. 다른 탭에서 목록의 자료를 휴지통으로 옮기면, 오류 안내에 대상 이름과 자료함 복원 경로를 표시한다. 휴지통 거부와 교체 전 읽기 실패는 현재 자료의 ID·본문·저장 상태·주소를 유지한다. 일시적인 읽기 실패는 같은 행에서 같은 대상 ID로 다시 시도한다. 자료함에서 복원하면 원래 ID로 다시 열 수 있다. 문서 교체 중 실패하면 기존 복구 필요 상태와 저장본 다시 열기 경로를 사용한다. 제품 보관함 전체 백업에는 휴지통 자료도 포함한다.
+
 ## 참조, 사본, 재사용
 
 - **원본 참조**: 다른 제품의 원본 파일을 연다. 이름 변경 뒤에도 ID로 연결된다. 원본이 없거나 휴지통에 있으면 사용할 수 없음을 표시한다.
@@ -63,3 +65,42 @@ Word–Slides 참조와 Note–Site 본문 복사를 검증했다. 모든 제품
 통합 브라우저 9개 검사, 실제 백업 다운로드/복원 1개, Slides 편집 후 이름 유지 1개가 각각 통과했다. 공통 저장·이동 단위 12개도 통과했다. 통합 호스트 타입 검사와 네 제품을 포함한 생산 빌드가 통과했다. [실행 기록](../../.dev/plans/office-workspace/brief.md)에 명령, 결과, 실제 화면 확인을 기록한다.
 
 현재 결과는 데스크톱 로컬 기본 제품이다. 서버 권한, 공유, 실시간 공동 편집, Site 실제 게시·도메인·폼 수신, 출시 수준의 성능·접근성·실기기 검증은 4–5단계다. 추가 프레임워크와 고급 형식 교환은 후속 범위를 유지한다.
+
+
+## Authenticated Project/My attribution — #468/v2
+
+The authenticated tree reads only the currently authorized Workspace catalog.
+Project groups use existing stable Project IDs and result-placement IDs; each
+placement refers to the same canonical product/document ID and native version.
+All authorized originals remain reachable, including originals with no Project.
+Legacy local folder labels stay literal. `stableFolders` remains `false`; this
+slice does not add arbitrary folder CRUD or slash-derived parents.
+
+My groups distinguish **Created by me**, **Shared in this workspace**, and
+**Creator unknown**. Classification compares the original's immutable
+`creatorUserId` with the fresh verified `/me.currentUserId`. It is attribution
+within current tenant access, not private ownership or a document grant. Missing
+legacy attribution or a missing current internal identity stays Unknown. Project
+links, current actors, titles and old receipts are never used as a backfill.
+
+Tree reads and failures belong to the captured login lease and current
+Workspace/role/person epoch. Old results cannot publish into a new scope.
+Search, product filter, collapsed groups and scroll are scoped to the current
+person and Workspace, independently for Project and My. Native open/create
+publishes its freshly verified identity to the surrounding tree. Verification
+keeps the tree presentation mounted while hiding its old catalog and disabling
+its actions. A same-person successful open retains the tree view and filters.
+A revoked session retires the authenticated frame rather than retaining denied
+titles, child rows or counts.
+
+Project paging validates page shape, UUID ordering, duplicates and cursor
+progress. A continuing page has exactly 50 records and names its last UUID as
+cursor. At the 100-page bound the read fails explicitly; it never returns a
+successful truncated tree. This does not claim one database snapshot across
+separate HTTP requests. If Project reading alone fails, authorized originals
+remain available as a partial catalog; denied or retired authority clears it.
+
+The targeted tests separate controlled UI transport, local native persistence,
+and actual two-user OIDC/API/PostgreSQL evidence. Browser-generated composition
+is not physical OS IME. Local verification does not establish full alpha,
+Yorkie convergence, external deployment or all original #468 acceptance criteria.

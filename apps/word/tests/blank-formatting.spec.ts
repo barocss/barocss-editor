@@ -1,3 +1,4 @@
+import { setWordWholeTools, expectWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { placeCaret } from './helpers';
 
@@ -8,6 +9,7 @@ async function chooseStyle(page: Page, label: string) {
 
 test('blank headings change visible text, persist and return to body style', async ({ page }) => {
   await page.goto('/');
+  await setWordWholeTools(page, true);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('A real heading');
   const textSize = (selector: string) => page.locator(selector).first().evaluate((el) => getComputedStyle(el.querySelector('[data-bc-sid]') ?? el).fontSize);
@@ -18,6 +20,7 @@ test('blank headings change visible text, persist and return to body style', asy
   await expect(page.locator('.w-heading')).toHaveAttribute('data-style', 'Heading1');
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
   await page.reload();
+  await setWordWholeTools(page, true);
   await expect(page.locator('h1.w-heading')).toContainText('A real heading');
   expect(parseFloat(await textSize('.w-heading'))).toBeGreaterThan(parseFloat(bodySize));
   await placeCaret(page, '.w-heading');
@@ -35,14 +38,20 @@ test('blank headings change visible text, persist and return to body style', asy
 
 test('blank document alignment, lists and bold work through the toolbar', async ({ page }) => {
   await page.goto('/');
+  await setWordWholeTools(page, true);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Formatting check');
   await page.locator('[data-control="align-center"]').click();
   await expect(page.locator('.w-paragraph')).toHaveCSS('text-align', 'center');
+  await expect(page.getByRole('toolbar', { name: '문서 편집 도구' })).toBeVisible();
+  await expectWordWholeTools(page, true);
   await page.locator('[data-control="bullet-list"]').click();
   await expect(page.locator('[data-control="bullet-list"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.w-paragraph')).toHaveAttribute('data-marker', /\S/);
+  await expect(page.locator('.w-paragraph')).toHaveText('Formatting check');
   await page.locator('[data-control="bullet-list"]').click();
   await expect(page.locator('[data-control="bullet-list"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.w-paragraph')).toHaveAttribute('data-marker', '');
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.press('Home');
   await page.keyboard.press('Shift+End');
@@ -53,6 +62,7 @@ test('blank document alignment, lists and bold work through the toolbar', async 
 
 test('Enter after a heading starts body text and undo restores the heading', async ({ page }) => {
   await page.goto('/');
+  await setWordWholeTools(page, true);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Title');
   await chooseStyle(page, 'Heading 1');

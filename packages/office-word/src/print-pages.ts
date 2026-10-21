@@ -35,6 +35,8 @@ export interface PrintPages {
 const CONTAINER_CLASS = 'w-print-pages';
 
 export interface PrintPagesOptions {
+  /** Only the active native host can handle the browser's print events. */
+  isActive?: () => boolean;
   /**
    * Put the document into a printable state, and hand back a way to undo it.
    *
@@ -107,6 +109,7 @@ export function createPrintPages(
       if (!view) return () => {};
 
       const before = () => {
+        if (options.isActive?.() === false) return;
         // Synchronous throughout: by the time beforeprint returns, the browser
         // is laying out the pages. The state is restored as soon as the copies
         // are made — they are what gets printed, and the reader gets their
@@ -115,7 +118,7 @@ export function createPrintPages(
         build();
         restore?.();
       };
-      const after = () => clear();
+      const after = () => { if (options.isActive?.() !== false) clear(); };
       view.addEventListener('beforeprint', before);
       view.addEventListener('afterprint', after);
       return () => {

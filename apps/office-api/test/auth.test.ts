@@ -9,6 +9,7 @@ import { createApiServer } from '../src/server.js';
 
 const tenant = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const otherTenant = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const currentUserId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const jwks = createServer();
 let issuer: string;
 let jwksUrl: URL;
@@ -50,9 +51,10 @@ function config() {
 }
 
 async function token(overrides: { issuer?: string; audience?: string; expires?: number; type?: string;
-  key?: CryptoKey; kid?: string } = {}) {
+  key?: CryptoKey; kid?: string; sessionId?: string } = {}) {
   const now = Math.floor(Date.now() / 1000);
-  return new SignJWT({ typ: overrides.type ?? 'Bearer' })
+  return new SignJWT({ typ: overrides.type ?? 'Bearer',
+    ...(overrides.sessionId ? { sid: overrides.sessionId } : {}) })
     .setProtectedHeader({ alg: 'RS256', kid: overrides.kid ?? 'local-test' })
     .setIssuer(overrides.issuer ?? issuer)
     .setAudience(overrides.audience ?? 'wonffice-api')
@@ -84,6 +86,17 @@ describe('OIDC configuration and token verification', () => {
     await expect(verify(await token({ kid: 'unknown-key' }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
     await expect(verify('unsigned-or-malformed')).rejects.toBeInstanceOf(InvalidAccessTokenError);
   });
+  it('extracts only a signed, bounded login session for provider capabilities', async () => {
+    const verify = createOidcVerifier(config()).verifySession;
+    const expires = Math.floor(Date.now() / 1000) + 300;
+    expect(await verify(await token({ sessionId: 'keycloak-session', expires }))).toEqual({
+      issuer, subject: 'alice', sessionId: 'keycloak-session', expiresAt: expires,
+    });
+    await expect(verify(await token())).rejects.toBeInstanceOf(InvalidAccessTokenError);
+    await expect(verify(await token({ sessionId: 'x'.repeat(256) }))).rejects.toBeInstanceOf(InvalidAccessTokenError);
+    await expect(verify(await token({ sessionId: 'ok', audience: 'wrong' })))
+      .rejects.toBeInstanceOf(InvalidAccessTokenError);
+  });
   it('classifies an actual JWKS HTTP outage or invalid provider response as unavailable', async () => {
     try {
       jwksMode = 'server-error';
@@ -113,7 +126,7 @@ describe('authenticated Fastify boundary', () => {
         if (principal.subject !== 'alice' || tenantId !== tenant) throw new TenantAccessDeniedError();
         return { tenantId, role: 'editor' as const };
       }, async listTenantAccess() {
-        return { tenants: [{ tenantId: tenant, name: 'Alpha', role: 'editor' as const }], nextCursor: null };
+        return { currentUserId, tenants: [{ tenantId: tenant, name: 'Alpha', role: 'editor' as const }], nextCursor: null };
       } },
     });
     try {
@@ -121,7 +134,7 @@ describe('authenticated Fastify boundary', () => {
       const bearer = `Bearer ${await token()}`;
       const me = await app.inject({ url: '/v1/me', headers: { authorization: bearer } });
       expect(me.statusCode).toBe(200);
-      expect(me.json()).toEqual({ issuer, subject: 'alice',
+      expect(me.json()).toEqual({ issuer, subject: 'alice', currentUserId,
         tenants: [{ tenantId: tenant, name: 'Alpha', role: 'editor' }], nextCursor: null });
       expect((await app.inject({ url: '/v1/me?after=bad', headers: { authorization: bearer } })).statusCode).toBe(400);
       const allowed = await app.inject({ url: `/v1/tenants/${tenant}/access`, headers: { authorization: bearer } });

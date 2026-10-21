@@ -1,3 +1,4 @@
+import { useOfficePortalContainer } from './portal-owner';
 import * as RadixTooltip from '@radix-ui/react-tooltip';
 import { cn } from './cn';
 import { createContext, useContext, useCallback, useRef, useState } from 'react';
@@ -66,6 +67,7 @@ export function Tip({
   shortcut?: string;
   children: React.ReactNode;
 }) {
+  const container = useOfficePortalContainer();
   const hasProvider = useContext(HasTipProvider);
   const [open, setOpen] = useState(false);
   const unregister = useRef<(() => void) | null>(null);
@@ -85,7 +87,7 @@ export function Tip({
   return (
     <RadixTooltip.Root open={open} onOpenChange={setOpen}>
       <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
-      <RadixTooltip.Portal>
+      {container !== null && <RadixTooltip.Portal container={container}>
         <RadixTooltip.Content
           ref={content}
           sideOffset={6}
@@ -120,7 +122,7 @@ export function Tip({
           )}
           <RadixTooltip.Arrow className="fill-[color:var(--ou-ink)]" />
         </RadixTooltip.Content>
-      </RadixTooltip.Portal>
+      </RadixTooltip.Portal>}
     </RadixTooltip.Root>
   );
 }

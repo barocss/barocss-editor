@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, currentSlide, openFilmstrip } from './helpers';
 
 const query = (page: Page) => page.getByRole('combobox', { name: '명령 검색어' });
 const openSearch = (page: Page) => page.getByRole('button', { name: '명령 검색', exact: true }).click();
@@ -9,10 +9,11 @@ async function run(page: Page, text: string) {
 }
 const children = (page: Page, sid: string) => page.evaluate(id => (window as any).editor.dataStore.getNode(id).content.length, sid);
 
-test('search inserts on the current slide and preserves object selection for duplicate and undo', async ({ page }) => {
+test('search inserts on the current slide and preserves object selection for duplicate and undo', async ({ page }, info) => {
   await openDeck(page);
   const first = await currentSlide(page);
   const firstCount = await children(page, first);
+  await openFilmstrip(page);
   await page.locator('.sl-filmstrip button[data-slide]').nth(1).click();
   const second = await currentSlide(page), before = await children(page, second);
   expect(second).not.toBe(first);
@@ -34,11 +35,21 @@ test('search inserts on the current slide and preserves object selection for dup
   await openSearch(page);
   await expect(page.getByRole('option').first()).toContainText('최근 사용');
   await expect(page.getByRole('dialog', { name: '명령 검색', exact: true })).toHaveCSS('opacity', '1');
-  await page.screenshot({ path: '../../.dev/artifacts/design-system/command-search-slides.png' });
+  await page.screenshot({ path: info.outputPath('command-search-slides.png') });
   await query(page).press('Escape');
   await expect(query(page)).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.activeElement === (window as any).searchReturnFocus)).toBe(true);
   expect(await page.evaluate(() => (window as any).editor.selection)).toEqual(selection);
+});
+
+test('desktop search opens slide settings with close focus and dismisses with Escape', async ({ page }) => {
+  await openDeck(page);
+  await run(page, '슬라이드 크기');
+  const dialog = page.getByRole('dialog', { name: '슬라이드 크기', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '닫기', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 });
 
 test('search opens slide settings after restoring focus and fits a narrow viewport', async ({ page }) => {

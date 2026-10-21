@@ -55,6 +55,85 @@ for (const kind of ['refusal', 'exception'] as const) {
 }
 
 describe('transaction failure recovery', () => {
+  it('identifies a committed local edit in its result and content notification', async () => {
+    const { editor, manager } = fixture();
+    const first = await manager.execute([setText('t', 'local')], {
+      provenance: { origin: 'local', actorId: 'alice', sessionId: 'browser-a' }
+    });
+    expect(first).toMatchObject({ success: true, committed: true,
+      provenance: { origin: 'local', actorId: 'alice', sessionId: 'browser-a', editId: first.transactionId } });
+    expect(editor.emit).toHaveBeenCalledWith('editor:content.change',
+      expect.objectContaining({ transaction: first, provenance: first.provenance }));
+    const second = await manager.execute([setText('t', 'another')]);
+    expect(second.provenance).toEqual({ origin: 'local', editId: second.transactionId });
+    expect(second.provenance?.editId).not.toBe(first.provenance?.editId);
+  });
+
+  it('applies a remote edit without adding local history or replacing the local selection', async () => {
+    const { dataStore, editor, manager } = fixture();
+    const selection = structuredClone(editor.selection);
+    const provenance = { origin: 'remote', actorId: 'bob', sessionId: 'browser-b', editId: 'remote-edit-42' } as const;
+    const result = await manager.execute([setText('t', 'remote')], {
+      provenance, recordInHistory: true, applySelectionToView: true
+    });
+    expect(result).toMatchObject({ success: true, committed: true, provenance });
+    expect(dataStore.getNode('t')?.text).toBe('remote');
+    expect(editor.historyManager.getHistory()).toHaveLength(0);
+    expect(editor.selection).toEqual(selection);
+    expect(editor.updateSelection).not.toHaveBeenCalled();
+    expect(editor.emit).toHaveBeenCalledWith('editor:content.change',
+      expect.objectContaining({ transaction: result, provenance }));
+  });
+
+  it('does not append a history replay to local undo history', async () => {
+    const { dataStore, editor, manager } = fixture();
+    const result = await manager.execute([setText('t', 'replayed')], {
+      provenance: { origin: 'history', editId: 'replay-1', actorId: 'alice', sessionId: 'browser-a' },
+      recordInHistory: true, appendToPreviousEntry: true
+    });
+    expect(result).toMatchObject({ success: true, committed: true,
+      provenance: { origin: 'history', editId: 'replay-1' } });
+    expect(dataStore.getNode('t')?.text).toBe('replayed');
+    expect(editor.historyManager.getHistory()).toHaveLength(0);
+  });
+
+  it('rejects remote edits without a stable transport identity before changing the model', async () => {
+    const { dataStore, editor, manager, observed } = fixture();
+    const before = structuredClone(dataStore.getAllNodes());
+    const result = await manager.execute([setText('t', 'unidentified')], {
+      provenance: { origin: 'remote', editId: '', actorId: 'bob', sessionId: 'browser-b' }
+    });
+    expect(result).toMatchObject({ success: false, committed: false,
+      errors: [expect.stringContaining('Remote edit requires')] });
+    expect(dataStore.getAllNodes()).toEqual(before);
+    expect(observed).not.toHaveBeenCalled();
+    expect(editor.emit).not.toHaveBeenCalled();
+  });
+
+  it('does not publish or partially apply a rejected remote batch', async () => {
+    const { dataStore, editor, manager, observed } = fixture();
+    const before = structuredClone(dataStore.getAllNodes());
+    const result = await manager.execute([batch([setText('t', 'partial'), { type: 'recovery-refusal' }])], {
+      provenance: { origin: 'remote', actorId: 'bob', sessionId: 'browser-b', editId: 'remote-rejected' }
+    });
+    expect(result).toMatchObject({ success: false, committed: false });
+    expect(dataStore.getAllNodes()).toEqual(before);
+    expect(editor.historyManager.getHistory()).toHaveLength(0);
+    expect(observed).not.toHaveBeenCalled();
+    expect(editor.emit).not.toHaveBeenCalled();
+  });
+
+  it('keeps the committed edit identity when content notification fails', async () => {
+    const { dataStore, editor, manager } = fixture();
+    editor.emit.mockImplementationOnce(() => { throw new Error('notification failed'); });
+    const provenance = { origin: 'remote', actorId: 'bob', sessionId: 'browser-b', editId: 'remote-once' } as const;
+    const result = await manager.execute([setText('t', 'committed')], { provenance });
+    expect(result).toMatchObject({ success: true, committed: true, provenance,
+      postCommitErrors: [expect.stringContaining('notification failed')] });
+    expect(dataStore.getNode('t')?.text).toBe('committed');
+    expect(editor.historyManager.getHistory()).toHaveLength(0);
+  });
+
   it.each(['refusal', 'exception'])('restores state after a later operation %s and permits reuse', async (kind) => {
     const { dataStore, editor, manager, observed } = fixture();
     const before = structuredClone(dataStore.getAllNodes());

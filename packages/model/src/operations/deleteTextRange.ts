@@ -51,13 +51,15 @@ type DeleteTextRangeOperation = {
   nodeId: string;
   start: number;
   end: number;
+  marksAfter?: unknown[];
+  restoreAbsent?: boolean;
 };
 
 // Deletes text in the specified range from a text node.
 // Uses DataStore.range.deleteText and returns the deleted text.
 defineOperation('deleteTextRange', 
   async (operation: any, context: TransactionContext) => {
-    const { nodeId, start, end } = operation.payload as DeleteTextRangeOperation;
+    const { nodeId, start, end, marksAfter, restoreAbsent } = operation.payload as DeleteTextRangeOperation;
 
     try {
       // Check if node exists
@@ -80,7 +82,7 @@ defineOperation('deleteTextRange',
        */
       const marksBefore = Array.isArray((node as any).marks)
         ? JSON.parse(JSON.stringify((node as any).marks))
-        : [];
+        : undefined;
 
       // 1) DataStore update: delete range [startPosition, endPosition) within single node
       const deletedText = context.dataStore.range.deleteText({
@@ -91,6 +93,17 @@ defineOperation('deleteTextRange',
         endOffset: end
       });
       
+      // A typing inverse restores the native mark state before the insertion.
+      // Ordinary deletion keeps the existing datastore mark rules.
+      if (Array.isArray(marksAfter) || (restoreAbsent === true && marksAfter === undefined)) {
+        const current = context.dataStore.getNode(nodeId);
+        if (current) {
+          context.dataStore.setNode({
+            ...current, marks: marksAfter === undefined ? undefined : JSON.parse(JSON.stringify(marksAfter))
+          }, false);
+        }
+      }
+
       // 2) Selection mapping: directly update context.selection.current
       if (context.selection?.current) {
         const sel = context.selection.current;
@@ -143,7 +156,8 @@ defineOperation('deleteTextRange',
             text: deletedText,
             // What the run carried before, restored wholesale once the text is
             // back. See the note where this is captured.
-            marksAfter: marksBefore
+            marksAfter: marksBefore,
+            restoreAbsent: marksBefore === undefined
           } 
         },
         selection: context.selection?.current ? {

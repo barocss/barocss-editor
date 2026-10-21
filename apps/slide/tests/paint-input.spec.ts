@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickInsert, setPanel } from './helpers';
 
 test('gradient stop drag previews locally, commits once, keeps the moved colour selected and cancels cleanly', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   const id = await page.evaluate(async () => {
     const editor = (window as any).editor, id = editor.selection.nodeIds[0];
     await editor.executeCommand('setBoxStyle', { nodeIds: [id], fills: [{ kind: 'linear', stops: [
@@ -42,7 +43,8 @@ test('gradient stop drag previews locally, commits once, keeps the moved colour 
 
 test('fill and effect editors have close actions and keyboard stop selection keeps the same colour after sorting', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   await page.getByLabel('1번 채우기 종류').selectOption('linear');
   const trigger = page.getByRole('button', { name: '1번 채우기', exact: true });
   await trigger.press('Enter');

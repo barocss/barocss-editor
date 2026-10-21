@@ -1,3 +1,4 @@
+import { useOfficePortalContainer } from './portal-owner';
 import { useLayoutEffect, useRef, useState, type HTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from './cn';
@@ -10,6 +11,8 @@ export function SelectionReadout({ at, getAnchor, children, className, ...props 
   getAnchor?: () => DOMRect | null;
   [name: `data-${string}`]: string | number | boolean | undefined;
 }) {
+  const container = useOfficePortalContainer();
+  const destination = container === undefined ? (typeof document === 'undefined' ? null : document.body) : container;
   const ref = useRef<HTMLOutputElement>(null);
   const [visible, setVisible] = useState(true);
   const [position, setPosition] = useState<{ left: number; top: number }>();
@@ -38,8 +41,8 @@ export function SelectionReadout({ at, getAnchor, children, className, ...props 
     const follow = () => { measure(); frame = view.requestAnimationFrame(follow); };
     if (getAnchor) frame = view.requestAnimationFrame(follow);
     return () => { view.cancelAnimationFrame(frame); observer.disconnect(); view.removeEventListener('resize', measure); };
-  }, [at.x, at.y, children, getAnchor]);
-  if (typeof document === 'undefined') return null;
+  }, [at.x, at.y, children, getAnchor, destination]);
+  if (!destination) return null;
   return createPortal(<output {...props} ref={ref} aria-live="off" className={cn('office-selection-readout', className)}
-    style={{ position: 'fixed', ...position, visibility: position && visible ? 'visible' : 'hidden', pointerEvents: 'none' }}>{children}</output>, document.body);
+    style={{ position: 'fixed', ...position, visibility: position && visible ? 'visible' : 'hidden', pointerEvents: 'none' }}>{children}</output>, destination);
 }

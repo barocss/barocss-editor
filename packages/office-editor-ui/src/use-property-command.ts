@@ -7,8 +7,9 @@ type CommandScope = { pending: number; failure?: Failure };
 /** Queue property writes, but retire queued work and feedback when its editor target changes. */
 export function usePropertyCommand(editor: Editor | null, context: string) {
   const root = editor?.getRootId();
+  const epoch = editor?.dataStore.getDocumentEpoch();
   // Object identity also distinguishes A → B → A from the original A session.
-  const scope = useMemo<CommandScope>(() => ({ pending: 0 }), [editor, root, context]);
+  const scope = useMemo<CommandScope>(() => ({ pending: 0 }), [editor, root, epoch, context]);
   const current = useRef(scope);
   current.current = scope;
   const mounted = useRef(true);
@@ -19,10 +20,9 @@ export function usePropertyCommand(editor: Editor | null, context: string) {
     return () => { mounted.current = false; };
   }, []);
 
-  const ownsTarget = () => mounted.current && current.current === scope && editor?.getRootId() === root;
+  const ownsTarget = () => mounted.current && current.current === scope && editor?.getRootId() === root && editor?.dataStore.getDocumentEpoch() === epoch;
   const run = (name: string, payload: Record<string, unknown>) => {
     if (!editor || !root || !ownsTarget()) return;
-    if (!scope.pending) scope.failure = undefined;
     scope.pending++;
     refresh();
     queue.current = queue.current.then(async () => {
@@ -45,6 +45,24 @@ export function usePropertyCommand(editor: Editor | null, context: string) {
     busy: scope.pending > 0,
     failed: !!scope.failure,
     run,
-    retry: () => { if (ownsTarget() && scope.failure && !scope.pending) run(scope.failure.name, scope.failure.payload); },
+    /** Call after explicit child draft delivery; drains queued and started writes for this scope. */
+    settle: async (isCurrent: () => boolean): Promise<boolean> => {
+      const owns = () => !!editor && !!root && ownsTarget() && isCurrent();
+      if (!owns()) return false;
+      // A write can append another write while the previously captured tail completes.
+      let tail: Promise<void>;
+      do {
+        tail = queue.current;
+        await tail;
+        if (!owns()) return false;
+      } while (queue.current !== tail);
+      return owns() && !scope.pending && !scope.failure;
+    },
+    retry: () => {
+      if (!ownsTarget() || !scope.failure || scope.pending) return;
+      const failed = scope.failure;
+      scope.failure = undefined;
+      run(failed.name, failed.payload);
+    },
   };
 }

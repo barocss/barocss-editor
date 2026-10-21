@@ -471,12 +471,9 @@ function VarList({ editor, definition }: { editor: Editor | null; definition: Co
 /** What the components panel is told. */
 export interface ComponentPanelProps {
   editor: Editor | null;
-  open: boolean;
   /** The definition being edited, if any. */
   editing?: ComponentDef;
   onOpen: (sid: string) => void;
-  /** Close the panel. */
-  onClose: () => void;
   /** Whether anything is selected to make a component out of. */
   canMake: boolean;
   onMake: () => void;
@@ -501,10 +498,8 @@ export interface ComponentPanelProps {
 
 export function ComponentPanel({
   editor,
-  open,
   editing,
   onOpen,
-  onClose,
   canMake,
   onMake,
   behindSource,
@@ -562,41 +557,8 @@ export function ComponentPanel({
     return count;
   };
 
-  /**
-   * Nothing at all when there is nothing to open.
-   *
-   * The layer list keeps its strip because every slide has layers; a deck with no components
-   * has nothing behind this one, and a strip that opens an empty list is chrome for nothing.
-   *
-   * It is also the honest fix for something measured: the strip took 24px from the stage on
-   * every deck, the slide re-fitted, and the ruler test found the ruler six pixels off the
-   * slide it measures. A control that changes the layout of every deck to offer a feature no
-   * deck uses is paying for itself with everybody's room.
-   */
-  if (!open && components.length === 0) return null;
-
-  if (!open) {
-    return (
-      <IconButton
-        label="컴포넌트 열기"
-        testClass="sl-components-closed"
-        /* A closed pane is a strip, not a square — the same override the layer list's uses. */
-        className="h-auto w-auto items-start rounded-none"
-        onClick={onClose}
-      >
-        <Icon name="group" size={15} />
-      </IconButton>
-    );
-  }
-
   return (
-    <aside className="sl-components" aria-label="컴포넌트">
-      <div className="sl-components-title">
-        컴포넌트
-        <IconButton label="컴포넌트 닫기" onClick={onClose}>
-          <Icon name="close" size={14} />
-        </IconButton>
-      </div>
+    <section className="sl-components" aria-label="컴포넌트">
 
       {/*
         * Where a reader is and the way back are **not here** any more.
@@ -743,6 +705,6 @@ export function ComponentPanel({
           })}
         </ol>
       )}
-    </aside>
+    </section>
   );
 }

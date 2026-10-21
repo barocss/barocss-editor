@@ -27,6 +27,14 @@ async function stored(page: Page) {
   }));
 }
 const panel = (page: Page) => page.getByRole('region', { name: '문서 탐색', exact: true });
+async function command(page: Page, label: string) {
+  await page.getByRole('button', { name: '명령 검색', exact: true }).click();
+  const query = page.getByRole('combobox', { name: '명령 검색어', exact: true });
+  await expect(query).toBeFocused(); await query.fill(label);
+  await expect(page.getByRole('option').filter({ hasText: label })).toHaveAttribute('aria-selected', 'true');
+  await query.press('Enter');
+}
+
 
 test('찾기는 서식 경계를 이어 검색하고 접힌 본문을 보여주며 원본·선택·실행 취소를 보존한다', async ({ page }) => {
   await setup(page); const original = await stored(page);
@@ -49,7 +57,7 @@ test('찾기는 서식 경계를 이어 검색하고 접힌 본문을 보여주�
   await query.press('Escape'); await expect(nav).toHaveCount(0); await expect(page.locator('details.w-details')).not.toHaveAttribute('open');
   expect(await selection()).toEqual(caret);
   expect(await stored(page)).toBe(edited);
-  const downloaded = page.waitForEvent('download'); await page.getByRole('button', { name: '내보내기', exact: true }).click();
+  const downloaded = page.waitForEvent('download'); await page.getByRole('menubar', { name: '노트 메뉴' }).getByRole('menuitem', { name: '노트 메뉴', exact: true }).click(); await page.getByRole('menuitem', { name: '내보내기', exact: true }).click();
   await page.getByRole('button', { name: '파일 내려받기', exact: true }).click();
   expect(JSON.parse(await readFile((await (await downloaded).path())!, 'utf8')).document).toEqual(JSON.parse(edited).document);
   await page.locator('.on-doc > p').first().click();
@@ -58,7 +66,7 @@ test('찾기는 서식 경계를 이어 검색하고 접힌 본문을 보여주�
 });
 
 test('목차는 계층을 보여주고 이동·수정·페이지 전환과 좁은 화면을 지원한다', async ({ page }, info) => {
-  await setup(page); await page.getByRole('menubar', { name: '노트 메뉴' }).getByRole('menuitem', { name: '보기', exact: true }).click(); await page.getByRole('menuitem', { name: '목차', exact: true }).click(); const nav = panel(page);
+  await setup(page); await command(page, '목차'); const nav = panel(page);
   await expect(nav.getByRole('button', { name: '프로젝트 개요', exact: true })).toHaveAttribute('data-heading-level', '1');
   await expect(nav.getByRole('button', { name: '세부 일정', exact: true })).toHaveAttribute('data-heading-level', '2');
   await expect(nav.getByRole('button', { name: '항목 전용 제목' })).toHaveCount(0);
@@ -69,7 +77,7 @@ test('목차는 계층을 보여주고 이동·수정·페이지 전환과 좁�
   await page.screenshot({ path: info.outputPath('outline-mobile.png') });
   await nav.getByRole('button', { name: '문서 탐색 닫기' }).click();
   const target = page.locator('.on-doc h2').filter({ hasText: '다음 단계' }); await target.click(); await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End'); await page.keyboard.insertText(' 수정');
-  await page.getByRole('menubar', { name: '노트 메뉴' }).getByRole('menuitem', { name: '보기', exact: true }).click(); await page.getByRole('menuitem', { name: '목차', exact: true }).click(); await expect(nav.getByRole('button', { name: '다음 단계 수정', exact: true })).toBeVisible();
+  await command(page, '목차'); await expect(nav.getByRole('button', { name: '다음 단계 수정', exact: true })).toBeVisible();
   // The compact workspace hides the library. Restore the wide layout before creating a page.
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole('button', { name: '새 노트', exact: true }).click(); await expect(nav).toHaveCount(0);
@@ -86,7 +94,7 @@ test('중첩 항목의 Cmd/Ctrl+F는 그 본문만 찾고 IME Enter는 결과 �
 });
 
 test('검색 중 편집·실행 취소는 결과를 갱신하고 다른 페이지에서 돌아와도 탐색창을 다시 열지 않는다', async ({ page }) => {
-  await setup(page); await page.getByRole('menubar', { name: '노트 메뉴' }).getByRole('menuitem', { name: '편집', exact: true }).click(); await page.getByRole('menuitem', { name: '본문 찾기', exact: true }).click();
+  await setup(page); await command(page, '본문 찾기');
   const nav = panel(page); await nav.getByRole('searchbox').fill('문서 끝'); await expect(nav.getByRole('status')).toHaveText('1 / 1');
   const ending = page.locator('.nw-document .on-doc > p').filter({ hasText: '문서 끝' });
   await ending.click(); await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End'); await page.keyboard.insertText(' 문서 끝');

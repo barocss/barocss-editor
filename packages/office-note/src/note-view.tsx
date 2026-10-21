@@ -1,15 +1,17 @@
-import { ColumnsEditor, LatexEditor } from '@barocss/office-editor-ui';
+import { isNative2NoteEditor } from './session';
+import { registerTransactionIntentGuardFactory } from '@barocss/model';
+import { ColumnsEditor, LatexEditor, captureTextSelection } from '@barocss/office-editor-ui';
 import { MultiBlockControl } from './multi-block-control';
 import { installNoteInputRules } from './input-rules-view';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import { reorderIndexAt } from '@barocss/office-canvas';
-import type { Editor } from '@barocss/editor-core';
+import type { Editor, ModelSelection } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
 import { Controls, SlashMenu, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
 import { noteRegistry } from './renderers';
 import { Icon } from '@barocss/office-icons';
-import { Button, FilePick, Tip, TipProvider, FloatingSurface, IconButton, TextField, Choice, MenuAction, Field, FloatingPanelHeader } from '@barocss/office-ui';
+import { Button, FilePick, Tip, TipProvider, FloatingSurface, IconButton, TextField, Choice, MenuAction, Field, FloatingPanelHeader, TaskStatus, useOfficeLocale } from '@barocss/office-ui';
 import {
   WORD_ENV_KEY,
   createTextEnv,
@@ -30,6 +32,25 @@ import { PageReferenceUI, pageReferenceChildDestination, type NotePageReferences
 import { getNoteDatabase, getNoteDatabaseItemId } from './database';
 import './table-ui.css';
 import { NoteDocumentNavigation, type NoteNavigationRequest } from './document-navigation';
+
+export type NoteInputDelivery = (() => Promise<boolean>) & {
+  captureInputIntent?: () => (() => boolean) | null;
+  hasPendingInput?: () => boolean;
+};
+
+
+/** Optional host command surface, registered by each actual native body. */
+export interface NoteCommandTarget {
+  editor: Editor;
+  rootId: string;
+  element: HTMLElement;
+  flush: NoteInputDelivery;
+  isCurrent(): boolean;
+  capture(): { selection: ModelSelection | null; isCurrent(): boolean } | null;
+  openInsertion(): boolean;
+  openNavigation(mode: 'find' | 'outline'): boolean;
+  execute(command: string, parentCurrent: () => boolean): Promise<boolean>;
+}
 
 /**
  * **한 편의 글을 쓰는 화면** — the bar and the body, owned by the package the body belongs to.
@@ -56,8 +77,10 @@ export function NoteEditor({
   className,
   onFile,
   toolbar = 'contextual',
+  writeAllowed,
   registerBeforeSnapshot,
   navigationRequest,
+  registerCommandTarget,
   pageReferences
 }: {
   /**
@@ -71,10 +94,13 @@ export function NoteEditor({
   className?: string;
   /** Contextual by default; always is available for embedded toolbars and the input lab. */
   toolbar?: 'contextual' | 'always';
+  /** Current host authority; permitted writers edit without a mode choice. */
+  writeAllowed?: boolean;
   pageReferences?: NotePageReferences;
   /** Register child-body delivery before a host exports or saves its document. Flush deepest first. */
-  registerBeforeSnapshot?: (flush: () => Promise<boolean>) => () => void;
+  registerBeforeSnapshot?: (flush: NoteInputDelivery) => () => void;
   navigationRequest?: NoteNavigationRequest;
+  registerCommandTarget?: (target: NoteCommandTarget) => () => void;
   /**
    * What a picked file becomes, when the host has somewhere better to put one than the document.
    *
@@ -90,11 +116,145 @@ export function NoteEditor({
    * to *what is selected*, and the day they differ is the day a reader sets a file on a picture they
    * are not looking at.
    */
-  const registerBodyDelivery = useCallback((flush: () => Promise<boolean>) => {
+  const commandSelection = useRef<(() => ModelSelection | undefined) | undefined>(undefined);
+  const registerCommandSelection = useCallback((capture: () => ModelSelection | undefined) => {
+    commandSelection.current = capture;
+    return () => { if (commandSelection.current === capture) commandSelection.current = undefined; };
+  }, []);
+  const [commandNavigation, setCommandNavigation] = useState<NoteNavigationRequest>();
+  useEffect(() => { setCommandNavigation(undefined); }, [navigationRequest?.id]);
+  const deliveries = useRef(new Set<NoteInputDelivery>());
+  const inputHost = useRef<HTMLDivElement>(null);
+  const mutable = writeAllowed ?? editor.isEditable;
+  const composing = useRef(new Set<EventTarget>());
+  useEditorRevision(editor);
+  const documentEpoch = editor.dataStore.getDocumentEpoch();
+  const owner = useMemo(() => ({ editor, rootId, documentEpoch, documentRootId: editor.dataStore.getRootNodeId(), sessionId: editor.dataStore.getSessionId() }), [editor, rootId, documentEpoch, editor.dataStore.getSessionId()]);
+  const input = useMemo(() => ({ version: 0, authority: 0, pending: false, active: false, flushing: 0 }), [owner]);
+  const lifetime = useRef(owner);
+  lifetime.current = owner;
+  useLayoutEffect(() => {
+    if (writeAllowed !== undefined) editor.setEditable(writeAllowed);
+  }, [editor, writeAllowed]);
+  useEffect(() => {
+    lifetime.current = owner;
+    composing.current.clear();
+    return () => { lifetime.current = { ...owner, rootId: '' }; };
+  }, [owner]);
+  useLayoutEffect(() => {
+    const element = inputHost.current;
+    if (!element) return;
+    input.active = true;
+    const changed = (event: Event) => {
+      input.version++; input.pending = true;
+      if (event.type === 'compositionstart') composing.current.add(event.target!);
+      if (event.type === 'compositionend') composing.current.delete(event.target!);
+    };
+    const permission = () => { input.authority++; };
+    const events = ['beforeinput', 'input', 'compositionstart', 'compositionend'] as const;
+    events.forEach(event => element.addEventListener(event, changed, true));
+    editor.on('editor:editable.change', permission);
+    return () => {
+      input.active = false; input.version++;
+      events.forEach(event => element.removeEventListener(event, changed, true));
+      editor.off('editor:editable.change', permission);
+    };
+  }, [editor, input]);
+  const flushDocument = useCallback(Object.assign(async () => {
+    const capturedOwner = lifetime.current;
+    const version = input.version, authority = input.authority;
+    const current = () => input.active && input.version === version && input.authority === authority && lifetime.current === capturedOwner && editor.dataStore.getDocumentEpoch() === capturedOwner.documentEpoch && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && !!editor.dataStore.getNode(rootId);
+    input.flushing++;
+    try {
+      if (composing.current.size) return false;
+      for (const flush of [...deliveries.current].reverse()) {
+        try { if (!current() || composing.current.size || !await flush()) return false; }
+        catch { return false; }
+      }
+      const accepted = current() && !composing.current.size;
+      if (accepted) input.pending = false;
+      return accepted;
+    } finally { input.flushing--; }
+  }, {
+    hasPendingInput: () => input.pending || !!input.flushing || !!composing.current.size || [...deliveries.current].some(child => child.hasPendingInput?.()),
+    captureInputIntent: () => {
+      const capturedOwner = lifetime.current, version = input.version, authority = input.authority;
+      const registered = [...deliveries.current];
+      const children = registered.flatMap(delivery => delivery.captureInputIntent ? [delivery.captureInputIntent()] : []);
+      const current = () => input.active && !input.pending && !input.flushing && !composing.current.size && input.version === version && input.authority === authority &&
+        lifetime.current === capturedOwner && editor.dataStore.getDocumentEpoch() === capturedOwner.documentEpoch && editor.dataStore.getRootNodeId() === capturedOwner.documentRootId && !!editor.dataStore.getNode(rootId) &&
+        registered.length === deliveries.current.size && registered.every(delivery => deliveries.current.has(delivery)) && children.every(child => !!child && child());
+      return current() ? current : null;
+    }
+  }), [owner, input]);
+  useEffect(() => registerBeforeSnapshot?.(flushDocument), [registerBeforeSnapshot, flushDocument]);
+
+  useLayoutEffect(() => {
+    const element = inputHost.current;
+    if (!registerCommandTarget || !element) return;
+    let active = true, generation = 0;
+    let range = JSON.stringify(editor.selection);
+    const selected = () => {
+      const next = JSON.stringify(editor.selection);
+      if (next !== range) { range = next; generation++; }
+    };
+    const retire = () => { generation++; };
+    editor.on('editor:selection.model', selected);
+    editor.on('editor:selection.change', selected);
+    editor.on('editor:content.change', retire);
+    editor.on('editor:editable.change', retire);
+    const isCurrent = () => active && input.active && lifetime.current === owner && element.isConnected && !element.closest('[hidden], [inert]') &&
+      editor.dataStore.getDocumentEpoch() === owner.documentEpoch && editor.dataStore.getRootNodeId() === owner.documentRootId &&
+      editor.dataStore.getSessionId() === owner.sessionId && !!editor.dataStore.getNode(rootId);
+    const target: NoteCommandTarget = { editor, rootId, element, flush: flushDocument, isCurrent,
+      execute: async (command, parentCurrent) => {
+        const prepared = flushDocument.captureInputIntent?.(), entered = generation;
+        const owns = () => isCurrent() && editor.isEditable && !!prepared?.() && generation === entered && parentCurrent();
+        if (!owns()) return false;
+        // Use the existing per-editor transaction intent boundary. The native
+        // command still owns its payload, result and meaningful history.
+        const off = registerTransactionIntentGuardFactory(editor, () => () =>
+          owns() ? undefined : 'note_command_owner_changed');
+        try { return await editor.executeCommand(command); }
+        finally { off(); }
+      },
+      capture: () => {
+        if (!isCurrent()) return null;
+        const actual = commandSelection.current?.();
+        if (actual) editor.updateSelection({ selection: actual, applySelectionToView: false });
+        const prepared = flushDocument.captureInputIntent?.(), entered = generation;
+        if (!isCurrent() || !prepared) return null;
+        const selection = editor.selection ? structuredClone(editor.selection) : null;
+        return { selection, isCurrent: () => isCurrent() && prepared() && generation === entered };
+      },
+      openNavigation: mode => {
+        if (!isCurrent()) return false;
+        setCommandNavigation(previous => ({ mode, id: -(Math.abs(previous?.id ?? 0) + 1) })); return true;
+      },
+      openInsertion: () => {
+        if (!isCurrent() || !editor.isEditable) return false;
+        const trigger = element.querySelector<HTMLButtonElement>('[data-note-add]');
+        if (!trigger || trigger.disabled) return false;
+        trigger.click(); return true;
+      }
+    };
+    const unregister = registerCommandTarget(target);
+    return () => {
+      active = false; generation++; unregister();
+      editor.off('editor:selection.model', selected); editor.off('editor:selection.change', selected);
+      editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);
+    };
+  }, [editor, rootId, owner, input, flushDocument, registerCommandTarget]);
+
+  const registerBodyDelivery = useCallback((flush: NoteInputDelivery) => {
+    deliveries.current.add(flush);
+    input.version++;
     const navigation = pageReferences?.registerBeforeNavigate?.(flush);
-    const snapshot = registerBeforeSnapshot?.(flush);
-    return () => { navigation?.(); snapshot?.(); };
-  }, [pageReferences?.registerBeforeNavigate, registerBeforeSnapshot]);
+    return () => {
+      if (!flush.hasPendingInput?.()) { deliveries.current.delete(flush); navigation?.(); }
+      input.version++;
+    };
+  }, [pageReferences?.registerBeforeNavigate, input]);
   const [mathFocused, setMathFocused] = useState(false);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   /*
@@ -122,6 +282,7 @@ export function NoteEditor({
    */
   const [writing, setWriting] = useState<string | undefined>(undefined);
   const [formatting, setFormatting] = useState(false);
+  useEffect(() => { if (!mutable) setFormatting(false); }, [mutable]);
   const [hovered, setHovered] = useState<string>();
   const [blockMenu, setBlockMenu] = useState<{ sid: string; properties: boolean }>();
   const body = useRef<HTMLDivElement | null>(null);
@@ -161,6 +322,7 @@ export function NoteEditor({
    * `dragGesture` 를 쓰는 이유다.
    */
   const grab = (event: React.PointerEvent) => {
+    if (!mutable || !editor.isEditable) return;
     const sid = (event.currentTarget as HTMLElement).getAttribute('data-note-grip');
     if (event.shiftKey && sid) {
       event.preventDefault(); event.stopPropagation();
@@ -191,7 +353,7 @@ export function NoteEditor({
         setLanding(undefined);
         if (!moved.dragged) {
           blockAnchor.current = held.sid; setBlockSelection([held.sid]);
-          if (toolbar === 'contextual') setBlockMenu({ sid: held.sid, properties: false });
+          if (toolbar === 'contextual') { setFormatting(false); setBlockMenu({ sid: held.sid, properties: false }); }
           return;
         }
         const at = reorderIndexAt(held.items.filter(item => !held.ids.includes(item.sid)), { x: moved.x, y: moved.y }, 'column');
@@ -204,12 +366,22 @@ export function NoteEditor({
     });
   };
 
+  const navigationControl = (target: EventTarget) => target instanceof Element && !!target.closest('[data-document-navigation]');
   return (
-    <div className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar}
+    <div ref={inputHost} className={['on-note', className].filter(Boolean).join(' ')} data-note-editor={rootId} data-note-toolbar={toolbar} data-note-editable={mutable}
+      onCompositionStartCapture={event => { composing.current.add(event.target); }}
+      onCompositionEndCapture={event => { composing.current.delete(event.target); }}
+      onBeforeInputCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onPasteCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onDropCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onCutCapture={event => { if (!mutable && !navigationControl(event.target)) { event.preventDefault(); event.stopPropagation(); } }}
+      onKeyDownCapture={event => {
+        if (!mutable && !navigationControl(event.target) && (event.key === 'Backspace' || event.key === 'Delete' || ((event.metaKey || event.ctrlKey) && ['z', 'y', 'b', 'i', 'u'].includes(event.key.toLowerCase())))) { event.preventDefault(); event.stopPropagation(); }
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') { setPicked(undefined); setBlockMenu(undefined); setBlockSelection([]); }
         const target = event.target as Element;
-        if (blockSelection.length > 1 && !target.closest('input,textarea,[contenteditable="true"]') && !event.nativeEvent.isComposing) {
+        if (mutable && blockSelection.length > 1 && !target.closest('input,textarea,[contenteditable="true"]') && !event.nativeEvent.isComposing) {
           if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
             event.preventDefault(); event.stopPropagation(); void (event.shiftKey ? editor.redo() : editor.undo());
           }
@@ -222,18 +394,18 @@ export function NoteEditor({
         is allowed and the inner one wins, so a host that has its own loses nothing.
       */}
       <TipProvider>
-        {toolbar === 'always' && <NoteBar editor={editor} />}
+        {mutable && toolbar === 'always' && <NoteBar editor={editor} />}
         {/*
           And **what the held block is asked**, which appears only when one is held. A second row that
           was always there would be a row of nothing for the ninety per cent of a body that is words.
         */}
-        {picked && toolbar === 'always' ? (
+        {mutable && picked && toolbar === 'always' ? (
           <NoteBlockBar key={picked} editor={editor} sid={picked} cell={cell} onFile={onFile} />
         ) : null}
       </TipProvider>
       <div className="on-body-hold" ref={body} onPointerLeave={() => setHovered(undefined)}
         onPointerMove={event => {
-          if (mathFocused || toolbar !== 'contextual' || event.buttons || blockMenu) return;
+          if (!mutable || mathFocused || toolbar !== 'contextual' || event.buttons || blockMenu) return;
           const target = event.target instanceof Element ? event.target : null;
           const doc = target?.closest('.on-doc');
           if (!doc) return;
@@ -247,11 +419,14 @@ export function NoteEditor({
           }
           setHovered(block?.getAttribute('data-bc-sid') ?? undefined);
         }}>
-        <NoteDocumentNavigation editor={editor} rootId={rootId} scope={body} request={navigationRequest} />
+        <NoteDocumentNavigation key={rootId} editor={editor} rootId={rootId} scope={body} request={commandNavigation ?? navigationRequest} />
         <NoteBody
+          registerCommandSelection={registerCommandTarget ? registerCommandSelection : undefined}
           editor={editor}
           rootId={rootId}
           chromeHost={body}
+          registerDelivery={registerBodyDelivery}
+          editable={mutable}
           picked={picked}
           onPicked={(sid, at) => {
             setHovered(undefined);
@@ -266,26 +441,26 @@ export function NoteEditor({
           잡힘을 먼저 보는 것은 그것이 더 좁은 답이기 때문이다: 표의 셀에 캐럿이 있으면서 표가
           잡혀 있을 수 있고, 그때 옮기려는 것은 표다.
         */}
-        {!mathFocused && blockMenu && toolbar === 'contextual' && <NoteBlockContext editor={editor} hold={body} sid={blockMenu.sid}
+        {mutable && !mathFocused && blockMenu && toolbar === 'contextual' && <NoteBlockContext editor={editor} hold={body} sid={blockMenu.sid}
           properties={blockMenu.properties} onProperties={() => setBlockMenu({ ...blockMenu, properties: true })}
           hidden={formatting} onDismiss={() => setBlockMenu(undefined)}>
           <NoteBlockBar key={blockMenu.sid} editor={editor} sid={blockMenu.sid} cell={cell} onFile={onFile} contextual />
         </NoteBlockContext>}
-        {!mathFocused && blockSelection.length > 1 && <FloatingSurface open at={body.current?.querySelector('[data-note-batch-selected]')?.getBoundingClientRect() ?? null}
+        {mutable && !mathFocused && blockSelection.length > 1 && <FloatingSurface open at={body.current?.querySelector('[data-note-batch-selected]')?.getBoundingClientRect() ?? null}
           portalRoot={body.current} aria-label="선택한 블록" onDismiss={() => setBlockSelection([])} ownedElements={[body]}>
           <MultiBlockControl editor={editor} selection={null} nodeIds={blockSelection} />
         </FloatingSurface>}
-        <NoteGrip sid={mathFocused ? undefined : hovered ?? picked ?? writing} rootId={rootId} hold={body} onGrab={grab}
-          onOpen={toolbar === 'contextual' ? sid => setBlockMenu({ sid, properties: false }) : undefined} />
-        {toolbar === 'contextual' && <TableContext editor={editor} scope={body} active={!mathFocused && !formatting && !blockMenu} />}
-        {toolbar === 'contextual' && <TableManipulation editor={editor} scope={body} tableId={picked} active={!mathFocused && !formatting && !blockMenu} />}
+        <NoteGrip sid={!mutable || mathFocused ? undefined : hovered ?? picked ?? writing} rootId={rootId} hold={body} onGrab={grab}
+          onOpen={toolbar === 'contextual' ? sid => { setFormatting(false); setBlockMenu({ sid, properties: false }); } : undefined} />
+        {mutable && toolbar === 'contextual' && <TableContext editor={editor} scope={body} active={!mathFocused && !formatting && !blockMenu} />}
+        {mutable && toolbar === 'contextual' && <TableManipulation editor={editor} scope={body} tableId={picked} active={!mathFocused && !formatting && !blockMenu} />}
         <LatexEditor editor={editor} scope={body} structured inPlace onEditingFocusChange={setMathFocused} registerBeforeLeave={registerBodyDelivery} />
-        <ColumnsEditor editor={editor} scope={body} />
-        <CodeBlockEditor editor={editor} scope={body} sid={picked} active={!mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
-        <NoteDatabases editor={editor} scope={body} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
+        {mutable && <ColumnsEditor editor={editor} scope={body} />}
+        <CodeBlockEditor editor={editor} scope={body} sid={picked} active={mutable && !mathFocused && toolbar === 'contextual' && !formatting && !blockMenu} />
+        <NoteDatabases editor={editor} scope={body} beforeItemChange={flushDocument} revealItem={pageReferences?.revealItem} renderItemBody={(nodeId, row) =>
           <DatabaseItemBody key={`${nodeId}:${row}`} editor={editor} nodeId={nodeId} row={row} registerBeforeNavigate={registerBodyDelivery}
-            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor editor={childEditor} rootId={childRoot} className="ondb-body-note" registerBeforeSnapshot={registerBeforeSnapshot} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
-        {!mathFocused && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}
+            renderEditor={(childEditor, childRoot, beforeNavigate) => <NoteEditor registerCommandTarget={registerCommandTarget} editor={childEditor} rootId={childRoot} className="ondb-body-note" writeAllowed={writeAllowed ?? editor.isEditable} registerBeforeSnapshot={registerBodyDelivery} pageReferences={pageReferences && { ...pageReferences, revealItem: pageReferenceChildDestination(pageReferences.revealItem, getNoteDatabase(editor, nodeId)?.source, getNoteDatabaseItemId(editor, nodeId, row)), onNavigate: async pageId => { if (!await beforeNavigate()) return false; return pageReferences.onNavigate(pageId); } }} />} />} />
+        {mutable && !mathFocused && !blockMenu && toolbar === 'contextual' && <TipProvider><NoteContextualToolbar editor={editor} hold={body} sid={hovered ?? picked ?? writing}
           onFormattingChange={setFormatting}
           insertion={(close) => <NoteBar editor={editor} blocksOnly onInsert={close} />} /></TipProvider>}
         {/*
@@ -308,7 +483,7 @@ export function NoteEditor({
         * same re-measure on scroll. What differed was eight lines, all of them the site's `mode`
         * guard.
         */}
-      <SlashMenu editor={editor} active={!mathFocused} />
+      <SlashMenu editor={editor} active={mutable && !mathFocused} />
       {pageReferences && <PageReferenceUI editor={editor} scope={body} references={pageReferences} />}
     </div>
   );
@@ -348,7 +523,7 @@ function NoteBar({ editor, blocksOnly = false, onInsert }: { editor: Editor; blo
         * `data-note-control` rather than the default, because this package's own checks name the
         * buttons that way and a shared surface should not rename a product's tests.
         */}
-      {!blocksOnly && <Controls editor={editor} controls={noteControlsIn('mark')} mark="note-control" />}
+      {!blocksOnly && <Controls editor={editor} controls={noteControlsIn('mark', isNative2NoteEditor(editor) ? 'strike' : 'strikethrough')} mark="note-control" />}
 
       {!blocksOnly && blocks.length > 0 ? <span className="on-bar-split" /> : null}
 
@@ -803,13 +978,17 @@ function NoteBody({
   editor,
   rootId,
   chromeHost,
+  editable,
   picked,
   onPicked,
-  onWriting
+  onWriting,
+  registerDelivery,
+  registerCommandSelection
 }: {
   editor: Editor;
   rootId: string;
   chromeHost: React.RefObject<HTMLDivElement | null>;
+  editable: boolean;
   picked: string | undefined;
   onPicked: (sid: string | undefined, cell?: string) => void;
   /**
@@ -821,9 +1000,21 @@ function NoteBody({
    * 자리가 있다). 그려진 것은 늘 지금이다.
    */
   onWriting?: (sid: string | undefined) => void;
+  registerDelivery?: (flush: () => Promise<boolean>) => () => void;
+  registerCommandSelection?: (capture: () => ModelSelection | undefined) => () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
+  const { t } = useOfficeLocale();
+  const [failedInput, setFailedInput] = useState(false);
+  useEffect(() => { setFailedInput(false); }, [editor, rootId]);
+  const retryInput = async () => {
+    const live = view.current, element = host.current;
+    if (!live?.hasFailedInputDelivery || !element) return;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+    const owns = () => element.isConnected && view.current === live && editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch;
+    if (await live.retryInputDelivery(owns) && owns()) setFailedInput(false);
+  };
   const cells = useRef<CellSelectionHandle | null>(null);
   const box = useRef<HTMLDivElement>(null);
   /**
@@ -836,6 +1027,7 @@ function NoteBody({
    * time there is a new one.
    */
   const revision = useEditorRevision(editor);
+  const documentEpoch = editor.dataStore.getDocumentEpoch();
 
   useEffect(() => {
     if (box.current) return installNoteInputRules(editor, box.current);
@@ -886,7 +1078,47 @@ function NoteBody({
 
     view.current.setRootId(rootId);
     view.current.render(undefined, { sync: true });
+    view.current.contentEditableElement.contentEditable = editor.isEditable ? 'true' : 'false';
   }, [editor, rootId]);
+
+  useEffect(() => {
+    const live = view.current, element = host.current;
+    if (!live || !element) return;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+    let active = true;
+    const owns = () => active && element.isConnected && view.current === live &&
+      editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch;
+    const unregister = registerDelivery?.(async () => {
+      const accepted = await live.deliverInput(owns);
+      if (owns()) setFailedInput(!accepted && live.hasFailedInputDelivery);
+      return accepted && owns();
+    });
+    return () => { active = false; unregister?.(); };
+  }, [editor, rootId, documentEpoch, registerDelivery]);
+
+  useEffect(() => {
+    const live = view.current, element = host.current;
+    if (!live || !element || !registerCommandSelection) return;
+    let active = true;
+    const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+    const unregister = registerCommandSelection(() => active && element.isConnected && view.current === live &&
+      editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch ? captureTextSelection(editor, live) : undefined);
+    return () => { active = false; unregister(); };
+  }, [editor, rootId, documentEpoch, registerCommandSelection]);
+
+  useLayoutEffect(() => {
+    if (view.current) view.current.contentEditableElement.contentEditable = editable ? 'true' : 'false';
+  }, [editor, rootId, editable]);
+
+  useEffect(() => {
+    const element = host.current; if (!element) return;
+    const refuse = (event: Event) => {
+      if (!editor.isEditable) { event.preventDefault(); event.stopImmediatePropagation(); }
+    };
+    const events = ['beforeinput', 'paste', 'drop', 'cut'] as const;
+    events.forEach(name => element.addEventListener(name, refuse, true));
+    return () => events.forEach(name => element.removeEventListener(name, refuse, true));
+  }, [editor]);
 
   useEffect(
     () => () => {
@@ -1092,6 +1324,7 @@ function NoteBody({
 
   return (
     <div className="on-body" ref={box}>
+      {failedInput && <TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button ariaLabel={t('document.input.retry')} disabled={!editable} onClick={() => void retryInput()}>{t('document.input.retry')}</Button>} />}
       <div ref={host} data-note-body={rootId} />
     </div>
   );

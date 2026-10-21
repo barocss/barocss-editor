@@ -25,15 +25,21 @@ export interface FontLoader {
    * caller may ask on every selection change without cost.
    */
   ensure(family: string | undefined): Promise<void>;
+  /** Release only stylesheet links owned by this loader. */
+  dispose?(): void;
 }
 
 export function createFontLoader(document_: Document = document): FontLoader {
   /** Families already asked for, so a second ask does not add a second link. */
   const requested = new Map<string, Promise<void>>();
+  let disposed = false;
+  let resolveDisposed: () => void = () => {};
+  const disposal = new Promise<void>(resolve => { resolveDisposed = resolve; });
+  const pending = new Map<HTMLLinkElement, () => void>();
 
   return {
     ensure(family) {
-      if (!family || !isWebFont(family)) return Promise.resolve();
+      if (disposed || !family || !isWebFont(family)) return Promise.resolve();
 
       const already = requested.get(family);
       if (already) return already;
@@ -53,8 +59,15 @@ export function createFontLoader(document_: Document = document): FontLoader {
       // been requested yet. Which is precisely the false answer this whole file
       // exists to avoid.
       const stylesheet = new Promise<void>((resolve) => {
-        link.addEventListener('load', () => resolve());
-        link.addEventListener('error', () => resolve());
+        const settle = () => {
+          link.removeEventListener('load', settle);
+          link.removeEventListener('error', settle);
+          pending.set(link, () => {});
+          resolve();
+        };
+        pending.set(link, settle);
+        link.addEventListener('load', settle);
+        link.addEventListener('error', settle);
       });
       document_.head.appendChild(link);
 
@@ -63,7 +76,7 @@ export function createFontLoader(document_: Document = document): FontLoader {
       // width of every line it is on — after the page breaks were decided.
       const loaded = stylesheet
         .then(() =>
-          Promise.all(
+          disposed ? undefined : Promise.all(
             fontFaceSpecs(family).map((spec) =>
               (document_ as any).fonts?.load?.(spec) ?? Promise.resolve()
             )
@@ -75,8 +88,17 @@ export function createFontLoader(document_: Document = document): FontLoader {
         // reason to leave the page blank.
         .catch(() => undefined);
 
-      requested.set(family, loaded);
-      return loaded;
+      const completion = Promise.race([loaded, disposal]);
+      requested.set(family, completion);
+      return completion;
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      resolveDisposed();
+      for (const [link, settle] of pending) { settle(); link.remove(); }
+      pending.clear();
+      requested.clear();
     }
   };
 }

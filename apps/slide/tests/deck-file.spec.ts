@@ -38,7 +38,7 @@ test.describe('saving a deck', () => {
 
     const file = JSON.parse(text);
     expect(file.format).toBe('barocss-slides');
-    expect(file.version).toBe(1);
+    expect(file.version).toBe(2);
     expect(file.savedAt).toBeTruthy();
     // A sid is `session:counter` and means nothing in another session; a file
     // that kept them would be unloadable in the one that wrote it.

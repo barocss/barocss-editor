@@ -35,9 +35,9 @@ export class TextExtension implements Extension {
       name: 'replaceText',
       execute: async (editor: Editor, payload: { 
         range: ModelSelection,
-        text: string 
+        text: string; canApply?: () => boolean
       }) => {
-        return await this._executeReplaceText(editor, payload.range, payload.text);
+        return await this._executeReplaceText(editor, payload.range, payload.text, payload.canApply);
       },
       canExecute: (_editor: Editor, payload?: any) => {
         return payload?.range != null && payload?.text != null;
@@ -59,8 +59,11 @@ export class TextExtension implements Extension {
   private async _executeReplaceText(
     editor: Editor,
     range: ModelSelection,
-    text: string
+    text: string,
+    canApply?: () => boolean
   ): Promise<boolean> {
+    if (canApply && !canApply()) return false;
+    const options = { validateIntent: () => canApply && !canApply() ? 'Stale native input' : undefined };
     // Only insert case (start === end)
     /**
      * **비었는가는 두 가지를 다 물어야 합니다** — 같은 런인가, 그리고 같은 자리인가.
@@ -73,7 +76,7 @@ export class TextExtension implements Extension {
      */
     if (range.startNodeId === range.endNodeId && range.startOffset === range.endOffset) {
       const operations = this._buildInsertTextOperations(range, text);
-      const result = await transaction(editor, operations).commit();
+      const result = await transaction(editor, operations, options).commit();
       return result.success;
     }
 
@@ -84,7 +87,7 @@ export class TextExtension implements Extension {
       ...this._buildInsertTextOperations({ ...range, endOffset: range.startOffset }, text)
     ];
     
-    const result = await transaction(editor, operations).commit();
+    const result = await transaction(editor, operations, options).commit();
     return result.success;
   }
 

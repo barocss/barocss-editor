@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useReducer, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { getGlobalRegistry, type RendererRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY } from '@barocss/office-text';
-import { Button } from '@barocss/office-ui';
+import { Icon, IconButton } from '@barocss/office-ui';
 import { useDocumentRevision } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import { SLIDES_ENV_KEY } from './render-context';
 import { noteFor } from './deck';
 import { createDeckEnv } from './layout-format';
+import { emptyNotesDraft, NotesDraftInput, type NotesInputDraft } from './notes-draft-input';
 
 /**
  * The note the presenter reads and the audience does not.
@@ -51,14 +52,64 @@ import { createDeckEnv } from './layout-format';
 /** What the notes pane is told. */
 export interface NotesPaneProps {
   editor: Editor | null;
+  /** The same renderer owner as the native stage. */
+  registry?: RendererRegistry;
   slideSid?: string;
   /** Bumped by the app when the deck changes, so the note is re-resolved. */
   revision: number;
+  onClose?: () => void;
+  active?: boolean;
+  onInputDeliveryReady?: (deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
+  onInputRecoveryReady?: (recovery: {
+    failed(): boolean;
+    matches(error: unknown): boolean;
+    retry(isCurrent: () => boolean): Promise<boolean>;
+  } | null) => void;
 }
 
-export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
+export function NotesPane({ editor, registry, slideSid, revision, onClose, active = true, onInputDeliveryReady, onInputRecoveryReady }: NotesPaneProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorViewDOM | null>(null);
+  const drafts = useRef(new Map<string, NotesInputDraft>());
+  const [epoch, setEpoch] = useState(0);
+  const [intentEpoch, setIntentEpoch] = useState(0);
+  const [, refreshDraft] = useReducer((value: number) => value + 1, 0);
+  const pendingFocus = useRef<{ noteId: string; start: number; end: number; focus: boolean } | null>(null);
+  const rootId = editor?.getRootId();
+  const intent = useMemo(() => ({}), [editor, rootId, slideSid, active, epoch, intentEpoch]);
+  const currentIntent = useRef(intent); currentIntent.current = intent;
+  const draftKey = `${epoch}:${rootId}:${slideSid}`;
+  useEffect(() => {
+    if (!editor) return;
+    const retire = (event: { transaction?: unknown }) => { if (!event.transaction) { currentIntent.current = {}; setEpoch(value => value + 1); } };
+    const permission = () => { currentIntent.current = {}; setIntentEpoch(value => value + 1); };
+    editor.on('editor:content.change', retire); editor.on('editor:editable.change', permission);
+    return () => { currentIntent.current = {}; editor.off('editor:content.change', retire); editor.off('editor:editable.change', permission); };
+  }, [editor]);
+  useEffect(() => {
+    if (!editor || !onInputDeliveryReady) return;
+    const root = editor.getRootId();
+    const store = editor.dataStore;
+    const documentEpoch = store.getDocumentEpoch();
+    let mounted = true;
+    const deliver = async (isCurrent: () => boolean) => {
+      const owns = () => mounted && !!host.current?.isConnected && isCurrent() &&
+        editor.getRootId() === root && editor.dataStore === store && store.getDocumentEpoch() === documentEpoch;
+      if (!owns()) return false;
+      // Include drafts retained for other slides; an inactive/unowned draft refuses navigation.
+      for (const held of drafts.current.values()) {
+        if (held.composing) return false;
+        if (held.deliverInput) {
+          if (!await held.deliverInput(owns) || !owns()) return false;
+        } else if (held.pending || held.text || held.error) return false;
+      }
+      if (view.current && (view.current.editor !== editor || !await view.current.deliverInput(owns) || !owns())) return false;
+      return owns();
+    };
+    onInputDeliveryReady(deliver);
+    return () => { mounted = false; onInputDeliveryReady(null); };
+  }, [editor, rootId, epoch, onInputDeliveryReady]);
+
   /**
    * Only the content, because notes are a document and not a selection: a caret
    * moving changes nothing here, and rebuilding on every keystroke of the *slide*
@@ -66,6 +117,15 @@ export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
    * narrower question.
    */
   const tick = useDocumentRevision(editor);
+  useEffect(() => {
+    if (!editor) return;
+    const syncEditable = () => {
+      if (view.current) view.current.contentEditableElement.contentEditable = String(editor.isEditable);
+    };
+    editor.on('editor:editable.change', syncEditable);
+    syncEditable();
+    return () => { editor.off('editor:editable.change', syncEditable); };
+  }, [editor]);
 
   /** Which note this slide has, if it has one. */
   const noteSid = useMemo(() => {
@@ -100,7 +160,8 @@ export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
       };
       view.current = new EditorViewDOM(editor, {
         container: host.current,
-        registry: getGlobalRegistry(),
+        rootId: noteSid,
+        registry: registry ?? getGlobalRegistry(),
         env: {
           // The same environment the stage has: a note's paragraphs are Word's
           // paragraphs and resolve their formatting the same way.
@@ -130,33 +191,84 @@ export function NotesPane({ editor, slideSid, revision }: NotesPaneProps) {
      */
     const proxy = editor?.getDocumentProxy(noteSid) ?? node;
     const tree = JSON.parse(JSON.stringify(proxy));
+    view.current.setRootId(noteSid);
+    view.current.contentEditableElement.contentEditable = String(editor.isEditable);
     view.current.render(tree, { sync: true });
-  }, [editor, noteSid, tick, revision]);
+  }, [editor, registry, noteSid, tick, revision]);
+
+  useEffect(() => {
+    if (!onInputRecoveryReady) return;
+    const ownedView = view.current;
+    if (!editor || !ownedView || !noteSid || !active) { onInputRecoveryReady(null); return; }
+    const root = editor.getRootId(), store = editor.dataStore, documentEpoch = store.getDocumentEpoch();
+    let mounted = true;
+    const owns = () => mounted && currentIntent.current === intent && !!host.current?.isConnected &&
+      editor.isEditable && view.current === ownedView && ownedView.editor === editor && ownedView.viewRootId === noteSid &&
+      editor.getRootId() === root && editor.dataStore === store && store.getDocumentEpoch() === documentEpoch;
+    onInputRecoveryReady({
+      failed: () => owns() && ownedView.hasFailedInputDelivery,
+      matches: error => owns() && ownedView.hasFailedInputDeliveryError(error),
+      retry: async isCurrent => {
+        const inputOwns = ownedView.captureInputOwner();
+        const retryOwns = () => owns() && inputOwns() && isCurrent();
+        if (!retryOwns()) return false;
+        return await ownedView.retryInputDelivery(retryOwns) && retryOwns();
+      }
+    });
+    return () => { mounted = false; onInputRecoveryReady(null); };
+  }, [editor, registry, rootId, epoch, noteSid, active, intent, onInputRecoveryReady]);
 
   useEffect(
     () => () => {
       view.current?.destroy?.();
       view.current = null;
     },
-    []
+    [editor, registry]
   );
 
   const missing = !noteSid;
+  let draft = drafts.current.get(draftKey);
+  if (missing && !draft) { draft = emptyNotesDraft(); drafts.current.set(draftKey, draft); }
+  const starting = !!draft && (missing || draft.pending || !!draft.text || !!draft.error);
+  const editable = !!editor?.isEditable;
+  const focusNote = (start = 0, end = start) => {
+    if (!editor || !noteSid || !view.current) return;
+    const runs: { sid: string; text: string }[] = [];
+    const visit = (sid: string) => {
+      const node = editor.dataStore.getNode(sid); if (!node) return;
+      if (node.stype === 'inline-text') runs.push({ sid, text: node.text ?? '' });
+      for (const child of node.content ?? []) if (typeof child === 'string') visit(child);
+    };
+    visit(noteSid); if (!runs.length) return;
+    const point = (offset: number) => {
+      for (const run of runs) { if (offset <= run.text.length) return { sid: run.sid, offset }; offset -= run.text.length + 1; }
+      const last = runs[runs.length - 1]; return { sid: last.sid, offset: last.text.length };
+    };
+    const from = point(start), to = point(end);
+    view.current.contentEditableElement.focus({ preventScroll: true });
+    editor.setRange({ type: 'range', startNodeId: from.sid, endNodeId: to.sid,
+      startOffset: from.offset, endOffset: to.offset, collapsed: start === end });
+  };
+  useEffect(() => {
+    if (!active || !editable || starting) return;
+    const held = pendingFocus.current; pendingFocus.current = null;
+    if (held) { if (held.noteId === noteSid && held.focus) focusNote(held.start, held.end); }
+    else focusNote();
+  // Input changes must not reset an already active rich-text caret.
+  }, [active, slideSid, noteSid, starting, editable]);
 
   return (
     <section className="sl-notes" aria-label="발표자 노트">
-      <h2 className="sl-notes-title">발표자 노트</h2>
-      {missing ? (
-        <p className="sl-notes-empty">
-          이 슬라이드에는 노트가 없습니다. 아래를 눌러 추가하세요.
-          <Button
-            onClick={() => void editor?.executeCommand?.('addSlideNote', { slideId: slideSid })}
-          >
-            노트 추가
-          </Button>
-        </p>
-      ) : null}
-      <div ref={host} className="sl-notes-host" hidden={missing} />
+      <div className="sl-notes-heading"><h2 className="sl-notes-title">발표자 노트</h2>
+        {onClose && <IconButton label="발표자 노트 닫기" onClick={onClose}><Icon name="close" /></IconButton>}
+      </div>
+      {starting && editor && slideSid && (editable || !!draft?.text) ? <NotesDraftInput key={draftKey} editor={editor} slideSid={slideSid}
+        draft={draft!} active={active} onDraftChange={refreshDraft}
+        canApply={() => currentIntent.current === intent && active && editor.isEditable && !!host.current?.isConnected}
+        onReady={(noteId, start, end, focus) => {
+          drafts.current.delete(draftKey); pendingFocus.current = { noteId, start, end, focus }; refreshDraft();
+        }} /> : missing ? <p className="sl-notes-empty">이 슬라이드에는 노트가 없습니다.</p> : null}
+      <div ref={host} className="sl-notes-host" hidden={missing || starting} />
     </section>
   );
 }

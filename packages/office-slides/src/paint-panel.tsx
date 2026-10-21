@@ -79,6 +79,8 @@ const ON_CANVAS = ['[data-paint-canvas]'];
 
 /** What a stack of fills is told. */
 export interface PaintListProps {
+  /** Optional accessory beside the first real paint swatch; native paint writes stay unchanged. */
+  fieldAccessory?: (control: React.ReactNode) => React.ReactNode;
   label: string;
   paints: Paint[];
   themeSwatches?: ThemeSwatch[];
@@ -103,6 +105,7 @@ export interface PaintListProps {
 }
 
 export function PaintList({
+  fieldAccessory,
   label,
   paints,
   note,
@@ -143,13 +146,14 @@ export function PaintList({
     >
       {note && <PropertyEmpty>{note}</PropertyEmpty>}
       {paints.length === 0 ? (
-        <PropertyEmpty>없음</PropertyEmpty>
+        fieldAccessory ? fieldAccessory(<PropertyEmpty>없음</PropertyEmpty>) : <PropertyEmpty>없음</PropertyEmpty>
       ) : (
         <StackList>
           {paints.map((paint, index) => (
             <PaintRow
               key={index}
               index={index}
+              fieldAccessory={index === 0 ? fieldAccessory : undefined}
               paint={paint}
               themeSwatches={themeSwatches}
               varSwatches={varSwatches}
@@ -173,6 +177,7 @@ export function PaintList({
 }
 
 function PaintRow({
+  fieldAccessory,
   index,
   paint,
   themeSwatches,
@@ -188,6 +193,7 @@ function PaintRow({
   onChange,
   onRemove
 }: {
+  fieldAccessory?: (control: React.ReactNode) => React.ReactNode;
   index: number;
   paint: Paint;
   themeSwatches?: ThemeSwatch[];
@@ -245,6 +251,21 @@ function PaintRow({
     </>
   );
 
+  const paintSwatch = (
+    <Button
+      square
+      ariaLabel={`${index + 1}번 채우기`}
+      ref={trigger}
+      aria-expanded={open === true}
+      data={{ 'paint-swatch': String(index) }}
+      disabled={disabled}
+      className="p-0.5"
+      onClick={() => setOpen(open !== true)}
+    >
+      <span className="block h-full w-full rounded-sm" style={{ background: preview }} />
+    </Button>
+  );
+
   return (
     <StackRow
       index={index}
@@ -284,18 +305,7 @@ function PaintRow({
       editorTriggerRef={trigger}
       floatingEditor
     >
-        <Button
-          square
-          ariaLabel={`${index + 1}번 채우기`}
-          ref={trigger}
-          aria-expanded={open === true}
-          data={{ 'paint-swatch': String(index) }}
-          disabled={disabled}
-          className="p-0.5"
-          onClick={() => setOpen(open !== true)}
-        >
-          <span className="block h-full w-full rounded-sm" style={{ background: preview }} />
-        </Button>
+        {fieldAccessory ? fieldAccessory(paintSwatch) : paintSwatch}
 
         <Choice
           ariaLabel={`${index + 1}번 채우기 종류`}

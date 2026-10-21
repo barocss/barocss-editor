@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, visibleBoxes, attr } from './helpers';
+import { openDeck, visibleBoxes, attr, pickInsert, setPanel } from './helpers';
 
 /**
  * How round each corner is.
@@ -28,7 +28,7 @@ const radiusOf = (page: Page, sid: string) =>
   );
 
 const newRectangle = async (page: Page) => {
-  await page.getByRole('button', { name: '사각형' }).click();
+  await pickInsert(page, '사각형');
   await expect
     .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
     .not.toBeNull();
@@ -38,10 +38,11 @@ const newRectangle = async (page: Page) => {
 test.describe('the corners of a box', () => {
   test('are rounded together by the one field, as they always were', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
-    await panel(page).getByLabel('모서리 둥글기').fill('0.5');
-    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).fill('0.5');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).press('Enter');
 
     // Half a centimetre is 283 twips, which is 18.87px.
     await expect.poll(() => radiusOf(page, sid)).toBe('18.87px');
@@ -49,13 +50,14 @@ test.describe('the corners of a box', () => {
 
   test('are each set on their own, clockwise from the top left', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
-    await panel(page).getByLabel('왼쪽 위 모서리').fill('1');
-    await panel(page).getByLabel('왼쪽 위 모서리').press('Enter');
+    await panel(page).getByLabel('왼쪽 위 모서리', { exact: true }).fill('1');
+    await panel(page).getByLabel('왼쪽 위 모서리', { exact: true }).press('Enter');
     await page.waitForTimeout(300);
-    await panel(page).getByLabel('오른쪽 위 모서리').fill('0.5');
-    await panel(page).getByLabel('오른쪽 위 모서리').press('Enter');
+    await panel(page).getByLabel('오른쪽 위 모서리', { exact: true }).fill('0.5');
+    await panel(page).getByLabel('오른쪽 위 모서리', { exact: true }).press('Enter');
 
     // One centimetre is 567 twips (37.8px); half of it is 283 (18.87px); the two
     // corners nobody touched are square.
@@ -70,14 +72,15 @@ test.describe('the corners of a box', () => {
    */
   test('follow the box’s own radius until one is set', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
-    await panel(page).getByLabel('모서리 둥글기').fill('0.5');
-    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).fill('0.5');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).press('Enter');
     await expect.poll(() => radiusOf(page, sid)).toBe('18.87px');
 
-    await panel(page).getByLabel('왼쪽 아래 모서리').fill('0');
-    await panel(page).getByLabel('왼쪽 아래 모서리').press('Enter');
+    await panel(page).getByLabel('왼쪽 아래 모서리', { exact: true }).fill('0');
+    await panel(page).getByLabel('왼쪽 아래 모서리', { exact: true }).press('Enter');
 
     await expect.poll(() => radiusOf(page, sid)).toBe('18.87px 18.87px 18.87px 0px');
   });
@@ -90,14 +93,15 @@ test.describe('the corners of a box', () => {
    */
   test('are offered on a text box too, which could not be rounded at all', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const [frame] = await visibleBoxes(page, '.sl-text-frame');
     await page.mouse.click(frame.x, frame.y);
     await expect
       .poll(() => page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0] ?? null))
       .toBe(frame.sid);
 
-    await panel(page).getByLabel('모서리 둥글기').fill('0.5');
-    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).fill('0.5');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).press('Enter');
 
     await expect.poll(() => radiusOf(page, frame.sid)).toBe('18.87px');
   });
@@ -116,17 +120,18 @@ test.describe('the corners of a box', () => {
    */
   test('are given back by emptying the field, which is not the same as typing 0', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
-    await panel(page).getByLabel('모서리 둥글기').fill('0.5');
-    await panel(page).getByLabel('모서리 둥글기').press('Enter');
-    await panel(page).getByLabel('왼쪽 아래 모서리').fill('0');
-    await panel(page).getByLabel('왼쪽 아래 모서리').press('Enter');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).fill('0.5');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).press('Enter');
+    await panel(page).getByLabel('왼쪽 아래 모서리', { exact: true }).fill('0');
+    await panel(page).getByLabel('왼쪽 아래 모서리', { exact: true }).press('Enter');
     await expect.poll(() => radiusOf(page, sid)).toBe('18.87px 18.87px 18.87px 0px');
     expect(await attr(page, sid, 'cornerBottomLeft')).toBe(0);
 
-    await panel(page).getByLabel('왼쪽 아래 모서리').fill('');
-    await panel(page).getByLabel('왼쪽 아래 모서리').press('Enter');
+    await panel(page).getByLabel('왼쪽 아래 모서리', { exact: true }).fill('');
+    await panel(page).getByLabel('왼쪽 아래 모서리', { exact: true }).press('Enter');
 
     await expect.poll(() => radiusOf(page, sid)).toBe('18.87px');
     expect(await attr(page, sid, 'cornerBottomLeft')).toBeUndefined();
@@ -143,34 +148,36 @@ test.describe('the corners of a box', () => {
    */
   test('are not stated by tabbing past a field that only shows what it follows', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
-    await panel(page).getByLabel('모서리 둥글기').fill('0.5');
-    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).fill('0.5');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).press('Enter');
     await expect.poll(() => radiusOf(page, sid)).toBe('18.87px');
 
-    await panel(page).getByLabel('왼쪽 위 모서리').click();
-    await panel(page).getByLabel('오른쪽 위 모서리').click();
-    await panel(page).getByLabel('모서리 둥글기').click();
+    await panel(page).getByLabel('왼쪽 위 모서리', { exact: true }).click();
+    await panel(page).getByLabel('오른쪽 위 모서리', { exact: true }).click();
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).click();
     await page.waitForTimeout(300);
 
     expect(await attr(page, sid, 'cornerTopLeft')).toBeUndefined();
     expect(await attr(page, sid, 'cornerTopRight')).toBeUndefined();
 
     // Still following: change the radius and all four move with it.
-    await panel(page).getByLabel('모서리 둥글기').fill('1');
-    await panel(page).getByLabel('모서리 둥글기').press('Enter');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).fill('1');
+    await panel(page).getByLabel('모서리 둥글기', { exact: true }).press('Enter');
     await expect.poll(() => radiusOf(page, sid)).toBe('37.8px');
   });
 
   /** An ellipse is round by construction; four fields there would change nothing. */
   test('are not offered on an ellipse', async ({ page }) => {
     await openDeck(page);
-    await page.getByRole('button', { name: '타원' }).click();
+    await setPanel(page, 'properties', true);
+    await pickInsert(page, '타원');
     await expect
       .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
       .not.toBeNull();
 
-    await expect(panel(page).getByLabel('왼쪽 위 모서리')).toHaveCount(0);
+    await expect(panel(page).getByLabel('왼쪽 위 모서리', { exact: true })).toHaveCount(0);
   });
 });

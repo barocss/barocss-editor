@@ -1,12 +1,15 @@
+import { nativeEditor } from './helpers/native-editor';
+import { openLocalLibrary } from './helpers/local-library';
 import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 const output = `${process.cwd()}/../../.dev/artifacts/design-system`;
 async function create(page: Page, product: string) {
   await page.goto('/');
-  await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
+  await openLocalLibrary(page);
+  await page.getByRole('button', { name: `${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('탐색 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
-  await expect.poll(() => page.locator('[data-document-identity]').evaluate(el => el.querySelector('input')?.value || el.textContent?.trim())).toBe('탐색 검증');
+  await expect.poll(() => nativeEditor(page).locator('[data-document-identity]').evaluate(el => el.querySelector('input')?.value || el.textContent?.trim())).toBe('탐색 검증');
 }
 test('tabs skip disabled items, use one tab stop and reveal an overflowing selection', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
@@ -56,32 +59,38 @@ test('navigation retains selection while filtering and offers a working empty-st
 
 test('Note search reset keeps the active page and uses the shared navigation item', async ({ page }) => {
   await create(page, 'Note');
-  const current = page.locator('.nw-list [aria-current="page"]');
+  const ui = nativeEditor(page);
+  await ui.getByRole('button', { name: '노트 페이지 관리', exact: true }).click();
+  const current = ui.locator('.nw-list [aria-current="page"]');
   await expect(current).toHaveClass(/office-navigation-item/);
   const url = page.url();
-  await page.getByRole('searchbox', { name: '노트 검색' }).fill('없는 페이지 이름');
-  await expect(page.locator('.nw-list')).toContainText('검색 결과가 없습니다');
-  await page.getByRole('button', { name: '검색 지우기', exact: true }).click();
+  await ui.getByRole('searchbox', { name: '노트 검색' }).fill('없는 페이지 이름');
+  await expect(ui.locator('.nw-list')).toContainText('검색 결과가 없습니다');
+  await ui.getByRole('button', { name: '검색 지우기', exact: true }).click();
   await expect(current).toHaveText('탐색 검증');
   expect(page.url()).toBe(url);
 });
 
 test('Slides inspector tabs share keyboard navigation and Site search can recover from no results', async ({ page }) => {
   await create(page, 'Slides');
-  const tabs = page.getByRole('tablist', { name: '속성 탭', exact: true });
+  const ui = nativeEditor(page);
+  await ui.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await ui.getByRole('menuitemcheckbox', { name: '속성 · 크기, 위치, 모양', exact: true }).click();
+  const tabs = ui.getByRole('tablist', { name: '속성 탭', exact: true });
   await tabs.getByRole('tab', { name: '속성', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(tabs.getByRole('tab', { name: '모션', exact: true })).toBeFocused();
-  await expect(page.getByRole('tabpanel', { name: '모션', exact: true })).toBeVisible();
+  await expect(ui.getByRole('tabpanel', { name: '모션', exact: true })).toBeVisible();
   await page.keyboard.press('Home');
-  await expect(page.getByRole('tabpanel', { name: '속성', exact: true })).toBeVisible();
+  await expect(ui.getByRole('tabpanel', { name: '속성', exact: true })).toBeVisible();
   await create(page, 'Site');
-  await page.locator('[data-admin-open]').first().click();
-  await page.getByRole('tab', { name: '구성', exact: true }).click();
-  const search = page.getByRole('textbox', { name: '블록 찾기', exact: true });
+  await ui.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await ui.getByRole('menuitemcheckbox', { name: '페이지 및 구조', exact: true }).click();
+  await ui.getByRole('tab', { name: '구성', exact: true }).click();
+  const search = ui.getByRole('textbox', { name: '블록 찾기', exact: true });
   await search.fill('없는 블록 이름');
-  await expect(page.locator('.office-empty-state')).toContainText('검색 결과가 없습니다');
-  await page.getByRole('button', { name: '검색 지우기', exact: true }).click();
+  await expect(ui.locator('.office-empty-state')).toContainText('검색 결과가 없습니다');
+  await ui.getByRole('button', { name: '검색 지우기', exact: true }).click();
   await expect(search).toHaveValue('');
-  await expect(page.locator('[data-layers]')).toBeVisible();
+  await expect(ui.locator('[data-layers]')).toBeVisible();
 });

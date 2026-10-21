@@ -74,3 +74,22 @@ test('search refuses a command captured from a replaced document', async ({ page
   await expect(page.getByRole('complementary', { name: '명령 실행 상태' })).toContainText('문서 또는 편집 화면이 변경되었습니다.');
   expect(await documentText(page)).toBe(before);
 });
+
+
+test('desktop management and writing mode preserve command availability and HTML export', async ({ page }) => {
+  await page.goto('/'); await open(page); await query(page).fill('insertHeading');
+  await expect(page.getByText('일치하는 명령이 없습니다.')).toBeVisible();
+  await query(page).press('Escape');
+  await page.locator('[data-admin-open]').first().click();
+  await run(page, '글 고치기');
+  await open(page); await query(page).fill('insertHeading');
+  await expect(page.getByRole('option')).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByRole('option')).toContainText('글 고치기 모드');
+  await query(page).press('Escape'); await run(page, '글 고치기');
+  await open(page); await query(page).fill('insertHeading');
+  await expect(page.getByRole('option')).not.toHaveAttribute('aria-disabled', 'true');
+  await query(page).press('Escape');
+  const download = page.waitForEvent('download'); await run(page, '이 페이지 내보내기');
+  expect((await download).suggestedFilename()).toBe('index.html');
+  await expect(page.getByRole('complementary', { name: '사이트 출력 상태' })).toContainText('사이트 다운로드 요청됨');
+});

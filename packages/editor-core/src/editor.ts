@@ -163,7 +163,7 @@ export class Editor implements ContextProvider {
     // insertText command (used by CommandChain)
     this.registerCommand({
       name: 'insertText',
-      execute: async (editor: Editor, payload?: { text: string; selection?: ModelSelection }) => {
+      execute: async (editor: Editor, payload?: { text: string; selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         if (!selection || selection.type !== 'range' || !payload?.text) {
           return false;
@@ -188,10 +188,11 @@ export class Editor implements ContextProvider {
 
         return editor.executeCommand('replaceText', {
           range: selection,
-          text: payload.text
+          text: payload.text,
+          canApply: payload.canApply
         });
       },
-      canExecute: (editor: Editor, payload?: { text?: string; selection?: ModelSelection }) => {
+      canExecute: (editor: Editor, payload?: { text?: string; selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         return !!selection && selection.type === 'range' && !!payload?.text;
       }
@@ -200,7 +201,7 @@ export class Editor implements ContextProvider {
     // deleteSelection command (used by CommandChain)
     this.registerCommand({
       name: 'deleteSelection',
-      execute: async (editor: Editor, payload?: { selection?: ModelSelection }) => {
+      execute: async (editor: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || editor.selection;
         /*
          * **깃발이 아니라 `isCollapsedSelection` 에 묻는다.** payload 로 온 선택은 편집기의 문을
@@ -217,9 +218,9 @@ export class Editor implements ContextProvider {
           return false;
         }
 
-        return editor.executeCommand('backspace', { selection });
+        return editor.executeCommand('backspace', { selection, canApply: payload?.canApply });
       },
-      canExecute: (_editor: Editor, payload?: { selection?: ModelSelection }) => {
+      canExecute: (_editor: Editor, payload?: { selection?: ModelSelection; canApply?: () => boolean }) => {
         const selection = payload?.selection || _editor.selection;
         return !!selection && selection.type === 'range' && !isCollapsedSelection(selection);
       }
@@ -431,16 +432,41 @@ export class Editor implements ContextProvider {
    * name, and that is the promise: a session names an instance, not a kind.
    */
   loadDocument(treeDocument: any, sessionId?: string): void {
-    const loader = new DataStoreLoader(this._dataStore, sessionId);
-    const rootId = loader.loadDocument(treeDocument);
-    this._rootId = rootId;
-    const exporter = new DataStoreExporter(this._dataStore);
-    const tree = exporter.exportToTree(rootId);
-    this._document = this._convertToDocumentState(tree);
-    this._addToHistory(this._document);
+    if (this._dataStore.isTransactionActive()) throw new Error('Cannot load a document during an active transaction');
+    // The loader installs new nodes in the map. Retain the old node references for rollback;
+    // their attributes can contain functions, which structuredClone cannot copy.
+    const previous = {
+      nodes: new Map(this._dataStore.getNodes()),
+      storeRoot: this._dataStore.getRootNodeId(),
+      sessionId: this._dataStore.getSessionId(),
+      version: this._dataStore.version,
+      rootId: this._rootId,
+      document: this._document,
+      history: this._history,
+      historyIndex: this._historyIndex,
+      faults: this._documentFaults
+    };
+    try {
+      const rootId = this._dataStore.withoutOperationEvents(() =>
+        new DataStoreLoader(this._dataStore, sessionId).loadDocument(treeDocument));
+      this._rootId = rootId;
+      const exporter = new DataStoreExporter(this._dataStore);
+      const tree = exporter.exportToTree(rootId);
+      this._document = this._convertToDocumentState(tree);
+      this._addToHistory(this._document);
 
-    this._reportDocumentFaults(treeDocument);
-    this.emit('editor:content.change', { content: this.document, transaction: null, rootId });
+      this._reportDocumentFaults(treeDocument);
+      this.emit('editor:content.change', { content: this.document, transaction: null, rootId });
+    } catch (error) {
+      this._dataStore.restoreFromSnapshot(previous.nodes, previous.storeRoot, previous.version);
+      if (this._dataStore.getSessionId() !== previous.sessionId) this._dataStore.setSessionId(previous.sessionId);
+      this._rootId = previous.rootId;
+      this._document = previous.document;
+      this._history = previous.history;
+      this._historyIndex = previous.historyIndex;
+      this._documentFaults = previous.faults;
+      throw error;
+    }
   }
 
   /**
@@ -1700,69 +1726,11 @@ declare module './editor' {
 }
 
 Editor.prototype.undo = async function(this: Editor): Promise<boolean> {
-  const entry = this.historyManager.undo();
-  if (!entry) return false;
-  // Typing after an undo must start a fresh step, never merge into the one that
-  // was just undone.
-  this.historyManager.closeGroup();
-
-  const metadata = entry.metadata;
-  const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionBefore');
-  const selectionToRestore = hasSelectionMetadata ? metadata.selectionBefore : undefined;
-
-  try {
-    this.transactionManager._isUndoRedoOperation = true;
-    const result = await this.transactionManager.execute(entry.inverseOperations, {
-      applySelectionToView: false
-    });
-
-    if (result.success && hasSelectionMetadata) {
-      if (selectionToRestore === null) {
-        this.updateSelection(null as any);
-      } else if (selectionToRestore) {
-        this.updateSelection(selectionToRestore);
-      }
-    }
-
-    return result.success;
-  } catch (error) {
-    console.error('[Editor] undo failed:', error);
-    return false;
-  } finally {
-    this.transactionManager._isUndoRedoOperation = false;
-  }
+  return this.transactionManager.replayHistory('undo');
 };
 
 Editor.prototype.redo = async function(this: Editor): Promise<boolean> {
-  const entry = this.historyManager.redo();
-  if (!entry) return false;
-  this.historyManager.closeGroup();
-
-  const metadata = entry.metadata;
-  const hasSelectionMetadata = metadata && Object.prototype.hasOwnProperty.call(metadata, 'selectionAfter');
-  const selectionToRestore = hasSelectionMetadata ? metadata.selectionAfter : undefined;
-
-  try {
-    this.transactionManager._isUndoRedoOperation = true;
-    const result = await this.transactionManager.execute(entry.operations, {
-      applySelectionToView: false
-    });
-
-    if (result.success && hasSelectionMetadata) {
-      if (selectionToRestore === null) {
-        this.updateSelection(null as any);
-      } else if (selectionToRestore) {
-        this.updateSelection(selectionToRestore);
-      }
-    }
-
-    return result.success;
-  } catch (error) {
-    console.error('[Editor] redo failed:', error);
-    return false;
-  } finally {
-    this.transactionManager._isUndoRedoOperation = false;
-  }
+  return this.transactionManager.replayHistory('redo');
 };
 
 Editor.prototype.canUndo = function(this: Editor): boolean {

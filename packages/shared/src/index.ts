@@ -71,7 +71,7 @@ export {
   type GestureHandlers,
   type GestureOptions
 } from './gesture';
-export { replacePlaceholders, normalizeLocale } from './i18n';
+export { replacePlaceholders, normalizeLocale, messagesEn, messagesKo, messageParameters, createTranslator, translateMessage, messageLocale, type MessageKey, type MessageLocale, type MessageArguments, type Translator } from './i18n';
 
 export * from './decorator';
 export * from './text-run-index';
@@ -101,7 +101,11 @@ export * from './document-file/document-file';
 export * from './document-library/document-library';
 export * from './document-save/document-save';
 export * from './document-save/document-session';
+export * from './document-save/document-location';
 export * from './document-save/product-host';
+export * from './document-save/product-feedback';
+export * from './connected-execution';
+export * from './connected-work';
 export * from './document-save/product-archive';
 export { FRAGMENT_CLIPBOARD_TYPE } from './clipboard';
 

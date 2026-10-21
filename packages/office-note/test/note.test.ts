@@ -330,3 +330,71 @@ describe('노트는 자기 레지스트리에 그린다', () => {
     expect(held(getGlobalRegistry()).has('paragraph')).toBe(false);
   });
 });
+
+it('routes explicit native2 schema, S controls and actual command to the literal name without changing default v1', async () => {
+  const { openNoteTree, isNative2NoteEditor } = await import('../src/session');
+  const tree = { stype: 'note', content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: '검토 B', marks: [{ stype: 'strike', range: [0, 2] }] }] }] };
+  const one = openNoteTree(tree, { nativeSource: true }); one.editor.setEditable(true);
+  try {
+    expect(isNative2NoteEditor(one.editor)).toBe(true);
+    expect(getNoteSchemaDefinition().marks).not.toHaveProperty('strike');
+    expect(getNoteSchemaDefinition({ literalStrike: true }).marks).toHaveProperty('strike');
+    expect(noteControlsIn('mark', 'strike').find(control => control.command === 'toggleStrikeThrough')?.mark).toBe('strike');
+    expect(noteControlsIn('mark').find(control => control.command === 'toggleStrikeThrough')?.mark).toBe('strikethrough');
+    const node = [...one.editor.dataStore.getNodes().values()].find(node => node.text === '검토 B');
+    if (!node?.sid) throw new Error('Actual native text required');
+    one.editor.selectionManager.setSelection({ type: 'range', startNodeId: node.sid, endNodeId: node.sid, startOffset: 0, endOffset: 2, collapsed: false });
+    expect(await one.editor.executeCommand('toggleStrikeThrough')).toBe(true); expect(one.editor.dataStore.getNode(node.sid)?.marks).toEqual([]);
+    expect(await one.editor.undo()).toBe(true); expect(one.editor.dataStore.getNode(node.sid)?.marks).toEqual(tree.content[0].content[0].marks);
+  } finally { one.close(); }
+});
+
+
+it.each([false, true])('collapsed S preserves next-glyph and terminal no-effects boundaries (native2=%s)', async nativeSource => {
+  const { openNoteTree } = await import('../src/session');
+  const source = { stype: 'note', content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: 'abcd' }] }] };
+  const one = openNoteTree(source, { nativeSource }); one.editor.setEditable(true);
+  try {
+    const leaf = [...one.editor.dataStore.getNodes().values()].find(node => node.text === 'abcd');
+    if (!leaf?.sid) throw new Error('Actual text identity required');
+    const range = { type: 'range' as const, startNodeId: leaf.sid, endNodeId: leaf.sid, startOffset: 1, endOffset: 1, collapsed: true };
+    one.editor.selectionManager.setSelection(range);
+    const original = one.editor.exportDocument();
+    expect(await one.editor.executeCommand('toggleStrikeThrough')).toBe(true);
+    expect(one.editor.dataStore.getNode(leaf.sid)?.marks).toEqual([{ stype: nativeSource ? 'strike' : 'strikethrough', range: [1, 2], attrs: undefined }]);
+    expect(one.editor.selection).toMatchObject(range);
+    expect(await one.editor.undo()).toBe(true); expect(one.editor.exportDocument()).toStrictEqual(original);
+    one.editor.selectionManager.setSelection({ ...range, startOffset: 4, endOffset: 4 });
+    const before = { document: one.editor.exportDocument(), history: one.editor.getHistoryStats() };
+    const returned = await one.editor.executeCommand('toggleStrikeThrough');
+    const after = { document: one.editor.exportDocument(), history: one.editor.getHistoryStats() };
+    const evidence = process.env.NATIVE_NOTE_BASELINE_EVIDENCE;
+    if (evidence) {
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      mkdirSync(evidence, { recursive: true });
+      writeFileSync(`${evidence}/terminal-S-${nativeSource}.json`, JSON.stringify({ returned, before, after }, null, 2));
+    }
+    expect(returned).toBe(false); expect(after).toStrictEqual(before);
+  } finally { one.close(); }
+});
+
+it.each([false, true])('actual ~~ input rule uses the trusted session name and an unmarked tail (native2=%s)', async nativeSource => {
+  const { openNoteTree } = await import('../src/session');
+  const { planNoteInputRule } = await import('../src/input-rules');
+  const source = { stype: 'note', content: [{ stype: 'paragraph', content: [{ stype: 'inline-text', text: '~~abc~' }] }] };
+  const one = openNoteTree(source, { nativeSource }); one.editor.setEditable(true);
+  try {
+    const leaf = [...one.editor.dataStore.getNodes().values()].find(node => node.text === '~~abc~');
+    if (!leaf?.sid) throw new Error('Actual text identity required');
+    const range = { type: 'range' as const, startNodeId: leaf.sid, endNodeId: leaf.sid, startOffset: 6, endOffset: 6, collapsed: true };
+    one.editor.selectionManager.setSelection(range); const before = one.editor.exportDocument();
+    const apply = planNoteInputRule(one.editor, range, '~'); if (!apply) throw new Error('The actual matching input rule must be planned');
+    expect(await apply()).toBe(true);
+    const marked = [...one.editor.dataStore.getNodes().values()].find(node => node.text === 'abc');
+    expect(marked?.marks).toEqual([{ stype: nativeSource ? 'strike' : 'strikethrough', range: [0, 3] }]);
+    const selection = one.editor.selection; if (!selection) throw new Error('Rule caret required');
+    expect(one.editor.dataStore.getNode(selection.startNodeId)?.text).toBe('');
+    expect(one.editor.dataStore.getNode(selection.startNodeId)?.marks).toEqual([]);
+    expect(await one.editor.undo()).toBe(true); expect(one.editor.exportDocument()).toStrictEqual(before);
+  } finally { one.close(); }
+});

@@ -23,21 +23,32 @@ export function SearchResultNavigation({ query, current, count, onStep, disabled
 export type DocumentNavigationMode = 'find' | 'outline';
 export interface DocumentNavigationProps {
   mode: DocumentNavigationMode; at: DOMRect | null; query: string; current: number; count: number;
+  portalRoot?: HTMLElement | null;
   caseSensitive: boolean; headings: { id: string; label: string; level: number }[]; activeHeading?: string;
   onMode: (mode: DocumentNavigationMode) => void; onQuery: (query: string) => void;
   onCaseSensitive: (value: boolean) => void; onStep: (direction: 1 | -1) => void;
   onHeading: (id: string) => void; onClose: () => void; onDismiss: FloatingSurfaceProps['onDismiss'];
 }
 /** Shared navigation chrome; the host supplies its own search and document outline. */
-export function DocumentNavigation({ mode, at, query, current, count, caseSensitive, headings, activeHeading, onMode, onQuery, onCaseSensitive, onStep, onHeading, onClose, onDismiss }: DocumentNavigationProps) {
+export function DocumentNavigation({ mode, at, query, current, count, portalRoot, caseSensitive, headings, activeHeading, onMode, onQuery, onCaseSensitive, onStep, onHeading, onClose, onDismiss }: DocumentNavigationProps) {
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (mode !== 'find' || !at) return;
     // FloatingSurface is hidden until its layout pass has placed it.
-    const frame = requestAnimationFrame(() => { input.current?.focus(); input.current?.select(); });
+    const field = input.current;
+    if (!field) return;
+    const focused = field.ownerDocument.activeElement;
+    const value = field.value;
+    const frame = requestAnimationFrame(() => {
+      // A user may already have typed or moved focus before the first frame.
+      if (input.current !== field || !field.isConnected || field.closest('[hidden], [inert]') ||
+          !field.closest('[data-floating-ready="true"]') || field.value !== value ||
+          field.ownerDocument.activeElement !== focused) return;
+      field.focus(); field.select();
+    });
     return () => cancelAnimationFrame(frame);
   }, [mode, !!at]);
-  return <FloatingSurface open at={at} prefer="below" align="end" variant="panel" role="region" aria-label="문서 탐색" className="ou-document-navigation" onDismiss={onDismiss} data-document-navigation onKeyDown={event => {
+  return <FloatingSurface open at={at} portalRoot={portalRoot} prefer="below" align="end" variant="panel" role="region" aria-label="문서 탐색" className="ou-document-navigation" onDismiss={onDismiss} data-document-navigation onKeyDown={event => {
     if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); onMode('find'); input.current?.focus(); input.current?.select(); }
   }}>

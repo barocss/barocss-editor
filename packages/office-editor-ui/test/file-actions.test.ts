@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileActions, type DocumentFileActions, type FileActionsProps } from '../src/file-actions';
 let root: Root | undefined;
 afterEach(async () => { if (root) await act(async () => root?.unmount()); root = undefined; vi.restoreAllMocks(); vi.unstubAllGlobals(); document.body.innerHTML = ''; });
-async function mount(beforeSave?: () => boolean | void | Promise<boolean | void>, options: Pick<FileActionsProps, 'confirmReplace' | 'beforeReplace'> = {}) {
+async function mount(beforeSave?: () => boolean | void | Promise<boolean | void>, options: Pick<FileActionsProps, 'confirmReplace' | 'beforeReplace' | 'showTrigger'> = {}) {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   const host = document.createElement('div'); document.body.append(host); root = createRoot(host);
   const ref = createRef<DocumentFileActions>();
@@ -23,6 +23,21 @@ async function mount(beforeSave?: () => boolean | void | Promise<boolean | void>
   return { ref, snapshot, serialize, click, load, read, editor };
 }
 describe('file snapshot preparation', () => {
+  it('menu-only opening retains the picker and failure feedback without another Open button', async () => {
+    const { ref, load, read } = await mount(undefined, { showTrigger: false });
+    const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    expect(picker.hidden).toBe(true);
+    expect([...document.querySelectorAll('button')].some(button => button.textContent === '열기')).toBe(false);
+    const picked = vi.fn(); picker.addEventListener('click', picked);
+    await act(async () => { ref.current!.open(); });
+    expect(picked).toHaveBeenCalledTimes(1);
+    read.mockImplementationOnce(() => { throw new Error('Invalid native file'); });
+    Object.defineProperty(picker, 'files', { configurable: true, value: [{ name: 'broken.json', text: async () => 'broken' }] });
+    await act(async () => { picker.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(load).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('Invalid native file');
+    expect(document.querySelector('.office-task-status')).not.toBeNull();
+  });
   it('treats declined product confirmation as cancellation before persistence', async () => {
     const confirmReplace = vi.fn(() => false), beforeReplace = vi.fn(async () => true);
     const { ref, load } = await mount(undefined, { confirmReplace, beforeReplace });

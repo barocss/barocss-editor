@@ -1,10 +1,12 @@
+import { toggleWordPanel } from './helpers';
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { placeCaret } from './helpers';
 
 async function startComment(page: Page) {
   await page.goto('/?sample');
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
-  await page.locator('.w-comments-closed').click();
+  await toggleWordPanel(page, '댓글');
   await placeCaret(page, '.w-paragraph', 1);
   await page.keyboard.press('Home');
   await page.keyboard.down('Shift');
@@ -34,6 +36,7 @@ test('review dates are captured per action and comments, replies and revisions s
   await expect(thread).toContainText('2040-01-03');
   await expect(thread.locator('.w-comment-orphan')).toHaveCount(0);
   await expect(page.locator('#editor .w-paragraph')).toHaveText(body);
+  if (!await page.getByRole('tab', { name: '검토', exact: true }).isVisible()) await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '검토', exact: true }).click();
   await page.getByRole('button', { name: '변경 내용 추적', exact: true }).click();
   await placeCaret(page, '.w-paragraph', 1);
@@ -58,22 +61,27 @@ test('review dates are captured per action and comments, replies and revisions s
   await page.reload();
   await expect(inserted).toHaveCount(1);
   await expect.poll(dates).toEqual(['2040-01-03']);
-  await page.locator('.w-comments-closed').click();
+  await toggleWordPanel(page, '댓글');
   await expect(thread.locator('.w-comment-text')).toHaveText(['검토할 문장 수정', '확인했습니다']);
   await expect(thread).toContainText('2040-01-02');
   await expect(thread).toContainText('2040-01-03');
   await expect(thread.locator('.w-comment-orphan')).toHaveCount(0);
   await thread.getByLabel('Resolve comment').click();
   await expect(thread).toHaveAttribute('data-resolved', 'true');
+  if (!await page.getByRole('tab', { name: '검토', exact: true }).isVisible()) await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '검토', exact: true }).click();
   await placeCaret(page, '#editor .w-insertion', await inserted.evaluate(el =>
     Array.from(document.querySelectorAll('#editor .w-insertion')).indexOf(el)));
+  if (!await page.getByRole('button', { name: '적용', exact: true }).isVisible()) {
+    await setWordWholeTools(page, true);
+    await page.getByRole('tab', { name: '검토', exact: true }).click();
+  }
   await page.getByRole('button', { name: '적용', exact: true }).click();
   await expect(inserted).toHaveCount(0);
   await expect(page.locator('#editor')).toContainText('Review persisted.');
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
   await page.reload();
-  await page.locator('.w-comments-closed').click();
+  await toggleWordPanel(page, '댓글');
   await expect(thread).toHaveAttribute('data-resolved', 'true');
   await expect(inserted).toHaveCount(0);
   await expect(page.locator('#editor')).toContainText('Review persisted.');

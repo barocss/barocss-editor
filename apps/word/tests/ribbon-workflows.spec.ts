@@ -1,11 +1,15 @@
+import { openWordDocumentMenu } from './helpers';
+import { setWordWholeTools, expectWordWholeTools } from './helpers';
 import { test, expect } from '@playwright/test';
+import type { Editor } from '@barocss/editor-core';
 import { placeCaret } from './helpers';
+import { verifyDownloadedTable } from './docx-download';
 
 const tab = (page: import('@playwright/test').Page, name: string) => page.getByRole('tab', { name, exact: true });
 
 test('ribbon style previews and keyboard commands change the document once', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await setWordWholeTools(page, true);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('A visible heading');
   await page.getByRole('button', { name: '제목 1 적용', exact: true }).click();
@@ -30,19 +34,41 @@ test('ribbon style previews and keyboard commands change the document once', asy
   await expect(tab(page, '홈')).toBeFocused();
 });
 
-test('layout actions open real settings and table insertion accepts dimensions', async ({ page }) => {
+test('layout actions open real settings and table insertion accepts dimensions', async ({ page }, testInfo) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  const status = page.locator('[data-word-save-status]');
+  await expect(status).toHaveText('저장됨');
+  const initial = page.url();
+  await placeCaret(page, '.w-paragraph');
+  await page.keyboard.type('Previous document');
+  await expect(status).toHaveText('저장됨');
+  await openWordDocumentMenu(page);
+  const confirmation = page.waitForEvent('dialog');
+  const create = page.getByRole('menuitem', { name: '새 문서', exact: true }).click();
+  const prompt = await confirmation;
+  expect(prompt.type()).toBe('confirm');
+  expect(prompt.message()).toBe('저장하지 않은 변경이 사라집니다. 계속할까요?');
+  await prompt.accept();
+  await create;
+  await expect(page.locator('#editor')).not.toContainText('Previous document');
+  await expect(status).toHaveText('저장됨');
+  await expect.poll(() => page.url()).not.toBe(initial);
+  const created = page.url();
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Table follows');
+  await setWordWholeTools(page, true);
   await tab(page, '레이아웃').click();
   await page.getByRole('button', { name: '용지·여백', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '페이지 설정', exact: true })).toBeVisible();
+  const pageSetup = page.getByRole('dialog', { name: '페이지 설정', exact: true });
+  await expect(pageSetup).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(pageSetup).toHaveCount(0);
   await tab(page, '홈').click();
   await page.getByRole('button', { name: '문단 상세 설정', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '문단 간격', exact: true })).toBeVisible();
+  const paragraphSpacing = page.getByRole('dialog', { name: '문단 간격', exact: true });
+  await expect(paragraphSpacing).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(paragraphSpacing).toHaveCount(0);
   await tab(page, '삽입').click();
   await page.getByRole('button', { name: '표 삽입', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '표 삽입', exact: true });
@@ -53,14 +79,31 @@ test('layout actions open real settings and table insertion accepts dimensions',
   await expect(page.locator('.w-document table')).toHaveCount(1);
   await expect(page.locator('.w-document table tr')).toHaveCount(2);
   await expect(page.locator('.w-document table td, .w-document table th')).toHaveCount(8);
-  await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
+  await expectWordWholeTools(page, false);
+  await placeCaret(page, '.w-cell', 0);
+  await page.keyboard.type('CELL A1');
+  await placeCaret(page, '.w-cell', 1);
+  await page.keyboard.type('CELL B1');
+  const cells = ['CELL A1', 'CELL B1', '', '', '', '', '', ''];
+  await expect(page.locator('.w-cell')).toHaveText(cells);
+  await expect(status).toHaveText('저장됨');
   await page.reload();
+  await expect(status).toHaveText('저장됨');
+  expect(page.url()).toBe(created);
+  await expect(page.locator('#editor .w-paragraph').first()).toHaveText('Table follows');
+  await expect(page.locator('.w-document table tr')).toHaveCount(2);
   await expect(page.locator('.w-document table td, .w-document table th')).toHaveCount(8);
+  await expect(page.locator('.w-cell')).toHaveText(cells);
+  await testInfo.attach('final-document-selection', { body: JSON.stringify(await page.evaluate(() => {
+    const { editor } = window as Window & { editor: Editor };
+    return { url: location.href, document: editor.exportDocument(), selection: editor.selection };
+  }), null, 2), contentType: 'application/json' });
+  await verifyDownloadedTable(page, testInfo, 'Table follows', cells);
 });
 
 test('review tracking reports its state and menu toggles show the open pane', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await setWordWholeTools(page, true);
   await placeCaret(page, '.w-paragraph');
   await tab(page, '검토').click();
   const tracking = page.locator('[data-control=track-changes]');
@@ -71,27 +114,33 @@ test('review tracking reports its state and menu toggles show the open pane', as
   await expect(tracking).toHaveAttribute('aria-pressed', 'false');
   await page.getByRole('button', { name: '댓글', exact: true }).click();
   await expect(page.locator('.w-comments-pane')).toBeVisible();
-  await page.locator('.w-menubar [data-menu=view]').click();
+  await openWordDocumentMenu(page);
   await expect(page.locator('[data-menu-item="view.panes.1"]')).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
 });
 
 
-test('starts compact and preserves formatting when detailed tools open and close', async ({ page }) => {
+test('starts document-first and preserves selected formatting when full tools open and close', async ({ page }) => {
   await page.goto('/');
-  const compact = page.getByRole('toolbar', { name: '기본 문서 도구' });
-  await expect(compact).toBeVisible();
+  const selected = page.getByRole('group', { name: '선택한 Word 글 서식', exact: true });
+  await expect(selected).toHaveCount(0);
   await expect(page.getByRole('tablist', { name: '도구 모음 선택' })).toHaveCount(0);
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Compact document');
-  await page.locator('.w-toolbar-style').click();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowLeft' : 'Home');
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+ArrowRight' : 'Shift+End');
+  await test.info().attach('compact-selection-state.json', { body: JSON.stringify(await page.evaluate(() => ({ model: window.editor.selection, dom: getSelection()?.toString(), active: document.activeElement?.outerHTML, anchor: getSelection()?.anchorNode?.parentElement?.outerHTML, focus: getSelection()?.focusNode?.parentElement?.outerHTML }))), contentType: 'application/json' });
+  await expect.poll(() => page.evaluate(() => window.editor.selection?.collapsed)).toBe(false);
+  await expect(page.locator('.w-paragraph')).toHaveText('Compact document');
+  await expect(selected).toBeVisible();
+  await selected.locator('.w-toolbar-style').click();
   await page.getByRole('option', { name: 'Heading 1', exact: true }).click();
   await expect(page.locator('h1.w-heading')).toContainText('Compact document');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await setWordWholeTools(page, true);
   await expect(page.locator('[data-control=style-heading1]')).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: '간단히 보기', exact: true }).click();
-  await expect(compact).toBeVisible();
-  await compact.locator('[data-control=undo]').click();
+  await setWordWholeTools(page, false);
+  await page.locator('#editor [contenteditable="true"]').first().focus();
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
   await expect(page.locator('h1.w-heading')).toHaveCount(0);
   await expect(page.locator('.w-paragraph')).toContainText('Compact document');
 });

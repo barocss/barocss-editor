@@ -876,7 +876,12 @@ export class SiteBlockExtension implements Extension {
     const steps = chosen.map((sid) => removeChild(String(store!.getNode(sid)!.parentId), sid));
     // The selection goes with them: a selection naming nodes that are gone is a panel describing
     // something nobody can see. `withLiveNodes` prunes it, and this says so out loud anyway.
-    const done = (await transaction(editor, steps as never).commit()).success === true;
+    const done = (await transaction(editor, steps as never, {
+      validateIntent: () => {
+        const canApply = payload?.canApply as (() => boolean) | undefined;
+        return canApply && !canApply() ? 'Stale Site block removal' : undefined;
+      }
+    }).commit()).success === true;
     if (done) {
       (editor as never as { executeCommand?: (n: string, p?: unknown) => void }).executeCommand?.(
         'setNode',

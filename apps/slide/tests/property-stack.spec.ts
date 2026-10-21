@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, setPanel, pickInsert } from './helpers';
 
 test('fill order actions commit once and effects show names and point units', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   const id = await page.evaluate(async () => {
     const editor = (window as any).editor, id = editor.selection.nodeIds[0];
     await editor.executeCommand('setBoxStyle', { nodeIds: [id], fills: [
@@ -41,7 +42,8 @@ test('fill order actions commit once and effects show names and point units', as
 
 test('effect drag follows actual row bounds when row heights differ and undo restores order', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   const id = await page.evaluate(async () => {
     const editor = (window as any).editor, id = editor.selection.nodeIds[0];
     await editor.executeCommand('setBoxStyle', { nodeIds: [id], effects: [

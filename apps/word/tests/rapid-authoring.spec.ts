@@ -25,13 +25,15 @@ for (const rate of [1, 4]) {
   });
 }
 
-test('rapid text selection applies formatting and anchors a comment to exactly that text', async ({ page }) => {
+test('rapid text selection applies formatting and anchors a comment to exactly that text', async ({ page }, testInfo) => {
   await page.goto('/');
   await placeCaret(page, '.w-paragraph');
   await page.keyboard.type('Review this sentence');
   await page.keyboard.press('Shift+Home');
   await page.keyboard.press('ControlOrMeta+b');
-  await expect(page.locator('[data-control=bold]')).toHaveAttribute('aria-pressed', 'true');
+  const selectedFormatting = page.getByRole('toolbar', { name: '선택한 Word 글 서식 도구', exact: true });
+  await expect(selectedFormatting).toBeVisible();
+  await expect(selectedFormatting.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.mark-bold')).toHaveText('Review this sentence');
   await expect(page.locator('.mark-bold')).toHaveCSS('font-weight', '700');
   await page.keyboard.press('ControlOrMeta+Alt+m');
@@ -42,6 +44,24 @@ test('rapid text selection applies formatting and anchors a comment to exactly t
   await dialog.getByRole('button', { name: '적용', exact: true }).click();
   await expect(page.locator('.w-comment-hit')).toHaveText('Review this sentence');
   await expect(page.locator('.w-comments-pane')).toContainText('Check the entire sentence');
+  const status = page.locator('[data-word-save-status]');
+  await expect(status).toHaveText('저장됨');
+  const saved = page.url();
+  await page.reload();
+  await expect(status).toHaveText('저장됨');
+  expect(page.url()).toBe(saved);
+  await expect(page.locator('.mark-bold')).toHaveText('Review this sentence');
+  await expect(page.locator('.mark-bold')).toHaveCSS('font-weight', '700');
+  await page.locator('[data-workspace-toggle="inspector"]').click();
+  await expect(page.locator('.w-comment-hit')).toHaveText('Review this sentence');
+  await expect(page.locator('.w-comment-text')).toHaveText(['Check the entire sentence']);
+  await expect(page.locator('.w-comment-orphan')).toHaveCount(0);
+  await testInfo.attach('persisted-format-review', { body: JSON.stringify({
+    url: page.url(), boldText: await page.locator('.mark-bold').textContent(),
+    fontWeight: await page.locator('.mark-bold').evaluate(el => getComputedStyle(el).fontWeight),
+    anchoredText: await page.locator('.w-comment-hit').textContent(),
+    commentText: await page.locator('.w-comment-text').allTextContents()
+  }, null, 2), contentType: 'application/json' });
 });
 
 test('rapid backward selection can be replaced and undone without losing characters', async ({ page }) => {

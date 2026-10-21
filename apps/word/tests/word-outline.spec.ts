@@ -1,5 +1,18 @@
-import { test, expect } from '@playwright/test';
-import { settled } from './helpers';
+import { toggleWordPanel, expectWordPanel } from './helpers';
+import { setWordWholeTools } from './helpers';
+import { test, expect, type Page } from '@playwright/test';
+import { settled, placeCaret } from './helpers';
+
+async function showRuler(page: Page) {
+  if (await page.locator('.w-ruler').count()) return;
+  await setWordWholeTools(page, true);
+  const detail = page.getByLabel('전체 Word 도구', { exact: true });
+  await detail.getByRole('tab', { name: '보기', exact: true }).click();
+  await detail.getByRole('button', { name: '눈금자', exact: true }).click();
+  await expect(page.locator('.w-ruler')).toBeVisible();
+  await setWordWholeTools(page, false);
+}
+
 
 /**
  * The shell, and the map down its left side.
@@ -16,7 +29,7 @@ import { settled } from './helpers';
 
 test('the window is the frame, and only the document scrolls', async ({ page }) => {
   await page.goto('/?sample');
-  await settled(page);
+  await settled(page); await showRuler(page);
   await page.waitForTimeout(400);
 
   const before = await page.evaluate(() => {
@@ -48,7 +61,7 @@ test('the outline lists every heading, indented by its level', async ({ page }) 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await toggleWordPanel(page, '개요');
 
 
   const items = page.locator('.w-outline [data-outline-sid]');
@@ -74,7 +87,7 @@ test('the outline goes deeper than the contents page does', async ({ page }) => 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await toggleWordPanel(page, '개요');
 
 
   // A contents page lists 1–3 by default; a map that hid the rest would
@@ -97,7 +110,7 @@ test('clicking an entry takes the reader and the caret there', async ({ page }) 
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await toggleWordPanel(page, '개요');
 
 
   const items = page.locator('.w-outline [data-outline-sid]');
@@ -142,13 +155,13 @@ test('closes to a strip, and opens again', async ({ page }) => {
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await toggleWordPanel(page, '개요');
 
 
-  await page.locator('.w-outline-title button').click();
+  await page.getByRole('button', { name: '개요 닫기', exact: true }).click();
   await expect(page.locator('.w-outline')).toHaveCount(0);
   // A pane with no way back is a pane a reader closes once
-  await page.locator('.w-outline-closed').click();
+  await toggleWordPanel(page, '개요');
   await expect(page.locator('.w-outline')).toHaveCount(1);
 });
 
@@ -158,30 +171,30 @@ test('closes to a strip, and opens again', async ({ page }) => {
  * how many comments there are — which is what a reader wants before deciding to
  * look.
  */
-test('the comments pane collapses to a strip that counts', async ({ page }) => {
+test('the comments pane closes without reserving a strip and keeps its thread count', async ({ page }) => {
   await page.goto('/?sample');
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-comments-closed').click();
+  await toggleWordPanel(page, '댓글');
 
 
   const openWidth = (await page.locator('.w-comments-pane').boundingBox())!.width;
   expect(openWidth).toBeGreaterThan(200);
 
-  await page.locator('.w-comments-close').click();
+  await page.getByRole('button', { name: '댓글 닫기', exact: true }).click();
   await expect(page.locator('.w-comments-pane')).toHaveCount(0);
 
   const strip = page.locator('.w-comments-closed');
-  await expect(strip).toBeVisible();
-  expect((await strip.boundingBox())!.width).toBeLessThan(48);
+  await expect(strip).toBeHidden();
+  await expectWordPanel(page, '댓글', false);
 
   // It counted the document's threads while closed, which it could not do while
   // it only read them when open
   const counted = Number(await strip.getAttribute('data-comment-count'));
   expect(Number.isFinite(counted)).toBe(true);
 
-  await strip.click();
+  await toggleWordPanel(page, '댓글');
   await expect(page.locator('.w-comments-pane')).toHaveCount(1);
 });
 
@@ -190,18 +203,29 @@ test('closing the pane puts the discussion away, not the sign of it', async ({ p
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-comments-closed').click();
+  await toggleWordPanel(page, '댓글');
 
 
-  const marks = page.locator('.w-comment-anchor, [data-bc-decorator*="comment"]');
+  // Create a current thread through the pane instead of depending on sample anchors.
+  await placeCaret(page, '.w-paragraph', 1);
+  await page.keyboard.press('Home');
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight');
+  await expect.poll(() => page.evaluate(() => getSelection()?.toString()?.length)).toBe(5);
+  await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeEnabled();
+  await page.getByRole('textbox', { name: 'New comment', exact: true }).fill('Compact pane preserves this comment anchor');
+  await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+  await expect(page.locator('.w-comments-pane')).toContainText('Compact pane preserves this comment anchor');
+  const marks = page.locator('.w-comment-hit');
+  await expect.poll(() => marks.count()).toBeGreaterThan(0);
   const before = await marks.count();
-  test.skip(before === 0, 'the sample has no commented text to mark');
+  const nativeBeforeClose = await page.evaluate(() => JSON.stringify(window.editor.exportDocument()));
 
-  await page.locator('.w-comments-close').click();
+  await page.getByRole('button', { name: '댓글 닫기', exact: true }).click();
   await page.waitForTimeout(300);
   // The text stays marked: a reader who closes the pane should not lose every
   // sign that there is a comment
   expect(await marks.count()).toBe(before);
+  expect(await page.evaluate(() => JSON.stringify(window.editor.exportDocument()))).toBe(nativeBeforeClose);
 });
 
 /**
@@ -216,8 +240,9 @@ test('the ribbon turns each pane on and off, and says which is on', async ({ pag
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
-  await page.locator('.w-comments-closed').click();
+  await toggleWordPanel(page, '개요');
+  await toggleWordPanel(page, '댓글');
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '보기', exact: true }).click();
 
 
@@ -250,16 +275,20 @@ test('the pane and its own close button say the same thing', async ({ page }) =>
   await settled(page);
   await page.waitForTimeout(400);
   // Panes start collapsed; open the UI this test exercises.
-  await page.locator('.w-outline-closed').click();
+  await toggleWordPanel(page, '개요');
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '보기', exact: true }).click();
 
 
+  await setWordWholeTools(page, false);
+  await expect(page.getByLabel('전체 Word 도구', { exact: true })).not.toBeVisible();
+
   // Closed from inside the pane, the ribbon has to agree — two switches for one
   // thing is two things a reader has to keep in their head
-  await page.locator('.w-outline-title button').click();
+  await page.getByRole('button', { name: '개요 닫기', exact: true }).click();
   await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'off');
 
-  await page.locator('.w-outline-closed').click();
+  await toggleWordPanel(page, '개요');
   await expect(page.locator('[data-control="view-outline"]')).toHaveAttribute('data-state', 'on');
 });
 

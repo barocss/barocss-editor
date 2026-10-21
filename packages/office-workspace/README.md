@@ -22,6 +22,8 @@ The published package provides ES modules and TypeScript declarations. Use a bun
 | `@barocss/office-workspace/ui` | React UI components |
 | `@barocss/office-workspace/style.css` | Stylesheet |
 | `@barocss/office-workspace/host` | Product-host navigation |
+| `@barocss/office-workspace/project` | Goal, results, work and immutable input evidence UI |
+| `@barocss/office-workspace/feedback` | Optional original-document feedback UI |
 
 Import only these public paths. Source paths such as `@barocss/office-workspace/src/...` are not part of the published API.
 
@@ -54,7 +56,19 @@ Office React controls use Tailwind 4 utility classes. Configure the host to scan
 
 Product hosts register a `beforeNavigate` callback through `registerProductDocumentHost` from `@barocss/shared`. Flush embedded editors before durable storage. Return `false` if saving fails so the current editor stays open.
 
-`WorkspaceHome` is exported from `/ui`; `ProductNavigation` is exported from `/host`. The root module provides the local catalogue and file/navigation contracts. Backups restore to new IDs and remap included document references.
+The Office host keeps the source editor mounted while a different product prepares its original. A staged `NativeHostSlot` does not become the active host until its exact native identity is ready and the source finishes its final input and save preparation. Cancelled, replaced and failed targets cannot publish a route or clear a newer target. The source URL changes only at successful promotion.
+
+Browser-local Office editors use same-origin frames to isolate product module lifetimes, renderer registries and native document locations. This is lifecycle isolation, not an authorization or security boundary. Authenticated editors still require the current account, tenant, workspace, product and document checks. Site authenticated opening remains unsupported.
+
+Project feedback checks its prepared input version again after native preparation. Later text or unfinished composition blocks navigation and preserves the current editor. A document identity guard alone does not certify that the latest input is saved.
+
+Same-product completion checks the exact target lifetime. Word can retain its host object while changing the document ID and identity epoch. On real source retirement, feedback disables the old input and retains only a valid prepared draft witness. Ordinary unmount, changed feedback ownership and stale witness queries cannot protect or disable a new input. This input witness does not grant account or navigation authority.
+
+Local parent-managed Back and Forward entries use the same preparation and staged-original checks. A refused traversal restores the retained source entry without overwriting the destination. A native identity change must wait for its own committed header and feedback registration before preparing input and publishing the new address. Home or external-page traversal and Note's child history entries are not covered by this contract.
+
+Account exit uses the separate captured `beforeAccountExit` capability. It may settle an already admitted save, but does not start a new publication or retry. Failed immutable attempts and separate later drafts remain in their account-owned recovery storage. If the exact current input, recovery protection or feedback witness cannot be confirmed, exit stays blocked. Ordinary document navigation keeps its existing save preparation.
+
+`WorkspaceHome` is exported from `/ui`; `ProductNavigation` is exported from `/host`. The root module provides the local catalogue and file/navigation contracts. Backups restore to new IDs and remap live result links. Historical input bytes, captured source IDs and native comment targets remain unchanged.
 
 ## Integration notes
 

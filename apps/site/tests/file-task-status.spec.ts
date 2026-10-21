@@ -4,7 +4,7 @@ test('site file feedback reports download and invalid input, then opens the save
   await page.goto('/');
   await expect(page.locator('[data-admin-page]').first()).toBeVisible();
   const pageCount = await page.locator('[data-admin-page]').count();
-  await page.getByRole('menuitem', { name: '파일', exact: true }).click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
   const pending = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: /^저장(?: |$)/ }).click();
   const download = await pending;

@@ -1,4 +1,5 @@
 import { CANVAS_GEOMETRY_ATTRS, SurfaceKind, getOfficeSchemaDefinition } from '@barocss/schema';
+import { CANVAS_NAMES } from '@barocss/office-controls';
 import { DECK_STYLE_ATTRS } from './paint';
 import { CROP_ATTRS } from './crop';
 import { CORNER_ATTRS } from './corners';
@@ -66,7 +67,7 @@ export type PlaceholderRole = (typeof PLACEHOLDER_ROLES)[number];
 export function getSlidesSchemaDefinition(): SchemaDefinition {
   const office = getOfficeSchemaDefinition();
 
-  return {
+  const definition: SchemaDefinition = {
     ...office,
     nodes: {
       ...office.nodes,
@@ -575,6 +576,14 @@ export function getSlidesSchemaDefinition(): SchemaDefinition {
       }
     }
   };
+  for (const stype of Object.keys(CANVAS_NAMES)) {
+    const node = definition.nodes?.[stype];
+    if (node) definition.nodes![stype] = { ...node, attrs: { ...node.attrs, objectId: { type: 'string', required: false } } };
+  }
+  const connector = definition.nodes?.connector;
+  if (connector) connector.attrs = { ...connector.attrs,
+    startObjectId: { type: 'string', required: false }, endObjectId: { type: 'string', required: false } };
+  return definition;
 }
 
 /** The kind a slide surface carries, so a product can tell one from a page. */

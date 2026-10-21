@@ -1,0 +1,589 @@
+import { authRouteRequest } from './auth-route';
+import { isNotePageId } from '@barocss/office-note/file';
+import { createTranslator, type Translator } from '@barocss/shared';
+
+export type EntryIntent = 'user' | 'admin' | 'operator';
+export type TenantRole = 'owner' | 'admin' | 'editor' | 'viewer';
+export type TenantAccess = { tenantId: string; name: string; role: TenantRole };
+export type Identity = { issuer: string; subject: string; currentUserId?: string | null; tenants: TenantAccess[] };
+
+type Discovery = {
+  issuer: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  end_session_endpoint?: string;
+};
+type PendingLogin = { state: string; verifier: string; intent: EntryIntent; returnPath?: string };
+type Session = { accessToken: string; idToken?: string; expiresAt: number; intent: EntryIntent };
+
+const pendingKey = 'wonffice.oidc.pending';
+const logoutKey = 'wonffice.oidc.logout';
+const forcePromptKey = 'wonffice.oidc.prompt-login';
+const logoutReturnKey = 'wonffice.oidc.logout-return';
+const resumeKey = 'wonffice.oidc.resume-intent';
+const issuer = import.meta.env.VITE_OFFICE_OIDC_ISSUER?.replace(/\/$/, '');
+const clientId = import.meta.env.VITE_OFFICE_OIDC_CLIENT_ID;
+let activeSession: Session | null = null;
+let sessionEpoch = 0;
+// Only the private native2 read leases subscribe; ordinary session consumers are unchanged.
+const native2ReadRetirements = new Set<() => void>();
+function retireNative2ReadSessions(): void {
+  for (const retire of [...native2ReadRetirements]) retire();
+}
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export type WorkspaceAccess = { id: string; name: string };
+export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; creatorUserId?: string | null; mode: string; revision: number; fileFormat: string; fileVersion: number };
+export type VerifiedNoteContext = { tenantId: string; workspaceId: string; role: TenantRole; authorizedFetch: typeof fetch; documentId?: string; document?: DocumentAccess; snapshotText?: string };
+export type SnapshotProduct = 'note' | 'word' | 'slides' | 'site';
+export type VerifiedSnapshotContext = VerifiedNoteContext & { product: SnapshotProduct };
+export type NoteIntent = { tenantId: string; workspaceId: string; documentId: string };
+export type SnapshotIntent = NoteIntent & { product: SnapshotProduct; projectId?: string; mode?: 'read' | 'edit' };
+
+export function snapshotIntentFromSearch(search: string): SnapshotIntent | null {
+  const params = new URLSearchParams(search);
+  const product = params.get('product');
+  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'document', 'product', 'project', 'mode'].includes(key)) ||
+    ['tenant', 'workspace', 'document', 'product'].some(key => params.getAll(key).length !== 1) ||
+    (product !== 'note' && product !== 'word' && product !== 'slides' && product !== 'site')) return null;
+  const tenantId = params.get('tenant')!, workspaceId = params.get('workspace')!, documentId = params.get('document')!;
+  const projectId = params.get('project'), mode = params.get('mode');
+  if (params.getAll('project').length > 1 || params.getAll('mode').length > 1 || (projectId !== null && !uuid.test(projectId)) || (mode !== null && mode !== 'read' && mode !== 'edit')) return null;
+  return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId, product, ...(projectId ? { projectId } : {}), ...(mode ? { mode } : {}) } : null;
+}
+export function projectLocation(search: string) {
+  const params = new URLSearchParams(search), tenant = params.get('tenant'), workspace = params.get('workspace'), project = params.get('project');
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'project'].includes(key)) || !tenant || !workspace || !project || ![tenant, workspace, project].every(value => uuid.test(value)) || ['tenant', 'workspace', 'project'].some(key => params.getAll(key).length !== 1)) return null;
+  return { tenant, workspace, project };
+}
+
+
+export function snapshotIntentSearch(intent: SnapshotIntent) {
+  return new URLSearchParams({ tenant: intent.tenantId, workspace: intent.workspaceId, document: intent.documentId, product: intent.product, ...(intent.projectId ? { project: intent.projectId } : {}), ...(intent.mode ? { mode: intent.mode } : {}) }).toString();
+}
+export function noteIntentFromSearch(search: string): NoteIntent | null {
+  const intent = snapshotIntentFromSearch(search);
+  return intent?.product === 'note' ? { tenantId: intent.tenantId, workspaceId: intent.workspaceId, documentId: intent.documentId } : null;
+}
+export function noteIntentSearch(intent: NoteIntent) { return snapshotIntentSearch({ ...intent, product: 'note' }); }
+
+export class AuthError extends Error {
+  constructor(public readonly kind: 'cancelled' | 'login' | 'unauthorized' | 'forbidden' | 'unavailable' | 'configuration' | 'collaboration_unavailable', message: string) {
+    super(message);
+  }
+}
+
+function configuration() {
+  if (!issuer || !clientId) throw new AuthError('configuration', '로그인 서버 설정이 없습니다. 운영 담당자에게 알려 주세요.');
+  const url = new URL(issuer);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) {
+    throw new AuthError('configuration', '로그인 서버 주소가 안전하지 않습니다.');
+  }
+  return { issuer, clientId };
+}
+
+function callbackUrl() {
+  return new URL('/auth/callback', location.origin).href;
+}
+
+function base64url(bytes: Uint8Array) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function randomValue() {
+  return base64url(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+async function challenge(verifier: string) {
+  return base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
+}
+
+async function discover(): Promise<Discovery> {
+  const config = configuration();
+  let response: Response;
+  try {
+    response = await fetch(`${config.issuer}/.well-known/openid-configuration`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+  } catch {
+    throw new AuthError('unavailable', '로그인 서버에 연결하지 못했습니다. 다시 시도해 주세요.');
+  }
+  if (!response.ok) throw new AuthError('unavailable', '로그인 서버가 응답하지 않습니다. 다시 시도해 주세요.');
+  const body = await response.json() as Partial<Discovery>;
+  const sameOrigin = (value: unknown) => {
+    if (typeof value !== 'string') return false;
+    try { return new URL(value).origin === new URL(config.issuer).origin && new URL(value).protocol === new URL(config.issuer).protocol; }
+    catch { return false; }
+  };
+  if (body.issuer !== config.issuer || !sameOrigin(body.authorization_endpoint) || !sameOrigin(body.token_endpoint) ||
+    (body.end_session_endpoint !== undefined && !sameOrigin(body.end_session_endpoint))) {
+    throw new AuthError('configuration', '로그인 서버 정보가 설정과 일치하지 않습니다.');
+  }
+  return body as Discovery;
+}
+
+export async function beginLogin(intent: EntryIntent, forceAccountChoice = false, silent = false) {
+  const config = configuration();
+  const discovery = await discover();
+  const state = randomValue();
+  const verifier = randomValue();
+  const request = intent === 'user' ? authRouteRequest(location.href) : null;
+  const returnPath = request ? location.pathname + location.search + location.hash : undefined;
+  sessionStorage.setItem(pendingKey, JSON.stringify({ state, verifier, intent, returnPath } satisfies PendingLogin));
+  const url = new URL(discovery.authorization_endpoint);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('client_id', config.clientId);
+  url.searchParams.set('redirect_uri', callbackUrl());
+  url.searchParams.set('scope', 'openid');
+  url.searchParams.set('state', state);
+  url.searchParams.set('code_challenge_method', 'S256');
+  url.searchParams.set('code_challenge', await challenge(verifier));
+  if (silent) url.searchParams.set('prompt', 'none');
+  else if (forceAccountChoice || sessionStorage.getItem(forcePromptKey) === '1') url.searchParams.set('prompt', 'login');
+  sessionStorage.removeItem(forcePromptKey);
+  location.assign(url.href);
+}
+
+export async function finishLogin(): Promise<EntryIntent> {
+  const params = new URLSearchParams(location.search);
+  const raw = sessionStorage.getItem(pendingKey);
+  sessionStorage.removeItem(pendingKey);
+  // Remove the one-time authorization code from browser history before any network request.
+  history.replaceState(null, '', '/');
+  let pending: PendingLogin | null = null;
+  try { pending = raw ? JSON.parse(raw) as PendingLogin : null; } catch { /* invalid browser state */ }
+  if (!pending || params.get('state') !== pending.state || !pending.verifier) {
+    throw new AuthError('login', '로그인 요청을 확인하지 못했습니다. 다시 로그인해 주세요.');
+  }
+  if (params.has('error')) {
+    throw new AuthError(params.get('error') === 'access_denied' ? 'cancelled' : 'login', '로그인이 완료되지 않았습니다. 다시 시도할 수 있습니다.');
+  }
+  const code = params.get('code');
+  if (!code) throw new AuthError('login', '로그인 응답에 인증 코드가 없습니다.');
+  const config = configuration();
+  const discovery = await discover();
+  let response: Response;
+  try {
+    response = await fetch(discovery.token_endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, cache: 'no-store',
+      body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: callbackUrl(), client_id: config.clientId, code_verifier: pending.verifier }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch {
+    throw new AuthError('unavailable', '로그인 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
+  }
+  if (!response.ok) throw new AuthError('login', '로그인이 완료되지 않았습니다. 다시 시도해 주세요.');
+  const token = await response.json() as { access_token?: unknown; id_token?: unknown; token_type?: unknown; expires_in?: unknown };
+  if (typeof token.access_token !== 'string' || token.token_type?.toString().toLowerCase() !== 'bearer' ||
+    typeof token.expires_in !== 'number' || token.expires_in <= 0) {
+    throw new AuthError('login', '로그인 서버 응답을 확인하지 못했습니다.');
+  }
+  ++sessionEpoch;
+  activeSession = {
+    accessToken: token.access_token,
+    idToken: typeof token.id_token === 'string' ? token.id_token : undefined,
+    expiresAt: Date.now() + token.expires_in * 1000,
+    intent: pending.intent,
+  };
+  retireNative2ReadSessions();
+  sessionStorage.setItem(resumeKey, pending.intent);
+  if (pending.returnPath?.startsWith('/') && !pending.returnPath.startsWith('//')) {
+    // Restore the requested identity only. Normalization waits for server metadata and current access.
+    try { if (authRouteRequest(pending.returnPath)) history.replaceState(null, '', pending.returnPath); }
+    catch { throw new AuthError('configuration', '로그인 이전 자료 주소를 확인할 수 없습니다.'); }
+  }
+  return pending.intent;
+}
+
+export function currentIntent() { return activeSession?.intent ?? null; }
+export function consumeResumeIntent(): EntryIntent | null {
+  const value = sessionStorage.getItem(resumeKey);
+  sessionStorage.removeItem(resumeKey);
+  return value === 'user' || value === 'admin' || value === 'operator' ? value : null;
+}
+export function clearSession() { ++sessionEpoch; activeSession = null; retireNative2ReadSessions(); sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(resumeKey); }
+export function announceLogout() { localStorage.setItem(logoutKey, String(Date.now())); }
+export function isLogoutEvent(event: StorageEvent) { return event.key === logoutKey; }
+export function consumeLogoutReturn() {
+  const expected = sessionStorage.getItem(logoutReturnKey);
+  const url = new URL(location.href);
+  const returned = !!expected && url.searchParams.get('state') === expected;
+  sessionStorage.removeItem(logoutReturnKey);
+  if (url.searchParams.has('state')) {
+    url.searchParams.delete('state');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }
+  return returned;
+}
+
+export const authorizedFetch: typeof fetch = async (input, init) => {
+  const request = new Request(input, init);
+  const url = new URL(request.url);
+  if (url.origin !== location.origin || !url.pathname.startsWith('/api/v1/')) throw new AuthError('configuration', '잘못된 서버 요청입니다.');
+  const token = activeSession;
+  if (!token || token.expiresAt <= Date.now()) { clearSession(); throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.'); }
+  const epoch = sessionEpoch;
+  // Only a deliberate, authenticated execution request waits for the bounded
+  // local inference. All ordinary reads, writes and approval retain 10 seconds.
+  const executionRequest = request.method === 'POST' &&
+    /^\/api\/v1\/tenants\/[0-9a-f-]{36}\/projects\/[0-9a-f-]{36}\/works\/[0-9a-f-]{36}\/execution$/i.test(url.pathname) && !url.search;
+  const timeoutMs = executionRequest ? 610000 : 10000;
+  let response: Response;
+  try {
+    const headers = new Headers(request.headers);
+    headers.set('Authorization', `Bearer ${token.accessToken}`);
+    response = await fetch(request, { headers, cache: 'no-store', signal: request.signal.aborted ? request.signal : AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]) });
+  } catch {
+    throw new AuthError('unavailable', '서버에 연결하지 못했습니다. 다시 확인해 주세요.');
+  }
+  if (epoch !== sessionEpoch || activeSession !== token) throw new AuthError('cancelled', '계정이 바뀌었습니다. 다시 확인해 주세요.');
+  if (response.status === 401) { clearSession(); throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.'); }
+  if (response.status === 403) throw new AuthError('forbidden', '현재 계정에는 이 회사의 접근 권한이 없습니다.');
+  return response;
+};
+
+/** Bind retained work to this exact login generation, including account ABA. */
+export function captureAuthorizedSession(): { requestFetch: typeof fetch; isCurrent: () => boolean } {
+  const token = activeSession, epoch = sessionEpoch;
+  const isCurrent = () => !!token && activeSession === token && sessionEpoch === epoch;
+  const check = () => { if (!isCurrent()) throw new AuthError('cancelled', '계정이 바뀌었습니다. 프로젝트를 다시 여세요.'); };
+  const requestFetch: typeof fetch = async (input, init) => {
+    check(); const response = await authorizedFetch(input, init); check();
+    const decode = response.json.bind(response);
+    response.json = async () => { check(); const value: unknown = await decode(); check(); return value; };
+    return response;
+  };
+  return Object.freeze({ requestFetch, isCurrent });
+}
+export function captureAuthorizedFetch(): typeof fetch { return captureAuthorizedSession().requestFetch; }
+
+const native2ReadUuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const native2DocumentRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/note-native2/documents/${native2ReadUuid}(?:/schema-bundle)?$`);
+const native2AccessRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/access$`);
+const native2WorkspaceRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/workspaces$`);
+function native2ReadUrl(url: URL): boolean {
+  if (url.origin !== location.origin || url.username || url.password || url.hash) return false;
+  if (native2DocumentRead.test(url.pathname) || native2AccessRead.test(url.pathname)) return !url.search;
+  if (url.pathname === '/api/v1/me') return !url.search;
+  if (!native2WorkspaceRead.test(url.pathname)) return false;
+  if (!url.search) return true;
+  const query = new URLSearchParams(url.search);
+  return query.size === 1 && query.getAll('after').length === 1 &&
+    new RegExp(`^${native2ReadUuid}$`).test(query.get('after') ?? '');
+}
+
+/** One private, read-only lease for the current memory login; never an editor grant. */
+export function captureNative2ReadSession(): { requestFetch: typeof fetch; isCurrent: () => boolean; retire: () => void; subscribeRetirement: (callback: () => void) => () => void } {
+  const token = activeSession, epoch = sessionEpoch;
+  if (!token || token.expiresAt <= Date.now()) throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.');
+  let retired = false;
+  const callbacks = new Set<() => void>();
+  let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+  const notify = (callback: () => void) => {
+    // One faulty consumer must not prevent logout or retirement of other leases.
+    try { callback(); } catch { /* The read lifetime is already terminal. */ }
+  };
+  const retire = () => {
+    if (retired) return;
+    retired = true;
+    clearTimeout(expiryTimer);
+    native2ReadRetirements.delete(retire);
+    const pending = [...callbacks];
+    callbacks.clear();
+    for (const callback of pending) notify(callback);
+  };
+  const isCurrent = () => {
+    if (!retired && (activeSession !== token || sessionEpoch !== epoch || token.expiresAt <= Date.now())) retire();
+    return !retired;
+  };
+  const subscribeRetirement = (callback: () => void) => {
+    if (!isCurrent()) { notify(callback); return () => {}; }
+    callbacks.add(callback);
+    return () => { callbacks.delete(callback); };
+  };
+  const awaitExpiry = () => {
+    if (!isCurrent()) return;
+    // Cap long deadlines to the platform timer range; this is not a polling loop.
+    expiryTimer = setTimeout(awaitExpiry, Math.min(token.expiresAt - Date.now(), 2147483647));
+  };
+  native2ReadRetirements.add(retire);
+  awaitExpiry();
+  const check = () => {
+    if (!isCurrent()) throw new AuthError(token.expiresAt <= Date.now() ? 'unauthorized' : 'cancelled',
+      '현재 계정의 읽기 권한이 끝났습니다. 문서를 다시 여세요.');
+  };
+  const requestFetch: typeof fetch = async (input, init) => {
+    check();
+    if (input instanceof Request && input.method !== 'GET') throw new AuthError('configuration', '지원하지 않는 읽기 요청입니다.');
+    const request = new Request(input, { ...init, method: 'GET', cache: 'no-store', redirect: 'error', credentials: 'omit' });
+    const url = new URL(request.url);
+    if ((init?.method && init.method.toUpperCase() !== 'GET') || request.method !== 'GET' || request.body !== null ||
+      request.headers.has('authorization') || request.headers.has('content-length') ||
+      request.headers.has('transfer-encoding') || !native2ReadUrl(url)) {
+      throw new AuthError('configuration', '지원하지 않는 읽기 요청입니다.');
+    }
+    const response = await authorizedFetch(request);
+    check();
+    const readText = response.text.bind(response), readJson = response.json.bind(response);
+    response.text = async () => { check(); const value = await readText(); check(); return value; };
+    response.json = async () => { check(); const value: unknown = await readJson(); check(); return value; };
+    return response;
+  };
+  return Object.freeze({ requestFetch, isCurrent, retire, subscribeRetirement });
+}
+
+async function apiGet(path: string, requestFetch: typeof fetch = authorizedFetch): Promise<unknown> {
+  const response = await requestFetch(`/api/v1${path}`);
+  if (!response.ok) throw new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 확인해 주세요.');
+  return response.json();
+}
+
+function pageOf<T>(raw: unknown, key: 'workspaces' | 'documents', check: (value: Record<string, unknown>) => boolean): { items: T[]; nextCursor: string | null } {
+  const data = raw as Record<string, unknown>;
+  if (!data || !Array.isArray(data[key]) || data[key].length > 50 ||
+    (data[key].length === 0 && data.nextCursor !== null) ||
+    (data.nextCursor !== null && (typeof data.nextCursor !== 'string' || !uuid.test(data.nextCursor))) ||
+    data[key].some((value: unknown) => !value || typeof value !== 'object' || !check(value as Record<string, unknown>))) {
+    throw new AuthError('unavailable', '자료함 응답을 확인하지 못했습니다.');
+  }
+  return { items: data[key] as T[], nextCursor: data.nextCursor as string | null };
+}
+
+export async function listWorkspaces(tenantId: string, after?: string) {
+  if (!uuid.test(tenantId) || (after && !uuid.test(after))) throw new AuthError('configuration', '잘못된 회사 주소입니다.');
+  return pageOf<WorkspaceAccess>(await apiGet(`/tenants/${tenantId}/workspaces${after ? `?after=${after}` : ''}`), 'workspaces',
+    item => typeof item.id === 'string' && uuid.test(item.id) && typeof item.name === 'string');
+}
+
+export async function listSnapshotDocuments(tenantId: string, workspaceId: string, product: SnapshotProduct, after?: string, requestFetch: typeof fetch = authorizedFetch) {
+  if (![tenantId, workspaceId, ...(after ? [after] : [])].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 자료함 주소입니다.');
+  if (product !== 'note' && product !== 'word' && product !== 'slides' && product !== 'site') throw new AuthError('configuration', '지원하지 않는 제품입니다.');
+  const query = new URLSearchParams({ workspaceId, product });
+  if (after) query.set('after', after);
+  return pageOf<DocumentAccess>(await apiGet(`/tenants/${tenantId}/documents?${query}`, requestFetch), 'documents',
+    item => typeof item.documentId === 'string' && uuid.test(item.documentId) && item.tenantId === tenantId &&
+      item.workspaceId === workspaceId && item.product === product && typeof item.title === 'string' && typeof item.revision === 'number' &&
+      typeof item.mode === 'string' && typeof item.fileFormat === 'string' && typeof item.fileVersion === 'number');
+}
+
+/** Authorized service heads only. Listing Site does not enable a native Site host. */
+export type CatalogDocumentHead = DocumentAccess & {
+  mode: 'snapshot' | 'initializing' | 'collaborative';
+  metadataRevision: number;
+  pageId: string | null;
+  documentKey: string;
+  snapshotHash: string;
+};
+export type CatalogDocumentPage = { items: CatalogDocumentHead[]; nextCursor: string | null };
+const catalogPageSize = 50;
+const catalogMaxPages = 100;
+const catalogFormats = { note: 'barocss-note', word: 'barocss-word', slides: 'barocss-slides', site: 'barocss-site' };
+const catalogHeadKeys = ['documentId', 'tenantId', 'workspaceId', 'product', 'title', 'metadataRevision', 'mode', 'pageId', 'documentKey', 'fileFormat', 'fileVersion', 'revision', 'snapshotHash', 'creatorUserId'];
+const catalogRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+const catalogRevision = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+function catalogError(t: Translator): AuthError { return new AuthError('unavailable', t('workspace.catalog.invalidResponse')); }
+function catalogFailure(error: unknown, t: Translator): AuthError {
+  if (!(error instanceof AuthError)) return catalogError(t);
+  if (error.kind === 'unauthorized') return new AuthError(error.kind, t('workspace.catalog.expiredLogin'));
+  if (error.kind === 'forbidden') return new AuthError(error.kind, t('workspace.catalog.denied'));
+  if (error.kind === 'cancelled') return new AuthError(error.kind, t('workspace.catalog.changed'));
+  return error.kind === 'unavailable' ? catalogError(t) : error;
+}
+
+export function readCatalogHead(item: unknown, tenantId: string, workspaceId: string, t: Translator = createTranslator('ko')): CatalogDocumentHead {
+  if (!catalogRecord(item) || Object.keys(item).some(key => !catalogHeadKeys.includes(key)) ||
+      typeof item.documentId !== 'string' || !uuid.test(item.documentId) ||
+      item.tenantId !== tenantId || item.workspaceId !== workspaceId ||
+      typeof item.product !== 'string' || !Object.hasOwn(catalogFormats, item.product) ||
+      (Object.hasOwn(item, 'creatorUserId') && item.creatorUserId !== null &&
+        (typeof item.creatorUserId !== 'string' || !uuid.test(item.creatorUserId))) ||
+      typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200 ||
+      !catalogRevision(item.revision) || !catalogRevision(item.metadataRevision) ||
+      !['snapshot', 'initializing', 'collaborative'].includes(item.mode as string) ||
+      item.fileFormat !== catalogFormats[item.product as keyof typeof catalogFormats] ||
+      (item.fileVersion !== 1 && !(['note', 'slides'].includes(item.product) && item.fileVersion === 2)) ||
+      (item.product === 'note' ? (item.fileVersion === 2 ? !isNotePageId(item.pageId)
+        : typeof item.pageId !== 'string' || !uuid.test(item.pageId)) : item.pageId !== null) ||
+      item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
+      typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash)) throw catalogError(t);
+  return { ...item, creatorUserId: Object.hasOwn(item, 'creatorUserId') ? item.creatorUserId : null } as CatalogDocumentHead;
+}
+
+/** Use one captured fetch for every page and its JSON decode. No product filter. */
+export async function listCatalogDocuments(tenantId: string, workspaceId: string, after?: string,
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentPage> {
+  if (![tenantId, workspaceId].every(value => typeof value === 'string' && uuid.test(value)) ||
+    (after !== undefined && (typeof after !== 'string' || !uuid.test(after)))) {
+    throw new AuthError('configuration', t('workspace.catalog.invalidAddress'));
+  }
+  const query = new URLSearchParams({ workspaceId });
+  if (after !== undefined) query.set('after', after);
+  let response: Response;
+  try { response = await requestFetch(`/api/v1/tenants/${tenantId}/documents?${query}`); }
+  catch (error) { throw catalogFailure(error, t); }
+  if (response.status === 401) throw new AuthError('unauthorized', t('workspace.catalog.expiredLogin'));
+  if (response.status === 403) throw new AuthError('forbidden', t('workspace.catalog.denied'));
+  if (!response.ok) throw catalogError(t);
+  let raw: unknown;
+  try { raw = await response.json(); }
+  catch (error) { throw catalogFailure(error, t); }
+  if (!catalogRecord(raw) || Object.keys(raw).some(key => key !== 'documents' && key !== 'nextCursor') ||
+    !Array.isArray(raw.documents) || raw.documents.length > catalogPageSize ||
+    (raw.nextCursor !== null && (typeof raw.nextCursor !== 'string' || !uuid.test(raw.nextCursor)))) throw catalogError(t);
+  const items: CatalogDocumentHead[] = [];
+  let previous = after?.toLowerCase();
+  for (const item of raw.documents) {
+    const head = readCatalogHead(item, tenantId, workspaceId, t);
+    if (previous !== undefined && head.documentId.toLowerCase() <= previous) throw catalogError(t);
+    previous = head.documentId.toLowerCase();
+    items.push(head);
+  }
+  // The fixed service page has 50 heads when another page exists. Its cursor
+  // is the last returned UUID, ordered by the same database UUID comparison.
+  if (raw.nextCursor !== null && (items.length !== catalogPageSize || raw.nextCursor.toLowerCase() !== previous)) throw catalogError(t);
+  return { items, nextCursor: raw.nextCursor as string | null };
+}
+
+/** A failed or bounded-out page never becomes an empty successful catalog. */
+export async function readDocumentCatalog(tenantId: string, workspaceId: string,
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentHead[]> {
+  const items: CatalogDocumentHead[] = [];
+  const seen = new Set<string>();
+  let after: string | undefined;
+  for (let page = 0; page < catalogMaxPages; page++) {
+    const result = await listCatalogDocuments(tenantId, workspaceId, after, requestFetch, t);
+    for (const item of result.items) {
+      const id = item.documentId.toLowerCase();
+      if (seen.has(id)) throw catalogError(t);
+      seen.add(id);
+      items.push(item);
+    }
+    if (result.nextCursor === null) return items;
+    after = result.nextCursor;
+  }
+  throw new AuthError('unavailable', t('workspace.catalog.limitReached'));
+}
+
+export async function openVerifiedSnapshot(tenantId: string, workspaceId: string, documentId: string, role: TenantRole, product: SnapshotProduct, requestFetch: typeof fetch = authorizedFetch): Promise<VerifiedSnapshotContext> {
+  if (![tenantId, workspaceId, documentId].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 문서 주소입니다.');
+  const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`, requestFetch) as Record<string, unknown>;
+  const head = data?.document as Record<string, unknown> | undefined;
+  if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
+    head.product !== product || (product !== 'note' && product !== 'word' && product !== 'slides' && product !== 'site') ||
+    (product === 'note' && (head.fileFormat !== 'barocss-note' || head.fileVersion !== 1)) ||
+    (product === 'word' && (head.fileFormat !== 'barocss-word' || head.fileVersion !== 1 || head.pageId !== null)) ||
+    (product === 'slides' && (head.fileFormat !== 'barocss-slides' || (head.fileVersion !== 1 && head.fileVersion !== 2) || head.pageId !== null)) ||
+    (product === 'site' && (head.fileFormat !== 'barocss-site' || head.fileVersion !== 1 || head.pageId !== null)) ||
+    typeof head.revision !== 'number' || typeof head.title !== 'string' || typeof head.fileFormat !== 'string' || typeof head.fileVersion !== 'number') {
+    throw new AuthError('forbidden', '선택한 문서의 회사, 자료함 또는 제품이 일치하지 않습니다.');
+  }
+  if (head.mode === 'initializing' || head.mode === 'collaborative') {
+    if (Object.hasOwn(data, 'snapshotText')) throw new AuthError('unavailable', '문서 응답을 확인하지 못했습니다. 다시 시도해 주세요.');
+    throw new AuthError('collaboration_unavailable', head.mode === 'initializing'
+      ? '공동 편집 문서를 준비하는 중입니다. 잠시 뒤 다시 확인해 주세요.'
+      : '공동 편집 연결이 준비되지 않았습니다. 나중에 다시 확인해 주세요.');
+  }
+  if (head.mode !== 'snapshot' || typeof data.snapshotText !== 'string') {
+    throw new AuthError('unavailable', '문서 응답을 확인하지 못했습니다. 다시 시도해 주세요.');
+  }
+  return { tenantId, workspaceId, documentId, role, product, document: head as unknown as DocumentAccess,
+    snapshotText: data.snapshotText, authorizedFetch: requestFetch };
+}
+
+export function listNoteDocuments(tenantId: string, workspaceId: string, after?: string) {
+  return listSnapshotDocuments(tenantId, workspaceId, 'note', after);
+}
+export function openVerifiedNote(tenantId: string, workspaceId: string, documentId: string, role: TenantRole) {
+  return openVerifiedSnapshot(tenantId, workspaceId, documentId, role, 'note');
+}
+
+const roles = new Set<TenantRole>(['owner', 'admin', 'editor', 'viewer']);
+export async function loadIdentity(): Promise<Identity> {
+  const requestFetch = captureAuthorizedFetch();
+  let after: string | null = null;
+  const seen = new Set<string>();
+  const tenants: TenantAccess[] = [];
+  let issuerValue = '';
+  let subject = '';
+  let currentUserId: string | null = null;
+  for (let page = 0; page < 100; page++) {
+    const data = await apiGet(`/me${after ? `?after=${encodeURIComponent(after)}` : ''}`, requestFetch) as Record<string, unknown>;
+    if (typeof data.issuer !== 'string' || typeof data.subject !== 'string' || !Array.isArray(data.tenants) ||
+      (data.nextCursor !== null && typeof data.nextCursor !== 'string') ||
+      (Object.hasOwn(data, 'currentUserId') && data.currentUserId !== null &&
+        (typeof data.currentUserId !== 'string' || !uuid.test(data.currentUserId)))) {
+      throw new AuthError('unavailable', '회사 목록 응답을 확인하지 못했습니다.');
+    }
+    const pageUserId = Object.hasOwn(data, 'currentUserId') ? data.currentUserId as string | null : null;
+    if (page && (data.issuer !== issuerValue || data.subject !== subject || pageUserId !== currentUserId)) {
+      throw new AuthError('unauthorized', '계정이 바뀌었습니다. 다시 로그인해 주세요.');
+    }
+    issuerValue = data.issuer;
+    subject = data.subject;
+    currentUserId = pageUserId;
+    for (const item of data.tenants) {
+      if (!item || typeof item !== 'object') throw new AuthError('unavailable', '회사 목록 응답을 확인하지 못했습니다.');
+      const tenant = item as Record<string, unknown>;
+      if (typeof tenant.tenantId !== 'string' || typeof tenant.name !== 'string' || !roles.has(tenant.role as TenantRole) || seen.has(tenant.tenantId)) {
+        throw new AuthError('unavailable', '회사 목록 응답을 확인하지 못했습니다.');
+      }
+      seen.add(tenant.tenantId);
+      tenants.push(tenant as TenantAccess);
+    }
+    if (data.nextCursor === null) return { issuer: issuerValue, subject, currentUserId, tenants };
+    if (after === data.nextCursor) throw new AuthError('unavailable', '회사 목록을 끝까지 불러오지 못했습니다.');
+    after = data.nextCursor;
+  }
+  throw new AuthError('unavailable', '회사 목록을 끝까지 불러오지 못했습니다.');
+}
+
+export async function confirmTenant(tenantId: string): Promise<TenantRole> {
+  const data = await apiGet(`/tenants/${encodeURIComponent(tenantId)}/access`) as Record<string, unknown>;
+  if (data.tenantId !== tenantId || !roles.has(data.role as TenantRole)) throw new AuthError('unavailable', '회사 접근 응답을 확인하지 못했습니다.');
+  return data.role as TenantRole;
+}
+
+export async function checkDocuments(tenantId: string): Promise<'empty' | 'available'> {
+  const data = await apiGet(`/tenants/${encodeURIComponent(tenantId)}/documents`) as Record<string, unknown>;
+  if (!Array.isArray(data.documents) || data.documents.length > 50 ||
+    (data.nextCursor !== null && typeof data.nextCursor !== 'string') ||
+    (data.documents.length === 0 && data.nextCursor !== null)) {
+    throw new AuthError('unavailable', '문서 목록 응답을 확인하지 못했습니다.');
+  }
+  return data.documents.length === 0 ? 'empty' : 'available';
+}
+
+export async function confirmOperator(): Promise<void> {
+  let data: unknown;
+  try { data = await apiGet('/operator/access'); }
+  catch (error) {
+    if (error instanceof AuthError && error.kind === 'forbidden') {
+      throw new AuthError('forbidden', '현재 계정에는 Wonffice 전체 서비스 운영 권한이 없습니다.');
+    }
+    throw error;
+  }
+  if (!data || typeof data !== 'object' || (data as Record<string, unknown>).operator !== true) {
+    throw new AuthError('unavailable', '서비스 운영 권한 응답을 확인하지 못했습니다.');
+  }
+}
+
+export async function providerLogout() {
+  const idToken = activeSession?.idToken;
+  clearSession();
+  sessionStorage.setItem(forcePromptKey, '1');
+  announceLogout();
+  try {
+    const discovery = await discover();
+    if (!discovery.end_session_endpoint) return false;
+    const url = new URL(discovery.end_session_endpoint);
+    url.searchParams.set('client_id', configuration().clientId);
+    url.searchParams.set('post_logout_redirect_uri', location.origin + '/');
+    if (idToken) url.searchParams.set('id_token_hint', idToken);
+    const state = randomValue();
+    url.searchParams.set('state', state);
+    sessionStorage.setItem(logoutReturnKey, state);
+    location.replace(url.href);
+    return true;
+  } catch {
+    sessionStorage.removeItem(logoutReturnKey);
+    return false;
+  }
+}

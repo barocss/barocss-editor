@@ -58,7 +58,8 @@ type InsertTextOperationPayload = {
 // Uses DataStore.range.insertText and returns the inserted string.
 defineOperation('insertText', 
   async (operation: any, context: TransactionContext) => {
-    const { nodeId, pos, text, marksAfter } = operation.payload as InsertTextOperationPayload & {
+    const { nodeId, pos, text, marksAfter, restoreAbsent } = operation.payload as InsertTextOperationPayload & {
+      restoreAbsent?: boolean;
       marksAfter?: { stype?: string; type?: string; range: [number, number]; attrs?: Record<string, unknown> }[];
     };
 
@@ -68,6 +69,10 @@ defineOperation('insertText',
       if (!node) {
         throw new Error(`Node not found: ${nodeId}`);
       }
+
+      const marksBefore = Array.isArray(node.marks)
+        ? JSON.parse(JSON.stringify(node.marks))
+        : undefined;
 
       // 1) DataStore update: insert at pos position within single node
       //    Construct range as start=end=pos and call DataStore.range.insertText
@@ -93,11 +98,11 @@ defineOperation('insertText',
        * "before it" from the insertion alone. The caller that removed them
        * knows, so it says.
        */
-      if (Array.isArray(marksAfter)) {
+      if (Array.isArray(marksAfter) || (restoreAbsent === true && marksAfter === undefined)) {
         const current = context.dataStore.getNode(nodeId);
         if (current) {
           context.dataStore.setNode(
-            { ...current, marks: JSON.parse(JSON.stringify(marksAfter)) } as any,
+            { ...current, marks: marksAfter === undefined ? undefined : JSON.parse(JSON.stringify(marksAfter)) } as any,
             false
           );
         }
@@ -125,7 +130,7 @@ defineOperation('insertText',
       // deleteTextRange reads `start`/`end`; emitting startPosition/endPosition
       // left both undefined, so the inverse silently deleted nothing and undo
       // appeared to succeed while changing the document not at all.
-      return { ok: true, data: insertedText, inverse: { type: 'deleteTextRange', payload: { nodeId, start: pos, end: pos + text.length } } };
+      return { ok: true, data: insertedText, inverse: { type: 'deleteTextRange', payload: { nodeId, start: pos, end: pos + text.length, marksAfter: marksBefore, restoreAbsent: marksBefore === undefined } } };
 
     } catch (error) {
       throw new Error(`Failed to insert text into node ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`);

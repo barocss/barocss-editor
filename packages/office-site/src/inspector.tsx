@@ -1,9 +1,10 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import { isVarRef, varNameOf, varRef, varRefAt, varWeightOf } from '@barocss/office-canvas';
 import { selectedNodeIds } from '@barocss/editor-core';
 import {
   Icon,
+  useOfficeLocale,
   Button,
   PropertyChoice,
   PropertyNumber,
@@ -197,7 +198,8 @@ export function Inspector({
   onPage,
   onEditComponent,
   row,
-  onEditRow
+  onEditRow,
+  onInputDeliveryReady
 }: {
   editor: Editor;
   /** The width being edited. The widest is the page itself; the others say only what differs. */
@@ -230,6 +232,7 @@ export function Inspector({
   row?: { sid: string; row: number; label: string };
   /** Open that row as a form — see `RowForm`. */
   onEditRow?: () => void;
+  onInputDeliveryReady?: (deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
 }) {
   const revision = useEditorRevision(editor);
   const [tab, setTab] = useState<SitePanelTab>('block');
@@ -246,7 +249,7 @@ export function Inspector({
    * fact as which width they are editing — and a document that carried it would hand the next person
    * a panel with three sections mysteriously shut.
    *
-   * By **label**, so 그림자 stays folded as the selection moves from a card to a section. A fold is
+   * By stable group ID, so shadow stays folded as the selection moves from a card to a section. A fold is
    * about the kind of thing a reader is not currently interested in, and re-opening it on every
    * click would be the panel forgetting on their behalf.
    */
@@ -595,6 +598,14 @@ export function Inspector({
 
   const propertyContext = `${editor.getRootId()}:${words ? JSON.stringify(editor.selection) : shown?.ids.join(',') ?? page}:${at}:${state ?? ''}`;
   const commands = usePropertyCommand(editor, propertyContext);
+  const latestCommands = useRef(commands); latestCommands.current = commands;
+  const propertyRoot = editor.getRootId(), propertyEpoch = editor.dataStore.getDocumentEpoch();
+  useEffect(() => {
+    if (!onInputDeliveryReady) return;
+    let mounted = true;
+    onInputDeliveryReady(isCurrent => latestCommands.current.settle(() => mounted && isCurrent()));
+    return () => { mounted = false; onInputDeliveryReady(null); };
+  }, [onInputDeliveryReady, editor, propertyRoot, propertyEpoch, propertyContext]);
   const { run } = commands;
 
   /**
@@ -1149,6 +1160,7 @@ function Groups({
   row?: { sid: string; row: number; label: string };
   onEditRow?: () => void;
 }) {
+  const { t } = useOfficeLocale();
   if (empty && !page) return <PropertyEmpty>{empty}</PropertyEmpty>;
 
   /*
@@ -1198,6 +1210,7 @@ function Groups({
   const groups = sitePanelGroups(stype, tab, declares)
     .map((group) => ({
       ...group,
+      label: t(`site.inspector.group.${group.id}`),
       rows: group.rows.filter(
         (row) =>
           visible(row, attrs, count) &&
@@ -1206,7 +1219,7 @@ function Groups({
            * offering to bind it would write a `componentBind` into a document with nothing to
            * resolve it.
            */
-          (row.group !== '컴포넌트 변수' || !!shown?.part) &&
+          (row.groupId !== 'component-variables' || !!shown?.part) &&
           /*
            * And in a state, only what **that** state may hold. Paint under the pointer, never an
            * arrangement — a block that resized under the pointer would move out from under it and
@@ -1237,6 +1250,7 @@ function Groups({
   return (
     <>
       <PropertySheet
+        decorateControl={(_row, control) => <fieldset className="st-property-fields" disabled={!editor.isEditable}>{control}</fieldset>}
         /**
          * **A different panel in 글 고치기**, said with a key.
          *
@@ -1274,11 +1288,11 @@ function Groups({
          * was not the way to get it: the four segmented rows took more pixels out of this panel than
          * folding did, and they took them out of every selection rather than out of two groups.
          *
-         * What stays is the reader's own fold, remembered per heading — which is what they asked for
+         * What stays is the reader's own fold, remembered per group ID — which is what they asked for
          * and the only version of this that cannot be wrong.
          */
-        folded={(group) => folded[group.label] === true}
-        onFold={(group, next) => onFold(group.label, next)}
+        folded={(group) => folded[group.id!] === true}
+        onFold={(group, next) => onFold(group.id!, next)}
         /*
          * **Finding a row**, which a panel of 114 is bad at however well the groups are named. Held
          * here rather than in the sheet because it is a fact about this reader's session, and cleared
@@ -1354,10 +1368,10 @@ function Groups({
            * The selection's group is named after what is selected, which is the one heading a
            * declaration cannot hold: it is a fact about the document rather than about the panel.
            */
-          group.label === '선택'
+          group.id === 'selection'
             ? shown && shown.count > 1
-              ? `${shown.count}개 선택됨`
-              : (shown?.label ?? group.label)
+              ? t('site.inspector.selectionCount', { count: shown.count })
+              : (shown?.label ?? t('site.inspector.group.selection'))
             : group.label
         }
         onWrite={(row, next) => write(row, isMarkRow(row) ? next : commit(row, next))}

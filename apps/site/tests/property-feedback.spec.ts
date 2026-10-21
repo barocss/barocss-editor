@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test('property command failure can retry its original value and clears when the target changes', async ({ page }) => {
   await page.goto('/');
   await page.locator('[data-admin-open]').first().click();
+  await page.getByRole('button', { name: '자세한 속성', exact: true }).click();
   const picture = page.locator('[data-frame="desktop"] img.st-picture[alt="문서와 덱과 페이지가 한 화면에 놓인 그림"]');
   await picture.click({ force: true, modifiers: ['Meta'], position: { x: 8, y: 8 } });
   const panel = page.locator('.office-properties');
@@ -51,6 +52,7 @@ test('property command failure can retry its original value and clears when the 
 test('a late failure cannot disable or add retry to another selection', async ({ page }) => {
   await page.goto('/');
   await page.locator('[data-admin-open]').first().click();
+  await page.getByRole('button', { name: '자세한 속성', exact: true }).click();
   await page.locator('[data-frame="desktop"] img.st-picture[alt="문서와 덱과 페이지가 한 화면에 놓인 그림"]')
     .click({ force: true, modifiers: ['Meta'], position: { x: 8, y: 8 } });
   const panel = page.locator('.office-properties');

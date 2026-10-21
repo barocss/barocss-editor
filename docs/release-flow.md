@@ -13,25 +13,32 @@ last_updated: 2026-09-23
 
 ## 현재 상태와 정책의 적용 범위
 
-- 기준점: [#248](https://github.com/barocss/barocss-editor/issues/248), [PR #250](https://github.com/barocss/barocss-editor/pull/250). 필수 CI 통과 후 main에 병합했다. 후속 코드는 최신 main을 기준으로 한다.
+- 기준점: [#248](https://github.com/barocss/barocss-editor/issues/248), [PR #250](https://github.com/barocss/barocss-editor/pull/250). 필수 CI 통과 후 main에 병합했다. 현재 검토 배치는 최신 develop 또는 Planner가 지정한 승인된 로컬 통합 커밋을 기준으로 한다.
 - 코어 기반: [#249](https://github.com/barocss/barocss-editor/issues/249)의 transaction 복구는 PR #266으로 병합했다. 이 결과는 서비스 통합 인수를 대체하지 않는다.
-- 이 정책: [#251](https://github.com/barocss/barocss-editor/issues/251). 문서 작업은 최신 main을 반영한 독립 worktree에서 진행한다.
-- main 필수 검사 이름은 `Lint, type-check, unit test`, `E2E (editor-react)`다. 필수 검사를 통과하지 않으면 병합하지 않는다.
+- 이 정책: [#251](https://github.com/barocss/barocss-editor/issues/251). 문서 작업도 지정된 검토 기준의 독립 worktree에서 진행한다.
+- 필수 검사 이름은 `Lint, type-check, unit test`, `E2E (editor-react)`다. develop 검토 배치와 main 출시 PR에서 필수 검사를 통과하지 않으면 병합하지 않는다.
 - [PR #256](https://github.com/barocss/barocss-editor/pull/256)에서 실제 ESLint와 `pnpm preflight`를 연결했다. push 전에 로컬 lint·소스 타입·테스트 타입 검사를 실행한다. 기존 lint·타입 부채는 기준으로 명시하고 증가시키지 않는다. 상세 범위는 [로컬 사전 검사](local-verification.md)를 따른다.
 - 현재 CI는 서비스 출시 검사 전체를 포함하지 않는다. 네 제품의 전체 사용자 흐름, 서버 격리, 두 배포 환경, 업데이트·복원 검사는 추가 구현 대상이다.
 - 기존 Changesets 설정과 npm 버전 이력은 유지한다. 과거 npm release workflow와 Wonffice 서비스 릴리즈는 별개다. PR #250에서 과거 workflow를 제거했으므로 자동 Version Packages PR·npm 게시가 작동한다고 가정하지 않는다. 후속 이슈에서 게시 권한과 검사를 포함해 다시 연결한다.
 
-## 이슈에서 main까지
+## 작업 단위에서 develop 배치와 main 출시 PR까지
 
 1. Codex 작업을 시작하거나 재개하면 열린 이슈, PR, 최신 댓글을 확인한다. 앱을 열기만 하면 작업이 시작되는 상주 실행기는 만들지 않는다.
-2. 승인된 이슈 중 선행 작업이 끝난 이슈를 선택한다. 목적, 제외 범위, 완료 기준, 검증 방법, 선행 이슈, 목표 milestone을 기록한다.
-3. 최신 `origin/main`에서 `codex/<issue>-<name>` 브랜치와 별도 worktree를 만든다. 선행 PR이 필요하면 병합을 기다린다. 오래된 main에서 선행 코드를 다시 만들지 않는다.
+2. Planner가 승인된 이슈 중 선행 작업이 끝난 단위를 선택한다. 목적, 제외 범위, 완료 기준, 검증 방법, 선행 이슈, 목표 milestone을 기록한다.
+3. 최신 `origin/develop` 또는 Planner가 지정한 정확한 승인 커밋에서 `codex/<issue>-<name>` 브랜치와 별도 worktree를 만든다. 선행 PR의 병합 상태와 로컬 통합 순서를 확인한다. 오래된 기준에서 선행 코드를 다시 만들지 않는다.
 4. 구현 후 `.nvmrc`의 Node로 `pnpm preflight`를 실행한다. lint와 타입 오류는 push 전에 수정한다. 변경에 맞는 단위·브라우저 검사도 실행한다. 공유 코어 변경은 사용하는 제품의 영향을 확인한다. 모바일 화면 검사는 별도 요청 전까지 제외한다.
-5. base가 main인 PR을 만든다. 변경 원인·행동·검사 결과·남은 위험을 쓴다. 미검증 작업은 draft로 둔다. 완료 기준을 충족할 때만 `Closes #N`을 쓴다.
-6. 병합 직전에 최신 요구와 PR head SHA를 확인한다. main 변경 후 필요한 재검사와 필수 CI를 통과해야 한다. 실패한 검사를 관리자 우회로 넘기지 않는다.
-7. 병합 후 이슈와 milestone을 갱신한다. main 병합 자체는 고객 배포나 npm 게시를 뜻하지 않는다.
+5. 독립 Review가 작업 단위의 정확한 커밋을 승인하면 순서대로 로컬 통합 브랜치에 반영한다. Planner가 검토된 단위를 배치로 고른 뒤 base가 develop인 PR을 만든다. 미검증 작업은 게시하지 않는다. 완료 기준을 충족할 때만 `Closes #N`을 쓴다.
+6. 병합 직전에 최신 요구와 PR head SHA를 확인한다. develop 변경 후 필요한 재검사와 필수 CI를 통과해야 한다. 실패한 검사를 관리자 우회로 넘기지 않는다.
+7. 출시 후보는 develop에서 main으로 가는 별도 PR로 검토한다. 두 브랜치의 PR 병합은 고객 배포나 npm 게시를 뜻하지 않는다.
 
-처음에는 구현 이슈를 최대 두 개까지 동시에 진행한다. 독립된 소유 파일·계약·worktree를 지정한다. 코어와 서비스 기반처럼 충돌이 적은 작업을 병렬화한다. 같은 계약을 변경하면 먼저 계약 PR을 병합한다. 병합은 순서대로 진행하고 뒤 PR은 새 main 기준으로 다시 검증한다. Agent는 구현과 검증을 수행한다. 최종 출시 결정과 고객 약속은 제품 소유자가 담당한다.
+독립된 소유 파일·계약·worktree를 지정한다. 같은 계약을 바꾸는 작업은 순서대로 검토하고 통합한다. Planner가 배치 범위와 PR을 정한다. Agent는 구현과 검증을 수행한다. 최종 출시 결정과 고객 약속은 제품 소유자가 담당한다.
+
+| 변경 경로 | 검증 실행 | 게시 경계 |
+| --- | --- | --- |
+| 작업 브랜치 → develop PR | 공통 CI와 변경 경로에 맞는 backend·문서 검사 | 검토된 배치만 게시 |
+| develop push | 공통 CI와 변경 경로에 맞는 backend·문서 검사 | 문서 빌드는 가능, Pages 배포는 차단 |
+| develop → main PR | 공통 CI와 변경 경로에 맞는 backend·문서 검사 | 출시 후보를 별도 검토 |
+| main push | 공통 CI와 변경 경로에 맞는 backend·문서 검사 | 문서 Pages 배포 조건 유지 |
 
 ## CI가 실패할 때
 

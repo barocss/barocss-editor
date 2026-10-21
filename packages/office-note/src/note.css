@@ -20,6 +20,18 @@
   transition: border-color var(--ou-quick, 120ms), box-shadow var(--ou-quick, 120ms);
 }
 
+.on-note .w-callout {
+  --on-callout-light: #eff6ff;
+  --on-callout-tint: #3b82f6;
+  --prose-callout-background: light-dark(var(--on-callout-light), color-mix(in srgb, var(--on-callout-tint) 12%, var(--ou-panel, #171717)));
+  --prose-callout-border: light-dark(#e2e8f0, var(--ou-line, #404040));
+}
+.on-note .w-callout[data-callout-type='warning'] { --on-callout-light: #fffbeb; --on-callout-tint: #f59e0b; }
+.on-note .w-callout[data-callout-type='error'] { --on-callout-light: #fef2f2; --on-callout-tint: #ef4444; }
+.on-note .w-callout[data-callout-type='success'] { --on-callout-light: #f0fdf4; --on-callout-tint: #22c55e; }
+.on-note .w-callout[data-callout-type='note'] { --on-callout-light: #f5f5f4; --on-callout-tint: #a3a3a3; }
+.on-note .w-callout[data-callout-type='tip'] { --on-callout-light: #f0fdfa; --on-callout-tint: #14b8a6; }
+
 /*
  * **The ring goes on the box, not on the words.**
  *

@@ -1,0 +1,94 @@
+{
+  "format": "barocss-word",
+  "version": 1,
+  "document": {
+    "stype": "document",
+    "metadata": {
+      "wonfficeBusinessPair": {
+        "schemaVersion": 1,
+        "items": [
+          {
+            "id": "cf54428a-1b5c-4ea6-9511-4040365730c7",
+            "kind": "requirement",
+            "currentVersion": 1,
+            "locator": {
+              "kind": "point-bookmark",
+              "bookmarkId": "requirement"
+            },
+            "versions": [
+              {
+                "version": 1,
+                "snapshotText": "{\n  \"format\": \"barocss-word\",\n  \"version\": 1,\n  \"document\": {\n    \"stype\": \"document\",\n    \"metadata\": {},\n    \"content\": [\n      {\n        \"stype\": \"surface\",\n        \"content\": [\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"requirement\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Keep original fictional content.\"\n              }\n            ]\n          },\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"decision\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Store exact rich reference.\"\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n}\n"
+              }
+            ]
+          },
+          {
+            "id": "9534647b-bda0-4831-80c8-0a2698a56f2c",
+            "kind": "decision",
+            "currentVersion": 1,
+            "locator": {
+              "kind": "point-bookmark",
+              "bookmarkId": "decision"
+            },
+            "versions": [
+              {
+                "version": 1,
+                "snapshotText": "{\n  \"format\": \"barocss-word\",\n  \"version\": 1,\n  \"document\": {\n    \"stype\": \"document\",\n    \"metadata\": {},\n    \"content\": [\n      {\n        \"stype\": \"surface\",\n        \"content\": [\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"requirement\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Keep original fictional content.\"\n              }\n            ]\n          },\n          {\n            \"stype\": \"paragraph\",\n            \"content\": [\n              {\n                \"stype\": \"bookmarkAnchor\",\n                \"attributes\": {\n                  \"id\": \"decision\"\n                }\n              },\n              {\n                \"stype\": \"inline-text\",\n                \"text\": \"Store exact rich reference.\"\n              }\n            ]\n          }\n        ]\n      }\n    ]\n  }\n}\n"
+              }
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "kind": "supported_by",
+            "source": {
+              "itemId": "cf54428a-1b5c-4ea6-9511-4040365730c7",
+              "version": 1
+            },
+            "target": {
+              "itemId": "9534647b-bda0-4831-80c8-0a2698a56f2c",
+              "version": 1
+            }
+          }
+        ]
+      }
+    },
+    "content": [
+      {
+        "stype": "surface",
+        "content": [
+          {
+            "stype": "paragraph",
+            "content": [
+              {
+                "stype": "bookmarkAnchor",
+                "attributes": {
+                  "id": "requirement"
+                }
+              },
+              {
+                "stype": "inline-text",
+                "text": "Keep original fictional content."
+              }
+            ]
+          },
+          {
+            "stype": "paragraph",
+            "content": [
+              {
+                "stype": "bookmarkAnchor",
+                "attributes": {
+                  "id": "decision"
+                }
+              },
+              {
+                "stype": "inline-text",
+                "text": "Store exact rich reference."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -113,10 +113,13 @@ export function Ribbon({
   place,
   adding: openAdding,
   onAdding,
-  children
+  children,
+  surface
 }: {
   editor: Editor;
   children?: ReactNode;
+  /** Wrap the toolbar while insertion dialogs keep their independent lifetime. */
+  surface?: (toolbar: ReactNode) => ReactNode;
   mode: PointerMode;
   onMode: (mode: PointerMode) => void;
   /**
@@ -316,7 +319,7 @@ export function Ribbon({
     // The revision, because a reader who has just made a component expects it in here.
   }, [editor, revision]);
 
-  return (
+  const toolbar = (
     <RibbonToolbar compact className="st-ribbon" label="사이트 도구">
       <RibbonGroup id="mode" label="편집 모드" layout="stack">
         {/*
@@ -494,6 +497,12 @@ export function Ribbon({
         against any of these, drawn identically, so nothing said that turning all three boards off is
         allowed while turning both modes off is not.
       */}
+    </RibbonToolbar>
+  );
+
+  return (
+    <>
+      {surface?.(toolbar) ?? toolbar}
       {/*
         Closed by choosing, because choosing is the whole errand: a dialog a reader has to dismiss
         after it has done what they opened it for is a dialog that has asked them twice.
@@ -631,6 +640,6 @@ export function Ribbon({
           ))}
         </div>
       </Dialog>
-    </RibbonToolbar>
+    </>
   );
 }

@@ -1,10 +1,10 @@
-import { DataStore } from '@barocss/datastore';
+import { DataStore, type INode } from '@barocss/datastore';
 import { Schema } from '@barocss/schema';
 import { TransactionOperation, OpFunction, OpResult } from './transaction-dsl';
 import { globalOperationRegistry } from './operations/define-operation';
 import { createTransactionContext, TransactionContext } from '.';
 import type { Editor } from '@barocss/editor-core';
-import type { TransactionOptions } from './transaction-dsl';
+import type { EditProvenance, TransactionOptions } from './transaction-dsl';
 
 export interface Transaction {
   sid: string;
@@ -30,9 +30,177 @@ export interface TransactionResult {
   errors: string[];
   data?: any;
   transactionId?: string;
+  /** Stable edit identity for committed changes. */
+  provenance?: EditProvenance;
   operations?: TransactionOperation[];
   selectionBefore?: ModelSelection | null;
   selectionAfter?: ModelSelection | null;
+}
+
+/** A read-only view of the final overlay state before it becomes visible. */
+export interface PreCommitCandidate {
+  rootId: string | undefined;
+  getNode(nodeId: string): INode | undefined;
+}
+
+export interface PreCommitGuardContext {
+  operations: readonly TransactionOperation[];
+  provenance: EditProvenance;
+  candidate: PreCommitCandidate;
+}
+
+/** Input intent before any operation can expose a transaction overlay. */
+export interface PreExecutionGuardContext {
+  operations: readonly (TransactionOperation | OpFunction)[];
+  provenance: EditProvenance;
+  rootId: string | undefined;
+}
+
+export type PreExecutionGuard = (context: PreExecutionGuardContext) => string | void | Promise<string | void>;
+
+const isGuardPromise = (value: unknown): value is Promise<string | void> =>
+  value !== null && typeof value === 'object' && typeof (value as Promise<unknown>).then === 'function';
+
+/** Return a reason to reject the proposed edit. Throwing also rejects it. */
+export type PreCommitGuard = (context: PreCommitGuardContext) => string | void | Promise<string | void>;
+
+const preCommitGuards = new WeakMap<Editor, PreCommitGuard>();
+const preExecutionGuards = new WeakMap<Editor, PreExecutionGuard>();
+
+/**
+ * Node attributes may contain schema validation functions. structuredClone
+ * rejects those functions. A private draft receives inert stand-ins rather
+ * than the committed functions: even an ordinary function can close over
+ * mutable state, and its own properties may hold mutable objects. Restore the
+ * original functions only after the guard has accepted the finished draft.
+ * Refuse shared memory, accessors and custom prototypes before any operation.
+ */
+function cloneGuardNode<T>(
+  value: T,
+  seen = new WeakMap<object, unknown>(),
+  functions?: WeakMap<object, unknown>
+): T {
+  if (typeof value === 'function') {
+    if (seen.has(value)) return seen.get(value) as T;
+    const inert = () => { throw new Error('Guarded node functions are not callable'); };
+    seen.set(value, inert);
+    functions?.set(inert, value);
+    return inert as T;
+  }
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return seen.get(value) as T;
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (value instanceof RegExp) return new RegExp(value.source, value.flags) as T;
+  if (value instanceof Map) {
+    const copy = new Map();
+    seen.set(value, copy);
+    for (const [key, item] of value) copy.set(cloneGuardNode(key, seen, functions), cloneGuardNode(item, seen, functions));
+    return copy as T;
+  }
+  if (value instanceof Set) {
+    const copy = new Set();
+    seen.set(value, copy);
+    for (const item of value) copy.add(cloneGuardNode(item, seen, functions));
+    return copy as T;
+  }
+  if (typeof SharedArrayBuffer !== 'undefined' &&
+      (value instanceof SharedArrayBuffer ||
+        (ArrayBuffer.isView(value) && value.buffer instanceof SharedArrayBuffer))) {
+    throw new Error('Guarded node contains shared memory');
+  }
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return structuredClone(value);
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+    throw new Error('Guarded node contains a custom prototype');
+  }
+  const copy: object = Array.isArray(value) ? [] : Object.create(prototype);
+  seen.set(value, copy);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
+    if (!('value' in descriptor)) throw new Error('Guarded node contains an accessor');
+    Object.defineProperty(copy, key, { ...descriptor, value: cloneGuardNode(descriptor.value, seen, functions) });
+  }
+  return copy as T;
+}
+
+/** Rebuild accepted draft values with the original, never-exposed functions. */
+function restoreGuardFunctions<T>(
+  value: T,
+  functions: WeakMap<object, unknown>,
+  seen = new WeakMap<object, unknown>()
+): T {
+  if (typeof value === 'function') {
+    const original = functions.get(value);
+    if (!original) throw new Error('Guarded draft introduced a function');
+    return original as T;
+  }
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return seen.get(value) as T;
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (value instanceof RegExp) return new RegExp(value.source, value.flags) as T;
+  if (value instanceof Map) {
+    const copy = new Map();
+    seen.set(value, copy);
+    for (const [key, item] of value) copy.set(restoreGuardFunctions(key, functions, seen), restoreGuardFunctions(item, functions, seen));
+    return copy as T;
+  }
+  if (value instanceof Set) {
+    const copy = new Set();
+    seen.set(value, copy);
+    for (const item of value) copy.add(restoreGuardFunctions(item, functions, seen));
+    return copy as T;
+  }
+  if (typeof SharedArrayBuffer !== 'undefined' &&
+      (value instanceof SharedArrayBuffer ||
+        (ArrayBuffer.isView(value) && value.buffer instanceof SharedArrayBuffer))) {
+    throw new Error('Guarded draft contains shared memory');
+  }
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return structuredClone(value);
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+    throw new Error('Guarded draft contains a custom prototype');
+  }
+  const copy: object = Array.isArray(value) ? [] : Object.create(prototype);
+  seen.set(value, copy);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
+    if (!('value' in descriptor)) throw new Error('Guarded draft contains an accessor');
+    Object.defineProperty(copy, key, { ...descriptor, value: restoreGuardFunctions(descriptor.value, functions, seen) });
+  }
+  return copy as T;
+}
+
+/** Install one host policy for all model transaction entry points on an editor. */
+export function registerPreCommitGuard(editor: Editor, guard: PreCommitGuard): () => void {
+  preCommitGuards.set(editor, guard);
+  return () => {
+    if (preCommitGuards.get(editor) === guard) preCommitGuards.delete(editor);
+  };
+}
+
+/** Install one host policy before the model starts its uncommitted overlay. */
+export function registerPreExecutionGuard(editor: Editor, guard: PreExecutionGuard): () => void {
+  preExecutionGuards.set(editor, guard);
+  return () => {
+    if (preExecutionGuards.get(editor) === guard) preExecutionGuards.delete(editor);
+  };
+}
+
+/** Capture each opted-in editor owner before the transaction awaits its lock. */
+export type TransactionIntentGuardFactory = () => (() => string | void);
+const intentGuardFactories = new WeakMap<Editor, Set<TransactionIntentGuardFactory>>();
+export function registerTransactionIntentGuardFactory(editor: Editor, capture: TransactionIntentGuardFactory): () => void {
+  let factories = intentGuardFactories.get(editor);
+  if (!factories) { factories = new Set(); intentGuardFactories.set(editor, factories); }
+  factories.add(capture);
+  return () => { factories.delete(capture); if (!factories.size) intentGuardFactories.delete(editor); };
+}
+
+/** UI intent checks must not introduce a yield between a synchronous durable guard and commit. */
+function validateIntent(options: TransactionOptions | undefined): void {
+  const result = options?.validateIntent?.();
+  if (result !== undefined && typeof result !== 'string') throw new Error('Transaction intent check must be synchronous');
+  if (result) throw new Error(result);
 }
 
 export class TransactionManager {
@@ -90,6 +258,30 @@ export class TransactionManager {
     operations: (TransactionOperation | OpFunction)[],
     options?: TransactionOptions
   ): Promise<TransactionResult> {
+    // Capture the compatibility flag before waiting for another transaction.
+    return this._execute(operations, options, this._isUndoRedoOperation);
+  }
+
+  /** Select and finalize a replay under the same lock as ordinary edits. */
+  async replayHistory(direction: 'undo' | 'redo'): Promise<boolean> {
+    try {
+      const result = await this._execute([], {
+        applySelectionToView: false,
+        provenance: { origin: 'history' }
+      }, true, direction);
+      return result.committed === true;
+    } catch (error) {
+      console.error(`[Editor] ${direction} failed:`, error);
+      return false;
+    }
+  }
+
+  private async _execute(
+    operations: (TransactionOperation | OpFunction)[],
+    options: TransactionOptions | undefined,
+    isReplay: boolean,
+    replayDirection?: 'undo' | 'redo'
+  ): Promise<TransactionResult> {
     let lockId: string | null = null;
     let ownsTransaction = false;
     let ownsOverlay = false;
@@ -97,10 +289,40 @@ export class TransactionManager {
     let outcome: TransactionResult | undefined;
     const postCommitErrors: string[] = [];
     let selectionBefore: ModelSelection | null = null;
+    let provenance: EditProvenance | undefined;
+    let guard: PreCommitGuard | undefined;
+    let transactionStore = this._dataStore;
+    const draftFunctions = new WeakMap<object, unknown>();
+    let isHistoryReplay = false;
     
     try {
+      const checks = [...(intentGuardFactories.get(this._editor) ?? [])].map(capture => capture());
+      if (checks.length) {
+        const supplied = options;
+        options = { ...supplied, validateIntent: () => {
+          for (const check of checks) {
+            const result = check();
+            if (result !== undefined) return result;
+          }
+          return supplied?.validateIntent?.();
+        } };
+      }
       // 1. Acquire global lock
       lockId = await this._dataStore.acquireLock('transaction-execution');
+      validateIntent(options);
+
+      let replaySelection: ModelSelection | null | undefined;
+      if (replayDirection) {
+        const history = this._editor.historyManager;
+        const entry = replayDirection === 'undo' ? history.peekUndo() : history.peekRedo();
+        if (!entry) return { success: false, committed: false, errors: [] };
+        operations = replayDirection === 'undo' ? entry.inverseOperations : entry.operations;
+        const key = replayDirection === 'undo' ? 'selectionBefore' : 'selectionAfter';
+        if (entry.metadata && Object.prototype.hasOwnProperty.call(entry.metadata, key)) {
+          const selection = entry.metadata[key] as ModelSelection | null | undefined;
+          replaySelection = selection ? { ...selection } : selection;
+        }
+      }
 
       // 2. Start transaction
       if (this._dataStore.isTransactionActive()) {
@@ -108,14 +330,54 @@ export class TransactionManager {
       }
       this._beginTransaction('DSL Transaction');
       ownsTransaction = true;
+      // Capture replay policy for this execution. A different queued editor
+      // action must never change the history decision of the lock owner.
+      isHistoryReplay = isReplay || options?.provenance?.origin === 'history';
+      guard = preCommitGuards.get(this._editor);
+      const input = options?.provenance;
+      if (input?.origin === 'remote' &&
+        (![input.editId, input.actorId, input.sessionId].every(value => typeof value === 'string' && value.trim().length > 0))) {
+        throw new Error('Remote edit requires editId, actorId, and sessionId');
+      }
+      provenance = {
+        origin: input?.origin ?? 'local',
+        editId: input?.editId ?? this._currentTransaction!.sid,
+        ...(input?.actorId === undefined ? {} : { actorId: input.actorId }),
+        ...(input?.sessionId === undefined ? {} : { sessionId: input.sessionId })
+      };
       selectionBefore = this._editor.selectionManager.getCurrentSelection();
 
+      const beforeExecution = preExecutionGuards.get(this._editor);
+      if (beforeExecution) {
+        const reason = await beforeExecution({
+          operations,
+          provenance,
+          rootId: this._dataStore.getRootNodeId()
+        });
+        if (reason) {
+          outcome = {
+            success: false,
+            committed: false,
+            errors: [reason],
+            operations: [],
+            selectionBefore,
+            selectionAfter: selectionBefore
+          };
+          return outcome;
+        }
+      }
+
+      validateIntent(options);
+
       // 3. Start DataStore overlay transaction
-      this._dataStore.begin();
+      // A guarded transaction mutates only a detached draft. All editor,
+      // exporter, cached proxy and renderer reads still use the committed store.
+      if (guard) transactionStore = this._dataStore.createGuardedDraft(node => cloneGuardNode(node, undefined, draftFunctions));
+      transactionStore.begin();
       ownsOverlay = true;
 
       const context = createTransactionContext(
-        this._dataStore, 
+        transactionStore,
         this._editor.selectionManager.clone(), 
         this._schema!
       );
@@ -186,7 +448,7 @@ export class TransactionManager {
       // Explicit operation intent also applies when a caller supplied a range before
       // DOM selection reconciliation has populated the editor's current selection.
       if (lastSelectionAfter) {
-        const nodeId = this._dataStore.resolveAlias(lastSelectionAfter.nodeId);
+        const nodeId = transactionStore.resolveAlias(lastSelectionAfter.nodeId);
         context.selection.setCaret(nodeId, lastSelectionAfter.offset);
       } else if (!hasExplicitSelection && context.selection.current && context.lastCreatedBlock) {
         const nodeId =
@@ -200,10 +462,10 @@ export class TransactionManager {
       // the document must not. Undo/redo replays operations that were already
       // accepted, so it is exempt; re-checking it would reject a valid rollback
       // whose intermediate shape differs.
-      this._dataStore.end();
+      transactionStore.end();
 
-      if (!this._isUndoRedoOperation && this._validateSchemaOnCommit) {
-        const validation = this._dataStore.validateTransactionScope(this._schema);
+      if (!isHistoryReplay && this._validateSchemaOnCommit) {
+        const validation = transactionStore.validateTransactionScope(this._schema);
         if (!validation.valid) {
           outcome = {
             success: false,
@@ -217,7 +479,47 @@ export class TransactionManager {
         }
       }
 
-      this._dataStore.commit();
+      validateIntent(options);
+      if (guard) {
+        // getNode reads the uncommitted overlay. Clone each returned node so a
+        // host policy cannot mutate the candidate while inspecting it.
+        const answer = guard({
+          operations: executedOperations,
+          provenance: provenance!,
+          candidate: {
+            rootId: transactionStore.getRootNodeId(),
+            getNode: (nodeId) => {
+              const node = transactionStore.getNode(nodeId);
+              return node === undefined ? undefined : cloneGuardNode(node);
+            }
+          }
+        });
+        // A synchronous guard must commit in the same turn as its durable
+        // executed-intent write, without another public read interleaving.
+        const waiting = isGuardPromise(answer);
+        const reason = waiting ? await answer : answer;
+        if (reason) {
+          outcome = {
+            success: false,
+            committed: false,
+            errors: [reason],
+            operations: executedOperations,
+            selectionBefore,
+            selectionAfter: selectionBefore
+          };
+          return outcome;
+        }
+        if (waiting) validateIntent(options);
+      }
+
+      const atomicOperations = guard ? transactionStore.getCollectedOperations() : [];
+      transactionStore.commit();
+      if (guard) {
+        const nodes = transactionStore.getNodes();
+        for (const [id, node] of nodes) nodes.set(id, restoreGuardFunctions(node, draftFunctions));
+        const publishedOperations = restoreGuardFunctions(atomicOperations, draftFunctions);
+        this._dataStore.publishGuardedDraft(transactionStore, publishedOperations);
+      }
       committed = true;
       const afterCommit = (stage: string, effect: () => void): void => {
         try { effect(); }
@@ -225,6 +527,14 @@ export class TransactionManager {
           postCommitErrors.push(`${stage}: ${error instanceof Error ? error.message : String(error)}`);
         }
       };
+
+      // Commit observers may queue another edit. Move the cursor before those
+      // requests can acquire the lock, but never before the model commit.
+      if (replayDirection) {
+        this._editor.historyManager[replayDirection]();
+        this._editor.historyManager.closeGroup();
+      }
+      if (replaySelection !== undefined) context.selection.current = replaySelection;
 
       // Final selection state
       const selectionAfter = context.selection.current;
@@ -245,19 +555,21 @@ export class TransactionManager {
          * same answer `recordInHistory: false` gives.
          */
         if (
+          provenance?.origin === 'local' &&
           options?.appendToPreviousEntry === true &&
           executedOperations.length > 0 &&
-          this._shouldAddToHistory(executedOperations)
+          this._shouldAddToHistory(executedOperations, isHistoryReplay)
         ) {
           this._editor.historyManager.appendToLast({
             operations: executedOperations,
             inverseOperations: inverseOperations.reverse()
           });
         } else if (
+          provenance?.origin === 'local' &&
           options?.recordInHistory !== false &&
           options?.appendToPreviousEntry !== true &&
           executedOperations.length > 0 &&
-          this._shouldAddToHistory(executedOperations)
+          this._shouldAddToHistory(executedOperations, isHistoryReplay)
         ) {
           const shouldPreserveSelection = options?.preserveSelectionInHistory !== false;
           this._editor.historyManager.push({
@@ -283,6 +595,7 @@ export class TransactionManager {
         postCommitErrors,
         errors: [],
         transactionId: this._currentTransaction!.sid,
+        provenance,
         operations: executedOperations,
         selectionBefore,
         selectionAfter
@@ -311,7 +624,8 @@ export class TransactionManager {
         get content() {
           return editor.document;
         },
-        transaction: result
+        transaction: result,
+        provenance
       }));
       
       // After hooks: Call extension onTransaction handlers
@@ -333,7 +647,8 @@ export class TransactionManager {
       
       // Pass selectionAfter to updateSelection only when applySelectionToView !== false
       // (e.g. skip for remote sync or programmatic change)
-      const applySelectionToView = options?.applySelectionToView !== false;
+      const applySelectionToView = provenance?.origin !== 'remote' &&
+        (replaySelection !== undefined || options?.applySelectionToView !== false);
       if (applySelectionToView) {
         afterCommit('selection update', () => this._editor.updateSelection(selectionAfter));
       }
@@ -348,6 +663,7 @@ export class TransactionManager {
         errors: committed ? [] : [error instanceof Error ? error.message : 'Unknown error'],
         ...(committed ? { postCommitErrors } : {}),
         transactionId: ownsTransaction ? this._currentTransaction?.sid : undefined,
+        ...(committed ? { provenance } : {}),
         operations: [],
         selectionBefore,
         selectionAfter: committed ? this._editor.selectionManager.getCurrentSelection() : selectionBefore
@@ -357,7 +673,10 @@ export class TransactionManager {
       // Only clean up state acquired by this execution. A failed lock acquisition
       // must not roll back another caller's overlay or clear its manager state.
       try {
-        if (ownsOverlay && !committed) this._dataStore.rollback();
+        if (ownsOverlay && !committed) transactionStore.rollback();
+        if (guard && transactionStore !== this._dataStore && !committed) {
+          this._dataStore.discardGuardedDraft(transactionStore);
+        }
       } finally {
         if (ownsTransaction) this._currentTransaction = null;
         if (lockId) {
@@ -509,12 +828,12 @@ export class TransactionManager {
     );
   }
 
-  private _shouldAddToHistory(operations: TransactionOperation[]): boolean {
+  private _shouldAddToHistory(operations: TransactionOperation[], isHistoryReplay: boolean): boolean {
     // Don't add empty operations to history
     if (operations.length === 0) return false;
     
     // Don't add undo/redo operations to history
-    if (this._isUndoRedoOperation) return false;
+    if (isHistoryReplay) return false;
     
     return true;
   }

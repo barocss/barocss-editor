@@ -1,0 +1,521 @@
+{
+  "baselineSHA": "45cf09729ed6a70ec89ac0f10346afe0a45837c4",
+  "products": {
+    "word": {
+      "label": "Word",
+      "port": 5410,
+      "timeout": 30000,
+      "scenarios": [
+        {
+          "id": "WORD-FORMAT-REVIEW-UI-001",
+          "file": "apps/word/tests/rapid-authoring.spec.ts",
+          "title": "rapid text selection applies formatting and anchors a comment to exactly that text",
+          "interaction": "fresh isolated browser context; default blank document, native pointer and ASCII keyboard; no model fixture, fault injection or synthetic IME/clipboard",
+          "expected": "exact selected text bold/font-weight700; exact comment anchor and body persist after save-status and same-ID reload",
+          "connectedIssues": [
+            303,
+            300
+          ],
+          "reproduce": [
+            "Open the isolated Word application in a fresh browser context.",
+            "Use pointer and ASCII keyboard to select text, apply bold and anchor a comment.",
+            "Wait for saved status, reload the same document URL and inspect retained content.",
+            "Open the comments pane and inspect the exact anchor/body."
+          ]
+        },
+        {
+          "id": "WORD-TABLE-DOCX-UI-001",
+          "file": "apps/word/tests/ribbon-workflows.spec.ts",
+          "title": "layout actions open real settings and table insertion accepts dimensions",
+          "interaction": "fresh isolated browser context; native file/new action and pointer/ASCII keyboard; no model fixture, fault injection or synthetic IME/clipboard",
+          "expected": "new ID; body plus 2 edited cells retained at same ID after reload; DOCX XML includes exact body/cell text and 1 table, 2 rows, 8 cells",
+          "connectedIssues": [
+            303,
+            300
+          ],
+          "reproduce": [
+            "Open the isolated Word application in a fresh browser context.",
+            "Use pointer and ASCII keyboard to accept the new-document confirmation, author a paragraph, insert a 4-column 2-row table and edit its first two cells.",
+            "Wait for saved status, reload the same document URL and inspect retained content.",
+            "Download DOCX through the file menu and inspect actual document.xml paragraph/table/cell content."
+          ]
+        }
+      ]
+    },
+    "slide": {
+      "label": "Slides",
+      "port": 5411,
+      "timeout": 30000,
+      "scenarios": [
+        {
+          "id": "SLIDES-NEW-SAMPLE-0000",
+          "file": "apps/slide/tests/new-slide-input.spec.ts",
+          "title": "sample deck keeps immediate toolbar-new-slide typing on the new slide through undo, redo and reload",
+          "interaction": "native pointer menu + browser ASCII keyboard; sample starter model, blank deck created via visible file action; read-only model and DOM diagnostics",
+          "expected": "new active slide holds STABLECASE once; all previous complete slides unchanged; undo/redo and persisted reload preserve ordered content and formatting; actual downloaded deck equals the complete persisted document including resources and has the marker exactly once",
+          "connectedIssues": [
+            303,
+            298,
+            301,
+            302
+          ],
+          "reproduce": [
+            "Open the isolated Slides application with a fresh context and sample deck.",
+            "For blank cases create a blank deck through the file menu.",
+            "Add a slide through the toolbar menu; type ASCII immediately or after the specified nine seconds.",
+            "Assert active slide and unchanged previous slides; undo, redo, save and reload the same URL.",
+            "Download the deck and compare the complete persisted document, including resources, with the actual JSON."
+          ],
+          "explicitTimeoutMs": 60000
+        },
+        {
+          "id": "SLIDES-NEW-SAMPLE-9000",
+          "file": "apps/slide/tests/new-slide-input.spec.ts",
+          "title": "sample deck keeps nine-second delayed toolbar-new-slide typing on the new slide through undo, redo and reload",
+          "interaction": "native pointer menu + browser ASCII keyboard; sample starter model, blank deck created via visible file action; read-only model and DOM diagnostics",
+          "expected": "new active slide holds STABLECASE once; all previous complete slides unchanged; undo/redo and persisted reload preserve ordered content and formatting; actual downloaded deck equals the complete persisted document including resources and has the marker exactly once",
+          "connectedIssues": [
+            303,
+            298,
+            301,
+            302
+          ],
+          "reproduce": [
+            "Open the isolated Slides application with a fresh context and sample deck.",
+            "For blank cases create a blank deck through the file menu.",
+            "Add a slide through the toolbar menu; type ASCII immediately or after the specified nine seconds.",
+            "Assert active slide and unchanged previous slides; undo, redo, save and reload the same URL.",
+            "Download the deck and compare the complete persisted document, including resources, with the actual JSON."
+          ],
+          "explicitTimeoutMs": 60000
+        },
+        {
+          "id": "SLIDES-NEW-BLANK-0000",
+          "file": "apps/slide/tests/new-slide-input.spec.ts",
+          "title": "blank deck keeps immediate toolbar-new-slide typing on the new slide through undo, redo and reload",
+          "interaction": "native pointer menu + browser ASCII keyboard; sample starter model, blank deck created via visible file action; read-only model and DOM diagnostics",
+          "expected": "new active slide holds STABLECASE once; all previous complete slides unchanged; undo/redo and persisted reload preserve ordered content and formatting; actual downloaded deck equals the complete persisted document including resources and has the marker exactly once",
+          "connectedIssues": [
+            303,
+            298,
+            301,
+            302
+          ],
+          "reproduce": [
+            "Open the isolated Slides application with a fresh context and sample deck.",
+            "For blank cases create a blank deck through the file menu.",
+            "Add a slide through the toolbar menu; type ASCII immediately or after the specified nine seconds.",
+            "Assert active slide and unchanged previous slides; undo, redo, save and reload the same URL.",
+            "Download the deck and compare the complete persisted document, including resources, with the actual JSON."
+          ],
+          "explicitTimeoutMs": 60000
+        },
+        {
+          "id": "SLIDES-NEW-BLANK-9000",
+          "file": "apps/slide/tests/new-slide-input.spec.ts",
+          "title": "blank deck keeps nine-second delayed toolbar-new-slide typing on the new slide through undo, redo and reload",
+          "interaction": "native pointer menu + browser ASCII keyboard; sample starter model, blank deck created via visible file action; read-only model and DOM diagnostics",
+          "expected": "new active slide holds STABLECASE once; all previous complete slides unchanged; undo/redo and persisted reload preserve ordered content and formatting; actual downloaded deck equals the complete persisted document including resources and has the marker exactly once",
+          "connectedIssues": [
+            303,
+            298,
+            301,
+            302
+          ],
+          "reproduce": [
+            "Open the isolated Slides application with a fresh context and sample deck.",
+            "For blank cases create a blank deck through the file menu.",
+            "Add a slide through the toolbar menu; type ASCII immediately or after the specified nine seconds.",
+            "Assert active slide and unchanged previous slides; undo, redo, save and reload the same URL.",
+            "Download the deck and compare the complete persisted document, including resources, with the actual JSON."
+          ],
+          "explicitTimeoutMs": 60000
+        },
+        {
+          "id": "SLIDES-PRESENT-TRANSITION-001",
+          "file": "apps/slide/tests/transition.spec.ts",
+          "title": "plays while presenting, and puts the slide back afterwards",
+          "interaction": "native panel selection, filmstrip, present button and ArrowRight; sample starter model; read-only rendered style diagnostics",
+          "expected": "actual incoming-slide opacity below1 during transition then full opacity with transition inline style removed",
+          "connectedIssues": [
+            303,
+            298,
+            301,
+            302
+          ],
+          "reproduce": [
+            "Open the isolated Slides application with a fresh context and sample deck.",
+            "Select a transition in the panel, enter presentation and advance with ArrowRight.",
+            "Observe incoming opacity during transition and the full-opacity final slide without leftover transition style."
+          ]
+        },
+        {
+          "id": "SLIDES-DECK-DOWNLOAD-001",
+          "file": "apps/slide/tests/deck-file.spec.ts",
+          "title": "downloads a file named after the deck, with no session ids in it",
+          "interaction": "native file menu action and actual browser download; sample starter model",
+          "expected": "filename, format/version and session-id-free actual file JSON",
+          "connectedIssues": [
+            303,
+            298,
+            301,
+            302
+          ],
+          "reproduce": [
+            "Open the isolated Slides application with a fresh context and sample deck.",
+            "Download through the file menu.",
+            "Inspect the actual filename, file format/version and absence of session IDs."
+          ]
+        },
+        {
+          "id": "SLIDES-OVERLAY-LATE-ARRIVAL-001",
+          "file": "apps/slide/tests/overlay-arrival.spec.ts",
+          "title": "[SLIDES-OVERLAY-LATE-ARRIVAL-001] mounts the current slide overlay after delayed rendering without a user gesture",
+          "interaction": "Fresh desktop browser, held native idle callback and CPU throttling to delay the real renderer yield; no model writes or user gestures",
+          "expected": "The same current editable slide appears and its overlay matches its bounds at unchanged pane geometry and identity",
+          "connectedIssues": [
+            303,
+            390
+          ],
+          "reproduce": [
+            "Open a fresh Slides session while the test holds the renderer idle callback.",
+            "Confirm the saved current slide and pane are ready while the slide DOM and overlay are absent.",
+            "Release the original idle callback without clicking or dispatching a view event.",
+            "Assert the slide and aligned overlay appear at the same identity and pane dimensions."
+          ]
+        }
+      ]
+    },
+    "site": {
+      "label": "Site",
+      "port": 5412,
+      "timeout": 30000,
+      "scenarios": [
+        {
+          "id": "SITE-BODY-EMPTY-UI-001",
+          "file": "apps/site/tests/empty-note-body.spec.ts",
+          "title": "creates and autosaves a Note body in the existing third row without changing other rows",
+          "interaction": "native UI body creation, browser insertion, undo/redo; sample initial document",
+          "expected": "Exact body and distinct summary survive autosave/reload; other records/resources unchanged",
+          "connectedIssues": [
+            303,
+            299
+          ],
+          "reproduce": [
+            "Open the sample Site data table and the specified existing/new-row Note body dialog.",
+            "Author the body with browser input; exercise selection, local undo/redo and the specified save shortcut if applicable.",
+            "Inspect the saved file or autosaved record, close/reopen/reload, and assert exact body, summary, identities and unchanged adjacent records."
+          ]
+        },
+        {
+          "id": "SITE-BODY-NEW-ROW-UI-001",
+          "file": "apps/site/tests/empty-note-body.spec.ts",
+          "title": "creates and autosaves a Note body in the new fifth row without changing other rows",
+          "interaction": "native UI new row/body authoring, browser insertion, undo/redo; sample initial document",
+          "expected": "New row/title/body/summary survive autosave/reload; original rows/resources unchanged",
+          "connectedIssues": [
+            303,
+            299
+          ],
+          "reproduce": [
+            "Open the sample Site data table and the specified existing/new-row Note body dialog.",
+            "Author the body with browser input; exercise selection, local undo/redo and the specified save shortcut if applicable.",
+            "Inspect the saved file or autosaved record, close/reopen/reload, and assert exact body, summary, identities and unchanged adjacent records."
+          ]
+        },
+        {
+          "id": "SITE-BODY-META-SAVE-UI-001",
+          "file": "apps/site/tests/note-save.spec.ts",
+          "title": "Meta+s saves from the Note dialog while selection, local undo and Escape remain owned by the dialog",
+          "interaction": "native pointer/browser insertion/selection/save/undo; synthetic timer hold isolates flush",
+          "expected": "Final authored body in actual saved file; focus/selection preserved; local undo and reopen preserve body",
+          "connectedIssues": [
+            303,
+            299
+          ],
+          "reproduce": [
+            "Open the sample Site data table and the specified existing/new-row Note body dialog.",
+            "Author the body with browser input; exercise selection, local undo/redo and the specified save shortcut if applicable.",
+            "Inspect the saved file or autosaved record, close/reopen/reload, and assert exact body, summary, identities and unchanged adjacent records."
+          ]
+        },
+        {
+          "id": "SITE-BODY-CONTROL-SAVE-UI-001",
+          "file": "apps/site/tests/note-save.spec.ts",
+          "title": "Control+s saves from the Note dialog while selection, local undo and Escape remain owned by the dialog",
+          "interaction": "native pointer/browser insertion/selection/save/undo; synthetic timer hold isolates flush",
+          "expected": "Same final save-file/reopen result for Control+s",
+          "connectedIssues": [
+            303,
+            299
+          ],
+          "reproduce": [
+            "Open the sample Site data table and the specified existing/new-row Note body dialog.",
+            "Author the body with browser input; exercise selection, local undo/redo and the specified save shortcut if applicable.",
+            "Inspect the saved file or autosaved record, close/reopen/reload, and assert exact body, summary, identities and unchanged adjacent records."
+          ]
+        },
+        {
+          "id": "SITE-HTML-DOWNLOAD-UI-001",
+          "file": "apps/site/tests/site.spec.ts",
+          "title": "publishes the page, which is the gesture this product is for",
+          "interaction": "native menu export; sample model initial content, no native authoring claim",
+          "expected": "Actual index.html includes expected current-page content",
+          "connectedIssues": [
+            303,
+            299
+          ],
+          "reproduce": [
+            "Open the sample Site in a fresh browser context.",
+            "Use the native publication menu to download current HTML or the complete ZIP.",
+            "Read actual bytes and independently decode ZIP entries; assert sample content and expected paths."
+          ]
+        },
+        {
+          "id": "SITE-ZIP-PATHS-UI-001",
+          "file": "apps/site/tests/site.spec.ts",
+          "title": "publishes the whole site as one archive, folders and all",
+          "interaction": "native menu export; sample model initial content, Python independent ZIP reader",
+          "expected": "CRC-checked ZIP contains expected home/product HTML plus sitemap/robots at correct paths",
+          "connectedIssues": [
+            303,
+            299
+          ],
+          "reproduce": [
+            "Open the sample Site in a fresh browser context.",
+            "Use the native publication menu to download current HTML or the complete ZIP.",
+            "Read actual bytes and independently decode ZIP entries; assert sample content and expected paths."
+          ]
+        },
+        {
+          "id": "SITE-AUTHORED-MULTIPAGE-OUTPUT-UI-001",
+          "file": "apps/site/tests/product-scenarios.spec.ts",
+          "title": "[SITE-AUTHORED-MULTIPAGE-OUTPUT-UI-001] saves final native body input and exports both authored pages at their paths",
+          "interaction": "native new-site, body ASCII input, undo/redo, page creation/name/path, save, recent-item reopen and actual export; no model write",
+          "expected": "Final key input survives explicit save and same-ID reopen/reload, actual HTML plus ZIP have authored home/second page content only at index.html and jepum/index.html",
+          "connectedIssues": [
+            303,
+            299
+          ],
+          "reproduce": [
+            "Create a blank Site through the real file action.",
+            "Open home, enter overlay text mode and type final native ASCII body input; immediately save.",
+            "Create and name a second blank page, set /jepum and author its heading; undo and redo.",
+            "Open another Site, reopen the original recent item at its same URL, and reload.",
+            "Download current HTML and whole-site ZIP; independently decode CRC-checked entries and assert authored content at index.html and jepum/index.html only."
+          ]
+        }
+      ]
+    },
+    "office": {
+      "label": "Office",
+      "port": 5413,
+      "timeout": 45000,
+      "scenarios": [
+        {
+          "id": "OFFICE-IDENTITY-FOUR-001",
+          "file": "apps/office/tests/workspace.spec.ts",
+          "title": "creates and reopens all four products in one origin without changing document identities",
+          "interaction": "Native creation/reopen; same four URLs/IDs",
+          "expected": "All four product documents reopen at their original distinct URLs/IDs",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create Note, Word, Slides and Site through the shared workspace UI.",
+            "Return to the library between creations and save each original URL.",
+            "Reopen each item and assert its exact original URL and product identity."
+          ]
+        },
+        {
+          "id": "OFFICE-WORD-NAV-LAST-001",
+          "file": "apps/office/tests/workspace.spec.ts",
+          "title": "flushes the last Word keystroke before navigation, and blocks navigation on storage failure",
+          "interaction": "Native last Word input; synthetic IndexedDB put failure preserves pending input and blocks navigation",
+          "expected": "Final native input survives navigation into another product and reopening the exact original URL; injected storage failure blocks navigation and preserves pending Word input where selected",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create/open the selected product in the workspace; use its real editor to type the final marker.",
+            "Navigate immediately to the library without waiting for autosave and enter another product.",
+            "Reopen the original item; assert exact identity and final authored content.",
+            "For existing Word fault case inject IndexedDB put failure and assert navigation remains blocked with pending text; existing Note case holds timers to isolate flush."
+          ]
+        },
+        {
+          "id": "OFFICE-NOTE-NAV-LAST-001",
+          "file": "apps/office/tests/workspace.spec.ts",
+          "title": "flushes delayed Note input before switching products",
+          "interaction": "Native Note typing; synthetic delivery/autosave timers; same document reopens with latest input",
+          "expected": "Final native input survives navigation into another product and reopening the exact original URL; injected storage failure blocks navigation and preserves pending Word input where selected",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create/open the selected product in the workspace; use its real editor to type the final marker.",
+            "Navigate immediately to the library without waiting for autosave and enter another product.",
+            "Reopen the original item; assert exact identity and final authored content.",
+            "For existing Word fault case inject IndexedDB put failure and assert navigation remains blocked with pending text; existing Note case holds timers to isolate flush."
+          ]
+        },
+        {
+          "id": "OFFICE-BACKUP-INDEPENDENT-001",
+          "file": "apps/office/tests/workspace.spec.ts",
+          "title": "downloads a product backup and restores it through the shared library UI",
+          "interaction": "native Word authoring, library backup download and restore, independent copy authoring/reopen; actual downloaded JSON; no model mutation",
+          "expected": "Downloaded backup contains original ID/content; restored copy has a distinct ID, opens with original text, and can be edited independently while original remains unchanged after reload",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create Word through the workspace UI and author the original marker.",
+            "Return to the library, download the actual backup and inspect its original identity/content.",
+            "Restore using the library file input and open the copy; assert its distinct URL/ID and original content.",
+            "Edit the copy, navigate away, then reopen/reload original and copy separately; assert original unchanged and copy retains its own addition."
+          ]
+        },
+        {
+          "id": "OFFICE-SLIDES-TRASH-EXCLUSION-001",
+          "file": "apps/office/tests/trash-product-library.spec.ts",
+          "title": "Slides excludes already trashed documents from the ordinary library",
+          "interaction": "Native cross-tab trash and library exclusion; model read-only preservation check",
+          "expected": "Trashed document excluded from ordinary library",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create two documents of the selected product through the workspace UI.",
+            "Trash A in a separate browser page and inspect the stale/current library states.",
+            "Assert exclusion or reject the stale trash target while preserving B; download A backup and restore A when selected.",
+            "Open restored A and inspect its exact same URL and retained content."
+          ]
+        },
+        {
+          "id": "OFFICE-SLIDES-TRASH-RESTORE-001",
+          "file": "apps/office/tests/trash-product-library.spec.ts",
+          "title": "Slides rejects a stale cross-tab trash target, preserves B, backs up A, and opens restored A's same ID",
+          "interaction": "Native cross-tab stale target/reject/backup/restore; read-only model check and exact same ID",
+          "expected": "Stale trash target is rejected; B unchanged; backup A available; restoring A reopens its exact original identity",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create two documents of the selected product through the workspace UI.",
+            "Trash A in a separate browser page and inspect the stale/current library states.",
+            "Assert exclusion or reject the stale trash target while preserving B; download A backup and restore A when selected.",
+            "Open restored A and inspect its exact same URL and retained content."
+          ]
+        },
+        {
+          "id": "OFFICE-WORD-TRASH-EXCLUSION-001",
+          "file": "apps/office/tests/trash-product-library.spec.ts",
+          "title": "Word excludes already trashed documents from the ordinary library",
+          "interaction": "Native cross-tab trash and library exclusion; model read-only preservation check",
+          "expected": "Trashed document excluded from ordinary library",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create two documents of the selected product through the workspace UI.",
+            "Trash A in a separate browser page and inspect the stale/current library states.",
+            "Assert exclusion or reject the stale trash target while preserving B; download A backup and restore A when selected.",
+            "Open restored A and inspect its exact same URL and retained content."
+          ]
+        },
+        {
+          "id": "OFFICE-WORD-TRASH-RESTORE-001",
+          "file": "apps/office/tests/trash-product-library.spec.ts",
+          "title": "Word rejects a stale cross-tab trash target, preserves B, backs up A, and opens restored A's same ID",
+          "interaction": "Native cross-tab stale target/reject/backup/restore; read-only model check and exact same ID",
+          "expected": "Stale trash target is rejected; B unchanged; backup A available; restoring A reopens its exact original identity",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create two documents of the selected product through the workspace UI.",
+            "Trash A in a separate browser page and inspect the stale/current library states.",
+            "Assert exclusion or reject the stale trash target while preserving B; download A backup and restore A when selected.",
+            "Open restored A and inspect its exact same URL and retained content."
+          ]
+        },
+        {
+          "id": "OFFICE-SITE-TRASH-EXCLUSION-001",
+          "file": "apps/office/tests/trash-product-library.spec.ts",
+          "title": "Site excludes already trashed documents from the ordinary library",
+          "interaction": "Native cross-tab trash and library exclusion; model read-only preservation check",
+          "expected": "Trashed document excluded from ordinary library",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create two documents of the selected product through the workspace UI.",
+            "Trash A in a separate browser page and inspect the stale/current library states.",
+            "Assert exclusion or reject the stale trash target while preserving B; download A backup and restore A when selected.",
+            "Open restored A and inspect its exact same URL and retained content."
+          ]
+        },
+        {
+          "id": "OFFICE-SITE-TRASH-RESTORE-001",
+          "file": "apps/office/tests/trash-product-library.spec.ts",
+          "title": "Site rejects a stale cross-tab trash target, preserves B, backs up A, and opens restored A's same ID",
+          "interaction": "Native cross-tab stale target/reject/backup/restore; read-only model check and exact same ID",
+          "expected": "Stale trash target is rejected; B unchanged; backup A available; restoring A reopens its exact original identity",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create two documents of the selected product through the workspace UI.",
+            "Trash A in a separate browser page and inspect the stale/current library states.",
+            "Assert exclusion or reject the stale trash target while preserving B; download A backup and restore A when selected.",
+            "Open restored A and inspect its exact same URL and retained content."
+          ]
+        },
+        {
+          "id": "OFFICE-SLIDES-NAV-LAST-001",
+          "file": "apps/office/tests/product-scenarios.spec.ts",
+          "title": "[OFFICE-SLIDES-NAV-LAST-001] preserves the last native input across another product and reopens the same identity",
+          "interaction": "Native creation, text input and navigation into Word; same original product URL and authored final content",
+          "expected": "Final native input survives navigation into another product and reopening the exact original URL; injected storage failure blocks navigation and preserves pending Word input where selected",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create/open the selected product in the workspace; use its real editor to type the final marker.",
+            "Navigate immediately to the library without waiting for autosave and enter another product.",
+            "Reopen the original item; assert exact identity and final authored content.",
+            "For existing Word fault case inject IndexedDB put failure and assert navigation remains blocked with pending text; existing Note case holds timers to isolate flush."
+          ]
+        },
+        {
+          "id": "OFFICE-SITE-NAV-LAST-001",
+          "file": "apps/office/tests/product-scenarios.spec.ts",
+          "title": "[OFFICE-SITE-NAV-LAST-001] preserves the last native input across another product and reopens the same identity",
+          "interaction": "Native creation, text input and navigation into Word; same original product URL and authored final content",
+          "expected": "Final native input survives navigation into another product and reopening the exact original URL; injected storage failure blocks navigation and preserves pending Word input where selected",
+          "connectedIssues": [
+            303,
+            314
+          ],
+          "reproduce": [
+            "Create/open the selected product in the workspace; use its real editor to type the final marker.",
+            "Navigate immediately to the library without waiting for autosave and enter another product.",
+            "Reopen the original item; assert exact identity and final authored content.",
+            "For existing Word fault case inject IndexedDB put failure and assert navigation remains blocked with pending text; existing Note case holds timers to isolate flush."
+          ]
+        }
+      ]
+    }
+  }
+}

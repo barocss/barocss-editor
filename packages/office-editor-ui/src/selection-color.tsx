@@ -47,7 +47,10 @@ export function SelectionColorControl({ editor, selection }: { editor: Editor; s
       <Icon name="font-color" size={14} />
     </IconButton>
     <FloatingSurface open={open} at={host.current?.getBoundingClientRect() ?? null} variant="menu" aria-label="글자 색상 선택"
-      prefer="below" align="end" focusOnOpen portalRoot={host.current} ownedElements={[host]} onDismiss={() => setOpen(false)}>
+      prefer="below" align="end" focusOnOpen portalRoot={host.current} ownedElements={[host]} onDismiss={reason => {
+        if (reason === 'escape') host.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+        setOpen(false);
+      }}>
       <TextColorOptions onPick={(kind, color) => void run(kind === 'text' ? 'setFontColor' : 'setBgColor', color)}
         textColor={selectedTextColor(editor, selection, 'text')} backgroundColor={selectedTextColor(editor, selection, 'background')}
         onReset={kind => void run(kind === 'text' ? 'removeFontColor' : 'removeBgColor')} />

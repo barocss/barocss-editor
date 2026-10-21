@@ -91,13 +91,14 @@ defineOperation('toggleLink', async (operation: any, context: TransactionContext
   });
   const hasLink = fullyLinked && selectedCharacters > 0;
 
-  const restore = inRange.map((sid) => ({
-    type: 'setMarks',
-    payload: {
-      nodeId: sid,
-      marks: JSON.parse(JSON.stringify(dataStore.getNode(sid)?.marks ?? []))
-    }
-  }));
+  const restore = inRange.map((sid) => {
+    const marks = dataStore.getNode(sid)?.marks;
+    const marksBefore = Array.isArray(marks) ? JSON.parse(JSON.stringify(marks)) : undefined;
+    return {
+      type: 'setMarks',
+      payload: { nodeId: sid, marks: marksBefore, restoreAbsent: marksBefore === undefined }
+    };
+  });
   const inverse =
     restore.length === 1
       ? restore[0]

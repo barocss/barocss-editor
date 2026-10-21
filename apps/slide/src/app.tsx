@@ -1,20 +1,20 @@
+import { useFloatingPanelBounds } from './floating-panel-bounds';
 import { documentTitle } from '@barocss/office-text';
-import { EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion } from '@barocss/office-ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Editor, ModelSelection } from '@barocss/editor-core';
+import { EditorHeader, DocumentMenu, Toolbar, CommandSearch, CommandSearchTrigger, TaskStatus, TaskStatusRegion, useOfficeLocale, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { selectedNodeIds } from '@barocss/editor-core';
-import type { EditorViewDOM } from '@barocss/editor-view-dom';
 import { FileActions, type DeckFileActions } from '@barocss/office-slides/ui';
-import { AuditPanel, SlideSidebar } from '@barocss/office-slides/ui';
-import { NotesPane, Presenter } from '@barocss/office-slides/ui';
+import { AuditPanel, SlideSidebar, SlideNavigation } from '@barocss/office-slides/ui';
+import { NotesPane, Presenter, SlidesDocumentChrome } from '@barocss/office-slides/ui';
 import {
   AdaptiveWorkspace,
   WorkspaceSidePanel,
-  MenuBar,
   AppMain,
   AppShell,
   Button,
-  onApple,
+  Icon,
+  Tip,
   ZoomControl,
   type LengthUnit
 } from '@barocss/office-ui';
@@ -30,6 +30,7 @@ import {
   isLibraryName,
   readDeckFile,
   slideById,
+  slidesMenuEntry,
   deckDesigns,
   jumpsOn,
   jumpTarget,
@@ -76,23 +77,36 @@ import { ComponentPanel } from '@barocss/office-slides/ui';
 import { FindBar } from '@barocss/office-slides/ui';
 import { PresenterWindow } from '@barocss/office-slides/ui';
 import { Properties } from '@barocss/office-slides/ui';
-import { Ribbon } from '@barocss/office-slides/ui';
 import {
   SLIDES_KEYS,
-  slidesMenus,
-  slidesSearchCommands,
-  slidesSearchPayload,
   SLIDES_ZOOM_LADDER,
-  matchesKey,
-  slidesMenuEntry,
-  slidesMenuId
+  matchesKey
 } from '@barocss/office-slides';
 
 import { Present, SelectionOverlay, Stage, TimelinePane, createSlidePrint, SlidePrintDialog } from '@barocss/office-slides/ui';
 import { LibraryDialog } from '@barocss/office-slides/ui';
 import { libraryDeck, libraryRows } from '@barocss/office-slides';
 import { useDeck, useRevision, useSlidePersistence, SlideDocuments } from '@barocss/office-slides/ui';
-import { useEditorRevision, captureTextSelection } from '@barocss/office-editor-ui';
+import { type LocalDocumentActions } from '@barocss/office-editor-ui';
+import { useEditorRevision } from '@barocss/office-editor-ui';
+import { useSlideMenuSearch, type SlideMenuFileAction, type SlideMenuViewAction } from './use-slide-menu-search';
+
+import type { SlidesRuntime } from './runtime';
+export interface SlidesServerHost {
+  active?: boolean;
+  isActive?: () => boolean;
+  headerActions?: ReactNode;
+  headerNavigation?: ReactNode;
+  navigation?: ReactNode;
+  readOnly?: boolean;
+  onRuntime: (runtime: SlidesRuntime) => void;
+  onInputDeliveryReady?: (runtime: SlidesRuntime, deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => void;
+  nativeExport?: { available: boolean; run: () => void };
+  onFileAction: (action: 'save' | 'new' | 'open' | 'library') => void;
+}
+function ReadOnlyControls({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  return enabled ? <fieldset disabled inert style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{children}</fieldset> : <>{children}</>;
+}
 
 /**
  * The deck app.
@@ -105,11 +119,40 @@ import { useEditorRevision, captureTextSelection } from '@barocss/office-editor-
  * once or not at all.
  */
 export function App({
-  mount
+  mount, server, localPersistence = !server
 }: {
-  mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM };
+  mount: (host: HTMLElement) => SlidesRuntime;
+  server?: SlidesServerHost;
+  localPersistence?: boolean;
 }) {
+  const { t } = useOfficeLocale();
   const host = useRef<HTMLDivElement>(null);
+  const documentMenuHost = useRef<HTMLSpanElement>(null);
+  const panelMenuActive = useRef(false);
+  const panelMenuHost = useRef<HTMLSpanElement>(null);
+  const [headerTools, setHeaderTools] = useState<HTMLDivElement | null>(null);
+  const recentDocuments = useRef<LocalDocumentActions>(null);
+  const [recentDocumentsBusy, setRecentDocumentsBusy] = useState(false);
+  type InputOwner = { runtime: SlidesRuntime; root: string | undefined; epoch: number; generation: number; editable: boolean; readOnly: boolean; active: boolean | undefined };
+  const inputRuntime = useRef<SlidesRuntime | null>(null);
+  const childDeliveries = useRef(new Map<string, { deliver: (isCurrent: () => boolean) => Promise<boolean>; owner: InputOwner }>());
+  const committedInput = useRef<InputOwner | null>(null);
+  const inputWaiters = useRef(new Set<() => void>());
+  const captureInputOwner = useCallback(() => {
+    const runtime = inputRuntime.current;
+    return runtime ? { runtime, root: runtime.editor.getRootId(), epoch: runtime.editor.dataStore.getDocumentEpoch(),
+      generation: lifetime.current, editable: runtime.editor.isEditable, readOnly: !!serverRef.current?.readOnly, active: serverRef.current?.active } : null;
+  }, []);
+  const registerInput = useRef((key: string, deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    const owner = captureInputOwner();
+    if (deliver && owner) childDeliveries.current.set(key, { deliver, owner });
+    else childDeliveries.current.delete(key);
+    for (const check of [...inputWaiters.current]) check();
+  });
+  const notesRecovery = useRef<Parameters<NonNullable<React.ComponentProps<typeof NotesPane>['onInputRecoveryReady']>>[0]>(null);
+  const recoveryReady = useCallback((recovery: typeof notesRecovery.current) => { notesRecovery.current = recovery; }, []);
+  const composingFields = useRef(new Set<EventTarget>());
+  const [failedInput, setFailedInput] = useState(false);
   /**
    * 무대의 요소 자체 — 조립의 일이다.
    *
@@ -118,24 +161,172 @@ export function App({
    * 내주고 **앱이 셋에게 건넨다** — 무엇이 무엇에 연결되는가는 앱이 아는 일이다.
    */
   const stage = useRef<HTMLDivElement>(null);
+  const toolScope = useRef<HTMLElement | null>(null);
+  const stageOwner = useRef<HTMLDivElement | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [serverLibraryOpen, setServerLibraryOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorTools, setInspectorTools] = useState<HTMLDivElement | null>(null);
+  const inspectorOrigin = useRef<HTMLElement | null>(null);
+  const focusInspector = useRef(false);
+  useLayoutEffect(() => {
+    if (!inspectorOpen || !focusInspector.current) return;
+    focusInspector.current = false;
+    inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true });
+  }, [inspectorOpen, inspectorTools]);
+  const panelReturn = useRef<{ side: 'navigation' | 'inspector'; origin: HTMLElement | null; root: unknown; generation: number } | null>(null);
+  const closePanel = (side: 'navigation' | 'inspector') => {
+    panelReturn.current = { side, origin: side === 'inspector' ? inspectorOrigin.current : null,
+      root: instance?.editor.dataStore.getNode(instance.editor.getRootId()!), generation: lifetime.current };
+    if (side === 'navigation') setSidebarOpen(false); else setInspectorOpen(false);
+  };
+  useLayoutEffect(() => {
+    const pending = panelReturn.current;
+    if (!pending) return;
+    panelReturn.current = null;
+    if ((pending.side === 'navigation' ? sidebarOpen : inspectorOpen) || pending.generation !== lifetime.current ||
+      pending.root !== instance?.editor.dataStore.getNode(instance.editor.getRootId()!)) return;
+    // The panel is already hidden. Return before BODY focus can retire the primary tools.
+    const fallback = panelMenuHost.current?.querySelector<HTMLElement>('[data-menu]');
+    (pending.origin?.isConnected && !pending.origin.closest('[hidden],[inert]') ? pending.origin : fallback)?.focus({ preventScroll: true });
+  });
+  const [rulerShown, setRulerShown] = useState(false);
   const mounted = useRef(false);
-  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
+  const [instance, setInstance] = useState<SlidesRuntime | null>(null);
+  const serverRef = useRef(server);
+  serverRef.current = server;
+  const readOnly = Boolean(server?.readOnly || instance?.editor.isEditable === false);
+  const lifetime = useRef(0);
+  useEffect(() => {
+    const retire = () => { if (!serverRef.current?.isActive || serverRef.current.isActive()) panelReturn.current = null; };
+    document.addEventListener('pointerdown', retire, true);
+    document.addEventListener('keydown', retire, true);
+    return () => { retire(); document.removeEventListener('pointerdown', retire, true); document.removeEventListener('keydown', retire, true); };
+  }, []);
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
-    // Guarded because StrictMode runs effects twice on purpose. Not cleaned up
-    // on unmount either: the editor owns this subtree for the life of the page,
-    // and rebuilding it would throw away the caret and the history for a
-    // re-render nobody asked for.
     mounted.current = true;
-    setInstance(mount(host.current));
+    toolScope.current = host.current.closest('.sl-main');
+    const runtime = mount(host.current);
+    const generation = ++lifetime.current;
+    setInstance(runtime);
+    serverRef.current?.onRuntime(runtime);
+    return () => {
+      if (lifetime.current === generation) lifetime.current++;
+      runtime.dispose();
+      mounted.current = false;
+    };
   }, [mount]);
 
+  inputRuntime.current = instance;
+  const renderedInput = captureInputOwner();
+  // Changed owner fields must rebind the actual child effects before input can
+  // pass the commit barrier, including staged activation and read-only changes.
+  const notesDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    registerInput.current('notes', deliver);
+  }, [renderedInput?.runtime, renderedInput?.root, renderedInput?.epoch, renderedInput?.generation,
+    renderedInput?.editable, renderedInput?.readOnly, renderedInput?.active]);
+  const propertyDelivery = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    registerInput.current('properties', deliver);
+  }, [renderedInput?.runtime, renderedInput?.root, renderedInput?.epoch, renderedInput?.generation,
+    renderedInput?.editable, renderedInput?.readOnly, renderedInput?.active]);
+  const sameInputOwner = useCallback((left: InputOwner | null, right: InputOwner | null) => !!left && !!right &&
+    left.runtime === right.runtime && left.root === right.root && left.epoch === right.epoch &&
+    left.generation === right.generation && left.editable === right.editable && left.readOnly === right.readOnly && left.active === right.active, []);
+  // Child passive effects register their actual input owners before this parent effect.
+  useEffect(() => {
+    committedInput.current = sameInputOwner(renderedInput, captureInputOwner()) ? renderedInput : null;
+    for (const check of [...inputWaiters.current]) check();
+  });
+  useEffect(() => {
+    if (!instance) return;
+    const changed = () => { for (const check of [...inputWaiters.current]) check(); };
+    instance.editor.on('editor:content.change', changed);
+    instance.editor.on('editor:editable.change', changed);
+    return () => {
+      committedInput.current = null;
+      instance.editor.off('editor:content.change', changed);
+      instance.editor.off('editor:editable.change', changed);
+      for (const check of [...inputWaiters.current]) check();
+    };
+  }, [instance]);
   const editor = instance?.editor ?? null;
   const view = instance?.view ?? null;
-  const printer = useMemo(() => editor ? createSlidePrint(editor) : null, [editor]);
-  useEffect(() => printer?.attach(), [printer]);
-  const persistence = useSlidePersistence(editor);
+  const printer = useMemo(() => editor ? createSlidePrint(editor, document, instance?.registry) : null, [editor, instance]);
+  useEffect(() => server?.active === false ? undefined : printer?.attach(), [printer, server?.active]);
+  useEffect(() => {
+    const shell = host.current?.closest('.sl-shell');
+    if (!shell) return;
+    const start = (event: Event) => { if (event.target) composingFields.current.add(event.target); };
+    const end = (event: Event) => { if (event.target) composingFields.current.delete(event.target); };
+    shell.addEventListener('compositionstart', start, true); shell.addEventListener('compositionend', end, true);
+    return () => { composingFields.current.clear(); shell.removeEventListener('compositionstart', start, true); shell.removeEventListener('compositionend', end, true); };
+  }, [instance]);
+  const deliverInput = useCallback(async (isCurrent: () => boolean = () => true): Promise<boolean> => {
+    if (!instance || !host.current?.isConnected || composingFields.current.size) return false;
+    const root = editor!.getRootId(), epoch = editor!.dataStore.getDocumentEpoch(), generation = lifetime.current;
+    const editable = editor!.isEditable, readOnly = !!serverRef.current?.readOnly, active = serverRef.current?.active;
+    const owns = () => isCurrent() && host.current?.isConnected === true && lifetime.current === generation &&
+      editor!.getRootId() === root && editor!.dataStore.getDocumentEpoch() === epoch && editor!.isEditable === editable && !!serverRef.current?.readOnly === readOnly && serverRef.current?.active === active && !composingFields.current.size;
+    try {
+      if (!owns()) return false;
+      const owner = captureInputOwner();
+      if (!owner) return false;
+      const ready = () => sameInputOwner(committedInput.current, owner) &&
+        [...childDeliveries.current.values()].every(child => sameInputOwner(child.owner, owner));
+      if (!ready() && !await new Promise<boolean>(resolve => {
+        const check = () => {
+          if (!owns() || !sameInputOwner(owner, captureInputOwner())) { inputWaiters.current.delete(check); resolve(false); }
+          else if (ready()) { inputWaiters.current.delete(check); resolve(true); }
+        };
+        inputWaiters.current.add(check); check();
+      })) return false;
+      if (!owns()) return false;
+      const focused = document.activeElement;
+      if (focused instanceof HTMLElement && focused.matches('input,textarea,select') && focused.closest('.sl-properties') &&
+        host.current?.closest('.sl-shell')?.contains(focused)) focused.blur();
+      if (!owns() || !await instance.view.deliverInput(owns)) {
+        if (owns()) setFailedInput(instance.view.hasFailedInputDelivery);
+        return false;
+      }
+      setFailedInput(false);
+      for (const [key, child] of [...childDeliveries.current]) {
+        if (!owns() || childDeliveries.current.get(key) !== child || !sameInputOwner(child.owner, owner) || !await child.deliver(owns) || !owns()) {
+          if (owns()) setFailedInput(instance.view.hasFailedInputDelivery || notesRecovery.current?.failed() === true);
+          return false;
+        }
+      }
+      return owns() && await instance.settleCommands(owns) && owns();
+    } catch { return false; }
+  }, [instance, editor, captureInputOwner, sameInputOwner]);
+  useEffect(() => {
+    if (!instance) return;
+    const owner = serverRef.current;
+    owner?.onInputDeliveryReady?.(instance, deliverInput);
+    return () => { owner?.onInputDeliveryReady?.(instance, null); };
+  }, [instance, deliverInput]);
+  useEffect(() => { setFailedInput(false); }, [instance]);
+  const retryInput = async () => {
+    if (!instance || (!instance.view.hasFailedInputDelivery && !notesRecovery.current?.failed())) return;
+    const generation = lifetime.current, root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const owns = () => host.current?.isConnected === true && lifetime.current === generation &&
+      instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
+    const failure = instance.commandFailure();
+    const recovery = notesRecovery.current;
+    const nativeFailed = instance.view.hasFailedInputDelivery;
+    const correlated = !!failure && (nativeFailed ? instance.view.hasFailedInputDeliveryError(failure.error) : recovery?.matches(failure.error));
+    const retryOwns = () => owns() && (nativeFailed || notesRecovery.current === recovery);
+    const accepted = nativeFailed ? await instance.view.retryInputDelivery(retryOwns) : await recovery?.retry(retryOwns);
+    if (accepted && retryOwns()) {
+      if (correlated) failure!.acknowledge(owns);
+      setFailedInput(instance.view.hasFailedInputDelivery || notesRecovery.current?.failed() === true);
+    }
+  };
+  const beforeSnapshot = useCallback(async () => {
+    if (!await deliverInput()) throw new Error('마지막 입력을 반영하지 못했습니다. 현재 입력을 유지합니다.');
+  }, [deliverInput]);
+  const persistence = useSlidePersistence(editor, localPersistence && !server, beforeSnapshot);
   const slides = useDeck(editor);
   const revision = useRevision(editor);
   /**
@@ -310,6 +501,8 @@ export function App({
    * would mean two drawings of one deck that could disagree.
    */
   const [presenting, setPresenting] = useState(false);
+  const narrowPanels = useFloatingPanelBounds(host, !!instance && !presenting, panelMenuHost);
+  const navigationVisible = sidebarOpen && (!narrowPanels || !inspectorOpen);
 
   /**
    * Whether the reader is looking at the deck's **map** instead of a page.
@@ -358,8 +551,10 @@ export function App({
   useEffect(() => {
     // Undo/redo can restore an object on another slide without a DOM pointer event.
     if (presenting || editingComponent || editingDesign) return;
-    const selected = selectedNodeIds(editor?.selection);
-    let sid = selected[0];
+    const selection = editor?.selection;
+    const selected = selectedNodeIds(selection);
+    // Text commands select a caret, not a set of whole nodes. Follow its owning slide too.
+    let sid = selection?.type === 'range' ? selection.startNodeId : selected[0];
     const seen = new Set<string>();
     while (sid && !seen.has(sid)) {
       seen.add(sid);
@@ -392,6 +587,21 @@ export function App({
       const sid = slide?.getAttribute('data-bc-sid');
       if (!sid || !slides.some(one => one.sid === sid)) return;
       if (sid === current) return;
+      if (event.type === 'pointerdown' && !event.defaultPrevented && (event as PointerEvent).button === 0 &&
+        !readOnly && editor?.isEditable) {
+        // Activate and measure the existing overlay before handing it this first
+        // gesture. Selecting a different board must not consume the user's drag.
+        const root = editor.dataStore.getNode(editor.getRootId()!);
+        flushSync(() => setCurrent(sid));
+        const overlay = stageOwner.current?.querySelector<HTMLElement>(`[data-slide-overlay="${CSS.escape(sid)}"]`);
+        if (overlay?.isConnected && editor.isEditable && root === editor.dataStore.getNode(editor.getRootId()!) &&
+          !overlay.closest('[hidden], [inert]')) {
+          event.preventDefault();
+          event.stopPropagation();
+          overlay.dispatchEvent(new PointerEvent('pointerdown', event as PointerEvent));
+        }
+        return;
+      }
       setCurrent(sid);
       const box = target.closest('[data-bc-sid]');
       let placed = box;
@@ -417,7 +627,7 @@ export function App({
     pane.addEventListener('pointerdown', activate, true);
     pane.addEventListener('focusin', activate, true);
     return () => { pane.ownerDocument.removeEventListener('selectionchange', caretChanged); pane.removeEventListener('pointerdown', activate, true); pane.removeEventListener('focusin', activate, true); };
-  }, [focused, presenting, editingComponent, editingDesign, slides, current, editor]);
+  }, [focused, presenting, editingComponent, editingDesign, slides, current, editor, readOnly]);
 
 
   /**
@@ -842,14 +1052,8 @@ export function App({
     [editor, current]
   );
 
-  /**
-   * Whether the components list is showing.
-   *
-   * Closed by default and remembered for the session, like the layer list: a deck with no
-   * components has nothing to say here, and a panel that opens itself takes room from the
-   * slide every time the app starts.
-   */
-  const [componentsOpen, setComponentsOpen] = useState(false);
+  /** One left navigation column keeps the stage width stable across all three views. */
+  const [sidebarTab, setSidebarTab] = useState<'slides' | 'layers' | 'components'>('layers');
 
   /**
    * Which of this deck's **imported** definitions are behind the deck they came from.
@@ -871,13 +1075,16 @@ export function App({
    */
   const [libraryDecks, setLibraryDecks] = useState<string[]>([]);
   useEffect(() => {
+    if (server) { setLibraryDecks([]); return; }
+    let active = true;
     void libraryRows()
-      .then((rows) => setLibraryDecks(rows.map((row) => row.name)))
-      .catch(() => setLibraryDecks([]));
-  }, [dialog]);
+      .then((rows) => { if (active) setLibraryDecks(rows.map((row) => row.name)); })
+      .catch(() => { if (active) setLibraryDecks([]); });
+    return () => { active = false; };
+  }, [dialog, server]);
 
   useEffect(() => {
-    if (!componentsOpen || components.length === 0) return;
+    if (server || sidebarTab !== 'components' || components.length === 0) return;
     let dropped = false;
 
     void (async () => {
@@ -914,7 +1121,7 @@ export function App({
     };
     // On opening, and when the deck's own definitions change — a definition just re-imported is no
     // longer behind, and the badge has to stop saying so.
-  }, [componentsOpen, components, editor]);
+  }, [sidebarTab, components, editor, server]);
 
   /**
    * Whether the find bar is showing.
@@ -933,165 +1140,127 @@ export function App({
    */
   const [auditing, setAuditing] = useState(false);
 
-  /**
-   * The menubar, drawn from `SLIDES_MENUS` and greyed against the deck.
-   *
-   * An entry a reader can press that then does nothing is worse than one that is not there, and
-   * every command in the model already answers `canExecute`. A `view` entry has no command to ask,
-   * so it is never disabled: whether the audit pane is up is always a question a reader may answer.
-   */
-  const menus = useMemo(
-    () =>
-      slidesMenus(onApple()).map((menu) => ({
-        id: menu.id,
-        label: menu.label,
-        blocks: menu.blocks.map((block) => ({
-          id: block.id,
-          items: block.items.map((item, index) => ({
-            id: slidesMenuId(menu, block, index),
-            label: item.label,
-            hint: item.hint,
-            /*
-             * Why a greyed entry is greyed. A disabled control that says nothing is the commonest
-             * small cruelty in a tool: the reader can see the thing they want and has no way to
-             * learn what would make it available.
-             */
-            title:
-              item.view === 'scroll' && moveBy === 'links'
-                ? '버튼으로만 이동하는 덱은 스크롤로 볼 수 없습니다 — 스크롤은 한 줄이기 때문입니다'
-                : undefined,
-            checked:
-              item.view === 'audit'
-                ? auditing
-                : item.view === 'map'
-                  ? mapping
-                  : item.view === 'focus'
-                    ? focused
-                    : undefined,
-            disabled: item.view === 'scroll' ? moveBy === 'links' : item.command
-              ? !editor?.canExecuteCommand?.(
-                  item.command,
-                  // `needs: 'slide'` is the model asking for the slide on screen, which only the app
-                  // knows — the document has no notion of one being current. Without it
-                  // 슬라이드 복제 answers `canExecute` against nothing and is greyed forever.
-                  (item.needs === 'slide' ? { ...item.payload, slideId: current } : item.payload) as never
-                )
-              : false
-          }))
-        }))
-      })),
-    [editor, answers, current, moveBy, auditing, mapping, focused]
-  );
-
-  /**
-   * What a pick does — a command, or a change to how the reader is looking.
-   *
-   * The `view` branch is the one `switch` the model promises, and it is most of this menubar: opening
-   * a dialog, showing a pane, starting a presentation. None of those is a fact about the deck, which
-   * is why none of them is a command.
-   */
-  const runEntry = useCallback(
-    (entry: { command?: string; view?: string; payload?: Record<string, unknown>; needs?: string }) => {
-      switch (entry.view) {
-        case 'file.new':
-          return files.current?.create();
-        case 'file.open':
-          return files.current?.open();
-        case 'file.save':
-          return files.current?.save();
-        case 'file.print':
-          return setDialog('print');
-        case 'library':
-          return setDialog((was) => (was === 'library' ? null : 'library'));
-        case 'template':
-          return setDialog('template');
-        case 'dialog.size':
-          return setDialog('size');
-        case 'dialog.layout':
-          return setDialog('layout');
-        case 'dialog.theme':
-          return setDialog('theme');
-        case 'audit':
-          return setAuditing((was) => !was);
-        case 'map':
-          return setMapping((was) => !was);
-        case 'focus':
-          return setFocused((on) => !on);
-        case 'present':
-          return setPresenting(true);
-        case 'scroll':
-          /*
-           * The whole act, which was the button's: where the reader already is, then the show.
-           * A scroll show that started at the top would lose the slide they were looking at.
-           */
-          if (moveBy === 'links') return;
-          setScrolled(scrollTopOf(current, stretches));
-          setScrolling(true);
-          return setPresenting(true);
-        default:
-          break;
-      }
-
-      if (entry.command) {
-        void editor?.executeCommand(
-          entry.command,
-          (entry.needs === 'slide' ? { ...entry.payload, slideId: current } : entry.payload) as never
-        );
-      }
-    },
-    [editor, current, moveBy, stretches]
-  );
-
-  const [commandOpen, setCommandOpen] = useState(false);
-  const [recentCommands, setRecentCommands] = useState<string[]>([]);
-  const [commandError, setCommandError] = useState('');
-  const searchTarget = useRef<{ rootId: string; slideId?: string; selection?: ModelSelection } | undefined>(undefined);
-  const searchEntries = useMemo(() => slidesSearchCommands(onApple()), []);
-  const menuItems = menus.flatMap(menu => menu.blocks.flatMap(block => block.items));
-  const searchCommands = searchEntries.map(entry => {
-    const menu = menuItems.find(item => item.id === entry.id);
-    const disabled = !editor || (menu ? menu.disabled :
-      (!!entry.control?.needsSlide && !current) || !editor.canExecuteCommand(entry.command!, slidesSearchPayload(entry, current, here?.number) as never));
-    return { ...entry, disabled, disabledReason: menu?.title ?? '현재 슬라이드 또는 선택한 객체에서는 실행할 수 없습니다.' };
-  });
-  const openCommandSearch = () => {
-    const rootId = editor?.getRootId();
-    if (!editor || !view || !rootId) return;
-    searchTarget.current = { rootId, slideId: current, selection: structuredClone(captureTextSelection(editor, view, { allowBlurred: true }) ?? editor.selection ?? undefined) };
-    setCommandError(''); setCommandOpen(true);
-  };
-  const pickSearchCommand = async (id: string) => {
-    const target = searchTarget.current, entry = searchEntries.find(item => item.id === id);
-    if (!editor || !target || !entry) return;
-    if (editor.getRootId() !== target.rootId || current !== target.slideId) {
-      setCommandError('문서 또는 현재 슬라이드가 변경되었습니다. 명령을 다시 선택하세요.'); return;
+  const onFileAction = useCallback((action: SlideMenuFileAction) => {
+    if (serverRef.current) {
+      if (action === 'open') { setServerLibraryOpen(true); return; }
+      return serverRef.current.onFileAction(action === 'create' ? 'new' : action);
     }
-    try {
-      if (target.selection) editor.updateSelection({ selection: target.selection, applySelectionToView: true });
-      if (entry.command) {
-        const payload = slidesSearchPayload(entry, target.slideId, here?.number);
-        if (!editor.canExecuteCommand(entry.command, payload as never) || !await editor.executeCommand(entry.command, payload as never)) {
-          setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
-        }
-      } else {
-        if (menuItems.find(item => item.id === entry.id)?.disabled) { setCommandError('현재 상태에서 명령을 실행할 수 없습니다.'); return; }
-        runEntry(entry);
-      }
-      setRecentCommands(previous => [id, ...previous.filter(value => value !== id)].slice(0, 5));
-    } catch { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); }
-  };
+    files.current?.[action]();
+  }, []);
+  const onViewAction = useCallback((action: SlideMenuViewAction) => {
+    if (serverRef.current && action === 'library') return setServerLibraryOpen(true);
+    if (serverRef.current && action === 'template') return;
+    if (readOnly && ['template', 'size', 'layout', 'theme'].includes(action)) return;
+    switch (action) {
+      case 'print':
+        return setDialog('print');
+      case 'library':
+        return setDialog((was) => (was === 'library' ? null : 'library'));
+      case 'template':
+        return setDialog('template');
+      case 'size':
+        return setDialog('size');
+      case 'layout':
+        return setDialog('layout');
+      case 'theme':
+        return setDialog('theme');
+      case 'audit':
+        return setAuditing((was) => !was);
+      case 'map':
+        return setMapping((was) => !was);
+      case 'focus':
+        setMapping(false);
+        setZoom(undefined);
+        return setFocused((on) => !on);
+      case 'ruler':
+        return setRulerShown((shown) => !shown);
+      case 'present':
+        return setPresenting(true);
+      case 'scroll':
+        if (moveBy === 'links') return;
+        setScrolled(scrollTopOf(current, stretches));
+        setScrolling(true);
+        return setPresenting(true);
+    }
+  }, [current, moveBy, stretches, readOnly, focused]);
 
-  /** A pick in the menubar, which is `runEntry` with the entry looked up. */
-  const onMenu = useCallback(
-    (id: string) => {
-      const entry = slidesMenuEntry(id);
-      if (entry) runEntry(entry);
-    },
-    [runEntry]
-  );
+  const {
+    menus: nativeMenus, searchCommands, commandOpen, setCommandOpen, recentCommands, commandError,
+    dismissCommandError, openCommandSearch, pickSearchCommand, prepareSearchCommandPick, onMenu, runEntry
+  } = useSlideMenuSearch({
+    editor, view, current, slideNumber: here?.number, answers, moveBy,
+    auditing, mapping, focused, onFileAction, onViewAction
+  });
+
+  const [documentMenuGeneration, setDocumentMenuGeneration] = useState(0);
+  const documentMenuOwner = useRef<{ editor: SlidesRuntime['editor']; view: typeof view; selection: string } | null>(null);
+  const documentMenuOpenChanged = useCallback((open: boolean) => {
+    const owned = documentMenuOwner.current;
+    if (!open) {
+      if (owned?.editor === editor && owned.view === view) documentMenuOwner.current = null;
+      return;
+    }
+    if (!editor || (owned?.editor === editor && owned.view === view)) return;
+    let selection = editor.selection;
+    const dom = view?.contentEditableElement.ownerDocument.getSelection();
+    if (view && dom?.anchorNode?.isConnected && dom.focusNode?.isConnected &&
+      view.contentEditableElement.contains(dom.anchorNode) && view.contentEditableElement.contains(dom.focusNode)) {
+      const converted = view.convertDOMSelectionToModel(dom);
+      if (converted?.type === 'range') selection = converted;
+    }
+    // The real DOM caret can settle after the menu opens. Observe it without
+    // changing the model or reviving a previously retired selection owner.
+    documentMenuOwner.current = { editor, view, selection: JSON.stringify(selection) };
+  }, [editor, view]);
+  useEffect(() => {
+    if (!editor) return;
+    const owner = () => {
+      const owned = documentMenuOwner.current;
+      return owned?.editor === editor && owned.view === view ? owned : null;
+    };
+    const retire = () => {
+      const owned = owner();
+      if (!owned || documentMenuOwner.current !== owned) return;
+      documentMenuOwner.current = null;
+      setDocumentMenuGeneration(generation => generation + 1);
+    };
+    const selectionChanged = () => {
+      const owned = owner();
+      if (owned && JSON.stringify(editor.selection) !== owned.selection) retire();
+    };
+    editor.on('editor:selection.model', selectionChanged); editor.on('editor:selection.change', selectionChanged);
+    editor.on('editor:content.change', retire); editor.on('editor:editable.change', retire);
+    return () => {
+      if (owner()) documentMenuOwner.current = null;
+      editor.off('editor:selection.model', selectionChanged); editor.off('editor:selection.change', selectionChanged);
+      editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire);
+    };
+  }, [editor, view]);
+
+  const nativeDocumentMenus = useMemo(() => nativeMenus.map(menu => ({ ...menu, blocks: menu.blocks.map(block => ({
+    ...block, items: block.items.map(item => {
+      const entry = slidesMenuEntry(item.id);
+      const disabled = item.disabled || (Boolean(server) && entry?.view === 'template')
+        || (readOnly && ['template', 'dialog.size', 'dialog.layout', 'dialog.theme'].includes(entry?.view ?? ''));
+      return { ...item, disabled, ...(entry?.view === 'map' ? { label: '슬라이드 이동 지도' } : {}), ...(entry?.view === 'ruler' ? { checked: rulerShown } : {}) };
+    })
+  })) })), [nativeMenus, readOnly, server, rulerShown]);
+
+  const menus = nativeDocumentMenus.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks,
+    { id: 'original-library', items: [{ id: 'workspace.recent', label: server ? '서버 Slides 목록' : t('document.library.recent'), disabled: !editor || presenting || (!server && recentDocumentsBusy) }] },
+    ...(server?.nativeExport ? [{ id: 'native-export', items: [{ id: 'workspace.export', label: 'Slides 파일 내보내기', disabled: !server.nativeExport.available }] }] : [])
+  ] } : menu);
+  const pickDocumentMenu = (id: string) => {
+    if (id === 'workspace.recent') {
+      if (server) setServerLibraryOpen(true);
+      else recentDocuments.current?.open(documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]'));
+    } else if (id === 'workspace.export') { if (serverRef.current?.nativeExport?.available) serverRef.current.nativeExport.run(); }
+    else onMenu(id);
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
       if (event.defaultPrevented) return;
       if ((event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
@@ -1703,6 +1872,10 @@ export function App({
        * reader's file being replaced by another.
        */
       if (jump?.deck) {
+        if (serverRef.current) { setAway('서버 문서에서는 다른 덱을 열 수 없습니다.'); return; }
+        const generation = lifetime.current;
+        const sourceRoot = rootId;
+        const active = () => generation === lifetime.current && !serverRef.current && editor?.getRootId() === sourceRoot;
         void (async () => {
           try {
             /**
@@ -1717,10 +1890,12 @@ export function App({
             const source = jump.deck as string;
             const kept = isLibraryName(source) ? await libraryDeck(source) : undefined;
             const text = kept ?? (await (await fetch(source)).text());
+            if (!active()) return;
             const read = readDeckFile(text);
             if ('error' in read) return setAway(read.error);
 
             if (!await persistence.beforeReplace()) { setAway('현재 자료를 저장하지 못했습니다. 다시 시도하세요.'); return; }
+            if (!active()) return;
             editor?.loadDocument?.(read.document, 'slides');
             // A fetched file has no local identity; a library jump now edits its destination row.
             setLibraryName(kept !== undefined ? source : undefined);
@@ -1738,7 +1913,7 @@ export function App({
           } catch {
             // Said, not swallowed: a button that silently does nothing in front of a room is the
             // fault this whole feature's check exists to prevent.
-            setAway('다른 덱을 열 수 없습니다.');
+            if (active()) setAway('다른 덱을 열 수 없습니다.');
           }
         })();
         return;
@@ -1799,6 +1974,7 @@ export function App({
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
       if (!(event.metaKey || event.ctrlKey)) return;
       if (event.key.toLowerCase() !== 'z') return;
 
@@ -1806,7 +1982,8 @@ export function App({
       if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
 
       event.preventDefault();
-      void (event.shiftKey ? editor?.redo?.() : editor?.undo?.());
+      if (!editor?.isEditable) return;
+      void (event.shiftKey ? editor.redo() : editor.undo());
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -1816,10 +1993,11 @@ export function App({
   // the one shortcut a deck cannot do without.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       // Inside the document, the arrows belong to the caret.
-      if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"]')) return;
+      if (target?.closest?.('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"], [data-slide-navigation], [data-slides-more-owner], [data-floating-surface], [data-floating-panel]')) return;
       if (event.key !== 'PageDown' && event.key !== 'PageUp') return;
 
       const at = slides.findIndex((slide) => slide.sid === current);
@@ -1851,27 +2029,45 @@ export function App({
         ...(scrolling ? { scrolled: String(Math.round(scrolled)), 'scroll-span': String(scrollSpan) } : {})
       }}
     >
-      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} />
-      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={() => setCommandError('')} /></TaskStatusRegion>}
-      <EditorHeader product="Slides" className="sl-topbar"
-        fallbackNavigation={<ProductMenu product="Slides" blocks={menus.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
+      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} onPickIntent={prepareSearchCommandPick} />
+      {failedInput && <TaskStatusRegion label={t('document.input.failed')}><TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button onClick={() => void retryInput()}>{t('document.input.retry')}</Button>} /></TaskStatusRegion>}
+      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
+      <EditorHeader compact product="Slides" className="sl-topbar"
+        fallbackNavigation={server?.headerNavigation}
         title={editor ? documentTitle({ rootId: editor.getRootId()!, getNode: id => editor.dataStore.getNode(id) }) || '제목 없는 발표 자료' : '불러오는 중'}
-        menus={<MenuBar className="sl-menubar" label="덱 메뉴" menus={menus} onPick={onMenu} />}
-        view={<><span className="sl-count">{slides.length > 0 && here ? `${here.number} / ${slides.length}` : '—'}</span>
-          <ZoomControl
-            zoom={zoom ?? fitted}
-            ladder={SLIDES_ZOOM_LADDER}
-            onChange={(next) => setZoom(clampZoom(next))}
-            onFit={() => setZoom(undefined)}
-            fitLabel="화면에 맞춤"
-          />
-          <Button title="한 장만 보기 / 전체 보기" onClick={() => setFocused(on => !on)} data={{ 'focus-toggle': '' }}>{focused ? '캔버스 보기' : '한 장 보기'}</Button>
-        </>}
-        actions={<><CommandSearchTrigger disabled={!editor || presenting} onClick={openCommandSearch} /><SlideDocuments persistence={persistence} onOpened={() => {
+        menus={<span ref={documentMenuHost}><DocumentMenu key={`${documentMenuGeneration}:${lifetime.current}:${editor?.getRootId()}:${editor?.dataStore.getDocumentEpoch()}:${current}:${readOnly}`} onOpenChange={documentMenuOpenChanged} label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={menus} menuIds={['file']} onPick={pickDocumentMenu} /></span>}
+        tools={<div ref={setHeaderTools} className="sl-header-edit-tools" />}
+        view={!presenting && <Toolbar variant="compact" label="Slides 보기 도구" className="sl-header-view-tools">
+          <ZoomControl zoom={zoom ?? fitted} ladder={SLIDES_ZOOM_LADDER} onChange={next => setZoom(clampZoom(next))}
+            onFit={() => setZoom(undefined)} fitLabel="화면에 맞춤" />
+          <Tip label="처음부터 발표"><Button square tone="quiet" ariaLabel="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}><Icon name="present" /></Button></Tip>
+        </Toolbar>}
+        actions={<>
+          <span ref={panelMenuHost}><DocumentMenu onOpenChange={open => { panelMenuActive.current = open; }} label={t('office.header.panels')} icon={<Icon name="outline" />} menus={[{ id: 'panels', label: t('office.header.panels'), blocks: [{ id: 'panels', items: [
+            { id: 'layers', label: '레이어 · 개체 순서와 컴포넌트', checked: navigationVisible },
+            { id: 'properties', label: '속성 · 크기, 위치, 모양', checked: inspectorOpen }
+          ] }] }]} onPick={id => {
+            const opener = panelMenuHost.current?.querySelector<HTMLElement>('[data-menu]');
+            if (opener?.isConnected) opener.focus({ preventScroll: true });
+            if (id === 'layers') {
+              if (narrowPanels && inspectorOpen) { setInspectorOpen(false); setSidebarOpen(true); }
+              else setSidebarOpen(value => !value);
+            } else if (id === 'properties') {
+              inspectorOrigin.current = panelMenuHost.current?.querySelector<HTMLElement>('[data-menu]') ?? null;
+              setInspectorOpen(value => !value);
+            }
+          }} /></span>
+          <CommandSearchTrigger iconOnly disabled={!editor || presenting} onClick={openCommandSearch} />
+          {!server && <SlideDocuments ref={recentDocuments} showTrigger={false} onBusyChange={setRecentDocumentsBusy} iconOnly persistence={persistence} onOpened={() => {
             setLibraryName(undefined); setCurrent(undefined); setStepEdit([]); setPlayed(0); setPlayhead(0);
-          }} />
-          <FileActions
+          }} />}
+          {server?.headerActions}
+        </>} />
+
+          {!server && <FileActions
+            showTrigger={false}
             beforeReplace={persistence.beforeReplace}
+            beforeSave={() => deliverInput()}
             ref={files}
             editor={editor}
             onOpened={() => {
@@ -1888,52 +2084,50 @@ export function App({
                */
               setLibraryName(undefined);
             }}
-          />
+          />}
+      {server?.navigation && <FloatingSurface open={serverLibraryOpen} keepMounted at={documentMenuHost.current?.getBoundingClientRect() ?? null}
+        prefer="below" align="start" variant="panel" focusOnOpen portalRoot={host.current?.closest('.sl-shell') as HTMLElement | null}
+        ownedElements={[documentMenuHost]} role="region" aria-label="서버 Slides 목록" style={{ width: 320, maxWidth: 'calc(100vw - 24px)' }}
+        onDismiss={reason => { setServerLibraryOpen(false); if (reason === 'escape') documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')?.focus({ preventScroll: true }); }}>
+        <FloatingPanelHeader title="서버 Slides 목록" onClose={() => { setServerLibraryOpen(false); documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')?.focus({ preventScroll: true }); }} />
+        {server.navigation}
+      </FloatingSurface>}
 
+      {!presenting && <>
+        {editor && <SlidesDocumentChrome key={focused ? 'single' : 'canvas'} active={!mapping} editor={editor} slides={slides} current={current} scope={toolScope}
+          headerHost={headerTools} inspectorHost={inspectorTools} onInspectorEscape={() => closePanel('inspector')} onInspect={origin => { inspectorOrigin.current = origin ?? null; focusInspector.current = true; setInspectorOpen(true); if (inspectorOpen) { focusInspector.current = false; inspectorTools?.closest<HTMLElement>('[data-floating-panel]')?.focus({ preventScroll: true }); } }} />}
+      </>}
 
-          <Button tone="accent" title="처음부터 발표" onClick={() => setPresenting(true)} data={{ present: '' }}>발표</Button>
-        </>} />
-
-      {/*
-       * The suite's toolbar, drawing the model `office-slides` declares with the
-       * components `office-word` draws its own with. The two products look alike
-       * because they draw with the same components, not because they share a
-       * list of controls.
-       */}
-      {editor && !presenting && <Ribbon editor={editor} slides={slides} current={current} />}
-
-      <AdaptiveWorkspace className="sl-body" enabled={!!editor && !presenting}>
-        <WorkspaceSidePanel side="navigation" width={240 + (componentsOpen ? 200 : components.length ? 24 : 0)}>
+      <AdaptiveWorkspace className="sl-body" enabled={false}>
+        <WorkspaceSidePanel id="slides-objects" side="navigation"
+          onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}
+          onKeyDown={event => {
+            if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
+              (event.target instanceof Element && event.target.closest('input,textarea,[role="menu"],[role="listbox"],[data-floating-surface]'))) return;
+            event.preventDefault(); event.stopPropagation(); closePanel('navigation');
+          }} floating width={240} hidden={!navigationVisible || presenting} inert={!navigationVisible || presenting}>
           <div className="sl-workspace-navigation">
-            <SlideSidebar
+            <SlideSidebar registry={instance?.registry} objectsOnly
               editor={editor}
               revision={revision}
               slides={slides}
               current={current}
               editingSlide={current}
+              tab={sidebarTab}
+              onTabChange={setSidebarTab}
+              componentCount={components.length}
               onSelect={sid => { setCurrent(sid); leaveSelection(); }}
-              onRename={(sid, name) => void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
-            />
-
-            {/*
-              * The components a deck defines, and the way in and out of one.
-              *
-              * Beside the layer list because both answer "which thing" — and a definition has to
-              * be opened from *somewhere*: it is a resource rather than a page, so there is no
-              * filmstrip row to click. See `component-panel.tsx` for why that is the right place
-              * for it rather than a page of the file you scroll to.
-              */}
-            <ComponentPanel
-              editor={editor}
-              open={componentsOpen}
-              editing={editingComponent}
-              onOpen={openDefinition}
-              onClose={() => setComponentsOpen((was) => !was)}
-              behindSource={behindSource}
-              canMake={canMakeComponent}
-              onMake={makeComponent}
-              onPlace={placeComponent}
-              slideId={current}
+              onRename={(sid, name) => !readOnly && void editor?.executeCommand('setSlideInfo', { slideId: sid, name })}
+              componentPanel={<ReadOnlyControls enabled={readOnly}><ComponentPanel
+                editor={editor}
+                editing={editingComponent}
+                onOpen={openDefinition}
+                behindSource={behindSource}
+                canMake={canMakeComponent}
+                onMake={makeComponent}
+                onPlace={placeComponent}
+                slideId={current}
+              /></ReadOnlyControls>}
             />
 
           </div>
@@ -2042,8 +2236,9 @@ export function App({
             *
             * Not while presenting: an audience is looking at a page, not at the deck's plumbing.
             */}
+          <div className="sl-stage-region">
           {mapping && !presenting && (
-            <DeckMapView
+            <DeckMapView registry={instance?.registry}
               editor={editor}
               revision={revision}
               current={current}
@@ -2074,8 +2269,13 @@ export function App({
             />
           )}
 
+          <div ref={stageOwner} className="sl-stage-owner" inert={mapping && !presenting} aria-hidden={mapping && !presenting ? true : undefined}
+            style={{ visibility: mapping && !presenting ? 'hidden' : undefined }}>
           <Stage
             host={host}
+            interactionRoot={stageOwner}
+            editable={!readOnly && !!editor?.isEditable}
+            lifetimeKey={editor?.dataStore.getNode(editor.getRootId()!)}
             /** 무대의 요소를 앱이 받아 형제들에게 건넨다 — `stage` 위의 설명. */
             frame={stage}
             /** One page, one definition, or the deck as a strip — see `stageFocus`. */
@@ -2122,7 +2322,7 @@ export function App({
              * The rulers, in the reader's unit — and only while editing: a
              * projector is not a place to measure things.
              */
-            unit={presenting ? undefined : unit}
+            unit={!presenting && rulerShown ? unit : undefined}
             /** Pulling a guide out of a ruler; the app holds it in flight. */
             onGuideDraft={setDraftGuide}
             onGuidePlace={placeGuide}
@@ -2144,7 +2344,7 @@ export function App({
            * every element in there and rewrites them on each render, so a handle
            * put in the tree would last until the next keystroke.
            */}
-          {!presenting && (
+          {!presenting && !readOnly && !mapping && (
             <SelectionOverlay
               editor={editor}
               view={view}
@@ -2172,15 +2372,18 @@ export function App({
             />
           )}
 
-          {/*
-           * The note, editable, and drawn by a second view over the same
-           * document — see `notes.tsx` for why that rather than a textarea. It
-           * used to be read-only prose with a comment saying this was the next
-           * thing the app needed; this is that thing.
-           */}
-          {!presenting && (
-            <NotesPane editor={editor} slideSid={current} revision={revision} />
-          )}
+          </div>
+          </div>
+
+          {editor && !presenting && <SlideNavigation registry={instance?.registry} editor={editor} slides={slides} current={current} revision={revision}
+            viewMode={mapping ? 'map' : focused ? 'single' : 'multi'}
+            onViewModeChange={mode => { if (mapping || focused !== (mode === 'single')) setZoom(undefined); setMapping(false); setFocused(mode === 'single'); }}
+            lifetimeKey={`${lifetime.current}:${editor.getRootId()}:${readOnly}`}
+            readOnly={readOnly} definitionLabel={editingComponent ? `컴포넌트: ${editingComponent.id}` : editingDesign ? `${editingDesign.kind}: ${editingDesign.id}` : undefined}
+            renderNotes={(close, open) => <NotesPane registry={instance?.registry} onInputRecoveryReady={recoveryReady} onInputDeliveryReady={notesDelivery} active={open} editor={editor} slideSid={current} revision={revision} onClose={close} />}
+            onSelect={sid => { setCurrent(sid); leaveSelection(); }}
+            onRename={(sid, name) => !readOnly && void editor.executeCommand('setSlideInfo', { slideId: sid, name })} />}
+
 
         </AppMain>
 
@@ -2189,8 +2392,17 @@ export function App({
          * the suite's components; what is in it is a deck's — a box has a
          * position, which is the whole difference between a slide and a page.
          */}
-        <WorkspaceSidePanel side="inspector" width={280}>
+        <WorkspaceSidePanel id="slides-details" side="inspector" tabIndex={-1}
+          onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}
+          onKeyDown={event => {
+            if (event.key !== 'Escape' || event.defaultPrevented || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 ||
+              (event.target instanceof Element && event.target.closest('input,textarea,[role="menu"],[role="listbox"],[data-floating-surface]'))) return;
+            event.preventDefault(); event.stopPropagation(); closePanel('inspector');
+          }} floating width={280} hidden={!inspectorOpen || presenting} inert={!inspectorOpen || presenting}>
           <Properties
+            onInputDeliveryReady={propertyDelivery}
+            inspectorToolsRef={setInspectorTools}
+            readOnly={readOnly}
             editor={editor}
             slides={slides}
             current={current}
@@ -2224,7 +2436,7 @@ export function App({
         * take room from *everything* rather than only from the slide.
         */}
       {!presenting && (
-        <TimelinePane
+        <ReadOnlyControls enabled={readOnly}><TimelinePane
           editor={editor}
           slideSid={current}
           /*
@@ -2273,23 +2485,23 @@ export function App({
           onOpen={setTimelineChoice}
           /** 필름의 길이를 물어볼 무대 — 조회가 아니라 건네받는다. */
           host={stage}
-        />
+        /></ReadOnlyControls>
       )}
 
-      <SlidePrintDialog editor={editor} slides={slides} revision={revision}
+      <SlidePrintDialog registry={instance?.registry} editor={editor} slides={slides} revision={revision}
         open={dialog === 'print'} onClose={() => setDialog(null)}
         onPrint={async () => { await printer?.print(); }} />
       <SlideSizeDialog
         editor={editor}
         slides={slides}
-        open={dialog === 'size'}
+        open={!readOnly && dialog === 'size'}
         onClose={() => setDialog(null)}
       />
       {/* The reader's own decks, by name — what a `goToDeck` points at. */}
       <LibraryDialog
         beforeReplace={persistence.beforeReplace}
         editor={editor}
-        open={dialog === 'library'}
+        open={!server && dialog === 'library'}
         onClose={() => setDialog(null)}
         name={libraryName}
         onName={setLibraryName}
@@ -2304,7 +2516,7 @@ export function App({
       <SlideLayoutDialog
         editor={editor}
         current={current}
-        open={dialog === 'layout'}
+        open={!readOnly && dialog === 'layout'}
         onClose={() => setDialog(null)}
         /* The way into a layout or the master: the same opening a component's definition uses. */
         onEdit={openDefinition}
@@ -2318,7 +2530,7 @@ export function App({
         */}
       <ThemeDialog
         editor={editor}
-        open={dialog === 'theme'}
+        open={!readOnly && dialog === 'theme'}
         onClose={() => setDialog(null)}
       />
       {/*
@@ -2331,7 +2543,7 @@ export function App({
       <TemplateDialog
         beforeReplace={persistence.beforeReplace}
         editor={editor}
-        open={dialog === 'template'}
+        open={!server && !readOnly && dialog === 'template'}
         onClose={() => setDialog(null)}
         onOpened={() => {
           // A new document is a new deck: the slide that was on screen is not in it, and
@@ -2397,7 +2609,7 @@ export function App({
         * a presenter is shown.
         */}
       {presenting && presenterView && !presenterWindow && (
-        <Presenter
+        <Presenter registry={instance?.registry}
           editor={editor}
           slides={slides}
           current={current}
@@ -2416,7 +2628,7 @@ export function App({
         onGo={advance}
         onExit={() => setPresenting(false)}
       >
-        <Presenter
+        <Presenter registry={instance?.registry}
           editor={editor}
           slides={slides}
           current={current}

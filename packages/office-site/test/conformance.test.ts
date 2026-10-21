@@ -2111,6 +2111,7 @@ describe('the site builder draws what it declares', () => {
         setDatasetInfo: 'the data grid — 이름, 출처, and 주소 when the source is an address',
         setDatasetField: 'the data grid — a column heading is the control: typed to rename, ␡ to remove, ＋ to add',
         setDatasetCell: 'the data grid — a cell',
+        createDatasetRichText: 'the row form — the 작성 button in an empty rich text field',
         addDatasetRow: 'the data grid — 행 추가',
         removeDatasetRow: 'the data grid — the ␡ at the end of a row',
         removeDataset: 'the data grid — 데이터 삭제, refused while a list draws it',

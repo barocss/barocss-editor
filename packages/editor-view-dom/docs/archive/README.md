@@ -1,23 +1,14 @@
 # Archived Documentation
 
-This directory contains implementation detail, planning, and spec documents from development.
+## Archive status
 
-## Contents
+This directory contains only this README in the current checkout. No archived
+documents are tracked here. The previous README described categories of archived
+documents, but no files from those categories are present in this directory.
 
-This package has many implementation detail documents. Most are archived here as they represent development-time decisions and analysis rather than current user-facing documentation.
+## Package documentation
 
-### Categories
-
-- **Spec Documents**: Detailed specifications for features
-- **Planning Documents**: Implementation plans and strategies
-- **Analysis Documents**: Architecture and approach analysis
-- **Test Documents**: Test scenarios and checklists
-- **Refactoring Documents**: Refactoring plans and details
-
-## Note
-
-These documents may contain valuable implementation details and historical context.
-
-For current implementation information, refer to:
-- [Editor View DOM README](../README.md)
-
+- [Editor View DOM README](../../README.md)
+- [Decorator Usage Guide](../decorator-guide.md)
+- [Selection System Specification](../selection-system.md)
+- [Input Handling Implementation Guide](../input-handling-implementation-guide.md)

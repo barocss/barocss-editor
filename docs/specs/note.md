@@ -197,6 +197,11 @@ unsaved work stays pending and the latest-version switch is blocked until retry/
 the latest version creates a fresh editor session for both its title and body. This does not add
 server synchronization or collaborative merge.
 
+Recovery-list read failures are separate from document-save failures. The recovery notice's retry
+action reads the draft library again and shows its held drafts when storage recovers. A failed read
+keeps the notice, including a delayed failure after an unrelated save completes. Listing or retrying
+does not rewrite the original document or the held draft. Document-save retry retains its own path.
+
 Imports must reject malformed or unsupported trees visibly without overwriting existing notes.
 An unreadable stored note must not prevent opening healthy notes. Retain its original data and
 provide original-file export and a reason for the failure, even if every stored note is unreadable.
@@ -425,4 +430,4 @@ Flattening moves all blocks into the parent in left-to-right order. No content i
 At <=640px columns stack; desktop weights persist. Insertion inside existing layouts is refused.
 Note JSON preserves the structure; Markdown/HTML export does not yet encode this layout.
 
-Site integration inventory (2026-09-19): 316 browser test declarations. This count is not a claim that every scenario has passed in the current run.
+Site integration inventory (2026-10-21): 341 line-anchored browser test registrations. This count is not a claim that every scenario has passed in the current run.

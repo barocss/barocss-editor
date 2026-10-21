@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import type { RendererRegistry } from '@barocss/dsl';
 import { Dialog, DialogButton } from '@barocss/office-ui';
 import type { Slide } from './deck';
 import { Thumbnail } from './thumbnail';
 
-export function SlidePrintDialog({ editor, slides, revision, open, onClose, onPrint }: {
-  editor: Editor | null; slides: Slide[]; revision: number; open: boolean;
+export function SlidePrintDialog({ editor, registry, slides, revision, open, onClose, onPrint }: {
+  editor: Editor | null; registry?: RendererRegistry; slides: Slide[]; revision: number; open: boolean;
   onClose: () => void; onPrint: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -26,7 +27,7 @@ export function SlidePrintDialog({ editor, slides, revision, open, onClose, onPr
     {error && <p role="alert">{error}</p>}
     <div style={{ display: 'grid', justifyItems: 'center', gap: 16, maxHeight: '50vh', overflowY: 'auto' }}>
       {open && visible.map(slide => <figure key={slide.sid} style={{ margin: 0 }}>
-        <Thumbnail editor={editor} slideSid={slide.sid} width={240} revision={revision} />
+        <Thumbnail registry={registry} editor={editor} slideSid={slide.sid} width={240} revision={revision} />
         <figcaption>{slide.number}. {slide.name}</figcaption>
       </figure>)}
     </div>

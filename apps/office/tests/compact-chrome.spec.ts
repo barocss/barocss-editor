@@ -4,7 +4,7 @@ const output = `${process.cwd()}/../../.dev/artifacts/design-system`;
 
 test('Slides compact header, ruler and timeline keep controls readable', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Slides 새 자료 만들기', exact: true }).click();
+  await page.getByRole('button', { name: 'Slides 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('작은 화면 UI 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
   await expect(page.locator('.sl-stage')).toBeVisible();

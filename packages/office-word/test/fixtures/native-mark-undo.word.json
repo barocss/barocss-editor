@@ -1,0 +1,1794 @@
+{
+  "stype": "document",
+  "attributes": {},
+  "content": [
+    {
+      "stype": "docMeta",
+      "attributes": {},
+      "content": [
+        {
+          "stype": "docTitle",
+          "attributes": {},
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Barocss Word"
+            }
+          ]
+        },
+        {
+          "stype": "docSubtitle",
+          "attributes": {},
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "One engine, one schema, four products"
+            }
+          ]
+        },
+        {
+          "stype": "docAuthor",
+          "attributes": {},
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Jinho Park"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "stype": "surface",
+      "attributes": {
+        "kind": "flow",
+        "name": "Section 1",
+        "headerId": "hdr-main",
+        "titlePage": true,
+        "firstPageHeaderId": "hdr-first",
+        "footerId": "ftr-main",
+        "pageWidth": 12240,
+        "pageHeight": 15840,
+        "marginTop": 1440,
+        "marginBottom": 1440,
+        "marginLeft": 1440,
+        "marginRight": 1440
+      },
+      "content": [
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 1,
+            "styleId": "Heading1"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Contents"
+            }
+          ]
+        },
+        {
+          "stype": "tableOfContents",
+          "attributes": {
+            "levels": "1-2"
+          },
+          "content": []
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 1,
+            "styleId": "Heading1"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Styles cascade"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "This paragraph takes its font from "
+            },
+            {
+              "stype": "inline-text",
+              "text": "Normal",
+              "marks": [
+                {
+                  "stype": "code",
+                  "range": [
+                    0,
+                    6
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": ", its spacing from Body, and nothing from itself."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "alignment": "center"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Direct formatting wins: this one is centred even though Body is not."
+            }
+          ]
+        },
+        {
+          "stype": "contentControl",
+          "attributes": {
+            "id": "ctl-name",
+            "tag": "reviewerName",
+            "title": "검토자 이름",
+            "controlType": "plainText",
+            "placeholder": "이름을 입력하세요"
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {
+                "styleId": "Body"
+              },
+              "content": []
+            }
+          ]
+        },
+        {
+          "stype": "contentControl",
+          "attributes": {
+            "id": "ctl-terms",
+            "tag": "terms",
+            "title": "변경할 수 없는 문구",
+            "controlType": "richText",
+            "lockContent": true,
+            "lockDelete": true
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {
+                "styleId": "Body"
+              },
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "This paragraph is inside a locked content control. A reader can put the caret in it and read it, and typing does nothing at all."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "borderTopStyle": "single",
+            "borderTopWidth": 8,
+            "borderTopColor": "2C5282",
+            "borderBottomStyle": "single",
+            "borderBottomWidth": 8,
+            "borderBottomColor": "2C5282",
+            "borderLeftStyle": "single",
+            "borderLeftWidth": 8,
+            "borderLeftColor": "2C5282",
+            "borderRightStyle": "single",
+            "borderRightWidth": 8,
+            "borderRightColor": "2C5282",
+            "borderTopSpace": 6,
+            "borderBottomSpace": 6,
+            "borderLeftSpace": 8,
+            "borderRightSpace": 8,
+            "borderBetweenStyle": "dotted",
+            "borderBetweenWidth": 4,
+            "borderBetweenColor": "94A3B8"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "A run of paragraphs that ask for the same borders is one box."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "borderTopStyle": "single",
+            "borderTopWidth": 8,
+            "borderTopColor": "2C5282",
+            "borderBottomStyle": "single",
+            "borderBottomWidth": 8,
+            "borderBottomColor": "2C5282",
+            "borderLeftStyle": "single",
+            "borderLeftWidth": 8,
+            "borderLeftColor": "2C5282",
+            "borderRightStyle": "single",
+            "borderRightWidth": 8,
+            "borderRightColor": "2C5282",
+            "borderTopSpace": 6,
+            "borderBottomSpace": 6,
+            "borderLeftSpace": 8,
+            "borderRightSpace": 8,
+            "borderBetweenStyle": "dotted",
+            "borderBetweenWidth": 4,
+            "borderBetweenColor": "94A3B8"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Between two of them Word draws a single rule, not two edges."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "borderTopStyle": "single",
+            "borderTopWidth": 8,
+            "borderTopColor": "2C5282",
+            "borderBottomStyle": "single",
+            "borderBottomWidth": 8,
+            "borderBottomColor": "2C5282",
+            "borderLeftStyle": "single",
+            "borderLeftWidth": 8,
+            "borderLeftColor": "2C5282",
+            "borderRightStyle": "single",
+            "borderRightWidth": 8,
+            "borderRightColor": "2C5282",
+            "borderTopSpace": 6,
+            "borderBottomSpace": 6,
+            "borderLeftSpace": 8,
+            "borderRightSpace": 8,
+            "borderBetweenStyle": "dotted",
+            "borderBetweenWidth": 4,
+            "borderBetweenColor": "94A3B8"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "The box closes under the last one."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Revisions are drawn, not applied: ",
+              "marks": [
+                {
+                  "stype": "commentRef",
+                  "range": [
+                    0,
+                    9
+                  ],
+                  "attrs": {
+                    "id": "comment-1"
+                  }
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": "this was added",
+              "marks": [
+                {
+                  "stype": "insertion",
+                  "range": [
+                    0,
+                    14
+                  ],
+                  "attrs": {
+                    "id": "r1",
+                    "author": "Jinho",
+                    "date": "2026-08-05"
+                  }
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " and "
+            },
+            {
+              "stype": "inline-text",
+              "text": "sized",
+              "marks": [
+                {
+                  "stype": "fontSize",
+                  "range": [
+                    0,
+                    5
+                  ],
+                  "attrs": {
+                    "size": 36
+                  }
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " "
+            },
+            {
+              "stype": "inline-text",
+              "text": "coloured",
+              "marks": [
+                {
+                  "stype": "fontColor",
+                  "range": [
+                    0,
+                    8
+                  ],
+                  "attrs": {
+                    "color": "B22222"
+                  }
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " "
+            },
+            {
+              "stype": "inline-text",
+              "text": "styled",
+              "marks": [
+                {
+                  "stype": "charStyle",
+                  "range": [
+                    0,
+                    6
+                  ],
+                  "attrs": {
+                    "styleId": "Emphasis"
+                  }
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": ", then "
+            },
+            {
+              "stype": "inline-text",
+              "text": "this was removed",
+              "marks": [
+                {
+                  "stype": "deletion",
+                  "range": [
+                    0,
+                    16
+                  ],
+                  "attrs": {
+                    "id": "r2",
+                    "author": "Sujin",
+                    "date": "2026-08-05"
+                  }
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Written by "
+            },
+            {
+              "stype": "fieldAuthor"
+            },
+            {
+              "stype": "inline-text",
+              "text": " for "
+            },
+            {
+              "stype": "fieldDocTitle"
+            },
+            {
+              "stype": "inline-text",
+              "text": ", on "
+            },
+            {
+              "stype": "fieldDateTime",
+              "attributes": {
+                "format": "d MMMM yyyy"
+              }
+            },
+            {
+              "stype": "inline-text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2,
+            "styleId": "Heading2"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Numbering is computed"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "numId": "outline",
+            "numLevel": 0
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "First top-level item"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "numId": "outline",
+            "numLevel": 1
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "A nested item"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "numId": "outline",
+            "numLevel": 2
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Deeper still, in roman"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "numId": "outline",
+            "numLevel": 1
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Back out one level"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "numId": "outline",
+            "numLevel": 0
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Second top-level item — the deeper counters restart"
+            }
+          ]
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2,
+            "styleId": "Heading2"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Pictures"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-image",
+              "attributes": {
+                "src": "data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%2290%22%3E%3Crect width=%22120%22 height=%2290%22 fill=%22%23cbd5e1%22/%3E%3C/svg%3E",
+                "alt": "A grey rectangle",
+                "width": 1800,
+                "height": 1350,
+                "wrap": "square",
+                "side": "right",
+                "distanceLeft": 180,
+                "distanceBottom": 180
+              }
+            },
+            {
+              "stype": "inline-text",
+              "text": "A picture that the text wraps around is a float: the lines beside it are shorter, and they get their full width back once the picture has been passed. An inline picture would push the whole line down instead, because it is a very large character and a line is as tall as its tallest character. This paragraph runs on past the bottom of the picture on purpose, so that both halves of that sentence can be seen at once: the narrow lines beside it, and the full-width ones below it. A fixture that only showed one of them would let the other go wrong without anybody noticing."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-image",
+              "attributes": {
+                "src": "data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22%3E%3Cpolygon points=%22120,0 120,120 0,120%22 fill=%22%2394a3b8%22/%3E%3C/svg%3E",
+                "alt": "A grey triangle",
+                "width": 1800,
+                "height": 1800,
+                "wrap": "tight",
+                "side": "right",
+                "wrapPolygon": [
+                  {
+                    "x": 21600,
+                    "y": 0
+                  },
+                  {
+                    "x": 21600,
+                    "y": 21600
+                  },
+                  {
+                    "x": 0,
+                    "y": 21600
+                  }
+                ],
+                "shapeMargin": 90
+              }
+            },
+            {
+              "stype": "inline-text",
+              "text": "Tight wrapping follows the outline of the picture rather than its box. Word keeps that outline as a polygon, and so does CSS, so the two are the same idea in different units. Against a triangle the effect is plain: each line beside it can run a little further than the one above, because there is a little more room. A rectangle would cut them all to the same length."
+            }
+          ]
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2,
+            "styleId": "Heading2"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Tabs"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "A tab reaches the next stop, so where it sits decides how far it stretches."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body",
+            "tabs": [
+              {
+                "pos": 1440,
+                "align": "left"
+              },
+              {
+                "pos": 3600,
+                "align": "center"
+              },
+              {
+                "pos": 6480,
+                "align": "right",
+                "leader": "dot"
+              }
+            ]
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Left"
+            },
+            {
+              "stype": "tab"
+            },
+            {
+              "stype": "inline-text",
+              "text": "at one inch"
+            },
+            {
+              "stype": "tab"
+            },
+            {
+              "stype": "inline-text",
+              "text": "centred"
+            },
+            {
+              "stype": "tab"
+            },
+            {
+              "stype": "inline-text",
+              "text": "right"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "a"
+            },
+            {
+              "stype": "tab"
+            },
+            {
+              "stype": "inline-text",
+              "text": "b"
+            },
+            {
+              "stype": "tab"
+            },
+            {
+              "stype": "inline-text",
+              "text": "c"
+            }
+          ]
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2,
+            "styleId": "Heading2"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Tables"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Put the caret in a cell and press Tab. The header spans two columns.",
+              "marks": [
+                {
+                  "stype": "footnoteRef",
+                  "range": [
+                    0,
+                    3
+                  ],
+                  "attrs": {
+                    "id": "fn1"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Table "
+            },
+            {
+              "stype": "fieldSeq",
+              "attributes": {
+                "sequence": "Table"
+              }
+            },
+            {
+              "stype": "inline-text",
+              "text": ": a merged header",
+              "marks": [
+                {
+                  "stype": "bookmark",
+                  "range": [
+                    2,
+                    17
+                  ],
+                  "attrs": {
+                    "name": "tbl-merged"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "bTable",
+          "attributes": {
+            "styleId": "GridTable",
+            "look": "firstRow,firstColumn,bandedRows",
+            "layout": "fixed",
+            "width": 5000,
+            "widthType": "pct"
+          },
+          "content": [
+            {
+              "stype": "bTableHeader",
+              "attributes": {},
+              "content": [
+                {
+                  "stype": "bTableHeaderCell",
+                  "attributes": {
+                    "colspan": 2,
+                    "rowspan": 1
+                  },
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "Merged header"
+                    }
+                  ]
+                },
+                {
+                  "stype": "bTableHeaderCell",
+                  "attributes": {
+                    "colspan": 1,
+                    "rowspan": 1
+                  },
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "Third"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "bTableBody",
+              "attributes": {},
+              "content": [
+                {
+                  "stype": "bTableRow",
+                  "attributes": {},
+                  "content": [
+                    {
+                      "stype": "bTableCell",
+                      "attributes": {
+                        "colspan": 1,
+                        "rowspan": 1
+                      },
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "A1"
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "bTableCell",
+                      "attributes": {
+                        "colspan": 1,
+                        "rowspan": 1
+                      },
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "B1"
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "bTableCell",
+                      "attributes": {
+                        "colspan": 1,
+                        "rowspan": 1
+                      },
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "C1"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "stype": "bTableRow",
+                  "attributes": {},
+                  "content": [
+                    {
+                      "stype": "bTableCell",
+                      "attributes": {
+                        "colspan": 1,
+                        "rowspan": 1
+                      },
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "A2"
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "bTableCell",
+                      "attributes": {
+                        "colspan": 1,
+                        "rowspan": 1
+                      },
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "B2"
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "bTableCell",
+                      "attributes": {
+                        "colspan": 1,
+                        "rowspan": 1
+                      },
+                      "content": [
+                        {
+                          "stype": "inline-text",
+                          "text": "C2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "The quadratic formula, "
+            },
+            {
+              "stype": "oMath",
+              "content": [
+                {
+                  "stype": "mathRun",
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "x"
+                    }
+                  ]
+                },
+                {
+                  "stype": "mathRun",
+                  "attributes": {
+                    "literal": true
+                  },
+                  "content": [
+                    {
+                      "stype": "inline-text",
+                      "text": "="
+                    }
+                  ]
+                },
+                {
+                  "stype": "mathFraction",
+                  "content": [
+                    {
+                      "stype": "mathNum",
+                      "content": [
+                        {
+                          "stype": "mathRun",
+                          "attributes": {
+                            "literal": true
+                          },
+                          "content": [
+                            {
+                              "stype": "inline-text",
+                              "text": "−b±"
+                            }
+                          ]
+                        },
+                        {
+                          "stype": "mathRadical",
+                          "content": [
+                            {
+                              "stype": "mathDeg",
+                              "content": []
+                            },
+                            {
+                              "stype": "mathElement",
+                              "content": [
+                                {
+                                  "stype": "mathRun",
+                                  "content": [
+                                    {
+                                      "stype": "inline-text",
+                                      "text": "b"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "stype": "mathSuperscript",
+                                  "content": [
+                                    {
+                                      "stype": "mathElement",
+                                      "content": [
+                                        {
+                                          "stype": "mathRun",
+                                          "attributes": {
+                                            "literal": true
+                                          },
+                                          "content": [
+                                            {
+                                              "stype": "inline-text",
+                                              "text": ""
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "stype": "mathSup",
+                                      "content": [
+                                        {
+                                          "stype": "mathRun",
+                                          "attributes": {
+                                            "literal": true
+                                          },
+                                          "content": [
+                                            {
+                                              "stype": "inline-text",
+                                              "text": "2"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "stype": "mathRun",
+                                  "attributes": {
+                                    "literal": true
+                                  },
+                                  "content": [
+                                    {
+                                      "stype": "inline-text",
+                                      "text": "−4"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "stype": "mathRun",
+                                  "content": [
+                                    {
+                                      "stype": "inline-text",
+                                      "text": "ac"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "stype": "mathDen",
+                      "content": [
+                        {
+                          "stype": "mathRun",
+                          "attributes": {
+                            "literal": true
+                          },
+                          "content": [
+                            {
+                              "stype": "inline-text",
+                              "text": "2"
+                            }
+                          ]
+                        },
+                        {
+                          "stype": "mathRun",
+                          "content": [
+                            {
+                              "stype": "inline-text",
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": " and "
+            },
+            {
+              "stype": "oMath",
+              "content": [
+                {
+                  "stype": "mathDelimiter",
+                  "attributes": {
+                    "open": "(",
+                    "close": ")"
+                  },
+                  "content": [
+                    {
+                      "stype": "mathElement",
+                      "content": [
+                        {
+                          "stype": "mathFraction",
+                          "content": [
+                            {
+                              "stype": "mathNum",
+                              "content": [
+                                {
+                                  "stype": "mathRun",
+                                  "content": [
+                                    {
+                                      "stype": "inline-text",
+                                      "text": "a"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "stype": "mathDen",
+                              "content": [
+                                {
+                                  "stype": "mathRun",
+                                  "content": [
+                                    {
+                                      "stype": "inline-text",
+                                      "text": "b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "stype": "inline-text",
+              "text": ", written in the flow of the sentence."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "See \""
+            },
+            {
+              "stype": "fieldRef",
+              "attributes": {
+                "targetId": "tbl-merged",
+                "format": "text"
+              }
+            },
+            {
+              "stype": "inline-text",
+              "text": "\", "
+            },
+            {
+              "stype": "fieldRef",
+              "attributes": {
+                "targetId": "tbl-merged",
+                "format": "aboveBelow"
+              }
+            },
+            {
+              "stype": "inline-text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2,
+            "styleId": "Heading2"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Pages are computed"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "1. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "2. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "3. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "4. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "5. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "6. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "7. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "8. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "9. Pagination is measured, not declared. Nothing in this document says where a page ends: the browser breaks the lines, the layout reads the line boxes back, and the break falls wherever the text ran out of room. That is why this section exists at all — a fixture that fits on one page cannot demonstrate a page break, and a rule that is never exercised is a rule that is not known to work."
+            }
+          ]
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 2,
+            "styleId": "Heading2"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "A paragraph longer than a page"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "(1) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (2) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (3) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (4) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (5) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (6) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (7) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (8) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (9) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (10) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (11) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (12) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (13) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (14) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (15) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (16) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (17) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (18) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (19) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (20) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (21) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (22) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (23) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (24) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (25) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (26) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (27) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (28) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (29) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (30) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (31) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (32) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (33) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (34) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (35) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (36) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (37) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (38) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (39) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text. (40) A page break inside a paragraph cannot be a margin, because the thing before the break and the thing after it are the same element. It is drawn as an empty widget at a text offset instead, which contributes no text node and so is invisible to everything that reads text."
+            }
+          ]
+        },
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 1,
+            "styleId": "Heading1",
+            "pageBreakBefore": true
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "A section that starts its own page"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "This heading asked to begin a page, so it did — even though there was room for it above."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "stype": "surface",
+      "attributes": {
+        "kind": "flow",
+        "name": "Section 2",
+        "sectionStart": "nextPage",
+        "columnCount": 2,
+        "columnSpacing": 720,
+        "pageWidth": 12240,
+        "pageHeight": 15840,
+        "marginTop": 1440,
+        "marginBottom": 1440,
+        "marginLeft": 1440,
+        "marginRight": 1440
+      },
+      "content": [
+        {
+          "stype": "heading",
+          "attributes": {
+            "level": 1,
+            "styleId": "Heading1"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "Two columns"
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "1. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "2. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "3. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "4. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "5. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "6. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "7. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        },
+        {
+          "stype": "paragraph",
+          "attributes": {
+            "styleId": "Body"
+          },
+          "content": [
+            {
+              "stype": "inline-text",
+              "text": "8. Text in a section like this one fills the first column to the bottom of the page and then starts again at the top of the second, which is a move to the right and upwards — the one thing a top margin cannot do."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "stype": "resources",
+      "attributes": {},
+      "content": [
+        {
+          "stype": "docDefaults",
+          "attributes": {
+            "fontFamily": "Georgia, serif",
+            "fontSize": 22,
+            "spacingAfter": 120
+          }
+        },
+        {
+          "stype": "docSettings",
+          "attributes": {
+            "trackRevisions": false
+          }
+        },
+        {
+          "stype": "styleDef",
+          "attributes": {
+            "id": "Normal",
+            "name": "Normal",
+            "type": "paragraph",
+            "spacingAfter": 160
+          }
+        },
+        {
+          "stype": "styleDef",
+          "attributes": {
+            "id": "Body",
+            "name": "Body Text",
+            "type": "paragraph",
+            "basedOn": "Normal",
+            "spacingLine": 320,
+            "spacingLineRule": "auto"
+          }
+        },
+        {
+          "stype": "styleDef",
+          "attributes": {
+            "id": "Emphasis",
+            "name": "Emphasis",
+            "type": "character",
+            "italic": true,
+            "color": "2C5282"
+          }
+        },
+        {
+          "stype": "styleDef",
+          "attributes": {
+            "id": "Heading1",
+            "name": "Heading 1",
+            "type": "paragraph",
+            "basedOn": "Normal",
+            "next": "Body",
+            "fontSize": 40,
+            "bold": true,
+            "color": "1A365D",
+            "spacingBefore": 360,
+            "spacingAfter": 160,
+            "keepNext": true
+          }
+        },
+        {
+          "stype": "styleDef",
+          "attributes": {
+            "id": "Heading2",
+            "name": "Heading 2",
+            "type": "paragraph",
+            "basedOn": "Heading1",
+            "next": "Body",
+            "fontSize": 30,
+            "color": "2C5282",
+            "spacingBefore": 280
+          }
+        },
+        {
+          "stype": "styleDef",
+          "attributes": {
+            "id": "GridTable",
+            "name": "Grid Table",
+            "type": "table",
+            "cellMarginLeft": 108,
+            "cellMarginRight": 108
+          },
+          "content": [
+            {
+              "stype": "styleConditional",
+              "attributes": {
+                "type": "wholeTable",
+                "borderTopStyle": "single",
+                "borderTopWidth": 8,
+                "borderTopColor": "2C5282",
+                "borderBottomStyle": "single",
+                "borderBottomWidth": 8,
+                "borderBottomColor": "2C5282",
+                "borderInsideHStyle": "single",
+                "borderInsideHWidth": 2,
+                "borderInsideHColor": "CBD5E0",
+                "borderInsideVStyle": "single",
+                "borderInsideVWidth": 2,
+                "borderInsideVColor": "CBD5E0"
+              }
+            },
+            {
+              "stype": "styleConditional",
+              "attributes": {
+                "type": "firstRow",
+                "bold": true,
+                "color": "FFFFFF",
+                "shadingFill": "2C5282",
+                "verticalAlign": "center"
+              }
+            },
+            {
+              "stype": "styleConditional",
+              "attributes": {
+                "type": "band1Horz",
+                "shadingFill": "EDF2F7"
+              }
+            },
+            {
+              "stype": "styleConditional",
+              "attributes": {
+                "type": "firstCol",
+                "bold": true
+              }
+            }
+          ]
+        },
+        {
+          "stype": "numberingDef",
+          "attributes": {
+            "id": "outline",
+            "name": "Outline"
+          },
+          "content": [
+            {
+              "stype": "numberingLevel",
+              "attributes": {
+                "level": 0,
+                "format": "decimal",
+                "text": "%1.",
+                "start": 1,
+                "suffix": "space"
+              }
+            },
+            {
+              "stype": "numberingLevel",
+              "attributes": {
+                "level": 1,
+                "format": "lowerLetter",
+                "text": "%2.",
+                "start": 1,
+                "suffix": "space"
+              }
+            },
+            {
+              "stype": "numberingLevel",
+              "attributes": {
+                "level": 2,
+                "format": "lowerRoman",
+                "text": "%3.",
+                "start": 1,
+                "suffix": "space"
+              }
+            }
+          ]
+        },
+        {
+          "stype": "docHeader",
+          "attributes": {
+            "id": "hdr-main"
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {},
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "Barocss Word"
+                },
+                {
+                  "stype": "tab"
+                },
+                {
+                  "stype": "inline-text",
+                  "text": "One engine, four products"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "docHeader",
+          "attributes": {
+            "id": "hdr-first"
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {
+                "alignment": "center"
+              },
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "Draft — not for circulation"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "docFooter",
+          "attributes": {
+            "id": "ftr-main"
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {},
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "barocss"
+                },
+                {
+                  "stype": "tab"
+                },
+                {
+                  "stype": "fieldPageNumber"
+                },
+                {
+                  "stype": "inline-text",
+                  "text": " / "
+                },
+                {
+                  "stype": "fieldPageCount"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "endnoteDef",
+          "attributes": {
+            "id": "en1"
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {},
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "An endnote body. It collects at the end of the document, where a reader looks things up afterwards."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "bibliography",
+          "attributes": {},
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {},
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "ECMA-376, Office Open XML File Formats. Ecma International, 2016."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "commentThread",
+          "attributes": {
+            "id": "comment-1",
+            "resolved": false
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {
+                "author": "Jinho Park",
+                "date": "2026-08-10"
+              },
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "가운데 정렬이 직접 서식이라는 걸 여기서 말해 주는 게 좋겠습니다."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "stype": "footnoteDef",
+          "attributes": {
+            "id": "fn1"
+          },
+          "content": [
+            {
+              "stype": "paragraph",
+              "attributes": {},
+              "content": [
+                {
+                  "stype": "inline-text",
+                  "text": "A footnote body. It lives in resources, not in the flow — where it renders is a layout decision."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "originalOwner": "synthetic-A",
+    "loadedAt": "original-native-loadedAt"
+  }
+}

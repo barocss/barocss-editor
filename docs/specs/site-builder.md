@@ -6,6 +6,12 @@ The third product. Written 2026-08-25, after the shared layer was split into
 exists — because `docs/SHARED-LAYER.md` says a third product's *disagreement* is what makes a
 boundary right, and a disagreement recorded after the fact is a rationalisation.
 
+## Current compact editing controls
+
+The shared compact header contains the actual document menu, save status and product actions. Pages/structure and detailed properties start closed. `All tools` opens the existing Site Ribbon; its commands and dialogs retain the same native target. Text and object selections expose a relevant primary row, with secondary commands in More or command search.
+
+Closing a same-owner secondary panel retains unfinished field drafts without a native write. Escape first cancels a committed field draft, then closes its containing layer. Changing the page, definition, editing mode or current authority retires the old target. Preview, nested Note bodies, data editing, save/reopen and export retain their existing paths. These standalone UI routes do not establish authenticated child-body authority or release readiness.
+
 ## What a site is, in this model
 
 The schema answered this before anyone asked. `office-schema.ts` has said, since it was written:
@@ -364,7 +370,7 @@ registers, a shell that moved out of the app. Not: how many files there are, how
 | marks | 25 |
 | widths a page answers at | **3** — base, tablet, mobile |
 
-Word holds 108 node types and 1,043 attribute slots; the deck holds 64 and 529. The site builder
+Word holds 108 node types and 1,043 attribute slots; the deck holds 64 and 543. The site builder
 sits between them and the reason is in the fourteen: everything about **data, publishing and a
 visitor** is this product's own, and everything about text and arrangement is not.
 
@@ -372,7 +378,7 @@ visitor** is this product's own, and everything about text and arrangement is no
 
 | | count |
 | --- | ---: |
-| commands registered | **191** (84 the site's own) |
+| commands registered | **192** (85 the site's own) |
 | toolbar controls · commands · icons | **44** · 37 · 34 |
 | `/` menu rows | 13 |
 | keys · the commands they run | **26** · 12 |
@@ -400,12 +406,12 @@ build, it fails, and somebody decides whether to teach the probe or to name the 
 
 | | |
 | --- | ---: |
-| `apps/site/src` | **4,227 lines** |
+| `apps/site/src` | **6,294 lines** |
 | components behind `@barocss/office-site/ui` | **5** |
-| browser test declarations (2026-09-19; inventory, not run results) | **316** |
+| line-anchored browser test registrations (2026-10-21; inventory, not run results) | **341** |
 
 `apps/site` was 11,410 lines before `PageFrame`, `Rail`, `Inspector`, `Overlay` and `Admin` — those
-five — moved into this package. That is the move `note.md` uses as its gauge, and the 316 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
+five — moved into this package. That is the move `note.md` uses as its gauge, and the 341 above is the current inventory quoted in `note.md`; it does not claim that all scenarios passed in this run.
 
 **283 of those 291 until `site-theme-values.spec.ts`**, and the eight it adds are worth naming
 because of what the suite could not previously say. Of 1,092 browser tests across the repository,
@@ -3020,3 +3026,7 @@ sid를 홀더에 얹고 안의 재생기는 `pointer-events: none`으로 둡니�
 픽스처다. 시작한다는 것이 **남의 페이지를 지우는 일**이 되는 그 모양이고, Word 는 같은 자리에서
 `createStarterDocument()` 로 답했다(제목·표면·빈 문단, 그뿐). 사이트도 그래야 한다 — 빈
 사이트가 무엇인가는 크롬이 아니라 **문서에 대한 사실**이다.
+
+### 빈 데이터 행의 서식 있는 글 작성
+
+행 폼에서 본문이나 요약 값이 비어 있으면 작성 버튼을 표시한다. `createDatasetRichText`는 빈 문단 리소스와 그 행의 `text:` 참조를 한 트랜잭션으로 만든다. 실행 취소는 두 변경을 함께 되돌린다. 이미 값이 있는 필드나 찾을 수 없는 참조는 덮어쓰지 않는다. 정상적인 빈 글은 `비어 있음`으로, 끊어진 참조는 `본문을 찾을 수 없습니다`로 표시한다.

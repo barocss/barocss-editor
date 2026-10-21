@@ -25,18 +25,25 @@ describe.each([['Word', createWordEditor], ['Site', createSiteEditor], ['Slides'
     editor.loadDocument(editor.dataStore.getActiveSchema()!.topNode === 'note'
       ? { stype: 'note', content: [paragraph] }
       : { stype: 'document', content: [{ stype: 'surface', content: [paragraph] }] });
+    // Native loaders may allocate new session IDs. Address the loaded range,
+    // rather than the fixture's pre-import IDs, for the same four product flows.
+    const loadedText = editor.dataStore.getAllNodes().filter(node => node.stype === 'inline-text' && node.text === 'ABCD');
+    expect(loadedText).toHaveLength(1);
+    const textId = loadedText[0].sid!;
+    const paragraphId = loadedText[0].parentId!;
+    expect(editor.dataStore.getNode(paragraphId)?.stype).toBe('paragraph');
     const data = new Map<string, string>();
-    expect(await editor.executeCommand('copy', { selection: { type: 'range', startNodeId: 't', startOffset: 1, endNodeId: 't', endOffset: 3, collapsed: false }, clipboardData: { setData: (type: string, value: string) => data.set(type, value) } })).toBe(true);
-    editor.updateSelection({ type: 'range', startNodeId: 't', startOffset: 4, endNodeId: 't', endOffset: 4, collapsed: true });
+    expect(await editor.executeCommand('copy', { selection: { type: 'range', startNodeId: textId, startOffset: 1, endNodeId: textId, endOffset: 3, collapsed: false }, clipboardData: { setData: (type: string, value: string) => data.set(type, value) } })).toBe(true);
+    editor.updateSelection({ type: 'range', startNodeId: textId, startOffset: 4, endNodeId: textId, endOffset: 4, collapsed: true });
     const before = snapshot(editor);
     expect(await editor.executeCommand('paste', { clipboardHtml: data.get('text/html') })).toBe(true);
-    expect(text(editor, 'p')).toBe('ABCDBC');
+    expect(text(editor, paragraphId)).toBe('ABCDBC');
     const after = snapshot(editor);
     expect(await editor.undo()).toBe(true); expect(snapshot(editor)).toEqual(before);
     expect(await editor.redo()).toBe(true); expect(snapshot(editor)).toEqual(after);
     expect(await editor.executeCommand('paste', { clipboardText: 'plain' })).toBe(true);
-    expect(text(editor, 'p')).toBe('ABCDBCplain');
+    expect(text(editor, paragraphId)).toBe('ABCDBCplain');
     expect(await editor.executeCommand('paste', { nodes: [{ stype: 'inline-text', text: 'legacy payload' }] })).toBe(true);
-    expect(text(editor, 'p')).toBe('ABCDBCplainlegacy payload');
+    expect(text(editor, paragraphId)).toBe('ABCDBCplainlegacy payload');
   });
 });

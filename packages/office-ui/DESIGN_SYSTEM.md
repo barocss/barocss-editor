@@ -1,8 +1,80 @@
 # Wonffice 인터페이스 기준
 
-기준안 01 · 2026-09-14
+기준안 03 · 2026-10-01
 
 이 문서는 `office-ui`의 시각 규칙과 사용 기준을 정의한다. 현재 구현의 기준선이며, 모든 제품의 모든 화면을 검증했다는 뜻은 아니다.
+
+## Representative modern controls — #415
+
+The first implemented checkpoint changes actual shared controls, not mockups.
+Comfortable form controls use 34px height, 7px corners and semibold action labels.
+Dense controls retain 24px height/4px corners; command surfaces, small icon buttons
+and dialog actions retain their existing dimensions. Secondary actions use a
+quiet tonal surface, a soft divider and shallow elevation. Primary actions retain
+the established accessible accent/ink palette. Selected and mixed controls have
+an accent boundary; mixed hatching remains distinct. Hover, press, keyboard focus
+and disabled states preserve their existing semantics without moving targets.
+
+Text, number and multiline fields use a flat filled surface and a single visible
+boundary. Keyboard focus uses a 2px accent outline separated from that boundary
+by 2px. Invalid fields retain their danger boundary and help text; keyboard
+focus remains separate. Explicit consumer padding and field dimensions stay
+unchanged across these states.
+Readonly and invalid states remain explicit. Menus use 34px rows, 6px internal
+spacing and a separate raised surface. Inspector headers have a distinct neutral
+background and stronger typography. The actual specimen panels sit above the
+work surface, with 23px section headings and 14px group labels.
+
+No API, input commit/cancel/composition behavior, popup lifecycle, document model,
+package boundary, font dependency or icon set changes. Reduced motion remains
+supported. Desktop touch, pointer and keyboard checks cover representative actions
+and selection; this is not a mobile layout review or full accessibility audit.
+Before broader component expansion, provide paired settled light/dark screenshots
+from the same real sections, candidate SHA and Library references to the owner.
+#410 below records the historical baseline, not current #415 completion evidence.
+
+## Shared visual foundations — #410
+
+Baseline: local `develop` `d30a6be23ca62c62d0f5ee94dec58796166ea15e`.
+The existing 1280×720 sample let its long sticky navigation continue below the
+viewport while its helper text stayed in the page flow. The navigation now has
+its own bounded scrolling area. All 24 links and the separate helper remain
+available. Native anchors retain keyboard navigation and expose the current
+hash through `aria-current="location"`.
+
+The shared palette uses one cool neutral family. Light panel/ground are
+`#ffffff` / `#f4f5f7`; dark panel/ground are `#20252d` / `#161a21`.
+Primary/muted ink are `#20252d` / `#596272` in light and
+`#eef1f5` / `#b2bbc8` in dark. The functional accent is `#2459bd` in light
+and `#8bb2fa` in dark, with separate readable accent ink.
+Quiet divider lines remain separate from field boundaries (`#808b9a` light,
+`#758297` dark). Standard buttons use the field boundary; property-panel
+fields retain their existing quiet/hover/focus contract.
+
+Control radii are 6px comfortable and 4px dense; command surfaces use 6px.
+Existing heights, hit areas, icons, event handlers and component APIs stay in
+place. Comfortable/inspector property text rises from 12px to 13px, secondary
+text from 11px to 12px. Dense typography retains its existing compact scale.
+Popup padding is 6px. Sections and descriptive text have clearer hierarchy;
+actual specimen surfaces remain panel-colored against quiet navigation.
+
+This is UI styling and sample navigation. It changes no document model,
+authentication, persistence, permissions or collaboration contract. Readonly,
+invalid, selected/mixed and disabled semantics remain on the real components.
+No external assets, fonts, framework or icon replacement were added.
+
+Measured Chromium paint contrast (light / dark): primary text 15.40 / 13.59,
+helper text 5.64 / 9.00, selected navigation 5.57 / 5.95, accent button text
+6.48 / 7.31, invalid explanation 6.57 / 7.93, field boundary 3.46 / 3.96,
+and keyboard focus 6.48 / 7.22. Measurements use actual computed colors,
+including color-mix and ancestor backgrounds. They cover the sampled controls,
+not every product surface. Reduced-motion popup/button checks retain dismissal.
+
+Verification commands, measured contrast, screenshot paths and exact candidate
+and integration commits are recorded in the #410 Execute evidence. Required
+preflight and affected desktop checks must pass before local integration.
+Composition-event tests cover handler boundaries; they do not certify native
+OS IME input. Sample actions are local demonstrations, never save results.
 
 ## 확인할 화면
 
@@ -218,7 +290,7 @@ const invalid = !name.trim();
 - `PropertyToggle`: 표시 상자는 16px, 입력 대상은 24px이다. 체크 표시는 `office-icons`를 사용한다. 선택·hover·키보드 포커스·비활성을 구분한다. `--ou-accent-ink`로 테마별 체크 대비를 유지한다.
 - 속성 입력칸은 `office-field`를 통해서만 배경과 테두리를 받는다. 패널의 모든 `input`에 배경을 지정하지 않는다. 이 규칙은 체크박스 선택 배경이 덮이는 문제를 방지한다.
 - 속성 입력칸은 옅은 배경을 사용한다. hover에는 구분선, focus에는 강조선을 표시한다. 오류선은 focus에서도 유지한다. Enter 적용과 Escape 취소는 유지한다.
-- `ChoiceSelect`와 `Menu`의 항목 높이는 최소 30px이다. 체크 표시의 16px 공간은 선택 여부와 무관하게 유지한다. 선택 메뉴의 현재 값은 체크와 강조 배경으로 표시한다.
+- `ChoiceSelect`와 `Menu`의 항목 높이는 최소 34px이다. 체크 표시의 16px 공간은 선택 여부와 무관하게 유지한다. 선택 메뉴의 현재 값은 체크와 강조 배경으로 표시한다.
 - 제품은 공통 컴포넌트를 가져오면 이 규칙을 받는다. 제품별로 체크박스나 메뉴 스타일을 복제하지 않는다.
 
 검증: 갤러리 5개와 실제 네 제품 비교 1개 브라우저 검사. 실제 Slides 객체의 표시·잠금 체크와 속성 패널도 확인한다. 작은 화면에서 선택 도구가 많을 때의 스크롤·메뉴 접근, 복잡한 색상 편집은 후속 검토 범위이다.
@@ -621,3 +693,13 @@ ColorPicker는 색상·색상 알파·테마 색·스포이드를 제공한다. 
 - 표시 형식만 바꾸어도 양자화하거나 실행 취소 기록을 만들지 않는다. 다른 채널과 알파를 유지하며 변경한 채널만 반영한다. 회색·검정에서 색조·채도를 먼저 지정한 값은 현재 입력 세션에서 보존한다.
 - 채널 입력은 공통 NumberField의 확정·취소 동작을 사용한다. HEX 입력과 팝업 포커스 규칙은 유지한다.
 - 변환 근거: [Color.js procedural API](https://colorjs.io/api/modules/index_fn.html).
+
+
+## Compact command ownership — 2026-10-05
+
+- `DocumentMenu.menuIds` filters the visible menu groups. Omit it to retain the existing full menu. A product must keep every supported command reachable through its native menu, inspector, or command search. Filtering changes presentation only.
+- `StatusIndicator.quiet` hides successful idle text while retaining its accessible name and live status. Busy, failed, or recovery states remain visible. Products provide the actual current save state.
+- `CommandSearch` accepts localized labels, hint, and shortcut text. Home and End select the first and last enabled result. Composition input does not run a command. The product must capture its current selection owner and check current authority again before execution.
+- Native value editors retain draft and selection ownership. Escape in an unrelated modal must not dismiss a background control. Escape inside a control's own modal follows that control's native dismissal policy.
+- Floating detail panels can scroll. Verify visible controls and controls revealed by scrolling with real pointer geometry. Disabled controls retain their target size; they must not mutate the document.
+- Shared UI owns presentation and focus behavior. Product code owns document models, command payloads, native editors, persistence, and current permissions. Controlled transport tests do not establish real login or PostgreSQL durability.

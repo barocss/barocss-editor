@@ -10,9 +10,9 @@ export type SlideSaveStatus = DocumentSessionStatus;
 
 /** Slides supplies its codec and metadata; lifecycle and conditional writes are shared. */
 export class DeckAutosave extends DocumentSession {
-  constructor(editor: Editor, notify: (status: SlideSaveStatus) => void) {
+  constructor(editor: Editor, notify: (status: SlideSaveStatus) => void, beforeSnapshot?: () => Promise<void>) {
     super({
-      key: 'slides', documents: slideDocuments, drafts: slideDrafts,
+      key: 'slides', documents: slideDocuments, drafts: slideDrafts, beforeSnapshot,
       snapshot: () => {
         const doc = { rootId: editor.getRootId()!, getNode: (sid: string) => editor.dataStore.getNode(sid) };
         return { text: deckFileText(editor.exportDocument(), ''), title: documentTitle(doc) || deckTitle(doc) || '제목 없는 발표 자료', count: deckSlides(doc).length };

@@ -161,7 +161,9 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     // Convert DOM Selection to Model Selection
     const modelSelection = this.convertDOMSelectionToModel(selection);
 
-    this.editor.updateSelection?.(modelSelection);
+    // The browser already owns these endpoints. Replaying them to the DOM suppresses
+    // the next real selectionchange while the programmatic-change flag is set.
+    this.editor.updateSelection?.({ selection: modelSelection, applySelectionToView: false });
   }
 
   convertDOMSelectionToModel(selection: Selection): any {
@@ -323,6 +325,15 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     startOffset: number,
     endOffset: number
   ): 'forward' | 'backward' {
+    if (startNode === endNode && selection.anchorNode && selection.focusNode) {
+      const anchor = document.createRange();
+      anchor.setStart(selection.anchorNode, selection.anchorOffset);
+      anchor.collapse(true);
+      const focus = document.createRange();
+      focus.setStart(selection.focusNode, selection.focusOffset);
+      focus.collapse(true);
+      return anchor.compareBoundaryPoints(Range.START_TO_START, focus) <= 0 ? 'forward' : 'backward';
+    }
     return selectionDirection(selection, startNode, endNode, startOffset, endOffset, this._positions);
   }
 
@@ -478,7 +489,11 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
       range.setStart(startRange.node, startRange.offset);
       range.setEnd(endRange.node, endRange.offset);
       
-      selection.addRange(range);
+      if (rangeSelection.direction === 'backward' && typeof selection.setBaseAndExtent === 'function') {
+        selection.setBaseAndExtent(endRange.node, endRange.offset, startRange.node, startRange.offset);
+      } else {
+        selection.addRange(range);
+      }
       
       /* Not logged, for the reason the one below it is not: every caret placement is one of these. */
 

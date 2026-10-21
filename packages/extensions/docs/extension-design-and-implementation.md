@@ -999,4 +999,4 @@ describe('HighlightExtension', () => {
 - [Extension README](../README.md)
 - [Model README](../../model/README.md)
 - [DataStore README](../../datastore/README.md)
-- [Transaction Integration Guide](../../datastore/docs/transaction-integration.md)
+- [Model Transaction Contract](../../model/SPEC.md#2-transaction)

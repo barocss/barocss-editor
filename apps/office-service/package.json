@@ -8,23 +8,78 @@
       "types": "./src/membership-store.ts",
       "import": "./dist/membership-store.js"
     },
+    "./company-member-store": {
+      "types": "./src/company-member-store.ts",
+      "import": "./dist/company-member-store.js"
+    },
+    "./platform-operator-store": {
+      "types": "./src/platform-operator-store.ts",
+      "import": "./dist/platform-operator-store.js"
+    },
     "./document-store": {
       "types": "./src/document-store.ts",
       "import": "./dist/document-store.js"
+    },
+    "./collaboration-store": {
+      "types": "./src/collaboration-store.ts",
+      "import": "./dist/collaboration-store.js"
+    },
+    "./capability-store": {
+      "types": "./src/capability-store.ts",
+      "import": "./dist/capability-store.js"
+    },
+    "./project-store": {
+      "types": "./src/project-store.ts",
+      "import": "./dist/project-store.js"
+    },
+    "./project-execution": {
+      "types": "./src/project-execution.ts",
+      "import": "./dist/project-execution.js"
+    },
+    "./criterion-confirmation-store": {
+      "types": "./src/criterion-confirmation-store.ts",
+      "import": "./dist/criterion-confirmation-store.js"
+    },
+    "./criterion-verification-store": {
+      "types": "./src/criterion-verification-store.ts",
+      "import": "./dist/criterion-verification-store.js"
+    },
+    "./criterion-browser-executor": {
+      "types": "./src/criterion-browser-executor.ts",
+      "import": "./dist/criterion-browser-executor.js"
+    },
+    "./schema-registry-store": {
+      "types": "./src/schema-registry-store.ts",
+      "import": "./dist/schema-registry-store.js"
+    },
+    "./document-schema-policy": {
+      "types": "./src/document-schema-policy.ts",
+      "import": "./dist/document-schema-policy.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "pnpm --filter @barocss/office-note-file build && tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @barocss/schema build && pnpm --filter @barocss/office-note-file build && pnpm --filter @barocss/office-word build:criterion && tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "test": "pnpm build && vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
+    "test:execution:postgres": "pnpm build && node test/project-execution.postgres.integration.mjs",
+    "test:operator:postgres": "pnpm build && node test/platform-operator.postgres.integration.mjs",
+    "test:company:postgres": "pnpm build && node test/company-member.postgres.integration.mjs",
     "migrate": "node dist/migrate-cli.js",
-    "membership:admin": "node dist/membership-admin-cli.js"
+    "membership:admin": "node dist/membership-admin-cli.js",
+    "operator:admin": "node dist/platform-operator-admin-cli.js",
+    "directory:admin": "node dist/member-directory-admin-cli.js",
+    "test:directory:postgres": "pnpm build && node test/member-directory.postgres.integration.mjs"
   },
   "dependencies": {
     "@barocss/office-note-file": "workspace:^",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "@barocss/office-word": "workspace:^",
+    "playwright": "1.58.0",
+    "@barocss/schema": "workspace:^"
   },
   "devDependencies": {
     "@types/pg": "8.23.1"

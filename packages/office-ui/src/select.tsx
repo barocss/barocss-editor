@@ -1,4 +1,6 @@
+import { useOfficePortalContainer } from './portal-owner';
 import * as Select from '@radix-ui/react-select';
+import { useRef, useState, type RefObject } from 'react';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
 import { FIELD_CONTROL, STATE } from './controls';
@@ -39,7 +41,8 @@ export function ChoiceSelect({
   invalid,
   describedBy,
   className,
-  testClass
+  testClass,
+  portalContainer
 }: {
   options: ChoiceOption[];
   value: string | null;
@@ -57,12 +60,27 @@ export function ChoiceSelect({
    * the next product has to override before it can use.
    */
   testClass?: string;
+  /** Optional DOM owner for a popup that must retain focus inside its tool surface. */
+  portalContainer?: RefObject<HTMLElement | null>;
 }) {
+  const container = useOfficePortalContainer();
+  const trigger = useRef<HTMLButtonElement>(null);
   const mixed = value === null;
+  const [portalHost, setPortalHost] = useState<HTMLElement | undefined>();
 
+  const destination = portalHost ?? container;
   return (
-    <Select.Root value={value ?? ''} onValueChange={onChange} disabled={disabled}>
- <Select.Trigger
+    <Select.Root value={value ?? ''} onValueChange={onChange} disabled={disabled}
+      onOpenChange={open => {
+        if (open) setPortalHost(portalContainer?.current ?? undefined);
+        else {
+          const owner = portalContainer?.current;
+          const focused = owner?.ownerDocument.activeElement;
+          // Return owned popup focus before its removal exposes transient BODY focus.
+          if (focused && owner?.contains(focused) && focused.closest('[role="listbox"]')) trigger.current?.focus({ preventScroll: true });
+        }
+      }}>
+ <Select.Trigger ref={trigger}
         className={cn(
           testClass, FIELD_CONTROL, 'office-choice',
           'inline-flex h-[var(--ou-control-h)] items-center justify-between gap-2 rounded-[var(--ou-radius)]',
@@ -84,7 +102,7 @@ export function ChoiceSelect({
  </Select.Icon>
       </Select.Trigger>
 
-      <Select.Portal>
+      {destination !== null && <Select.Portal container={destination}>
         <Select.Content
           position="popper"
  sideOffset={4}
@@ -119,7 +137,7 @@ export function ChoiceSelect({
             ))}
           </Select.Viewport>
         </Select.Content>
-      </Select.Portal>
+      </Select.Portal>}
     </Select.Root>
   );
 }

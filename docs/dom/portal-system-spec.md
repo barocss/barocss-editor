@@ -753,6 +753,6 @@ defineDecorator('comment', (ctx) => {
 
 ## Related Documentation
 
-- [Renderer DOM Specification](renderer-dom-spec.md)
-- [Decorator Implementation Guide](decorator-implementation-guide.md)
-- [Component System Specification](component-system-spec.md)
+- [Renderer DOM Specification](../../packages/renderer-dom/docs/renderer-dom-spec.md)
+- [Decorator Usage Guide](../../packages/editor-view-dom/docs/decorator-guide.md)
+- [Component State Management](../../packages/renderer-dom/docs/renderer-dom-spec.md#9-component-state-management)

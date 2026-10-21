@@ -865,3 +865,37 @@ body {
 
 .st-body[data-compact] > .st-boundary { display:none; }
 .st-body[data-compact] > .office-workspace-side-panel > :first-child { width:100% !important; }
+
+/* Compact tools leave the page in view and expand only on request. */
+.st-all-tools-popup { width: max-content; max-width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow: auto; }
+.st-all-tools-popup .office-ribbon-toolbar { flex-wrap: wrap; border: 0; }
+.st-all-tools-popup [data-ribbon-group='page-navigation'] { margin-left: 0; }
+.st-navigation-slot, .st-detail-slot { flex-shrink: 0; min-height: 0; }
+.st-detail-slot { width: 280px; }
+.st-navigation-slot[hidden], .st-detail-slot[hidden] { display: none; }
+.st-body .office-workspace-panel-controls button { min-height: 32px; }
+
+
+/* One native header: title first, compact document actions, then the view group. */
+.st-documentbar[data-compact] .office-editor-title { flex: 1 1 auto; min-width: 0; }
+.st-header-actions { display: flex; align-items: center; height: 36px; padding: 2px 6px; gap: 2px; flex-wrap: nowrap; border-left: 1px solid var(--ou-line); }
+.st-documentbar .st-header-tools { height: 36px; min-height: 36px; padding: 2px 6px; gap: 2px; flex-wrap: nowrap; border: 0; border-radius: 18px; background: transparent; box-shadow: none; }
+.st-documentbar .st-header-tools > button,
+.st-documentbar .st-header-tools > .office-secondary-owner > button,
+.st-documentbar .st-header-tools > .office-zoom > button { min-width: 32px; min-height: 32px; }
+.st-documentbar .st-header-tools > button svg,
+.st-documentbar .st-header-tools > .office-secondary-owner > button svg,
+.st-documentbar .st-header-tools > .office-zoom > button svg { width: 16px; height: 16px; }
+.st-documentbar .st-view-tools { margin-left: 2px; padding-left: 8px; border-left: 1px solid var(--ou-line); border-radius: 0; }
+
+/* File/open remains in the document menu. Keep its native picker and task feedback mounted. */
+.st-documentbar .st-file-picker { display: none; }
+
+/* Selection tools remain on the native plane; common tools belong to the header. */
+.st-main { position: relative; }
+
+/* The authenticated shell keeps the same compact Site header and native viewport. */
+[data-server-site-workspace] { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+[data-server-site-workspace] > .server-site-native { flex: 1; min-height: 0; }
+[data-server-site-workspace] > .server-site-native > .st-shell { height: 100%; min-height: 0; }
+[data-server-site-workspace] > aside { display: flex; flex-direction: column; gap: 6px; padding: 12px; }

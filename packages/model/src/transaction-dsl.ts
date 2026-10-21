@@ -81,8 +81,28 @@ export function mark(stype: string, attrs?: Record<string, any>): MarkDescriptor
 
 // ---- Transaction (per spec) ----
 
+/** Identity of an edit across a commit, notification, and transport retry. */
+export type EditProvenance = {
+  origin: 'local' | 'remote' | 'history';
+  editId: string;
+  actorId?: string;
+  sessionId?: string;
+};
+
+export type EditProvenanceInput =
+  | { origin: 'local' | 'history'; editId?: string; actorId?: string; sessionId?: string }
+  | { origin: 'remote'; editId: string; actorId: string; sessionId: string };
+
 /** Options for transaction execution. */
 export interface TransactionOptions {
+  /**
+   * A synchronous, side-effect-free check that this individual UI intent is still current.
+   * Return a reason to refuse. This supplements, and never replaces, host authority guards.
+   * Checked under the lock, after preparation, and before commit (including after an awaited guard).
+   */
+  validateIntent?: () => string | void;
+  /** Remote edits require their transport identity and never enter local history. */
+  provenance?: EditProvenanceInput;
   /**
    * When true (default), selectionAfter is applied to View (SelectionManager + DOM/React).
    * When false, selection is not applied to View (e.g. remote sync, programmatic change).

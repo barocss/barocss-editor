@@ -1,0 +1,190 @@
+// @vitest-environment jsdom
+import { expect, it, vi } from 'vitest';
+import { AuthError, type CatalogDocumentHead } from './auth-client';
+import { readAuthorizedWorkspaceCatalog, serverCatalogGroups, type AuthorizedWorkspaceCatalog } from './server-catalog';
+import { createTranslator, type ProjectSnapshot } from '@barocss/shared';
+
+const tenantId = '11111111-1111-4111-8111-111111111111', workspaceId = '22222222-2222-4222-8222-222222222222';
+const id = (i: number) => `33333333-3333-4333-8333-${String(i).padStart(12, '0')}`;
+const head = (i: number, product: CatalogDocumentHead['product'] = 'word'): CatalogDocumentHead => ({
+  tenantId, workspaceId, documentId: id(i), title: `원본 ${i}`, product, mode: 'snapshot', metadataRevision: 1,
+  pageId: product === 'note' ? id(i) : null, revision: 1, fileFormat: `barocss-${product}`, fileVersion: 1,
+  snapshotHash: 'a'.repeat(64), documentKey: `wonffice-${tenantId}-${id(i)}`
+});
+function project(projectId: string): ProjectSnapshot {
+  return { revision: 1, record: { id: projectId, title: projectId, goal: '', archived: false, activities: [], comments: [], works: [], drafts: {},
+    results: [{ id: `${projectId}-placement`, name: '오래된 별칭', document: { product: 'word', id: id(1) }, inputs: [] },
+      { id: `${projectId}-missing`, name: '표시하면 안 되는 이름', document: { product: 'word', id: id(99) }, inputs: [] }] } };
+}
+const catalog = (): AuthorizedWorkspaceCatalog => ({ source: 'server', tenantId, workspaceId,
+  capabilities: { stableFolders: false, ownershipClassification: false }, documents: [head(1), head(2, 'site')],
+  projects: [project('first'), project('second')], state: 'ready' });
+const options = { perspective: 'project' as const, product: 'all' as const, query: '', sourcesLabel: '접근 가능한 원본' };
+const person = '44444444-4444-4444-8444-444444444444';
+const otherPerson = '55555555-5555-4555-8555-555555555555';
+const myOptions = { ...options, perspective: 'my' as const,
+  ownershipLabels: { createdByMe: 'Created by me', sharedInWorkspace: 'Shared in this workspace', creatorUnknown: 'Creator unknown' } };
+
+it('My classifies only verified creators, retains all authorized originals and preserves their native identity', () => {
+  const value = { ...catalog(), currentUserId: person };
+  value.documents = [{ ...head(1), creatorUserId: person }, { ...head(2, 'site'), creatorUserId: otherPerson },
+    { ...head(3, 'note'), creatorUserId: null }, head(4, 'slides')];
+  const before = JSON.stringify(value);
+  const groups = serverCatalogGroups(value, myOptions);
+  expect(groups.map(group => group.label)).toEqual(['Created by me', 'Shared in this workspace', 'Creator unknown']);
+  expect(groups.map(group => group.entries.map(entry => entry.row.documentId))).toEqual([[id(1)], [id(2)], [id(3), id(4)]]);
+  const mine = groups[0].entries[0].row;
+  const placements = serverCatalogGroups(value, options).slice(0, 2).map(group => group.entries[0].row);
+  for (const row of placements) expect(row).toEqual(mine);
+  expect(mine.revision).toBe(1); expect(mine.nativeOpenSupported).toBe(true);
+  expect(JSON.stringify(value)).toBe(before);
+});
+
+it('a missing verified person cannot turn known creators or old Project links into personal ownership', () => {
+  const value = catalog();
+  value.documents = [{ ...head(1), creatorUserId: person }, { ...head(2, 'site'), creatorUserId: null }];
+  const groups = serverCatalogGroups(value, myOptions);
+  expect(groups.map(group => group.entries.length)).toEqual([0, 0, 2]);
+  expect(groups[2].label).toBe('Creator unknown');
+  expect(JSON.stringify(groups)).not.toContain('오래된 별칭');
+});
+
+it('My remains accurate when Project discovery fails and never invents missing or denied originals', () => {
+  const value = { ...catalog(), currentUserId: person, state: 'partial' as const };
+  value.documents = [{ ...head(1), creatorUserId: otherPerson }];
+  const groups = serverCatalogGroups(value, myOptions);
+  expect(groups.map(group => group.entries.length)).toEqual([0, 1, 0]);
+  expect(JSON.stringify(groups)).not.toContain(id(99));
+  expect(JSON.stringify(groups)).not.toContain('표시하면 안 되는 이름');
+});
+
+it('a zero-Project workspace can classify a new original using the verified internal person', async () => {
+  const result = await readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, currentUserId: person,
+    requestFetch: requestFetch(), readProjects: async () => [], isCurrent: () => true });
+  expect(result.currentUserId).toBe(person);
+  expect(result.capabilities).toEqual({ stableFolders: false, ownershipClassification: true });
+  expect(serverCatalogGroups(result, myOptions)[2].entries[0].row.documentId).toBe(id(1));
+});
+
+it('My search and product filtering preserve scope-qualified group and original identities', () => {
+  const value = { ...catalog(), currentUserId: person };
+  value.documents = [{ ...head(1), creatorUserId: person }, { ...head(2, 'site'), creatorUserId: otherPerson }];
+  const complete = serverCatalogGroups(value, myOptions);
+  const filtered = serverCatalogGroups(value, { ...myOptions, product: 'site', query: '원본' });
+  expect(filtered.map(group => group.id)).toEqual(complete.map(group => group.id));
+  expect(filtered.map(group => group.entries.length)).toEqual([0, 1, 0]);
+  expect(filtered[1].entries[0]).toEqual(complete[1].entries[0]);
+  expect(filtered.every(group => group.id.includes(tenantId) && group.id.includes(workspaceId))).toBe(true);
+});
+
+it('two Project placements and Sources point to one authorized original without cached alias or missing titles', () => {
+  const groups = serverCatalogGroups(catalog(), options);
+  expect(groups.map(group => group.entries.length)).toEqual([1, 1, 2]);
+  const first = groups[0].entries[0], second = groups[1].entries[0], source = groups[2].entries[0];
+  expect(first.row).toBe(second.row); expect(first.row).toBe(source.row);
+  expect(first.id).not.toBe(second.id); expect(first.id).not.toBe(source.id);
+  expect(JSON.stringify(groups)).not.toContain('별칭'); expect(JSON.stringify(groups)).not.toContain('표시하면 안');
+  expect(first.row.title).toBe('원본 1');
+  expect(groups[2].entries[1].disabled).toBe(false); // Snapshot Site uses the authenticated native host.
+});
+
+it('partial Project discovery retains authorized sources without claiming unlinked files or complete projects', () => {
+  const value = { ...catalog(), state: 'partial' as const };
+  expect(serverCatalogGroups(value, options).map(group => group.label)).toEqual(['접근 가능한 원본']);
+  expect(JSON.stringify(serverCatalogGroups(value, options))).not.toContain('first');
+});
+
+it('NFD search and product filters operate on current authorized original titles only', () => {
+  const value = catalog(); value.documents[0].title = '팀 교육자료';
+  const groups = serverCatalogGroups(value, { ...options, perspective: 'sources', product: 'word', query: '교육'.normalize('NFD') });
+  expect(groups[0].entries.map(entry => entry.row.documentId)).toEqual([id(1)]);
+  expect(serverCatalogGroups(value, { ...options, query: '오래된 별칭' }).every(group => group.entries.length === 0)).toBe(true);
+});
+
+it('workspace identity remains in empty Project placement groups', () => {
+  const value = catalog(); value.documents = [];
+  expect(serverCatalogGroups(value, options)[0].id).toContain(workspaceId);
+  expect(serverCatalogGroups(value, options)[0].entries).toEqual([]);
+});
+
+const requestFetch = () => vi.fn<typeof fetch>().mockResolvedValue(Response.json({ documents: [head(1)], nextCursor: null }));
+it('a failed Project read becomes an explicit partial catalog, not a successful empty list', async () => {
+  const result = await readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: requestFetch(),
+    readProjects: async () => { throw new Error('network'); }, isCurrent: () => true });
+  expect(result.state).toBe('partial'); expect(result.documents).toHaveLength(1); expect(result.projects).toEqual([]);
+  expect(result.capabilities).toEqual({ stableFolders: false, ownershipClassification: false });
+});
+
+for (const kind of ['cancelled', 'unauthorized', 'forbidden'] as const) it(`${kind} Project access returns no prior titles or partial catalog`, async () => {
+  await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: requestFetch(),
+    readProjects: async () => { throw new AuthError(kind, 'denied'); }, isCurrent: () => true })).rejects.toMatchObject({ kind });
+});
+
+it('retired Workspace request cannot publish earlier authorized heads after awaiting Project discovery', async () => {
+  let current = true;
+  await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: requestFetch(),
+    readProjects: async () => { current = false; return [project('old')]; }, isCurrent: () => current })).rejects.toMatchObject({ kind: 'cancelled' });
+});
+
+it('failed document discovery does not request Project data or publish an empty successful catalog', async () => {
+  const readProjects = vi.fn(async () => [project('old')]);
+  await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId,
+    requestFetch: vi.fn<typeof fetch>().mockResolvedValue(Response.json({ status: 'forbidden' }, { status: 403 })),
+    readProjects, isCurrent: () => true })).rejects.toMatchObject({ kind: 'forbidden' });
+  expect(readProjects).not.toHaveBeenCalled();
+});
+
+it('uses the host locale for catalog errors without changing scope or ownership facts', async () => {
+  const t = createTranslator('en');
+  await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: requestFetch(),
+    readProjects: async () => [], isCurrent: () => false, t })).rejects.toThrow(t('workspace.catalog.changed'));
+  await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId,
+    requestFetch: vi.fn<typeof fetch>().mockResolvedValue(Response.json({ documents: [], nextCursor: 'invalid' })),
+    readProjects: async () => [], isCurrent: () => true, t })).rejects.toThrow(t('workspace.catalog.invalidResponse'));
+});
+
+for (const [kind, key] of [['unauthorized', 'expiredLogin'], ['forbidden', 'denied'], ['cancelled', 'changed']] as const) {
+  for (const owner of ['documents', 'projects'] as const) it(`translates ${owner} transport ${kind} and keeps its access error kind`, async () => {
+    const t = createTranslator('en');
+    const message = t(`workspace.catalog.${key}`);
+    const failure = new AuthError(kind, '인증 계층 오류');
+    const reading = readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, t, isCurrent: () => true,
+      requestFetch: owner === 'documents' ? vi.fn<typeof fetch>().mockRejectedValue(failure) : requestFetch(),
+      readProjects: async () => { if (owner === 'projects') throw failure; return []; } });
+    await expect(reading).rejects.toMatchObject({ kind, message });
+  });
+}
+
+it('preserves current Project login expiry when its request clears the session before rejecting', async () => {
+  let current = true;
+  await expect(readAuthorizedWorkspaceCatalog({ tenantId, workspaceId, requestFetch: requestFetch(),
+    readProjects: async () => { current = false; throw new AuthError('unauthorized', 'expired'); }, isCurrent: () => current })).rejects.toMatchObject({ kind: 'unauthorized' });
+});
+
+it('Site snapshot aliases stay one original while initializing and collaborative entries remain unavailable', () => {
+  const value = catalog();
+  value.documents.push({ ...head(3, 'site'), mode: 'initializing' }, { ...head(4, 'site'), mode: 'collaborative' });
+  const groups = serverCatalogGroups(value, { ...options, perspective: 'sources', product: 'site' });
+  expect(groups[0].entries.map(entry => [entry.row.documentId, entry.disabled])).toEqual([[id(2), false], [id(3), true], [id(4), true]]);
+  expect(groups[0].entries[0].row.key).toContain(workspaceId);
+});
+
+
+it('retains native2 metadata visibly with ordinary open disabled in Project, Sources and My', () => {
+  const value = { ...catalog(), currentUserId: person };
+  value.documents = [head(1), head(2, 'note'), { ...head(3, 'note'), fileVersion: 2, pageId: 'native2-note-A', creatorUserId: person },
+    { ...head(4, 'note'), fileVersion: 2, pageId: 'native2-note-B', creatorUserId: otherPerson },
+    { ...head(5, 'note'), fileVersion: 2, mode: 'initializing' }];
+  value.projects[0].record.results.push({ id: 'native2-placement', name: 'alias', document: { product: 'note', id: id(3) }, inputs: [] });
+  const before = JSON.stringify(value);
+  for (const perspective of ['project', 'sources', 'my'] as const) {
+    const entries = serverCatalogGroups(value, { ...options, perspective }).flatMap(group => group.entries);
+    expect(new Set(entries.map(entry => entry.row.documentId))).toEqual(new Set(value.documents.map(one => one.documentId)));
+    for (const entry of entries.filter(one => [id(3), id(4), id(5)].includes(one.row.documentId))) {
+      expect(entry.disabled).toBe(true);
+      expect(entry.row).toMatchObject({ nativeOpenSupported: false, fileFormat: 'barocss-note', fileVersion: 2 });
+    }
+    for (const entry of entries.filter(one => [id(1), id(2)].includes(one.row.documentId))) expect(entry.disabled).toBe(false);
+  }
+  expect(JSON.stringify(value)).toBe(before);
+});

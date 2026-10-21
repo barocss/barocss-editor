@@ -15,7 +15,7 @@ WP 번호는 로컬 설계 식별자이며 GitHub issue 번호가 아니다. 설
 
 GitHub 연결: 누적 기준점은 [#248](https://github.com/barocss/barocss-editor/issues/248), WP-01은 [#249](https://github.com/barocss/barocss-editor/issues/249)와 병합된 PR #266이다. 서버의 첫 실행 기반 WP-05a는 [#330](https://github.com/barocss/barocss-editor/issues/330)에서 시작한다. WP-05 전체 완료와 구분한다. 저장·외부 연동·도메인·협업의 작은 후속 단계는 [백엔드 구축 기준](wonffice-backend-foundation.md)에 둔다.
 
-실행 방식 추가 결정: 현재 자동 진행의 시작점은 **Codex의 저장소 작업 시작·재개**다. [AGENTS.md](../../AGENTS.md)에 GitHub 우선 조회와 main 기준 PR 규칙을 추가했다. WP-03/04의 독립 실행기·daemon은 후속 선택이며, 서비스 첫 출시의 필수 선행 작업에서 제외한다. WP-10은 먼저 Codex 세션에서 검사 증거와 PR 정책을 검증한다. 앱 실행만으로 자동 시작하는 기능은 구성하지 않았다.
+실행 방식 추가 결정: 현재 자동 진행의 시작점은 **Codex의 저장소 작업 시작·재개**다. [AGENTS.md](../../AGENTS.md)에 GitHub 우선 조회와 develop 대상 검토 배치 PR, develop→main 출시 PR 규칙을 기록했다. WP-03/04의 독립 실행기·daemon은 후속 선택이며, 서비스 첫 출시의 필수 선행 작업에서 제외한다. WP-10은 먼저 Codex 세션에서 검사 증거와 PR 정책을 검증한다. 앱 실행만으로 자동 시작하는 기능은 구성하지 않았다.
 
 사용자 결정: **클라우드 SaaS와 고객사 내부 설치 동시 출시**. 모바일 설계·화면 검사는 제외한다. 기존 Note·Word·Slides·Site 기능 범위는 [제품 범위](wonffice-delivery-scope.md)를 유지한다.
 
