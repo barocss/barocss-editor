@@ -465,6 +465,18 @@ export function commitFiberTree(
       currentFiber = null;
     }
   }
+
+  // Deletion and text cleanup above need the previous tree until the whole
+  // commit ends. The next render only needs this tree's current VNodes and DOM.
+  // Clear every child alternate too: an old child links back to its old root.
+  const pending: FiberNode[] = [rootFiber];
+  while (pending.length) {
+    const fiber = pending.pop()!;
+    fiber.alternate = null;
+    fiber.prevVNode = undefined;
+    if (fiber.child) pending.push(fiber.child);
+    if (fiber.sibling) pending.push(fiber.sibling);
+  }
 }
 
 /**

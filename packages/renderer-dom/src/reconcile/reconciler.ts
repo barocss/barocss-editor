@@ -112,6 +112,7 @@ export class Reconciler {
     
     // Use Fiber-based reconcile (root level also processed as Fiber)
     // Process rootVNode as Fiber with container as parent
+    let renderScheduler: { cancel: () => void } | null = null;
     const fiberDeps: FiberReconcileDependencies = {
       dom: this.dom,
       components: this.components,
@@ -133,12 +134,17 @@ export class Reconciler {
        */
       onSchedulerStart: (scheduler) => {
         this.activeScheduler?.cancel();
+        renderScheduler = scheduler;
         this.activeScheduler = scheduler;
       }
     };
     
     // Tasks to process after Fiber completes
     reconcileWithFiber(container, rootVNode, prevVNode, context, fiberDeps, (newRootFiber) => {
+      // Release the scheduler's closure before user callbacks can start a new
+      // render. That closure includes this render's previous root and context.
+      if (this.activeScheduler === renderScheduler) this.activeScheduler = null;
+      renderScheduler = null;
       // React style: save new rootFiber (use as alternate in next render)
       if (newRootFiber) {
         this.rootFiber = newRootFiber;
@@ -161,6 +167,16 @@ export class Reconciler {
         onComplete();
       }
     });
+  }
+
+  /** Stop pending work and release this renderer's retained trees and portals. */
+  destroy(): void {
+    this.activeScheduler?.cancel();
+    this.activeScheduler = null;
+    this.rootFiber = null;
+    this.currentVisitedPortalIds = null;
+    for (const { host } of this.portalHostsById.values()) host.remove();
+    this.portalHostsById.clear();
   }
 
 

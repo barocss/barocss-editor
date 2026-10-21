@@ -513,8 +513,13 @@ export class DOMRenderer {
   
   // Dispose renderer
   destroy(): void {
+    this.reconciler.destroy();
     this.currentVNode = null;
     this.rootElement = null;
+    this.sidToVNodeSnapshot.clear();
+    this.lastModel = null;
+    this.lastDecorators = null;
+    this.lastRuntime = null;
     this.clearCache();
   }
 
