@@ -1,0 +1,898 @@
+{
+  "schema": "office-v2-m0/word-candidate-assessment-v3",
+  "sourceHead": "4579f1030174bf87e4679888458d5631a35fe492",
+  "sourceTree": "146248459a5faed173600965dbe04dfa5b7c2143",
+  "rawReport": "reports/word-performance-2026-10-21T21-28-14-216Z/report.json",
+  "rawSha256": "9e921d937f5de489b8bfbcd20d2d1564e64622070934c17f33403d394ce7d3a3",
+  "frozenBudget": "reports/reference-budget-v1.1.json",
+  "frozenBudgetSha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+  "measurementMethodRevision": "word-wall-v3-before-new-source-data",
+  "status": "FAIL:100page sampled aggregate RSS misses frozen512MiB inall3samples; no identical retry",
+  "findingId": "526/word100-rss-v3",
+  "profiles": [
+    {
+      "pages": 100,
+      "successfulFreshSamples": 3,
+      "timingGates": [
+        {
+          "phase": "normal-native-cold-open-to-stable-pages",
+          "samples": [
+            368.6999999284744,
+            338.40000009536743,
+            342.7999999523163
+          ],
+          "worstOfThree": 368.6999999284744,
+          "coarseNearestRankP95": 368.6999999284744,
+          "coefficientOfVariation": 0.03819708251219531,
+          "spreadMs": 30.299999833106995,
+          "repeatable": true,
+          "targetMs": 1000,
+          "targetMet": true
+        },
+        {
+          "phase": "full-native-view-layout-completion-plus3stableframes",
+          "samples": [
+            111.80000007152557,
+            112.30000007152557,
+            112.60000002384186
+          ],
+          "worstOfThree": 112.60000002384186,
+          "coarseNearestRankP95": 112.60000002384186,
+          "coefficientOfVariation": 0.002940152777504802,
+          "spreadMs": 0.7999999523162842,
+          "repeatable": true,
+          "targetMs": 250,
+          "targetMet": true
+        },
+        {
+          "phase": "actual-print-DOM-build",
+          "samples": [
+            28.700000047683716,
+            29,
+            27.799999952316284
+          ],
+          "worstOfThree": 29,
+          "coarseNearestRankP95": 29,
+          "coefficientOfVariation": 0.017891297523295345,
+          "spreadMs": 1.2000000476837158,
+          "repeatable": true,
+          "targetMs": 1000,
+          "targetMet": true
+        }
+      ],
+      "memory": {
+        "samplesBytes": [
+          577470464,
+          598196224,
+          575438848
+        ],
+        "targetBytes": 536870912,
+        "missedSampleIndices": [
+          0,
+          1,
+          2
+        ],
+        "targetMet": false,
+        "definition": "Maximum200ms owned aggregate browser RSS polls, includes shared pages; short peaks can be missed, not private resident bytes or continuous HWM"
+      },
+      "actualPrintedNodeDeltas": [
+        4501,
+        4501,
+        4501
+      ],
+      "actualPageCounts": [
+        100,
+        100,
+        100
+      ],
+      "rawDerivedDetails": [
+        {
+          "sample": 0,
+          "maximumSampledRssBytes": 577470464,
+          "preprintMaximumSampledRssBytes": 525942784,
+          "phaseMaximumSamplesBytes": {
+            "browser-start": 145358848,
+            "module-navigation": 351961088,
+            "normal-cold-open": 470433792,
+            "full-native-view-layout-completion": 525942784,
+            "actual-print-DOM-build": 577470464
+          },
+          "printTaggedPollPresent": true,
+          "peakSample": {
+            "atUtc": "2026-10-21T21:28:20.560Z",
+            "phase": "actual-print-DOM-build",
+            "rootPresent": true,
+            "processes": [
+              {
+                "pid": 86946,
+                "parentPid": 86838,
+                "rssBytes": 84967424,
+                "cpuPercent": 1.4
+              },
+              {
+                "pid": 86954,
+                "parentPid": 86946,
+                "rssBytes": 59228160,
+                "cpuPercent": 0.5
+              },
+              {
+                "pid": 86955,
+                "parentPid": 86946,
+                "rssBytes": 68222976,
+                "cpuPercent": 0.8
+              },
+              {
+                "pid": 86961,
+                "parentPid": 86946,
+                "rssBytes": 365051904,
+                "cpuPercent": 64.4
+              }
+            ],
+            "aggregateRssBytes": 577470464
+          },
+          "memoryBefore": {
+            "Documents": 3,
+            "Nodes": 39,
+            "LayoutCount": 0,
+            "LayoutDuration": 0,
+            "JSHeapUsedSize": 21001988,
+            "JSHeapTotalSize": 24625152
+          },
+          "memoryAfterOpen": {
+            "Documents": 1,
+            "Nodes": 3356,
+            "LayoutCount": 3,
+            "LayoutDuration": 0.059118,
+            "JSHeapUsedSize": 38184596,
+            "JSHeapTotalSize": 66945024
+          },
+          "memoryAfterPrint": {
+            "Documents": 1,
+            "Nodes": 7857,
+            "LayoutCount": 4,
+            "LayoutDuration": 0.089765,
+            "JSHeapUsedSize": 58520812,
+            "JSHeapTotalSize": 77955072
+          },
+          "browserInnerMs": {
+            "cold": 368.6999999284744,
+            "warm": 111.80000007152557,
+            "print": 28.700000047683716
+          },
+          "runnerWallPhaseMs": {
+            "module-navigation": 3462.905417,
+            "normal-cold-open": 372.52187500000036,
+            "full-native-view-layout-completion": 184.71158300000025,
+            "actual-print-DOM-build": 72.93245900000056,
+            "print-node-inventory": 1.1120410000003176
+          },
+          "sampleWallStartedUtc": "2026-10-21T21:28:14.886Z",
+          "sampleWallEndedUtc": "2026-10-21T21:28:20.593Z"
+        },
+        {
+          "sample": 1,
+          "maximumSampledRssBytes": 598196224,
+          "preprintMaximumSampledRssBytes": 570408960,
+          "phaseMaximumSamplesBytes": {
+            "module-navigation": 380829696,
+            "normal-cold-open": 520978432,
+            "full-native-view-layout-completion": 570408960,
+            "actual-print-DOM-build": 598196224
+          },
+          "printTaggedPollPresent": true,
+          "peakSample": {
+            "atUtc": "2026-10-21T21:28:24.108Z",
+            "phase": "actual-print-DOM-build",
+            "rootPresent": true,
+            "processes": [
+              {
+                "pid": 87265,
+                "parentPid": 86838,
+                "rssBytes": 84459520,
+                "cpuPercent": 0.3
+              },
+              {
+                "pid": 87271,
+                "parentPid": 87265,
+                "rssBytes": 63193088,
+                "cpuPercent": 0.3
+              },
+              {
+                "pid": 87272,
+                "parentPid": 87265,
+                "rssBytes": 67026944,
+                "cpuPercent": 0.2
+              },
+              {
+                "pid": 87273,
+                "parentPid": 87265,
+                "rssBytes": 383516672,
+                "cpuPercent": 25.2
+              }
+            ],
+            "aggregateRssBytes": 598196224
+          },
+          "memoryBefore": {
+            "Documents": 3,
+            "Nodes": 39,
+            "LayoutCount": 0,
+            "LayoutDuration": 0,
+            "JSHeapUsedSize": 20998812,
+            "JSHeapTotalSize": 24625152
+          },
+          "memoryAfterOpen": {
+            "Documents": 1,
+            "Nodes": 3356,
+            "LayoutCount": 3,
+            "LayoutDuration": 0.045357,
+            "JSHeapUsedSize": 38376596,
+            "JSHeapTotalSize": 66158592
+          },
+          "memoryAfterPrint": {
+            "Documents": 1,
+            "Nodes": 7857,
+            "LayoutCount": 4,
+            "LayoutDuration": 0.076832,
+            "JSHeapUsedSize": 58699596,
+            "JSHeapTotalSize": 77692928
+          },
+          "browserInnerMs": {
+            "cold": 338.40000009536743,
+            "warm": 112.30000007152557,
+            "print": 29
+          },
+          "runnerWallPhaseMs": {
+            "module-navigation": 1704.5385000000006,
+            "normal-cold-open": 387.8043340000004,
+            "full-native-view-layout-completion": 190.48783299999923,
+            "actual-print-DOM-build": 30.841749999999593,
+            "print-node-inventory": 1.521082999999635
+          },
+          "sampleWallStartedUtc": "2026-10-21T21:28:20.699Z",
+          "sampleWallEndedUtc": "2026-10-21T21:28:24.175Z"
+        },
+        {
+          "sample": 2,
+          "maximumSampledRssBytes": 575438848,
+          "preprintMaximumSampledRssBytes": 575438848,
+          "phaseMaximumSamplesBytes": {
+            "module-navigation": 354811904,
+            "normal-cold-open": 529547264,
+            "full-native-view-layout-completion": 575438848
+          },
+          "printTaggedPollPresent": false,
+          "peakSample": {
+            "atUtc": "2026-10-21T21:28:27.780Z",
+            "phase": "full-native-view-layout-completion",
+            "rootPresent": true,
+            "processes": [
+              {
+                "pid": 87431,
+                "parentPid": 86838,
+                "rssBytes": 83214336,
+                "cpuPercent": 0.3
+              },
+              {
+                "pid": 87433,
+                "parentPid": 87431,
+                "rssBytes": 58916864,
+                "cpuPercent": 0.3
+              },
+              {
+                "pid": 87434,
+                "parentPid": 87431,
+                "rssBytes": 67321856,
+                "cpuPercent": 0.1
+              },
+              {
+                "pid": 87435,
+                "parentPid": 87431,
+                "rssBytes": 365985792,
+                "cpuPercent": 44.8
+              }
+            ],
+            "aggregateRssBytes": 575438848
+          },
+          "memoryBefore": {
+            "Documents": 3,
+            "Nodes": 39,
+            "LayoutCount": 0,
+            "LayoutDuration": 0,
+            "JSHeapUsedSize": 20999636,
+            "JSHeapTotalSize": 24625152
+          },
+          "memoryAfterOpen": {
+            "Documents": 1,
+            "Nodes": 3356,
+            "LayoutCount": 3,
+            "LayoutDuration": 0.045603,
+            "JSHeapUsedSize": 38271676,
+            "JSHeapTotalSize": 67207168
+          },
+          "memoryAfterPrint": {
+            "Documents": 1,
+            "Nodes": 7857,
+            "LayoutCount": 4,
+            "LayoutDuration": 0.076537,
+            "JSHeapUsedSize": 58490364,
+            "JSHeapTotalSize": 76906496
+          },
+          "browserInnerMs": {
+            "cold": 342.7999999523163,
+            "warm": 112.60000002384186,
+            "print": 27.799999952316284
+          },
+          "runnerWallPhaseMs": {
+            "module-navigation": 1866.5397090000006,
+            "normal-cold-open": 698.367542,
+            "full-native-view-layout-completion": 277.0045829999999,
+            "actual-print-DOM-build": 29.1752919999999,
+            "print-node-inventory": 1.4313330000004498
+          },
+          "sampleWallStartedUtc": "2026-10-21T21:28:24.430Z",
+          "sampleWallEndedUtc": "2026-10-21T21:28:27.886Z"
+        }
+      ]
+    },
+    {
+      "pages": 300,
+      "successfulFreshSamples": 3,
+      "timingGates": [
+        {
+          "phase": "normal-native-cold-open-to-stable-pages",
+          "samples": [
+            1087.2999999523163,
+            1068.3999999761581,
+            1083.7000000476837
+          ],
+          "worstOfThree": 1087.2999999523163,
+          "coarseNearestRankP95": 1087.2999999523163,
+          "coefficientOfVariation": 0.0075883498558830306,
+          "spreadMs": 18.899999976158142,
+          "repeatable": true,
+          "targetMs": 3000,
+          "targetMet": true
+        },
+        {
+          "phase": "full-native-view-layout-completion-plus3stableframes",
+          "samples": [
+            358,
+            368.2999999523163,
+            363.8000000715256
+          ],
+          "worstOfThree": 368.2999999523163,
+          "coarseNearestRankP95": 368.2999999523163,
+          "coefficientOfVariation": 0.011602898814632567,
+          "spreadMs": 10.299999952316284,
+          "repeatable": true,
+          "targetMs": 750,
+          "targetMet": true
+        },
+        {
+          "phase": "actual-print-DOM-build",
+          "samples": [
+            76.20000004768372,
+            78.09999990463257,
+            79.29999995231628
+          ],
+          "worstOfThree": 79.29999995231628,
+          "coarseNearestRankP95": 79.29999995231628,
+          "coefficientOfVariation": 0.016390572825866544,
+          "spreadMs": 3.0999999046325684,
+          "repeatable": true,
+          "targetMs": 3000,
+          "targetMet": true
+        }
+      ],
+      "memory": {
+        "samplesBytes": [
+          806305792,
+          799784960,
+          804552704
+        ],
+        "targetBytes": 1073741824,
+        "missedSampleIndices": [],
+        "targetMet": true,
+        "definition": "Maximum200ms owned aggregate browser RSS polls, includes shared pages; short peaks can be missed, not private resident bytes or continuous HWM"
+      },
+      "actualPrintedNodeDeltas": [
+        13501,
+        13501,
+        13501
+      ],
+      "actualPageCounts": [
+        300,
+        300,
+        300
+      ],
+      "rawDerivedDetails": [
+        {
+          "sample": 0,
+          "maximumSampledRssBytes": 806305792,
+          "preprintMaximumSampledRssBytes": 800391168,
+          "phaseMaximumSamplesBytes": {
+            "module-navigation": 383156224,
+            "normal-cold-open": 786137088,
+            "full-native-view-layout-completion": 800391168,
+            "actual-print-DOM-build": 806305792,
+            "print-node-inventory": 806125568
+          },
+          "printTaggedPollPresent": true,
+          "peakSample": {
+            "atUtc": "2026-10-21T21:28:32.129Z",
+            "phase": "actual-print-DOM-build",
+            "rootPresent": true,
+            "processes": [
+              {
+                "pid": 87609,
+                "parentPid": 86838,
+                "rssBytes": 83656704,
+                "cpuPercent": 0
+              },
+              {
+                "pid": 87617,
+                "parentPid": 87609,
+                "rssBytes": 63406080,
+                "cpuPercent": 0.6
+              },
+              {
+                "pid": 87618,
+                "parentPid": 87609,
+                "rssBytes": 67125248,
+                "cpuPercent": 0
+              },
+              {
+                "pid": 87619,
+                "parentPid": 87609,
+                "rssBytes": 592117760,
+                "cpuPercent": 44.6
+              }
+            ],
+            "aggregateRssBytes": 806305792
+          },
+          "memoryBefore": {
+            "Documents": 3,
+            "Nodes": 39,
+            "LayoutCount": 0,
+            "LayoutDuration": 0,
+            "JSHeapUsedSize": 20994508,
+            "JSHeapTotalSize": 24887296
+          },
+          "memoryAfterOpen": {
+            "Documents": 1,
+            "Nodes": 9956,
+            "LayoutCount": 3,
+            "LayoutDuration": 0.107459,
+            "JSHeapUsedSize": 62050148,
+            "JSHeapTotalSize": 124616704
+          },
+          "memoryAfterPrint": {
+            "Documents": 1,
+            "Nodes": 23457,
+            "LayoutCount": 4,
+            "LayoutDuration": 0.190366,
+            "JSHeapUsedSize": 81464816,
+            "JSHeapTotalSize": 136413184
+          },
+          "browserInnerMs": {
+            "cold": 1087.2999999523163,
+            "warm": 358,
+            "print": 76.20000004768372
+          },
+          "runnerWallPhaseMs": {
+            "module-navigation": 1092.0064169999987,
+            "normal-cold-open": 1090.7871659999983,
+            "full-native-view-layout-completion": 558.5042499999981,
+            "actual-print-DOM-build": 1036.1007919999975,
+            "print-node-inventory": 2.1825410000019474
+          },
+          "sampleWallStartedUtc": "2026-10-21T21:28:27.992Z",
+          "sampleWallEndedUtc": "2026-10-21T21:28:32.828Z"
+        },
+        {
+          "sample": 1,
+          "maximumSampledRssBytes": 799784960,
+          "preprintMaximumSampledRssBytes": 797556736,
+          "phaseMaximumSamplesBytes": {
+            "module-navigation": 352993280,
+            "normal-cold-open": 781877248,
+            "full-native-view-layout-completion": 797556736,
+            "actual-print-DOM-build": 799784960
+          },
+          "printTaggedPollPresent": true,
+          "peakSample": {
+            "atUtc": "2026-10-21T21:28:37.468Z",
+            "phase": "actual-print-DOM-build",
+            "rootPresent": true,
+            "processes": [
+              {
+                "pid": 88039,
+                "parentPid": 86838,
+                "rssBytes": 84197376,
+                "cpuPercent": 0
+              },
+              {
+                "pid": 88049,
+                "parentPid": 88039,
+                "rssBytes": 62341120,
+                "cpuPercent": 0.6
+              },
+              {
+                "pid": 88050,
+                "parentPid": 88039,
+                "rssBytes": 67862528,
+                "cpuPercent": 0
+              },
+              {
+                "pid": 88051,
+                "parentPid": 88039,
+                "rssBytes": 585383936,
+                "cpuPercent": 88.2
+              }
+            ],
+            "aggregateRssBytes": 799784960
+          },
+          "memoryBefore": {
+            "Documents": 3,
+            "Nodes": 39,
+            "LayoutCount": 0,
+            "LayoutDuration": 0,
+            "JSHeapUsedSize": 20998908,
+            "JSHeapTotalSize": 24625152
+          },
+          "memoryAfterOpen": {
+            "Documents": 1,
+            "Nodes": 9957,
+            "LayoutCount": 3,
+            "LayoutDuration": 0.104038,
+            "JSHeapUsedSize": 62358224,
+            "JSHeapTotalSize": 123568128
+          },
+          "memoryAfterPrint": {
+            "Documents": 1,
+            "Nodes": 23458,
+            "LayoutCount": 4,
+            "LayoutDuration": 0.191696,
+            "JSHeapUsedSize": 81641988,
+            "JSHeapTotalSize": 136937472
+          },
+          "browserInnerMs": {
+            "cold": 1068.3999999761581,
+            "warm": 368.2999999523163,
+            "print": 78.09999990463257
+          },
+          "runnerWallPhaseMs": {
+            "module-navigation": 2125.678584000001,
+            "normal-cold-open": 1139.218791000003,
+            "full-native-view-layout-completion": 480.44679200000246,
+            "actual-print-DOM-build": 79.84720799999923,
+            "print-node-inventory": 0.9901250000002619
+          },
+          "sampleWallStartedUtc": "2026-10-21T21:28:32.992Z",
+          "sampleWallEndedUtc": "2026-10-21T21:28:37.542Z"
+        },
+        {
+          "sample": 2,
+          "maximumSampledRssBytes": 804552704,
+          "preprintMaximumSampledRssBytes": 801734656,
+          "phaseMaximumSamplesBytes": {
+            "module-navigation": 350912512,
+            "normal-cold-open": 786595840,
+            "full-native-view-layout-completion": 801734656,
+            "actual-print-DOM-build": 804552704
+          },
+          "printTaggedPollPresent": true,
+          "peakSample": {
+            "atUtc": "2026-10-21T21:28:42.082Z",
+            "phase": "actual-print-DOM-build",
+            "rootPresent": true,
+            "processes": [
+              {
+                "pid": 88302,
+                "parentPid": 86838,
+                "rssBytes": 84033536,
+                "cpuPercent": 0
+              },
+              {
+                "pid": 88305,
+                "parentPid": 88302,
+                "rssBytes": 61784064,
+                "cpuPercent": 0.2
+              },
+              {
+                "pid": 88306,
+                "parentPid": 88302,
+                "rssBytes": 67518464,
+                "cpuPercent": 0
+              },
+              {
+                "pid": 88307,
+                "parentPid": 88302,
+                "rssBytes": 591216640,
+                "cpuPercent": 60.2
+              }
+            ],
+            "aggregateRssBytes": 804552704
+          },
+          "memoryBefore": {
+            "Documents": 3,
+            "Nodes": 39,
+            "LayoutCount": 0,
+            "LayoutDuration": 0,
+            "JSHeapUsedSize": 21003988,
+            "JSHeapTotalSize": 24625152
+          },
+          "memoryAfterOpen": {
+            "Documents": 1,
+            "Nodes": 9956,
+            "LayoutCount": 3,
+            "LayoutDuration": 0.107027,
+            "JSHeapUsedSize": 61941040,
+            "JSHeapTotalSize": 123305984
+          },
+          "memoryAfterPrint": {
+            "Documents": 1,
+            "Nodes": 23457,
+            "LayoutCount": 4,
+            "LayoutDuration": 0.195046,
+            "JSHeapUsedSize": 81334148,
+            "JSHeapTotalSize": 136675328
+          },
+          "browserInnerMs": {
+            "cold": 1083.7000000476837,
+            "warm": 363.8000000715256,
+            "print": 79.29999995231628
+          },
+          "runnerWallPhaseMs": {
+            "module-navigation": 1622.230083999999,
+            "normal-cold-open": 1234.4767920000013,
+            "full-native-view-layout-completion": 701.1351670000004,
+            "actual-print-DOM-build": 80.77541700000074,
+            "print-node-inventory": 1.3304170000010345
+          },
+          "sampleWallStartedUtc": "2026-10-21T21:28:37.692Z",
+          "sampleWallEndedUtc": "2026-10-21T21:28:42.134Z"
+        }
+      ]
+    }
+  ],
+  "nodeGrowth": {
+    "actual100": [
+      4501,
+      4501,
+      4501
+    ],
+    "actual300": [
+      13501,
+      13501,
+      13501
+    ],
+    "maximum300OverMinimum100": 2.9995556542990447,
+    "targetMaximumRatio": 3.5,
+    "targetMet": true,
+    "method": "Actual native CDP global before/after node counter deltas inall6samples; not an independently traversed printtree count"
+  },
+  "allTimingGatesMet": true,
+  "allTimingPhasesRepeatable": true,
+  "actualFontsAllKnown": true,
+  "consolePageGuardCleanupErrors": false,
+  "cleanup": {
+    "rawFinalStatus": "Owned browser/server/Vite close completed within5s",
+    "independentProbeUtc": "2026-10-21T21:30:38.856150+00:00",
+    "ownedBrowserRootPids": [
+      86946,
+      87265,
+      87431,
+      87609,
+      88039,
+      88302
+    ],
+    "allObservedOwnedPids": [
+      86946,
+      86954,
+      86955,
+      86961,
+      87265,
+      87271,
+      87272,
+      87273,
+      87431,
+      87433,
+      87434,
+      87435,
+      87609,
+      87617,
+      87618,
+      87619,
+      88039,
+      88049,
+      88050,
+      88051,
+      88302,
+      88305,
+      88306,
+      88307
+    ],
+    "allObservedOwnedPidsAbsent": true,
+    "port55260Listening": false
+  },
+  "timingBasis": "Frozen browser-inner performance.now: cold admission/mount/fonts/native completion+3stableframes; warm actual render/native completion+3stableframes. Print is synchronous DOM build, excludes deferred layout/PDF. Runner wall wrappers remain separate; no WordTOTAL target invented.",
+  "measurementLimits": [
+    "200ms polling is not continuous HWM. O100sample2 has NO print-tagged RSS poll; its maximum575438848 is observed during warm/native completion and cannot be called a measured print peak.",
+    "100preprint sampled maxima525942784/570408960/575438848; samples1/2already miss536870912 before print. Residual memory cannot be attributed solely to print.",
+    "Print driver label persists through postbuild CDP heap/node readout; source-stage tags cannot isolate synchronous build from deferred layout/readout.",
+    "Owned process aggregate counts shared pages; exact physical-memory consumption and unobserved process roles are not inferred. JS heap growth alone does not prove a leak.",
+    "CDP global node counts may include disconnected/collected nodes; recorded4501/13501deltas satisfy the frozen method but are not a causal byte-accounting proof.",
+    "All raw pressure/fonts retained; named recorded loaded workstation. Different source windows are not a controlled A/B or universal speedup guarantee. Three observations give only coarse nearest-rank p95."
+  ],
+  "historical": {
+    "priorAssessment": "reports/word-candidate-assessment-v2.json",
+    "originalGuardAssessment": "reports/word-candidate-assessment-v1.json",
+    "priorSource": "ccf1ffd0353eccbdc23b922e54973fb0919b81a4",
+    "priorRSS100": [
+      527810560,
+      591446016,
+      604405760
+    ],
+    "priorMissingPrintPoll": "P2b100sample0; distinct from currentO100sample2",
+    "preservation": "All prior raw/firstfailures/assessments unchanged; no threshold increased and no sample discarded"
+  },
+  "reuseBindings": {
+    "wordProductionClosure": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/editor-view-dom/src/editor-view-dom.ts",
+        "sha256": "df476aec72a812df0e2c49ef657204cedd00a0cf24ee66892e16d9da466a9bfa"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/measurement.ts",
+        "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+      },
+      {
+        "path": "packages/office-word/src/layout.ts",
+        "sha256": "664e15e422665531a6ecd4a37559fd28c16994c3a3b6c593967ceea94ec8ce89"
+      },
+      {
+        "path": "packages/office-word/src/pagination.ts",
+        "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+      },
+      {
+        "path": "packages/office-word/src/print-pages.ts",
+        "sha256": "7de7bf402c10fa444502ff17ad2f9a835bd82bb14efeb8f9963c6729119eac21"
+      },
+      {
+        "path": "packages/office-word/src/renderers/page.ts",
+        "sha256": "2f22023f5c0b7afd34a4e70ad864e00d0ec9d845d1bb83a16255f110e18dbcaa"
+      },
+      {
+        "path": "packages/office-word/src/ui.css",
+        "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+      },
+      {
+        "path": "packages/office-text/src/text.css",
+        "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+      },
+      {
+        "path": "packages/office-word/src/render-context.ts",
+        "sha256": "fe4e8f6a0acc3f0331f3abe2fa7362e95efbe8e09225e3c1bada85f653d84367"
+      },
+      {
+        "path": "packages/office-word/src/font-loader.ts",
+        "sha256": "6519ab82874bc8b1f0397838038a86f5e60743f06a806acf71901cee2968149d"
+      },
+      {
+        "path": "packages/renderer-dom/src/dom-renderer.ts",
+        "sha256": "94310528c134fd7877795623c0756c3e97b62091e1dd662abb95652d45276ee1"
+      },
+      {
+        "path": "packages/renderer-dom/src/scheduler.ts",
+        "sha256": "e79fa52c853b9bbc4511c2f6ae0318885ffea101504679639cf3def650551c9d"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/reconciler.ts",
+        "sha256": "e229a6d7edd632a80ba3f2f7011bffa07cf9355ff3ccf75dd737e32a76513872"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+        "sha256": "d190c6361aa73532da42af1b8e1b835e5c2126ecd596fc8f8a90008e18c84ce9"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+        "sha256": "4c93720795a92e71266373572c1885dbb4040274e7ec6bc0ba6c3cca5a4bd28f"
+      }
+    ],
+    "measuredHarness": [
+      {
+        "path": "word-performance-runner.mjs",
+        "sha256": "9f51c8c97b97270819660ee29f5f22dc9aa94e1b5777f46f8195a1939db2eb24"
+      },
+      {
+        "path": "word-performance-browser.mjs",
+        "sha256": "75fbfe2dee394bf0576d964da941af010b49bc1ec1bc19799e5b826bad7fe4d0"
+      },
+      {
+        "path": "performance-guards.ts",
+        "sha256": "5454187e7f79b8613a74467a2ae33eaafcbc0eb112a205484cae90f30ea2dbf4"
+      },
+      {
+        "path": "profiles.ts",
+        "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+      },
+      {
+        "path": "metrics.ts",
+        "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+      },
+      {
+        "path": "font-metadata.py",
+        "sha256": "969a6c9f66e6a94b9c492118f4e3252013b231ca83951f7b3d03ee7cbb3c0ab7"
+      },
+      {
+        "path": "word-performance.html",
+        "sha256": "c967f2a610a5d5669bea064f13408fafff2edf7181226d1f58a1fa11c97e0708"
+      }
+    ],
+    "coreV2UnchangedSourceFiles": [
+      {
+        "path": "experiments/office-suite-v2/src/contracts.ts",
+        "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/workbook.ts",
+        "sha256": "45f4419c237c459c599857b1747f378687d730b22b5451191ea8f668face09c8"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/sheet-scale.mjs",
+        "sha256": "d40d7d54ea120f75432b7089c14a7545a3ec6ac41d31e60341aa6e132bdda405"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/profiles.ts",
+        "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/performance-guards.ts",
+        "sha256": "5454187e7f79b8613a74467a2ae33eaafcbc0eb112a205484cae90f30ea2dbf4"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/metrics.ts",
+        "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+        "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/calculation.ts",
+        "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/formula.ts",
+        "sha256": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/references.ts",
+        "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393"
+      }
+    ],
+    "coreV2OriginalSource": "6b3ea4a0669c0796a58711ff01932f5a71b50962",
+    "rule": "Corev2 reused with all10exactbytes; same7Gmethodfiles and frozenbudget. No Coreprofile rerun."
+  },
+  "qualification": {
+    "sourceProofReceipt": {
+      "root": "39Oaf4589fullpreflightPASS284.094s; S onlytest/docwithauthorappWordtypes0/0/lint0",
+      "Word_units": "23PASS2.572s",
+      "A": "O8PASS37/24.693s partialwhole14ledgerpreserved",
+      "supplement": "S6PASS40/38.224s realnative4fixtures+2zoom",
+      "Core": "qualifiedV2PASS10exactfilesunchanged/reused; noCoreprofile"
+    },
+    "sourceProofBoundary": "Root39O/23units/O8A/S6actual native40 receipts reported byIntegration separately from these performance metrics; no fullPDF/product release claim",
+    "remaining": "100RSSmiss is concrete; no micro-opt/profile loop. Planner chooses next disposition from source-bound evidence.",
+    "m0": "OPEN: whole acceptance is Planner-owned"
+  }
+}
