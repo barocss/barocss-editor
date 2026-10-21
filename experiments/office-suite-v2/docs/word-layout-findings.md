@@ -185,6 +185,32 @@ and attaches the actual bytes for independent text/render inspection. Its page
 count assertion alone is not called complete PDF fidelity. No print production
 source changed in this followup.
 
+### P1 valid-font geometry failure and P2 inheritance repair
+
+P1 `b6a4a05e34dc119593bd008424b742313f94f0e9` ran with the corrected narrow
+font allowlist. Run31 exited1 after11.427s: three cases passed (including saved
+real PDF and the font gates), the independent header rectangle comparison
+failed, and four cases were NOT RUN. Source header height was20.390625px;
+printed header height was24px. Text, top, left and width comparisons had reached
+the same header. Raw log/results/PDF/trace remain under primary `.omx/m0` with
+`31-P1-Word-print-stage-a` / `530-word-print-p1-stage-a` prefixes. The tolerance
+was not changed; Stage B did not run. Owned port55261 was closed afterwards.
+
+The copy had frozen `getComputedStyle(...).lineHeight`, a resolved pixel value,
+at the ancestor boundary. That discards the distinction between an inherited
+unitless multiplier and a fixed length when furniture changes its font size.
+P2 reads the native typed computed `line-height` value, preserving `1.5` as a
+number and `24px` as a fixed length. It does not infer a ratio from every pixel
+value, set a special header height, or change print CSS. An inline-value/resolved
+fallback remains for environments without Typed OM; that fallback is not new
+cross-browser fidelity evidence. The pinned Chromium browser gate must verify
+the actual native computed values and resulting geometry.
+
+The new unitless case failed before the change. The final focused set now passes
+21/21 with no skipped tests: eight projections (including relative/fixed
+line-height), six ownership and seven print CSS tests. Actual corrected PDF and
+geometry checks require a fresh source-bound lease and remain pending here.
+
 The required 100/300 layout/print, exact fonts and performance budget remain open.
 No product, release or complete-M0 acceptance is claimed.
 

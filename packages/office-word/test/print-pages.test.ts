@@ -109,4 +109,18 @@ describe('page-local complete paint projections', () => {
     const ids = [...document.querySelectorAll('[id]')].map(el => el.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it.each(['1.5', '24px'])('preserves computed line-height %s semantics for smaller page furniture', (lineHeight) => {
+    const source = fixture();
+    // CSSOM getComputedStyle resolves line-height to pixels. Typed computed
+    // values retain the inherited number that scales with furniture font-size.
+    for (const element of [source, source.querySelector('.w-surface')!]) {
+      Object.defineProperty(element, 'computedStyleMap', { value: () => ({
+        get: (name: string) => name === 'line-height' ? { toString: () => lineHeight } : undefined
+      }) });
+    }
+    createPrintPages(() => source).build();
+    expect(document.querySelector<HTMLElement>('.w-print-copy')?.style.lineHeight).toBe(lineHeight);
+    expect(document.querySelector<HTMLElement>('.w-print-copy .w-surface')?.style.lineHeight).toBe(lineHeight);
+  });
 });

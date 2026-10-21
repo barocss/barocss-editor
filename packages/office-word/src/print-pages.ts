@@ -36,7 +36,8 @@ const CONTAINER_CLASS = 'w-print-pages';
 let printerSequence = 0;
 
 type Box = { left: number; top: number; right: number; bottom: number; width: number; height: number };
-type Snapshot = { box: Box; paint?: Box; style: CSSStyleDeclaration };
+type Snapshot = { box: Box; paint?: Box; style: CSSStyleDeclaration; lineHeight: string };
+type ComputedElement = Element & { computedStyleMap?: () => { get(property: string): { toString(): string } | undefined } };
 type Unit = { element: HTMLElement; surface?: HTMLElement; sheets: boolean };
 const intersects = (a: Box, b: Box) => a.top < b.bottom && a.bottom > b.top && a.left < b.right && a.right > b.left;
 const px = (value: string): number => parseFloat(value) || 0;
@@ -66,7 +67,12 @@ function snapshot(root: HTMLElement): Map<Element, Snapshot> {
         }
       }
     }
-    result.set(element, { box, paint, style });
+    // getComputedStyle resolves a unitless line-height to used pixels. Copying
+    // those pixels prevents smaller furniture from inheriting the original
+    // multiplier. Typed computed values distinguish that number from fixed px.
+    const lineHeight = (element as ComputedElement).computedStyleMap?.().get('line-height')?.toString()
+      ?? ((element as HTMLElement).style?.lineHeight || style.lineHeight);
+    result.set(element, { box, paint, style, lineHeight });
     return paint;
   };
   visit(root);
@@ -74,11 +80,12 @@ function snapshot(root: HTMLElement): Map<Element, Snapshot> {
 }
 
 /** Inherited type comes from the live host, which is not an ancestor of print pages. */
-function inherit(copy: HTMLElement, style: CSSStyleDeclaration): void {
+function inherit(copy: HTMLElement, style: CSSStyleDeclaration, lineHeight: string): void {
   for (const property of ['font-family', 'font-size', 'font-weight', 'font-style', 'font-stretch', 'font-variant',
-    'line-height', 'letter-spacing', 'word-spacing', 'white-space', 'direction', 'writing-mode', 'color', 'text-align']) {
+    'letter-spacing', 'word-spacing', 'white-space', 'direction', 'writing-mode', 'color', 'text-align']) {
     copy.style.setProperty(property, style.getPropertyValue(property));
   }
+  copy.style.lineHeight = lineHeight;
   for (let i = 0; i < style.length; i++) {
     const property = style.item(i);
     if (property.startsWith('--')) copy.style.setProperty(property, style.getPropertyValue(property));
@@ -182,7 +189,7 @@ export function createPrintPages(
 
       const copy = source.cloneNode(false) as HTMLElement;
       copy.classList.add('w-print-copy');
-      inherit(copy, origin.style);
+      inherit(copy, origin.style, origin.lineHeight);
       copy.style.width = `${origin.box.width / scale}px`;
       copy.style.left = `${-(box.left - origin.box.left) / scale}px`;
       copy.style.top = `${-(box.top - origin.box.top) / scale}px`;
@@ -204,7 +211,7 @@ export function createPrintPages(
         const at = measured.get(unit.surface)!;
         if (!surface) {
           const clone = unit.surface.cloneNode(false) as HTMLElement;
-          inherit(clone, at.style);
+          inherit(clone, at.style, at.lineHeight);
           Object.assign(clone.style, { position: 'absolute', margin: '0',
             left: `${(at.box.left - origin.box.left) / scale}px`, top: `${(at.box.top - origin.box.top) / scale}px`,
             width: `${at.box.width / scale}px`, height: `${at.box.height / scale}px`, boxSizing: 'border-box' });
