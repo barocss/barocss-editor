@@ -249,3 +249,43 @@ No whole repository suite, other lane tests or full-scale/timing profile ran her
 Integration owns combined source checks; Verification owns before/after measurement
 on exact immutable candidates in a bounded window. M0 and performance acceptance
 remain open, including the separate Word timeout and unqualified environment.
+
+## Native cell checkpoint v1 — frozen retention policy, 2026-10-22
+
+Measured repair base: `7d902bc69bf98b0dc6aaf681a24d34c7066703a1`, tree
+`300251a4c121e39c4df43690108669035adda08f`. Preserve E separately. Before implementation
+or a new profile, freeze these PRIVATE optimization limits: one recent checkpoint;
+at most 20000 unique native input events; at most 60000 populated cell records;
+at most 16777216 UTF-16 code units in its complete revision. These are cache retention
+eligibility limits, not new input admission limits, weakened budgets or measured
+capacity. Over-limit input remains supported by the existing complete projector.
+
+A checkpoint owns only its current immutable projection, a copied exact native
+event prefix, canonical body map/context and proven covering tip. It must not retain
+a previous projection/checkpoint, mutable reducer or a chain of snapshots. Only one
+slot is retained per module, not one per document/tip/array. Context changes, raw or
+unsafe requests, over-limit requests and errors evict the slot before full fallback.
+Recursive projector calls for undo eligibility never consume or populate this slot.
+
+The first narrow path accepts EXACTLY ONE appended native cell.commit/cells.commit
+event per call. It must have a fresh ID, exact context/provenance, known dependencies
+and a direct dependency on the stored covering tip. Every old input position must
+match the copied Core-admitted immutable prefix. The baseline must have no pending
+events and its tip must demonstrably observe all prior events; rank alone is not a
+proof. Every changed cell must already exist and be live. Validate eligibility for
+the entire batch before changing a derived result. More than one new event, raw/
+reparsed/permuted/replaced inputs, concurrency, structure, undo, missing/deleted/new
+cell targets, duplicate/colliding IDs and missing dependencies use full replay.
+
+This single append observes every old undo, so it cannot become a retroactive
+foreign blocker. Old outcomes and structure remain exact. Share only unchanged
+immutable records; each touched record retains its undone history, supersedes all
+other old contributions, and appends the new causal winner. Preserve enumerable
+sorted keys, null prototypes and the complete exact revision sorted by event ID;
+a causally last UUID can sort before old IDs. No digest, prototype overlay, hidden
+editable authority or public C/API change is permitted. The slot is replaceable
+memoization of complete replay, not saved content or durable state.
+
+Remaining O(event count + populated cells + revision bytes) work and retained body
+memory remain measurable. Verification owns unchanged v1.1 total/RSS gates and the
+next exact-source profile; this policy claims no latency or whole-M0 acceptance.
