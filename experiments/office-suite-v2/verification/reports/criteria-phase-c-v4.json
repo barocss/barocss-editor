@@ -1,0 +1,54 @@
+{
+  "schema": "office-v2-m0/phase-c-current-criteria-v4",
+  "capturedUtc": "2026-10-21T21:31:24.237428+00:00",
+  "sourceHead": "4579f1030174bf87e4679888458d5631a35fe492",
+  "sourceTree": "146248459a5faed173600965dbe04dfa5b7c2143",
+  "priorCurrentMatrix": "reports/criteria-phase-c-v3.json",
+  "historicalRule": "Originalfirstguard and P2b matrices/raw remain immutable history; currentstates are source-bound to WordO4579 and explicitCorev2reuse.",
+  "criteria": [
+    {
+      "criterion": "sheet-frozen-v1.1-performance-reference",
+      "status": "PASS reused exact10bytes",
+      "boundary": "Corev2 measured at6b3ea4a, all10source/harness/budget hashes unchanged at4579. No Coreprofile rerun or providerUIclaim.",
+      "evidence": "reports/sheet-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "word-normal100-300-latency-and-fonts",
+      "status": "PASS bounded recorded reference",
+      "boundary": "Sixfresh normal samples, actualpage/root/surface/paragraphcounts and font identities match; all6timing/repeatabilitygates meet frozenv1.1.",
+      "evidence": "reports/word-candidate-assessment-v3.json"
+    },
+    {
+      "criterion": "word-printed-node-growth",
+      "status": "PASS frozen CDPcounter method",
+      "boundary": "Actual100deltas4501each,30013501each, ratio2.99955565<=3.5; globalcounterdeltas are not independent tree traversal or causalbyteproof.",
+      "evidence": "reports/word-candidate-assessment-v3.json"
+    },
+    {
+      "criterion": "word100-sampled-owned-RSS",
+      "status": "FAIL all3samples",
+      "boundary": "577470464/598196224/575438848bytes exceed536870912. Preprint samples1/2already exceed. O100sample2has no print-tagpoll; no print-only or exactHWMclaim.",
+      "evidence": "reports/word-candidate-assessment-v3.json"
+    },
+    {
+      "criterion": "word300-sampled-owned-RSS",
+      "status": "PASS bounded sampled reference",
+      "boundary": "806305792/799784960/804552704bytes below1073741824; all3print-tagmaxima observed, same200ms/sharedpage limits.",
+      "evidence": "reports/word-candidate-assessment-v3.json"
+    },
+    {
+      "criterion": "separate-Word-source-print-proof",
+      "status": "PASS bounded Integration receipt",
+      "boundary": "Lease binds root39O/23units/O8A/S6native40source-owner receipts; reported proof distinct from this performance run, fullPDF/productrelease notaccepted.",
+      "evidence": "reports/word-performance-2026-10-21T21-28-14-216Z/report.json"
+    },
+    {
+      "criterion": "M0-whole-acceptance",
+      "status": "OPEN",
+      "boundary": "Residual100RSSmiss remains; Plannerownsnextdisposition and wholedecision. No numericthresholdchange or identicalretry authorized.",
+      "evidence": null
+    }
+  ],
+  "noHeavyRepeat": true,
+  "noProductionEdits": true
+}

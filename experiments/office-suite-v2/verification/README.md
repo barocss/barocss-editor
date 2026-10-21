@@ -3,9 +3,9 @@
 This lane owns only `experiments/office-suite-v2/verification/**`. It does not accept
 M0, the product, release, or the Office compatibility roadmap.
 
-Latest source-bound state: `reports/criteria-phase-c-v3.json`. Core v2 meets its
-bounded reference targets. Word P2b meets latency/node-growth targets but misses
-100page RSS in two samples. Whole M0 remains OPEN. The S/Q/F receipt below is
+Latest source-bound state: `reports/criteria-phase-c-v4.json`. Core v2 meets its
+bounded reference targets. Word O meets latency/node-growth targets but misses
+100page RSS in all three samples. Whole M0 remains OPEN. The S/Q/F receipt below is
 retained history; later Phase C sections record the actual production successors.
 
 Analysis/scaffold: S `9b390602d90e07f496b7b699915b7d605582d8a4`.
@@ -417,3 +417,49 @@ comparison. This performance run does not independently accept PDF fidelity.
 The actual remaining gates are100RSS and supplemental native print proof;
 whole M0 remains OPEN under Planner. No source engine or measured fixture was
 changed by Verification.
+
+## Word O one affected profile:100RSS remains above target
+
+Measured source is `4579f1030174bf87e4679888458d5631a35fe492`, tree
+`146248459a5faed173600965dbe04dfa5b7c2143`. The actual production delta from
+P2b is the bounded unique-ID traversal change in `print-pages.ts`. Snapshot,
+typography, workload, G method, flags and GC policy are unchanged. Integration
+reported root39O,23unit cases, O8A and S6actualnative40source proof before this
+one affected profile. Those bounded receipts remain separate from this run.
+
+Raw `reports/word-performance-2026-10-21T21-28-14-216Z/report.json` and
+`reports/word-candidate-assessment-v3.json` retain all six fresh normal samples.
+All six timing and repeatability gates meet frozen v1.1. Worst-of-three inner
+cold/warm/print-DOM times are368.7/112.6/29.0ms for100pages and
+1,087.3/368.3/79.3ms for300. Actual fonts/pages/root/surface/paragraphs match;
+no console/page, resource/time guard or cleanup failure occurred. All24observed
+owned PIDs and55260listener were absent after cleanup. The expensive slot was
+returned immediately, before offline assessment. No duplicate profile ran.
+
+Actual native CDP node deltas are4,501in each100sample and13,501in each300sample,
+ratio2.9995556543, below3.5. These are the frozen global-counter deltas, which
+can include disconnected/collected nodes; no separate printed-tree traversal or
+causal memory-byte proof is invented. The recorded lower counts do not erase
+the remaining memory miss or claim a controlled cross-window speedup.
+
+Finding `526/word100-rss-v3` FAILS in all three100samples:
+577,470,464/598,196,224/575,438,848bytes versus536,870,912target. The preprint
+sampled maxima are525,942,784/570,408,960/575,438,848. Samples1and2 already
+exceed the target during full native view/layout completion before print.
+Current O100sample2 has no print-tagged poll; its maximum is warm-labelled.
+This is distinct from historical P2b100sample0's missing print poll. Missing
+polls are not fabricated and neither is a precise print peak or print-only cause.
+
+All300sampled maxima806,305,792/799,784,960/804,552,704bytes meet1GiB; each
+has a print-labelled maximum. The label still covers post-build CDP readout and
+deferred layout. RSS remains a200ms sampled sum including shared pages, not
+continuous HWM or precise physical memory. The assessment preserves phase/PID
+maxima and before/open/postprint heap/DOM plus actual fonts/host pressure.
+No JS leak is inferred from heap growth.
+
+All17production and7measured harness files are hash-bound. Core v2's ten exact
+bindings are reused unchanged; no Core profile ran. Original R and P2b raw and
+failures remain intact. No target increase, semantic edit or identical heavy
+retry follows. Planner must decide the residual resource disposition; whole M0
+remains OPEN. Source-level print proof is bounded and does not accept product
+release or full PDF fidelity.

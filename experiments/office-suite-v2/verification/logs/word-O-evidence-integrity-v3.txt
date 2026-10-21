@@ -1,0 +1,7 @@
+Raw/budget SHA and exact4579source/tree PASS
+17production closure and7sameGmethod harness hashes PASS
+Six completed fresh normal100/300samples: exact count/font/browser/node/RSSsum/pressure checks PASS
+Timing/repeatability/nodegrowth/300RSS PASS;100RSS all3MISS, two preprintMISS and sample2missing printpoll retained
+Core10hashes reused, historical R/P2b raw+assessments/budget unchanged PASS; no rerun
+All24observed ownedPIDs absent and55260listener absent PASS
+Current matrix references and source-proof/performance/wholeM0 boundaries PASS
