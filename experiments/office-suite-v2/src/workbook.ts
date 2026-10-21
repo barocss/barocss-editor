@@ -10,6 +10,19 @@ import type {
 // Caller-frozen objects and reparsed event bodies must still pass full admission.
 const admittedEvents = new WeakMap<WorkbookEvent, { contextBody: string; body: string }>();
 const nativeProjections = new WeakSet<WorkbookProjection>();
+// Frozen in core-contract.md before implementation. Exceeding these only disables
+// memoization; it does not change native input admission or the complete reducer.
+const CHECKPOINT_LIMITS = Object.freeze({ events: 20000, cells: 60000, revisionCodeUnits: 16777216 });
+interface NativeCheckpoint {
+  readonly contextBody: string;
+  readonly input: readonly WorkbookEvent[];
+  readonly bodies: ReadonlyMap<string, string>;
+  readonly tipId: string;
+  readonly cellCount: number;
+  readonly projection: WorkbookProjection;
+}
+let recentCheckpoint: NativeCheckpoint | undefined;
+let projectionDepth = 0;
 
 const compare = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
 const id = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= CORE_LIMITS.idLength;
@@ -275,7 +288,96 @@ function heapPop(heap: string[]): string | undefined {
   return first;
 }
 
+function checkpointAppend(context: WorkbookContext, contextBody: string, input: readonly WorkbookEvent[], checkpoint: NativeCheckpoint): NativeCheckpoint | null {
+  if (contextBody !== checkpoint.contextBody || input.length !== checkpoint.input.length + 1 || input.length > CHECKPOINT_LIMITS.events) return null;
+  for (let i = 0; i < checkpoint.input.length; i++) if (input[i] !== checkpoint.input[i]) return null;
+  const event = input[input.length - 1];
+  if (!event) return null;
+  const admitted = admittedEvents.get(event);
+  if (admitted?.contextBody !== contextBody || checkpoint.bodies.has(event.eventId) ||
+      !event.dependencies.includes(checkpoint.tipId) || event.dependencies.some(dep => !checkpoint.bodies.has(dep))) return null;
+  const command = event.command;
+  if (command.kind !== 'cell.commit' && command.kind !== 'cells.commit') return null;
+  if (checkpoint.projection.revision.length + admitted.body.length + 1 > CHECKPOINT_LIMITS.revisionCodeUnits) return null;
+  const changes = command.kind === 'cell.commit' ? [{ key: command.key, input: command.input }] : command.changes;
+  const updates: { encoded: string; prior: CellRecord; input: CellInput }[] = [];
+  for (const change of changes) {
+    const encoded = encodeCellKey(change.key);
+    const prior = checkpoint.projection.cells[encoded];
+    // Check every target before deriving any part of this atomic batch.
+    if (!prior || prior.deleted) return null;
+    updates.push({ encoded, prior, input: change.input });
+  }
+  const cells: Record<string, CellRecord> = Object.assign(Object.create(null), checkpoint.projection.cells);
+  for (const update of updates) {
+    const alternatives = update.prior.alternatives.map<CellAlternative>(item => ({ ...item, state: item.state === 'undone' ? 'undone' : 'superseded' }));
+    const winner: CellAlternative = { eventId: event.eventId, actorId: event.actorId, sessionId: event.sessionId, input: update.input, state: 'winner' };
+    alternatives.push(winner);
+    cells[update.encoded] = { key: update.prior.key, deleted: false, winner, alternatives };
+  }
+  const outcomes: Record<string, EventOutcome> = Object.assign(Object.create(null), checkpoint.projection.outcomes);
+  outcomes[event.eventId] = { status: 'applied' };
+  const bodies = new Map(checkpoint.bodies);
+  bodies.set(event.eventId, admitted.body);
+  const eventIds = [...checkpoint.projection.eventIds];
+  let low = 0;
+  let high = eventIds.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (compare(eventIds[middle] ?? '', event.eventId) < 0) low = middle + 1;
+    else high = middle;
+  }
+  eventIds.splice(low, 0, event.eventId);
+  const projection = frozen({ context: structuredClone(context), revision: contextBody + '[' + eventIds.map(eventId => bodies.get(eventId)).join(',') + ']',
+    sheets: checkpoint.projection.sheets, cells, outcomes, eventIds });
+  nativeProjections.add(projection);
+  return { contextBody, input: Object.freeze([...input]), bodies, tipId: event.eventId, cellCount: checkpoint.cellCount, projection };
+}
+
+function checkpointFromReplay(contextBody: string, input: readonly WorkbookEvent[], events: Map<string, WorkbookEvent>, bodies: Map<string, string>, sorted: readonly WorkbookEvent[], prefix: Map<string, number>, projection: WorkbookProjection): NativeCheckpoint | undefined {
+  if (input.length > CHECKPOINT_LIMITS.events || input.length !== events.size || sorted.length !== events.size || projection.revision.length > CHECKPOINT_LIMITS.revisionCodeUnits) return undefined;
+  const tip = sorted.at(-1);
+  if (!tip) return undefined;
+  for (const event of input) if (events.get(event.eventId) !== event || admittedEvents.get(event)?.contextBody !== contextBody) return undefined;
+  const cellCount = Object.keys(projection.cells).length;
+  if (cellCount > CHECKPOINT_LIMITS.cells) return undefined;
+  if (prefix.get(tip.eventId) !== sorted.length - 2) {
+    // The prefix shortcut is sufficient but deliberately incomplete at DAG joins.
+    // Prove the covering tip directly before memoizing a joined history.
+    const covered = new Set([tip.eventId]);
+    const pending = [tip];
+    while (pending.length) {
+      const event = pending.pop();
+      if (!event) break;
+      for (const dependency of event.dependencies) {
+        if (covered.has(dependency)) continue;
+        const predecessor = events.get(dependency);
+        if (!predecessor) return undefined;
+        covered.add(dependency);
+        pending.push(predecessor);
+      }
+    }
+    if (covered.size !== events.size) return undefined;
+  }
+  return { contextBody, input: Object.freeze([...input]), bodies, tipId: tip.eventId, cellCount, projection };
+}
+
 export function projectWorkbook(context: WorkbookContext, input: readonly WorkbookEvent[]): WorkbookProjection {
+  const outermost = projectionDepth === 0;
+  const checkpoint = outermost ? recentCheckpoint : undefined;
+  if (outermost) recentCheckpoint = undefined;
+  projectionDepth++;
+  try {
+    return projectWorkbookInternal(context, input, checkpoint, outermost);
+  } catch (error) {
+    if (outermost) recentCheckpoint = undefined;
+    throw error;
+  } finally {
+    projectionDepth--;
+  }
+}
+
+function projectWorkbookInternal(context: WorkbookContext, input: readonly WorkbookEvent[], checkpoint: NativeCheckpoint | undefined, mayRemember: boolean): WorkbookProjection {
   if (jsonProblem(context) || !contextShape(context)) throw new TypeError('Invalid projection context');
   const contextBody = canonical(context);
   if (!Array.isArray(input) || Object.getPrototypeOf(input) !== Array.prototype || input.length > CORE_LIMITS.events ||
@@ -283,6 +385,13 @@ export function projectWorkbook(context: WorkbookContext, input: readonly Workbo
         const descriptor = Object.getOwnPropertyDescriptor(input, i);
         return !descriptor || !Object.hasOwn(descriptor, 'value') || !descriptor.enumerable;
       }).includes(true)) throw new TypeError('Invalid event collection');
+  if (checkpoint) {
+    const appended = checkpointAppend(context, contextBody, input, checkpoint);
+    if (appended) {
+      recentCheckpoint = appended;
+      return appended.projection;
+    }
+  }
   const events = new Map<string, WorkbookEvent>();
   const bodies = new Map<string, string>();
   for (const raw of input) {
@@ -526,6 +635,7 @@ export function projectWorkbook(context: WorkbookContext, input: readonly Workbo
   const eventIds = [...events.keys()].sort(compare);
   const projection = frozen({ context: structuredClone(context), revision: contextBody + '[' + eventIds.map(eventId => bodies.get(eventId)).join(',') + ']', sheets: sheetResult, cells: cellResult, outcomes, eventIds });
   nativeProjections.add(projection);
+  if (mayRemember) recentCheckpoint = checkpointFromReplay(contextBody, input, events, bodies, sorted, prefix, projection);
   return projection;
 }
 

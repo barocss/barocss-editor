@@ -249,3 +249,97 @@ No whole repository suite, other lane tests or full-scale/timing profile ran her
 Integration owns combined source checks; Verification owns before/after measurement
 on exact immutable candidates in a bounded window. M0 and performance acceptance
 remain open, including the separate Word timeout and unqualified environment.
+
+## Native cell checkpoint v1 — frozen retention policy, 2026-10-22
+
+Measured repair base: `7d902bc69bf98b0dc6aaf681a24d34c7066703a1`, tree
+`300251a4c121e39c4df43690108669035adda08f`. Preserve E separately. Before implementation
+or a new profile, freeze these PRIVATE optimization limits: one recent checkpoint;
+at most 20000 unique native input events; at most 60000 populated cell records;
+at most 16777216 UTF-16 code units in its complete revision. These are cache retention
+eligibility limits, not new input admission limits, weakened budgets or measured
+capacity. Over-limit input remains supported by the existing complete projector.
+
+A checkpoint owns only its current immutable projection, a copied exact native
+event prefix, canonical body map/context and proven covering tip. It must not retain
+a previous projection/checkpoint, mutable reducer or a chain of snapshots. Only one
+slot is retained per module, not one per document/tip/array. Context changes, raw or
+unsafe requests, over-limit requests and errors evict the slot before full fallback.
+Recursive projector calls for undo eligibility never consume or populate this slot.
+
+The first narrow path accepts EXACTLY ONE appended native cell.commit/cells.commit
+event per call. It must have a fresh ID, exact context/provenance, known dependencies
+and a direct dependency on the stored covering tip. Every old input position must
+match the copied Core-admitted immutable prefix. The baseline must have no pending
+events and its tip must demonstrably observe all prior events; rank alone is not a
+proof. Every changed cell must already exist and be live. Validate eligibility for
+the entire batch before changing a derived result. More than one new event, raw/
+reparsed/permuted/replaced inputs, concurrency, structure, undo, missing/deleted/new
+cell targets, duplicate/colliding IDs and missing dependencies use full replay.
+
+This single append observes every old undo, so it cannot become a retroactive
+foreign blocker. Old outcomes and structure remain exact. Share only unchanged
+immutable records; each touched record retains its undone history, supersedes all
+other old contributions, and appends the new causal winner. Preserve enumerable
+sorted keys, null prototypes and the complete exact revision sorted by event ID;
+a causally last UUID can sort before old IDs. No digest, prototype overlay, hidden
+editable authority or public C/API change is permitted. The slot is replaceable
+memoization of complete replay, not saved content or durable state.
+
+Remaining O(event count + populated cells + revision bytes) work and retained body
+memory remain measurable. Verification owns unchanged v1.1 total/RSS gates and the
+next exact-source profile; this policy claims no latency or whole-M0 acceptance.
+
+### Checkpoint repair implementation and targeted receipt
+
+Independent measured source 7d902 has exactly E's workbook/contracts blobs. Read-only
+inspection of Verification's three raw `sheet-scale-2026-10-21T16-05-01-114Z-{0,1,2}.json`
+receipts confirmed one-cell totals 296.463 / 462.170 / 268.919 ms, each above the frozen
+200 ms gate. Projection was 226.603 / 381.667 / 204.418 ms and diff 69.332 / 79.961 /
+64.080 ms. Admission, calculation update and dirty recalc were individually below
+0.315 ms. All samples had 10152 events, 50000 cells, 10000 formulas and revision
+12466063 bytes. Those are independent before-repair observations; no identical author
+profile was rerun. The cold/paste/RSS and repeatability boundaries remain in #526.
+
+Implementation follows the preceding frozen policy. Full replay may seed the one
+slot only from unique internally admitted native inputs, a complete nonpending
+event set and a proven covering tip. The existing contiguous-prefix proof is a
+sufficient shortcut; at a DAG join an explicit deduplicated causal closure must
+contain every prior event. No rank-only or actor-only inference is used. The next
+single existing-cell update can copy complete enumerable containers and share
+unchanged immutable records/structures while constructing exact touched histories
+and full canonical revision. Old structural undo outcomes remain unchanged because
+the new event observes every old undo and cannot be its concurrent foreign blocker.
+
+The public wrapper clears the slot before attempting reuse and clears on errors.
+Recursive undo-eligibility projections neither use nor populate it. Every successful
+checkpoint replaces the prior slot without a back reference. Over-cap/unsafe calls
+use the original complete reducer; no alternate admission rules are added. O(C + E)
+container/prefix work and O(revision bytes) revision assembly still remain, including
+the full event-ID ordering even when the appended ID sorts before the old IDs.
+
+Parent/helper file ownership was disjoint: parent authored workbook.ts/manual;
+one helper authored only workbook.test.ts and structure.test.ts; another helper
+performed read-only native safety review. Both final source reviews found no concrete
+defect; they are not substitutes for execution evidence. The test helper ran no
+checks or profiles. Parent ran only the same four Core roots and two test files.
+
+Final targeted result on the implementation source: strict 0 diagnostics; native
+42/42 PASS, 0 skipped. All previous 31 cases remain, plus 11 public-result native vs
+cold JSON/permuted replay regressions for sequential append and arbitrary sorted ID,
+old undone/concurrent histories, batches, incomplete/concurrent tips, two-event
+suffix fallback, raw/shallow-frozen/replaced prefixes, duplicate/colliding IDs,
+missing dependencies and later resolution, errors, new/deleted/missing cell atomic
+fallback, repeated/interleaved/mutable contexts and structural undo. Full projections,
+revision, key/prototype invariants and diffs are compared, without private-cache or
+elapsed-time assertions. The suite uses small functional fixtures; no author scale
+or timing profile was run.
+
+First repair failure: the new malformed-event fixture widened kind to string,
+causing two TS2322 diagnostics. The initial native 42/42 run already passed. The
+helper fixed the fixture with `satisfies WorkbookEvent` and froze the test files;
+final strict/native checks passed. No runtime failing assertion was hidden. The
+Integration-reported root lint diagnostic at old workbook.test.ts:38 was also fixed
+by removing the unnecessary double-quote escape while preserving the exact key.
+Root aggregate lint/preflight and independent frozen-budget measurement belong to
+Integration/Verification; this receipt does not label them PASS or relax any gate.
