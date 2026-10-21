@@ -1,3 +1,104 @@
+# M0 integration — bounded local decision pack v1
+
+**M0 remains OPEN.** All delivered prototype code and independent native correctness checks pass on exact source V `bfda7d531a8e8924219e8b4c7cf6ca71737249d5`, tree `ffb6680184ab3f1020cb5351627742ba3aa8fcc7`. The final aggregate has **0 strict diagnostics and 104/104 native tests passed, 0 failed, 0 skipped**. This is a local bounded source checkpoint, not M0, M1/M2 product, Office interoperability, performance-budget or release acceptance.
+
+Scope: `office-v2-m0/integration-v1`, #522 under #521/#520. This final commit changes only the Integration-owned receipt. Its exact commit/tree and the local develop pointer are published after commit in primary `.omx/m0/integration-control.json`; the tested source V remains the immutable execution binding. No self-referential commit hash is embedded in its own tree.
+
+## Final command and preserved source
+
+- Actual environment: Node22.22.0, pnpm8.15.0, TypeScript5.9.3, frozen standalone graph; Yjs13.6.29 and Node declarations22.20.2. Root workspace registration is unchanged.
+- From `experiments/office-suite-v2`: `pnpm --ignore-workspace check`, exit0, 6.286s, 2026-10-21T15:01:19.813151Z to15:01:26.099157Z. Strict compiler: **26 roots plus imports, 0 diagnostics**. Native Node runner: **16 test files,104 passed,0failed,0skipped**. Corpus generation, native Office readers and scale/browser runs are separately fixed evidence, not silently replayed by this native test command.
+- Full stdout and command/status/elapsed JSON: `/Users/user/barocss-editor/.omx/m0/integration-logs/16-V-final-combined-check.{txt,json}`. The source closure stays unchanged in this report-only successor; no code test repeat is required for receipt text.
+- Exact owner blob validation:110 bindings in primary `.omx/m0/final-owner-blobs.json`. C's contract blob is unchanged. Final Core/Formula/Collaboration/prose/store/runner and all82 Verification files match their immutable producing commits. No Integration semantic edits or duplicate engine were introduced.
+- Primary `main` remains `034a42c36924bc9a9808847d065e542cb5390c4c`, with the same four approved planning WIP files and hashes. Root package/workspace/lock, existing lint/type debt budgets and production source remain unchanged. The four approved planning files copied into S remain byte-identical to their preserved snapshot.
+- All commits use verified easylogic author and committer with no coauthor. Ordinary product push/PR/deploy, legacy WIP replay, real existing DB writes, old role/schedule activation and unrelated process stops did not occur.
+
+## Immutable intake ledger
+
+| Receipt | Exact head | Owned contribution / check boundary |
+| --- | --- | --- |
+| S | `9b390602d90e07f496b7b699915b7d605582d8a4` | Four approved planning copies, latest-human testing policy, standalone graph/strict/native runner and scaffold smoke. |
+| C | `6ad373b4c31b7ec7aa97b75d8f6cb89b7174fc0e` | Sole shared Core types/key codec and manual; targeted strict0, no runtime claim. |
+| I1 | `1d443e47f39d9e6009a7f0ae8724d7cc9f9e05da` | Ignore frozen symlink as well as directory; Word setup receipt only. |
+| P | `7f1602c4b2c3519c1af14f4d259de9ee70d89078` | Real prose and disposable store partial source; first combined16/16 strict0 at P. |
+| R | `1458fa7d4c7396bbd8b9edb36f07ee4e1864f326` | Genuine Core workbook/projector/tests/manual; author28/28, C unchanged. |
+| J | `a332facd6740c491f761be39dbeee2c6a6a24f70` | Disjoint P/R join; combined44/44 strict0. First bounded local develop checkpoint. |
+| H | `702b9f8dc7d412c41d179fddeaf2e1e0d3ce85d3` | Actual Sheet provider/admission and bounded store update; author22/22; original H preserved. |
+| F | `b785fd65c6fae71c57b70650b06f69a68bea3070` | Actual parser/reference/calculator; author18/18. Historical incorrect arithmetic oracle is preserved, not accepted as final. |
+| M | `8184e7f4a7bea8981825c5b0924920e304553dd1` | Disjoint H/F join; combined72/72 strict0. Later source-review findings remained open. |
+| K | `23fa95116b11882be4905ae257c0859911a2b88a` | Owner-only causal-frontier correction/regression/manual; parentM, targeted Sheet12/12 strict0. |
+| Q | `3f8354c6bb733bc597488d64c3bf41e5f650f6f8` | Owner-only parser/arithmetic/reference regression/manual; parentK, focused/targeted checks PASS. |
+| V | `bfda7d531a8e8924219e8b4c7cf6ca71737249d5` | Exact82 Verification-only files; parentQ; final combined104/104 strict0. |
+
+Each intake verified exact parent/head/tree, role-owned paths, identity, clean Integration state and diff checks. Joined commits preserve original histories and owned blobs. Authors used disjoint worktrees and the shared frozen graph. New semantic findings returned to the named owner and arrived as new immutable candidates.
+
+## Bounded decisions and native format
+
+The prototype keeps our sparse workbook, commands, typed formula AST, references and calculation in our own code. Core v1 is the only native operation/projection authority. Literal/formula/invalid input records are atomic; displayed formula text and calculated values are derived. Stable sheet/row/column identities and tombstones define reference/undo behavior. Valid refused/pending events remain in the event history. General concurrent moves/overlapping merges explicitly refuse; no snapshot fallback or ID reuse supplies those operations.
+
+Yjs13.6.29 remains the low-level candidate demonstrated by actual granular Sheet event transport and bounded `Y.Text` prose. It is not adoption of the old generic adapter or a production engine registration. Per-session undo preserves remote contributions; structural undo can return recoverable conflict. Core projection and native validity are independently checked alongside replica convergence. Bounded actor/session and raw/hidden-update admission seams are exercised; no OIDC identity or hardened hostile-parser sandbox is inferred.
+
+Version1 contracts are in `src/contracts.ts`, `docs/core-contract.md`, `docs/formula-contract.md` and `docs/collaboration-contract.md`. WorkbookContext binds document/workbook/generation and contract/engine/schema/adapter versions. The controlled durable Admission additionally binds its engine ID. Persistence records immutable update IDs, SHA-256 payload hashes, native bytes, exact included IDs/frontier and checkpoint+tail replay. Broadcast/local apply is distinct from durable acknowledgment. An exact retry is idempotent; lost ACK and later input remain distinct. These are disposable SQLite/provider proofs, not a deployed service, backup/retention plan or actual current-account product acceptance.
+
+Supported arithmetic now follows the chosen [Microsoft precedence table](https://support.microsoft.com/en-us/excel/calculation-operators-and-precedence-in-excel): unary negation precedes exponentiation and equal-precedence operators evaluate left to right. Q and independent Verification correct the earlier F/K edge expectations; explicit parentheses preserve the alternative grouping. Existing typed native ASTs are not automatically reparsed or migrated. The M0 function profile is SUM/IF and the bounded documented arithmetic/reference cases; the larger M3 function/file/UI profile is not implemented by this checkpoint.
+
+## Evidence matrix and unresolved original gates
+
+The independent detailed matrix is [Verification criteria](../verification/reports/criteria.json), with exact logs, corpus, raw phases and source bindings in [Verification receipt](../verification/README.md).
+
+| Original evidence area | Actual result | Limit / remaining prerequisite |
+| --- | --- | --- |
+| Native two-sheet model, reference/copy/cut, concurrent structure/cells, alternatives and session undo | PASS in controlled owner and independent native tests on final source | Full product UI, general move/merge and later function profile are not inferred. |
+| Prose text/marks/split/join, anchors and session undo | PASS for actual bounded Y.Text sample | No full Note block/nesting/list/table codec or production editor binding. |
+| ACK-loss retry, checkpoint+tail, real new-process reopen, access/version refusal and pending retention | PASS for actual disposable store and controlled trusted sessions | Actual OIDC/current-account/production server/asset/recovery requirements remain M1/M2. |
+| Raw actor/body tamper and causal frontier | PASS in actual owner/independent checks | Independent probes do not claim every owner hidden-payload case. Full10k collaborative provider scale is NOT RUN. |
+| Required Sheet model workload | Three fresh bounded actual Core/Formula samples completed:10k rows,100columns,50k populated including10k formulas | Observational under uncontrolled contention. It bypasses provider/durability/UI. No qualified capacity/budget, scroll/keystroke/physical-IME claim. |
+| Native Office fixture readers | Actual Microsoft Word/Excel/PowerPoint16.114 bounded original/export/open/read evidence | No product XLSX/PPTX adapter, edit-recalc, broad format fidelity or full Office acceptance. |
+| Current DOCX round trip | Basic text/table/horizontal merge PASS; full feature corpus FAIL with explicit losses/warnings | Numbering/image/header/footer/footnote parts are lost. Original corpus retention is not a product retention workflow. |
+| Word one-page smoke and tiny discriminator | PASS; actual16-paragraph same-pattern diagnostic produced2pages with schema/root/surface agreement | These cannot substitute for100/300-page evidence. |
+| Word100-page probe | FAIL/NOT QUALIFIED:45s timeout,800paragraphs/2414elements,0sheets | Cause remains UNKNOWN: severe ambient contention and product behavior were not separated. No valid100-page layout/print sample. |
+| Word300-page probe, exact fonts/fallbacks and qualified numerical budgets | NOT RUN / incomplete | Need a named qualified reference environment, verified font provenance, successful source-bound100/300 layout/print observations and frozen budgets before M0/M1 exit. |
+| Complete M0 decision/next-stage ownership acceptance | Incomplete, Planner-owned | This bounded pack preserves decisions/evidence and proposes the split below; exact future production Issue/file leases are not activated here. |
+
+Model observations at historical F: peak RSS417,005,568bytes; canonical revision12,466,063bytes for10,152events; cold Core p50~866.34ms, initial calculation p50~66.49ms; single-edit Core projection p50~883.28ms and diff p50~543.22ms, separate from dirty calculation p50~0.047ms. Calculator dirty incrementality does not remove Core projection/diff costs. Raw samples/percentiles and source reuse proof through Q are retained; the typed-AST workload did not invoke Q's changed parser. No scale or browser measurement was repeated for this report/final aggregate.
+
+## Preserved first failures and owner resolution
+
+| First observation | Classification / disposition |
+| --- | --- |
+| Optional registry lookup: EEXIST/EACCES in shared npm cache | Environment lookup failure; no cache deletion/permission change. Selected actual existing-lock Node declarations, standalone frozen install passed. |
+| Initial scaffold strict check:7missing Yjs DOM declarations | Integration config issue, fixed by required DOM declarations; strict flags and skipLibCheck=false preserved. Exact first failure and identical successful rerun retained. |
+| Formula NODE_OPTIONS test-concurrency command:exit9 before tests | Command failure, corrected to unchanged sequential runner; no source/oracle waiver. |
+| H frontier regression:64edits stored2528dependency IDs, expected64 | Actual new failing regression preserved; owner K uses covering causal frontier. Fixed64edges, independent40edges and three offline branch contexts checked. Width remains actual concurrency, not a constant-size promise. |
+| K arithmetic focused checks:3failures with -4/512/-64 versus expected4/64/64 | Incorrect profile/parser/oracle, corrected only by Formula Q. The same focused checks and independent arithmetic now pass. Historical F expected tests remain in Git. |
+| Word harness/native-reader setup failures | Verification preserves CJS API, React prebundle/CDP CSS and initial native Word timeout separately from subsequent bounded source/UI successes. |
+| Word100-page45s stabilization failure | Unresolved/UNKNOWN under unqualified load and swap pressure; first log/raw diagnostics preserved, no identical heavy-repeat loop,300NOT RUN. Tiny2-page success does not erase this failure. |
+
+## M1/M2 handoff split — proposed responsibility, not a write lease
+
+The current source/producer contracts below are exact. Later product destinations, Issues and file leases require Planner's explicit scoped records after M0 gates pass. No M1/M2 author, schedule, package registration, migration or production edit is activated by this table.
+
+| Stage / responsibility | Current exact handoff and producer | Required next contract / acceptance |
+| --- | --- | --- |
+| M1 common engine admission and host | Core #523: `src/contracts.ts` atC and `src/workbook.ts` atR; Collaboration #525: `sheetAdmission`/`sheetUpdateValidator` in `src/collaboration.ts` atK | Runtime/Workspace responsibility must bind trusted tenant/workspace/document/generation plus engine/schema/adapter versions at every effect; one mutable authority and read-only projection. Proposed seams are existing Office host/auth/workspace/API/service families; Planner must name exact production files/Issue before edits. |
+| M1 durable transport/checkpoints/access/assets | Collaboration #525: `src/durable-store.ts` atH; native admission/binding atK; Integration #522 owns shared graph/registration/runtime | Replace disposable controlled callbacks/storage with separately scoped actual auth/current-ACL/durable update/checkpoint service. Preserve fixed update IDs, receipts, ACK-unknown/later drafts, revoked pending retention, replay/compaction, asset-finalize before confirmation and legacy snapshot exclusion. Two actual accounts, restart/recovery and isolated restore remain required. |
+| M1 independent integration verification | Verification #526: full `verification/**` atV; Integration aggregate binds exact V source | Reuse only unchanged blob-bound evidence. Add actual Office/OIDC/service/database/browser account and negative-recovery evidence on the same candidate. Qualify Word/fonts/budgets first; do not promote controlled fixtures or native reader opens. |
+| M2 native Sheet vertical slice | Core #523 R/C; Formula #524 `src/formula.ts` atQ, `src/references.ts`/`src/calculation.ts` atF; Collaboration #525 K/H | Keep our engine/typed AST as sole authority through a qualified M1 host. A separately named Sheet-view owner/file scope must add virtualized Canvas2D+DOM input/accessibility, native Save/Open/re-edit and declared export. Existing experiment paths are inputs to adoption, not a production registration. |
+| M2 collaborative Note/prose slice | Collaboration #525 `src/prose.ts` atP plus durable host contracts; existing Editor/native consumers remain preserved | An explicitly leased Editor/Prose owner must define the complete native Note codec/binding and input/history/recovery seam. Bounded newline/Y.Text sample is insufficient for all Note structures. Require two-account live edit, session undo, durable reopen/re-edit and denied/revoked/unknown-ACK behavior on the same integrated candidate. |
+| M2 acceptance and later expansion | Planner owns whole criteria; Integration owns serial shared-resource verification; current authors retain exact scoped technical contracts | Create/reuse exact M1/M2 Issues and production paths before dispatch. Preserve M3 moves/merges/functions/XLSX/grid and M4 Word/Slides fidelity/layout limits. Release, install/privacy/account/operator/backup gates remain separate. |
+
+## Final checkpoint and next action
+
+The source-scoped turn ends after this receipt commit, exact metadata/blob/diff checks, local develop advancement and result delivery to Planner/affected authors. Primary main/WIP stays untouched. The final report commit can be recovered from the named Integration branch and control receipt; all immutable candidates and first failures remain in history.
+
+No active Integration command, browser server or measurement lease remains. Verification reports its owned browser/server/fixture windows cleaned and both ports55260/55261 free; final read-only listener checks confirm ports without stopping another process. Native Office applications may remain running. Existing unrelated processes/databases and old schedules stay untouched.
+
+**Next owner: Planner.** Record the whole #521 decision as OPEN, qualify the Word100/300/font/reference-budget prerequisite, and authorize exact M1/M2 Issue/file ownership when ready. Do not restart unchanged performance probes, select a new backlog or infer release authority from104green native tests.
+
+---
+
+## Preserved Phase A and setup record
+
 # M0 integration — Phase A scaffold receipt
 
 Scope: `office-v2-m0/integration-v1`, Issue #522 under #521/#520. Observation: 2026-10-21T14:14:53.812902+00:00.
