@@ -3,7 +3,7 @@ import { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from 
 import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Choice, Icon, TextField, Dialog, IconButton, useOfficeLocale } from '@barocss/office-ui';
-import { documentLocationId, documentLocationURL, documentLocationWorkspace, documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, captureProductNavigation, captureProductReplacementPreparation, assertProductDocumentOpen, type ProductNavigationGuard, type LibraryRow } from '@barocss/shared';
+import { documentLocationId, documentLocationURL, documentLocationWorkspace, documentLibrary, currentDocumentLibraryHost, LibraryRevisionConflict, registerProductDocumentHost, captureProductNavigation, captureProductReplacementPreparation, assertProductDocumentOpen, type ProductNavigationGuard, type LibraryRow } from '@barocss/shared';
 import { NoteEditor, type NoteInputDelivery } from '@barocss/office-note/view';
 import { useNoteCommandSearch } from './use-note-command-search';
 import { noteLibrary, noteFileText, noteFileName, readNoteFile, openNoteTree, noteTreeOf, type NoteDocument, type NoteSession } from '@barocss/office-note';
@@ -192,7 +192,9 @@ export function Workspace() {
       } catch {
         setProblem(conflictDrafts.current.has(id)
           ? '최신본은 유지했지만 내 초안을 보관하지 못했습니다. 이 창을 유지하고 다시 시도하거나 파일로 내보내세요.'
-          : '노트를 이 브라우저에 저장하지 못했습니다. 다시 시도하거나 파일로 내보내세요.');
+          : currentDocumentLibraryHost()?.label === '서버 작업 공간'
+            ? '노트를 서버에 저장하지 못했습니다. 이 창을 유지하고 다시 시도하거나 파일로 내보내세요.'
+            : '노트를 이 브라우저에 저장하지 못했습니다. 다시 시도하거나 파일로 내보내세요.');
       }
       setSaving(pending.current.size > 0);
     });

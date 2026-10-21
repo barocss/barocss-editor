@@ -7,7 +7,7 @@ test('generated Drizzle journal/SQL preserves the independently authored schema 
   const generated = new DatabaseSync(':memory:'), oracle = new DatabaseSync(':memory:');
   try {
     const journal = JSON.parse(readFileSync(new URL('./drizzle/meta/_journal.json', import.meta.url), 'utf8'));
-    assert.equal(journal.dialect, 'sqlite'); assert.equal(journal.entries.length, 1);
+    assert.equal(journal.dialect, 'sqlite'); assert.ok(journal.entries.length >= 1);
     for (const entry of journal.entries) {
       assert.match(entry.tag, /^\d{4}_[a-z_]+$/);
       const sql = readFileSync(new URL(`./drizzle/${entry.tag}.sql`, import.meta.url), 'utf8');

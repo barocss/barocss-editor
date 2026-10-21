@@ -78,7 +78,24 @@ export class LibraryRevisionConflict extends Error {
 const revisionOf = (row: { revision?: number }) => Number.isSafeInteger(row.revision) && Number(row.revision) >= 0 ? Number(row.revision) : 0;
 const snapshotOf = ({ text, ...row }: Kept): LibrarySnapshot => ({ row: { ...row, revision: revisionOf(row) }, text });
 
-export function documentLibrary(spec: LibrarySpec) {
+export interface DocumentLibraryHost {
+  readonly workspaceId: string;
+  readonly label: string;
+  readonly storageAction?: { label: string; run(): Promise<void> };
+  library(spec: LibrarySpec): ReturnType<typeof indexedDBDocumentLibrary>;
+}
+let libraryHost: DocumentLibraryHost | undefined;
+/** Install once before product modules load. Changing accounts requires retiring the realm. */
+export function installDocumentLibraryHost(host: DocumentLibraryHost): void {
+  if (libraryHost) throw new Error('A document storage host is already installed.');
+  libraryHost = host;
+}
+export const currentDocumentLibraryHost = () => libraryHost;
+export function documentLibrary(spec: LibrarySpec): ReturnType<typeof indexedDBDocumentLibrary> {
+  return libraryHost ? libraryHost.library(spec) : indexedDBDocumentLibrary(spec);
+}
+/** Explicit local storage, also used for owner-scoped recovery; never a server fallback. */
+export function indexedDBDocumentLibrary(spec: LibrarySpec) {
   const VERSION = spec.version ?? 1;
 
   const open = (): Promise<IDBDatabase> =>

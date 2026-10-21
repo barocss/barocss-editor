@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 const products = ['Note', 'Word', 'Slides', 'Site'] as const;
 const native = (page: Page) => page.frameLocator('iframe[data-local-native-frame="active"]');
+test.beforeEach(async ({ context }) => {
+  await context.addCookies([{ name: 'qa_office_actor', value: `qa-local-${crypto.randomUUID()}`, url: 'http://127.0.0.1:5394', httpOnly: true }]);
+});
 async function create(page: Page, product: typeof products[number]) {
   await page.goto('/');
   await page.locator('.ow-create').getByRole('button', { name: `${product} 새 자료 만들기`, exact: true }).click();
@@ -15,9 +18,12 @@ async function create(page: Page, product: typeof products[number]) {
 test('the original home and all four native products create, edit, undo/redo and reopen from IndexedDB', async ({ page }) => {
   test.setTimeout(120000);
   const backendRequests: string[] = [], externalAssets: string[] = [], errors: string[] = [];
+  await page.goto('/');
+  await page.getByRole('button', { name: '이 브라우저 파일 보기', exact: true }).click();
+  await expect(page.locator('.ow-tree-header')).toContainText('이 브라우저 작업 공간');
   page.on('request', request => {
     const url = new URL(request.url());
-    if (url.pathname.startsWith('/api/') || /\/realms\//.test(url.pathname) ||
+    if (url.pathname.startsWith('/api/') && url.pathname !== '/api/office-storage/session' || /\/realms\//.test(url.pathname) ||
       /^(localhost|127\.0\.0\.1)$/.test(url.hostname) && url.origin !== 'http://127.0.0.1:5394') backendRequests.push(url.origin + url.pathname);
     if (url.origin !== 'http://127.0.0.1:5394') externalAssets.push(url.origin + url.pathname);
   });

@@ -8,6 +8,9 @@ export function openTestDB(path = ':memory:') {
     for (const entry of journal.entries) {
       sqlite.exec(readFileSync(new URL(`./drizzle/${entry.tag}.sql`, import.meta.url), 'utf8'));
     }
+  } else if (!sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='office_owner_workspaces'").get()) {
+    const journal = JSON.parse(readFileSync(new URL('./drizzle/meta/_journal.json', import.meta.url), 'utf8'));
+    for (const entry of journal.entries.slice(1)) sqlite.exec(readFileSync(new URL(`./drizzle/${entry.tag}.sql`, import.meta.url), 'utf8'));
   }
   const api = { prepare(sql) {
     let values = [];

@@ -1,4 +1,5 @@
 import { handleWorkspaceApi, type WorkspaceDB } from '../../note/cloud-workspace/server';
+import { handleOfficeStorage } from './storage-server';
 
 interface Asset { body: string; type: string }
 const reserved = new Set(['api', 'assets', 'products', 'design-system', 'admin', 'operator',
@@ -8,6 +9,8 @@ const reserved = new Set(['api', 'assets', 'products', 'design-system', 'admin',
 export function createOfficeWorker(assets: Record<string, Asset>) {
   return {
     async fetch(request: Request, env: { DB?: WorkspaceDB }): Promise<Response> {
+      const storage = await handleOfficeStorage(request, env.DB);
+      if (storage) return storage;
       // Retain the previous test API/data without connecting Office's local mode to it.
       const api = await handleWorkspaceApi(request, env.DB);
       if (api) return api;

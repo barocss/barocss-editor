@@ -4,6 +4,7 @@ import { dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { buildVite } from '../../note/cloud-workspace/build-vite.mjs';
+import { copyImmutableMigrations } from '../../note/cloud-workspace/copy-migrations.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -19,7 +20,7 @@ process.env.VITE_OFFICE_AUTH_MODE = 'local';
 process.env.VITE_OFFICE_NATIVE2_READ_BRIDGE = '';
 process.env.VITE_OFFICE_NATIVE2_MUTATION_BRIDGE = '';
 buildVite(join(root, 'packages/schema'));
-buildVite(join(root, 'apps/office'), ['--mode', 'sites-local']);
+buildVite(join(root, 'apps/office'), ['--config', 'sites/client.vite.config.ts', '--mode', 'sites-local']);
 const client = join(root, 'apps/office/dist');
 for (const path of ['index.html', 'design-system/index.html', ...['note', 'word', 'slides', 'site'].map(product => `products/${product}/index.html`)]) {
   if (!existsSync(join(client, path))) throw new Error(`Original Office entry missing: ${path}`);
@@ -43,17 +44,7 @@ mkdirSync(join(root, 'dist/server'), { recursive: true });
 mkdirSync(join(root, 'dist/.openai'), { recursive: true });
 copyFileSync(join(here, 'dist/server/index.js'), join(root, 'dist/server/index.js'));
 copyFileSync(manifestPath, join(root, 'dist/.openai/hosting.json'));
-function copyImmutable(source, target) {
-  mkdirSync(target, { recursive: true });
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    const from = join(source, entry.name), to = join(target, entry.name);
-    if (entry.isDirectory()) copyImmutable(from, to);
-    else if (existsSync(to)) {
-      if (!readFileSync(from).equals(readFileSync(to))) throw new Error(`Refusing to overwrite a different migration: ${to}`);
-    } else copyFileSync(from, to);
-  }
-}
-copyImmutable(join(oldWorkspace, 'drizzle'), join(root, 'drizzle'));
+copyImmutableMigrations(join(oldWorkspace, 'drizzle'), join(root, 'drizzle'));
 const worker = readFileSync(join(root, 'dist/server/index.js'));
-console.log(JSON.stringify({ application: 'original apps/office', storage: 'original browser IndexedDB',
+console.log(JSON.stringify({ application: 'original apps/office', storage: 'Sites owner storage; explicit retained browser mode',
   assets: Object.keys(assets).length, workerBytes: worker.length, workerGzipBytes: gzipSync(worker).length }));
