@@ -340,6 +340,35 @@ joined browser batch; Verification owns the affected unchanged-target Word
 measurement. Another RSS miss must be reported rather than hidden by a threshold,
 workload or GC-method change or repeated speculative optimization/profile loop.
 
+### O combined browser first failure: native fixture precondition
+
+Exact O `8c3bc79cc63af3877b5513c681afeeb27364a62a` ran37 once in the granted
+combined14-case window. Exit1/24.693s: the original eight Stage A cases PASS,
+first supplemental `merged-cell-lines` FAIL before printing, five supplemental
+cases NOT RUN. The extra suite message is the configured max-failure stop, not
+a second product failure. The failure at spec line389 expected one element from
+`#editor td[rowspan]` and received five. Offline retained trace snapshot
+`after@call@302` proves four ordinary cells (`word:9`, `word:12`, `word:22`,
+`word:25`) explicitly have rowspan1. Only `word:16` has rowspan3/colspan2.
+Thus the broad attribute-presence selector counted ordinary cells, not extra
+native merged-cell owners. No print/SID-offset comparison was reached in this
+case, so it establishes no O production print defect. Raw results, trace and
+font/PDF attachments remain under primary `530-O-combined-browser-*` and
+`integration-logs/37-O-combined-Word-print-browser.*`. The owned listener closed
+and Integration returned the lease before edits.
+
+The test-only successor binds fixture structure to its declared actual span:
+rowspan3 for lines/full-width/parallel columns and rowspan24 for staggered rows,
+retaining counts1/1/2/1 and colspan2/2/1/1. It compares native export counts and
+unique rendered nonchrome SIDs with their actual data-store cell types/spans.
+All four definitions were checked against `merged-cell-sample.ts`; the two zoom
+cases reuse the lines/columns definitions. Markers, complete authored character
+coverage, generated/repeated header checks, geometry tolerances, native/selection,
+font/PDF and cleanup gates remain. Production O and the original eight Stage A
+cases are byte-identical, so run37's eight PASS can be reused with exact source
+binding. Only the corrected supplemental SIX need a new finite lease; there is
+no identical14-case retry or Core profile.
+
 ## Repair and focused verification
 
 The shared View now waits for the current content renderer's real completion.

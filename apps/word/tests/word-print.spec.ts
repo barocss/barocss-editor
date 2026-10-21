@@ -371,10 +371,10 @@ async function tablePrintSnapshot(page: Page, printed: boolean) {
 
 test.describe('native table print projection', () => {
   const fixtures = [
-    { sample: 'merged-cell-lines', marker: '문장 80.', merged: 1 },
-    { sample: 'merged-cell', marker: '병합 문단 54.', merged: 1 },
-    { sample: 'merged-cell-columns', marker: '검토 34.', merged: 2 },
-    { sample: 'merged-cell-rows', marker: '설명 48.', merged: 1 },
+    { sample: 'merged-cell-lines', marker: '문장 80.', merged: 1, rowspan: 3, colspan: 2 },
+    { sample: 'merged-cell', marker: '병합 문단 54.', merged: 1, rowspan: 3, colspan: 2 },
+    { sample: 'merged-cell-columns', marker: '검토 34.', merged: 2, rowspan: 3, colspan: 1 },
+    { sample: 'merged-cell-rows', marker: '설명 48.', merged: 1, rowspan: 24, colspan: 1 },
   ];
   const cases = [...fixtures.map(fixture => ({ ...fixture, reduced: false })),
     ...[fixtures[0], fixtures[2]].map(fixture => ({ ...fixture, reduced: true }))];
@@ -386,7 +386,33 @@ test.describe('native table print projection', () => {
     await page.goto(`/?sample=${fixture.sample}`);
     await settled(page);
     await page.evaluate(() => document.fonts.ready);
-    await expect(page.locator('#editor td[rowspan]')).toHaveCount(fixture.merged);
+    const merges = await page.evaluate(span => {
+      const cells = [...document.querySelectorAll<HTMLElement>(`#editor td[rowspan="${span}"]`)]
+        .filter(el => !el.closest('[data-bc-chrome]')).map(el => {
+          const sid = el.getAttribute('data-bc-sid')!;
+          const native = window.editor.dataStore.getNode(sid);
+          return { sid, stype: native?.stype, rowspan: Number(native?.attributes?.rowspan ?? 1), colspan: Number(native?.attributes?.colspan ?? 1) };
+        });
+      let declared = 0;
+      const visit = (value: unknown) => {
+        if (!value || typeof value !== 'object') return;
+        const node = value as { stype?: string; attributes?: Record<string, unknown>; content?: unknown[] };
+        if (node.stype === 'bTableCell' && Number(node.attributes?.rowspan ?? 1) === span) declared++;
+        for (const child of node.content ?? []) visit(child);
+      };
+      visit(window.editor.exportDocument());
+      return { cells, declared };
+    }, fixture.rowspan);
+    await testInfo.attach('actual-native-merged-cell-ownership', { body: JSON.stringify(merges), contentType: 'application/json' });
+    expect(merges.declared).toBe(fixture.merged);
+    expect(merges.cells).toHaveLength(fixture.merged);
+    expect(new Set(merges.cells.map(cell => cell.sid)).size).toBe(fixture.merged);
+    for (const cell of merges.cells) {
+      expect(cell.sid).toBeTruthy();
+      expect(cell.stype).toBe('bTableCell');
+      expect(cell.rowspan).toBe(fixture.rowspan);
+      expect(cell.colspan).toBe(fixture.colspan);
+    }
     await expect(page.locator('#editor')).toContainText(fixture.marker);
     await expect(page.locator('#editor')).toContainText('표 다음의 본문입니다.');
     expect(await page.locator('#editor .w-sheet').count()).toBeGreaterThan(1);
