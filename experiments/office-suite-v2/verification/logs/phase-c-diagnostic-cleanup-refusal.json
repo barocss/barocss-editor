@@ -1,0 +1,14 @@
+{
+  "scope": "Actual diagnostic module VM execution with controlled mount refusal; stub lifetime only, no product engine/performance oracle",
+  "priorL": {
+    "cleanupError": "ReferenceError: Cannot access 'runtime' before initialization",
+    "observerDisconnected": false,
+    "methodsRestored": false
+  },
+  "fixed": {
+    "cleanupError": null,
+    "observerDisconnected": true,
+    "methodsRestored": true
+  },
+  "sourceSha256": "66b17e2becd6b15a40c93141a13e0eef7ba87fa560504b39727a365cb5ff9f09"
+}

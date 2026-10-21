@@ -5,7 +5,7 @@ import '@m0-word-css';import '@m0-text-css';
 
 let cleanup=()=>{};
 window.m0Diagnostic=async function({pages=100,afterCommitRender=true}={}){
- const started=performance.now(),events=[];let completeCount=0;
+ const started=performance.now(),events=[],runtimeRef={current:undefined};let completeCount=0;
  const trace=(phase,data={})=>{if(events.length<120)events.push({phase,atMs:performance.now()-started,...data});};
  const dom=()=>({surfaces:[...document.querySelectorAll('.w-surface')].map(el=>({id:el.getAttribute('data-bc-sid'),children:el.children.length})),sheets:document.querySelectorAll('.w-sheet').length,paragraphs:document.querySelectorAll('.w-paragraph').length});
  const proto=EditorViewDOM.prototype,register=proto.registerLayoutPass,render=proto.render,run=proto._runLayoutPasses;
@@ -18,10 +18,10 @@ window.m0Diagnostic=async function({pages=100,afterCommitRender=true}={}){
   try{return render.apply(this,args);}catch(error){trace('view-render-throw',{error:String(error),stack:error?.stack});throw error;}
  };
  const observer=new MutationObserver(()=>{if(!events.some(e=>e.phase==='first-surface-observed')&&document.querySelector('.w-surface'))trace('first-surface-observed',dom());});observer.observe(document.getElementById('host'),{subtree:true,childList:true});
- cleanup=()=>{runtime?.dispose();observer.disconnect();proto.registerLayoutPass=register;proto.render=render;proto._runLayoutPasses=run;for(const [renderer,original]of originals)renderer.render=original;};
+ cleanup=()=>{runtimeRef.current?.dispose();observer.disconnect();proto.registerLayoutPass=register;proto.render=render;proto._runLayoutPasses=run;for(const [renderer,original]of originals)renderer.render=original;};
  const native=wordDocument(pages);const report={profile:{pages,paragraphs:pages*8,explicitGroups:true},events,observer:{surface:'.w-surface',sheet:'.w-sheet',paragraph:'.w-paragraph'},qualification:'diagnostic only; instrumentation and optional forced render are not production/performance acceptance'};
  trace('schema-admission-start');try{assertWordNativeDocument(native);report.schemaAdmission='PASS';trace('schema-admission-pass');}catch(error){report.schemaAdmission='FAIL';report.schemaError=String(error);trace('schema-admission-fail',{error:String(error)});}
- delete window.wordLayout;trace('mount-start');const runtime=mountWordRuntime(document.getElementById('host'),{initialDocument:native,editable:true,debug:true});trace('mount-returned',dom());
+ delete window.wordLayout;trace('mount-start');const runtime=mountWordRuntime(document.getElementById('host'),{initialDocument:native,editable:true,debug:true});runtimeRef.current=runtime;trace('mount-returned',dom());
  const ready=async(ms)=>{const end=performance.now()+ms;while(performance.now()<end){await new Promise(r=>requestAnimationFrame(r));if(completeCount>0&&document.querySelector('.w-surface')){await new Promise(r=>requestAnimationFrame(r));return true;}}return false;};
  report.contentCompleted=await ready(2000);
  const snapshot=()=>({rootId:runtime.editor.getRootId(),rootDomId:document.querySelector('.w-document')?.getAttribute('data-bc-sid'),documentFaults:runtime.editor.documentFaults,
