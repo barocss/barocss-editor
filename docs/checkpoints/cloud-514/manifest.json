@@ -1,0 +1,1836 @@
+[
+  {
+    "path": "/Users/user/.codex/worktrees/281-divider-selection/barocss-editor",
+    "branch": "refs/heads/codex/281-divider-selection",
+    "head": "49b5317d14169c16c955a0020989b10b0d6cf332",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-001",
+    "checkpointHead": "49b5317d14169c16c955a0020989b10b0d6cf332",
+    "preflight": "attempted; completion not verified",
+    "preflightLogTail": "                0 / 0\n\u00b7 packages/collaboration                0 / 0\n\u00b7 packages/collaboration-liveblocks     0 / 0\n\u00b7 packages/collaboration-yjs            0 / 0\n\u00b7 packages/conformance                  2 / 2\n\u00b7 packages/converter                   10 / 10\n\u00b7 packages/datastore                  336 / 336\n\u00b7 packages/devtool                      0 / 0\n\u00b7 packages/dom-observer                 0 / 0\n\u00b7 packages/dsl                         52 / 52\n\u00b7 packages/editor-core                  2 / 2\n\u00b7 packages/editor-view-dom            104 / 104\n\u00b7 packages/editor-view-react            2 / 2\n\u00b7 packages/extensions                  18 / 18\n\u00b7 packages/model                      511 / 511\n\u00b7 packages/office-canvas                0 / 0\n\u00b7 packages/office-controls              7 / 7\n\u00b7 packages/office-editor-ui             2 / 2\n\u00b7 packages/office-note                  0 / 0\n\u00b7 packages/office-site                 21 / 21\n\u00b7 packages/office-slides               38 / 38\n\u00b7 packages/office-text                  0 / 0\n\u00b7 packages/office-ui                    0 / 0\n\u00b7 packages/office-word                  7 / 7\n\u00b7 packages/query-editor                 0 / 0\n\u00b7 packages/renderer-dom               123 / 123\n\u00b7 packages/renderer-react               0 / 0\n\u00b7 packages/schema                       0 / 0\n\u00b7 packages/shared                       0 / 0\n\u00b7 packages/text-analyzer                0 / 0\n\u00b7 apps/office-api                       0 / 0\n\u00b7 apps/office-service                   0 / 0\n\nEvery package is where it says it is.\n"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/281-object-tests/barocss-editor",
+    "branch": "refs/heads/codex/281-object-tests",
+    "head": "4764f02c3d834df51286c1a4450938165ab54061",
+    "status": "?? packages/office-note/test/selected-object.test.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-002",
+    "checkpointHead": "f7647db59dd0b9adf45eed15f6dcd96bf089418d",
+    "preflight": "failed",
+    "preflightLogTail": "orktrees/281-object-tests/barocss-editor/scripts/checks/develop-branch-policy.test.mjs\n#     at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)\n#     at packageResolve (node:internal/modules/esm/resolve:767:81)\n#     at moduleResolve (node:internal/modules/esm/resolve:853:18)\n#     at defaultResolve (node:internal/modules/esm/resolve:983:11)\n#     at \\#cachedDefaultResolve (node:internal/modules/esm/loader:731:20)\n#     at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)\n#     at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)\n#     at ModuleJob._link (node:internal/modules/esm/module_job:182:49) {\n#   code: 'ERR_MODULE_NOT_FOUND'\n# }\n# Node.js v22.22.0\n# Subtest: scripts/checks/develop-branch-policy.test.mjs\nnot ok 4 - scripts/checks/develop-branch-policy.test.mjs\n  ---\n  duration_ms: 65.272417\n  type: 'test'\n  location: '/Users/user/.codex/worktrees/281-object-tests/barocss-editor/scripts/checks/develop-branch-policy.test.mjs:1:1'\n  failureType: 'testCodeFailure'\n  exitCode: 1\n  signal: ~\n  error: 'test failed'\n  code: 'ERR_TEST_FAILURE'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 4\n# fail 2\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 234.138125\n\u2009ELIFECYCLE\u2009 Command failed with exit code 1.\n\u2009WARN\u2009  Local package.json exists, but node_modules missing, did you mean to install?\n\u2009ELIFECYCLE\u2009 Command failed with exit code 1.\n\u2009WARN\u2009  Local package.json exists, but node_modules missing, did you mean to install?\n"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-ci-conformance/barocss-editor",
+    "branch": "refs/heads/codex/290-ci-conformance",
+    "head": "fb93d47f897baeac2c656f84456822975af18208",
+    "status": " M docs/specs/slides.md\n M packages/office-slides/test/spec-numbers.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-003",
+    "checkpointHead": "1955ba429dfdcb0e61ffb749e9001f7aa521f555",
+    "preflight": "attempted; completion not verified",
+    "preflightLogTail": "                0 / 0\n\u00b7 packages/collaboration-liveblocks     0 / 0\n\u00b7 packages/collaboration-yjs            0 / 0\n\u00b7 packages/conformance                  2 / 2\n\u00b7 packages/converter                   10 / 10\n\u00b7 packages/datastore                  336 / 336\n\u00b7 packages/devtool                      0 / 0\n\u00b7 packages/dom-observer                 0 / 0\n\u00b7 packages/dsl                         52 / 52\n\u00b7 packages/editor-core                  2 / 2\n\u00b7 packages/editor-view-dom            104 / 104\n\u00b7 packages/editor-view-react            2 / 2\n\u00b7 packages/extensions                  18 / 18\n\u00b7 packages/model                      511 / 511\n\u00b7 packages/office-canvas                0 / 0\n\u00b7 packages/office-controls              7 / 7\n\u00b7 packages/office-editor-ui             2 / 2\n\u00b7 packages/office-note                  0 / 0\n\u00b7 packages/office-site                 21 / 21\n\u00b7 packages/office-slides               38 / 38\n\u00b7 packages/office-text                  0 / 0\n\u00b7 packages/office-ui                    0 / 0\n\u00b7 packages/office-workspace             0 / 0\n\u00b7 packages/office-word                  7 / 7\n\u00b7 packages/query-editor                 0 / 0\n\u00b7 packages/renderer-dom               123 / 123\n\u00b7 packages/renderer-react               0 / 0\n\u00b7 packages/schema                       0 / 0\n\u00b7 packages/shared                       0 / 0\n\u00b7 packages/text-analyzer                0 / 0\n\u00b7 apps/office-api                       0 / 0\n\u00b7 apps/office-service                   0 / 0\n\nEvery package is where it says it is.\n"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-ci-office/barocss-editor",
+    "branch": "refs/heads/codex/290-ci-office",
+    "head": "b5842b5c8ab0c44a668bba6d4bcd4c2510d7c71d",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-004",
+    "checkpointHead": "b5842b5c8ab0c44a668bba6d4bcd4c2510d7c71d",
+    "preflight": "attempted; completion not verified",
+    "preflightLogTail": "                0 / 0\n\u00b7 packages/collaboration-liveblocks     0 / 0\n\u00b7 packages/collaboration-yjs            0 / 0\n\u00b7 packages/conformance                  2 / 2\n\u00b7 packages/converter                   10 / 10\n\u00b7 packages/datastore                  336 / 336\n\u00b7 packages/devtool                      0 / 0\n\u00b7 packages/dom-observer                 0 / 0\n\u00b7 packages/dsl                         52 / 52\n\u00b7 packages/editor-core                  2 / 2\n\u00b7 packages/editor-view-dom            104 / 104\n\u00b7 packages/editor-view-react            2 / 2\n\u00b7 packages/extensions                  18 / 18\n\u00b7 packages/model                      511 / 511\n\u00b7 packages/office-canvas                0 / 0\n\u00b7 packages/office-controls              7 / 7\n\u00b7 packages/office-editor-ui             2 / 2\n\u00b7 packages/office-note                  0 / 0\n\u00b7 packages/office-site                 21 / 21\n\u00b7 packages/office-slides               38 / 38\n\u00b7 packages/office-text                  0 / 0\n\u00b7 packages/office-ui                    0 / 0\n\u00b7 packages/office-workspace             0 / 0\n\u00b7 packages/office-word                  7 / 7\n\u00b7 packages/query-editor                 0 / 0\n\u00b7 packages/renderer-dom               123 / 123\n\u00b7 packages/renderer-react               0 / 0\n\u00b7 packages/schema                       0 / 0\n\u00b7 packages/shared                       0 / 0\n\u00b7 packages/text-analyzer                0 / 0\n\u00b7 apps/office-api                       0 / 0\n\u00b7 apps/office-service                   0 / 0\n\nEvery package is where it says it is.\n"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-ci-site/barocss-editor",
+    "branch": "refs/heads/codex/290-ci-site",
+    "head": "f2f2b69dba9cf3b4c3a72736203e03a7f7aaeb58",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-005",
+    "checkpointHead": "f2f2b69dba9cf3b4c3a72736203e03a7f7aaeb58",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-ci-word/barocss-editor",
+    "branch": "refs/heads/codex/290-ci-word",
+    "head": "2ff75df549f9435716713b04af505e5eda26a306",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-006",
+    "checkpointHead": "2ff75df549f9435716713b04af505e5eda26a306",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-project-api/barocss-editor",
+    "branch": "refs/heads/codex/290-project-api",
+    "head": "6f1f5f25aae8b3d19d888722fe233b9cdc8847d2",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-007",
+    "checkpointHead": "6f1f5f25aae8b3d19d888722fe233b9cdc8847d2",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-project-storage/barocss-editor",
+    "branch": "refs/heads/codex/290-project-storage",
+    "head": "0a3d6d180dd619d3b2f8d0bf63834b77daec8760",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-008",
+    "checkpointHead": "0a3d6d180dd619d3b2f8d0bf63834b77daec8760",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-word-feedback/barocss-editor",
+    "branch": "refs/heads/codex/290-word-feedback",
+    "head": "2db5ac496d7ce269dfa319c82f97c7c0cf8c5d6b",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-009",
+    "checkpointHead": "2db5ac496d7ce269dfa319c82f97c7c0cf8c5d6b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/290-word-saved-comment-capture",
+    "branch": "refs/heads/codex/290-word-saved-comment-capture",
+    "head": "78a2f9cbaf49bdaf6063e24bb54ab17021e7173d",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-010",
+    "checkpointHead": "78a2f9cbaf49bdaf6063e24bb54ab17021e7173d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/303-ci-office-readiness/barocss-editor",
+    "branch": "refs/heads/codex/303-ci-office-readiness",
+    "head": "acdef6c6a7f1b494e6748b2b75a1a946242bc2f4",
+    "status": " M apps/office/tests/product-scenarios.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-011",
+    "checkpointHead": "748537e47c88b556b7724eba7959490bc932ac4b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/303-ci-site-selection/barocss-editor",
+    "branch": "refs/heads/codex/303-ci-site-selection",
+    "head": "acdef6c6a7f1b494e6748b2b75a1a946242bc2f4",
+    "status": " M packages/editor-view-dom/src/event-handlers/selection-handler.ts\n M packages/editor-view-dom/test/convert-model-to-dom-selection.test.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-012",
+    "checkpointHead": "6c0c58c4b5ace3e32bc148b845c309bac03973ae",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/303-ci-slide-readiness/barocss-editor",
+    "branch": "refs/heads/codex/303-ci-slide-readiness",
+    "head": "acdef6c6a7f1b494e6748b2b75a1a946242bc2f4",
+    "status": " M packages/office-slides/src/stage.tsx\n?? apps/slide/tests/overlay-arrival.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-013",
+    "checkpointHead": "8b4d02dbd04b8b43ba7f704d4b21326611bc0c5d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/303-report-guards-worker/barocss-editor",
+    "branch": "refs/heads/codex/303-report-guards-worker",
+    "head": "45cf09729ed6a70ec89ac0f10346afe0a45837c4",
+    "status": "?? scripts/checks/product-scenarios.test.mjs\n?? scripts/product-scenarios/\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-014",
+    "checkpointHead": "d51bb322994241b294cf9fc640b57030ebf49abe",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/303-site-scenarios-worker/barocss-editor",
+    "branch": "refs/heads/codex/303-site-scenarios-worker",
+    "head": "45cf09729ed6a70ec89ac0f10346afe0a45837c4",
+    "status": " M apps/site/tests/site.spec.ts\n?? apps/site/tests/product-scenarios.spec.ts\n?? apps/site/tests/scenario-downloads.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-015",
+    "checkpointHead": "49f7f6ce2f2557853cdcdfde11926c6d0a7de140",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/303-slide-scenarios-worker/barocss-editor",
+    "branch": "refs/heads/codex/303-slide-scenarios-worker",
+    "head": "45cf09729ed6a70ec89ac0f10346afe0a45837c4",
+    "status": " M apps/slide/tests/new-slide-input.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-016",
+    "checkpointHead": "5d29c9bb8b0750d184ce566be71fdfa22e6e69a0",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/303-word-scenarios-worker/barocss-editor",
+    "branch": "refs/heads/codex/303-word-scenarios-worker",
+    "head": "45cf09729ed6a70ec89ac0f10346afe0a45837c4",
+    "status": " M apps/word/tests/rapid-authoring.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n?? apps/word/tests/docx-download.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-017",
+    "checkpointHead": "f6352bddfd0d1488e70f28a174aaab421b01d026",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/357-copy-picker/barocss-editor",
+    "branch": "refs/heads/codex/357-copy-picker",
+    "head": "2a7f9de6976987c28a11a9d8dd29ed2f19b9d4e9",
+    "status": "?? apps/note/src/server-local-copy.tsx\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-018",
+    "checkpointHead": "5a84f11c1dc7f4f0e08c80494da691708b491319",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/357-destination-tests/barocss-editor",
+    "branch": "refs/heads/codex/357-destination-tests",
+    "head": "89eb7bc93f0e029d9c4c56f18c55cca1776fc4e9",
+    "status": "?? apps/office/tests/auth-real-destination-conflict.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-019",
+    "checkpointHead": "5a83ea7aa206f73c7fbd3e9c65d2ff63d5319882",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/357-real-harness/barocss-editor",
+    "branch": "refs/heads/codex/357-real-harness",
+    "head": "2a7f9de6976987c28a11a9d8dd29ed2f19b9d4e9",
+    "status": " M apps/office-api/test/office-auth-ui.local.mjs\n?? apps/office-api/test/office-auth-ui.api-child.mjs\n?? apps/office/tests/helpers/\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-020",
+    "checkpointHead": "5e579ad79b328c5f2ea61456d1356ee5e06594eb",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/357-real-privacy/barocss-editor",
+    "branch": "refs/heads/codex/357-real-privacy",
+    "head": "cb3f8cc7e3f0d3994b519535b3328522635b8f1a",
+    "status": "?? apps/office/tests/auth-real-privacy.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-021",
+    "checkpointHead": "8e3767c15d8f94981bcd327ab27ac548e74cfbac",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/367-server-full-note/barocss-editor",
+    "branch": "refs/heads/codex/367-server-full-note",
+    "head": "a5c6bdeb770515a9efe8747eaf86a43317414428",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-022",
+    "checkpointHead": "a5c6bdeb770515a9efe8747eaf86a43317414428",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/387-menu-search-worker/barocss-editor",
+    "branch": "refs/heads/codex/387-menu-search-worker",
+    "head": "884dfcd4cc85b04e19515f090373d56211838c37",
+    "status": " M apps/slide/src/app.tsx\n?? apps/slide/src/use-slide-menu-search.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-023",
+    "checkpointHead": "f54e45ded4eaff0620b4565c69593a2152bfa6c4",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/405-word-runtime/barocss-editor",
+    "branch": "refs/heads/codex/405-word-runtime",
+    "head": "ec918d77dd0c49acb346bde1972520d11335bdaf",
+    "status": " M apps/word/src/app.tsx\n M apps/word/src/main.tsx\n M packages/office-word/src/find-panel.tsx\n M packages/office-word/src/font-loader.ts\n?? apps/word/src/runtime.ts\n?? packages/office-word/test/font-loader-lifecycle.test.ts\n?? packages/office-word/test/word-runtime-native.test.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-024",
+    "checkpointHead": "2170134525c3d75d7ba72fb46ad0c46d3d5835a6",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/405-word-transport/barocss-editor",
+    "branch": "refs/heads/codex/405-word-transport",
+    "head": "ec918d77dd0c49acb346bde1972520d11335bdaf",
+    "status": " M apps/office-api/test/office-auth-ui.local.mjs\n M apps/office/tests/helpers/real-recovery-control.ts\n?? apps/office/tests/auth-real-word.spec.ts\n?? apps/word/src/server-documents.ts\n?? apps/word/src/server-file.ts\n?? apps/word/src/server-pending.ts\n?? apps/word/test/\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-025",
+    "checkpointHead": "c3ca1c96b7f9316389f1af96dcff5230e94285ae",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/406-slides-runtime/barocss-editor",
+    "branch": "refs/heads/codex/406-slides-runtime",
+    "head": "e19a662f8a88994c1dcde40858bdd7debe0561ce",
+    "status": " M apps/slide/src/runtime.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-026",
+    "checkpointHead": "c7307bea24157220a5d2d9dabc2831d2e0d8e951",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/406-slides-transport/barocss-editor",
+    "branch": "refs/heads/codex/406-slides-transport",
+    "head": "d8e040e872675763a2e2de89fd0fe7c0388a7e94",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-027",
+    "checkpointHead": "d8e040e872675763a2e2de89fd0fe7c0388a7e94",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-authenticated-site-snapshots/barocss-editor",
+    "branch": "refs/heads/codex/407-authenticated-site-snapshots",
+    "head": "61cbfe4a85a48c3aa5f5eeaf1633ff42faaf1709",
+    "status": " M apps/office-api/test/office-auth-ui.local.mjs\n M apps/office/playwright.auth.config.ts\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-client.ts\n M apps/office/src/auth-style.css\n M apps/office/src/main.tsx\n M apps/office/tests/helpers/real-recovery-control.ts\n M apps/site/src/app.tsx\n M apps/site/src/style.css\n?? apps/office/tests/auth-real-site.spec.ts\n?? apps/office/tests/auth-site.spec.ts\n?? apps/site/src/server-workspace.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-028",
+    "checkpointHead": "38006de7000cc2f060989522eaf3a6ceb0a368cc",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-authenticated-workspace",
+    "branch": "refs/heads/codex/407-authenticated-workspace",
+    "head": "0b0c8ae15d86bf462fddb0525346146dbf28d5f0",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-029",
+    "checkpointHead": "0b0c8ae15d86bf462fddb0525346146dbf28d5f0",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-native-input-v2",
+    "branch": "refs/heads/codex/407-native-input-v2",
+    "head": "a1571f819138fe483673dd1e275378c8419ec7a5",
+    "status": " M apps/site/src/app.tsx\n M apps/site/src/code-editor.tsx\n M apps/site/src/data-editor.tsx\n M apps/site/src/style.css\n M packages/model/src/transaction.ts\n M packages/model/test/transaction/intent-guard.test.ts\n M packages/office-note/src/database-item-body.tsx\n M packages/office-note/src/database-view.tsx\n M packages/office-note/src/database.ts\n M packages/office-note/src/index.ts\n M packages/office-note/src/note-view.tsx\n M packages/office-note/src/session.ts\n M packages/office-note/test/database-view.test.ts\n M packages/office-site/src/block-commands.ts\n M packages/office-site/src/clipboard-commands.ts\n M packages/office-site/src/data-commands.ts\n M packages/office-site/src/export-html.ts\n M packages/office-site/src/page-frame.tsx\n M packages/office-site/src/publish-commands.ts\n M packages/office-ui/src/dialog.tsx\n M packages/office-ui/src/floating.tsx\n M packages/office-ui/src/index.ts\n M packages/office-ui/src/menu.tsx\n M packages/office-ui/src/select.tsx\n M packages/office-ui/src/selection-readout.tsx\n M packages/office-ui/src/side-peek.tsx\n M packages/office-ui/src/task-status.tsx\n M packages/office-ui/src/tip.tsx\n M packages/shared/src/i18n/locales/en.json\n M packages/shared/src/i18n/locales/ko.json\n?? apps/office/tests/helpers/site-native-fixture.ts\n?? apps/site/src/runtime.ts\n?? apps/site/src/server-documents.ts\n?? apps/site/src/server-file.ts\n?? apps/site/src/server-pending.ts\n?? apps/site/src/server-workspace.tsx\n?? apps/site/test/data-editor-authority.test.tsx\n?? apps/site/test/page-frame-authority.test.tsx\n?? apps/site/test/runtime.test.ts\n?? apps/site/test/server-workspace-readonly.test.tsx\n?? packages/office-note/test/session-authority.test.ts\n?? packages/office-site/test/async-input-authority.test.ts\n?? packages/office-ui/src/portal-owner.tsx\n?? packages/office-ui/test/portal-owner.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-030",
+    "checkpointHead": "a33766d5b78e6157ccf3abe7ee6b0131df33e82c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-site-browser-tests/barocss-editor",
+    "branch": "refs/heads/codex/407-site-browser-tests",
+    "head": "ae9b6cd26a5a9866eb6fb13cb223a22538d53465",
+    "status": "?? apps/office/tests/auth-site.spec.ts\n?? apps/office/tests/helpers/site-native-fixture.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-031",
+    "checkpointHead": "5d9fb1f232fc2091fcddde8d5e48ab38987d4c1f",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-site-code-drafts/barocss-editor",
+    "branch": "refs/heads/codex/407-site-code-drafts",
+    "head": "744534d14c285041a635de18cf4fd263ecf141d5",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-032",
+    "checkpointHead": "744534d14c285041a635de18cf4fd263ecf141d5",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-site-harness-v2",
+    "branch": "refs/heads/codex/407-site-harness-v2",
+    "head": "a1571f819138fe483673dd1e275378c8419ec7a5",
+    "status": " M apps/office/tests/helpers/real-recovery-control.ts\n M apps/site/tests/note-save.spec.ts\n M apps/site/tests/product-scenarios.spec.ts\n?? apps/office/tests/auth-real-site.spec.ts\n?? apps/office/tests/auth-site.spec.ts\n?? apps/office/tests/helpers/site-native-fixture.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-033",
+    "checkpointHead": "92df7710f07e9d7cf57c7dad3809e52463cb7365",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-site-runtime-helper/barocss-editor",
+    "branch": "refs/heads/codex/407-site-runtime-helper",
+    "head": "ae9b6cd26a5a9866eb6fb13cb223a22538d53465",
+    "status": " M apps/site/src/data-editor.tsx\n M apps/site/src/main.tsx\n M packages/model/src/transaction.ts\n M packages/model/test/transaction/intent-guard.test.ts\n M packages/office-note/src/database-item-body.tsx\n M packages/office-note/src/database.ts\n M packages/office-note/src/index.ts\n M packages/office-note/src/session.ts\n M packages/office-note/test/database-item-navigation.test.ts\n M packages/office-site/src/data-commands.ts\n M packages/office-site/src/page-frame.tsx\n?? apps/site/src/runtime.ts\n?? apps/site/test/page-frame-authority.test.tsx\n?? apps/site/test/runtime.test.ts\n?? packages/office-note/test/session-authority.test.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-034",
+    "checkpointHead": "053b5c8b98e8da64e5ec380f61a5c2440323ca2e",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-site-transport/barocss-editor",
+    "branch": "refs/heads/codex/407-site-transport",
+    "head": "d29f3fd98ab572a08578240e8f76c47940ecea1d",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-035",
+    "checkpointHead": "d29f3fd98ab572a08578240e8f76c47940ecea1d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/407-transport-drafts-v2",
+    "branch": "refs/heads/codex/407-transport-drafts-v2",
+    "head": "a1571f819138fe483673dd1e275378c8419ec7a5",
+    "status": " M apps/site/package.json\n M apps/site/src/app.tsx\n M apps/site/src/code-editor.tsx\n M apps/site/src/data-editor.tsx\n M apps/site/src/main.tsx\n M apps/site/src/style.css\n M packages/model/src/transaction.ts\n M packages/office-note/src/database-item-body.tsx\n M packages/office-note/src/database.ts\n M packages/office-note/src/index.ts\n M packages/office-note/src/session.ts\n M packages/office-site/src/block-commands.ts\n M packages/office-site/src/clipboard-commands.ts\n M packages/office-site/src/data-commands.ts\n M packages/office-site/src/export-html.ts\n M packages/office-site/src/page-frame.tsx\n M packages/office-site/src/publish-commands.ts\n M pnpm-lock.yaml\n?? apps/office/tests/auth-site-authority.spec.ts\n?? apps/office/tests/helpers/site-native-fixture.ts\n?? apps/site/src/runtime.ts\n?? apps/site/src/server-documents.ts\n?? apps/site/src/server-file.ts\n?? apps/site/src/server-pending.ts\n?? apps/site/src/server-workspace.tsx\n?? apps/site/test/code-editor.test.tsx\n?? apps/site/test/server-documents.test.ts\n?? apps/site/test/server-file.test.ts\n?? apps/site/test/server-pending.test.ts\n?? apps/site/test/server-workspace.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-036",
+    "checkpointHead": "62c5d6b8da0ba75312bedc1932ed8462df085261",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/410-gallery-layout/barocss-editor",
+    "branch": "refs/heads/codex/410-gallery-layout",
+    "head": "d30a6be23ca62c62d0f5ee94dec58796166ea15e",
+    "status": " M apps/gallery/src/design-system.css\n M apps/gallery/src/design-system.tsx\n?? apps/office/tests/shared-foundations.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-037",
+    "checkpointHead": "0fb8ddb8f28add387ee695520ec94ba96827929d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/415-input-tests/barocss-editor",
+    "branch": "refs/heads/codex/415-input-tests",
+    "head": "cb96b76b89216964ae78324fdf640cc2ac839140",
+    "status": "?? apps/office/tests/input-appearance.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-038",
+    "checkpointHead": "034834128e5fd1e2106fe35bd816342990a02706",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/418-copy-identity/barocss-editor",
+    "branch": "refs/heads/codex/418-copy-identity",
+    "head": "972e6400658aec20e8d41c37eca2b187cc4659bc",
+    "status": " M apps/slide/src/runtime.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-039",
+    "checkpointHead": "c022566c2fbf6a5c95dd53165f757f13942938ba",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/418-native-codec/barocss-editor",
+    "branch": "refs/heads/codex/418-native-codec",
+    "head": "5823470d86409a353677a60a019542d9d00ec9bc",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-040",
+    "checkpointHead": "5823470d86409a353677a60a019542d9d00ec9bc",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/422-sidebar-desktop-tests/barocss-editor",
+    "branch": "refs/heads/codex/422-sidebar-desktop-tests",
+    "head": "ece58ed9f889c2acac9607ec3aa2f1026c0da559",
+    "status": " M apps/slide/src/app.tsx\n M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/properties.tsx\n M packages/office-slides/src/slide-sidebar.tsx\n M packages/office-slides/src/ui.css\n M packages/office-ui/src/properties.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-041",
+    "checkpointHead": "57602a86fcdab8f4fed76844340e06ac914f0eb7",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/423-auth-desktop/barocss-editor",
+    "branch": "refs/heads/codex/423-auth-desktop",
+    "head": "da9dc82c4c280782415823c0aafc7534fe73014c",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-042",
+    "checkpointHead": "da9dc82c4c280782415823c0aafc7534fe73014c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/423-business-domain/barocss-editor",
+    "branch": "refs/heads/codex/423-business-domain",
+    "head": "bd4b7b1289e284ed216592db85be16cfa09f6323",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-043",
+    "checkpointHead": "bd4b7b1289e284ed216592db85be16cfa09f6323",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/423-metadata-history/barocss-editor",
+    "branch": "refs/heads/codex/423-metadata-history",
+    "head": "cdd1878197138d7dabe32e32db20fd474ace66db",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-044",
+    "checkpointHead": "cdd1878197138d7dabe32e32db20fd474ace66db",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/423-native-business-pair/barocss-editor",
+    "branch": "refs/heads/codex/423-native-business-pair",
+    "head": "ac82f02503662bdc6f2f384576c8362b1ab26b1d",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-045",
+    "checkpointHead": "ac82f02503662bdc6f2f384576c8362b1ab26b1d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/426-word-selection-chrome/barocss-editor",
+    "branch": "refs/heads/codex/426-word-selection-chrome",
+    "head": "5c4e28079d4555250f9d5480e30e6752f0f3508d",
+    "status": " M packages/office-editor-ui/src/context-toolbar.tsx\n M packages/office-ui/src/select.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-046",
+    "checkpointHead": "f95c2edbc6fbb0d941cadd88da942523a5a47154",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/426-word-selection-desktop/barocss-editor",
+    "branch": "refs/heads/codex/426-word-selection-desktop",
+    "head": "265acf9ad706f4e412fcca66d67456f87ad9d3d1",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-047",
+    "checkpointHead": "265acf9ad706f4e412fcca66d67456f87ad9d3d1",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/427-slides-selection-chrome/barocss-editor",
+    "branch": "refs/heads/codex/427-slides-selection-chrome",
+    "head": "72de7044fc5c6fa5c5a5a1f642cfb1a70e1dc8d7",
+    "status": " M packages/office-slides/SELECTION-CHROME.md\n M packages/office-slides/src/slide-commands.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-048",
+    "checkpointHead": "ed04bbc6a6af9928a2d662414c76baa52eafba07",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/427-slides-selection-desktop/barocss-editor",
+    "branch": "refs/heads/codex/427-slides-selection-desktop",
+    "head": "126e4f1b111f62a975760884d4396a1a75bd8ec3",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-049",
+    "checkpointHead": "126e4f1b111f62a975760884d4396a1a75bd8ec3",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/428-confirm-criterion-version/barocss-editor",
+    "branch": "refs/heads/codex/428-confirm-criterion-version",
+    "head": "836bb0d4d011356bfffa7a8ae88956e6cfea250a",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-050",
+    "checkpointHead": "836bb0d4d011356bfffa7a8ae88956e6cfea250a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/428-confirmation-backend/barocss-editor",
+    "branch": "refs/heads/codex/428-confirmation-backend",
+    "head": "b50330e75461cac7b6d0f2eaa18e0533e2330ddd",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-051",
+    "checkpointHead": "b50330e75461cac7b6d0f2eaa18e0533e2330ddd",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/428-confirmation-domain/barocss-editor",
+    "branch": "refs/heads/codex/428-confirmation-domain",
+    "head": "f8c6d6e6b9406e8e9d308b24d525d916d0dde98b",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-052",
+    "checkpointHead": "f8c6d6e6b9406e8e9d308b24d525d916d0dde98b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/431-criterion-backend/barocss-editor",
+    "branch": "refs/heads/codex/431-criterion-backend",
+    "head": "446798b79e8ad5180b0f292e1510eb30d3dc93be",
+    "status": "?? apps/office-service/src/criterion-browser-executor.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-053",
+    "checkpointHead": "620726743b5b96b319376dc6b0f2dfbd809ac488",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/431-criterion-domain/barocss-editor",
+    "branch": "refs/heads/codex/431-criterion-domain",
+    "head": "f5d4bddff6820e1758d86edece87382a3eb1d86c",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-054",
+    "checkpointHead": "f5d4bddff6820e1758d86edece87382a3eb1d86c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/431-executed-criterion/barocss-editor",
+    "branch": "refs/heads/codex/431-executed-criterion",
+    "head": "31b01a733be0ce1c07c3fb634bda3996b15b0d0b",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-055",
+    "checkpointHead": "31b01a733be0ce1c07c3fb634bda3996b15b0d0b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-canvas-desktop-tests/barocss-editor",
+    "branch": "refs/heads/codex/432-canvas-desktop-tests",
+    "head": "b374d19a6025d8fdcc634e961bd42b1e425a96d2",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-056",
+    "checkpointHead": "b374d19a6025d8fdcc634e961bd42b1e425a96d2",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-canvas-gestures/barocss-editor",
+    "branch": "refs/heads/codex/432-canvas-gestures",
+    "head": "086e1422f427cda4b8c6f5b4a1696f1541797161",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-057",
+    "checkpointHead": "086e1422f427cda4b8c6f5b4a1696f1541797161",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-common-ui-baseline",
+    "branch": "refs/heads/codex/432-common-ui-baseline",
+    "head": "c71d0481b2b95159f28394eaead5ac7d00f37961",
+    "status": " M apps/office/tests/auth-site.spec.ts\n M apps/site/src/app.tsx\n M apps/site/test/server-workspace.test.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/server-workspace.tsx\n M apps/slide/tests/helpers.ts\n M apps/word/src/app.tsx\n M apps/word/src/server-workspace.tsx\n M apps/word/tests/command-search.spec.ts\n M apps/word/tests/product-menu.spec.ts\n M packages/office-editor-ui/src/document-save-status.tsx\n M packages/office-editor-ui/src/local-documents.tsx\n M packages/office-editor-ui/test/local-documents.test.ts\n M packages/office-ui/src/command-search.tsx\n M packages/office-ui/src/document-bar.tsx\n M packages/office-ui/src/status.tsx\n M packages/office-ui/src/tokens.css\n M packages/office-ui/test/command-search.test.tsx\n M packages/shared/src/i18n/locales/en.json\n M packages/shared/src/i18n/locales/ko.json\n?? apps/word/src/command-owner.ts\n?? apps/word/test/command-owner.test.ts\n?? packages/office-ui/test/document-menu-scope.test.ts\n?? packages/office-ui/test/status-quiet.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-058",
+    "checkpointHead": "0b890ddc71a534eda5516cac59f8bb25f2ed1820",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-common-ui-final",
+    "branch": "refs/heads/codex/432-common-ui-final",
+    "head": "9c76dabee5022181e3047e8ddef8e76b2610827e",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-059",
+    "checkpointHead": "9c76dabee5022181e3047e8ddef8e76b2610827e",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-compact-editor-ui/barocss-editor",
+    "branch": "refs/heads/codex/432-compact-editor-ui",
+    "head": "26350b4313a79522eeba58b16ac56887985f4c99",
+    "status": " M packages/model/src/operations/applyMark.ts\n M packages/model/src/operations/removeMark.ts\n M packages/model/src/operations/setMarks.ts\n M packages/model/src/operations/toggleLink.ts\n M packages/model/src/operations/toggleMark.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-060",
+    "checkpointHead": "737143cc6e174c44164c13848fae1607023aec39",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-context-checks/barocss-editor",
+    "branch": "refs/heads/codex/432-context-checks",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": " M apps/gallery/src/design-system.tsx\n M apps/gallery/src/gallery.tsx\n M apps/note/src/server-workspace.tsx\n M apps/note/tests/document-centered.spec.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M packages/office-editor-ui/src/context-toolbar.tsx\n M packages/office-editor-ui/src/selection-color.tsx\n M packages/office-editor-ui/src/selection-link.tsx\n M packages/office-editor-ui/test/context-toolbar.test.ts\n M packages/office-icons/src/index.tsx\n M packages/office-note/src/additional-formatting-control.tsx\n M packages/office-note/src/contextual-toolbar.tsx\n M packages/office-note/src/heading-level-control.tsx\n M packages/office-note/src/note.css\n M packages/office-note/src/table-context.tsx\n M packages/office-ui/src/document-bar.tsx\n M packages/office-ui/src/document-navigation.tsx\n M packages/office-ui/src/floating.tsx\n M packages/office-ui/src/index.ts\n M packages/office-ui/src/menu.tsx\n M packages/office-ui/src/menubar.tsx\n M packages/office-ui/src/palette.tsx\n M packages/office-ui/src/tokens.css\n M packages/office-ui/src/toolbar.tsx\n M packages/office-ui/test/floating.test.ts\n M packages/office-word/src/object-layout-controls.tsx\n M packages/office-word/src/ribbon.tsx\n?? apps/gallery/src/compact-slide-specimen.css\n?? apps/gallery/src/compact-slide-specimen.tsx\n?? apps/gallery/src/compact-specimens.tsx\n?? apps/note/tests/compact-ui.spec.ts\n?? packages/office-ui/src/secondary-popup.tsx\n?? packages/office-ui/test/compact-surfaces.test.ts\n?? packages/office-ui/test/document-navigation.test.ts\n?? packages/office-ui/test/palette.test.tsx\n?? packages/office-word/src/selection-more.tsx\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-061",
+    "checkpointHead": "0bc72495a4e3dcb81b45afc4bffc3b905c0110ab",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-header-icons/barocss-editor",
+    "branch": "refs/heads/codex/432-header-icons",
+    "head": "d475604beeec9ee5a6d4a32c56d70b565837f337",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-062",
+    "checkpointHead": "d475604beeec9ee5a6d4a32c56d70b565837f337",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-modal-escape",
+    "branch": "refs/heads/codex/432-modal-escape",
+    "head": "c71d0481b2b95159f28394eaead5ac7d00f37961",
+    "status": " M packages/office-ui/src/command-search.tsx\n M packages/office-ui/src/stack.tsx\n M packages/office-ui/test/command-search.test.tsx\n?? node_modules\n?? packages/office-ui/node_modules\n?? packages/office-ui/test/modal-escape.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-063",
+    "checkpointHead": "6aa1d6d039f09e1f1fa11d642dcde3352a5d9990",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-note-command-dialog",
+    "branch": "refs/heads/codex/432-note-command-dialog",
+    "head": "c71d0481b2b95159f28394eaead5ac7d00f37961",
+    "status": " M apps/note/src/server-workspace-navigation.test.tsx\n M apps/note/src/server-workspace.tsx\n M apps/note/src/workspace.tsx\n M apps/note/tests/document-navigation.spec.ts\n M apps/office/tests/auth-real-note-navigation.spec.ts\n M apps/office/tests/auth-word.spec.ts\n M packages/office-note/src/note-view.tsx\n M packages/office-ui/src/command-search.tsx\n M packages/office-ui/src/status.tsx\n M packages/office-ui/src/tokens.css\n M packages/shared/src/i18n/locales/en.json\n M packages/shared/src/i18n/locales/ko.json\n?? apps/note/src/note-command-search.ts\n?? apps/note/src/use-note-command-search.tsx\n?? apps/note/tests/command-search-opening.test.tsx\n?? apps/note/tests/command-search.spec.ts\n?? apps/office/tests/auth-note-command.spec.ts\n?? packages/office-note/test/command-target.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-064",
+    "checkpointHead": "9ccf72c092905efe6dd520a1b4649ee9ad0ddf85",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-note-ui-checks/barocss-editor",
+    "branch": "refs/heads/codex/432-note-ui-checks",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/tests/document-centered.spec.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-editor-ui/src/context-toolbar.tsx\n M packages/office-editor-ui/src/selection-color.tsx\n M packages/office-editor-ui/src/selection-link.tsx\n M packages/office-editor-ui/test/context-toolbar.test.ts\n M packages/office-icons/src/index.tsx\n M packages/office-note/src/additional-formatting-control.tsx\n M packages/office-note/src/contextual-toolbar.tsx\n M packages/office-note/src/heading-level-control.tsx\n M packages/office-note/src/note.css\n M packages/office-note/src/table-context.tsx\n M packages/office-ui/src/document-bar.tsx\n M packages/office-ui/src/document-navigation.tsx\n M packages/office-ui/src/floating.tsx\n M packages/office-ui/src/palette.tsx\n M packages/office-ui/src/tokens.css\n M packages/office-ui/test/floating.test.ts\n M packages/office-word/src/object-layout-controls.tsx\n M packages/office-word/src/ribbon.tsx\n?? apps/note/tests/compact-multiblock.spec.ts\n?? apps/note/tests/compact-ui.spec.ts\n?? apps/word/tests/compact-ui.spec.ts\n?? packages/office-ui/test/document-navigation.test.ts\n?? packages/office-ui/test/palette.test.tsx\n?? packages/office-word/src/selection-more.tsx\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-065",
+    "checkpointHead": "51f8d1bcd1fc18838b7cb6421074295c2d6a447e",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-notes-first-input/barocss-editor",
+    "branch": "refs/heads/codex/432-notes-first-input",
+    "head": "09d0e43239c01631dea82d8aa7d88de2b212111a",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-066",
+    "checkpointHead": "09d0e43239c01631dea82d8aa7d88de2b212111a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-object-text/barocss-editor",
+    "branch": "refs/heads/codex/432-object-text",
+    "head": "6a09e2b14ac75662c6f1ded2ebc672bc871cab44",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-067",
+    "checkpointHead": "6a09e2b14ac75662c6f1ded2ebc672bc871cab44",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-optical-baseline",
+    "branch": "refs/heads/codex/432-optical-baseline",
+    "head": "c71d0481b2b95159f28394eaead5ac7d00f37961",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-068",
+    "checkpointHead": "c71d0481b2b95159f28394eaead5ac7d00f37961",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-property-fields/barocss-editor",
+    "branch": "refs/heads/codex/432-property-fields",
+    "head": "8fa73e6e2c741b032bc02b2231d69acfd08301dc",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-069",
+    "checkpointHead": "8fa73e6e2c741b032bc02b2231d69acfd08301dc",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-readout-layer",
+    "branch": "refs/heads/codex/432-readout-layer",
+    "head": "9c76dabee5022181e3047e8ddef8e76b2610827e",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-070",
+    "checkpointHead": "9c76dabee5022181e3047e8ddef8e76b2610827e",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-site-selection-ui/barocss-editor",
+    "branch": "refs/heads/codex/432-site-selection-ui",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": " M apps/gallery/package.json\n M apps/gallery/src/design-system.tsx\n M apps/gallery/src/gallery.tsx\n M apps/note/src/server-workspace.tsx\n M apps/note/src/workspace.tsx\n M apps/note/tests/document-centered.spec.ts\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/selection-auth-slides.spec.ts\n M apps/site/src/text-surface.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/src/use-slide-menu-search.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/design.spec.ts\n M apps/slide/tests/guides.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/slide-chrome.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M docs/specs/slides.md\n M packages/office-editor-ui/src/context-toolbar.tsx\n M packages/office-editor-ui/src/selection-color.tsx\n M packages/office-editor-ui/src/selection-link.tsx\n M packages/office-editor-ui/test/context-toolbar.test.ts\n M packages/office-icons/src/index.tsx\n M packages/office-note/src/additional-formatting-control.tsx\n M packages/office-note/src/contextual-toolbar.tsx\n M packages/office-note/src/document-navigation.tsx\n M packages/office-note/src/heading-level-control.tsx\n M packages/office-note/src/multi-block-control.tsx\n M packages/office-note/src/note-view.tsx\n M packages/office-note/src/note.css\n M packages/office-note/src/table-context.tsx\n M packages/office-note/test/document-mode.test.ts\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/menu-model.ts\n M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/ribbon.tsx\n M packages/office-slides/src/selection-chrome.tsx\n M packages/office-slides/src/slide-sidebar.tsx\n M packages/office-slides/src/ui.css\n M packages/office-slides/src/ui.ts\n M packages/office-ui/README.md\n M packages/office-ui/src/command-search.tsx\n M packages/office-ui/src/document-bar.tsx\n M packages/office-ui/src/document-navigation.tsx\n M packages/office-ui/src/floating.tsx\n M packages/office-ui/src/index.ts\n M packages/office-ui/src/menu.tsx\n M packages/office-ui/src/menubar.tsx\n M packages/office-ui/src/palette.tsx\n M packages/office-ui/src/tokens.css\n M packages/office-ui/src/toolbar.tsx\n M packages/office-ui/test/floating.test.ts\n M packages/office-word/src/object-layout-controls.tsx\n M packages/office-word/src/ribbon.tsx\n M typecheck-budgets.json\n?? apps/docs-site/node_modules\n?? apps/editor-decorator-test/node_modules\n?? apps/editor-react/node_modules\n?? apps/editor-test/node_modules\n?? apps/gallery/node_modules\n?? apps/gallery/playwright.config.ts\n?? apps/gallery/src/compact-slide-specimen.css\n?? apps/gallery/src/compact-slide-specimen.tsx\n?? apps/gallery/src/compact-specimens.css\n?? apps/gallery/src/compact-specimens.tsx\n?? apps/gallery/tests/\n?? apps/gallery/tsconfig.typecheck.json\n?? apps/note/node_modules\n?? apps/note/tests/compact-multiblock.spec.ts\n?? apps/note/tests/compact-ui.spec.ts\n?? apps/office-api/node_modules\n?? apps/office-service/node_modules\n?? apps/office/node_modules\n?? apps/office/tests/auth-real-note-navigation.spec.ts\n?? apps/site/node_modules\n?? apps/site/src/object-tools.tsx\n?? apps/site/test/\n?? apps/slide/node_modules\n?? apps/slide/test/menu-search-ownership.test.ts\n?? apps/slide/tests/compact-ui.spec.ts\n?? apps/slide/vitest.config.ts\n?? apps/word/node_modules\n?? apps/word/tests/compact-ui.spec.ts\n?? apps/word/tests/header-compatibility.spec.ts\n?? node_modules\n?? packages/collaboration-liveblocks/node_modules\n?? packages/collaboration-yjs/node_modules\n?? packages/collaboration/node_modules\n?? packages/conformance/node_modules\n?? packages/converter/node_modules\n?? packages/datastore/node_modules\n?? packages/devtool/node_modules\n?? packages/dom-observer/node_modules\n?? packages/dsl/node_modules\n?? packages/editor-core/node_modules\n?? packages/editor-view-dom/node_modules\n?? packages/editor-view-react/node_modules\n?? packages/extensions/node_modules\n?? packages/model/node_modules\n?? packages/office-canvas/node_modules\n?? packages/office-controls/node_modules\n?? packages/office-editor-ui/node_modules\n?? packages/office-icons/node_modules\n?? packages/office-note-file/node_modules\n?? packages/office-note/node_modules\n?? packages/office-site/node_modules\n?? packages/office-slides/node_modules\n?? packages/office-slides/src/slide-navigation.tsx\n?? packages/office-slides/test/slide-navigation.test.ts\n?? packages/office-text/node_modules\n?? packages/office-ui/node_modules\n?? packages/office-ui/src/secondary-popup.tsx\n?? packages/office-ui/test/command-search.test.tsx\n?? packages/office-ui/test/compact-surfaces.test.ts\n?? packages/office-ui/test/document-navigation.test.ts\n?? packages/office-ui/test/palette.test.tsx\n?? packages/office-word/node_modules\n?? packages/office-word/src/selection-more.tsx\n?? packages/office-workspace/node_modules\n?? packages/query-editor/node_modules\n?? packages/renderer-dom/node_modules\n?? packages/renderer-react/node_modules\n?? packages/schema/node_modules\n?? packages/shared/node_modules\n?? packages/text-analyzer/node_modules\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-071",
+    "checkpointHead": "53b96a7e00ddce59582f188f56e5a49edcb477ed",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-slides-filmstrip/barocss-editor",
+    "branch": "refs/heads/codex/432-slides-filmstrip",
+    "head": "b25749e3ebeafcfc8f17027850e0d2b9aa0628f3",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-072",
+    "checkpointHead": "b25749e3ebeafcfc8f17027850e0d2b9aa0628f3",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-slides-navigation/barocss-editor",
+    "branch": "refs/heads/codex/432-slides-navigation",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": " M apps/gallery/package.json\n M apps/gallery/src/design-system.tsx\n M apps/gallery/src/gallery.tsx\n M apps/note/src/server-workspace.tsx\n M apps/note/src/workspace.tsx\n M apps/note/tests/document-centered.spec.ts\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/design.spec.ts\n M apps/slide/tests/guides.spec.ts\n M apps/slide/tests/slide-chrome.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-editor-ui/src/context-toolbar.tsx\n M packages/office-editor-ui/src/selection-color.tsx\n M packages/office-editor-ui/src/selection-link.tsx\n M packages/office-editor-ui/test/context-toolbar.test.ts\n M packages/office-icons/src/index.tsx\n M packages/office-note/src/additional-formatting-control.tsx\n M packages/office-note/src/contextual-toolbar.tsx\n M packages/office-note/src/document-navigation.tsx\n M packages/office-note/src/heading-level-control.tsx\n M packages/office-note/src/multi-block-control.tsx\n M packages/office-note/src/note-view.tsx\n M packages/office-note/src/note.css\n M packages/office-note/src/table-context.tsx\n M packages/office-note/test/document-mode.test.ts\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/slide-sidebar.tsx\n M packages/office-slides/src/ui.css\n M packages/office-slides/src/ui.ts\n M packages/office-ui/README.md\n M packages/office-ui/src/document-bar.tsx\n M packages/office-ui/src/document-navigation.tsx\n M packages/office-ui/src/floating.tsx\n M packages/office-ui/src/index.ts\n M packages/office-ui/src/menu.tsx\n M packages/office-ui/src/menubar.tsx\n M packages/office-ui/src/palette.tsx\n M packages/office-ui/src/tokens.css\n M packages/office-ui/src/toolbar.tsx\n M packages/office-ui/test/floating.test.ts\n M packages/office-word/src/object-layout-controls.tsx\n M packages/office-word/src/ribbon.tsx\n M typecheck-budgets.json\n?? apps/gallery/playwright.config.ts\n?? apps/gallery/src/compact-slide-specimen.css\n?? apps/gallery/src/compact-slide-specimen.tsx\n?? apps/gallery/src/compact-specimens.css\n?? apps/gallery/src/compact-specimens.tsx\n?? apps/gallery/tests/\n?? apps/gallery/tsconfig.typecheck.json\n?? apps/note/tests/compact-multiblock.spec.ts\n?? apps/note/tests/compact-ui.spec.ts\n?? apps/office/tests/auth-real-note-navigation.spec.ts\n?? apps/word/tests/compact-ui.spec.ts\n?? apps/word/tests/header-compatibility.spec.ts\n?? node_modules\n?? packages/office-slides/src/slide-navigation.tsx\n?? packages/office-slides/test/slide-navigation.test.ts\n?? packages/office-ui/src/secondary-popup.tsx\n?? packages/office-ui/test/compact-surfaces.test.ts\n?? packages/office-ui/test/document-navigation.test.ts\n?? packages/office-ui/test/palette.test.tsx\n?? packages/office-word/src/selection-more.tsx\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-073",
+    "checkpointHead": "016f70fb39287954b2ed3ba7407c8636e8ff3e2f",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-slides-search-guard/barocss-editor",
+    "branch": "refs/heads/codex/432-slides-search-guard",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": " M apps/site/src/ribbon.tsx\n M apps/slide/src/use-slide-menu-search.ts\n?? apps/docs-site/node_modules\n?? apps/editor-decorator-test/node_modules\n?? apps/editor-react/node_modules\n?? apps/editor-test/node_modules\n?? apps/gallery/node_modules\n?? apps/note/node_modules\n?? apps/office-api/node_modules\n?? apps/office-service/node_modules\n?? apps/office/node_modules\n?? apps/site/node_modules\n?? apps/site/src/use-site-menu-search.ts\n?? apps/site/test/\n?? apps/site/vitest.config.ts\n?? apps/slide/node_modules\n?? apps/slide/test/menu-search-ownership.test.ts\n?? apps/slide/vitest.config.ts\n?? apps/word/node_modules\n?? node_modules\n?? packages/collaboration-liveblocks/node_modules\n?? packages/collaboration-yjs/node_modules\n?? packages/collaboration/node_modules\n?? packages/conformance/node_modules\n?? packages/converter/node_modules\n?? packages/datastore/node_modules\n?? packages/devtool/node_modules\n?? packages/dom-observer/node_modules\n?? packages/dsl/node_modules\n?? packages/editor-core/node_modules\n?? packages/editor-view-dom/node_modules\n?? packages/editor-view-react/node_modules\n?? packages/extensions/node_modules\n?? packages/model/node_modules\n?? packages/office-canvas/node_modules\n?? packages/office-controls/node_modules\n?? packages/office-editor-ui/node_modules\n?? packages/office-icons/node_modules\n?? packages/office-note-file/node_modules\n?? packages/office-note/node_modules\n?? packages/office-site/node_modules\n?? packages/office-slides/node_modules\n?? packages/office-text/node_modules\n?? packages/office-ui/node_modules\n?? packages/office-word/node_modules\n?? packages/office-workspace/node_modules\n?? packages/query-editor/node_modules\n?? packages/renderer-dom/node_modules\n?? packages/renderer-react/node_modules\n?? packages/schema/node_modules\n?? packages/shared/node_modules\n?? packages/text-analyzer/node_modules\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-074",
+    "checkpointHead": "e6b013b54689b09a733faecb158d044ab1dd287b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-word-command-owner",
+    "branch": "refs/heads/codex/432-word-command-owner",
+    "head": "c71d0481b2b95159f28394eaead5ac7d00f37961",
+    "status": " M apps/office/tests/auth-slides.spec.ts\n M apps/word/src/app.tsx\n M apps/word/tests/command-search.spec.ts\n M apps/word/tests/product-menu.spec.ts\n M packages/shared/src/i18n/locales/en.json\n M packages/shared/src/i18n/locales/ko.json\n?? apps/word/src/command-owner.ts\n?? apps/word/test/command-owner.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-075",
+    "checkpointHead": "5111a31c470c521e441d85e0e56981b0e5db01af",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/432-word-native-baseline/barocss-editor",
+    "branch": "refs/heads/codex/432-word-native-baseline",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": "?? packages/office-word/test/432-native-underline-baseline.test.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-076",
+    "checkpointHead": "f2ab32dc34ed1e1469d17a68b17f64f023e8a985",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/433-mark-operation-helper/barocss-editor",
+    "branch": "refs/heads/codex/433-mark-operation-helper",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": " M packages/model/src/operations/applyMark.ts\n M packages/model/src/operations/removeMark.ts\n M packages/model/src/operations/setMarks.ts\n M packages/model/src/operations/toggleLink.ts\n M packages/model/src/operations/toggleMark.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-077",
+    "checkpointHead": "60256394f379aa4bfb10e2cffbaf6f51f93ffbaa",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/433-native-history-tests/barocss-editor",
+    "branch": "refs/heads/codex/433-native-history-tests",
+    "head": "914bb4976564d0f2d757dcafd12cbb7fadf5f37a",
+    "status": "?? packages/editor-core/test/native-mark-history.test.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-078",
+    "checkpointHead": "753067f4c59cae1d3432ff6d1254e4b1fb843779",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/434-object-history-core/barocss-editor",
+    "branch": "refs/heads/codex/434-object-history-core",
+    "head": "7a885fd3a9a420689f35a3808409229b21799706",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-079",
+    "checkpointHead": "7a885fd3a9a420689f35a3808409229b21799706",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/436-notes-export/barocss-editor",
+    "branch": "refs/heads/codex/436-notes-export",
+    "head": "811e6dbe8b6b9170e5e0b669d3dd03b71627993e",
+    "status": " M apps/slide/tests/selection-document.spec.ts\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-080",
+    "checkpointHead": "c0ebeeda2a248cf0a2fdc5b61abd6da42872ba91",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/439-connected-execution/barocss-editor",
+    "branch": "refs/heads/codex/439-connected-execution",
+    "head": "5fab84ac74f5a80818375d0956a9c90f20134f23",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-081",
+    "checkpointHead": "5fab84ac74f5a80818375d0956a9c90f20134f23",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/439-durable-execution/barocss-editor",
+    "branch": "refs/heads/codex/439-durable-execution",
+    "head": "0ec647c5496b8b21308757cad3431c98ec289508",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-082",
+    "checkpointHead": "0ec647c5496b8b21308757cad3431c98ec289508",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/439-local-adapter/barocss-editor",
+    "branch": "refs/heads/codex/439-local-adapter",
+    "head": "900cbfc6df4ad23f6a90d263d018c7a333e69cd2",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-083",
+    "checkpointHead": "900cbfc6df4ad23f6a90d263d018c7a333e69cd2",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/439-native-contract/barocss-editor",
+    "branch": "refs/heads/codex/439-native-contract",
+    "head": "d1f941740fd0e09b53dd05a470180eefde04fc6a",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-084",
+    "checkpointHead": "d1f941740fd0e09b53dd05a470180eefde04fc6a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-auth-tests/barocss-editor",
+    "branch": "refs/heads/codex/443-auth-tests",
+    "head": "20af99d120bc69f7fbff557c6f75d4f2a170f901",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-085",
+    "checkpointHead": "20af99d120bc69f7fbff557c6f75d4f2a170f901",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-feedback-jsonb-order/barocss-editor",
+    "branch": "refs/heads/codex/443-feedback-jsonb-order",
+    "head": "7f49fd7077fe651bd0e638555fd8057e1cf0702e",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-086",
+    "checkpointHead": "7f49fd7077fe651bd0e638555fd8057e1cf0702e",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-feedback-receipts/barocss-editor",
+    "branch": "refs/heads/codex/443-feedback-receipts",
+    "head": "e4e1c0a2b138f82a5519bcf362cfde361dcfee1d",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-087",
+    "checkpointHead": "e4e1c0a2b138f82a5519bcf362cfde361dcfee1d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-feedback-recovery-integrity/barocss-editor",
+    "branch": "refs/heads/codex/443-feedback-recovery-integrity",
+    "head": "a532420a3897a6071139eccd12b5e8debff99c04",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-088",
+    "checkpointHead": "a532420a3897a6071139eccd12b5e8debff99c04",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-host-feedback-recovery/barocss-editor",
+    "branch": "refs/heads/codex/443-host-feedback-recovery",
+    "head": "b62b92afe779f4f5ae43cdf283da3596ae3ad556",
+    "status": " M packages/office-word/src/feedback-host.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-089",
+    "checkpointHead": "493f00d5afb6b8fe23ca7c72f50178d71e91878b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-mixed-run-feedback/barocss-editor",
+    "branch": "refs/heads/codex/443-mixed-run-feedback",
+    "head": "24ca299dec20f00bd8effc95a1501fa67779d1c2",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-090",
+    "checkpointHead": "24ca299dec20f00bd8effc95a1501fa67779d1c2",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-native-comment-range/barocss-editor",
+    "branch": "refs/heads/codex/443-native-comment-range",
+    "head": "bf306a03dec00d5710f170b68e523fb4ec91ffc8",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-091",
+    "checkpointHead": "bf306a03dec00d5710f170b68e523fb4ec91ffc8",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-native-feedback-recovery/barocss-editor",
+    "branch": "refs/heads/codex/443-native-feedback-recovery",
+    "head": "4422cb7d01eeff679561ce678539241184b2d390",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-092",
+    "checkpointHead": "4422cb7d01eeff679561ce678539241184b2d390",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/443-project-comment-range/barocss-editor",
+    "branch": "refs/heads/codex/443-project-comment-range",
+    "head": "a6bec9f91f787900b38a28b3e04feb985391d07b",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-093",
+    "checkpointHead": "a6bec9f91f787900b38a28b3e04feb985391d07b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/444-authority-service/barocss-editor",
+    "branch": "refs/heads/codex/444-authority-service",
+    "head": "ba468f1991b50581b35474fee8640a0a55c0170c",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-094",
+    "checkpointHead": "ba468f1991b50581b35474fee8640a0a55c0170c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/444-local-intent/barocss-editor",
+    "branch": "refs/heads/codex/444-local-intent",
+    "head": "e537bddf2a6e9fb6fb6d4803cbfe1b60acae8ca9",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-095",
+    "checkpointHead": "e537bddf2a6e9fb6fb6d4803cbfe1b60acae8ca9",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/444-project-authority/barocss-editor",
+    "branch": "refs/heads/codex/444-project-authority",
+    "head": "09635776845988515f84e809de917c2f84fd3104",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-096",
+    "checkpointHead": "09635776845988515f84e809de917c2f84fd3104",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/449-local-agent-lossless-prompt/barocss-editor",
+    "branch": "refs/heads/codex/449-local-agent-lossless-prompt",
+    "head": "a9d94d83475489b5eba7a018f7d0059ebf8590d2",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-097",
+    "checkpointHead": "a9d94d83475489b5eba7a018f7d0059ebf8590d2",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/449-private-profile-close-diagnostic/barocss-editor",
+    "branch": "refs/heads/codex/449-private-profile-close-diagnostic",
+    "head": "8262fcf2d35cd48feddfcb8cc731e3ea8a0a60be",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-098",
+    "checkpointHead": "8262fcf2d35cd48feddfcb8cc731e3ea8a0a60be",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/450-native-lifecycle/barocss-editor",
+    "branch": "refs/heads/codex/450-native-lifecycle",
+    "head": "74ca7a0baf12e1a0d49f6927fc8ebd46ec96b28d",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-099",
+    "checkpointHead": "74ca7a0baf12e1a0d49f6927fc8ebd46ec96b28d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/450-standalone-requirement/barocss-editor",
+    "branch": "refs/heads/codex/450-standalone-requirement",
+    "head": "ad77d18141d5c0960bdd9d71c2b04c1fe11b2b8a",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-100",
+    "checkpointHead": "ad77d18141d5c0960bdd9d71c2b04c1fe11b2b8a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/450-ui-contract-tests/barocss-editor",
+    "branch": "refs/heads/codex/450-ui-contract-tests",
+    "head": "b4715a27c5b02a042b37531f7fde6a905f432d23",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-101",
+    "checkpointHead": "b4715a27c5b02a042b37531f7fde6a905f432d23",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/450-ui-deferred-lifetime/barocss-editor",
+    "branch": "refs/heads/codex/450-ui-deferred-lifetime",
+    "head": "0527bc2dfd62512015c04ef7038b60082c05887e",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-102",
+    "checkpointHead": "0527bc2dfd62512015c04ef7038b60082c05887e",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/464-i18n-status/barocss-editor",
+    "branch": "refs/heads/codex/470-i18n-foundation",
+    "head": "5d6e3ce1efa136d61ac539aabe4580aeede8fb69",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-103",
+    "checkpointHead": "5d6e3ce1efa136d61ac539aabe4580aeede8fb69",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/464-session-codes/barocss-editor",
+    "branch": "refs/heads/codex/464-session-codes",
+    "head": "3c440263ca2ac6fd99d4f896432713b9f1b61519",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-104",
+    "checkpointHead": "3c440263ca2ac6fd99d4f896432713b9f1b61519",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/464-site-identities/barocss-editor",
+    "branch": "refs/heads/codex/464-site-identities",
+    "head": "0e057be54de3a1820a8e1201c96074d6e031417b",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-105",
+    "checkpointHead": "0e057be54de3a1820a8e1201c96074d6e031417b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-auth-feedback-exit",
+    "branch": "refs/heads/codex/468-auth-feedback-exit",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-privacy.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/business-pair-local.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/context-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/navigation-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/ui-consistency.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-preview.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/site/src/app.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/builds.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/color-formats.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/corners.spec.ts\n M apps/slide/tests/crop.spec.ts\n M apps/slide/tests/fill-blend.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/library-focus.spec.ts\n M apps/slide/tests/movable-paint-panel.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/paint-input.spec.ts\n M apps/slide/tests/paint.spec.ts\n M apps/slide/tests/property-feedback.spec.ts\n M apps/slide/tests/property-fields.spec.ts\n M apps/slide/tests/property-keyboard.spec.ts\n M apps/slide/tests/property-stack.spec.ts\n M apps/slide/tests/selection-chrome.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/shape-style.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/slide-chrome.spec.ts\n M apps/slide/tests/slide-transfer.spec.ts\n M apps/slide/tests/text-box.spec.ts\n M apps/slide/tests/theme.spec.ts\n M apps/slide/tests/transition.spec.ts\n M apps/slide/tests/variables.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-editor-ui/src/local-documents.tsx\n M packages/office-editor-ui/test/local-documents.test.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/document-library.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/property-variable.css\n M packages/office-slides/src/selection-chrome.tsx\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-slides/test/authenticated-runtime.test.ts\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/confirmed-native.test.ts\n?? apps/note/src/confirmed-native.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/playwright.feedback-exit.config.ts\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-feedback-account-exit.spec.ts\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/office/tests/workspace-tree-state.spec.ts\n?? apps/site/test/input-readiness.test.tsx\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/slide/tests/definition-panel-geometry.spec.ts\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? packages/office-slides/test/overlay-keyboard-owner.test.tsx\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-slides/test/selection-chrome-clearance.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n?? packages/office-workspace/test/project-feedback-input.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-106",
+    "checkpointHead": "63923b7d678f94d2c3faf0592b6c6b8157220a32",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-authenticated-frame",
+    "branch": "refs/heads/codex/468-authenticated-frame",
+    "head": "febf622db5138ab89f5b33263468bcc4ecd8bed6",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-107",
+    "checkpointHead": "febf622db5138ab89f5b33263468bcc4ecd8bed6",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-catalog-model/barocss-editor",
+    "branch": "refs/heads/codex/468-catalog-model",
+    "head": "ff135090538d4b649fb2768abab220e8d2033fd6",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-108",
+    "checkpointHead": "ff135090538d4b649fb2768abab220e8d2033fd6",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-compact-site/barocss-editor",
+    "branch": "refs/heads/codex/468-compact-site",
+    "head": "6cfb352bacf9ecdf4e31efb28f4067fa5d8763b9",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-109",
+    "checkpointHead": "6cfb352bacf9ecdf4e31efb28f4067fa5d8763b9",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-compact-word/barocss-editor",
+    "branch": "refs/heads/codex/468-compact-word",
+    "head": "968218b905ecf6a8c715683e6a4e213f6bdb1696",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-110",
+    "checkpointHead": "968218b905ecf6a8c715683e6a4e213f6bdb1696",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-creator-attribution",
+    "branch": "refs/heads/codex/468-creator-attribution",
+    "head": "9c76dabee5022181e3047e8ddef8e76b2610827e",
+    "status": " M apps/office-api/src/server.ts\n M apps/office-api/test/auth.test.ts\n M apps/office-api/test/operator.test.ts\n M apps/office-service/src/document-store.ts\n M apps/office-service/src/membership-store.ts\n M apps/office-service/src/migrations.ts\n M apps/office/src/auth-catalog.test.ts\n M apps/office/src/auth-client.ts\n?? apps/office-service/src/document-creator-migration.ts\n?? apps/office-service/test/document-creator-migration.test.ts\n?? apps/office-service/test/document-creator.test.ts\n?? apps/office-service/test/membership-identity.test.ts\n?? apps/office/src/auth-identity.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-111",
+    "checkpointHead": "f30f781be2daa514066ce5e3a9abb1ee84de91c9",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-docx-feedback",
+    "branch": "refs/heads/codex/468-docx-feedback",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M packages/shared/src/document-save/product-host.ts\n?? apps/word/test/docx-replacement.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-112",
+    "checkpointHead": "da8d466823ee94a39574642011f3cac4ce2fd2fb",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-frame-presentation",
+    "branch": "refs/heads/codex/468-frame-presentation",
+    "head": "b2727a0722048238f504ffb50d29ac000e118759",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-113",
+    "checkpointHead": "b2727a0722048238f504ffb50d29ac000e118759",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-local-frame-errors",
+    "branch": "refs/heads/codex/468-local-frame-errors",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": "?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/mixed-local-frame.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-114",
+    "checkpointHead": "44579dc365ac18089d47528159638bd5ca62f3cd",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-local-replacement-feedback",
+    "branch": "refs/heads/codex/468-local-replacement-feedback",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.ts\n?? node_modules\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-115",
+    "checkpointHead": "40138b14e2f27d37af4d49302ea261a3be4a7aea",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-mixed-auth-tests",
+    "branch": "refs/heads/codex/468-mixed-auth-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/office/tests/auth-entry.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-116",
+    "checkpointHead": "388ae6555032b0c16a7fec4264ce5c2ca6b8a82a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-mixed-host-contract",
+    "branch": "refs/heads/codex/468-mixed-host-contract",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? node_modules\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-117",
+    "checkpointHead": "3c00370e5f8b2f88258f35e38e2cb3578b223ce0",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-mixed-local-frame",
+    "branch": "refs/heads/codex/468-mixed-local-frame",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/product-host.ts\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/mixed-local-frame.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-118",
+    "checkpointHead": "082571853ce4db30057f89837e5cfbb87e7a4912",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-mixed-native-transition",
+    "branch": "refs/heads/codex/468-mixed-native-transition",
+    "head": "b74e4c02103ddd9de21be771e8e224dfb2a91c6b",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-119",
+    "checkpointHead": "b74e4c02103ddd9de21be771e8e224dfb2a91c6b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-mixed-real-tests",
+    "branch": "refs/heads/codex/468-mixed-real-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": "?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? node_modules\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-120",
+    "checkpointHead": "0645373b3688c95f7f8000d60b37aff47f36d11d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-mixed-renderer-isolation",
+    "branch": "refs/heads/codex/468-mixed-renderer-isolation",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/src/runtime.ts\n M apps/word/src/runtime.ts\n?? apps/word/test/mixed-renderer-runtime.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-121",
+    "checkpointHead": "6288f43e55b050c15bd9fee7da6b9f1d5124e7f6",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-native-auth-verification",
+    "branch": "refs/heads/codex/468-native-auth-verification",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-122",
+    "checkpointHead": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-native-input-delivery",
+    "branch": "refs/heads/codex/468-native-input-delivery",
+    "head": "3a0dc743c5686496fd5333ea22af350e01f09f66",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-123",
+    "checkpointHead": "3a0dc743c5686496fd5333ea22af350e01f09f66",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-native-return",
+    "branch": "refs/heads/codex/468-native-return",
+    "head": "9c76dabee5022181e3047e8ddef8e76b2610827e",
+    "status": "?? apps/office/tests/workspace-all-native-return.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-124",
+    "checkpointHead": "ce270f8afaf3c8e496cafbf3ae4a063c168594cd",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-native-shape-tests",
+    "branch": "refs/heads/codex/468-native-shape-tests",
+    "head": "5a2ae62b08493fcc06eede2fc961a8fd18962ffd",
+    "status": "?? packages/datastore/test/insert-text-native-shape.test.ts\n?? packages/model/test/transaction/insert-text-native-shape.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-125",
+    "checkpointHead": "48191f3c31887c49dbedd3fa9d6063568b49e8b3",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-navigation-lifetime/barocss-editor",
+    "branch": "refs/heads/codex/468-navigation-lifetime",
+    "head": "a5fd2f5c3d0e549e1a6c21d75bafe77402ac4443",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-126",
+    "checkpointHead": "a5fd2f5c3d0e549e1a6c21d75bafe77402ac4443",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-note-guarded-open",
+    "branch": "refs/heads/codex/468-note-guarded-open",
+    "head": "f9b9bcd400706418f9a27d1fd8a747944dd6b661",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-127",
+    "checkpointHead": "f9b9bcd400706418f9a27d1fd8a747944dd6b661",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-note-open-fresh",
+    "branch": "refs/heads/codex/468-note-open-fresh",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/workspace.tsx\n?? apps/note/src/workspace-open.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-128",
+    "checkpointHead": "663051e362287c235b60f7c58f363cf1bbbf5826",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-note-workspace-layout/barocss-editor",
+    "branch": "refs/heads/codex/468-note-workspace-layout",
+    "head": "9453c9ec1eb1519da76f926d78c78846f7533acb",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-129",
+    "checkpointHead": "9453c9ec1eb1519da76f926d78c78846f7533acb",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-office-route-tests",
+    "branch": "refs/heads/codex/468-office-route-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/office/tests/workspace-routing.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-130",
+    "checkpointHead": "b72e9265bc7a872f7f3200d7edf40364c4df9c2b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-office-ui-last",
+    "branch": "refs/heads/codex/468-office-ui-last",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/office/tests/business-pair-local.spec.ts\n M apps/office/tests/ui-consistency.spec.ts\n M apps/office/tests/workspace-preview.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-131",
+    "checkpointHead": "1223fa2d9815096776c74b7f579ee0367d8ebde5",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-one-header",
+    "branch": "refs/heads/codex/468-one-header",
+    "head": "0c89249371b7ec38a40e378e9652ab3831b5013e",
+    "status": "?? .dev/artifacts/468/\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-132",
+    "checkpointHead": "71cf258167b760f3c52e3e95a8569edce682884f",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-one-header-site",
+    "branch": "refs/heads/codex/468-one-header-site",
+    "head": "173c050b2e77aba73b7fce2358d376a619bd873c",
+    "status": " M apps/site/src/app.tsx\n M apps/site/src/style.css\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-133",
+    "checkpointHead": "577e65867cc6a3c585e8f8a53deed209474d125d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-one-header-slides",
+    "branch": "refs/heads/codex/468-one-header-slides",
+    "head": "173c050b2e77aba73b7fce2358d376a619bd873c",
+    "status": " M apps/slide/src/app.tsx\n M apps/slide/src/style.css\n M packages/office-slides/src/selection-chrome.tsx\n?? packages/office-slides/test/header-chrome.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-134",
+    "checkpointHead": "4f8bfdc12fa078d0f36c08e3d0213fa358d38725",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-one-header-word",
+    "branch": "refs/heads/codex/468-one-header-word",
+    "head": "173c050b2e77aba73b7fce2358d376a619bd873c",
+    "status": " M apps/word/src/app.tsx\n M apps/word/src/style.css\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-135",
+    "checkpointHead": "9ff41582cb0830041c735cd2c534854a20fb0392",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-recent-library-busy",
+    "branch": "refs/heads/codex/468-recent-library-busy",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-privacy.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/context-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/navigation-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/site/src/app.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/builds.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/color-formats.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/corners.spec.ts\n M apps/slide/tests/crop.spec.ts\n M apps/slide/tests/fill-blend.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/library-focus.spec.ts\n M apps/slide/tests/movable-paint-panel.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/paint-input.spec.ts\n M apps/slide/tests/paint.spec.ts\n M apps/slide/tests/property-feedback.spec.ts\n M apps/slide/tests/property-fields.spec.ts\n M apps/slide/tests/property-keyboard.spec.ts\n M apps/slide/tests/property-stack.spec.ts\n M apps/slide/tests/selection-chrome.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/variables.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-editor-ui/src/local-documents.tsx\n M packages/office-editor-ui/test/local-documents.test.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/document-library.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/selection-chrome.tsx\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/confirmed-native.test.ts\n?? apps/note/src/confirmed-native.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/slide/playwright.468-properties-helper.config.ts\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? packages/office-slides/test/overlay-keyboard-owner.test.tsx\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-slides/test/selection-chrome-clearance.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-136",
+    "checkpointHead": "0ea72b2d2f11bf7fe8ac6911c88a9b762044b48b",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-selected-export-diagnostic",
+    "branch": "refs/heads/codex/468-selected-export-diagnostic",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-137",
+    "checkpointHead": "0117ac007bc4ae2e5da8a9b01bd8322ff9b18af4",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-server-account-exit",
+    "branch": "refs/heads/codex/468-server-account-exit",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n?? vitest.468-account-exit.config.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-138",
+    "checkpointHead": "839e99d12bc70fb70f189a2863a27262a351338d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-server-catalog",
+    "branch": "refs/heads/codex/468-server-catalog",
+    "head": "c6a4e2eb7631daf42260b627ef7cafa1642759e3",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-139",
+    "checkpointHead": "c6a4e2eb7631daf42260b627ef7cafa1642759e3",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-site-header-ui/barocss-editor",
+    "branch": "refs/heads/codex/468-site-header-ui",
+    "head": "fd3dd9eb76dc10d0ba0042aa951dcaba230d0ece",
+    "status": " M packages/shared/src/i18n/locales/en.json\n M packages/shared/src/i18n/locales/ko.json\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-140",
+    "checkpointHead": "69ca4bea5f4c362ef83cdb12bf2875e45556ae84",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-site-input-ready",
+    "branch": "refs/heads/codex/468-site-input-ready",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-privacy.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/context-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/navigation-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/site/src/app.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/docs-site/node_modules\n?? apps/editor-decorator-test/node_modules\n?? apps/editor-react/node_modules\n?? apps/editor-test/node_modules\n?? apps/gallery/node_modules\n?? apps/note/node_modules\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office-api/node_modules\n?? apps/office-service/node_modules\n?? apps/office/node_modules\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/site/node_modules\n?? apps/slide/node_modules\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/word/node_modules\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? node_modules\n?? packages/collaboration-liveblocks/node_modules\n?? packages/collaboration-yjs/node_modules\n?? packages/collaboration/node_modules\n?? packages/conformance/node_modules\n?? packages/converter/node_modules\n?? packages/datastore/node_modules\n?? packages/devtool/node_modules\n?? packages/dom-observer/node_modules\n?? packages/dsl/node_modules\n?? packages/editor-core/node_modules\n?? packages/editor-view-dom/node_modules\n?? packages/editor-view-react/node_modules\n?? packages/extensions/node_modules\n?? packages/model/node_modules\n?? packages/office-canvas/node_modules\n?? packages/office-controls/node_modules\n?? packages/office-editor-ui/node_modules\n?? packages/office-icons/node_modules\n?? packages/office-note-file/node_modules\n?? packages/office-note/node_modules\n?? packages/office-site/node_modules\n?? packages/office-slides/node_modules\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-text/node_modules\n?? packages/office-ui/node_modules\n?? packages/office-word/node_modules\n?? packages/office-word/test/print-ownership.test.ts\n?? packages/office-workspace/node_modules\n?? packages/query-editor/node_modules\n?? packages/renderer-dom/node_modules\n?? packages/renderer-react/node_modules\n?? packages/schema/node_modules\n?? packages/shared/node_modules\n?? packages/text-analyzer/node_modules\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-141",
+    "checkpointHead": "54bb1c1e8217eedc1116ccff6a32741c86318287",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-site-panel-followup",
+    "branch": "refs/heads/codex/468-site-panel-followup",
+    "head": "195232948a599b9e1bfaf0e5413b8171fc83d12d",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-142",
+    "checkpointHead": "195232948a599b9e1bfaf0e5413b8171fc83d12d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-site-readiness-cancel",
+    "branch": "refs/heads/codex/468-site-readiness-cancel",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-privacy.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/context-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/navigation-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/site/src/app.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/builds.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/color-formats.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/corners.spec.ts\n M apps/slide/tests/crop.spec.ts\n M apps/slide/tests/fill-blend.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/library-focus.spec.ts\n M apps/slide/tests/movable-paint-panel.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/paint-input.spec.ts\n M apps/slide/tests/paint.spec.ts\n M apps/slide/tests/property-feedback.spec.ts\n M apps/slide/tests/property-fields.spec.ts\n M apps/slide/tests/property-keyboard.spec.ts\n M apps/slide/tests/property-stack.spec.ts\n M apps/slide/tests/selection-chrome.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/shape-style.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/slide-chrome.spec.ts\n M apps/slide/tests/slide-transfer.spec.ts\n M apps/slide/tests/text-box.spec.ts\n M apps/slide/tests/theme.spec.ts\n M apps/slide/tests/transition.spec.ts\n M apps/slide/tests/variables.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-editor-ui/src/local-documents.tsx\n M packages/office-editor-ui/test/local-documents.test.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/document-library.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/property-variable.css\n M packages/office-slides/src/selection-chrome.tsx\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/confirmed-native.test.ts\n?? apps/note/src/confirmed-native.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/site/test/input-readiness.test.tsx\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/slide/tests/definition-panel-geometry.spec.ts\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? packages/office-slides/test/overlay-keyboard-owner.test.tsx\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-slides/test/selection-chrome-clearance.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-143",
+    "checkpointHead": "822f5b7dbae01cef37853e1bb460f13743b7cf25",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slide-overlay-keyboard",
+    "branch": "refs/heads/codex/468-slide-overlay-keyboard",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/selection-chrome.tsx\n?? packages/office-slides/test/overlay-keyboard-owner.test.tsx\n?? packages/office-slides/test/selection-chrome-clearance.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-144",
+    "checkpointHead": "3a883fece8df7c2dbe8c3d8dfd78d395385b514c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slide-secondary-renderers",
+    "branch": "refs/heads/codex/468-slide-secondary-renderers",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/src/runtime.ts\n M apps/word/src/runtime.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? node_modules\n?? packages/office-slides/test/secondary-renderers.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-145",
+    "checkpointHead": "5cefa2ee5a5e27a2787581a456c2937bdd7af9ba",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slide-ui-six",
+    "branch": "refs/heads/codex/468-slide-ui-six",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/tests/shape-style.spec.ts\n M apps/slide/tests/slide-chrome.spec.ts\n M apps/slide/tests/slide-transfer.spec.ts\n M apps/slide/tests/text-box.spec.ts\n M apps/slide/tests/theme.spec.ts\n M apps/slide/tests/transition.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-146",
+    "checkpointHead": "73e0e6b35be976783f2b53dd26098a6c1a63476d",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-current-ui-tests",
+    "branch": "refs/heads/codex/468-slides-current-ui-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/slide/playwright.468-helper.config.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-147",
+    "checkpointHead": "5ec33d8cd8a550432272cc79edff346c23eb69ea",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-export-owner",
+    "branch": "refs/heads/codex/468-slides-export-owner",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/src/app.tsx\n?? apps/slide/test/native-input-ready.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-148",
+    "checkpointHead": "11e3e2d4edfdbe978f7701e04c380269d7311aeb",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-header-ui-tests",
+    "branch": "refs/heads/codex/468-slides-header-ui-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-149",
+    "checkpointHead": "5fe718da6f0d8ee2b0dfc8ab051479cae4de7fc7",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-input-boundary",
+    "branch": "refs/heads/codex/468-slides-input-boundary",
+    "head": "bfc996b913c146a6f6e4fc8c25377292bb6afe56",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-150",
+    "checkpointHead": "bfc996b913c146a6f6e4fc8c25377292bb6afe56",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-input-ready",
+    "branch": "refs/heads/codex/468-slides-input-ready",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/src/app.tsx\n?? apps/slide/test/native-input-ready.test.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-151",
+    "checkpointHead": "b5ec7fd2fad5614fe98dbe88ccc783008ec22996",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-menu-lifetime",
+    "branch": "refs/heads/codex/468-slides-menu-lifetime",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/src/app.tsx\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-152",
+    "checkpointHead": "0e44054932c565affea325d0ee33f88ce464f5e8",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-paint-ui-tests",
+    "branch": "refs/heads/codex/468-slides-paint-ui-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/slide/tests/color-formats.spec.ts\n M apps/slide/tests/corners.spec.ts\n M apps/slide/tests/crop.spec.ts\n M apps/slide/tests/fill-blend.spec.ts\n M apps/slide/tests/movable-paint-panel.spec.ts\n M apps/slide/tests/paint-input.spec.ts\n M apps/slide/tests/paint.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-153",
+    "checkpointHead": "962ab9a4690acffa18c58924a906c73ae757d393",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-slides-property-tests",
+    "branch": "refs/heads/codex/468-slides-property-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M .dev/artifacts/design-system/slides-property-failure.png\n M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/context-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/navigation-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/builds.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/library-focus.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/property-feedback.spec.ts\n M apps/slide/tests/property-fields.spec.ts\n M apps/slide/tests/property-keyboard.spec.ts\n M apps/slide/tests/property-stack.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/variables.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/slide/playwright.468-properties-helper.config.ts\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-154",
+    "checkpointHead": "4747cc9060fea4af3efbe2a274a18be53ec12431",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-ui-header-tests",
+    "branch": "refs/heads/codex/468-ui-header-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/office/tests/workspace-header.spec.ts\n?? apps/docs-site/node_modules\n?? apps/editor-decorator-test/node_modules\n?? apps/editor-react/node_modules\n?? apps/editor-test/node_modules\n?? apps/gallery/node_modules\n?? apps/note/node_modules\n?? apps/office-api/node_modules\n?? apps/office-service/node_modules\n?? apps/office/node_modules\n?? apps/site/node_modules\n?? apps/slide/node_modules\n?? apps/word/node_modules\n?? node_modules\n?? packages/collaboration-liveblocks/node_modules\n?? packages/collaboration-yjs/node_modules\n?? packages/collaboration/node_modules\n?? packages/conformance/node_modules\n?? packages/converter/node_modules\n?? packages/datastore/node_modules\n?? packages/devtool/node_modules\n?? packages/dom-observer/node_modules\n?? packages/dsl/node_modules\n?? packages/editor-core/node_modules\n?? packages/editor-view-dom/node_modules\n?? packages/editor-view-react/node_modules\n?? packages/extensions/node_modules\n?? packages/model/node_modules\n?? packages/office-canvas/node_modules\n?? packages/office-controls/node_modules\n?? packages/office-editor-ui/node_modules\n?? packages/office-icons/node_modules\n?? packages/office-note-file/node_modules\n?? packages/office-note/node_modules\n?? packages/office-site/node_modules\n?? packages/office-slides/node_modules\n?? packages/office-text/node_modules\n?? packages/office-ui/node_modules\n?? packages/office-word/node_modules\n?? packages/office-workspace/node_modules\n?? packages/query-editor/node_modules\n?? packages/renderer-dom/node_modules\n?? packages/renderer-react/node_modules\n?? packages/schema/node_modules\n?? packages/shared/node_modules\n?? packages/text-analyzer/node_modules\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-155",
+    "checkpointHead": "4acd237dfcf8becd6d29b829175e6ef7b31c34eb",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-ui-layout-tests",
+    "branch": "refs/heads/codex/468-ui-layout-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/office/tests/status-system.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n?? apps/docs-site/node_modules\n?? apps/editor-decorator-test/node_modules\n?? apps/editor-react/node_modules\n?? apps/editor-test/node_modules\n?? apps/gallery/node_modules\n?? apps/note/node_modules\n?? apps/office-api/node_modules\n?? apps/office-service/node_modules\n?? apps/office/node_modules\n?? apps/site/node_modules\n?? apps/slide/node_modules\n?? apps/word/node_modules\n?? node_modules\n?? packages/collaboration-liveblocks/node_modules\n?? packages/collaboration-yjs/node_modules\n?? packages/collaboration/node_modules\n?? packages/conformance/node_modules\n?? packages/converter/node_modules\n?? packages/datastore/node_modules\n?? packages/devtool/node_modules\n?? packages/dom-observer/node_modules\n?? packages/dsl/node_modules\n?? packages/editor-core/node_modules\n?? packages/editor-view-dom/node_modules\n?? packages/editor-view-react/node_modules\n?? packages/extensions/node_modules\n?? packages/model/node_modules\n?? packages/office-canvas/node_modules\n?? packages/office-controls/node_modules\n?? packages/office-editor-ui/node_modules\n?? packages/office-icons/node_modules\n?? packages/office-note-file/node_modules\n?? packages/office-note/node_modules\n?? packages/office-site/node_modules\n?? packages/office-slides/node_modules\n?? packages/office-text/node_modules\n?? packages/office-ui/node_modules\n?? packages/office-word/node_modules\n?? packages/office-workspace/node_modules\n?? packages/query-editor/node_modules\n?? packages/renderer-dom/node_modules\n?? packages/renderer-react/node_modules\n?? packages/schema/node_modules\n?? packages/shared/node_modules\n?? packages/text-analyzer/node_modules\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-156",
+    "checkpointHead": "2a1accaf028fbadda06c2c16bd6acc44ae5988a9",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-ui-product-libraries",
+    "branch": "refs/heads/codex/468-ui-product-libraries",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/playwright.468-libraries-helper.config.ts\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-157",
+    "checkpointHead": "cfe588e709b8ddc18556cb811bf4e6d2118e51b9",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-ui-shell-tests",
+    "branch": "refs/heads/codex/468-ui-shell-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/office/tests/workspace-shell.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-158",
+    "checkpointHead": "7968e505b4201088008743259626edf99dd83a53",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-word-autosave-input",
+    "branch": "refs/heads/codex/468-word-autosave-input",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/word/src/autosave.ts\n M apps/word/src/runtime.ts\n M packages/office-word/src/print-pages.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/word/test/autosave-input.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-159",
+    "checkpointHead": "d95c6f50b8292fe232c758138ab67c0d1ef353e6",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-word-guarded-open",
+    "branch": "refs/heads/codex/468-word-guarded-open",
+    "head": "c608372bc0d0f4d8c0562bbb72e8d2cf299fd09a",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-160",
+    "checkpointHead": "c608372bc0d0f4d8c0562bbb72e8d2cf299fd09a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-word-panel-followup",
+    "branch": "refs/heads/codex/468-word-panel-followup",
+    "head": "9b0db53f25bdc45490ae21ac33323cefb3ac43a3",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-161",
+    "checkpointHead": "9b0db53f25bdc45490ae21ac33323cefb3ac43a3",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-word-ui-tests",
+    "branch": "refs/heads/codex/468-word-ui-tests",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-privacy.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/context-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/navigation-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/site/src/app.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/builds.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/color-formats.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/corners.spec.ts\n M apps/slide/tests/crop.spec.ts\n M apps/slide/tests/fill-blend.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/library-focus.spec.ts\n M apps/slide/tests/movable-paint-panel.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/paint-input.spec.ts\n M apps/slide/tests/paint.spec.ts\n M apps/slide/tests/property-feedback.spec.ts\n M apps/slide/tests/property-fields.spec.ts\n M apps/slide/tests/property-keyboard.spec.ts\n M apps/slide/tests/property-stack.spec.ts\n M apps/slide/tests/selection-chrome.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/shape-style.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/slide-chrome.spec.ts\n M apps/slide/tests/slide-transfer.spec.ts\n M apps/slide/tests/text-box.spec.ts\n M apps/slide/tests/theme.spec.ts\n M apps/slide/tests/transition.spec.ts\n M apps/slide/tests/variables.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-editor-ui/src/local-documents.tsx\n M packages/office-editor-ui/test/local-documents.test.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/document-library.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/property-variable.css\n M packages/office-slides/src/selection-chrome.tsx\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-slides/test/authenticated-runtime.test.ts\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/confirmed-native.test.ts\n?? apps/note/src/confirmed-native.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/site/test/input-readiness.test.tsx\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/slide/tests/definition-panel-geometry.spec.ts\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? packages/office-slides/test/overlay-keyboard-owner.test.tsx\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-slides/test/selection-chrome-clearance.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-162",
+    "checkpointHead": "ff23485a1cfbf32ee80af219e6c5f8d4d96bcd02",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-word-workspace-layout/barocss-editor",
+    "branch": "refs/heads/codex/468-word-workspace-layout",
+    "head": "8db7b34373b9cceae66efaf7d07af6d1e941faa8",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-163",
+    "checkpointHead": "8db7b34373b9cceae66efaf7d07af6d1e941faa8",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-workspace-first/barocss-editor",
+    "branch": "refs/heads/codex/468-workspace-first",
+    "head": "dc052469917daa2ff294ea69506f8dc83f31f058",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-164",
+    "checkpointHead": "dc052469917daa2ff294ea69506f8dc83f31f058",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-workspace-library-ui/barocss-editor",
+    "branch": "refs/heads/codex/468-workspace-library-ui",
+    "head": "f6a5ea4cfc9a84723ff4db1fd21d65104827b4e6",
+    "status": " M packages/shared/src/i18n/locales/en.json\n M packages/shared/src/i18n/locales/ko.json\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-165",
+    "checkpointHead": "0ce3a29da177c4ef45b5c5dd2db502c680554563",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-workspace-tree-state",
+    "branch": "refs/heads/codex/468-workspace-tree-state",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": "?? apps/office/tests/workspace-tree-state.spec.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-166",
+    "checkpointHead": "3937f58ed423d18601fc6f7f4fb55a73c74213b3",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/468-workspace-v2",
+    "branch": "refs/heads/codex/468-workspace-v2",
+    "head": "1b648d255dda345af3b10347791c7ac4ed8ee48a",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-167",
+    "checkpointHead": "1b648d255dda345af3b10347791c7ac4ed8ee48a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/470-site-panel-model/barocss-editor",
+    "branch": "refs/heads/codex/470-site-panel-model",
+    "head": "f811d0d8420ec4882c65b80f2d76916a0381d4f6",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-168",
+    "checkpointHead": "f811d0d8420ec4882c65b80f2d76916a0381d4f6",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/470-site-panel-ui/barocss-editor",
+    "branch": "refs/heads/codex/470-site-panel-ui",
+    "head": "a37ad7831ec6b4bb78447a01c306205f1a0ffe1a",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-169",
+    "checkpointHead": "a37ad7831ec6b4bb78447a01c306205f1a0ffe1a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/479-initial-native-validation",
+    "branch": "refs/heads/codex/479-initial-native-validation",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/playwright.479-helper.config.ts\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-170",
+    "checkpointHead": "9ea60bf805873f67f530185f98fedda266db02a3",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/479-local-native-history",
+    "branch": "refs/heads/codex/479-local-native-history",
+    "head": "cea17283efdf4f5e94f5fb0308f3fbe362ae3d9c",
+    "status": " M apps/note/src/server-workspace.tsx\n M apps/note/src/style.css\n M apps/note/src/workspace.tsx\n M apps/office/playwright.auth.real.config.ts\n M apps/office/src/auth-app.tsx\n M apps/office/src/auth-style.css\n M apps/office/src/host.tsx\n M apps/office/src/main.tsx\n M apps/office/tests/auth-entry.spec.ts\n M apps/office/tests/auth-real-privacy.spec.ts\n M apps/office/tests/auth-real-slides.spec.ts\n M apps/office/tests/auth-real-word.spec.ts\n M apps/office/tests/business-pair-local.spec.ts\n M apps/office/tests/color-menu-system.spec.ts\n M apps/office/tests/context-system.spec.ts\n M apps/office/tests/layer-system.spec.ts\n M apps/office/tests/modal-system.spec.ts\n M apps/office/tests/navigation-system.spec.ts\n M apps/office/tests/product-chrome.spec.ts\n M apps/office/tests/product-scenarios.spec.ts\n M apps/office/tests/property-system.spec.ts\n M apps/office/tests/site-new-data.spec.ts\n M apps/office/tests/status-system.spec.ts\n M apps/office/tests/trash-product-library.spec.ts\n M apps/office/tests/ui-consistency.spec.ts\n M apps/office/tests/workspace-header.spec.ts\n M apps/office/tests/workspace-native-layout.spec.ts\n M apps/office/tests/workspace-preview.spec.ts\n M apps/office/tests/workspace-routing.spec.ts\n M apps/office/tests/workspace-shell.spec.ts\n M apps/office/tests/workspace.spec.ts\n M apps/site/src/app.tsx\n M apps/slide/src/app.tsx\n M apps/slide/src/runtime.ts\n M apps/slide/src/server-workspace.tsx\n M apps/slide/src/style.css\n M apps/slide/tests/autosave.spec.ts\n M apps/slide/tests/builds.spec.ts\n M apps/slide/tests/canvas-editing.spec.ts\n M apps/slide/tests/color-formats.spec.ts\n M apps/slide/tests/command-search.spec.ts\n M apps/slide/tests/compact-ui.spec.ts\n M apps/slide/tests/components.spec.ts\n M apps/slide/tests/corners.spec.ts\n M apps/slide/tests/crop.spec.ts\n M apps/slide/tests/fill-blend.spec.ts\n M apps/slide/tests/floating-panels.spec.ts\n M apps/slide/tests/free-canvas.spec.ts\n M apps/slide/tests/header-icons.spec.ts\n M apps/slide/tests/helpers.ts\n M apps/slide/tests/insert-dropdown.spec.ts\n M apps/slide/tests/library-focus.spec.ts\n M apps/slide/tests/movable-paint-panel.spec.ts\n M apps/slide/tests/new-slide-input.spec.ts\n M apps/slide/tests/notes-layout.spec.ts\n M apps/slide/tests/paint-input.spec.ts\n M apps/slide/tests/paint.spec.ts\n M apps/slide/tests/property-feedback.spec.ts\n M apps/slide/tests/property-fields.spec.ts\n M apps/slide/tests/property-keyboard.spec.ts\n M apps/slide/tests/property-stack.spec.ts\n M apps/slide/tests/selection-chrome.spec.ts\n M apps/slide/tests/selection-document.spec.ts\n M apps/slide/tests/selection-tools.spec.ts\n M apps/slide/tests/shape-style.spec.ts\n M apps/slide/tests/sidebar-chrome.spec.ts\n M apps/slide/tests/slide-chrome.spec.ts\n M apps/slide/tests/slide-transfer.spec.ts\n M apps/slide/tests/text-box.spec.ts\n M apps/slide/tests/theme.spec.ts\n M apps/slide/tests/transition.spec.ts\n M apps/slide/tests/variables.spec.ts\n M apps/slide/tests/view-modes.spec.ts\n M apps/slide/tests/workspace-header.spec.ts\n M apps/word/src/app.tsx\n M apps/word/src/autosave.ts\n M apps/word/src/document-library.tsx\n M apps/word/src/docx-import.tsx\n M apps/word/src/runtime.ts\n M apps/word/src/server-workspace.tsx\n M apps/word/src/style.css\n M apps/word/tests/blank-formatting.spec.ts\n M apps/word/tests/compact-ui.spec.ts\n M apps/word/tests/contextual-toolbar.spec.ts\n M apps/word/tests/helpers.ts\n M apps/word/tests/math-context-toolbar.spec.ts\n M apps/word/tests/math-inplace.spec.ts\n M apps/word/tests/math-size.spec.ts\n M apps/word/tests/math-zoom.spec.ts\n M apps/word/tests/menubar.spec.ts\n M apps/word/tests/page-default-geometry.spec.ts\n M apps/word/tests/product-integration.spec.ts\n M apps/word/tests/product-shell.spec.ts\n M apps/word/tests/review-persistence.spec.ts\n M apps/word/tests/ribbon-workflows.spec.ts\n M apps/word/tests/selection-document.spec.ts\n M apps/word/tests/word-outline.spec.ts\n M apps/word/tests/word-ruler.spec.ts\n M apps/word/tests/word-toolbar.spec.ts\n M apps/word/tests/word-zoom.spec.ts\n M packages/office-editor-ui/src/local-documents.tsx\n M packages/office-editor-ui/test/local-documents.test.ts\n M packages/office-slides/src/deck-map-view.tsx\n M packages/office-slides/src/document-library.tsx\n M packages/office-slides/src/filmstrip.tsx\n M packages/office-slides/src/notes.tsx\n M packages/office-slides/src/overlay.tsx\n M packages/office-slides/src/presenter.tsx\n M packages/office-slides/src/print-dialog.tsx\n M packages/office-slides/src/print.ts\n M packages/office-slides/src/property-variable.css\n M packages/office-slides/src/selection-chrome.tsx\n M packages/office-slides/src/thumbnail.tsx\n M packages/office-slides/test/authenticated-runtime.test.ts\n M packages/office-word/src/math-inplace.tsx\n M packages/office-word/src/print-pages.ts\n M packages/office-word/src/ribbon.tsx\n M packages/office-workspace/README.md\n M packages/office-workspace/src/host-ui.tsx\n M packages/office-workspace/src/project-feedback.tsx\n M packages/office-workspace/src/workspace-frame.tsx\n M packages/shared/src/document-save/document-session.test.ts\n M packages/shared/src/document-save/document-session.ts\n M packages/shared/src/document-save/product-host.test.ts\n M packages/shared/src/document-save/product-host.ts\n?? apps/note/src/confirmed-native.test.ts\n?? apps/note/src/confirmed-native.ts\n?? apps/note/src/workspace-open.test.tsx\n?? apps/office/src/local-native-bridge.ts\n?? apps/office/src/local-native-frame.tsx\n?? apps/office/tests/auth-real-mixed-native.spec.ts\n?? apps/office/tests/helpers/native-editor.ts\n?? apps/office/tests/local-native-history.spec.ts\n?? apps/office/tests/local-native-startup.spec.ts\n?? apps/office/tests/mixed-local-frame.spec.ts\n?? apps/site/test/input-readiness.test.tsx\n?? apps/slide/test/native-input-ready.test.tsx\n?? apps/slide/test/server-account-exit.test.tsx\n?? apps/slide/tests/definition-panel-geometry.spec.ts\n?? apps/word/test/autosave-input.test.ts\n?? apps/word/test/docx-replacement.test.tsx\n?? apps/word/test/mixed-renderer-runtime.test.ts\n?? apps/word/test/server-account-exit.test.tsx\n?? packages/office-slides/test/overlay-keyboard-owner.test.tsx\n?? packages/office-slides/test/secondary-renderers.test.tsx\n?? packages/office-slides/test/selection-chrome-clearance.test.tsx\n?? packages/office-word/test/print-ownership.test.ts\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-171",
+    "checkpointHead": "a1a5e80e137060c59814e58bd1f4e954409bdd5c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/479-route-contract",
+    "branch": "refs/heads/codex/479-route-contract",
+    "head": "070e901c4ebf08b2a14f07157c4806534df8008c",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-172",
+    "checkpointHead": "070e901c4ebf08b2a14f07157c4806534df8008c",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/479-workspace-routing",
+    "branch": "refs/heads/codex/479-workspace-routing",
+    "head": "173c050b2e77aba73b7fce2358d376a619bd873c",
+    "status": "?? .dev/artifacts/479/\n",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-173",
+    "checkpointHead": "35d59de9b58d475be2f5477313df9b3b3c7503a5",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/495-note-native2-atomic-tests/barocss-editor",
+    "branch": "refs/heads/codex/495-native2-protected-editable-target-v1",
+    "head": "6ba5cebdb6b38f13b6cb4381a696c80bef57a784",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-174",
+    "checkpointHead": "6ba5cebdb6b38f13b6cb4381a696c80bef57a784",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/495-note-native2-codec/barocss-editor",
+    "branch": "refs/heads/codex/495-note-native2-codec",
+    "head": "800cc61b45ca03723ca351cc7051d580fe032dfe",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-175",
+    "checkpointHead": "800cc61b45ca03723ca351cc7051d580fe032dfe",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/495-note-schema-loss/barocss-editor",
+    "branch": "refs/heads/codex/495-note-schema-loss",
+    "head": "eb5fb11055183973fb975cf1c2ef2b97348d613f",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-176",
+    "checkpointHead": "eb5fb11055183973fb975cf1c2ef2b97348d613f",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/501-native2-validation-workspace/barocss-editor",
+    "branch": "refs/heads/codex/501-native2-validation-workspace",
+    "head": "85d944eab893b227169fee1fb2c09d6ecc5edbab",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-177",
+    "checkpointHead": "85d944eab893b227169fee1fb2c09d6ecc5edbab",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/editor-local-integration/barocss-editor",
+    "branch": "refs/heads/develop",
+    "head": "54693e7f3234dda90192266b5c7aca1a0ffe93b6",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-178",
+    "checkpointHead": "54693e7f3234dda90192266b5c7aca1a0ffe93b6",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.codex/worktrees/editor-product-goal/barocss-editor",
+    "branch": "refs/heads/codex/product-goal-semantic-documents",
+    "head": "1180240fb6956aadf093a073410e6493a9c2415e",
+    "status": "",
+    "remoteContains": false,
+    "checkpointBranch": "codex/514-cloud-179",
+    "checkpointHead": "1180240fb6956aadf093a073410e6493a9c2415e",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.cursor/worktrees/barocss-editor/bqd",
+    "branch": null,
+    "head": "2ef4ea2abbb060ae9032cc9ef1e9d2e4a46d70cd",
+    "status": " M docs/api-reference.md\n M docs/architecture-package-relationships.md\n M docs/architecture-reconcile-algorithm.md\n M docs/architecture-summary.md\n M packages/datastore/test/document-iterator.test.ts\n M packages/datastore/test/range-iterator-operations.test.ts\n M packages/datastore/test/real-world-iterator.test.ts\n M packages/devtool/src/auto-tracer/anomaly-detector.ts\n M packages/devtool/src/auto-tracer/auto-tracer.ts\n M packages/devtool/src/auto-tracer/instrumentation-targets.ts\n M packages/devtool/src/devtool.ts\n M packages/devtool/src/types.ts\n M packages/devtool/src/ui.ts\n M packages/dom-observer/src/types.ts\n M packages/editor-core/test/selection-manager.test.ts\n M packages/editor-view-dom/INPUT_HANDLER_TEST_ANALYSIS.md\n M packages/editor-view-dom/test/convert-model-to-dom-selection.test.ts\n M packages/editor-view-dom/test/event-handlers/input-handler-test-plan.md\n M packages/editor-view-dom/test/event-handlers/input-handler.test.ts\n M packages/editor-view-dom/test/integration/inline-position-decorator.test.ts\n M packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts\n M packages/editor-view-dom/test/integration/mutation-observer-integration.test.ts\n M packages/editor-view-dom/test/utils/efficient-edit-handler.test.ts\n M packages/extensions/README.md\n M packages/model/README.md\n M packages/renderer-dom/README.md\n M packages/renderer-dom/src/component-manager.ts\n M packages/renderer-dom/test/core/bTable.test.ts\n M packages/renderer-dom/test/core/block-decorator-spec.test.ts\n M packages/renderer-dom/test/core/decorator-types.test.ts\n M packages/renderer-dom/test/core/dom-renderer-multiple-render.test.ts\n M packages/renderer-dom/test/core/dom-renderer-simple-rerender.test.ts\n M packages/renderer-dom/test/core/fiber-create-fiber-tree.test.ts\n M packages/renderer-dom/test/core/fiber-decorator-handling.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-complex-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-deep-nested-complex.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-edge-cases.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-matching.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-real-scenario.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-update.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-scheduler.test.ts\n M packages/renderer-dom/test/core/fiber-tree.test.ts\n M packages/renderer-dom/test/core/find-host-in-parent-children-multiple-marks.test.ts\n M packages/renderer-dom/test/core/full-top-down-render-pattern.test.ts\n M packages/renderer-dom/test/core/handle-primitive-text-child-duplication.test.ts\n M packages/renderer-dom/test/core/mark-decorator-complex.test.ts\n M packages/renderer-dom/test/core/mark-range-verification.test.ts\n M packages/renderer-dom/test/core/mark-rendering-verification.test.ts\n M packages/renderer-dom/test/core/process-primitive-text-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/reconcile-fiber-node-text-vnode.test.ts\n M packages/renderer-dom/test/core/reconcile-root-basic.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-create-host-element.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-host-management.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-pre-clean-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-remove-stale-children.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-update-host-element-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-clone.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-utils-decorator.test.ts\n M packages/renderer-dom/test/core/reconciler-advanced-cases.test.ts\n M packages/renderer-dom/test/core/reconciler-complex-scenarios.test.ts\n M packages/renderer-dom/test/core/reconciler-component-state-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-fiber-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-lifecycle.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse-debug.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/reconciler-performance.test.ts\n M packages/renderer-dom/test/core/reconciler-prevvnode-nextvnode.test.ts\n M packages/renderer-dom/test/core/reconciler-skipnodes.test.ts\n M packages/renderer-dom/test/core/reconciler-update-flow.test.ts\n M packages/renderer-dom/test/core/reconciler-verification.test.ts\n M packages/renderer-dom/test/core/vnode-block-decorator-position.test.ts\n M packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts\n M packages/renderer-dom/test/core/vnode-builder-edge-cases.test.ts\n M packages/renderer-dom/test/core/vnode-builder-function-component.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-debug.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/vnode-builder-performance.test.ts\n M packages/renderer-dom/test/core/vnode-builder-portal.test.ts\n M packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts\n M packages/renderer-dom/test/core/vnode-builder-verification.test.ts\n M packages/renderer-dom/test/core/vnode-complex-marks-decorators.test.ts\n M packages/renderer-dom/test/core/vnode-data-text-concept.test.ts\n M packages/renderer-dom/test/core/vnode-decorator-structure.test.ts\n M packages/renderer-dom/test/setup.ts\n M packages/renderer-dom/test/utils/fiber-wait.ts\n M packages/renderer-dom/test/utils/html.ts\n M paper/plan/dom-mapping-spec.md\n M paper/plan/dom-model-mapping-decision-spec.md\n M paper/plan/editable-templates-spec.md\n M paper/plan/editor-view-dom-spec.md\n M paper/plan/mark-and-decorator-spec.md\n M paper/plan/renderer-dom-build-spec.md\n M paper/plan/selection-spec.md\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-180",
+    "checkpointHead": "557595f7a5e79065c8e8bba0e4169b8b157cc637",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.cursor/worktrees/barocss-editor/eey",
+    "branch": null,
+    "head": "2ef4ea2abbb060ae9032cc9ef1e9d2e4a46d70cd",
+    "status": " M docs/api-reference.md\n M docs/architecture-package-relationships.md\n M docs/architecture-reconcile-algorithm.md\n M docs/architecture-summary.md\n M packages/datastore/test/document-iterator.test.ts\n M packages/datastore/test/range-iterator-operations.test.ts\n M packages/datastore/test/real-world-iterator.test.ts\n M packages/devtool/src/auto-tracer/anomaly-detector.ts\n M packages/devtool/src/auto-tracer/auto-tracer.ts\n M packages/devtool/src/auto-tracer/instrumentation-targets.ts\n M packages/devtool/src/devtool.ts\n M packages/devtool/src/types.ts\n M packages/devtool/src/ui.ts\n M packages/dom-observer/src/types.ts\n M packages/editor-core/test/selection-manager.test.ts\n M packages/editor-view-dom/INPUT_HANDLER_TEST_ANALYSIS.md\n M packages/editor-view-dom/test/convert-model-to-dom-selection.test.ts\n M packages/editor-view-dom/test/event-handlers/input-handler-test-plan.md\n M packages/editor-view-dom/test/event-handlers/input-handler.test.ts\n M packages/editor-view-dom/test/integration/inline-position-decorator.test.ts\n M packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts\n M packages/editor-view-dom/test/integration/mutation-observer-integration.test.ts\n M packages/editor-view-dom/test/utils/efficient-edit-handler.test.ts\n M packages/extensions/README.md\n M packages/model/README.md\n M packages/renderer-dom/README.md\n M packages/renderer-dom/src/component-manager.ts\n M packages/renderer-dom/test/core/bTable.test.ts\n M packages/renderer-dom/test/core/block-decorator-spec.test.ts\n M packages/renderer-dom/test/core/decorator-types.test.ts\n M packages/renderer-dom/test/core/dom-renderer-multiple-render.test.ts\n M packages/renderer-dom/test/core/dom-renderer-simple-rerender.test.ts\n M packages/renderer-dom/test/core/fiber-create-fiber-tree.test.ts\n M packages/renderer-dom/test/core/fiber-decorator-handling.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-complex-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-deep-nested-complex.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-edge-cases.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-matching.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-real-scenario.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-update.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-scheduler.test.ts\n M packages/renderer-dom/test/core/fiber-tree.test.ts\n M packages/renderer-dom/test/core/find-host-in-parent-children-multiple-marks.test.ts\n M packages/renderer-dom/test/core/full-top-down-render-pattern.test.ts\n M packages/renderer-dom/test/core/handle-primitive-text-child-duplication.test.ts\n M packages/renderer-dom/test/core/mark-decorator-complex.test.ts\n M packages/renderer-dom/test/core/mark-range-verification.test.ts\n M packages/renderer-dom/test/core/mark-rendering-verification.test.ts\n M packages/renderer-dom/test/core/process-primitive-text-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/reconcile-fiber-node-text-vnode.test.ts\n M packages/renderer-dom/test/core/reconcile-root-basic.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-create-host-element.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-host-management.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-pre-clean-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-remove-stale-children.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-update-host-element-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-clone.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-utils-decorator.test.ts\n M packages/renderer-dom/test/core/reconciler-advanced-cases.test.ts\n M packages/renderer-dom/test/core/reconciler-complex-scenarios.test.ts\n M packages/renderer-dom/test/core/reconciler-component-state-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-fiber-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-lifecycle.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse-debug.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/reconciler-performance.test.ts\n M packages/renderer-dom/test/core/reconciler-prevvnode-nextvnode.test.ts\n M packages/renderer-dom/test/core/reconciler-skipnodes.test.ts\n M packages/renderer-dom/test/core/reconciler-update-flow.test.ts\n M packages/renderer-dom/test/core/reconciler-verification.test.ts\n M packages/renderer-dom/test/core/vnode-block-decorator-position.test.ts\n M packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts\n M packages/renderer-dom/test/core/vnode-builder-edge-cases.test.ts\n M packages/renderer-dom/test/core/vnode-builder-function-component.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-debug.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/vnode-builder-performance.test.ts\n M packages/renderer-dom/test/core/vnode-builder-portal.test.ts\n M packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts\n M packages/renderer-dom/test/core/vnode-builder-verification.test.ts\n M packages/renderer-dom/test/core/vnode-complex-marks-decorators.test.ts\n M packages/renderer-dom/test/core/vnode-data-text-concept.test.ts\n M packages/renderer-dom/test/core/vnode-decorator-structure.test.ts\n M packages/renderer-dom/test/setup.ts\n M packages/renderer-dom/test/utils/fiber-wait.ts\n M packages/renderer-dom/test/utils/html.ts\n M paper/plan/dom-mapping-spec.md\n M paper/plan/dom-model-mapping-decision-spec.md\n M paper/plan/editable-templates-spec.md\n M paper/plan/editor-view-dom-spec.md\n M paper/plan/mark-and-decorator-spec.md\n M paper/plan/renderer-dom-build-spec.md\n M paper/plan/selection-spec.md\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-181",
+    "checkpointHead": "e5b8f39e789f8ad647bbdd2018f93ec79270f2f2",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.cursor/worktrees/barocss-editor/qlc",
+    "branch": null,
+    "head": "2ef4ea2abbb060ae9032cc9ef1e9d2e4a46d70cd",
+    "status": " M docs/api-reference.md\n M docs/architecture-package-relationships.md\n M docs/architecture-reconcile-algorithm.md\n M docs/architecture-summary.md\n M packages/datastore/test/document-iterator.test.ts\n M packages/datastore/test/range-iterator-operations.test.ts\n M packages/datastore/test/real-world-iterator.test.ts\n M packages/devtool/src/auto-tracer/anomaly-detector.ts\n M packages/devtool/src/auto-tracer/auto-tracer.ts\n M packages/devtool/src/auto-tracer/instrumentation-targets.ts\n M packages/devtool/src/devtool.ts\n M packages/devtool/src/types.ts\n M packages/devtool/src/ui.ts\n M packages/dom-observer/src/types.ts\n M packages/editor-core/test/selection-manager.test.ts\n M packages/editor-view-dom/INPUT_HANDLER_TEST_ANALYSIS.md\n M packages/editor-view-dom/test/convert-model-to-dom-selection.test.ts\n M packages/editor-view-dom/test/event-handlers/input-handler-test-plan.md\n M packages/editor-view-dom/test/event-handlers/input-handler.test.ts\n M packages/editor-view-dom/test/integration/inline-position-decorator.test.ts\n M packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts\n M packages/editor-view-dom/test/integration/mutation-observer-integration.test.ts\n M packages/editor-view-dom/test/utils/efficient-edit-handler.test.ts\n M packages/extensions/README.md\n M packages/model/README.md\n M packages/renderer-dom/README.md\n M packages/renderer-dom/src/component-manager.ts\n M packages/renderer-dom/test/core/bTable.test.ts\n M packages/renderer-dom/test/core/block-decorator-spec.test.ts\n M packages/renderer-dom/test/core/decorator-types.test.ts\n M packages/renderer-dom/test/core/dom-renderer-multiple-render.test.ts\n M packages/renderer-dom/test/core/dom-renderer-simple-rerender.test.ts\n M packages/renderer-dom/test/core/fiber-create-fiber-tree.test.ts\n M packages/renderer-dom/test/core/fiber-decorator-handling.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-complex-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-deep-nested-complex.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-edge-cases.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-matching.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-real-scenario.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-update.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-scheduler.test.ts\n M packages/renderer-dom/test/core/fiber-tree.test.ts\n M packages/renderer-dom/test/core/find-host-in-parent-children-multiple-marks.test.ts\n M packages/renderer-dom/test/core/full-top-down-render-pattern.test.ts\n M packages/renderer-dom/test/core/handle-primitive-text-child-duplication.test.ts\n M packages/renderer-dom/test/core/mark-decorator-complex.test.ts\n M packages/renderer-dom/test/core/mark-range-verification.test.ts\n M packages/renderer-dom/test/core/mark-rendering-verification.test.ts\n M packages/renderer-dom/test/core/process-primitive-text-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/reconcile-fiber-node-text-vnode.test.ts\n M packages/renderer-dom/test/core/reconcile-root-basic.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-create-host-element.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-host-management.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-pre-clean-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-remove-stale-children.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-update-host-element-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-clone.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-utils-decorator.test.ts\n M packages/renderer-dom/test/core/reconciler-advanced-cases.test.ts\n M packages/renderer-dom/test/core/reconciler-complex-scenarios.test.ts\n M packages/renderer-dom/test/core/reconciler-component-state-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-fiber-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-lifecycle.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse-debug.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/reconciler-performance.test.ts\n M packages/renderer-dom/test/core/reconciler-prevvnode-nextvnode.test.ts\n M packages/renderer-dom/test/core/reconciler-skipnodes.test.ts\n M packages/renderer-dom/test/core/reconciler-update-flow.test.ts\n M packages/renderer-dom/test/core/reconciler-verification.test.ts\n M packages/renderer-dom/test/core/vnode-block-decorator-position.test.ts\n M packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts\n M packages/renderer-dom/test/core/vnode-builder-edge-cases.test.ts\n M packages/renderer-dom/test/core/vnode-builder-function-component.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-debug.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/vnode-builder-performance.test.ts\n M packages/renderer-dom/test/core/vnode-builder-portal.test.ts\n M packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts\n M packages/renderer-dom/test/core/vnode-builder-verification.test.ts\n M packages/renderer-dom/test/core/vnode-complex-marks-decorators.test.ts\n M packages/renderer-dom/test/core/vnode-data-text-concept.test.ts\n M packages/renderer-dom/test/core/vnode-decorator-structure.test.ts\n M packages/renderer-dom/test/setup.ts\n M packages/renderer-dom/test/utils/fiber-wait.ts\n M packages/renderer-dom/test/utils/html.ts\n M paper/plan/dom-mapping-spec.md\n M paper/plan/dom-model-mapping-decision-spec.md\n M paper/plan/editable-templates-spec.md\n M paper/plan/editor-view-dom-spec.md\n M paper/plan/mark-and-decorator-spec.md\n M paper/plan/renderer-dom-build-spec.md\n M paper/plan/selection-spec.md\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-182",
+    "checkpointHead": "2b3cc6f765e8135eb05fe0e84bd97799dcd0988a",
+    "preflight": "not completed"
+  },
+  {
+    "path": "/Users/user/.cursor/worktrees/barocss-editor/xle",
+    "branch": null,
+    "head": "2ef4ea2abbb060ae9032cc9ef1e9d2e4a46d70cd",
+    "status": " M docs/api-reference.md\n M docs/architecture-package-relationships.md\n M docs/architecture-reconcile-algorithm.md\n M docs/architecture-summary.md\n M packages/datastore/test/document-iterator.test.ts\n M packages/datastore/test/range-iterator-operations.test.ts\n M packages/datastore/test/real-world-iterator.test.ts\n M packages/devtool/src/auto-tracer/anomaly-detector.ts\n M packages/devtool/src/auto-tracer/auto-tracer.ts\n M packages/devtool/src/auto-tracer/instrumentation-targets.ts\n M packages/devtool/src/devtool.ts\n M packages/devtool/src/types.ts\n M packages/devtool/src/ui.ts\n M packages/dom-observer/src/types.ts\n M packages/editor-core/test/selection-manager.test.ts\n M packages/editor-view-dom/INPUT_HANDLER_TEST_ANALYSIS.md\n M packages/editor-view-dom/test/convert-model-to-dom-selection.test.ts\n M packages/editor-view-dom/test/event-handlers/input-handler-test-plan.md\n M packages/editor-view-dom/test/event-handlers/input-handler.test.ts\n M packages/editor-view-dom/test/integration/inline-position-decorator.test.ts\n M packages/editor-view-dom/test/integration/mount-unmount-integration.test.ts\n M packages/editor-view-dom/test/integration/mutation-observer-integration.test.ts\n M packages/editor-view-dom/test/utils/efficient-edit-handler.test.ts\n M packages/extensions/README.md\n M packages/model/README.md\n M packages/renderer-dom/README.md\n M packages/renderer-dom/src/component-manager.ts\n M packages/renderer-dom/test/core/bTable.test.ts\n M packages/renderer-dom/test/core/block-decorator-spec.test.ts\n M packages/renderer-dom/test/core/decorator-types.test.ts\n M packages/renderer-dom/test/core/dom-renderer-multiple-render.test.ts\n M packages/renderer-dom/test/core/dom-renderer-simple-rerender.test.ts\n M packages/renderer-dom/test/core/fiber-create-fiber-tree.test.ts\n M packages/renderer-dom/test/core/fiber-decorator-handling.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-find-host-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text-mark-wrapper.test.ts\n M packages/renderer-dom/test/core/fiber-process-primitive-text.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-complex-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-deep-nested-complex.test.ts\n M packages/renderer-dom/test/core/fiber-reconcile-edge-cases.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler-helpers.test.ts\n M packages/renderer-dom/test/core/fiber-reconciler.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-matching.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-real-scenario.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator-update.test.ts\n M packages/renderer-dom/test/core/fiber-remove-stale-decorator.test.ts\n M packages/renderer-dom/test/core/fiber-scheduler.test.ts\n M packages/renderer-dom/test/core/fiber-tree.test.ts\n M packages/renderer-dom/test/core/find-host-in-parent-children-multiple-marks.test.ts\n M packages/renderer-dom/test/core/full-top-down-render-pattern.test.ts\n M packages/renderer-dom/test/core/handle-primitive-text-child-duplication.test.ts\n M packages/renderer-dom/test/core/mark-decorator-complex.test.ts\n M packages/renderer-dom/test/core/mark-range-verification.test.ts\n M packages/renderer-dom/test/core/mark-rendering-verification.test.ts\n M packages/renderer-dom/test/core/process-primitive-text-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/reconcile-fiber-node-text-vnode.test.ts\n M packages/renderer-dom/test/core/reconcile-root-basic.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-create-host-element.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-host-management.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-pre-clean-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-remove-stale-children.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-update-host-element-decorator.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-clone.test.ts\n M packages/renderer-dom/test/core/reconcile-utils-vnode-utils-decorator.test.ts\n M packages/renderer-dom/test/core/reconciler-advanced-cases.test.ts\n M packages/renderer-dom/test/core/reconciler-complex-scenarios.test.ts\n M packages/renderer-dom/test/core/reconciler-component-state-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-fiber-integration.test.ts\n M packages/renderer-dom/test/core/reconciler-lifecycle.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse-debug.test.ts\n M packages/renderer-dom/test/core/reconciler-mark-wrapper-reuse.test.ts\n M packages/renderer-dom/test/core/reconciler-performance.test.ts\n M packages/renderer-dom/test/core/reconciler-prevvnode-nextvnode.test.ts\n M packages/renderer-dom/test/core/reconciler-skipnodes.test.ts\n M packages/renderer-dom/test/core/reconciler-update-flow.test.ts\n M packages/renderer-dom/test/core/reconciler-verification.test.ts\n M packages/renderer-dom/test/core/vnode-block-decorator-position.test.ts\n M packages/renderer-dom/test/core/vnode-builder-dsl-functions.test.ts\n M packages/renderer-dom/test/core/vnode-builder-edge-cases.test.ts\n M packages/renderer-dom/test/core/vnode-builder-function-component.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-debug.test.ts\n M packages/renderer-dom/test/core/vnode-builder-mark-wrapper-structure.test.ts\n M packages/renderer-dom/test/core/vnode-builder-performance.test.ts\n M packages/renderer-dom/test/core/vnode-builder-portal.test.ts\n M packages/renderer-dom/test/core/vnode-builder-text-rendering.test.ts\n M packages/renderer-dom/test/core/vnode-builder-verification.test.ts\n M packages/renderer-dom/test/core/vnode-complex-marks-decorators.test.ts\n M packages/renderer-dom/test/core/vnode-data-text-concept.test.ts\n M packages/renderer-dom/test/core/vnode-decorator-structure.test.ts\n M packages/renderer-dom/test/setup.ts\n M packages/renderer-dom/test/utils/fiber-wait.ts\n M packages/renderer-dom/test/utils/html.ts\n M paper/plan/dom-mapping-spec.md\n M paper/plan/dom-model-mapping-decision-spec.md\n M paper/plan/editable-templates-spec.md\n M paper/plan/editor-view-dom-spec.md\n M paper/plan/mark-and-decorator-spec.md\n M paper/plan/renderer-dom-build-spec.md\n M paper/plan/selection-spec.md\n",
+    "remoteContains": true,
+    "checkpointBranch": "codex/514-cloud-183",
+    "checkpointHead": "bacb45952ba227570525323a70114cf60480348c",
+    "preflight": "not completed"
+  }
+]

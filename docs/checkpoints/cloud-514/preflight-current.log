@@ -1,0 +1,136 @@
+
+> barocss-editor@1.0.0 preflight /Users/user/github/barocss/barocss-editor
+> pnpm test:checks && pnpm lint && pnpm type-check && pnpm type-check:tests
+
+
+> barocss-editor@1.0.0 test:checks /Users/user/github/barocss/barocss-editor
+> node --test scripts/checks/*.test.mjs
+
+TAP version 13
+# Subtest: compiler distinguishes process failure from budgeted file diagnostics
+ok 1 - compiler distinguishes process failure from budgeted file diagnostics
+  ---
+  duration_ms: 0.575459
+  type: 'test'
+  ...
+# Subtest: installed compiler accepts valid code, reports errors and rejects missing projects
+ok 2 - installed compiler accepts valid code, reports errors and rejects missing projects
+  ---
+  duration_ms: 1062.685459
+  type: 'test'
+  ...
+# Subtest: lint reports new errors even when another existing error was fixed
+ok 3 - lint reports new errors even when another existing error was fixed
+  ---
+  duration_ms: 1665.062375
+  type: 'test'
+  ...
+# Subtest: lint baseline is location-independent and parser errors cannot be excused
+ok 4 - lint baseline is location-independent and parser errors cannot be excused
+  ---
+  duration_ms: 36.753333
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3162.205084
+
+> barocss-editor@1.0.0 lint /Users/user/github/barocss/barocss-editor
+> node scripts/lint.mjs
+
+ESLint: 2076 files, 540 errors, 7208 warnings; 0 new/increased diagnostics.
+
+> barocss-editor@1.0.0 type-check /Users/user/github/barocss/barocss-editor
+> node scripts/typecheck-all.mjs
+
+✓ packages/collaboration
+✓ packages/collaboration-liveblocks
+✓ packages/collaboration-yjs
+✓ packages/conformance
+✓ packages/converter
+✓ packages/datastore
+✓ packages/devtool
+✓ packages/dom-observer
+✓ packages/dsl
+✓ packages/editor-core
+✓ packages/editor-view-dom
+✓ packages/editor-view-react
+✓ packages/extensions
+✓ packages/model
+✓ packages/office-canvas
+✓ packages/office-controls
+✓ packages/office-editor-ui
+✓ packages/office-icons
+✓ packages/office-note
+✓ packages/office-site
+✓ packages/office-slides
+✓ packages/office-text
+✓ packages/office-ui
+✓ packages/office-word
+✓ packages/query-editor
+✓ packages/renderer-dom
+✓ packages/renderer-react
+✓ packages/schema
+✓ packages/shared
+✓ packages/text-analyzer
+· apps/docs-site — known: a docusaurus site missing `prism-react-renderer`; not part of the suite
+· apps/editor-decorator-test — known: imports four decorator operations `@barocss/model` no longer exports
+✓ apps/editor-react
+· apps/editor-test — known: the original scratch app: `window.__editor` and pre-DSL element calls
+✓ apps/gallery
+✓ apps/note
+✓ apps/office
+✓ apps/site
+✓ apps/slide
+✓ apps/word
+
+40 projects checked, 3 known-broken.
+
+> barocss-editor@1.0.0 type-check:tests /Users/user/github/barocss/barocss-editor
+> node scripts/typecheck-tests.mjs
+
+
+· apps/editor-react                     0 / 0
+· apps/editor-test                     12 / 12
+· apps/note                             0 / 0
+· apps/office                           0 / 0
+· apps/site                             4 / 4
+· apps/slide                            0 / 0
+· apps/word                             0 / 0
+· packages/collaboration                1 / 1
+· packages/collaboration-liveblocks     0 / 0
+· packages/collaboration-yjs            0 / 0
+· packages/conformance                  2 / 2
+· packages/converter                   10 / 10
+· packages/datastore                  340 / 340
+· packages/devtool                      0 / 0
+· packages/dom-observer                 0 / 0
+· packages/dsl                         52 / 52
+· packages/editor-core                  2 / 2
+· packages/editor-view-dom            104 / 104
+· packages/editor-view-react            2 / 2
+· packages/extensions                  18 / 18
+· packages/model                      511 / 511
+· packages/office-canvas                0 / 0
+· packages/office-controls              7 / 7
+· packages/office-editor-ui             2 / 2
+· packages/office-note                  0 / 0
+· packages/office-site                 21 / 21
+· packages/office-slides               38 / 38
+· packages/office-text                  0 / 0
+· packages/office-ui                    0 / 0
+· packages/office-word                  7 / 7
+· packages/query-editor                 0 / 0
+· packages/renderer-dom               123 / 123
+· packages/renderer-react               0 / 0
+· packages/schema                       0 / 0
+· packages/shared                       0 / 0
+· packages/text-analyzer                0 / 0
+
+Every package is where it says it is.

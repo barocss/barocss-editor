@@ -1,0 +1,717 @@
+[
+  {
+    "originalBranch": "refs/heads/codex/279-note-insert-current",
+    "checkpointBranch": "codex/514-history-001",
+    "checkpointHead": "a641fd0c930e10cd9a2452823106a0081d4294ae"
+  },
+  {
+    "originalBranch": "refs/heads/codex/290-saved-word-comment-workspace",
+    "checkpointBranch": "codex/514-history-002",
+    "checkpointHead": "773cc2aa878de7c7dc56c7cd05720da316e65f2d"
+  },
+  {
+    "originalBranch": "refs/heads/codex/299-save-batch",
+    "checkpointBranch": "codex/514-history-003",
+    "checkpointHead": "7c2aabbf07905c90c96e5a1fd21d252f255e033e"
+  },
+  {
+    "originalBranch": "refs/heads/codex/300-word-ribbon",
+    "checkpointBranch": "codex/514-history-004",
+    "checkpointHead": "156d2233dd6088cab5e0a9272e188be148fd0f06"
+  },
+  {
+    "originalBranch": "refs/heads/codex/302-slide-layout-current",
+    "checkpointBranch": "codex/514-history-005",
+    "checkpointHead": "861b0bfc345697de6680b2ad8a231992e1e1036c"
+  },
+  {
+    "originalBranch": "refs/heads/codex/314-347-integration",
+    "checkpointBranch": "codex/514-history-006",
+    "checkpointHead": "1d60c6ea422f85ebb6675d922056566ae66a8fce"
+  },
+  {
+    "originalBranch": "refs/heads/codex/319-focus-batch",
+    "checkpointBranch": "codex/514-history-007",
+    "checkpointHead": "f214403a5fe2394dc01130c8ef3b14a4a8901785"
+  },
+  {
+    "originalBranch": "refs/heads/codex/325-site-empty-body-develop",
+    "checkpointBranch": "codex/514-history-008",
+    "checkpointHead": "793e4632d700e8b3ec16eccd1e2e3abf63d60362"
+  },
+  {
+    "originalBranch": "refs/heads/codex/331-332-343-site-note",
+    "checkpointBranch": "codex/514-history-009",
+    "checkpointHead": "2fe34629f26a5f2a2868df63e6f662d0908c5253"
+  },
+  {
+    "originalBranch": "refs/heads/codex/331-modal-current",
+    "checkpointBranch": "codex/514-history-010",
+    "checkpointHead": "80f590253c565bf02ff71071e9cd69ec368686c0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/332-native-focus-current",
+    "checkpointBranch": "codex/514-history-011",
+    "checkpointHead": "9213b37ddad3beb17a6e343de3085d6991d7ff17"
+  },
+  {
+    "originalBranch": "refs/heads/codex/332-site-integration",
+    "checkpointBranch": "codex/514-history-012",
+    "checkpointHead": "b6dcf013fb4821c913c6f7d345cb2210248713d0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/332-site-integration-timing",
+    "checkpointBranch": "codex/514-history-013",
+    "checkpointHead": "28f73e4be551a39739099776e34b6971a6f4a7bd"
+  },
+  {
+    "originalBranch": "refs/heads/codex/343-integration-check",
+    "checkpointBranch": "codex/514-history-014",
+    "checkpointHead": "faea10685665c0bbe99587d4f6d052873ead90f0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/343-table-query-current",
+    "checkpointBranch": "codex/514-history-015",
+    "checkpointHead": "0d16821eccbe7eabf2e22165a7bfb39e84544442"
+  },
+  {
+    "originalBranch": "refs/heads/codex/357-durable-pending",
+    "checkpointBranch": "codex/514-history-016",
+    "checkpointHead": "c778908e743f68f981027fa9b25c8ba884b453c8"
+  },
+  {
+    "originalBranch": "refs/heads/codex/357-note-snapshot-ui",
+    "checkpointBranch": "codex/514-history-017",
+    "checkpointHead": "ad9d30c6816dd1a4f5cc47535081924b03a6891c"
+  },
+  {
+    "originalBranch": "refs/heads/codex/361-word-docx-regression",
+    "checkpointBranch": "codex/514-history-018",
+    "checkpointHead": "c9d6392c8b8251aac21a30a0a559b0ce9e15f388"
+  },
+  {
+    "originalBranch": "refs/heads/codex/366-capability-service",
+    "checkpointBranch": "codex/514-history-019",
+    "checkpointHead": "b6a9a238b15362609d66d868cfadb7d1826b3cfd"
+  },
+  {
+    "originalBranch": "refs/heads/codex/366-local-capability",
+    "checkpointBranch": "codex/514-history-020",
+    "checkpointHead": "8d2963f168e6159efe8b615664df82b085bec8e8"
+  },
+  {
+    "originalBranch": "refs/heads/codex/367-yorkie-document-key",
+    "checkpointBranch": "codex/514-history-021",
+    "checkpointHead": "a87491794824fc7e87a71018d3aefcb676db523d"
+  },
+  {
+    "originalBranch": "refs/heads/codex/367-yorkie-provider",
+    "checkpointBranch": "codex/514-history-022",
+    "checkpointHead": "5e8281b47e806ef648ff6b18cfadc341afe792e9"
+  },
+  {
+    "originalBranch": "refs/heads/codex/368-note-precommit",
+    "checkpointBranch": "codex/514-history-023",
+    "checkpointHead": "ffda4a34de3e60500aa290661451939b11860982"
+  },
+  {
+    "originalBranch": "refs/heads/codex/368-note-product-ui",
+    "checkpointBranch": "codex/514-history-024",
+    "checkpointHead": "acd76fe8cf30723839089cfd430329086b636f10"
+  },
+  {
+    "originalBranch": "refs/heads/codex/368-precommit-guard",
+    "checkpointBranch": "codex/514-history-025",
+    "checkpointHead": "7c8ba484ee8a158d2650b1d24c24370ec706ce6d"
+  },
+  {
+    "originalBranch": "refs/heads/codex/368-yorkie-codec",
+    "checkpointBranch": "codex/514-history-026",
+    "checkpointHead": "febdd6e5cd326ee7705150d007d16e8fd57c97c0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/369-office-library",
+    "checkpointBranch": "codex/514-history-027",
+    "checkpointHead": "ad1353f05d85ec182cbaa37664395fc4634104e0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/369-revoked-draft",
+    "checkpointBranch": "codex/514-history-028",
+    "checkpointHead": "55c01352b65cfb80e7f2e20f95c6ab1c220c5248"
+  },
+  {
+    "originalBranch": "refs/heads/codex/375-dataset-after-299",
+    "checkpointBranch": "codex/514-history-029",
+    "checkpointHead": "29b60d3fd70185d735f75909688296cff1bc29a6"
+  },
+  {
+    "originalBranch": "refs/heads/codex/375-site-new-dataset",
+    "checkpointBranch": "codex/514-history-030",
+    "checkpointHead": "b86f4a50a59cef941ecd826c064d9e6754abcedd"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-current-guard",
+    "checkpointBranch": "codex/514-history-031",
+    "checkpointHead": "f4cf2a6a5eaeb4a0f4cbfd715550f536e2c70f83"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-directory-reconfirmation",
+    "checkpointBranch": "codex/514-history-032",
+    "checkpointHead": "1d8bdefd304b77640c97bcb46e11b8ce01ac5c64"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-final-local",
+    "checkpointBranch": "codex/514-history-033",
+    "checkpointHead": "efc83e017d8f9124730fc0694e987c5d36847f4b"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-http-matrix",
+    "checkpointBranch": "codex/514-history-034",
+    "checkpointHead": "4bf37a78199a3e66223db6c041a6dff3ae7c3e4a"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-ledger-ordering",
+    "checkpointBranch": "codex/514-history-035",
+    "checkpointHead": "e6d0c7980a788640586898c398d4cbc7d253a14e"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-oidc-fixture-guard",
+    "checkpointBranch": "codex/514-history-036",
+    "checkpointHead": "c34534cbd8d47cb82f8fedc895b82972e6a7a959"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-service-stage",
+    "checkpointBranch": "codex/514-history-037",
+    "checkpointHead": "64fb1d1a5621908e1cc56d9b88473a57bbeb98b3"
+  },
+  {
+    "originalBranch": "refs/heads/codex/377-stale-confirmation-baseline",
+    "checkpointBranch": "codex/514-history-038",
+    "checkpointHead": "8227f862c6e056181bb0416c1e52cc29eea6d4ab"
+  },
+  {
+    "originalBranch": "refs/heads/codex/378-company-member-entry",
+    "checkpointBranch": "codex/514-history-039",
+    "checkpointHead": "7df844c637b3add06104b6f37df10cb884834f8f"
+  },
+  {
+    "originalBranch": "refs/heads/codex/378-company-members-read",
+    "checkpointBranch": "codex/514-history-040",
+    "checkpointHead": "6dc3fd56f344012f71069a339bad24ab1bda8ef9"
+  },
+  {
+    "originalBranch": "refs/heads/codex/378-member-confirmation-ui",
+    "checkpointBranch": "codex/514-history-041",
+    "checkpointHead": "2b92ad703f5b7c3902f3e0980c2ea8181883abe4"
+  },
+  {
+    "originalBranch": "refs/heads/codex/378-member-mutation",
+    "checkpointBranch": "codex/514-history-042",
+    "checkpointHead": "5ecc183f2831e5f0c81d23e69314bb917e47ba43"
+  },
+  {
+    "originalBranch": "refs/heads/codex/378-operator-i18n",
+    "checkpointBranch": "codex/514-history-043",
+    "checkpointHead": "7b4b25198b71600715dc234b8b19516e2bf91da2"
+  },
+  {
+    "originalBranch": "refs/heads/codex/378-operator-status",
+    "checkpointBranch": "codex/514-history-044",
+    "checkpointHead": "26bf7c81fdebf0884ba7feaba52abe4d72b5e993"
+  },
+  {
+    "originalBranch": "refs/heads/codex/393-slides-tabs",
+    "checkpointBranch": "codex/514-history-045",
+    "checkpointHead": "2734d0707bd047c844658422edd6347b1641aca5"
+  },
+  {
+    "originalBranch": "refs/heads/codex/412-private-document-assets",
+    "checkpointBranch": "codex/514-history-046",
+    "checkpointHead": "1e6f4b9229cf8c871e52fbf8dff0a1bb2a83fb51"
+  },
+  {
+    "originalBranch": "refs/heads/codex/416-export-name-refusal",
+    "checkpointBranch": "codex/514-history-047",
+    "checkpointHead": "f421a8e5ef23a17d756886a569290b4c85db87ff"
+  },
+  {
+    "originalBranch": "refs/heads/codex/416-private-asset-helpers",
+    "checkpointBranch": "codex/514-history-048",
+    "checkpointHead": "51d33a7442a19292859eb0784a505118db39ad52"
+  },
+  {
+    "originalBranch": "refs/heads/codex/423-native-expectation",
+    "checkpointBranch": "codex/514-history-049",
+    "checkpointHead": "d33f06c5bded496f87f0544d2076d1143c4d0c8e"
+  },
+  {
+    "originalBranch": "refs/heads/codex/428-confirmation-shared-verification",
+    "checkpointBranch": "codex/514-history-050",
+    "checkpointHead": "74ddee637f4213636f4f36fee6cb71674cc021a8"
+  },
+  {
+    "originalBranch": "refs/heads/codex/428-native-acceptance",
+    "checkpointBranch": "codex/514-history-051",
+    "checkpointHead": "93ca48291a8076b1fe319f70ce072977efca698b"
+  },
+  {
+    "originalBranch": "refs/heads/codex/431-restored-execution",
+    "checkpointBranch": "codex/514-history-052",
+    "checkpointHead": "4a737c633507b2eaf64fd1758d22ad0faea867db"
+  },
+  {
+    "originalBranch": "refs/heads/codex/432-slides-insert-menu",
+    "checkpointBranch": "codex/514-history-053",
+    "checkpointHead": "60835ff2523e974e9c52ee949374eec5971e7e0a"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-backend-test-prep",
+    "checkpointBranch": "codex/514-history-054",
+    "checkpointHead": "927be2053c1d9ee5d2fa5fa84b3e824feed5fff0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-core-focus-pointer",
+    "checkpointBranch": "codex/514-history-055",
+    "checkpointHead": "a36473e2b972a67e7f360f0bd3c07b55ece9ea17"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-mixed-verification-receipts",
+    "checkpointBranch": "codex/514-history-056",
+    "checkpointHead": "141394ad9b3dfbda62841c6dfc03c68802218071"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-native-work-verification",
+    "checkpointBranch": "codex/514-history-057",
+    "checkpointHead": "0856a07d0a44d1796c6fb7eaf7fcc7e32e8c1567"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-rich-evaluator-original-230b6d47",
+    "checkpointBranch": "codex/514-history-058",
+    "checkpointHead": "230b6d47b04303f5fdd5a406ea220f635928f19e"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-rich-requirement-evaluator",
+    "checkpointBranch": "codex/514-history-059",
+    "checkpointHead": "b818f5b8d24378540ffa866fd9a463d97883e7f0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-source-checkpoint-copy-restore",
+    "checkpointBranch": "codex/514-history-060",
+    "checkpointHead": "aae0d0e94c9be22e392c43374d7891bd9f977ac1"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-source-checkpoint-v15",
+    "checkpointBranch": "codex/514-history-061",
+    "checkpointHead": "f93c4e3dcd3665caecf509fb41e7791a57040e43"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-verification-followup",
+    "checkpointBranch": "codex/514-history-062",
+    "checkpointHead": "2e243b9390528cf77421ff7778ea68c426be1be2"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-verification-rls",
+    "checkpointBranch": "codex/514-history-063",
+    "checkpointHead": "21a57e3a23fca98f2082b59ac829c41fae4096bf"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-verification-rls-confirmed",
+    "checkpointBranch": "codex/514-history-064",
+    "checkpointHead": "bade4037adcfeee3303a09395d255db1e580a70c"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-word-approval-value",
+    "checkpointBranch": "codex/514-history-065",
+    "checkpointHead": "0a61512170bf5d9f0c0cf7c454a4f6b0ce4366da"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-word-native-text-metadata",
+    "checkpointBranch": "codex/514-history-066",
+    "checkpointHead": "f479345a17c9024ff76e7f0568fbdd15010f0726"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-word-point-bookmark-native",
+    "checkpointBranch": "codex/514-history-067",
+    "checkpointHead": "84267fd301fb5ff8c455e819ed81c06cce45258e"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-word-point-metadata-receipt",
+    "checkpointBranch": "codex/514-history-068",
+    "checkpointHead": "98f9a03a4f828a52ca9af2d0a3a9a1bcd74041b9"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-word-shared-verification",
+    "checkpointBranch": "codex/514-history-069",
+    "checkpointHead": "a76f571d0a9dcce4dc576a813b0a9047eee94b79"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-word-ui-auth",
+    "checkpointBranch": "codex/514-history-070",
+    "checkpointHead": "a4f0c60a6bc4ac085c4f74d088b55b7ee890f2c9"
+  },
+  {
+    "originalBranch": "refs/heads/codex/449-word-work-verification-ui",
+    "checkpointBranch": "codex/514-history-071",
+    "checkpointHead": "5ffb413a5120795dcd70a5b4e207c4f2db3f271f"
+  },
+  {
+    "originalBranch": "refs/heads/codex/450-current-qualification",
+    "checkpointBranch": "codex/514-history-072",
+    "checkpointHead": "6a482c8399c4d25e98fa6e01a3f8755f4061708f"
+  },
+  {
+    "originalBranch": "refs/heads/codex/479-note-history-qualification",
+    "checkpointBranch": "codex/514-history-073",
+    "checkpointHead": "6831607f163832d876cd85e3ac93fd61e75e3131"
+  },
+  {
+    "originalBranch": "refs/heads/codex/494-note-task-flow",
+    "checkpointBranch": "codex/514-history-074",
+    "checkpointHead": "7ab27b92ad77519bf4f6b363fca1a992b0a748d5"
+  },
+  {
+    "originalBranch": "refs/heads/codex/495-auth-native2-host-lease",
+    "checkpointBranch": "codex/514-history-075",
+    "checkpointHead": "3fdcfa6a8fd5191c7b81652735c8ca023e5dac90"
+  },
+  {
+    "originalBranch": "refs/heads/codex/495-auth-native2-read-bridge",
+    "checkpointBranch": "codex/514-history-076",
+    "checkpointHead": "031256e8c72d139bfa48799ee6348712d697dcdc"
+  },
+  {
+    "originalBranch": "refs/heads/codex/495-auth-read-config",
+    "checkpointBranch": "codex/514-history-077",
+    "checkpointHead": "d62423aaf82b419f319372b747ac7ca5de4ab1e9"
+  },
+  {
+    "originalBranch": "refs/heads/codex/495-native2-note-adopt-existing-v1",
+    "checkpointBranch": "codex/514-history-078",
+    "checkpointHead": "e75b0e742f352be597df17b29acd8db94f215e4d"
+  },
+  {
+    "originalBranch": "refs/heads/codex/495-note-native2-atomic-tests",
+    "checkpointBranch": "codex/514-history-079",
+    "checkpointHead": "b94386321fdf6dd69e2b2db3cac0ce490467d418"
+  },
+  {
+    "originalBranch": "refs/heads/codex/496-role-operating-policy",
+    "checkpointBranch": "codex/514-history-080",
+    "checkpointHead": "4b6811908b2ad1bf8b7abd81e1dbc4340e835f16"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-genuine-read-auth-source",
+    "checkpointBranch": "codex/514-history-081",
+    "checkpointHead": "d19b6d76026eb949280b701673d68816c98787f6"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-genuine-read-fixture",
+    "checkpointBranch": "codex/514-history-082",
+    "checkpointHead": "c7d91d9f1a4a6999be55b4d8057193fdc26e2083"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-mixed-native2-discovery-recovered",
+    "checkpointBranch": "codex/514-history-083",
+    "checkpointHead": "08d1c0b72ea2c834f30b57da467be9e895830b67"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-native2-read-stage",
+    "checkpointBranch": "codex/514-history-084",
+    "checkpointHead": "660829adb64f9d553ef07645bb1ce73b537a9a28"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-note-metadata-recovered",
+    "checkpointBranch": "codex/514-history-085",
+    "checkpointHead": "16600bb5e967a6e89778cb418e7777d7ae2984c4"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-note-mixed-metadata",
+    "checkpointBranch": "codex/514-history-086",
+    "checkpointHead": "e8a64d4bde3cb6c309bc587111dcbb54fbde1351"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-note-office-host",
+    "checkpointBranch": "codex/514-history-087",
+    "checkpointHead": "383ac5ac08507af38db999fa2b8bfd3e286046f9"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-office-note-dependency",
+    "checkpointBranch": "codex/514-history-088",
+    "checkpointHead": "0cf713ae24573d1c8810ef6b5e51c8d59dcb9761"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-read-lease-retirement",
+    "checkpointBranch": "codex/514-history-089",
+    "checkpointHead": "87f356401b58580a2ac382a9eeccaf49390fa2e9"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-read-retirement-workspace",
+    "checkpointBranch": "codex/514-history-090",
+    "checkpointHead": "4f153865942ed3150193212f000ab0e5d2d1ccdc"
+  },
+  {
+    "originalBranch": "refs/heads/codex/497-read-stage-auth",
+    "checkpointBranch": "codex/514-history-091",
+    "checkpointHead": "35a9725526b55714b67e53ad3b981ea57c2d3f8f"
+  },
+  {
+    "originalBranch": "refs/heads/codex/498-mcp-dependencies",
+    "checkpointBranch": "codex/514-history-092",
+    "checkpointHead": "a6151b1e6fbd55e0ebd743043495aab79415a8c6"
+  },
+  {
+    "originalBranch": "refs/heads/codex/498-mcp-read",
+    "checkpointBranch": "codex/514-history-093",
+    "checkpointHead": "87e669eed4a22f7abdee7cee4aa990c298f3a513"
+  },
+  {
+    "originalBranch": "refs/heads/codex/498-mcp-shared-service",
+    "checkpointBranch": "codex/514-history-094",
+    "checkpointHead": "fc5626b4200a3cf589807072817ec9c3ea5f13bd"
+  },
+  {
+    "originalBranch": "refs/heads/codex/499-global-operating-policy",
+    "checkpointBranch": "codex/514-history-095",
+    "checkpointHead": "05ba7596220fee267160842e569a9af38ab505d8"
+  },
+  {
+    "originalBranch": "refs/heads/codex/500-mcp-register",
+    "checkpointBranch": "codex/514-history-096",
+    "checkpointHead": "9815333d8405cfd911a3420b7b710407a1d964ae"
+  },
+  {
+    "originalBranch": "refs/heads/codex/500-mcp-shared-register",
+    "checkpointBranch": "codex/514-history-097",
+    "checkpointHead": "ee2929571dc570df8e44b59f085d742278882e0e"
+  },
+  {
+    "originalBranch": "refs/heads/codex/501-mcp-validate",
+    "checkpointBranch": "codex/514-history-098",
+    "checkpointHead": "2282fd46bd92d8f58b61dedbb99f3dc834355262"
+  },
+  {
+    "originalBranch": "refs/heads/codex/502-mcp-adopt",
+    "checkpointBranch": "codex/514-history-099",
+    "checkpointHead": "38b26940210a56f412f7e465a0e3691c925901db"
+  },
+  {
+    "originalBranch": "refs/heads/codex/502-mcp-adopt-original",
+    "checkpointBranch": "codex/514-history-100",
+    "checkpointHead": "5f069166eb92047babd3a25f3309477954d62302"
+  },
+  {
+    "originalBranch": "refs/heads/codex/502-mcp-shared-verification",
+    "checkpointBranch": "codex/514-history-101",
+    "checkpointHead": "58ba404f68eb80664541efb92afe43d69410bb08"
+  },
+  {
+    "originalBranch": "refs/heads/codex/503-current-mutation-fixture",
+    "checkpointBranch": "codex/514-history-102",
+    "checkpointHead": "b921b08785370d2d7ef5cfa83abb7a00098d640c"
+  },
+  {
+    "originalBranch": "refs/heads/codex/503-native2-mutation-integration",
+    "checkpointBranch": "codex/514-history-103",
+    "checkpointHead": "e4e26b21c8bfbbf78107519e8bad64175f3f2497"
+  },
+  {
+    "originalBranch": "refs/heads/codex/503-native2-office-mutation",
+    "checkpointBranch": "codex/514-history-104",
+    "checkpointHead": "4ab90400d815d7cf00ca5ab0c1726380fac9be30"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-adoption-catalogs",
+    "checkpointBranch": "codex/514-history-105",
+    "checkpointHead": "c526d6e1ac44d4b7e7f8f733bfc5f498562dafbc"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-adoption-host",
+    "checkpointBranch": "codex/514-history-106",
+    "checkpointHead": "3e6a0ca95e54fe1cddfad6e7a41249fead515edb"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-adoption-locale",
+    "checkpointBranch": "codex/514-history-107",
+    "checkpointHead": "007ac84fc50627bc75cf5ecb9c356b5d2be4cfd1"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-adoption-locale-recovered",
+    "checkpointBranch": "codex/514-history-108",
+    "checkpointHead": "48e10317a67721cf1a1d02b50d340456bf3259e6"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-adoption-operation",
+    "checkpointBranch": "codex/514-history-109",
+    "checkpointHead": "122a74a2d1af54380730a6079437411fb795619c"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-adoption-panel",
+    "checkpointBranch": "codex/514-history-110",
+    "checkpointHead": "3f22264e77c659298fa274aff31099f6348f2af5"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-adoption-validation-controller",
+    "checkpointBranch": "codex/514-history-111",
+    "checkpointHead": "6816331c9fe7aed745b4d5244cd9c699a9d9efab"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-current-adoption-recovery",
+    "checkpointBranch": "codex/514-history-112",
+    "checkpointHead": "26acf6aa9166ebbe9669762ce489cd8355abceb4"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-current-adoption-ui",
+    "checkpointBranch": "codex/514-history-113",
+    "checkpointHead": "76e0b0a274a6480bd9f6feb88bc0fed4848b9bf8"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-exact-adoption-retry",
+    "checkpointBranch": "codex/514-history-114",
+    "checkpointHead": "a502713e6752ed4cd245ac55043f9cbaabbd3b8f"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-native-adoption-verification",
+    "checkpointBranch": "codex/514-history-115",
+    "checkpointHead": "d4cf410b29f820627ab0e8309c468ae2a1a116a6"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-native2-adoption-preview",
+    "checkpointBranch": "codex/514-history-116",
+    "checkpointHead": "ed21757eb276f7880670b7c01da22deb164246d5"
+  },
+  {
+    "originalBranch": "refs/heads/codex/504-pre-delivery-retry",
+    "checkpointBranch": "codex/514-history-117",
+    "checkpointHead": "8196c62d65db6329d0262acde7b5f2b0c5755373"
+  },
+  {
+    "originalBranch": "refs/heads/codex/505-word-design-native",
+    "checkpointBranch": "codex/514-history-118",
+    "checkpointHead": "c324ef6382579e540f79f2a95aeb77d1b6d8c3e1"
+  },
+  {
+    "originalBranch": "refs/heads/codex/506-current-receipt-runtime",
+    "checkpointBranch": "codex/514-history-119",
+    "checkpointHead": "9ad7597d410478e0bcf0a2fd0d13fd004463d658"
+  },
+  {
+    "originalBranch": "refs/heads/codex/506-native2-receipt-recovery",
+    "checkpointBranch": "codex/514-history-120",
+    "checkpointHead": "135eaa53e59e246ba83d73d639e9858ea67db4b0"
+  },
+  {
+    "originalBranch": "refs/heads/codex/507-native2-office-host",
+    "checkpointBranch": "codex/514-history-121",
+    "checkpointHead": "8afadb02a075e0ee1f08c83464b09f1e82af3b83"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-agent-fixture",
+    "checkpointBranch": "codex/514-history-122",
+    "checkpointHead": "fdd58fa326994dee24d9fa843dc11b5cfc269ccc"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-held-read-source",
+    "checkpointBranch": "codex/514-history-123",
+    "checkpointHead": "de3759ab54e3ad82bfd36e76c955df93904217b7"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-native2-agent-review",
+    "checkpointBranch": "codex/514-history-124",
+    "checkpointHead": "d9574fb6f986c3fce2767e8e77a6c633cff97914"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-native2-agent-runtime-test",
+    "checkpointBranch": "codex/514-history-125",
+    "checkpointHead": "bf7b100daedd4cccdf4a87b1781c4bc6008b9049"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-native2-paragraph-witness",
+    "checkpointBranch": "codex/514-history-126",
+    "checkpointHead": "63db1fb285471e706000c22388f21f6f1fa567c7"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-native2-project-review",
+    "checkpointBranch": "codex/514-history-127",
+    "checkpointHead": "2aa485b6f811ad7af9969e78bd2d1c65a8db84c5"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-policy-bootstrap",
+    "checkpointBranch": "codex/514-history-128",
+    "checkpointHead": "5be32ec7b701861aadc193843060e4e8dd9d4399"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-registered-negative-fixture",
+    "checkpointBranch": "codex/514-history-129",
+    "checkpointHead": "a4d5124949c01e6479219f08f5d470ab33805a12"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-registered-source-negatives",
+    "checkpointBranch": "codex/514-history-130",
+    "checkpointHead": "6eaf16378e56fdc3b0b6ff5adbcebe975fd9c86d"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-supported-proposal-proof",
+    "checkpointBranch": "codex/514-history-131",
+    "checkpointHead": "75555fdd318b410a26c27fc4f8cb6b8ad87ff72b"
+  },
+  {
+    "originalBranch": "refs/heads/codex/508-target-authority-refusals",
+    "checkpointBranch": "codex/514-history-132",
+    "checkpointHead": "227cdcc2f3ff4acb112c309a9d21200d7b271493"
+  },
+  {
+    "originalBranch": "refs/heads/codex/512-current-project-review",
+    "checkpointBranch": "codex/514-history-133",
+    "checkpointHead": "4fdafb852770f1e0babd1a97d416ee4d29d67b07"
+  },
+  {
+    "originalBranch": "refs/heads/codex/512-current-witness",
+    "checkpointBranch": "codex/514-history-134",
+    "checkpointHead": "535f0b81063a918793a66bf804059e255a95680d"
+  },
+  {
+    "originalBranch": "refs/heads/codex/512-native2-project-review-ui",
+    "checkpointBranch": "codex/514-history-135",
+    "checkpointHead": "579b75bcc89b2271d0b3036df82973847fdd52f3"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-copy-catalogs",
+    "checkpointBranch": "codex/514-history-136",
+    "checkpointHead": "c69ddaeaff4b4a8bcf00a52ba09697fa0a3e80ca"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-copy-host",
+    "checkpointBranch": "codex/514-history-137",
+    "checkpointHead": "b12b9273b1e0c3dacb25d36b33a809a8926f86e6"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-copy-operation",
+    "checkpointBranch": "codex/514-history-138",
+    "checkpointHead": "586d5fe5d6585ba4c8f935e40ffe34ef3704f1e7"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-copy-original-journal",
+    "checkpointBranch": "codex/514-history-139",
+    "checkpointHead": "c3bb8267d5f78d6cf1474195672958f9a3d05ac8"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-copy-panel",
+    "checkpointBranch": "codex/514-history-140",
+    "checkpointHead": "139dc9b6cd8885a5c3b0d755e2a64effc546705f"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-copy-retry-history",
+    "checkpointBranch": "codex/514-history-141",
+    "checkpointHead": "e9a702b048122ad3e7450d3eb56810c0c55856a2"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-native2-copy-host",
+    "checkpointBranch": "codex/514-history-142",
+    "checkpointHead": "9b43b55fbe49e0548c0954a48c126a0253908d4b"
+  },
+  {
+    "originalBranch": "refs/heads/codex/513-native2-office-copy",
+    "checkpointBranch": "codex/514-history-143",
+    "checkpointHead": "bebff553310820884f3bad223d99a79c8d3a620c"
+  }
+]
