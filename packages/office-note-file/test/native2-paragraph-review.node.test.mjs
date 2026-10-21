@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHash } from 'node:crypto';
@@ -68,7 +69,7 @@ test('public facade declares every exported capture data shape and function exac
 });
 
 test('strict NodeNext consumers resolve the full registry witness instead of an any fallback', () => {
-  const root = mkdtempSync('/private/tmp/native2-facade-types-');
+  const root = mkdtempSync(join(tmpdir(), 'native2-facade-types-'));
   const require = createRequire(import.meta.url), compiler = require.resolve('typescript/lib/tsc.js');
   const facade = fileURLToPath(new URL('../types.d.ts', import.meta.url));
   const nodeModules = fileURLToPath(new URL('../../../node_modules/@types', import.meta.url));

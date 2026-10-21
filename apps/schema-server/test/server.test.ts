@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
@@ -153,7 +154,7 @@ describe('controlled optional native2 HTTP seam, separate from actual PG authori
     } finally { await app.close(); }
   });
   it('reads separate protected document permissions without inheriting registration or echoing secrets', () => {
-    const dir = mkdtempSync('/private/tmp/native2-config-'), registry = join(dir, 'registry.json'), docs = join(dir, 'documents.json');
+    const dir = mkdtempSync(join(tmpdir(), 'native2-config-')), registry = join(dir, 'registry.json'), docs = join(dir, 'documents.json');
     writeFileSync(registry, JSON.stringify(policies()), { mode: 0o600 });
     const env = { SCHEMA_SERVER_POLICY_FILE: registry, SCHEMA_SERVER_OIDC_ISSUER: principal.issuer, SCHEMA_SERVER_OIDC_JWKS_URL: 'http://127.0.0.1:18595/keys',
       SCHEMA_SERVER_OIDC_AUDIENCE: 'schema-test', SCHEMA_SERVER_DATABASE_URL: 'postgresql://wonffice_app@localhost/private' };
@@ -206,7 +207,7 @@ describe('controlled schema HTTP and config boundaries',()=>{
   });
   it('requires complete mandatory auth and a protected operator policy; never echoes values',()=>{
     expect(()=>readSchemaServerConfig({})).toThrow('SCHEMA_SERVER_AUTH');
-    const dir=mkdtempSync('/private/tmp/schema-config-'),file=join(dir,'policy.json');writeFileSync(file,JSON.stringify(policies()),{mode:0o600});
+    const dir=mkdtempSync(join(tmpdir(), 'schema-config-')),file=join(dir,'policy.json');writeFileSync(file,JSON.stringify(policies()),{mode:0o600});
     const env={SCHEMA_SERVER_POLICY_FILE:file,SCHEMA_SERVER_OIDC_ISSUER:principal.issuer,SCHEMA_SERVER_OIDC_JWKS_URL:'http://127.0.0.1:18595/keys',SCHEMA_SERVER_OIDC_AUDIENCE:'schema-test',SCHEMA_SERVER_DATABASE_URL:'postgresql://wonffice_app@localhost/private'};
     try{expect(readSchemaServerConfig(env).port).toBe(4101);chmodSync(file,0o644);expect(()=>readSchemaServerConfig(env)).toThrow('SCHEMA_SERVER_POLICY_FILE');}finally{rmSync(dir,{recursive:true});}
   });
