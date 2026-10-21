@@ -1,4 +1,52 @@
-# M0 integration — Phase C current evidence
+# M0 integration — current O/S checkpoint
+
+**M0 remains OPEN for Word100 sampled aggregate RSS.** The single O optimization and its independent normal100/300 profile are complete. All three100-page samples exceed512MiB. Supplemental native table/zoom print proof now passes. Local develop remains `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`; Phase C adoption and whole M0 acceptance remain pending.
+
+## Current source and checks
+
+Measured source `4579f1030174bf87e4679888458d5631a35fe492`, tree `146248459a5faed173600965dbe04dfa5b7c2143`, contains Word O `8c3bc79cc63af3877b5513c681afeeb27364a62a` and supplemental S `07f4f43a35b3f7355f1dc846e80ece59b1361efc`. O changes only ID traversal allocation. Snapshot, typography, geometry, runtime, layout, View and renderer semantics remain unchanged from the earlier qualified closure. S changes only the Word test and findings document. The earlier broad snapshot draft was superseded before checks and was not adopted.
+
+Integration independently verified and joined doc-only D `b9e9571b6e4b907cb939a04414cccea30b38f9e1` and Verification W3 `2a29a8ee431adc2a95d48b9547c4d560f10fae99`. Exact parents, trees, easylogic author/committer, no coauthor and leased paths match. W3 changes five verification receipt paths. Raw SHA `9e921d937f5de489b8bfbcd20d2d1564e64622070934c17f33403d394ce7d3a3`, all17production,7harness and10reused Core bindings match measured4579 and the handoff. RSS per-PID sums and six completed sample maxima match. Numeric budgets and raw history are unchanged.
+
+| Actual check | Source/result | Boundary |
+| --- | --- | --- |
+| Full unchanged-budget preflight, log39 |O joinedaf4589d9; PASS exit0,284.094s | Lint2761files533errors7381warnings,0new/increased; source45projects/3known allowances; test41targets1251/1251 existing diagnostics. Not zero debt. |
+| Word print units, log38 |O;23PASS,2.572s | Includes root/duplicate ID and SVG/CSS/local/external reference preservation. |
+| Existing print browser A, log37 |O;8PASS | Whole combined14 attempt then failed at a supplemental preprint fixture rowspan count; remaining5NOTRUN. No print failure inferred. |
+| Supplemental native print, log40 |S;6PASS,0skip/retry/flaky/errors,38.224s | Four real native table fixtures plus two supported reduced zoom cases; glyph/geometry, generated header, native/selection, actual fonts/PDF and cleanup retained. |
+| Core V2 reference |Reused exact10files; all8timing/RSS/repeatability gates PASS | No Core profile rerun or provider/Canvas/UI claim. |
+
+R corrected two owner-identified test-method errors before execution. S corrected the first actual preprint fixture expectation by binding merged cell IDs/counts/spans to native exports. Ordinary rowspan1 cells had inflated the old count. The unused ac2652 lease and actual log37 failure remain distinct historical records. No redundant full checks follow test/doc/evidence-only commits.
+
+## Word O result and measurement limits
+
+See [current criteria](../verification/reports/criteria-phase-c-v4.json) and [Word O assessment](../verification/reports/word-candidate-assessment-v3.json). All six fresh normal samples complete without guard, console/page or cleanup errors. Actual font identities, page/native/root counts, timing and repeatability meet frozen v1.1.
+
+| Gate |100pages,3fresh samples |300pages,3fresh samples |
+| --- | --- | --- |
+| Cold open, worst |368.7ms <=1000 |1087.3ms <=3000 |
+| Warm native completion, worst |112.6ms <=250 |368.3ms <=750 |
+| Print build, worst |29ms <=1000 |79.3ms <=3000 |
+| Actual print node delta |4501 each |13501 each; ratio2.99955565 <=3.5 |
+| Sampled owned aggregate RSS bytes |577470464 /598196224 /575438848; **all3MISS536870912** |806305792 /799784960 /804552704; all below1073741824 |
+
+100preprint maxima are525942784/570408960/575438848bytes. Samples1/2 already exceed512MiB under the warm/native completion label. Sample2 has no print-tagged RSS poll; its maximum is not a measured print peak. The print label includes adjacent deferred layout/CDP readout. Open→postprint heap includes font query and warm rendering. These records do not isolate an allocation cause or establish an accumulating Map leak.
+
+RSS is maximum200ms sampled owned process aggregate, includes shared pages and can miss short peaks. It is not continuous/private physical HWM. Different source windows are not a controlled A/B. All24 observed PIDs and55260listener are absent after cleanup; O lease is RETURNED. No identical qualification retry, target increase or blind micro-optimization loop follows this miss.
+
+## Bounded actual PDF review
+
+Each of the six supplemental PDFs has four nonblank pages. All36 expected continuation generated-header cells appear in actual PDF text. All24 pages were rendered offline. Parent reviewed six page4 images; a read-only native helper reviewed six page2 images. No concrete header/body overlap or tail/end-row paint defect was found in those12visual pages. Normal/reduced line and parallel fixtures have identical rendered pixels on all four corresponding pages. Primary `.omx/m0/530-S-native-PDF-review.json` binds exact PDF hashes/renders. This is bounded paint evidence, not universal PDF or physical paper acceptance.
+
+The earlier P2b page5/6 concern remains retracted; its correction below is retained. Rich B36 remains2PASS/1preprint legacy 보기-tab failure/5NOTRUN. Existing editing/Save flow and Slides baseline UI findings require separate owner triage; supplemental print-only proof does not accept them.
+
+## Next owner and safe checkpoint
+
+Planner authorizes ONE diagnostic-only100-page attempt under Verification #526. Commit protocol/harness before data; Integration then grants a new serialized diagnostic lease. Preserve exact O production hashes, native API/workload/browser/fonts and existing v1.1 raw/method/budget. Pair timestamped JS heap/CDP DOM/owned PID RSS at module, cold open, font query, warm completion, print return, deferred readout, clearPrint and runtime dispose. Record collection skew and combined admission/mount boundaries. Optional observer release and one final diagnostic GC never qualify targets. Keep45s full-sample/10scold/15sprint/2GiB guards and bounded5s cleanup; first failure stops, no automatic retry.
+
+#526 owns diagnostic-only verification files/interpretation; #522 owns source hold/runtime lease/serialization. RSS alone grants no production path, snapshot, renderer/layout repair, dependency or root write. Planner owns next bounded source decision and whole M0 acceptance. #528/#529 remain WAIT_M0. No push/PR/deploy, existing DB mutation, unrelated process stop or automatic Issue/Goal closure occurs. Primary main and original four planning WIP hashes remain preserved.
+
+# Historical P2b/W2 checkpoint
 
 **M0 remains OPEN for Word100 sampled aggregate RSS and supplemental native table/zoom print proof.** Core's repaired bounded reference workload passes. Word normal100/300 now completes all six fresh samples and passes timing, fonts, repeatability and measured node growth. Two100-page RSS samples still miss512MiB. Local develop remains `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`; no Phase C adoption, whole M0, product or release acceptance is inferred.
 
