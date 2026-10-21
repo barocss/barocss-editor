@@ -1,4 +1,62 @@
-# M0 integration — Phase C measured checkpoint
+# M0 integration — Phase C current evidence
+
+**M0 remains OPEN for Word100 sampled aggregate RSS and supplemental native table/zoom print proof.** Core's repaired bounded reference workload passes. Word normal100/300 now completes all six fresh samples and passes timing, fonts, repeatability and measured node growth. Two100-page RSS samples still miss512MiB. Local develop remains `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`; no Phase C adoption, whole M0, product or release acceptance is inferred.
+
+## Current immutable source and checks
+
+The current joined evidence parent is `eb2c019f391660ca7198ac3354dce39405bc0db2`, tree `e1581621e0f219c32a07581d7dbc93851e7ff55c`. Its measured Word source is `ccf1ffd0353eccbdc23b922e54973fb0919b81a4`, tree `3c4b0234375c1f944960e0f72f982530c62e79f3`. It contains the original W async-layout repair, Core K, guarded method G, page-local Word P and its source-causal P2 line-height repair, test-only P1/P2b, and immutable Core/Word receipts. This new commit changes only Integration's report/routing; resulting head/tree is recorded after commit in primary `.omx/m0/integration-control.json`.
+
+| Actual check | Source and result | Scope |
+| --- | --- | --- |
+| M0 strict/native, log28 |6b3ea4a; strict28roots+imports0diagnostics,126/126PASS,0skip,5.339s | Bounded native source and independent contract/guard checks. |
+| Final affected Word print units, log33 |ea70e738;21/21PASS,10.031s | Includes locality, ownership/cleanup and unitless-versus-fixed line-height regressions. |
+| Unchanged pnpm preflight, log34 |ea70e738a4ba9de27d829675e9ddc0efdff65225; exit0,336.767s | Lint0new, source45projects/3known allowances, test41targets1251/1251existing debt budget. Not zero diagnostics. |
+| Exact P2b source/print browser A, log35 |1ff71ac5;8/8PASS,0skip/retry,19.407s | Retained real PDF/actual loaded fonts; source-native unitless AND fixed24px header geometry; mid-edit restore; per-sheet header/footer/footnote text/rect; paragraph seam, body locality, native export/Range/IDs/rebuild/clear. |
+| Selected rich browser B, log36 |Same P2 production closure;2PASS/1FAIL/5NOTRUN+1suiteerror,47.039s | Math KaTeX/long-math actual print PASS. Table-cell test times out at missing legacy 보기 tab before print. This is a preserved UI/test-flow finding, not P2 print FAIL or all-rich PASS. |
+
+P2's source repair preserves a typed unitless computed line-height instead of converting it to used pixels; fixed px remains fixed. It is not a header-height patch or blanket px-to-ratio rewrite. The actual P1 source/header20.390625px versus printed24px failure remains preserved. P2 and P2b restore the matching geometry without raising tolerances. No print.ts/runtime/layout/view/renderer semantic edits were made in #530.
+
+P2b after ea70 changes only Word's spec and findings doc. Its author appWord test-type guard0/0 and scoped lint0errors/1unchanged warning supplement the exact unchanged production closure. No redundant full preflight or native/print-unit repeat was run for this test/doc-only successor or for evidence-only commits. Earlier View/Renderer/Word/Canvas/Slides checks and all first failures remain in the historical sections below.
+
+## Qualified Core reference and explicit reuse
+
+Independent Core V2 `ea861b2f873864c609451e13bcbcfa89691a5e45`, parent6b3ea4a, contains eight Verification-only paths. All eight frozen timing gates,512MiB child high-water RSS and14phase/3total repeatability gates pass on the named recorded loaded machine. One-cell TOTAL is51.555/54.158/51.680ms; cold worst898.884ms; paste worst81.311ms; max child HWM317259776bytes. Construction/admission, projection, diff and calculation work remain included.
+
+Integration checked the raw SHA and all ten exact Core/Formula/harness/budget file hashes, including K's workbook blob `451b22a95cbcfac6e3e8b19551771db141bed64d`. Those ten files remain unchanged through the Word-only successors. Verification records reuse bindings; primary `CoreK-v2-reuse-ea70.json` independently confirms them. No Core profile is repeated for these test/doc/Word deltas. The original7d902 one-cell misses remain immutable history; no universal causal speedup, provider/Canvas/UI or whole-product claim is made.
+
+## Actual repaired Word reference remains a memory MISS
+
+Independent Word W2 `eb2c019f391660ca7198ac3354dce39405bc0db2`, parentccf1, contains exactly five Verification-only paths. Integration checked the raw assessment SHA and all17production plus7harness bindings against the measured source. See [current matrix](../verification/reports/criteria-phase-c-v3.json) and [actual Word assessment](../verification/reports/word-candidate-assessment-v2.json). Frozen v1.1 numeric budget SHA remains `dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d`.
+
+| Frozen Word gate |100pages,3fresh samples |300pages,3fresh samples |
+| --- | --- | --- |
+| Normal cold open |Worst378.3ms <=1000 |Worst1038.4ms <=3000 |
+| Warm full native view/layout |Worst113.9ms <=250 |Worst354.1ms <=750 |
+| Actual synchronous print DOM build |Worst35.7ms <=1000 |Worst96.7ms <=3000 |
+| Printed native node delta |16201 each |48601 each; measured ratio2.99987655 <=3.5 |
+| Observed aggregate owned RSS bytes |527810560 /591446016 /604405760; two exceed536870912 |717225984 /718061568 /799506432; all below1073741824 |
+
+All six normal fresh-process samples complete without guard, console/page or cleanup failure; all actual selected glyph faces match the exact installed reference fonts. All phase repeatability gates pass. The original whole-source clone331601nodes/100pages and first3002GiB guard remain preserved, not discarded.
+
+100preprint observed maxima are527810560/530055168/526008320bytes, all below512MiB. In the two failing samples the print-labelled polls reach591446016/604405760. The tag persists into CDP/deferred layout/readout, so it cannot isolate synchronous build allocation or prove a JS leak. Child PID roles beyond the owned root are not classified. JS heap rises from about38MB to61MB and CDP nodes from3356 to19557. Sample0 has no print-tagged RSS poll; its observed527810560 is not a proven print peak. RSS remains maximum200ms sampled aggregate/shared pages, not continuous/private physical HWM. No GC workaround, process change, target increase or identical heavy rerun was used.
+
+All24 observed owned PIDs and port55260 were independently absent after cleanup. The performance slot was returned before offline assessment. Core evidence and old failed Word raw files remain unchanged.
+
+## Actual PDF and corrected visual reading
+
+The retained eight-page P2b PDF SHA is `d01522d3325e89879b546d2d1003d181c0be2278b1dbf0cbc81f2f7f3574ca16`. All eight pages have extracted content; the footnote body is on page2. All pages were rendered for review. Source/print character and geometry proof is separate from mere PDF page count and from physical paper/Office interoperability.
+
+The initial reviewer claim of page5/6 near-top body/missing headers was a reading error and is **RETRACTED**. Exact original PNG hashes match both reviewers; header-region pixels are identical on pages2–7, SHA `e5aafeb97a32f2fcd839e8031d1e0c532dbc087ca29b48de05bf36f824fd4b34`, with ink at40–48px and no other ink above72px. Planner's byte-bound PDF check places header words at37.05pt and first body words at73.17pt. Primary `530-P2b-PDF-header-pixel-check.json` preserves the correction. The original files stay intact. No semantic blocker, fix or extra heavy diagnosis is based on that false finding.
+
+## Remaining exact work and next owner
+
+Execute Word Layout #530 owns the already approved supplemental four real native table fixtures and at most two supported reduced-zoom cases inside its leased Word spec/findings doc. These compare source-visible authored glyphs and geometry, repeated-header paint, native/selection, actual fonts/PDF and cleanup. Old B's2PASS/1pre-print UI failure/5NOTRUN remain separate. Candidate ac2652 was held **before any execution** when its owner found two test-method defects: generated CSS repeat headers are not text nodes, and a forced screen media override must be cleared before real PDF. Its unused lease is returned; it is not a product/test execution failure. The owner prepares an exact test/doc-only correction before the next finite six-case window.
+
+Word #530 also performs read-only phase/PID/source lifetime decomposition of the residual100RSS miss. Planner owns any new precise semantic file/priority lease; no speculative memory patch or broadened source ownership is inferred. Verification #526 owns independent raw/assessments and any later explicitly leased profile. Integration owns exact intake, source-aware frozen graph/config/develop, aggregate checks and serial browser/performance resources.
+
+All completed or held canonical leases are RETURNED. M0 remains OPEN; M1 #528 and M2 #529 remain WAIT_M0 planning. No release/alpha/physical IME/authenticated product acceptance, push/PR/deploy, old backlog/schedule restart, existing DB mutation, unrelated process stop or automatic Issue/Goal closure occurred. Primary main and the original four planning WIP hashes remain preserved. Commits use easylogic author and committer, no coauthor.
+
+# Historical Phase C — first measured checkpoint
 
 **M0 remains OPEN.** The normal large-Word layout defect is repaired, but actual Word memory and Sheet single-cell TOTAL miss the frozen targets. Planner assigned the measured source repairs to Word #530 and Core #523. Local develop remains `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`. The joined preparation branch is not an accepted Phase C develop checkpoint.
 
