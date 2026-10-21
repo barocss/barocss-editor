@@ -1,0 +1,6 @@
+Summary SHA/budget SHA/exact source/tree bindings PASS
+All10 recorded Core/Formula/harness/budget bytes match immutable measured source PASS
+3fresh children: process/counts/raw-summary phases/totals/formula stats/HWM/actual pressure and swap identity PASS
+All8 timing gates +RSS target +14phase/3total repeatability PASS; frozen tiny-phase noise floor retained
+Prior failed v1 raw/assessment and frozen budget unchanged PASS
+Current matrix evidence references PASS; Core-only PASS, Word/M0 pending

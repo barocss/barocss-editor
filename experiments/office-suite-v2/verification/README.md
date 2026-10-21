@@ -325,3 +325,39 @@ new method cannot retroactively qualify it. Current performance leases were
 returned. No repaired-source profile is authorized by this method commit alone.
 Guard settlement also checks the monotonic deadline, so a synchronous task
 cannot outrun the expiry callback and turn a late result into PASS.
+
+## Repaired Core K: qualified bounded reference result
+
+Current Core-only states are in `reports/criteria-phase-c-v2.json`. Independent
+source is `6b3ea4a0669c0796a58711ff01932f5a71b50962`, tree
+`f37c61a3595412ca2694b90e2f70c0af19e2173f`, after Integration's root preflight
+exit0,126native cases/strict0 and19print unit cases. Root debt allowances remain
+those reported by Integration. This window does not qualify repaired Word.
+
+Three fresh actual Core/Formula processes completed the same named10krows/
+100columns/50kpopulated/10kformulas workload. Raw child files and summary are
+`reports/sheet-scale-2026-10-21T20-44-45-509Z-*`; the exact assessment is
+`reports/sheet-candidate-assessment-v2.json`. All eight frozen timing gates,
+512MiBRSS target,14phase repeatability checks and three total repeatability
+checks PASS under the original v1.1rule. One-cell TOTAL51.555/54.158/51.680ms
+meets200ms; cold TOTAL worst898.884ms meets2,000ms; paste TOTAL worst81.311ms
+meets500ms. Fresh-child process RSS high-water maximum317,259,776bytes meets
+536,870,912bytes. Construction/admission costs remain included. No cache cost
+was excluded or target changed.
+
+Dirty formula CV is0.486, but its0.076ms spread meets the original10ms absolute
+noise floor. This is the frozen rule, not a later exception. Actual dirty work
+is one changed cell/one formula; paste is1,000changed cells/250formulas. Raw
+before/after load, memory and swap remain recorded; no absolute-idle claim is
+made. The old7d902failures and all raw evidence remain unchanged. These two
+recorded windows have different ambient pressure and do not prove a universal
+or controlled causal speedup.
+
+The workbook blob is `451b22a95cbcfac6e3e8b19551771db141bed64d`, identical to
+the author K candidate `7032282cab3350867e06fe9ba716a136c826eebf`. Assessment
+records all ten source/harness/budget SHA-256 bindings and Node/OS/CPU metadata
+for explicit reuse on an unrelated Word-only join. It does not transfer this
+result to changed model bytes or claim provider/Canvas/scroll/keystroke/UI
+capacity. The Core-only performance slot was returned immediately after three
+children completed. No duplicate profile ran. Repaired Word browser/PDF and
+100/300-page profile, and the whole M0 decision, remain separate and pending.
