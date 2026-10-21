@@ -44,6 +44,8 @@ The server tests separately close and reopen an on-disk SQLite database to verif
 Production output contains no test identity or test endpoints and uses no Node APIs.
 The built Worker is also loaded in an isolated VM with web APIs and no Node `process` or
 `Buffer` globals, then exercised for authenticated save/reopen, anonymous denial and asset serving.
+Its module-initialization guard rejects randomness, timers and I/O until request handling begins;
+the editing model creates its random session identity only when editing is first used.
 
 The application build emits:
 
