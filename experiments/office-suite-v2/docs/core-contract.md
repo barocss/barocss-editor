@@ -30,8 +30,11 @@ Project unordered events by causal topological order, then code-unit event ID or
 among ready peers. Identical retries deduplicate. Same ID/different body fails the
 entire projection explicitly; callers preserve the input for recovery. Invalid
 events/context also fail projection. No clock, provider arrival order or locale
-collation determines a winner. Canonical encoding sorts object keys and preserves
-array order. Projection is recursively frozen and detached from caller objects.
+collation determines a winner. Canonical encoding sorts object keys, preserves
+array order and uses JSON's negative-zero-to-zero canonicalization. Admission clones
+through that wire representation so local and transported native numbers agree.
+Other invalid/unknown values are rejected, not normalized. Projection is recursively
+frozen and detached from caller objects.
 `revision` is the exact canonical encoding of context and sorted unique events,
 not a hash, save acknowledgment or monotonic revision number. It trades memory for
 collision-free M0 cache binding; the scale probe must measure this cost.
@@ -39,8 +42,12 @@ collision-free M0 cache binding; the scale probe must measure this cost.
 ## Structure, input and conflict rules
 
 IDs never change or get reused, including after undo. Inserts anchor after an
-observed identity (or null at the beginning). Concurrent siblings sort by creator
-event ID; traverse each sibling and its descendants before the next sibling.
+observed identity (or null at the beginning). A causally later same-anchor insert
+precedes observed existing siblings. Concurrent siblings sort by creator event ID
+using a reverse-causal topological order with an ascending code-unit ready queue;
+traverse each sibling and its descendants before the next sibling. Thus inserting
+after row1 in an observed row1,row2,row3 yields row1,newRow,row2,row3. This clarifies
+the initial C wording: ID ordering applies to concurrent siblings, not all siblings.
 Tombstones keep anchors/descendants in place. Deleted parents cannot gain new
 causally later live children; a concurrent insertion anchored to a deleted row
 still has deterministic placement. Axis IDs are unique within sheet/axis;
@@ -64,10 +71,16 @@ contribution uses it, including concurrent or later edits/insertions. Otherwise 
 refuses `UNDO_CONFLICT` and preserves the content. Deletion undo removes only its
 own deletion marker and restores the SAME ID if no other deletion marker remains.
 This makes references live again only after explicit successful undo. Undo never
-restores a workbook snapshot. A new conflicting event can turn an earlier tentative
-insertion undo into a refusal on replay; all replicas decide from the same event set.
-Structural undo conflict checks include surviving transitive descendants and
-foreign formula references to the identity. Conservative refusal is permitted;
+restores a workbook snapshot. A new concurrent conflicting event can turn an earlier
+tentative insertion undo into a refusal on replay; all replicas decide from the same
+event set. An edit causally after the undo cannot block it: the edit observes the
+tombstone and refuses instead. Already refused/pending inputs are not blockers.
+For a not-yet-replayed concurrent candidate, Core evaluates eligibility in that
+candidate's complete causal closure, which strictly excludes the current undo.
+This lookahead terminates on a smaller set; no oscillating fixed point is used.
+Sheet undo protects foreign content throughout its descendant axes/cells. Axis
+undo retains anchored descendants through the tombstone; foreign direct anchored
+inserts and foreign formula references to the identity also protect it. Conservative refusal is permitted;
 silent loss of another session's contribution is not.
 
 General row/column moves and merges are `unsupported` commands with explicit
@@ -99,7 +112,7 @@ revision; stale tokens cannot authorize a cached result.
 ## Admission limits and errors
 
 CORE_LIMITS exposes: IDs 1..128 UTF-16 units; text at most 32768 units; event at
-most 1048576 UTF-8 bytes; dependencies 100000; collection 100000 unique events;
+most 1048576 UTF-8 bytes; dependencies 100000; collection 100000 supplied events;
 atomic batch 10000 cells; formula AST depth 64 and node count 10000 per input.
 Combined limits all apply. IDs are opaque strings; no provider/account semantics.
 Duplicate dependencies/batch keys, self-dependency, unknown fields, unknown versions,
@@ -116,3 +129,46 @@ C verifies the contract source with the frozen targeted strict checker. Runtime
 tests follow in the Core candidate: permutation convergence, two sheets, sparse
 atomic input/alternatives, ID/tombstone rules and conditional session undo. Controlled
 native tests do not prove Office auth, durable save, product UI, M0 or release.
+
+The projector recomputes from the event set. It uses a min-heap for event order,
+reverse-causal sibling graphs for insertion position, and an observed-prefix fast
+path for causal reachability. Concurrent undo lookahead can project smaller causal
+closures; hot-cell alternative selection can compare many historical inputs. Those
+costs, exact revision memory and full diff scanning are not certified for the M0
+scale profile by small functional tests. Verification measures the real source;
+future optimization must preserve these semantics and cannot silently prune history.
+
+## Core runtime candidate evidence
+
+Parent is Integration correction I1
+`1d443e47f39d9e6009a7f0ae8724d7cc9f9e05da`, which contains exact C
+`6ad373b4c31b7ec7aa97b75d8f6cb89b7174fc0e`. The runtime delta owns only workbook.ts,
+the two leased tests and this manual. contracts.ts is unchanged from C.
+
+Node 22.22.0 / pnpm 8.15.0 / frozen TypeScript 5.9.3:
+
+```
+pnpm --ignore-workspace type-check -- src/contracts.ts src/workbook.ts test/workbook.test.ts test/structure.test.ts
+pnpm --ignore-workspace test -- test/workbook.test.ts test/structure.test.ts
+```
+
+Final result: strict 0 diagnostics; native 28/28 PASS, 0 skipped. The test runner
+uses single-file concurrency. All 24 independent structure-event permutations and
+all 6 non-transitive sibling-case permutations converge. Tests also cover causal
+interior insertion, concurrent value/formula alternatives, remote input after local
+undo, same-account other-session refusal, concurrent deletion markers/restoration,
+post-undo edit refusal without revival, invalid/pending blocker exclusion, atomic
+batch refusal, JSON/dependency/AST/byte limits and immutable projections.
+
+No Core targeted command failed. First semantic defects were source-review findings:
+the initial all-sibling ID order broke interior insertion (Formula), and raw
+foreign payload lookahead could revive a row after successful undo (Planner).
+Both were corrected and have explicit native regressions above. A patch application
+with mismatched manual context failed before writing files; the corrected patch
+was applied. This is tooling evidence, not a native-runtime failure.
+
+Full repository checks, provider/durability integration, Formula calculation and
+copy/cut runtime checks, the required scale benchmark and genuine Office flows are
+NOT RUN by this lane. Formula and Collaboration must consume this actual runtime;
+Integration owns their common source base and combined checks. No M0, Issue closure,
+product, release or deployment acceptance follows this Core candidate.
