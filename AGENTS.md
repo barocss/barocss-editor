@@ -1,5 +1,13 @@
 # Wonffice — Codex 작업 규칙
 
+## Latest human multi-agent policy — 2026-10-22
+
+All current and future approved Works may use native subagents when they help the assigned work. The parent Work keeps responsibility for scope, file leases, source review, verification and the final handoff. Give each helper a bounded task and disjoint write paths. Read-only review can share source; duplicate file writers are not allowed. Preserve other authors' work and existing checkpoints.
+
+Helpers run changed-area tests/types and directly affected checks only. They do not each run whole-repository preflight, builds or tests. Execute Integration remains the unique owner of shared dependency graphs, root/config/lock/policy writes, local develop and serial shared browser/API/private PostgreSQL/performance resources. Integration chooses meaningful aggregate checks and schedules heavy checks to avoid parallel contention.
+
+This permission applies within approved Issue and responsibility scopes. It does not activate old backlog, paused Research, extra chats or schedules, change default models/reasoning effort, or grant push/PR/deploy/data authority. Preserve existing acceptance, budgets and human holds. Track the current M0 application in [#522](https://github.com/barocss/barocss-editor/issues/522).
+
 ## Latest human testing policy — 2026-10-21, Office v2 M0 #522
 
 Authors run changed-area tests/types and directly affected contract checks only. They do not run whole-repository preflight, tests or builds for each candidate. Execute Integration owns broad/full verification and schedules it for meaningful integrated batches when combined source, dependencies, interfaces or release risk requires it. Integration reports the exact source SHA, commands, coverage, exit status, first failure and next owner to Planner and affected Executes. This policy supersedes earlier author-full-preflight wording. Budgets and final integration/release gates stay unchanged. M0 work stays in its explicitly leased isolated experiment; old lanes and schedules are not resumed.

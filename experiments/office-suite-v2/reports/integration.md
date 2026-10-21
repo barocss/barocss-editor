@@ -1,4 +1,77 @@
-# M0 integration — bounded local decision pack v1
+# M0 integration — Phase C measured checkpoint
+
+**M0 remains OPEN.** The normal large-Word layout defect is repaired, but actual Word memory and Sheet single-cell TOTAL miss the frozen targets. Planner assigned the measured source repairs to Word #530 and Core #523. Local develop remains `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`. The joined preparation branch is not an accepted Phase C develop checkpoint.
+
+This current section supersedes only the named Phase B states below. Historical first failures, raw data, original acceptance and old checkpoints remain preserved. #522 owns integration and this receipt; #521/#520 acceptance stays Planner-owned.
+
+## Exact intake and evidence binding
+
+The measured and broadly checked source is `7d902bc69bf98b0dc6aaf681a24d34c7066703a1`, tree `300251a4c121e39c4df43690108669035adda08f`. It joins Core E `9e823ba320c3071fd11a495bfd2522044a6e7642`, Verification D `ccdaf138bd6ef7603b5319dc6c5dd14244620c48` and P through P4 `92ab8dd2345c726d700ee3ee2557b51d5a25f777`, Word W `522b25bd2477e0dde62c7dbf45271aaf182117e0`, and the approved Phase C routing. All deltas were checked against exact parents and leased paths. Integration authored no domain semantic repair.
+
+Verification's evidence-only R `f6f9d3d8725942cdce6e855b0d0fe2de5842060d` preserves10owned files under verification, including the raw Word report, three raw Sheet children/summary, explicit assessments and current matrix. Integration independently checked both raw SHA-256 assessment bindings and all27 recorded source-file hashes against7d902. R changes no measured code or budget. See [current criteria](../verification/reports/criteria-phase-c-v1.json), [Word assessment](../verification/reports/word-candidate-assessment-v1.json) and [Sheet assessment](../verification/reports/sheet-candidate-assessment-v1.json).
+
+Owner-only lint L `f8c39d2290f135f305ac7dce9668fb515fc6baa7` and cleanup successor C `4473ab9f29a1e7a8420739b113eab1f50a60969f` are joined after R. C corrects the failed-mount temporal-dead-zone defect found while reviewing L: actual diagnostic-module VM refusal first left the observer/prototypes unrestored, then passed after the initialized holder correction. Three scoped MJS files have0lint errors/warnings and parse checks pass. Historical measured source remains7d902; no guard/target/profile method changes are included in L/C. The separate full-startup guard revision is still Verification-owned work.
+
+This receipt and matching latest multi-agent policy/routing sections are documentation only. The exact resulting head/tree is recorded after commit in primary `.omx/m0/integration-control.json`. No self-referential hash or code/profile rerun is needed for these text changes.
+
+## Production cause and meaningful aggregate checks
+
+At original f4, the full100-page fixture passed native admission and had matching native/DOM root and800paragraphs. Layout ran before asynchronous DOM commit with zero surfaces; actual renderer completion created the surface without a normal follow-up layout. One diagnostic post-commit render produced100pages. W ships completion-gated layout with finite3round convergence, root/generation/epoch/disposal retirement and composition settlement. It does not ship that diagnostic force. Physical OS IME remains unverified.
+
+The production shared View change invalidates the earlier isolated-only reason for skipping broad checks. Integration ran the following batch with Node22.22.0/pnpm8.15.0 and frozen dependencies. Early production checks ran after W; exact packages/apps trees are unchanged from `67387da7ad47f6a1b3ae5a98a354866fbaee7812` through7d902/R/C. The standalone native and root checks below bind directly to7d902. No existing budget, exclusion or root dependency was changed.
+
+| Check / primary log ID | Actual result | Boundary |
+| --- | --- | --- |
+| Full View,17 | 596PASS /3existingSKIP; exit0,137.228s | 50files,599cases; skips stay skipped. |
+| Full Renderer,18b | 810PASS /4existingSKIP; exit0,45.808s | 108files. Initial18 unsupported --minWorkers CLI failure happened before tests and remains preserved; corrected Vitest4-supported command follows. |
+| Word layout/measure/table pagination/print,19 | 99/99PASS; exit0,12.669s | Eight actual existing test files. |
+| Canvas connector/layout/graph,20 | 192/192PASS; exit0,1.601s | Three existing directly affected files. |
+| Actual Slides connector browser,21 | 21PASS /5FAIL /17NOTRUN; exit1,122.436s |43cases,120s global bound,2suite/teardown errors. No whole-suite green claim. |
+| Exact five failed Slides assertions on f4,22 |5/5FAIL; exit1,51.307s | Same frozen graph/browser/viewport/per-case assertions, selected5only. No full43case repeat. |
+| Standalone M0 strict/native,23 |28strict roots+imports0diagnostics;17nativefiles111/111PASS,0skip; exit0,12.035s | Actual Core/Formula/collaboration/store/independent guard checks. Not product/browser/performance acceptance. |
+| Root pnpm preflight,24 | FAIL atlint; exit1,49.287s | Checks93/93, release30/30, npm14/14, docs4/4+coverage passed. Lint2760files537errors7381warnings,4new/increased diagnostics. Source/test types were short-circuited. |
+| Root pnpm type-check,25 | exit0,134.675s;45projects checked | Three existing known-broken demo allowances retained. Not45zero-diagnostic projects. |
+| Root pnpm type-check:tests,26 | exit0,195.121s;41targets1251/1251 | Actual existing diagnostic counts match unchanged budgets; View104/104 and Word7/7 are debt compliance, not zero diagnostics. |
+
+Full stdout, exact argv/cwd/time/status and traces remain in `/Users/user/barocss-editor/.omx/m0/integration-logs/` and the sibling slide-impact artifacts. `522/slides-baseline-ui-v1` is a tracked baseline finding with readiness needs-triage and next owner Planner/source-test owner to scope. All five missing/hidden-control failures reproduce at f4, including connector.spec.ts47 missing insert-connector and1217 hidden clear control. This supports baseline attribution for those assertions, not acceptance of later steps or the17unrun cases. No force click, exclusions or unrelated UI edits were added.
+
+Root first lint errors are Core workbook.test.ts38 unnecessary quote escape and Verification's unused import, unused map index and prefer-const. Exact fixes return to those owners. L/C address the latter three; the Core quote is assigned to the current Core candidate. Whole preflight has not been rerun or declared PASS. Required source/test types were run separately, rather than silently treated as covered by the failed chain.
+
+## Frozen numerical observations and limits
+
+[Reference budget v1.1](../verification/reports/reference-budget-v1.1.json) was frozen before these observations. Earlier Integration proposals are superseded. The recorded loaded M3 Max/36GiB workstation, Chromium145.0.7632.6,1280x900/DPR1, actual fonts, before/after load/memory/swap and exact source/input/runner hashes are retained. Absolute idle or zero allocated swap was not a gate. Three observations give worst-of-three/coarse nearest-rank p95, not a population tail. Repeatability requires phase CV<=0.25 OR spread<=10ms.
+
+| Actual workload | Observed result | Frozen gate / disposition |
+| --- | --- | --- |
+| Normal Word100cold,3fresh samples |337.4 /322.4 /323ms |<=1000ms, timing and repeatability met. Actual native/root/surface800paragraphs/100pages correct; no forced cold render or method patch. |
+| Word100warm full render |110.8 /101.7 /99.3ms |<=250ms, timing and repeatability met. |
+| Word100print DOM build |65.6 /60.9 /64.7ms |<=1000ms, timing and repeatability met for synchronous construction only. |
+| Word100owned aggregate RSS |1603551232 /1631666176 /1631027200bytes |All exceed536870912. Sample2 already562053120before print. Do not attribute all memory to print. |
+| Word100native print-node delta |331601 in all3samples |Exactly100*(2514descendant elements+800text+1source root)+100page wrappers+1container. Full source cloning per page is demonstrated. |
+| First Word300attempt |Cold1027.9ms, warm347.5ms, print537.3ms, sampledRSS2198929408bytes |First print readout crosses2GiB guard. Owned browser closed;2remaining samples and actual300postprint node counter NOTRUN. No300percentile or observed growth ratio. |
+| Sheet exact10krows/100columns/50kcells/10kformulas |3fresh successful functional children |Headless actual Core/calculator only; no provider/Canvas/UI capacity. |
+| Sheet cold TOTAL |1262.37 /1539.75 /1355.03ms |<=2000ms; met, includes construction/admission/projection/registration/calculation. |
+| Sheet one-cell TOTAL |296.46 /462.17 /268.92ms |All exceed200ms; concrete Core projection/diff repair assigned. Dirty formula work visits1changedcell/1formula. |
+| Sheet1000cell paste TOTAL |232.84 /324.97 /295.67ms |<=500ms; total gate met. Per-phase repeatability remains separate. |
+| Sheet child high-water RSS |Max348602368bytes |<536870912; actual process high-water evidence. |
+
+The other Sheet phase targets are met, but edit projection and paste diff fail the phase repeatability condition. The one-cell miss is preserved despite all three children exiting successfully. Total costs include event construction/admission and calculator registration/update; no cache cost is hidden outside these totals.
+
+Word RSS is the maximum200ms sampled sum over owned processes, including shared resident pages; it is not proven continuous peak or private resident memory. Observed target/guard exceedances are valid. The current45s timer/RSS monitor starts after browser launch/connect, so startup is outside that guard; a separately reviewed method revision must fix this before the next profile. Native CDP global node deltas can theoretically undercount during unrelated GC; the100exact source accounting matches every observed delta. Source-derived300growth8.97x is only a prediction, not a measured ratio. Print DOM build excludes deferred native style/layout, PDF/spool and paper fidelity. These boundaries do not raise targets or erase failures.
+
+Actual selected CDP glyph faces in all attempted samples match CoreText provenance: ArialMT5.01.2x SHA256 `525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9`, AppleSDGothicNeo-Regular19.0d2e1 SHA256 `0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66`. No font redistribution occurred.
+
+## Concrete next owners and preservation
+
+Planner activated existing Word Layout under [#530](https://github.com/barocss/barocss-editor/issues/530) for page-local complete paint projections/indexing and existing Core [#523](https://github.com/barocss/barocss-editor/issues/523) for bounded private recent checkpoints with full canonical fallback. Both new managed branches start from7d902; E/W and old worktrees stay preserved. Exact leases and invariants are in those Issues and the appended Phase C routing. Verification #526 owns harness guard revision, independent evidence and the later frozen profiles. Integration owns serial graph/config/develop/runtime resources, exact intake, aggregate checks and browser/PDF correctness windows. Unit success is not performance or PDF acceptance.
+
+Canonical old Word/model performance leases are RETURNED; raw copies remain unchanged. No identical heavy failure is retried. Next profiles require immutable repaired sources, reviewed guard method and a new finite source-bound Integration lease. No all-author ACK barrier or whole-repository helper checks are added. Matching latest human native-subagent policy sections are persisted in AGENTS.md/workflow after the fixed-source checks; parents remain accountable and helper write scopes are disjoint.
+
+[M1 #528](https://github.com/barocss/barocss-editor/issues/528) and [M2 #529](https://github.com/barocss/barocss-editor/issues/529) now contain the exact proposed runtime/access/durability versus Sheet/Note handoff. Both remain WAIT_M0; no production package, service, migration, new role or runtime is activated by this report.
+
+Primary main034a42c and all four original planning WIP hashes were rechecked unchanged after the checks. Commit author and committer remain easylogic <cyberuls@gmail.com>, no coauthor. No push/PR/deploy, existing DB mutation, unrelated process stop, old backlog/schedule restart, physical IME claim or automatic Issue/Goal closure occurred.
+
+# Historical Phase B — bounded local decision pack v1
 
 **M0 remains OPEN.** All delivered prototype code and independent native correctness checks pass on exact source V `bfda7d531a8e8924219e8b4c7cf6ca71737249d5`, tree `ffb6680184ab3f1020cb5351627742ba3aa8fcc7`. The final aggregate has **0 strict diagnostics and 104/104 native tests passed, 0 failed, 0 skipped**. This is a local bounded source checkpoint, not M0, M1/M2 product, Office interoperability, performance-budget or release acceptance.
 
