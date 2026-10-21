@@ -4,6 +4,10 @@ This slice embeds the existing `@barocss/office-note` `NoteEditor`, `openNoteTre
 history and Note v1 codec. It does not replace the editor or enable held Word Apply, Yorkie,
 native2 adoption, local-model services, or a second task store.
 
+The full Office app enters through `apps/office/src/main.tsx`. This separate test deployment
+enters through `cloud-workspace/main.tsx`: its workspace UI and Worker/D1 adapter are new,
+while the editing model, Note view, history and file codec come from the existing packages.
+
 The UI supports document discovery/search, a new native Note, direct editing, native undo/redo,
 explicit save, reload/reopen, and preserved in-memory drafts during failed or conflicting saves.
 Saved documents use structured complete Note v1 snapshots, not HTML or textarea strings.
@@ -163,6 +167,40 @@ drafts live in memory: retain the page or download the Note file before leaving.
 crash can lose unsaved work; this slice does not claim durable draft recovery. The server
 accepts at most 256 KiB per snapshot and titles up to 120 characters.
 
-Production verification still needs real Sites owner access, unauthenticated denial, trusted
-header handling, D1 save/reopen and deployment/browser screenshots. A controlled local identity
-test is not a substitute for those checks. Physical Korean OS IME and mobile QA are unrun.
+## Recorded source-based deployment (2026-10-21)
+
+When local official packaging cannot complete, the supported fallback is to synchronize the
+exact GitHub source into the separate Sites source checkout with the official source helper,
+retain the root manifest/build overlay above, save that pushed Sites SHA without a local
+archive, and deploy the saved version with the owner-private operation. The hosted builder
+installs from the frozen source lock and runs `npm run build`; the target invokes installed
+Vite with the current Node. This flow succeeded without another manual artifact transfer.
+
+The main task returned this successful deployment receipt; these SHAs identify the deployed
+runtime, independently of subsequent README-only commits:
+
+- URL: https://barocss-cloud-workspace.easylogic2.chatgpt.site
+- GitHub source: `f277123788563119cb9cbac6bac2dca5b7d8c319`
+- Sites source: `692686d7d78621a162006dc3c5b777e48a1c3db0`
+- Saved version: `appgprj_6ad87b804224819184add84f015d82ba~appgver_086d3a3a024c8191b5f096a43f2309c7`
+- Deployment: `appgdep_6ad89a2d10f4819180c706f99af2754f`
+
+Verification scope: full Node 22 preflight exited 0 on `f2771237`, with unchanged budgets and
+the existing documented exceptions. The real empty-PATH build/Worker regression passed on
+Node 22.22.0 and 24.19.0 with identical Worker SHA-256
+`cc29d75ebe14ca1a5d5088a4aeafe14bb9aaefb4b659e6206f23199600240338`.
+The prior CLOUD Chromium suite passed 12 local controlled-identity scenarios; those results
+do not verify hosted identity or D1.
+
+Hosted browser QA was attempted using installed CLOUD Chromium/Playwright, with a fresh
+context and no supplied credentials. Navigation failed before an HTTP response with
+`net::ERR_TUNNEL_CONNECTION_FAILED`; read-only session/document API requests returned DNS
+`EAI_AGAIN` for the same Site host. This is a network verification limit, not evidence of
+anonymous denial. No login, hosted edit/save/reopen, hosted identity separation/conflict check
+or hosted screenshot was obtained. No existing document was modified and no QA document was
+created. No auth bypass, identity-header override or audience change was used.
+
+Production verification still needs an authorized reachable CLOUD browser for real owner
+access, anonymous denial, trusted header handling, D1 save/reopen and UI screenshots. A
+controlled local identity test is not a substitute. Physical Korean OS IME and mobile QA
+remain unrun. Any future hosted write check must use a clearly labelled QA document only.
