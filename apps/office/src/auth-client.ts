@@ -1,7 +1,11 @@
+import { authRouteRequest } from './auth-route';
+import { isNotePageId } from '@barocss/office-note/file';
+import { createTranslator, type Translator } from '@barocss/shared';
+
 export type EntryIntent = 'user' | 'admin' | 'operator';
 export type TenantRole = 'owner' | 'admin' | 'editor' | 'viewer';
 export type TenantAccess = { tenantId: string; name: string; role: TenantRole };
-export type Identity = { issuer: string; subject: string; tenants: TenantAccess[] };
+export type Identity = { issuer: string; subject: string; currentUserId?: string | null; tenants: TenantAccess[] };
 
 type Discovery = {
   issuer: string;
@@ -21,23 +25,47 @@ const issuer = import.meta.env.VITE_OFFICE_OIDC_ISSUER?.replace(/\/$/, '');
 const clientId = import.meta.env.VITE_OFFICE_OIDC_CLIENT_ID;
 let activeSession: Session | null = null;
 let sessionEpoch = 0;
+// Only the private native2 read leases subscribe; ordinary session consumers are unchanged.
+const native2ReadRetirements = new Set<() => void>();
+function retireNative2ReadSessions(): void {
+  for (const retire of [...native2ReadRetirements]) retire();
+}
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type WorkspaceAccess = { id: string; name: string };
-export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; mode: string; revision: number; fileFormat: string; fileVersion: number };
+export type DocumentAccess = { documentId: string; tenantId: string; workspaceId: string; product: 'note' | 'word' | 'slides' | 'site'; title: string; creatorUserId?: string | null; mode: string; revision: number; fileFormat: string; fileVersion: number };
 export type VerifiedNoteContext = { tenantId: string; workspaceId: string; role: TenantRole; authorizedFetch: typeof fetch; documentId?: string; document?: DocumentAccess; snapshotText?: string };
+export type SnapshotProduct = 'note' | 'word' | 'slides' | 'site';
+export type VerifiedSnapshotContext = VerifiedNoteContext & { product: SnapshotProduct };
 export type NoteIntent = { tenantId: string; workspaceId: string; documentId: string };
+export type SnapshotIntent = NoteIntent & { product: SnapshotProduct; projectId?: string; mode?: 'read' | 'edit' };
 
-export function noteIntentFromSearch(search: string): NoteIntent | null {
+export function snapshotIntentFromSearch(search: string): SnapshotIntent | null {
   const params = new URLSearchParams(search);
-  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'document', 'product'].includes(key)) ||
+  const product = params.get('product');
+  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'document', 'product', 'project', 'mode'].includes(key)) ||
     ['tenant', 'workspace', 'document', 'product'].some(key => params.getAll(key).length !== 1) ||
-    params.get('product') !== 'note') return null;
+    (product !== 'note' && product !== 'word' && product !== 'slides' && product !== 'site')) return null;
   const tenantId = params.get('tenant')!, workspaceId = params.get('workspace')!, documentId = params.get('document')!;
-  return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId } : null;
+  const projectId = params.get('project'), mode = params.get('mode');
+  if (params.getAll('project').length > 1 || params.getAll('mode').length > 1 || (projectId !== null && !uuid.test(projectId)) || (mode !== null && mode !== 'read' && mode !== 'edit')) return null;
+  return [tenantId, workspaceId, documentId].every(value => uuid.test(value)) ? { tenantId, workspaceId, documentId, product, ...(projectId ? { projectId } : {}), ...(mode ? { mode } : {}) } : null;
 }
-export function noteIntentSearch(intent: NoteIntent) {
-  return new URLSearchParams({ tenant: intent.tenantId, workspace: intent.workspaceId, document: intent.documentId, product: 'note' }).toString();
+export function projectLocation(search: string) {
+  const params = new URLSearchParams(search), tenant = params.get('tenant'), workspace = params.get('workspace'), project = params.get('project');
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (Array.from(params.keys()).some(key => !['tenant', 'workspace', 'project'].includes(key)) || !tenant || !workspace || !project || ![tenant, workspace, project].every(value => uuid.test(value)) || ['tenant', 'workspace', 'project'].some(key => params.getAll(key).length !== 1)) return null;
+  return { tenant, workspace, project };
 }
+
+
+export function snapshotIntentSearch(intent: SnapshotIntent) {
+  return new URLSearchParams({ tenant: intent.tenantId, workspace: intent.workspaceId, document: intent.documentId, product: intent.product, ...(intent.projectId ? { project: intent.projectId } : {}), ...(intent.mode ? { mode: intent.mode } : {}) }).toString();
+}
+export function noteIntentFromSearch(search: string): NoteIntent | null {
+  const intent = snapshotIntentFromSearch(search);
+  return intent?.product === 'note' ? { tenantId: intent.tenantId, workspaceId: intent.workspaceId, documentId: intent.documentId } : null;
+}
+export function noteIntentSearch(intent: NoteIntent) { return snapshotIntentSearch({ ...intent, product: 'note' }); }
 
 export class AuthError extends Error {
   constructor(public readonly kind: 'cancelled' | 'login' | 'unauthorized' | 'forbidden' | 'unavailable' | 'configuration' | 'collaboration_unavailable', message: string) {
@@ -97,7 +125,8 @@ export async function beginLogin(intent: EntryIntent, forceAccountChoice = false
   const discovery = await discover();
   const state = randomValue();
   const verifier = randomValue();
-  const returnPath = intent === 'user' && noteIntentFromSearch(location.search) ? `/?${noteIntentSearch(noteIntentFromSearch(location.search)!)}` : undefined;
+  const request = intent === 'user' ? authRouteRequest(location.href) : null;
+  const returnPath = request ? location.pathname + location.search + location.hash : undefined;
   sessionStorage.setItem(pendingKey, JSON.stringify({ state, verifier, intent, returnPath } satisfies PendingLogin));
   const url = new URL(discovery.authorization_endpoint);
   url.searchParams.set('response_type', 'code');
@@ -154,9 +183,12 @@ export async function finishLogin(): Promise<EntryIntent> {
     expiresAt: Date.now() + token.expires_in * 1000,
     intent: pending.intent,
   };
+  retireNative2ReadSessions();
   sessionStorage.setItem(resumeKey, pending.intent);
-  if (pending.returnPath?.startsWith('/?') && noteIntentFromSearch(new URL(pending.returnPath, location.origin).search)) {
-    history.replaceState(null, '', pending.returnPath);
+  if (pending.returnPath?.startsWith('/') && !pending.returnPath.startsWith('//')) {
+    // Restore the requested identity only. Normalization waits for server metadata and current access.
+    try { if (authRouteRequest(pending.returnPath)) history.replaceState(null, '', pending.returnPath); }
+    catch { throw new AuthError('configuration', '로그인 이전 자료 주소를 확인할 수 없습니다.'); }
   }
   return pending.intent;
 }
@@ -167,7 +199,7 @@ export function consumeResumeIntent(): EntryIntent | null {
   sessionStorage.removeItem(resumeKey);
   return value === 'user' || value === 'admin' || value === 'operator' ? value : null;
 }
-export function clearSession() { ++sessionEpoch; activeSession = null; sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(resumeKey); }
+export function clearSession() { ++sessionEpoch; activeSession = null; retireNative2ReadSessions(); sessionStorage.removeItem(pendingKey); sessionStorage.removeItem(resumeKey); }
 export function announceLogout() { localStorage.setItem(logoutKey, String(Date.now())); }
 export function isLogoutEvent(event: StorageEvent) { return event.key === logoutKey; }
 export function consumeLogoutReturn() {
@@ -189,11 +221,16 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
   const token = activeSession;
   if (!token || token.expiresAt <= Date.now()) { clearSession(); throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.'); }
   const epoch = sessionEpoch;
+  // Only a deliberate, authenticated execution request waits for the bounded
+  // local inference. All ordinary reads, writes and approval retain 10 seconds.
+  const executionRequest = request.method === 'POST' &&
+    /^\/api\/v1\/tenants\/[0-9a-f-]{36}\/projects\/[0-9a-f-]{36}\/works\/[0-9a-f-]{36}\/execution$/i.test(url.pathname) && !url.search;
+  const timeoutMs = executionRequest ? 610000 : 10000;
   let response: Response;
   try {
     const headers = new Headers(request.headers);
     headers.set('Authorization', `Bearer ${token.accessToken}`);
-    response = await fetch(request, { headers, cache: 'no-store', signal: request.signal.aborted ? request.signal : AbortSignal.any([request.signal, AbortSignal.timeout(10000)]) });
+    response = await fetch(request, { headers, cache: 'no-store', signal: request.signal.aborted ? request.signal : AbortSignal.any([request.signal, AbortSignal.timeout(timeoutMs)]) });
   } catch {
     throw new AuthError('unavailable', '서버에 연결하지 못했습니다. 다시 확인해 주세요.');
   }
@@ -203,8 +240,98 @@ export const authorizedFetch: typeof fetch = async (input, init) => {
   return response;
 };
 
-async function apiGet(path: string): Promise<unknown> {
-  const response = await authorizedFetch(`/api/v1${path}`);
+/** Bind retained work to this exact login generation, including account ABA. */
+export function captureAuthorizedSession(): { requestFetch: typeof fetch; isCurrent: () => boolean } {
+  const token = activeSession, epoch = sessionEpoch;
+  const isCurrent = () => !!token && activeSession === token && sessionEpoch === epoch;
+  const check = () => { if (!isCurrent()) throw new AuthError('cancelled', '계정이 바뀌었습니다. 프로젝트를 다시 여세요.'); };
+  const requestFetch: typeof fetch = async (input, init) => {
+    check(); const response = await authorizedFetch(input, init); check();
+    const decode = response.json.bind(response);
+    response.json = async () => { check(); const value: unknown = await decode(); check(); return value; };
+    return response;
+  };
+  return Object.freeze({ requestFetch, isCurrent });
+}
+export function captureAuthorizedFetch(): typeof fetch { return captureAuthorizedSession().requestFetch; }
+
+const native2ReadUuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const native2DocumentRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/note-native2/documents/${native2ReadUuid}(?:/schema-bundle)?$`);
+const native2AccessRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/access$`);
+const native2WorkspaceRead = new RegExp(`^/api/v1/tenants/${native2ReadUuid}/workspaces$`);
+function native2ReadUrl(url: URL): boolean {
+  if (url.origin !== location.origin || url.username || url.password || url.hash) return false;
+  if (native2DocumentRead.test(url.pathname) || native2AccessRead.test(url.pathname)) return !url.search;
+  if (url.pathname === '/api/v1/me') return !url.search;
+  if (!native2WorkspaceRead.test(url.pathname)) return false;
+  if (!url.search) return true;
+  const query = new URLSearchParams(url.search);
+  return query.size === 1 && query.getAll('after').length === 1 &&
+    new RegExp(`^${native2ReadUuid}$`).test(query.get('after') ?? '');
+}
+
+/** One private, read-only lease for the current memory login; never an editor grant. */
+export function captureNative2ReadSession(): { requestFetch: typeof fetch; isCurrent: () => boolean; retire: () => void; subscribeRetirement: (callback: () => void) => () => void } {
+  const token = activeSession, epoch = sessionEpoch;
+  if (!token || token.expiresAt <= Date.now()) throw new AuthError('unauthorized', '로그인이 만료되었습니다. 다시 로그인해 주세요.');
+  let retired = false;
+  const callbacks = new Set<() => void>();
+  let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+  const notify = (callback: () => void) => {
+    // One faulty consumer must not prevent logout or retirement of other leases.
+    try { callback(); } catch { /* The read lifetime is already terminal. */ }
+  };
+  const retire = () => {
+    if (retired) return;
+    retired = true;
+    clearTimeout(expiryTimer);
+    native2ReadRetirements.delete(retire);
+    const pending = [...callbacks];
+    callbacks.clear();
+    for (const callback of pending) notify(callback);
+  };
+  const isCurrent = () => {
+    if (!retired && (activeSession !== token || sessionEpoch !== epoch || token.expiresAt <= Date.now())) retire();
+    return !retired;
+  };
+  const subscribeRetirement = (callback: () => void) => {
+    if (!isCurrent()) { notify(callback); return () => {}; }
+    callbacks.add(callback);
+    return () => { callbacks.delete(callback); };
+  };
+  const awaitExpiry = () => {
+    if (!isCurrent()) return;
+    // Cap long deadlines to the platform timer range; this is not a polling loop.
+    expiryTimer = setTimeout(awaitExpiry, Math.min(token.expiresAt - Date.now(), 2147483647));
+  };
+  native2ReadRetirements.add(retire);
+  awaitExpiry();
+  const check = () => {
+    if (!isCurrent()) throw new AuthError(token.expiresAt <= Date.now() ? 'unauthorized' : 'cancelled',
+      '현재 계정의 읽기 권한이 끝났습니다. 문서를 다시 여세요.');
+  };
+  const requestFetch: typeof fetch = async (input, init) => {
+    check();
+    if (input instanceof Request && input.method !== 'GET') throw new AuthError('configuration', '지원하지 않는 읽기 요청입니다.');
+    const request = new Request(input, { ...init, method: 'GET', cache: 'no-store', redirect: 'error', credentials: 'omit' });
+    const url = new URL(request.url);
+    if ((init?.method && init.method.toUpperCase() !== 'GET') || request.method !== 'GET' || request.body !== null ||
+      request.headers.has('authorization') || request.headers.has('content-length') ||
+      request.headers.has('transfer-encoding') || !native2ReadUrl(url)) {
+      throw new AuthError('configuration', '지원하지 않는 읽기 요청입니다.');
+    }
+    const response = await authorizedFetch(request);
+    check();
+    const readText = response.text.bind(response), readJson = response.json.bind(response);
+    response.text = async () => { check(); const value = await readText(); check(); return value; };
+    response.json = async () => { check(); const value: unknown = await readJson(); check(); return value; };
+    return response;
+  };
+  return Object.freeze({ requestFetch, isCurrent, retire, subscribeRetirement });
+}
+
+async function apiGet(path: string, requestFetch: typeof fetch = authorizedFetch): Promise<unknown> {
+  const response = await requestFetch(`/api/v1${path}`);
   if (!response.ok) throw new AuthError('unavailable', '접근 권한을 확인하지 못했습니다. 다시 확인해 주세요.');
   return response.json();
 }
@@ -226,22 +353,125 @@ export async function listWorkspaces(tenantId: string, after?: string) {
     item => typeof item.id === 'string' && uuid.test(item.id) && typeof item.name === 'string');
 }
 
-export async function listNoteDocuments(tenantId: string, workspaceId: string, after?: string) {
+export async function listSnapshotDocuments(tenantId: string, workspaceId: string, product: SnapshotProduct, after?: string, requestFetch: typeof fetch = authorizedFetch) {
   if (![tenantId, workspaceId, ...(after ? [after] : [])].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 자료함 주소입니다.');
-  const query = new URLSearchParams({ workspaceId, product: 'note' });
+  if (product !== 'note' && product !== 'word' && product !== 'slides' && product !== 'site') throw new AuthError('configuration', '지원하지 않는 제품입니다.');
+  const query = new URLSearchParams({ workspaceId, product });
   if (after) query.set('after', after);
-  return pageOf<DocumentAccess>(await apiGet(`/tenants/${tenantId}/documents?${query}`), 'documents',
+  return pageOf<DocumentAccess>(await apiGet(`/tenants/${tenantId}/documents?${query}`, requestFetch), 'documents',
     item => typeof item.documentId === 'string' && uuid.test(item.documentId) && item.tenantId === tenantId &&
-      item.workspaceId === workspaceId && item.product === 'note' && typeof item.title === 'string' && typeof item.revision === 'number' &&
+      item.workspaceId === workspaceId && item.product === product && typeof item.title === 'string' && typeof item.revision === 'number' &&
       typeof item.mode === 'string' && typeof item.fileFormat === 'string' && typeof item.fileVersion === 'number');
 }
 
-export async function openVerifiedNote(tenantId: string, workspaceId: string, documentId: string, role: TenantRole): Promise<VerifiedNoteContext> {
+/** Authorized service heads only. Listing Site does not enable a native Site host. */
+export type CatalogDocumentHead = DocumentAccess & {
+  mode: 'snapshot' | 'initializing' | 'collaborative';
+  metadataRevision: number;
+  pageId: string | null;
+  documentKey: string;
+  snapshotHash: string;
+};
+export type CatalogDocumentPage = { items: CatalogDocumentHead[]; nextCursor: string | null };
+const catalogPageSize = 50;
+const catalogMaxPages = 100;
+const catalogFormats = { note: 'barocss-note', word: 'barocss-word', slides: 'barocss-slides', site: 'barocss-site' };
+const catalogHeadKeys = ['documentId', 'tenantId', 'workspaceId', 'product', 'title', 'metadataRevision', 'mode', 'pageId', 'documentKey', 'fileFormat', 'fileVersion', 'revision', 'snapshotHash', 'creatorUserId'];
+const catalogRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+const catalogRevision = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+function catalogError(t: Translator): AuthError { return new AuthError('unavailable', t('workspace.catalog.invalidResponse')); }
+function catalogFailure(error: unknown, t: Translator): AuthError {
+  if (!(error instanceof AuthError)) return catalogError(t);
+  if (error.kind === 'unauthorized') return new AuthError(error.kind, t('workspace.catalog.expiredLogin'));
+  if (error.kind === 'forbidden') return new AuthError(error.kind, t('workspace.catalog.denied'));
+  if (error.kind === 'cancelled') return new AuthError(error.kind, t('workspace.catalog.changed'));
+  return error.kind === 'unavailable' ? catalogError(t) : error;
+}
+
+export function readCatalogHead(item: unknown, tenantId: string, workspaceId: string, t: Translator = createTranslator('ko')): CatalogDocumentHead {
+  if (!catalogRecord(item) || Object.keys(item).some(key => !catalogHeadKeys.includes(key)) ||
+      typeof item.documentId !== 'string' || !uuid.test(item.documentId) ||
+      item.tenantId !== tenantId || item.workspaceId !== workspaceId ||
+      typeof item.product !== 'string' || !Object.hasOwn(catalogFormats, item.product) ||
+      (Object.hasOwn(item, 'creatorUserId') && item.creatorUserId !== null &&
+        (typeof item.creatorUserId !== 'string' || !uuid.test(item.creatorUserId))) ||
+      typeof item.title !== 'string' || !item.title.trim() || [...item.title].length > 200 ||
+      !catalogRevision(item.revision) || !catalogRevision(item.metadataRevision) ||
+      !['snapshot', 'initializing', 'collaborative'].includes(item.mode as string) ||
+      item.fileFormat !== catalogFormats[item.product as keyof typeof catalogFormats] ||
+      (item.fileVersion !== 1 && !(['note', 'slides'].includes(item.product) && item.fileVersion === 2)) ||
+      (item.product === 'note' ? (item.fileVersion === 2 ? !isNotePageId(item.pageId)
+        : typeof item.pageId !== 'string' || !uuid.test(item.pageId)) : item.pageId !== null) ||
+      item.documentKey !== `wonffice-${tenantId.toLowerCase()}-${item.documentId.toLowerCase()}` ||
+      typeof item.snapshotHash !== 'string' || !/^[0-9a-f]{64}$/.test(item.snapshotHash)) throw catalogError(t);
+  return { ...item, creatorUserId: Object.hasOwn(item, 'creatorUserId') ? item.creatorUserId : null } as CatalogDocumentHead;
+}
+
+/** Use one captured fetch for every page and its JSON decode. No product filter. */
+export async function listCatalogDocuments(tenantId: string, workspaceId: string, after?: string,
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentPage> {
+  if (![tenantId, workspaceId].every(value => typeof value === 'string' && uuid.test(value)) ||
+    (after !== undefined && (typeof after !== 'string' || !uuid.test(after)))) {
+    throw new AuthError('configuration', t('workspace.catalog.invalidAddress'));
+  }
+  const query = new URLSearchParams({ workspaceId });
+  if (after !== undefined) query.set('after', after);
+  let response: Response;
+  try { response = await requestFetch(`/api/v1/tenants/${tenantId}/documents?${query}`); }
+  catch (error) { throw catalogFailure(error, t); }
+  if (response.status === 401) throw new AuthError('unauthorized', t('workspace.catalog.expiredLogin'));
+  if (response.status === 403) throw new AuthError('forbidden', t('workspace.catalog.denied'));
+  if (!response.ok) throw catalogError(t);
+  let raw: unknown;
+  try { raw = await response.json(); }
+  catch (error) { throw catalogFailure(error, t); }
+  if (!catalogRecord(raw) || Object.keys(raw).some(key => key !== 'documents' && key !== 'nextCursor') ||
+    !Array.isArray(raw.documents) || raw.documents.length > catalogPageSize ||
+    (raw.nextCursor !== null && (typeof raw.nextCursor !== 'string' || !uuid.test(raw.nextCursor)))) throw catalogError(t);
+  const items: CatalogDocumentHead[] = [];
+  let previous = after?.toLowerCase();
+  for (const item of raw.documents) {
+    const head = readCatalogHead(item, tenantId, workspaceId, t);
+    if (previous !== undefined && head.documentId.toLowerCase() <= previous) throw catalogError(t);
+    previous = head.documentId.toLowerCase();
+    items.push(head);
+  }
+  // The fixed service page has 50 heads when another page exists. Its cursor
+  // is the last returned UUID, ordered by the same database UUID comparison.
+  if (raw.nextCursor !== null && (items.length !== catalogPageSize || raw.nextCursor.toLowerCase() !== previous)) throw catalogError(t);
+  return { items, nextCursor: raw.nextCursor as string | null };
+}
+
+/** A failed or bounded-out page never becomes an empty successful catalog. */
+export async function readDocumentCatalog(tenantId: string, workspaceId: string,
+  requestFetch: typeof fetch = captureAuthorizedFetch(), t: Translator = createTranslator('ko')): Promise<CatalogDocumentHead[]> {
+  const items: CatalogDocumentHead[] = [];
+  const seen = new Set<string>();
+  let after: string | undefined;
+  for (let page = 0; page < catalogMaxPages; page++) {
+    const result = await listCatalogDocuments(tenantId, workspaceId, after, requestFetch, t);
+    for (const item of result.items) {
+      const id = item.documentId.toLowerCase();
+      if (seen.has(id)) throw catalogError(t);
+      seen.add(id);
+      items.push(item);
+    }
+    if (result.nextCursor === null) return items;
+    after = result.nextCursor;
+  }
+  throw new AuthError('unavailable', t('workspace.catalog.limitReached'));
+}
+
+export async function openVerifiedSnapshot(tenantId: string, workspaceId: string, documentId: string, role: TenantRole, product: SnapshotProduct, requestFetch: typeof fetch = authorizedFetch): Promise<VerifiedSnapshotContext> {
   if (![tenantId, workspaceId, documentId].every(value => uuid.test(value))) throw new AuthError('configuration', '잘못된 문서 주소입니다.');
-  const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`) as Record<string, unknown>;
+  const data = await apiGet(`/tenants/${tenantId}/documents/${documentId}`, requestFetch) as Record<string, unknown>;
   const head = data?.document as Record<string, unknown> | undefined;
   if (!head || head.documentId !== documentId || head.tenantId !== tenantId || head.workspaceId !== workspaceId ||
-    head.product !== 'note' ||
+    head.product !== product || (product !== 'note' && product !== 'word' && product !== 'slides' && product !== 'site') ||
+    (product === 'note' && (head.fileFormat !== 'barocss-note' || head.fileVersion !== 1)) ||
+    (product === 'word' && (head.fileFormat !== 'barocss-word' || head.fileVersion !== 1 || head.pageId !== null)) ||
+    (product === 'slides' && (head.fileFormat !== 'barocss-slides' || (head.fileVersion !== 1 && head.fileVersion !== 2) || head.pageId !== null)) ||
+    (product === 'site' && (head.fileFormat !== 'barocss-site' || head.fileVersion !== 1 || head.pageId !== null)) ||
     typeof head.revision !== 'number' || typeof head.title !== 'string' || typeof head.fileFormat !== 'string' || typeof head.fileVersion !== 'number') {
     throw new AuthError('forbidden', '선택한 문서의 회사, 자료함 또는 제품이 일치하지 않습니다.');
   }
@@ -254,28 +484,41 @@ export async function openVerifiedNote(tenantId: string, workspaceId: string, do
   if (head.mode !== 'snapshot' || typeof data.snapshotText !== 'string') {
     throw new AuthError('unavailable', '문서 응답을 확인하지 못했습니다. 다시 시도해 주세요.');
   }
-  return { tenantId, workspaceId, documentId, role, document: head as unknown as DocumentAccess,
-    snapshotText: data.snapshotText, authorizedFetch };
+  return { tenantId, workspaceId, documentId, role, product, document: head as unknown as DocumentAccess,
+    snapshotText: data.snapshotText, authorizedFetch: requestFetch };
+}
+
+export function listNoteDocuments(tenantId: string, workspaceId: string, after?: string) {
+  return listSnapshotDocuments(tenantId, workspaceId, 'note', after);
+}
+export function openVerifiedNote(tenantId: string, workspaceId: string, documentId: string, role: TenantRole) {
+  return openVerifiedSnapshot(tenantId, workspaceId, documentId, role, 'note');
 }
 
 const roles = new Set<TenantRole>(['owner', 'admin', 'editor', 'viewer']);
 export async function loadIdentity(): Promise<Identity> {
+  const requestFetch = captureAuthorizedFetch();
   let after: string | null = null;
   const seen = new Set<string>();
   const tenants: TenantAccess[] = [];
   let issuerValue = '';
   let subject = '';
+  let currentUserId: string | null = null;
   for (let page = 0; page < 100; page++) {
-    const data = await apiGet(`/me${after ? `?after=${encodeURIComponent(after)}` : ''}`) as Record<string, unknown>;
+    const data = await apiGet(`/me${after ? `?after=${encodeURIComponent(after)}` : ''}`, requestFetch) as Record<string, unknown>;
     if (typeof data.issuer !== 'string' || typeof data.subject !== 'string' || !Array.isArray(data.tenants) ||
-      (data.nextCursor !== null && typeof data.nextCursor !== 'string')) {
+      (data.nextCursor !== null && typeof data.nextCursor !== 'string') ||
+      (Object.hasOwn(data, 'currentUserId') && data.currentUserId !== null &&
+        (typeof data.currentUserId !== 'string' || !uuid.test(data.currentUserId)))) {
       throw new AuthError('unavailable', '회사 목록 응답을 확인하지 못했습니다.');
     }
-    if (page && (data.issuer !== issuerValue || data.subject !== subject)) {
+    const pageUserId = Object.hasOwn(data, 'currentUserId') ? data.currentUserId as string | null : null;
+    if (page && (data.issuer !== issuerValue || data.subject !== subject || pageUserId !== currentUserId)) {
       throw new AuthError('unauthorized', '계정이 바뀌었습니다. 다시 로그인해 주세요.');
     }
     issuerValue = data.issuer;
     subject = data.subject;
+    currentUserId = pageUserId;
     for (const item of data.tenants) {
       if (!item || typeof item !== 'object') throw new AuthError('unavailable', '회사 목록 응답을 확인하지 못했습니다.');
       const tenant = item as Record<string, unknown>;
@@ -285,7 +528,7 @@ export async function loadIdentity(): Promise<Identity> {
       seen.add(tenant.tenantId);
       tenants.push(tenant as TenantAccess);
     }
-    if (data.nextCursor === null) return { issuer: issuerValue, subject, tenants };
+    if (data.nextCursor === null) return { issuer: issuerValue, subject, currentUserId, tenants };
     if (after === data.nextCursor) throw new AuthError('unavailable', '회사 목록을 끝까지 불러오지 못했습니다.');
     after = data.nextCursor;
   }

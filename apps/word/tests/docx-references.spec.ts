@@ -1,3 +1,4 @@
+import { openWordDocumentAction } from './helpers';
 import { test, expect } from '@playwright/test';
 import { settled, placeCaret } from './helpers';
 
@@ -5,7 +6,7 @@ test('bookmarks and REF fields stay live after download, import, editing, rename
   await page.goto('/?sample=references'); await settled(page);
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
   const original = page.url();
-  await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+  await openWordDocumentAction(page, '문서 작업');
   await page.getByRole('button', { name: 'DOCX 내보내기', exact: true }).click();
   const downloading = page.waitForEvent('download');
   await page.getByRole('dialog', { name: 'DOCX 내보내기', exact: true }).getByRole('button', { name: 'DOCX 다운로드', exact: true }).click();

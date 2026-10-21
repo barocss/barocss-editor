@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dragGesture } from '@barocss/shared';
 import { cn } from './cn';
 import { Icon } from '@barocss/office-icons';
-import { Button, keepsDraftTextAreaEscape } from './controls';
+import { Button, keepsDraftFieldEscape } from './controls';
 import { useMovablePanel } from './movable-panel';
 
 /**
@@ -87,8 +87,12 @@ export function useDismiss<T extends HTMLElement = HTMLDivElement>(
       dismiss.current();
     };
     const onKeyDown = (event: KeyboardEvent): boolean => {
-      if (keepsDraftTextAreaEscape(event)) return false;
+      if (keepsDraftFieldEscape(event)) return false;
       if (layers.at(-1) !== layer || dismissedEvents.has(event) || (event.defaultPrevented && !owns(event.target)) || event.isComposing || event.keyCode === 229 || event.key !== 'Escape') return false;
+      // A native host can also contain a separately portalled modal. Only a
+      // control inside that modal may consume its Escape before the dialog.
+      const modal = event.target instanceof Element ? event.target.closest('[data-office-dialog], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]') : null;
+      if (modal && (!host.current || !modal.contains(host.current))) return false;
       // Editor shortcuts can cancel Escape before this listener. The focused surface still owns it.
       dismissedEvents.add(event);
       event.preventDefault();

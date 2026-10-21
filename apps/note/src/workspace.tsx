@@ -1,9 +1,11 @@
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, ProductMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice } from '@barocss/office-ui';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, PanelHeader, NavigationItem, EmptyState, StatusIndicator, StatusNotice, CommandSearchTrigger } from '@barocss/office-ui';
 import { importNoteExchange, exportNoteExchange, type NoteExchangeFormat } from '@barocss/office-note';
+import { flushSync } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Choice, Icon, TextField, MenuBar, Dialog, IconButton } from '@barocss/office-ui';
-import { documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, type LibraryRow } from '@barocss/shared';
-import { NoteEditor } from '@barocss/office-note/view';
+import { Button, Choice, Icon, TextField, Dialog, IconButton, useOfficeLocale } from '@barocss/office-ui';
+import { documentLocationId, documentLocationURL, documentLocationWorkspace, documentLibrary, LibraryRevisionConflict, registerProductDocumentHost, captureProductNavigation, captureProductReplacementPreparation, assertProductDocumentOpen, type ProductNavigationGuard, type LibraryRow } from '@barocss/shared';
+import { NoteEditor, type NoteInputDelivery } from '@barocss/office-note/view';
+import { useNoteCommandSearch } from './use-note-command-search';
 import { noteLibrary, noteFileText, noteFileName, readNoteFile, openNoteTree, noteTreeOf, type NoteDocument, type NoteSession } from '@barocss/office-note';
 
 import { pageMeta, pageTemplate, normalizeHierarchy, canMovePage, pageInTrash, orderedPages, searchPages, type PageMeta, type PageTemplate, type WorkspacePage } from './workspace-library';
@@ -12,7 +14,7 @@ import { planWorkspaceRestore, readWorkspaceBackup, workspaceBackupText, type Wo
 import { WorkspaceBackupControls } from './workspace-backup-ui';
 type ReferenceItem = { source: string; rowId: string; next?: ReferenceItem };
 type HistoryDestination = { id: string; item?: ReferenceItem };
-const pageInHash = () => { try { return decodeURIComponent(location.hash.slice(1)); } catch { return ''; } };
+const pageInHash = () => { try { return documentLocationId('note') ?? ''; } catch (error) { if (documentLocationWorkspace()) throw error; return ''; } };
 type StoredNote = WorkspacePage & { revision?: number };
 const recoveryLibrary = documentLibrary({ db: 'barocss-note-recovery', store: 'drafts' });
 type UnreadableNote = { id: string; title: string; reason: string; source?: string };
@@ -22,6 +24,7 @@ function loadNotes() {
   return opening ??= (async () => {
     const rows = await noteLibrary.rows();
     if (!rows.length) {
+      if (documentLocationWorkspace()) throw new Error('보관한 원본 노트가 없습니다. 자료함에서 다시 확인하세요.');
       const first = { id: crypto.randomUUID(), document: pageTemplate('meeting', true), meta: pageMeta() };
       first.document.attributes.pageId = first.id;
       const saved = await noteLibrary.keep({ name: first.id, title: first.document.attributes.title, metadata: { ...first.meta } }, noteFileText(first.document), { expectedRevision: null });
@@ -50,6 +53,9 @@ function loadNotes() {
 }
 
 export function Workspace() {
+  const { t } = useOfficeLocale();
+  const inWorkspace = !!documentLocationWorkspace();
+  const [navigationOpen, setNavigationOpen] = useState(!inWorkspace);
   const [panel, setPanel] = useState<'export' | 'page' | 'template' | null>(null);
   const [exchangeFormat, setExchangeFormat] = useState<'json' | NoteExchangeFormat>('json');
   const [notes, setNotes] = useState<StoredNote[]>([]);
@@ -59,10 +65,13 @@ export function Workspace() {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'all' | 'favorites' | 'trash'>('all');
   const [template, setTemplate] = useState<PageTemplate>('blank');
-  const [selected, setSelected] = useState('');
+  const [selected, setSelectedState] = useState('');
+  const selectionEpoch = useRef(0);
+  const setSelected = (id: string) => { selectionEpoch.current++; setSelectedState(id); };
   const [session, setSession] = useState<{ id: string; value: NoteSession; generation: number }>();
   const [navigationRequest, setNavigationRequest] = useState<{ mode: 'find' | 'outline'; id: number; pageId: string }>();
   const openNavigation = (mode: 'find' | 'outline') => setNavigationRequest(previous => ({ mode, id: (previous?.id ?? 0) + 1, pageId: selected }));
+
   const [ready, setReady] = useState(false);
   const [problem, setProblem] = useState('');
   const [draftsProblem, setDraftsProblem] = useState(false);
@@ -88,6 +97,27 @@ export function Workspace() {
   const [referenceDestination, setReferenceDestination] = useState<ReferenceItem>();
   const navigationFlushes = useRef(new Set<() => Promise<boolean>>());
   const navigating = useRef(false);
+  const lifetime = useRef({ mounted: true });
+  const snapshotDelivery = useRef<{ session: NonNullable<typeof session>; flush: NoteInputDelivery } | undefined>(undefined);
+  const stagedSession = useRef<{ id: string; value: NoteSession; deliver?: (blocks: unknown[]) => void } | undefined>(undefined);
+  const openingCompletion = useRef<{ id: string; value: NoteSession; current: () => boolean; resolve: (guard: ProductNavigationGuard | false) => void } | undefined>(undefined);
+  useEffect(() => {
+    const owner = { mounted: true }; lifetime.current = owner;
+    return () => { owner.mounted = false; openingCompletion.current?.resolve(false); openingCompletion.current = undefined; stagedSession.current?.value.close(); stagedSession.current = undefined; };
+  }, []);
+  const registerBeforeSnapshot = useCallback((flush: NoteInputDelivery) => {
+    const native = currentSession.current;
+    if (!native || native.id !== selectedPage.current) return () => {};
+    const delivery = { session: native, flush }; snapshotDelivery.current = delivery;
+    window.dispatchEvent(new Event('wonffice:host-change'));
+    const completion = openingCompletion.current;
+    if (completion?.id === native.id && completion.value === native.value) {
+      openingCompletion.current = undefined;
+      const guard = captureProductNavigation();
+      completion.resolve(completion.current() && guard?.isCurrent() && guard.product === 'note' && guard.id === native.id ? guard : false);
+    }
+    return () => { if (snapshotDelivery.current === delivery) snapshotDelivery.current = undefined; };
+  }, [session]);
   const registerBeforeNavigate = useCallback((flush: () => Promise<boolean>) => {
     navigationFlushes.current.add(flush);
     return () => { navigationFlushes.current.delete(flush); };
@@ -101,24 +131,14 @@ export function Workspace() {
     return true;
   };
   const navigatePage = async (id: string, push = true, item?: ReferenceItem, keepSearch = false): Promise<boolean> => {
-    if (!documents.current.has(id) || navigating.current || archiveBusy.current) return false;
-    navigating.current = true;
-    try {
-      if (!await flushNavigation()) return false;
-      setNavigationRequest(undefined);
-      setReferenceDestination(item);
-      setView(pageInTrash(id, metadata.current) ? 'trash' : 'all'); if (!keepSearch) setQuery('');
-      if (push && id !== selected) history.pushState({ noteItem: item }, '', `${location.pathname}${location.search}#${encodeURIComponent(id)}`);
-      setSelected(id);
-      return true;
-    } catch { setProblem('마지막 입력을 저장하지 못해 페이지 이동을 멈췄습니다. 다시 시도하세요.'); return false; }
-    finally { navigating.current = false; }
+    const installed = await openFreshPage(id, push, item, keepSearch);
+    return !!installed || (selectedPage.current === id && pageInTrash(id, metadata.current));
   };
   const navigate = useRef(navigatePage); navigate.current = navigatePage;
   useEffect(() => {
     const move = ({ id, item }: HistoryDestination) => {
       void navigate.current(id, false, item).then(ok => {
-        if (!ok && documents.current.size) history.replaceState(null, '', `${location.pathname}${location.search}#${encodeURIComponent(selectedPage.current)}`);
+        if (!ok && documents.current.size) history.replaceState(null, '', documentLocationURL('note', selectedPage.current));
       });
     };
     moveFromHistory.current = move;
@@ -180,8 +200,35 @@ export function Workspace() {
 
   useEffect(() => {
     let cancelled = false;
-    void loadNotes().then(({ notes: rows, unreadable }) => {
+    const requestedWorkspace = documentLocationWorkspace();
+    let requested: string;
+    try { requested = pageInHash(); }
+    catch (error) { setProblem(error instanceof Error ? error.message : '노트 주소를 확인할 수 없습니다.'); setReady(true); return; }
+    void loadNotes().then(async ({ notes: cachedRows, unreadable }) => {
       if (cancelled) return;
+      // The archive cache is a discovery hint. Refresh only the original this
+      // mounted workspace will install, including a previously cached child.
+      let rows = cachedRows;
+      const initialStates = new Map(rows.map(row => [row.id, row.meta]));
+      const initial = requested && rows.some(row => row.id === requested) && !pageInTrash(requested, initialStates)
+        ? requested : rows.find(row => !pageInTrash(row.id, initialStates))?.id;
+      if (initial) {
+        await assertProductDocumentOpen('note', initial);
+        const fresh = await noteLibrary.read(initial);
+        if (cancelled) return;
+        if (!fresh) throw new Error('보관한 노트를 읽을 수 없습니다.');
+        const parsed = readNoteFile(fresh.text); if ('error' in parsed) throw new Error(parsed.error);
+        const current = { id: initial, document: { ...parsed.document, attributes: { ...parsed.document.attributes, pageId: initial } },
+          meta: pageMeta(fresh.row.metadata, fresh.row.savedAt), revision: fresh.row.revision ?? 0 };
+        rows = rows.some(row => row.id === initial) ? rows.map(row => row.id === initial ? current : row) : [...rows, current];
+      }
+      if (cancelled) return;
+      if (requestedWorkspace) {
+        const states = new Map(rows.map(row => [row.id, row.meta]));
+        if (documentLocationWorkspace() !== requestedWorkspace || pageInHash() !== requested ||
+          !requested || !rows.some(row => row.id === requested) || pageInTrash(requested, states))
+          throw new Error('원본 노트나 주소가 바뀌었습니다. 자료함에서 다시 여세요.');
+      }
       documents.current = new Map(rows.map(row => [row.id, row.document]));
       metadata.current = new Map(rows.map(row => [row.id, row.meta]));
       storageRevisions.current = new Map(rows.map(row => [row.id, row.revision ?? 0]));
@@ -193,7 +240,7 @@ export function Workspace() {
       setSelected(active.some(row => row.id === remembered) ? remembered : active[0]?.id ?? '');
       setProblem('');
       setReady(true);
-    }).catch(error => { if (!cancelled) setProblem(error instanceof Error ? error.message : '노트 보관함을 열 수 없습니다.'); });
+    }).catch(error => { if (!cancelled) { setProblem(error instanceof Error ? error.message : '노트 보관함을 열 수 없습니다.'); if (requestedWorkspace) setReady(true); } });
     return () => { cancelled = true; };
   }, [attempt]);
 
@@ -201,15 +248,17 @@ export function Workspace() {
     if (!selected || selectedTrashed) { setSession(undefined); return; }
     const document = documents.current.get(selected);
     if (!document) return;
-    const one = openNoteTree(document, {
-      onChange: blocks => {
+    const prepared = stagedSession.current?.id === selected ? stagedSession.current : undefined;
+    if (prepared) stagedSession.current = undefined;
+    const deliver = (blocks: unknown[]) => {
         const current = documents.current.get(selected);
         if (!current) return;
         documents.current.set(selected, { ...current, content: blocks });
         showNotes();
         persist(selected);
-      }, after: 150
-    });
+    };
+    const one = prepared?.value ?? openNoteTree(document, { onChange: deliver, after: 150 });
+    if (prepared) prepared.deliver = deliver;
     const changed = () => {
       const tree = noteTreeOf({ getNode: id => one.editor.dataStore.getNode(id) as never }, one.rootId);
       const current = documents.current.get(selected);
@@ -218,7 +267,7 @@ export function Workspace() {
     };
     one.editor.on('editor:content.change' as never, changed);
     setSession({ id: selected, value: one, generation: ++sessionGeneration.current });
-    history.replaceState(history.state, '', `${location.pathname}${location.search}#${encodeURIComponent(selected)}`);
+    if (!prepared) history.replaceState(history.state, '', documentLocationURL('note', selected));
     return () => {
       one.editor.off('editor:content.change' as never, changed);
       one.close();
@@ -323,20 +372,104 @@ export function Workspace() {
       if (deferred) moveFromHistory.current?.(deferred);
     }
   };
+  const captureSource = (intentCurrent = () => true) => {
+    const native = currentSession.current, owner = lifetime.current, id = selectedPage.current, selection = selectionEpoch.current;
+    if (!owner.mounted || !id || (native ? native.id !== id || snapshotDelivery.current?.session !== native : !pageInTrash(id, metadata.current))) return undefined;
+    const rootId = native?.value.editor.getRootId(), root = rootId ? native?.value.editor.dataStore.getNode(rootId) : undefined, epoch = native?.value.editor.dataStore.getDocumentEpoch();
+    const current = () => {
+      try { return owner.mounted && lifetime.current === owner && intentCurrent() && currentSession.current === native && selectedPage.current === id &&
+        selectionEpoch.current === selection && (!native || (snapshotDelivery.current?.session === native && native.value.editor.getRootId() === rootId &&
+        native.value.editor.dataStore.getNode(rootId!) === root && native.value.editor.dataStore.getDocumentEpoch() === epoch)); }
+      catch { return false; }
+    };
+    return { native, current };
+  };
+
+  const commands = useNoteCommandSearch({ captureHost: () => {
+    const native = currentSession.current, owner = lifetime.current, id = selectedPage.current, epoch = selectionEpoch.current;
+    const root = native?.value.editor.getRootId(), documentEpoch = native?.value.editor.dataStore.getDocumentEpoch();
+    const delivery = snapshotDelivery.current;
+    const current = () => owner.mounted && lifetime.current === owner && currentSession.current === native &&
+      selectedPage.current === id && selectionEpoch.current === epoch && native?.value.editor.getRootId() === root &&
+      native?.value.editor.dataStore.getDocumentEpoch() === documentEpoch && snapshotDelivery.current === delivery;
+    if (!native || !delivery || delivery.session !== native || !current()) return undefined;
+    return { flush: delivery.flush, isCurrent: current, capturePrepared: () => captureSource()?.current };
+  } });
+
   const flushArchive = async () => {
-    if (!await flushNavigation()) throw new Error('마지막 입력을 반영하지 못했습니다. 다시 시도하세요.');
-    currentSession.current?.value.flush();
+    const owner = captureSource();
+    if (!owner || !owner.current() || (owner.native && !await snapshotDelivery.current!.flush()) || !owner.current() || !await flushNavigation() || !owner.current())
+      throw new Error('마지막 입력을 반영하지 못했습니다. 다시 시도하세요.');
+    owner.native?.value.flush();
+    if (!owner.current()) throw new Error('현재 노트가 바뀌었습니다. 다시 시도하세요.');
     for (const id of pending.current) persist(id);
     await queue.current;
-    if (pending.current.size) throw new Error('마지막 입력을 보관하지 못했습니다. 저장을 다시 시도한 뒤 진행하세요.');
+    if (!owner.current() || pending.current.size) throw new Error('마지막 입력을 보관하지 못했습니다. 저장을 다시 시도한 뒤 진행하세요.');
+  };
+  const openFreshPage = async (id: string, push = true, item?: ReferenceItem, keepSearch = false,
+    sourceCurrent = () => true, parentCurrent = sourceCurrent, requireNative = false): Promise<ProductNavigationGuard | false> => {
+    const owner = captureSource(() => sourceCurrent() && parentCurrent());
+    if (!owner || !owner.current() || navigating.current || archiveBusy.current || !documents.current.has(id)) return false;
+    if (id === selectedPage.current) return captureProductNavigation() ?? false;
+    navigating.current = true;
+    let candidate: { id: string; value: NoteSession; deliver?: (blocks: unknown[]) => void } | undefined;
+    let installed = false;
+    const preparation = captureProductReplacementPreparation();
+    try {
+      if (!await preparation.prepare() || !owner.current()) return false;
+      await flushArchive(); if (!owner.current()) return false;
+      await assertProductDocumentOpen('note', id); if (!owner.current()) return false;
+      const fresh = await noteLibrary.read(id); if (!owner.current()) return false;
+      if (!fresh) throw new Error('보관한 노트를 읽을 수 없습니다.');
+      const parsed = readNoteFile(fresh.text); if ('error' in parsed) throw new Error(parsed.error);
+      const meta = pageMeta(fresh.row.metadata, fresh.row.savedAt);
+      const document = { ...parsed.document, attributes: { ...parsed.document.attributes, pageId: id } };
+      const trashed = pageInTrash(id, new Map(metadata.current).set(id, meta));
+      if (trashed && requireNative) return false;
+      if (!trashed) candidate = { id, value: openNoteTree(document, { onChange: blocks => candidate?.deliver?.(blocks), after: 150 }) };
+      if (!owner.current()) return false;
+      await assertProductDocumentOpen('note', id); if (!owner.current()) return false;
+      // Source input can change while storage or the target reader waits.
+      if (!await preparation.prepare() || !owner.current()) return false;
+      await flushArchive();
+      if (!owner.current() || !preparation.isPrepared()) return false;
+      if (!candidate) {
+        documents.current.set(id, document); metadata.current.set(id, meta); storageRevisions.current.set(id, fresh.row.revision ?? 0);
+        flushSync(() => { showNotes(); setView('trash'); setSelected(id); setReferenceDestination(item); setNavigationRequest(undefined); });
+        if (push) history.pushState({ noteItem: item }, '', documentLocationURL('note', id));
+        return false;
+      }
+      const target = candidate, mounted = lifetime.current;
+      const completion = new Promise<ProductNavigationGuard | false>(resolve => {
+        openingCompletion.current = { id, value: target.value, current: () => mounted.mounted && lifetime.current === mounted && parentCurrent() &&
+          currentSession.current?.value === target.value && selectedPage.current === id, resolve };
+      });
+      stagedSession.current = target;
+      documents.current.set(id, document); metadata.current.set(id, meta); storageRevisions.current.set(id, fresh.row.revision ?? 0);
+      installed = true;
+      flushSync(() => {
+        setNavigationRequest(undefined); setReferenceDestination(item); setView(pageInTrash(id, metadata.current) ? 'trash' : 'all'); if (!keepSearch) setQuery('');
+        showNotes(); setSelected(id);
+      });
+      const guard = await completion;
+      if (!guard || !guard.isCurrent() || !parentCurrent()) return false;
+      if (push) history.pushState({ noteItem: item }, '', documentLocationURL('note', id));
+      return guard;
+    } catch (error) {
+      if (owner.current()) setProblem(error instanceof Error ? error.message : '마지막 입력을 저장하지 못해 페이지 이동을 멈췄습니다. 다시 시도하세요.');
+      return false;
+    } finally { if (!installed) candidate?.value.close(); navigating.current = false; }
   };
   const hostFlush = useRef(flushArchive); hostFlush.current = flushArchive;
+  const hostOpen = useRef(openFreshPage); hostOpen.current = openFreshPage;
   useEffect(() => {
     if (!ready) return;
-    return registerProductDocumentHost({ product: 'note', id: () => selectedPage.current, beforeNavigate: async () => {
-      try { await hostFlush.current(); return true; } catch { return false; }
-    } });
+    return registerProductDocumentHost({ product: 'note', id: () => snapshotDelivery.current?.session === currentSession.current ? selectedPage.current : '',
+      identityEpoch: () => selectionEpoch.current + sessionGeneration.current, beforeNavigate: async () => {
+        try { await hostFlush.current(); return true; } catch { return false; }
+      }, requestOpen: (id, isCurrent, intentCurrent = () => true) => hostOpen.current(id, false, undefined, false, isCurrent, intentCurrent, true) });
   }, [ready]);
+  useEffect(() => { if (ready) window.dispatchEvent(new Event('wonffice:host-change')); }, [ready, selected, session?.generation]);
   const backupWorkspace = () => withArchive(async () => {
     await flushArchive();
     // Recovery moves draft → durable page → draft deletion. Read drafts first so a concurrent
@@ -456,34 +589,27 @@ export function Workspace() {
     if (!(event.target instanceof Element) || event.target.closest('[data-note-editor], [data-document-navigation], [role="dialog"]')) return;
     event.preventDefault(); openNavigation('find');
   }}>
-      <EditorHeader product="Note" className="nw-header" title={title || '제목 없는 노트'}
-        fallbackNavigation={<ProductMenu product="Note" blocks={[{ id: 'pages', items: [
-          { id: 'template', label: '새 페이지', disabled: !ready },
-          { id: 'open', label: '파일 열기', disabled: !ready },
-          { id: 'export', label: '내보내기', disabled: !ready || !selected }
-        ] }]} onPick={id => { if (id === 'open') picker.current?.click(); else setPanel(id as 'template' | 'export'); }} />}
-        menus={<MenuBar label="노트 메뉴" menus={[
+      <EditorHeader compact product="Note" className="nw-header" title={title || '제목 없는 노트'}
+        menus={<DocumentMenu label="노트 메뉴" icon={<Icon name="disclosed" />} menus={[
           { id: 'file', label: '파일', blocks: [{ id: 'file', items: [
+            { id: 'template', label: '새 페이지', disabled: !ready },
             { id: 'open', label: '파일 열기', disabled: !ready },
             { id: 'export', label: '내보내기', disabled: !ready || !selected }
           ] }] },
-          { id: 'edit', label: '편집', blocks: [{ id: 'edit', items: [
-            { id: 'find', label: '본문 찾기', disabled: !session || selectedTrashed }
-          ] }] },
           { id: 'view', label: '보기', blocks: [{ id: 'view', items: [
-            { id: 'outline', label: '목차', disabled: !session || selectedTrashed }
+            { id: 'page', label: '페이지 설정', disabled: !ready || !selected || selectedTrashed }
           ] }] }
         ]} onPick={id => {
           if (id === 'open') picker.current?.click();
           else if (id === 'export') setPanel('export');
+          else if (id === 'template' || id === 'page') setPanel(id);
           else if (id === 'find' || id === 'outline') openNavigation(id);
-        }} />} actions={<><StatusIndicator data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
-        <Button disabled={!ready || !selected} onClick={() => setPanel('export')}>내보내기</Button>
-        <Button tone="quiet" disabled={!ready || !selected || selectedTrashed} onClick={() => setPanel('page')}>페이지 설정</Button>
+        }} />} actions={<><CommandSearchTrigger hint={t('note.commandSearch.shortcut')} shortcut="Control+Shift+P Meta+Shift+P" iconOnly disabled={!session || selectedTrashed} onClick={() => void commands.openSearch()} />{inWorkspace && <IconButton label={t('workspace.note.manage')} pressed={navigationOpen} onClick={() => setNavigationOpen(open => !open)}><Icon name="workspace-files" /></IconButton>}<StatusIndicator className="office-save-status" quiet={ready && !problem && !draftsProblem && !saving && !conflicts.includes(selected) && !!selected} data-icon-only={ready && !problem && !draftsProblem && !saving && !conflicts.includes(selected) && !!selected || undefined}  title={!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'} data-save-status busy={!problem && !draftsProblem && (!ready || saving)} tone={problem || draftsProblem ? 'danger' : conflicts.includes(selected) ? 'warning' : selected ? 'success' : 'neutral'}>{!ready ? '보관함 여는 중…' : problem || draftsProblem ? '확인이 필요합니다' : saving ? '저장 중…' : conflicts.includes(selected) ? '충돌한 초안 보관됨' : selected ? '저장됨' : '노트를 만들어 시작하세요'}</StatusIndicator>
         <input ref={picker} hidden disabled={!ready} type="file" accept=".json,.md,.markdown,.html,.htm,.csv" aria-label="노트 파일" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importFile(file); }} />
         </>} />
-    <AdaptiveWorkspace className="nw-workspace" panelSides={['navigation']} locationKey={selected}>
-    <WorkspaceSidePanel side="navigation" width={240}>
+    {commands.dialog}
+    <AdaptiveWorkspace className="nw-workspace" enabled={!inWorkspace} panelSides={['navigation']} locationKey={selected}>
+    <WorkspaceSidePanel side="navigation" width={240} hidden={inWorkspace && !navigationOpen}>
     <aside className="nw-sidebar" aria-label="노트 보관함">
       <PanelHeader title="페이지" actions={<IconButton label="새 노트" disabled={!ready} onClick={() => add(pageTemplate(template))}><Icon name="add" size={16} /></IconButton>} />
       <TextField className="nw-search" type="search" ariaLabel="노트 검색" placeholder="제목과 본문 검색" value={query} onChange={setQuery} />
@@ -494,7 +620,7 @@ export function Workspace() {
       </div>
       <Button className="nw-template-action" tone="quiet" disabled={!ready} onClick={() => setPanel('template')}><Icon name="type-page" size={16} />템플릿으로 만들기</Button>
       <nav aria-label="노트 목록" className="nw-list">
-        {visibleRows.map(({ page: note, depth }) => <NavigationItem key={note.id} selected={selected === note.id} leading={<Icon name="type-page" size={16} />} trailing={note.meta.favorite ? <Icon name="favorite" size={12} /> : undefined} data-page-id={note.id} aria-label={note.document.attributes.title || '제목 없는 노트'} data-page-depth={depth} data-page-favorite={note.meta.favorite || undefined} style={{ paddingLeft: 12 + Math.min(depth, 12) * 14 }} aria-current={selected === note.id ? 'page' : undefined} onClick={() => void navigatePage(note.id, true, undefined, true)}>{note.document.attributes.title || '제목 없는 노트'}</NavigationItem>)}
+        {visibleRows.map(({ page: note, depth }) => <NavigationItem key={note.id} selected={selected === note.id} leading={<Icon name="type-page" size={16} />} trailing={note.meta.favorite ? <Icon name="favorite" size={12} /> : undefined} data-page-id={note.id} title={note.document.attributes.title || '제목 없는 노트'} aria-label={note.document.attributes.title || '제목 없는 노트'} data-page-depth={depth} data-page-favorite={note.meta.favorite || undefined} style={{ paddingLeft: 12 + Math.min(depth, 12) * 14 }} aria-current={selected === note.id ? 'page' : undefined} onClick={() => void navigatePage(note.id, true, undefined, true)}>{note.document.attributes.title || '제목 없는 노트'}</NavigationItem>)}
         {!visibleRows.length && <EmptyState title={query ? '검색 결과가 없습니다' : view === 'trash' ? '휴지통이 비어 있습니다' : view === 'favorites' ? '즐겨찾는 페이지가 없습니다' : '첫 노트를 만들어보세요'}
           action={query ? <Button onClick={() => setQuery('')}>검색 지우기</Button> : view === 'all' ? <Button disabled={!ready} onClick={() => add(pageTemplate(template))}>새 노트</Button> : undefined}>
           {query ? '다른 검색어를 입력하거나 검색을 지우세요.' : view === 'favorites' ? '페이지 설정에서 즐겨찾기에 추가하세요.' : view === 'trash' ? '삭제한 페이지는 여기에 보관됩니다.' : '팀의 아이디어와 회의 내용을 한곳에 기록하세요.'}
@@ -541,7 +667,7 @@ export function Workspace() {
           </button>)}</div>
         </details>}
         {!selectedTrashed && <p className="nw-hint">/ 로 블록을 추가하고, [[ 로 다른 페이지를 연결하세요.</p>}
-        {!selectedTrashed && session?.id === selected && <NoteEditor key={session.generation} editor={session.value.editor} rootId={session.value.rootId} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
+        {!selectedTrashed && session?.id === selected && <NoteEditor registerCommandTarget={commands.registerCommandTarget} writeAllowed={!selectedTrashed} key={session.generation} editor={session.value.editor} rootId={session.value.rootId} registerBeforeSnapshot={registerBeforeSnapshot} navigationRequest={navigationRequest?.pageId === selected ? navigationRequest : undefined} pageReferences={{ pages: referencePages, currentPageId: selected, onNavigate: id => navigatePage(id), revealItem: referenceDestination, registerBeforeNavigate }} />}
       </section>}
     </main>
     </AdaptiveWorkspace>

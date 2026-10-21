@@ -8,7 +8,9 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) test(`shared s
   const animation = (selector: string) => page.locator(selector).evaluate(element => getComputedStyle(element).animationName);
   await page.getByRole('button', { name: 'Motion menu', exact: true }).click();
   const menu = page.getByRole('menu'); await expect(menu).toBeVisible();
-  expect(await animation('[data-floating-surface]')).toBe(reducedMotion === 'reduce' ? 'none' : 'ou-surface-enter');
+  expect(await animation('[data-floating-surface]')).toBe(reducedMotion === 'reduce' ? 'none' : 'ou-fade-enter');
+  // A translated parent changes the containing block of nested fixed menus.
+  expect(await menu.evaluate(element => getComputedStyle(element).translate)).toBe('none');
   await page.keyboard.press('Escape'); await expect(menu).toHaveCount(0);
   await page.getByRole('button', { name: 'Motion dialog', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Motion dialog title' });
@@ -19,12 +21,12 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) test(`shared s
   await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: 'Motion peek', exact: true }).click();
   const peek = page.getByRole('dialog', { name: 'Motion peek title' }); await expect(peek).toBeVisible();
-  expect(await animation('.ou-side-peek')).toBe(reducedMotion === 'reduce' ? 'none' : 'ou-surface-enter');
+  expect(await animation('.ou-side-peek')).toBe(reducedMotion === 'reduce' ? 'none' : 'ou-drawer-enter');
   await page.keyboard.press('Escape'); await expect(peek).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Motion peek', exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'Motion hint', exact: true }).hover();
   await expect(page.locator('[data-office-tooltip]')).toBeVisible();
-  expect(await animation('[data-office-tooltip]')).toBe(reducedMotion === 'reduce' ? 'none' : 'ou-surface-enter');
+  expect(await animation('[data-office-tooltip]')).toBe(reducedMotion === 'reduce' ? 'none' : 'ou-fade-enter');
   const events = await page.evaluate(() => (window as any).__officeMotion as string[]);
   if (reducedMotion === 'reduce') {
     expect(events).toEqual([]);

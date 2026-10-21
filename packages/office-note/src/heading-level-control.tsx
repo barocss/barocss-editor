@@ -37,8 +37,11 @@ export function HeadingLevelControl({ editor, selection }: { editor: Editor; sel
     <Button tone="quiet" ariaLabel="문단 및 제목 수준" pressed={open} disabled={busy} onClick={() => setOpen(value => !value)}>
       {NOTE_CONVERSIONS.find(item => item.kind === value)?.label ?? '문단'} <Icon name="open" size={12} />
     </Button>
-    <FloatingSurface open={open} at={hold.current?.getBoundingClientRect() ?? null} portalRoot={hold.current} prefer="below" align="start" variant="menu" role="group" aria-label="문단 유형" ownedElements={[hold]} onDismiss={() => setOpen(false)} className="min-w-36">
-      {options.map(item => <MenuAction key={item.kind} role="button" selected={value === item.kind} disabled={busy || (value !== item.kind && !editor.canExecuteCommand('convertNoteBlock', { nodeId: block.sid, kind: item.kind }))} onClick={() => void apply(item.kind)}>{item.label}</MenuAction>)}
+    <FloatingSurface open={open} at={hold.current?.getBoundingClientRect() ?? null} portalRoot={hold.current} prefer="below" align="start" variant="menu" focusOnOpen aria-label="문단 유형" ownedElements={[hold]} onDismiss={reason => {
+      if (reason === 'escape') hold.current?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+      setOpen(false);
+    }} className="min-w-36">
+      {options.map(item => <MenuAction key={item.kind} selected={value === item.kind} disabled={busy || (value !== item.kind && !editor.canExecuteCommand('convertNoteBlock', { nodeId: block.sid, kind: item.kind }))} onClick={() => void apply(item.kind)}>{item.label}</MenuAction>)}
     </FloatingSurface>
   </div>;
 }

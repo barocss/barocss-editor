@@ -1,24 +1,26 @@
-import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger, RibbonGroup, Button, TaskStatus, TaskStatusRegion, type TaskPhase } from '@barocss/office-ui';
+import { documentLocationWorkspace } from '@barocss/shared';
+import { AdaptiveWorkspace, WorkspaceSidePanel, EditorHeader, DocumentMenu, SecondaryPopup, CommandSearch, CommandSearchTrigger, RibbonGroup, Toolbar, Button, TaskStatus, TaskStatusRegion, useOfficeLocale, type TaskPhase, type MenuBarMenu } from '@barocss/office-ui';
 import {
   FileActions,
-  captureTextSelection,
   LocalDocuments,
   useLocalDocuments,
   SlashMenu,
   useDocumentRevision,
   useEditorRevision,
+  type LocalDocumentActions,
   type DocumentFileActions
 } from '@barocss/office-editor-ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Editor, ModelSelection } from '@barocss/editor-core';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { Editor } from '@barocss/editor-core';
 import { selectedNodeIds } from '@barocss/editor-core';
+import type { SiteRuntime } from './runtime';
 import type { EditorViewDOM } from '@barocss/editor-view-dom';
+import { observeNoteSessionChanges } from '@barocss/office-note';
 import {
   Icon,
   AppChrome,
   AppMain,
   AppShell,
-  MenuBar,
   IconButton,
   fieldKeeps,
   ZoomControl,
@@ -61,8 +63,11 @@ import {
   type StateId
 } from '@barocss/office-site';
 import { Canvas } from './canvas';
+import { resolveWorkspacePageEntry } from './workspace-page-entry';
 
 import { TextSurface } from './text-surface';
+import { ObjectTools } from './object-tools';
+import { useSiteMenuSearch } from './use-site-menu-search';
 import {
   Admin,
   Inspector,
@@ -75,7 +80,7 @@ import {
   type Panel as RailPanel
 } from '@barocss/office-site/ui';
 
-import { DataTable, RowForm, type RegisterBodyFlush } from './data-editor';
+import { DataTable, RowForm, type RegisterBodyFlush, type BodyInputDelivery } from './data-editor';
 import { CodeEditor, type CodeEdit } from './code-editor';
 
 import { Ribbon } from './ribbon';
@@ -245,15 +250,53 @@ function payloadFor(
   return entry.payload;
 }
 
-export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor; view: EditorViewDOM } }) {
+export interface SiteAppLifecycle {
+  beforeSnapshot(): Promise<void>;
+  captureInputIntent(): () => boolean;
+  hasPendingInput(): boolean;
+}
+export interface SiteServerHost {
+  headerActions?: ReactNode;
+  headerNavigation?: ReactNode;
+  navigation?: ReactNode;
+  readOnly: boolean;
+  nativeExport?: { available: boolean };
+  onRuntime(runtime: SiteRuntime, lifecycle: SiteAppLifecycle): void;
+  onPendingInput(pending: boolean): void;
+  onFileAction(action: 'new' | 'open' | 'save' | 'library' | 'export'): void;
+}
+
+export function App({ mount, server }: {
+  mount: (host: HTMLElement) => SiteRuntime;
+  server?: SiteServerHost;
+}) {
+  const { t } = useOfficeLocale();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
-  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM } | null>(null);
+  const serverRef = useRef(server); serverRef.current = server;
+  const [instance, setInstance] = useState<SiteRuntime | null>(null);
+  const lifecycle = useRef<SiteAppLifecycle>({ beforeSnapshot: async () => {}, hasPendingInput: () => false, captureInputIntent: () => () => false });
+  const inputState = useRef({ version: 0, pending: false, code: false, composing: false });
+  const notifyPending = useCallback(() => {
+    const state = inputState.current;
+    serverRef.current?.onPendingInput(state.pending || state.code || state.composing);
+  }, []);
+  const codePending = useCallback((pending: boolean) => {
+    inputState.current.code = pending;
+    notifyPending();
+  }, [notifyPending]);
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
     mounted.current = true;
-    setInstance(mount(host.current));
+    const value = mount(host.current);
+    setInstance(value);
+    serverRef.current?.onRuntime(value, {
+      beforeSnapshot: () => lifecycle.current.beforeSnapshot(),
+      hasPendingInput: () => lifecycle.current.hasPendingInput(),
+      captureInputIntent: () => lifecycle.current.captureInputIntent()
+    });
+    return () => { value.dispose(); mounted.current = false; };
   }, [mount]);
 
   /**
@@ -383,8 +426,33 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * at one: the choice a placement needs is a definition, and only that list can offer one.
    */
   const [panel, setPanel] = useState<RailPanel>('add');
+  const [fullTools, setFullTools] = useState(false);
+  const [narrowWorkspace, setNarrowWorkspace] = useState(false);
+  const panelId = useId();
+  const panelIds = { navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` };
+  const panelMenuActive = useRef(false);
+  const toolsMenuHost = useRef<HTMLSpanElement>(null);
+  const navigationTrigger = useRef<HTMLButtonElement>(null);
+  const inspectorTrigger = useRef<HTMLButtonElement>(null);
+  const restorePanelFocus = (side: 'navigation' | 'inspector') => {
+    const trigger = side === 'navigation' ? navigationTrigger.current : inspectorTrigger.current;
+    if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+  };
+  const [workspacePanels, setWorkspacePanels] = useState<{ navigation: boolean; inspector: boolean; active: 'navigation' | 'inspector' | null }>({ navigation: false, inspector: false, active: null });
+  const navigationOpen = workspacePanels.navigation, detailOpen = workspacePanels.inspector;
+  const setNavigationOpen = (value: boolean | ((open: boolean) => boolean)) => setWorkspacePanels(previous => {
+    const next = typeof value === 'function' ? value(previous.navigation) : value;
+    return { ...previous, navigation: next, ...(narrowWorkspace ? { inspector: false, active: next ? 'navigation' as const : null } : {}) };
+  });
+  const setDetailOpen = (value: boolean | ((open: boolean) => boolean)) => setWorkspacePanels(previous => {
+    const next = typeof value === 'function' ? value(previous.inspector) : value;
+    return { ...previous, inspector: next, ...(narrowWorkspace ? { navigation: false, active: next ? 'inspector' as const : null } : {}) };
+  });
+  const workspaceCompactChanged = useCallback((compact: boolean) => setNarrowWorkspace(compact), []);
+  const [selectedBoard, setSelectedBoard] = useState<BreakpointId>('desktop');
 
   const editor = instance?.editor ?? null;
+  const readOnly = !!server?.readOnly || editor?.isEditable === false;
 
   /**
    * The code block a reader has opened, if any.
@@ -606,6 +674,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * invent one.
    */
   const rowForm = rowOpen;
+  const rowOwner = useRef(rowOpen);
+  rowOwner.current = rowOpen;
+  const closingRow = useRef<object | null>(null);
+  const [rowCloseFailed, setRowCloseFailed] = useState(false);
+  useEffect(() => { setRowCloseFailed(false); }, [rowOpen]);
 
   /*
    * **The bar, built from the document's widths.** One entry per board, so a width a reader adds
@@ -673,6 +746,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             checked:
               item.view === 'preview'
                 ? preview
+                : item.view === 'writing' ? writing
+                : item.view === 'wireframe' ? wireframe
                 : item.view?.startsWith('frames.') && item.view !== 'frames.all'
                   ? shown.some((one) => one.id === item.view!.slice('frames.'.length))
                   : undefined
@@ -685,7 +760,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     // And **`menus` itself**, which was missing: the model changes when the reader moves between
     // 관리 and a page, and a memo that does not list it went on drawing the bar for the place they
     // left. Measured — going in from 관리 kept the two-menu bar.
-    [menus, given, editor, revision, answers, root, page, preview, shown, writing]
+    [menus, given, editor, revision, answers, root, page, preview, shown, writing, wireframe]
   );
 
   /**
@@ -705,16 +780,184 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    * **문서에 대한 사실**이라 패키지가 답한다 — Word 가 `createStarterDocument` 로 답한 것과 같다.
    */
   const files = useRef<DocumentFileActions>(null);
-  const bodyFlushes = useRef(new Set<() => Promise<void>>());
+  const documentMenuHost = useRef<HTMLSpanElement>(null);
+  const recentDocuments = useRef<LocalDocumentActions>(null);
+  const composing = useRef(new Set<EventTarget>());
+  useEffect(() => {
+    const shell = host.current?.closest('.st-shell');
+    if (!shell) return;
+    const start = (event: Event) => { if (event.target) composing.current.add(event.target); for (const check of [...inputWaiters.current]) check(); };
+    const end = (event: Event) => { if (event.target) composing.current.delete(event.target); };
+    shell.addEventListener('compositionstart', start, true); shell.addEventListener('compositionend', end, true);
+    return () => { composing.current.clear(); shell.removeEventListener('compositionstart', start, true); shell.removeEventListener('compositionend', end, true); };
+  }, [instance]);
+  const inputRoot = instance?.editor.getRootId(), inputEpoch = instance?.editor.dataStore.getDocumentEpoch();
+  const inputOwner = useMemo(() => instance ? { instance, root: inputRoot, epoch: inputEpoch } : null,
+    [instance, inputRoot, inputEpoch]);
+  const activeInput = useRef(instance); activeInput.current = instance;
+  const committedInput = useRef<typeof inputOwner>(null);
+  const inputWaiters = useRef(new Set<() => void>());
+  const propertyDelivery = useRef<{ owner: typeof inputOwner; deliver: (isCurrent: () => boolean) => Promise<boolean> } | null>(null);
+  const propertiesReady = useCallback((deliver: ((isCurrent: () => boolean) => Promise<boolean>) | null) => {
+    if (deliver) propertyDelivery.current = { owner: inputOwner, deliver };
+    else if (propertyDelivery.current?.owner === inputOwner) propertyDelivery.current = null;
+    for (const check of [...inputWaiters.current]) check();
+  }, [inputOwner]);
+  useEffect(() => {
+    committedInput.current = inputOwner;
+    for (const check of [...inputWaiters.current]) check();
+    return () => {
+      if (committedInput.current === inputOwner) committedInput.current = null;
+      for (const check of [...inputWaiters.current]) check();
+    };
+  }, [inputOwner]);
+  useEffect(() => {
+    if (!instance) return;
+    const changed = () => { for (const check of [...inputWaiters.current]) check(); };
+    instance.editor.on('editor:content.change', changed);
+    instance.editor.on('editor:editable.change', changed);
+    return () => {
+      instance.editor.off('editor:content.change', changed);
+      instance.editor.off('editor:editable.change', changed);
+      if (activeInput.current === instance) activeInput.current = null;
+      changed();
+    };
+  }, [instance]);
+  const [failedInput, setFailedInput] = useState(false);
+  useEffect(() => { setFailedInput(false); }, [instance]);
+  const frameDelivery = useRef(new Map<(isReady?: () => boolean) => Promise<boolean>, EditorViewDOM>());
+  const retryInput = async () => {
+    if (!instance) return;
+    const root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const owns = () => activeInput.current === instance && pane.current?.isConnected === true &&
+      instance.editor.isEditable && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
+    const failure = instance.commandFailure();
+    const views = new Set([instance.view, ...frameDelivery.current.values()]);
+    const bodies = failure ? [...bodyFlushes.current].filter(body => body.hasFailedInputDeliveryError?.(failure.error)) : [];
+    const correlated = failure && ([...views].some(view => view.hasFailedInputDeliveryError(failure.error)) || bodies.length > 0);
+    for (const view of views) {
+      if (view.hasFailedInputDelivery && (!owns() || !await view.retryInputDelivery(owns) || !owns())) return;
+    }
+    for (const body of bodies) {
+      if (!owns() || !body.retryInputDelivery || !await body.retryInputDelivery(owns) || !owns() ||
+        !body.hasFailedInputDeliveryError?.(failure!.error)) return;
+    }
+    if (failure && (!correlated || !failure.acknowledge(owns))) return;
+    if (owns()) setFailedInput(false);
+  };
+  const [serverNavigationOpen, setServerNavigationOpen] = useState(false);
+  const registerFrameDelivery = useCallback((deliver: (isReady?: () => boolean) => Promise<boolean>, view: EditorViewDOM) => {
+    frameDelivery.current.set(deliver, view); return () => { frameDelivery.current.delete(deliver); };
+  }, []);
+  const bodyFlushes = useRef(new Set<BodyInputDelivery>());
   const registerBodyFlush = useCallback<RegisterBodyFlush>((flush) => {
     bodyFlushes.current.add(flush);
     return () => { bodyFlushes.current.delete(flush); };
   }, []);
+  useEffect(() => {
+    if (!instance) return;
+    const failed = ({ error }: { error: unknown }) => {
+      queueMicrotask(() => {
+        if (activeInput.current !== instance || instance.commandFailure()?.error !== error) return;
+        if ([instance.view, ...frameDelivery.current.values()].some(view => view.hasFailedInputDeliveryError(error)) ||
+          [...bodyFlushes.current].some(body => body.hasFailedInputDeliveryError?.(error))) setFailedInput(true);
+      });
+    };
+    instance.editor.on('error:command', failed);
+    return () => instance.editor.off('error:command', failed);
+  }, [instance]);
   const flushBodies = useCallback(async () => {
-    for (const flush of [...bodyFlushes.current].reverse()) await flush();
-  }, []);
-  const sessionOptions = useMemo(() => editor ? siteSessionOptions(editor, flushBodies) : null, [editor, flushBodies]);
+    if (!instance || composing.current.size) throw new Error('마지막 입력을 완료한 뒤 다시 시도하세요.');
+    const root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const editable = instance.editor.isEditable;
+    const owns = () => activeInput.current === instance && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch &&
+      instance.editor.isEditable === editable && !composing.current.size;
+    // A replacement can notify its host before the new inspector commits.
+    const currentOwner = (owner: typeof inputOwner) => !!owner && owner.instance === instance && owner.root === root && owner.epoch === epoch;
+    const ready = () => currentOwner(committedInput.current) && (!propertyDelivery.current || currentOwner(propertyDelivery.current.owner));
+    if (!ready() && !await new Promise<boolean>(resolve => {
+      const check = () => {
+        if (!owns()) { inputWaiters.current.delete(check); resolve(false); }
+        else if (ready()) { inputWaiters.current.delete(check); resolve(true); }
+      };
+      inputWaiters.current.add(check); check();
+    })) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
+    const properties = propertyDelivery.current;
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && focused.matches('input,textarea,select') && focused.closest('.office-properties') &&
+      pane.current?.closest('.st-shell')?.contains(focused)) focused.blur();
+    if (!owns() || !await instance.view.deliverInput(owns)) { setFailedInput(instance.view.hasFailedInputDelivery); throw new Error('마지막 입력을 반영하지 못했습니다. 현재 입력은 유지합니다.'); }
+    setFailedInput(false);
+    if (properties && (propertyDelivery.current !== properties || !currentOwner(properties.owner) || !await properties.deliver(owns) || !owns() || propertyDelivery.current !== properties)) throw new Error('속성 입력을 반영하지 못했습니다. 다시 시도하세요.');
+    for (const [deliver, view] of [...frameDelivery.current]) {
+      if (!owns() || !await deliver(owns) || !owns()) {
+        setFailedInput(view.hasFailedInputDelivery);
+        throw new Error('페이지의 마지막 입력을 반영하지 못했습니다. 입력을 유지합니다.');
+      }
+    }
+    for (const flush of [...bodyFlushes.current].reverse()) {
+      if (!owns()) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
+      await flush();
+      if (!owns()) throw new Error('문서가 변경되었습니다. 현재 입력은 유지합니다.');
+    }
+  }, [instance]);
+  const closeRow = async () => {
+    if (!instance || !rowOwner.current || closingRow.current) return;
+    const captured = rowOwner.current, root = instance.editor.getRootId(), epoch = instance.editor.dataStore.getDocumentEpoch();
+    const token = {}; closingRow.current = token;
+    const owns = () => rowOwner.current === captured && instance.editor.getRootId() === root && instance.editor.dataStore.getDocumentEpoch() === epoch;
+    try {
+      await flushBodies();
+      if (owns()) { setRowCloseFailed(false); setRowOpen(undefined); }
+    } catch { if (owns()) setRowCloseFailed(true); }
+    finally { if (closingRow.current === token) closingRow.current = null; }
+  };
+  lifecycle.current = {
+    captureInputIntent: () => {
+      const value = instance, owner = inputOwner, version = inputState.current.version;
+      const native = value?.captureInputIntent();
+      const bodies = [...bodyFlushes.current].map(body => ({ body, witness: body.captureInputIntent?.() }));
+      const ownsBodies = () => bodyFlushes.current.size === bodies.length &&
+        bodies.every(({ body, witness }) => bodyFlushes.current.has(body) && !!witness?.());
+      return () => !!value && activeInput.current === value && committedInput.current === owner &&
+        !!native?.() && ownsBodies() && inputState.current.version === version && !inputState.current.pending &&
+        !inputState.current.code && !inputState.current.composing && !composing.current.size;
+    },
+    hasPendingInput: () => inputState.current.pending || inputState.current.code || inputState.current.composing ||
+      !!composing.current.size || [...bodyFlushes.current].some(body => !body.captureInputIntent?.()?.()),
+    beforeSnapshot: async () => {
+      for (let pass = 0; pass < 3; pass++) {
+        if (inputState.current.composing || composing.current.size) throw new Error('Finish composing before saving.');
+        const version = inputState.current.version;
+        await flushBodies();
+        await instance?.flushCommands();
+        if (inputState.current.composing || composing.current.size) throw new Error('Finish composing before saving.');
+        if (version !== inputState.current.version) continue;
+        inputState.current.pending = false;
+        notifyPending();
+        return;
+      }
+      throw new Error('Input changed during flush. Retry with the latest input.');
+    }
+  };
+  const sessionOptions = useMemo(() => editor && !server ? siteSessionOptions(editor, flushBodies) : null, [editor, !!server, flushBodies]);
   const persistence = useLocalDocuments(sessionOptions);
+  const workspaceEntry = documentLocationWorkspace();
+  const workspacePage = useRef('');
+  useEffect(() => {
+    const id = persistence.session.current?.id;
+    if (!workspaceEntry || persistence.status !== 'saved' || !id || workspacePage.current === id) return;
+    workspacePage.current = id;
+    const remembered = sessionStorage.getItem(`wonffice.site-page:${workspaceEntry}:${id}`);
+    const target = resolveWorkspacePageEntry(pages, remembered);
+    setCurrent(target); setAdmin(target ? undefined : 'pages');
+  }, [workspaceEntry, persistence.status, persistence.session, pages]);
+  useEffect(() => {
+    const id = persistence.session.current?.id;
+    const selected = pages.find(one => one.sid === page);
+    if (workspaceEntry && id && !admin && selected?.id && persistence.status === 'saved')
+      sessionStorage.setItem(`wonffice.site-page:${workspaceEntry}:${id}`, selected.id);
+  }, [workspaceEntry, persistence.status, persistence.session, admin, page, pages]);
   useEffect(() => {
     const pending = (event: Event) => {
       if ((event.target as Element | null)?.closest?.('[contenteditable="true"]')) persistence.session.current?.input();
@@ -726,6 +969,25 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       document.removeEventListener('beforeinput', pending, true);
     };
   }, [persistence.session]);
+  useEffect(() => {
+    if (!server || !editor) return;
+    const pending = () => { inputState.current.version++; inputState.current.pending = true; notifyPending(); };
+    const belongs = (event: Event) => !!host.current?.closest('.st-shell')?.contains(event.target as Node);
+    const input = (event: Event) => {
+      if (belongs(event) && (event.target as Element | null)?.closest?.('[contenteditable="true"], input, textarea')) pending();
+    };
+    const start = (event: Event) => { if (belongs(event)) { inputState.current.composing = true; pending(); } };
+    const end = (event: Event) => { if (belongs(event)) { inputState.current.composing = false; pending(); } };
+    const off = observeNoteSessionChanges(editor, pending);
+    document.addEventListener('input', input, true);
+    document.addEventListener('beforeinput', input, true);
+    document.addEventListener('compositionstart', start, true);
+    document.addEventListener('compositionend', end, true);
+    return () => {
+      off(); document.removeEventListener('input', input, true); document.removeEventListener('beforeinput', input, true);
+      document.removeEventListener('compositionstart', start, true); document.removeEventListener('compositionend', end, true);
+    };
+  }, [editor, !!server, notifyPending]);
   const [exportTask, setExportTask] = useState<{ phase: TaskPhase; title: string; description: string }>();
   const [exportRetry, setExportRetry] = useState<() => void>();
   const exportBusy = useRef(false);
@@ -774,11 +1036,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
       }
       switch (entry.view) {
         case 'file.new':
-          return files.current?.create();
+          return serverRef.current ? serverRef.current.onFileAction('new') : files.current?.create();
         case 'file.open':
+          if (serverRef.current) { setServerNavigationOpen(true); return serverRef.current.onFileAction('open'); }
           return files.current?.open();
         case 'file.save':
-          return files.current?.save();
+          return serverRef.current ? serverRef.current.onFileAction('save') : files.current?.save();
         case 'frames.all':
           return setHidden([]);
         case 'preview':
@@ -788,9 +1051,9 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         case 'writing':
           return setWriting((was) => !was);
         case 'rail.components':
-          return setPanel('components');
+          setNavigationOpen(true); return setPanel('components');
         case 'rail.data':
-          return setPanel('data');
+          setNavigationOpen(true); return setPanel('data');
         /*
          * The zoom is a **scale on the plane**, not a scroll — see `viewport.ts` for why that
          * distinction cost a reader their top-left corner once already. So these go through the same
@@ -833,11 +1096,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             const guard = () => { if (exportEditor.current !== editor || editor.getRootId() !== exportRoot) throw new Error('문서가 변경되었습니다. 현재 문서의 파일 메뉴에서 다시 내보내세요.'); };
             guard();
             await flushBodies();
-            await new Promise<void>(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
             guard();
             let downloaded = '';
             const ok = await editor.executeCommand(entry.command!, {
-              ...payload,
+              ...payload, registry: instance?.registry,
               write: ({ pages, files }: {
                 pages: { path: string; file: string; name: string; html: string }[];
                 files?: { file: string; text?: string; bytes?: string; type: string }[];
@@ -868,40 +1130,18 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     [editor, page, root, writing, hidden, widths, controls, view.zoom, plane, shown, flushBodies]
   );
 
-  const [commandOpen, setCommandOpen] = useState(false);
-  const [commandError, setCommandError] = useState('');
-  const [recentCommands, setRecentCommands] = useState<string[]>([]);
-  const searchTarget = useRef<{ documentId: string; root?: string; page?: string; admin: typeof admin; writing: boolean; selection?: ModelSelection } | undefined>(undefined);
   const searchEntries = menus.flatMap(menu => menu.blocks.flatMap(block => block.items.map((entry, index) => ({
     ...entry, id: siteMenuId(menu, block, index), category: menu.label, keywords: entry.command ?? entry.view
   }))));
   const menuItems = bar.flatMap(menu => menu.blocks.flatMap(block => block.items));
-  const searchCommands = searchEntries.map(entry => ({ ...entry,
-    disabled: menuItems.find(item => item.id === entry.id)?.disabled,
-    disabledReason: writing ? '글 고치기 모드 또는 현재 선택에서는 실행할 수 없습니다.' : '현재 페이지 또는 선택한 객체에서는 실행할 수 없습니다.'
-  }));
-  const openCommandSearch = () => {
-    const documentId = editor?.getRootId();
-    if (!editor || !instance || !documentId) return;
-    searchTarget.current = { documentId, root, page, admin, writing,
-      selection: structuredClone(captureTextSelection(editor, instance.view, { allowBlurred: true }) ?? editor.selection ?? undefined) };
-    setCommandError(''); setCommandOpen(true);
-  };
-  const pickSearchCommand = async (id: string) => {
-    const target = searchTarget.current, entry = searchEntries.find(item => item.id === id);
-    if (!editor || !target || !entry) return;
-    if (editor.getRootId() !== target.documentId || root !== target.root || page !== target.page || admin !== target.admin || writing !== target.writing) {
-      setCommandError('문서 또는 편집 화면이 변경되었습니다. 명령을 다시 선택하세요.'); return;
-    }
-    try {
-      if (target.selection) editor.updateSelection({ selection: target.selection, applySelectionToView: true });
-      if (entry.command && !given?.canExecuteCommand(entry.command, payloadFor(entry, root, page) as never)) {
-        setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
-      }
-      if (await runEntry(entry) === false) { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); return; }
-      setRecentCommands(previous => [id, ...previous.filter(value => value !== id)].slice(0, 5));
-    } catch { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); }
-  };
+  const { commandOpen, setCommandOpen, error: commandError, dismiss: dismissCommandError,
+    recentIds: recentCommands, searchCommands, openCommandSearch, pickSearchCommand,
+    prepareSearchCommandPick } = useSiteMenuSearch({
+    editor: editor ?? null, view: instance?.view ?? null, given: given ?? null,
+    context: { root, page, scopeRoot: definition?.sid ?? page, admin, writing, preview, dataset, mode },
+    revision, entries: searchEntries, menuItems,
+    payloadFor: entry => payloadFor(entry, root, page), runEntry
+  });
 
   /**
    * A pick in the menubar, which is `runEntry` with the entry looked up.
@@ -913,11 +1153,19 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
    */
   const onMenu = useCallback(
     (id: string) => {
+      if (id === 'workspace.export') { const owner = serverRef.current; if (owner?.nativeExport?.available) owner.onFileAction('export'); return; }
+      if (id === 'workspace.recent' && serverRef.current) { setServerNavigationOpen(true); return; }
+      if (id === 'workspace.recent') { recentDocuments.current?.open(documentMenuHost.current?.querySelector<HTMLElement>('[data-menu]')); return; }
       const entry = siteMenuEntry(id, menus);
       if (entry) runEntry(entry);
     },
     [runEntry]
   );
+  const nativeExportAvailable = !!editor && !!server?.nativeExport?.available;
+  const documentMenus: MenuBarMenu[] = bar.map(menu => menu.id === 'file' ? { ...menu, blocks: [...menu.blocks.filter(block => block.id !== 'pages'),
+    ...(server ? [{ id: 'native-export', items: [{ id: 'workspace.export', label: t('site.server.export'), icon: 'download' as const, disabled: !nativeExportAvailable }] }] : []),
+    { id: 'original-library', items: [{ id: 'workspace.recent', label: server ? t('site.server.documentActions') : t('document.library.recent'), disabled: !editor || preview }] }
+  ] } : menu);
   /**
    * What the pointer treats as the outermost thing.
    *
@@ -1130,7 +1378,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         event.preventDefault(); runEntry(saving); return;
       }
       // Dialogs keep editing keys and Escape; only document saving crosses this boundary.
-      if ((event.target as Element | null)?.closest?.('[role="dialog"]')) return;
+      if (event.defaultPrevented || (event.target as Element | null)?.closest?.('[role="dialog"], [role="menu"], [role="listbox"], [data-floating-surface]')) return;
       /*
        * Preview first, and without asking whether the reader is typing — in preview they are not,
        * and it is the one state where a reader can be stuck: no overlay, no panel to press, and the
@@ -1285,9 +1533,11 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
 
     const onDown = (event: PointerEvent) => {
       const target = event.target as Element | null;
-      if (!target) return;
+      if (!target || target.closest('[data-floating-surface], [role="dialog"], [role="menu"], [role="listbox"]')) return;
 
       const frame = target.closest('.st-frame');
+      const breakpoint = frame?.getAttribute('data-frame') as BreakpointId | null;
+      if (breakpoint) setSelectedBoard(breakpoint);
       // The chrome is not the document: a press in a field while editing belongs to that field.
       if (!frame && !target.closest('.st-canvas')) return;
 
@@ -1407,82 +1657,30 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
     // `root` is the boards' subject — a page, or the part of a component being edited.
   }, [controls, plane, root]);
 
-  return (
-    <AppShell className="st-shell">
-      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickSearchCommand(id)} />
-      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={() => setCommandError('')} /></TaskStatusRegion>}
-      {/*
-        Two rows, which is what both other products settled on and for the same reason: **what
-        document am I in** and **what can I do to it** are different questions, and a reader who has
-        to find the second among the first reads the whole bar every time.
-
-        Row one is the site — its name, its pages, and how far away the reader is standing. Row two
-        is the tools.
-      */}
-      <AppChrome className="st-chrome">
-        <EditorHeader product="Site" className="st-documentbar"
-          fallbackNavigation={<ProductMenu product="Site" blocks={bar.find(menu => menu.id === 'file')?.blocks ?? []} onPick={onMenu} />}
-          view={editor && !admin ? <>
-            <IconButton
-              label={writing ? '모든 편집으로 돌아갑니다' : '글만 고칩니다 — 배치는 잠깁니다'}
-              /* `IconButton` passes arbitrary attributes through `data`, not as loose props. */
-              data={{ 'writing-toggle': writing ? 'true' : undefined }}
-              pressed={writing}
-              onClick={() => setWriting((one) => !one)}
-            >
-              <Icon name="paragraph" />
-            </IconButton>
-            <IconButton
-              label={wireframe ? '색을 되돌립니다' : '색을 빼고 구조만 봅니다'}
-              data={{ 'wireframe-toggle': wireframe ? 'true' : undefined }}
-              pressed={wireframe}
-              onClick={() => setWireframe((one) => !one)}
-            >
-              <Icon name="outline" />
-            </IconButton>
-            <Button
-              className="st-preview-toggle"
-              data-preview={preview ? 'true' : undefined}
-              pressed={preview}
-              title={preview ? '편집으로 돌아갑니다 (Esc)' : '방문자가 보는 대로 봅니다'}
-              onClick={() => setPreview((one) => !one)}
-            >
-              {preview ? '편집' : '미리보기'}
-            </Button>
-            <ZoomControl
-              zoom={zoom}
-              ladder={SITE_ZOOM_LADDER}
-              onChange={(next) => controls.zoomAt(next)}
-              onFit={onFit}
-              fitLabel="맞춤"
-            /></> : undefined}
-          title={editor ? siteTitle(editor.dataStore as never) || '제목 없는 사이트' : '불러오는 중'}
-          menus={<MenuBar className="st-menubar" label="사이트 메뉴" menus={bar} onPick={onMenu} />}
-          actions={<><CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} /><LocalDocuments persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} />
-          {editor ? <FileActions ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
-          {exportTask && <TaskStatusRegion label="사이트 출력 상태"><TaskStatus title={exportTask.title} phase={exportTask.phase} description={exportTask.description}
-            onDismiss={() => { setExportTask(undefined); setExportRetry(undefined); }}
-            actions={exportTask.phase === 'error' && exportRetry ? <Button onClick={exportRetry}>다시 시도</Button> : undefined} /></TaskStatusRegion>}
-
-        </>} />
-        {!admin && <div className="st-titlebar">
-
-          {/* Editing tools have their own row so document controls remain readable at laptop widths. */}
-          {/**
-            * **Not in 관리**, which is a correctness fault and not only a busy one.
-            *
-            * The strip is 선택/텍스트, eight arrange glyphs, the insert plus, the text group and the
-            * zoom — every one of them about a **block on a canvas**, and 관리 has neither. So a
-            * management screen opened under a full editing toolbar whose controls acted on nothing:
-            * a mode switch for a pointer with no board to point at, and a zoom for a plane that is
-            * not drawn.
-            *
-            * The menubar stays, because 파일 is a document's and belongs on both sides of the door.
-            * 관리 carries its own acts on its own header, which is where a screen of this kind puts
-            * them.
-            */}
-          {editor && !admin ? (
-            <Ribbon
+  const toolOwnerKey = `${editor?.getRootId()}:${root}:${scopeRoot}:${writing}:${preview}:${dataset}:${admin}`;
+  useEffect(() => { setFullTools(false); }, [toolOwnerKey]);
+  const completeTools = editor && !admin ? (
+            <Ribbon key={toolOwnerKey}
+              surface={toolbar => <SecondaryPopup triggerLabel={t('office.header.tools')} label="사이트 모든 도구" open={fullTools} onOpenChange={setFullTools} keepMounted className="st-all-tools-popup" align="start"
+                style={{ maxWidth: `calc(100vw - ${pane.current?.closest('.st-shell')?.getBoundingClientRect().left ?? 0}px - 16px)` }}
+                trigger={changeTools => <span ref={node => {
+                  const trigger = node?.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]') ?? null;
+                  toolsMenuHost.current = node;
+                  navigationTrigger.current = trigger;
+                  inspectorTrigger.current = trigger;
+                }}><DocumentMenu onOpenChange={open => { panelMenuActive.current = open; }} portalContainer={toolsMenuHost} label={t('office.header.panels')} icon={<Icon name="outline" size={16} />} menus={[{
+                  id: 'panels', label: t('office.header.panels'), blocks: [{ id: 'panels', items: [
+                    { id: 'panel.manage', label: t('site.header.management') },
+                    { id: 'panel.navigation', label: '페이지 및 구조', checked: navigationOpen },
+                    { id: 'panel.inspector', label: '자세한 속성', checked: detailOpen },
+                    { id: 'panel.tools', label: t('office.header.tools'), checked: fullTools }
+                  ] }]
+                }]} onPick={id => {
+                  if (id === 'panel.manage') setAdmin('pages');
+                  else if (id === 'panel.navigation') { setNavigationOpen(value => !value); if (navigationOpen) restorePanelFocus('navigation'); }
+                  else if (id === 'panel.inspector') { setDetailOpen(value => !value); if (detailOpen) restorePanelFocus('inspector'); }
+                  else if (id === 'panel.tools') changeTools(!fullTools);
+                }} /></span>}>{toolbar}</SecondaryPopup>}
               editor={given ?? editor}
               mode={mode}
               onMode={setMode}
@@ -1600,11 +1798,51 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           </RibbonGroup>
 
           </Ribbon>
-          ) : null}
-        </div>}
+  ) : null;
+
+  const historyItems = searchEntries.filter(item => item.command === 'undo' || item.command === 'redo');
+
+  return (
+    <AppShell className="st-shell">
+      <CommandSearch open={commandOpen} onOpenChange={setCommandOpen} commands={searchCommands} recentIds={recentCommands} onPickIntent={prepareSearchCommandPick} onPick={id => void pickSearchCommand(id)} />
+      {rowCloseFailed && <TaskStatusRegion label={t('document.input.failed')}><TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button onClick={() => void closeRow()}>{t('document.input.retry')}</Button>} /></TaskStatusRegion>}
+      {failedInput && <TaskStatusRegion label={t('document.input.failed')}><TaskStatus title={t('document.input.failed')} phase="error" description={t('document.input.retained')} actions={<Button onClick={() => void retryInput()}>{t('document.input.retry')}</Button>} /></TaskStatusRegion>}
+      {commandError && <TaskStatusRegion label="명령 실행 상태"><TaskStatus title="명령 실행 실패" phase="error" description={commandError} onDismiss={dismissCommandError} /></TaskStatusRegion>}
+      <AppChrome className="st-chrome">
+        <EditorHeader compact product="Site" className="st-documentbar"
+          fallbackNavigation={server?.headerNavigation}
+          title={editor ? siteTitle(editor.dataStore as never) || '제목 없는 사이트' : '불러오는 중'}
+          menus={<span ref={documentMenuHost} data-native-export-available={nativeExportAvailable || undefined}>{server ? <SecondaryPopup triggerLabel={t('site.server.documentActions')} label={t('site.server.documentActions')} open={serverNavigationOpen} onOpenChange={setServerNavigationOpen} align="start" trigger={() => <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} menuIds={['file']} onPick={onMenu} />}>{server.navigation}</SecondaryPopup> : <DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" />} menus={documentMenus} menuIds={['file']} onPick={onMenu} />}</span>}
+          tools={editor ? <Toolbar variant="compact" className="st-header-tools" label={t('site.header.insertTools')}>
+            {historyItems.map(item => <IconButton key={item.command} label={item.label} preserveFocus
+              disabled={!!menuItems.find(entry => entry.id === item.id)?.disabled}
+              onClick={() => onMenu(item.id)}><Icon name={item.command === 'undo' ? 'undo' : 'redo'} size={16} /></IconButton>)}
+            {!admin && !datasetAt && !preview && <Button tone="quiet" ariaLabel={t('office.header.insert')} onMouseDown={event => event.preventDefault()} disabled={writing || !root}
+              onClick={() => { setAddAt(null); setAdding(true); }}><Icon name="add" size={16} /><span>{t('office.header.insert')}</span></Button>}
+          </Toolbar> : undefined}
+          view={editor && !admin ? <Toolbar variant="compact" className="st-header-tools st-view-tools" label={t('site.header.viewTools')}>
+            {!datasetAt && <>
+              <IconButton className="st-preview-toggle" label={t(preview ? 'site.header.edit' : 'site.header.preview')}
+                data={{ preview: preview ? 'true' : undefined }} pressed={preview} preserveFocus onClick={() => setPreview(one => !one)}>
+                <Icon name={preview ? 'edit' : 'shown'} size={16} />
+              </IconButton>
+              <ZoomControl zoom={zoom} ladder={SITE_ZOOM_LADDER} onChange={next => controls.zoomAt(next)} onFit={onFit} fitLabel="맞춤" />
+            </>}
+          </Toolbar> : undefined}
+          actions={<><div className="st-header-actions">{completeTools}<CommandSearchTrigger disabled={!editor || preview} onClick={openCommandSearch} iconOnly />{!server && <LocalDocuments ref={recentDocuments} showTrigger={false} persistence={persistence} title="최근 사이트" prefix="site" onOpened={documentOpened} iconOnly />}{server?.headerActions}</div>
+
+
+
+        </>} />
+
       </AppChrome>
 
-      <AdaptiveWorkspace className="st-body" enabled={!!editor && !admin}>
+          {editor && !server ? <FileActions showTrigger={false} ref={files} editor={editor} kind={fileKind} beforeSave={flushBodies} beforeReplace={persistence.beforeReplace} onOpened={documentOpened} /> : null}
+          {exportTask && <TaskStatusRegion label="사이트 출력 상태"><TaskStatus title={exportTask.title} phase={exportTask.phase} description={exportTask.description}
+            onDismiss={() => { setExportTask(undefined); setExportRetry(undefined); }}
+            actions={exportTask.phase === 'error' && exportRetry ? <Button onClick={exportRetry}>다시 시도</Button> : undefined} /></TaskStatusRegion>}
+      <AdaptiveWorkspace className="st-body" showPanelControls={false} panelIds={panelIds} restorePanelFocus={restorePanelFocus} enabled={!!editor && !admin} activePanel={workspacePanels.active}
+        onCompactChange={workspaceCompactChanged} onActivePanelChange={side => setWorkspacePanels({ navigation: side === 'navigation', inspector: side === 'inspector', active: side })}>
         {/*
           One rail, several panels — 추가, 구성, 페이지, 컴포넌트, 데이터.
 
@@ -1618,9 +1856,9 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           * 삭제 ends **one** pixel from that edge, so the grip ate the click on every one of them.
           * A boundary belongs to neither side, so it is a sibling of both, sitting where they meet.
           */}
-        {editor && !admin ? <Grip at={railW} onWidth={setRailW} /> : null}
+        {editor && !admin && navigationOpen && !narrowWorkspace ? <Grip at={railW} onWidth={setRailW} /> : null}
         {editor && !admin ? (
-          <WorkspaceSidePanel side="navigation" width={railW}><Rail
+          <WorkspaceSidePanel id={panelIds.navigation} side="navigation" width={railW} className="st-navigation-slot" onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }} hidden={!navigationOpen} inert={!navigationOpen}><Rail
             width={railW}
             editor={given ?? editor}
             panel={panel}
@@ -1708,7 +1946,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
              */
             onFiles={(files, at) => {
               const editor = instance?.editor;
-              if (!editor) return;
+              if (!editor || !editor.isEditable) return;
               const under = document
                 .elementsFromPoint(at.x, at.y)
                 .find((one) => one.hasAttribute('data-bc-sid'));
@@ -1740,6 +1978,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                   <PageFrame
                     key={one.id}
                     editor={instance.editor}
+                    registry={instance.registry}
+                    registerInputDelivery={registerFrameDelivery}
                     breakpoint={one.id}
                     label={definition ? `${definition.name} · ${one.label}` : one.label}
                     width={one.width}
@@ -1765,6 +2005,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                     overlay={(host) => {
                       const overlayRoot = scopeRoot ?? root;
                       return editor && overlayRoot ? (
+                      <>
+                      <ObjectTools editor={given ?? editor} host={host} pageId={overlayRoot} ownerKey={toolOwnerKey} active={!preview && !admin && !dataset && !writing && mode === 'select' && one.id === selectedBoard} portalRoot={pane.current} onDetail={() => setDetailOpen(true)} />
                       <Overlay
                         editor={editor}
                         host={host}
@@ -1804,6 +2046,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                         scope={inside ?? ''}
                         onScope={setScope}
                       />
+                      </>
                       ) : null;
                     }}
                   />
@@ -1822,7 +2065,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             open, and a host that unmounted it would be taking the editor's own view away from it
             while the boards above are still drawing.
           */}
-          <div ref={host} id="editor" hidden />
+          <div ref={host} data-site-native-host hidden />
         </AppMain>
 
         {/*
@@ -1833,8 +2076,12 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
         */}
         {codeEdit && editor ? (
           <CodeEditor
+            key={codeEdit.sid}
             edit={codeEdit}
-            onCommit={(code) => {
+            editable={!readOnly}
+            registerFlush={registerBodyFlush}
+            onPendingChange={codePending}
+            onCommit={async (code, isCurrent) => {
               /*
                * One transaction for the whole session, whatever happened inside. CodeMirror keeps
                * its own history while it is open and the document never hears about it — so a reader
@@ -1842,8 +2089,10 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                */
               const store = editor.dataStore as { getNode: (one: string) => any };
               const run = codeEdit.runSid ? store.getNode(codeEdit.runSid) : undefined;
-              if (!run) return;
-              void editor.executeCommand('replaceText', {
+              if (!run || !editor.isEditable) throw new Error('The code target is no longer editable.');
+              const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+              const accepted = await editor.executeCommand('replaceText', {
+                canApply: () => isCurrent() && editor.isEditable && editor.getRootId() === root && editor.dataStore.getDocumentEpoch() === epoch && store.getNode(codeEdit.runSid!) === run,
                 range: {
                   type: 'range',
                   startNodeId: codeEdit.runSid,
@@ -1853,6 +2102,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
                 },
                 text: code
               });
+              if (!accepted) throw new Error('The code draft was not applied.');
             }}
             onClose={() => {
               setCodeEdit(undefined);
@@ -1879,7 +2129,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           surfaces this suite had were built in a **model** package, drawing their own DOM, and
           installed by nobody.
         */}
-        {editor ? <TextSurface editor={editor} mode={mode} /> : null}
+        {editor ? <TextSurface key={toolOwnerKey} editor={given ?? editor} mode={writing ? 'text' : mode} active={!readOnly && !preview && !admin && !dataset} ownerKey={toolOwnerKey} scope={pane} portalRoot={pane.current} onFullTools={() => setFullTools(true)} /> : null}
 
         {/**
           * And the `/` menu at the caret — the second one, and it is a list.
@@ -1901,7 +2151,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           product's `mode` guard — a page builder's pointer has a select mode where `/` is a
           character, and a body has no such mode. That is now the `active` prop.
         */}
-        {editor ? <SlashMenu editor={editor} active={writing || rowForm ? true : mode === 'text'} /> : null}
+        {editor ? <SlashMenu editor={editor} active={!readOnly && (writing || rowForm ? true : mode === 'text')} /> : null}
 
         {/*
           **No properties panel in the admin.** A panel is about a block, and the admin has none:
@@ -1910,7 +2160,8 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
           *아무것도 선택되지 않았습니다*.
         */}
         {editor && !admin ? (
-          <WorkspaceSidePanel side="inspector" width={280}><Inspector
+          <WorkspaceSidePanel id={panelIds.inspector} side="inspector" width={280} className="st-detail-slot" hidden={!detailOpen} inert={!detailOpen} onBlurCapture={event => { if (panelMenuActive.current || event.currentTarget.hidden || event.currentTarget.inert) event.stopPropagation(); }}><Inspector key={toolOwnerKey}
+            onInputDeliveryReady={propertiesReady}
             editor={given ?? editor}
             writing={writing}
             at={at}
@@ -1956,7 +2207,7 @@ export function App({ mount }: { mount: (host: HTMLElement) => { editor: Editor;
             run={(name, payload) => editor ? editor.executeCommand(name, payload as never) : false}
             revision={revision}
             at={{ sid: rowForm.sid, row: rowForm.row }}
-            onClose={() => setRowOpen(undefined)}
+            onClose={() => void closeRow()}
           />
         ) : null}
       </AdaptiveWorkspace>

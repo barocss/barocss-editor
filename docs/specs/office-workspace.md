@@ -65,3 +65,42 @@ Word–Slides 참조와 Note–Site 본문 복사를 검증했다. 모든 제품
 통합 브라우저 9개 검사, 실제 백업 다운로드/복원 1개, Slides 편집 후 이름 유지 1개가 각각 통과했다. 공통 저장·이동 단위 12개도 통과했다. 통합 호스트 타입 검사와 네 제품을 포함한 생산 빌드가 통과했다. [실행 기록](../../.dev/plans/office-workspace/brief.md)에 명령, 결과, 실제 화면 확인을 기록한다.
 
 현재 결과는 데스크톱 로컬 기본 제품이다. 서버 권한, 공유, 실시간 공동 편집, Site 실제 게시·도메인·폼 수신, 출시 수준의 성능·접근성·실기기 검증은 4–5단계다. 추가 프레임워크와 고급 형식 교환은 후속 범위를 유지한다.
+
+
+## Authenticated Project/My attribution — #468/v2
+
+The authenticated tree reads only the currently authorized Workspace catalog.
+Project groups use existing stable Project IDs and result-placement IDs; each
+placement refers to the same canonical product/document ID and native version.
+All authorized originals remain reachable, including originals with no Project.
+Legacy local folder labels stay literal. `stableFolders` remains `false`; this
+slice does not add arbitrary folder CRUD or slash-derived parents.
+
+My groups distinguish **Created by me**, **Shared in this workspace**, and
+**Creator unknown**. Classification compares the original's immutable
+`creatorUserId` with the fresh verified `/me.currentUserId`. It is attribution
+within current tenant access, not private ownership or a document grant. Missing
+legacy attribution or a missing current internal identity stays Unknown. Project
+links, current actors, titles and old receipts are never used as a backfill.
+
+Tree reads and failures belong to the captured login lease and current
+Workspace/role/person epoch. Old results cannot publish into a new scope.
+Search, product filter, collapsed groups and scroll are scoped to the current
+person and Workspace, independently for Project and My. Native open/create
+publishes its freshly verified identity to the surrounding tree. Verification
+keeps the tree presentation mounted while hiding its old catalog and disabling
+its actions. A same-person successful open retains the tree view and filters.
+A revoked session retires the authenticated frame rather than retaining denied
+titles, child rows or counts.
+
+Project paging validates page shape, UUID ordering, duplicates and cursor
+progress. A continuing page has exactly 50 records and names its last UUID as
+cursor. At the 100-page bound the read fails explicitly; it never returns a
+successful truncated tree. This does not claim one database snapshot across
+separate HTTP requests. If Project reading alone fails, authorized originals
+remain available as a partial catalog; denied or retired authority clears it.
+
+The targeted tests separate controlled UI transport, local native persistence,
+and actual two-user OIDC/API/PostgreSQL evidence. Browser-generated composition
+is not physical OS IME. Local verification does not establish full alpha,
+Yorkie convergence, external deployment or all original #468 acceptance criteria.

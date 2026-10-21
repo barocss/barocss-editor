@@ -38,14 +38,17 @@ export function PropertyPanel({
    * whatever is selected, which it is not.
    */
   action,
-  density = 'inspector'
+  density = 'inspector',
+  header
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
   action?: React.ReactNode;
+  /** Opt-in product composition; the default title/action header stays unchanged. */
+  header?: React.ReactNode;
   /** Comfortable spacing and visible field borders for a full inspector. */
-  density?: 'compact' | 'comfortable' | 'inspector';
+  density?: 'compact' | 'comfortable' | 'inspector' | 'floating';
 }) {
   return (
     <aside
@@ -85,7 +88,7 @@ export function PropertyPanel({
  className
       )}
     >
-      <PanelHeader title={title} actions={action} property />
+      {header === undefined ? <PanelHeader title={title} actions={action} property /> : header}
       {/* No padding here: a section's rule has to reach both edges, so the
           padding belongs to the sections. */}
       <div className="flex flex-col">{children}</div>
@@ -95,6 +98,7 @@ export function PropertyPanel({
 
 /** A property section with independent disclosure and optional reset actions. */
 export function PropertyGroup({
+ groupId,
  label,
  action,
   folded,
@@ -104,6 +108,7 @@ export function PropertyGroup({
   resetLabel,
   children
 }: {
+  groupId?: string;
   label: string;
   action?: React.ReactNode;
   /** The caller owns the reset command and its property scope. */
@@ -119,6 +124,7 @@ export function PropertyGroup({
   return (
     <section
       data-property-group
+      data-property-group-id={groupId}
       className={cn(
         'flex flex-col gap-0.5 px-2 py-2',
  // The rule between sections, and none above the first: a line at the top

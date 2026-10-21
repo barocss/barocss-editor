@@ -47,6 +47,13 @@ import {
   type Handle
 } from './manipulate';
 import { SLIDES_KEYS, keyLabel, matchesKey } from './keymap';
+
+// A menu or floating control owns its keys before the canvas mode does.
+function chromeOwnsKey(event: KeyboardEvent) {
+  return event.defaultPrevented || (event.target instanceof Element && Boolean(event.target.closest(
+    '[data-slides-more-owner], [data-slides-detail], [data-floating-surface], [data-floating-panel], [data-slide-navigation], [role="menu"], [role="listbox"]'
+  )));
+}
 import { boxAt, fromSurface, isContainerType, isSceneType, slideAt } from './selection';
 import {
   addStop,
@@ -460,7 +467,7 @@ export function SelectionOverlay({
    * dragged while the rail was clicked stayed translated by a drag nobody
    * finished, eight hundred pixels from where the document said it was.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     setInside(undefined);
     setDrag(null);
     settleRef.current();
@@ -1111,6 +1118,9 @@ export function SelectionOverlay({
     const paints = paintsOf(node?.attributes as never);
     const paint = paints[paintEdit];
     if (!paint) return;
+    // A genuine canvas gesture owns the next key, rather than the inspector
+    // trigger that opened this paint. Keep menu and field key guards intact.
+    if (layer.current?.isConnected) layer.current.focus({ preventScroll: true });
 
     /**
      * The line is the one that must *not* take the press.
@@ -2245,15 +2255,6 @@ export function SelectionOverlay({
    */
   useEffect(() => {
     if (!cropping) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setCropping(undefined);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [cropping]);
-
-  useEffect(() => {
-    if (!cropping) return;
     const chosen = selectedNodeIds(editor?.selection);
     /**
      * Another box, not *no* box.
@@ -2275,7 +2276,7 @@ export function SelectionOverlay({
   useEffect(() => {
     if (!editing) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || chromeOwnsKey(event)) return;
       setEditing(undefined);
       select([editing]);
     };
@@ -2320,7 +2321,8 @@ export function SelectionOverlay({
        * Escape comes out of a container before it clears the selection, one level
        * further in.
        */
-      if ((event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
+      if (event.defaultPrevented || ((!event.metaKey && !event.ctrlKey) && chromeOwnsKey(event)) ||
+        (event.target as Element | null)?.closest?.('[role="dialog"], [role="alertdialog"]')) return;
       // A compact workspace panel owns Escape before the canvas selection does.
       if (event.key === 'Escape' && (event.target as Element | null)?.closest?.(
         '.office-adaptive-workspace[data-compact] [data-workspace-panel], .office-adaptive-workspace[data-compact] [data-workspace-toggle]'
@@ -2351,9 +2353,9 @@ export function SelectionOverlay({
        * Escape, and the Escape went nowhere.
        */
       const target = event.target as HTMLElement | null;
-      // Navigation tabs own their arrows even while a shape remains selected.
+      // Sidebar and inspector tabs own their arrows while a shape remains selected.
       // Let the tab's key handler run before a nudge can edit the shape.
-      if (target?.closest?.('.sl-sidebar [role="tab"]') &&
+      if (target?.closest?.('.sl-sidebar [role="tab"], .sl-properties [role="tab"]') &&
         (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.key === 'Home' || event.key === 'End')) return;
       if (target?.closest?.('input, textarea, select, [data-timeline], [data-stack-editor]')) return;
       if (target?.closest?.('[data-layer-control]') && !event.metaKey && !event.ctrlKey) return;
@@ -2433,7 +2435,10 @@ export function SelectionOverlay({
 
       if (event.key === 'Escape') {
         event.preventDefault();
+        // Exit this inner canvas mode before clearing its selected picture.
+        // A second bubbling handler would observe our prevented event too late.
         if (drag) { settle(); setDrag(null); return; }
+        if (cropping) { event.stopPropagation(); setCropping(undefined); return; }
         /**
          * Out of the container first, and only then out of the selection.
          *
@@ -2480,6 +2485,7 @@ export function SelectionOverlay({
   }, [
     editor,
     editing,
+    cropping,
     drag,
     settle,
     select,
@@ -2652,6 +2658,8 @@ export function SelectionOverlay({
     <div
       ref={layer}
       className="sl-overlay"
+      tabIndex={-1}
+      data-slide-overlay={slideSid}
       data-editing={editing ? 'true' : undefined}
       data-cropping={cropping ?? undefined}
       style={{

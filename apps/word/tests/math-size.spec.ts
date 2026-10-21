@@ -1,3 +1,4 @@
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { placeCaret, settled } from './helpers';
 
@@ -10,12 +11,13 @@ const source = (page: Page) => page.evaluate(() => JSON.stringify((window as any
 async function open(page: Page) {
   await page.goto('/');
   await placeCaret(page, '.w-paragraph');
-  await page.getByRole('button', { name: '상세 도구', exact: true }).click();
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '삽입', exact: true }).click();
   await page.getByRole('button', { name: '본문 수식', exact: true }).click();
   await page.locator('.w-math-draft .me-input').fill('12345');
   await page.locator('.w-math-draft .me-input').press('Enter');
   await expect(math(page).locator('.katex')).toBeVisible();
+  await setWordWholeTools(page, false);
 }
 async function setSize(page: Page, percent: number) {
   await math(page).click();
@@ -65,7 +67,7 @@ test('document zoom does not multiply stored size or inline editor font size', a
   await setSize(page, 150);
   const font = await size(page), before = await source(page);
   await math(page).dblclick();
-  await page.getByRole('tab', { name: '보기', exact: true }).click();
+  await expect(page.locator('.w-document-header [data-zoom-in]')).toBeVisible();
   await page.locator('[data-zoom-in]').click();
   await expect(page.locator('.w-zoom-frame')).toHaveAttribute('data-zoom', '1.25');
   await expect(page.locator('.w-math-draft .me-input')).toHaveCSS('font-size', `${font}px`);

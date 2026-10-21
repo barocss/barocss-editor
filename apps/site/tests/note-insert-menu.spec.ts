@@ -109,13 +109,17 @@ test('Site row insertion dismisses and reopens without closing the host and its 
   await body.locator('.on-doc > h2').hover();
   const tableAction = menu.locator('[data-note-control="insertTableBlock"]');
   await expect(tableAction).toBeVisible();
+  await tableAction.scrollIntoViewIfNeeded();
   const actionBox = await tableAction.boundingBox();
   if (!actionBox) throw new Error('Site table menu action geometry is missing');
+  expect(actionBox.y + actionBox.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  expect(await tableAction.evaluate(node => { const rect = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); })).toBe(true);
   await page.mouse.move(actionBox.x + actionBox.width / 2, actionBox.y + actionBox.height / 2, { steps: 20 });
   await expect(tableAction).toBeVisible();
   await page.mouse.click(actionBox.x + actionBox.width / 2, actionBox.y + actionBox.height / 2);
   const size = menu.getByRole('gridcell', { name: '3행 2열', exact: true });
   await expect(size).toBeVisible();
+  await size.scrollIntoViewIfNeeded();
   const sizeBox = await size.boundingBox();
   if (!sizeBox) throw new Error('Site table size menu geometry is missing');
   await page.mouse.move(sizeBox.x + sizeBox.width / 2, sizeBox.y + sizeBox.height / 2, { steps: 20 });

@@ -29,10 +29,11 @@ export interface FindPanelProps {
   view: EditorViewDOM;
   open: boolean;
   initialField?: 'find' | 'replace';
+  readOnly?: boolean;
   onClose: () => void;
 }
 
-export function FindPanel({ editor, view, open, onClose, initialField = 'find' }: FindPanelProps) {
+export function FindPanel({ editor, view, open, onClose, initialField = 'find', readOnly = false }: FindPanelProps) {
   const [query, setQuery] = useState('');
   const [replacement, setReplacement] = useState('');
   const [caseSensitive, setCaseSensitive] = useState(false);
@@ -143,8 +144,8 @@ export function FindPanel({ editor, view, open, onClose, initialField = 'find' }
   }, [view, current, query, caseSensitive, wholeWord, open]);
 
   useEffect(() => {
-    if (open) (initialField === 'replace' ? replacementField : field).current?.focus();
-  }, [open, initialField]);
+    if (open) (!readOnly && initialField === 'replace' ? replacementField : field).current?.focus();
+  }, [open, initialField, readOnly]);
 
   const go = useCallback(
     (direction: 1 | -1) => setCurrent((index) => step(matches.length, index, direction)),
@@ -153,7 +154,7 @@ export function FindPanel({ editor, view, open, onClose, initialField = 'find' }
 
   const replace = useCallback(async (all: boolean) => {
     const targets = all ? matches : matches[current] ? [matches[current]] : [];
-    if (!targets.length || pending.current) return;
+    if (readOnly || !editor.isEditable || !targets.length || pending.current) return;
     pending.current = true;
     setBusy(true);
     setFeedback(null);
@@ -167,7 +168,7 @@ export function FindPanel({ editor, view, open, onClose, initialField = 'find' }
       pending.current = false;
       setBusy(false);
     }
-  }, [editor, matches, current, replacement]);
+  }, [editor, matches, current, replacement, readOnly]);
 
   if (!open) return null;
 
@@ -190,7 +191,7 @@ export function FindPanel({ editor, view, open, onClose, initialField = 'find' }
           <PropertyToggle ariaLabel="대소문자 구분" label="대소문자 구분" value={caseSensitive} onChange={setCaseSensitive} disabled={busy} />
           <PropertyToggle ariaLabel="단어 단위로" label="단어 단위로" value={wholeWord} onChange={setWholeWord} disabled={busy} />
         </div>
-        <div className="w-find-replace">
+        {!readOnly && editor.isEditable && <div className="w-find-replace">
           <label className="w-find-label">
             <span>바꿀 내용</span>
             <TextField inputRef={replacementField} testClass="w-find-replacement" ariaLabel="바꿀 내용"
@@ -203,7 +204,7 @@ export function FindPanel({ editor, view, open, onClose, initialField = 'find' }
             <Button disabled={busy || current < 0 || !matches.length} onClick={() => void replace(false)}>하나 바꾸기</Button>
             <Button tone="accent" disabled={busy || !matches.length} onClick={() => void replace(true)}>모두 바꾸기</Button>
           </FloatingPanelFooter>
-        </div>
+        </div>}
         {feedback && <StatusNotice tone={feedback.error ? 'danger' : 'success'} title={feedback.message}>
           {feedback.error ? '입력한 내용은 유지됩니다. 바꾸기 버튼으로 다시 시도하세요.' : undefined}
         </StatusNotice>}

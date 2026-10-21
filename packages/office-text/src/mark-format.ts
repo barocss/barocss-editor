@@ -87,6 +87,7 @@ const AS_CSS: Record<string, (attrs: Attrs) => CssStyle> = {
    */
   underline: (attrs) => decorationFor('underline', attrs),
   strikethrough: (attrs) => decorationFor('line-through', attrs),
+  strike: (attrs) => decorationFor('line-through', attrs),
   /*
    * Monospace and a quiet ground — the shape every editor draws inline code as, and the reason it is
    * legible in a proportional paragraph at all.

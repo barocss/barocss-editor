@@ -226,7 +226,46 @@ export type SitePanelControl =
 export type SitePanelTab = 'block' | 'style' | 'data' | 'values' | 'page' | 'text' | 'uses';
 
 /** A row of the site's panel — `office-controls`' shape, with this product's kinds. */
-export type SitePanelRow = PanelRow<SitePanelControl> & { tab: SitePanelTab };
+export type SitePanelGroupId =
+  | 'filter'
+  | 'shadow'
+  | 'text-rhythm'
+  | 'text'
+  | 'content'
+  | 'interaction'
+  | 'data'
+  | 'entrance'
+  | 'list'
+  | 'grouping'
+  | 'background'
+  | 'layout'
+  | 'site'
+  | 'box'
+  | 'typography'
+  | 'selection'
+  | 'open-state'
+  | 'video'
+  | 'position'
+  | 'instance-values'
+  | 'image'
+  | 'transition'
+  | 'title'
+  | 'question'
+  | 'chart'
+  | 'column-bindings'
+  | 'component-variables'
+  | 'code'
+  | 'size'
+  | 'border'
+  | 'page'
+  | 'width'
+  | 'form';
+
+export type SitePanelRow = Omit<PanelRow<SitePanelControl>, 'with'> & {
+  tab: SitePanelTab;
+  groupId: SitePanelGroupId;
+  with?: SitePanelRow[];
+};
 
 /**
  * Every stack: the two node types that arrange what is in them.
@@ -269,7 +308,7 @@ const PLACED = [...STACKS, 'instance'];
  * already made once.
  */
 const PAINT: SitePanelRow[] = [
-  { attr: 'fill', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '배경', ariaLabel: '배경', control: 'colour' },
+  { attr: 'fill', command: 'setBlockFormat', group: '바탕', groupId: 'background', tab: 'style', label: '배경', ariaLabel: '배경', control: 'colour' },
   /**
    * The colour of what is **on** the background — the row directly under it, because it is the same
    * decision made twice.
@@ -283,7 +322,7 @@ const PAINT: SitePanelRow[] = [
    * `colour` control rather than a choice, because a dark band's ink is rarely pure white — the band
    * in the sample wants a faintly green off-white to sit in the same family as its gradient.
    */
-  { attr: 'ink', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '글자', ariaLabel: '블록 안 글자 색', control: 'colour' },
+  { attr: 'ink', command: 'setBlockFormat', group: '바탕', groupId: 'background', tab: 'style', label: '글자', ariaLabel: '블록 안 글자 색', control: 'colour' },
   /**
    * A gradient, as its two ends — the row that turns a flat band into a designed one.
    *
@@ -295,17 +334,17 @@ const PAINT: SitePanelRow[] = [
   {
     attr: 'gradientFrom',
     command: 'setBlockFormat',
-    group: '바탕',
+    group: '바탕', groupId: 'background',
     tab: 'style',
     label: '그라디언트',
     ariaLabel: '그라디언트 시작 색',
     control: 'colour',
     with: [
-      { attr: 'gradientTo', command: 'setBlockFormat', group: '바탕', tab: 'style', label: '끝', ariaLabel: '그라디언트 끝 색', control: 'colour' },
+      { attr: 'gradientTo', command: 'setBlockFormat', group: '바탕', groupId: 'background', tab: 'style', label: '끝', ariaLabel: '그라디언트 끝 색', control: 'colour' },
       {
         attr: 'gradientAngle',
         command: 'setBlockFormat',
-        group: '바탕',
+        group: '바탕', groupId: 'background',
         tab: 'style',
         label: '각도',
         ariaLabel: '그라디언트 각도',
@@ -319,7 +358,7 @@ const PAINT: SitePanelRow[] = [
       {
         attr: 'gradientKind',
         command: 'setBlockFormat',
-        group: '바탕',
+        group: '바탕', groupId: 'background',
         tab: 'style',
         label: '모양',
         ariaLabel: '그라디언트 모양',
@@ -343,7 +382,7 @@ const PAINT: SitePanelRow[] = [
   {
     attr: 'backgroundImage',
     command: 'setBlockFormat',
-    group: '바탕',
+    group: '바탕', groupId: 'background',
     tab: 'style',
     label: '배경 그림',
     ariaLabel: '배경 그림 주소',
@@ -352,7 +391,7 @@ const PAINT: SitePanelRow[] = [
       {
         attr: 'backgroundFit',
         command: 'setBlockFormat',
-        group: '바탕',
+        group: '바탕', groupId: 'background',
         tab: 'style',
         label: '맞춤',
         ariaLabel: '배경 그림 맞춤',
@@ -369,7 +408,7 @@ const PAINT: SitePanelRow[] = [
         // Only the picture fades, never the words on it — see `paint.ts`.
         attr: 'backgroundOpacity',
         command: 'setBlockFormat',
-        group: '바탕',
+        group: '바탕', groupId: 'background',
         tab: 'style',
         label: '진하기',
         ariaLabel: '배경 그림 진하기',
@@ -396,7 +435,7 @@ const PAINT: SitePanelRow[] = [
   {
     attr: 'overlay',
     command: 'setBlockFormat',
-    group: '바탕',
+    group: '바탕', groupId: 'background',
     tab: 'style',
     label: '덮개',
     ariaLabel: '배경 덮개 색',
@@ -406,7 +445,7 @@ const PAINT: SitePanelRow[] = [
       {
         attr: 'overlayOpacity',
         command: 'setBlockFormat',
-        group: '바탕',
+        group: '바탕', groupId: 'background',
         tab: 'style',
         label: '진하기',
         ariaLabel: '배경 덮개 진하기',
@@ -429,15 +468,15 @@ const PAINT: SitePanelRow[] = [
   {
     attr: 'shadowColor',
     command: 'setBlockFormat',
-    group: '그림자',
+    group: '그림자', groupId: 'shadow',
     tab: 'style',
     label: '색',
     ariaLabel: '그림자 색',
     control: 'colour',
     with: [
-      { attr: 'shadowBlur', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '번짐', ariaLabel: '그림자 번짐', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
-      { attr: 'shadowDistance', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '거리', ariaLabel: '그림자 거리', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
-      { attr: 'shadowAngle', command: 'setBlockFormat', group: '그림자', tab: 'style', label: '방향', ariaLabel: '그림자 방향', control: 'number', unit: '°', fallback: 180, min: 0, max: 360, needs: 'shadowColor' }
+      { attr: 'shadowBlur', command: 'setBlockFormat', group: '그림자', groupId: 'shadow', tab: 'style', label: '번짐', ariaLabel: '그림자 번짐', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
+      { attr: 'shadowDistance', command: 'setBlockFormat', group: '그림자', groupId: 'shadow', tab: 'style', label: '거리', ariaLabel: '그림자 거리', control: 'number', unit: 'px', min: 0, needs: 'shadowColor' },
+      { attr: 'shadowAngle', command: 'setBlockFormat', group: '그림자', groupId: 'shadow', tab: 'style', label: '방향', ariaLabel: '그림자 방향', control: 'number', unit: '°', fallback: 180, min: 0, max: 360, needs: 'shadowColor' }
     ]
   }
 ];
@@ -452,6 +491,7 @@ const PAINT: SitePanelRow[] = [
 const pagePaint = (one: SitePanelRow): SitePanelRow => ({
   ...one,
   tab: 'page',
+  groupId: one.groupId,
   on: ['surface'],
   /**
    * **A name of its own**, which `calls no two rows the same thing` is right to insist on: an
@@ -464,16 +504,16 @@ const pagePaint = (one: SitePanelRow): SitePanelRow => ({
    */
   ariaLabel: `페이지 ${one.ariaLabel}`,
   /* A companion is a row too, and it needs the same three answers — see `PanelRow.with`. */
-  with: one.with?.map((each) => pagePaint(each as SitePanelRow))
+  with: one.with?.map((each) => pagePaint(each))
 });
 
 export const SITE_PANEL: SitePanelRow[] = [
   // ── What is selected ───────────────────────────────────────────────────────
-  { attr: 'stype', group: '선택', tab: 'block', label: '종류', ariaLabel: '종류', control: 'static' },
+  { attr: 'stype', group: '선택', groupId: 'selection', tab: 'block', label: '종류', ariaLabel: '종류', control: 'static' },
   {
     attr: 'name',
     command: 'setBlockFormat',
-    group: '선택',
+    group: '선택', groupId: 'selection',
     tab: 'block',
     label: '이름',
     ariaLabel: '이름',
@@ -506,7 +546,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'visible',
     command: 'setBlockFormat',
-    group: '선택',
+    group: '선택', groupId: 'selection',
     tab: 'block',
     label: '보임 · 잠금',
     ariaLabel: '페이지에 보임',
@@ -516,7 +556,7 @@ export const SITE_PANEL: SitePanelRow[] = [
       {
         attr: 'locked',
         command: 'setBlockFormat',
-        group: '선택',
+        group: '선택', groupId: 'selection',
         tab: 'block',
         label: '잠금',
         ariaLabel: '잠금',
@@ -540,7 +580,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'landmark',
     command: 'setBlockFormat',
-    group: '선택',
+    group: '선택', groupId: 'selection',
     tab: 'block',
     label: '역할',
     ariaLabel: '페이지에서의 역할',
@@ -562,13 +602,13 @@ export const SITE_PANEL: SitePanelRow[] = [
       { id: 'footer', label: '꼬리말' }
     ]
   },
-  { attr: 'overrides', group: '선택', tab: 'block', label: '편집 중인 폭', ariaLabel: '편집 중인 폭', control: 'note' },
+  { attr: 'overrides', group: '선택', groupId: 'selection', tab: 'block', label: '편집 중인 폭', ariaLabel: '편집 중인 폭', control: 'note' },
 
   // ── 배치 — a stack, and how it arranges what is in it ──────────────────────
   {
     attr: 'layoutMode',
     command: 'setBlockFormat',
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '방향',
     ariaLabel: '방향',
@@ -591,7 +631,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'columns',
     command: 'setBlockFormat',
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '열',
     ariaLabel: '열',
@@ -627,7 +667,7 @@ export const SITE_PANEL: SitePanelRow[] = [
      * question 방향 and 간격 answer, and a one-row group is a heading a reader reads past. It is kept
      * off every ordinary page by `inside` rather than by the group it is in.
      */
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '내용 자리',
     ariaLabel: '이 부분이 내용 자리입니다',
@@ -639,7 +679,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'gap',
     command: 'setBlockFormat',
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '간격',
     ariaLabel: '간격',
@@ -668,7 +708,7 @@ export const SITE_PANEL: SitePanelRow[] = [
       {
         attr: 'gapCross',
         command: 'setBlockFormat',
-        group: '배치',
+        group: '배치', groupId: 'layout',
         tab: 'block',
         label: '줄 간격',
         ariaLabel: '줄 간격',
@@ -705,7 +745,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'provider',
     command: 'setBlockFormat',
-    group: '넣은 것',
+    group: '넣은 것', groupId: 'content',
     tab: 'block',
     label: '어디',
     ariaLabel: '넣을 곳',
@@ -713,8 +753,8 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: ['mediaEmbed'],
     options: [{ id: '', label: '고르지 않음' }, ...PROVIDERS.map((one) => ({ id: one.id, label: one.label }))]
   },
-  { attr: 'id', command: 'setBlockFormat', group: '넣은 것', tab: 'block', label: '무엇', ariaLabel: '넣을 것의 주소나 id', control: 'text', on: ['mediaEmbed'] },
-  { attr: 'title', command: 'setBlockFormat', group: '넣은 것', tab: 'block', label: '설명', ariaLabel: '넣은 것의 설명', control: 'text', on: ['mediaEmbed'] },
+  { attr: 'id', command: 'setBlockFormat', group: '넣은 것', groupId: 'content', tab: 'block', label: '무엇', ariaLabel: '넣을 것의 주소나 id', control: 'text', on: ['mediaEmbed'] },
+  { attr: 'title', command: 'setBlockFormat', group: '넣은 것', groupId: 'content', tab: 'block', label: '설명', ariaLabel: '넣은 것의 설명', control: 'text', on: ['mediaEmbed'] },
 
   /**
    * **A video**, and the four things a reader decides about one.
@@ -723,12 +763,12 @@ export const SITE_PANEL: SitePanelRow[] = [
    * it. 조작 defaults on and that is the honest default rather than the pretty one — a video a
    * visitor cannot pause is a video they close the tab on.
    */
-  { attr: 'src', command: 'setBlockFormat', group: '영상', tab: 'block', label: '파일', ariaLabel: '영상 파일', control: 'picture', on: ['mediaVideo'] },
-  { attr: 'poster', command: 'setBlockFormat', group: '영상', tab: 'block', label: '표지', ariaLabel: '재생 전 보일 그림', control: 'picture', on: ['mediaVideo'] },
+  { attr: 'src', command: 'setBlockFormat', group: '영상', groupId: 'video', tab: 'block', label: '파일', ariaLabel: '영상 파일', control: 'picture', on: ['mediaVideo'] },
+  { attr: 'poster', command: 'setBlockFormat', group: '영상', groupId: 'video', tab: 'block', label: '표지', ariaLabel: '재생 전 보일 그림', control: 'picture', on: ['mediaVideo'] },
   {
     attr: 'controls',
     command: 'setBlockFormat',
-    group: '영상',
+    group: '영상', groupId: 'video',
     tab: 'block',
     label: '조작 · 소리 없이',
     ariaLabel: '재생 조작 보이기',
@@ -736,15 +776,15 @@ export const SITE_PANEL: SitePanelRow[] = [
     fallback: true,
     on: ['mediaVideo'],
     with: [
-      { attr: 'muted', command: 'setBlockFormat', group: '영상', tab: 'block', label: '소리 없이', ariaLabel: '소리 없이', control: 'toggle', fallback: false, on: ['mediaVideo'] }
+      { attr: 'muted', command: 'setBlockFormat', group: '영상', groupId: 'video', tab: 'block', label: '소리 없이', ariaLabel: '소리 없이', control: 'toggle', fallback: false, on: ['mediaVideo'] }
     ]
   },
-  { attr: 'loop', command: 'setBlockFormat', group: '영상', tab: 'block', label: '반복', ariaLabel: '끝나면 다시', control: 'toggle', fallback: false, on: ['mediaVideo'] },
+  { attr: 'loop', command: 'setBlockFormat', group: '영상', groupId: 'video', tab: 'block', label: '반복', ariaLabel: '끝나면 다시', control: 'toggle', fallback: false, on: ['mediaVideo'] },
 
   {
     attr: 'scrolls',
     command: 'setBlockFormat',
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '가로 스크롤',
     ariaLabel: '가로로 스크롤',
@@ -760,7 +800,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'padding',
     command: 'setBlockFormat',
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '안쪽 여백',
     ariaLabel: '안쪽 여백',
@@ -788,10 +828,10 @@ export const SITE_PANEL: SitePanelRow[] = [
      * form, because a screen reader has the room and no adjacency to read from.
      */
     with: [
-      { attr: 'paddingTop', command: 'setBlockFormat', group: '배치', tab: 'block', label: '상', ariaLabel: '위쪽 여백', icon: 'padding-top', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingRight', command: 'setBlockFormat', group: '배치', tab: 'block', label: '우', ariaLabel: '오른쪽 여백', icon: 'padding-right', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingBottom', command: 'setBlockFormat', group: '배치', tab: 'block', label: '하', ariaLabel: '아래쪽 여백', icon: 'padding-bottom', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'paddingLeft', command: 'setBlockFormat', group: '배치', tab: 'block', label: '좌', ariaLabel: '왼쪽 여백', icon: 'padding-left', control: 'number', unit: 'px', min: 0, on: STACKS }
+      { attr: 'paddingTop', command: 'setBlockFormat', group: '배치', groupId: 'layout', tab: 'block', label: '상', ariaLabel: '위쪽 여백', icon: 'padding-top', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingRight', command: 'setBlockFormat', group: '배치', groupId: 'layout', tab: 'block', label: '우', ariaLabel: '오른쪽 여백', icon: 'padding-right', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingBottom', command: 'setBlockFormat', group: '배치', groupId: 'layout', tab: 'block', label: '하', ariaLabel: '아래쪽 여백', icon: 'padding-bottom', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'paddingLeft', command: 'setBlockFormat', group: '배치', groupId: 'layout', tab: 'block', label: '좌', ariaLabel: '왼쪽 여백', icon: 'padding-left', control: 'number', unit: 'px', min: 0, on: STACKS }
     ]
   },
   /**
@@ -804,7 +844,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'justifyContent',
     command: 'setBlockFormat',
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '분배',
     ariaLabel: '주 축 분배',
@@ -824,7 +864,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'alignItems',
     command: 'setBlockFormat',
-    group: '배치',
+    group: '배치', groupId: 'layout',
     tab: 'block',
     label: '맞춤',
     ariaLabel: '맞춤',
@@ -843,7 +883,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'sizing',
     command: 'setBlockFormat',
-    group: '크기',
+    group: '크기', groupId: 'size',
     tab: 'block',
     label: '폭',
     ariaLabel: '폭',
@@ -879,7 +919,7 @@ export const SITE_PANEL: SitePanelRow[] = [
       {
         attr: 'share',
         command: 'setBlockFormat',
-        group: '크기',
+        group: '크기', groupId: 'size',
         tab: 'block',
         label: '몫',
         ariaLabel: '몫',
@@ -907,7 +947,7 @@ export const SITE_PANEL: SitePanelRow[] = [
       {
         attr: 'order',
         command: 'setBlockFormat',
-        group: '크기',
+        group: '크기', groupId: 'size',
         tab: 'block',
         label: '순서',
         ariaLabel: '놓이는 순서',
@@ -931,7 +971,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'minWidth',
     command: 'setBlockFormat',
-    group: '크기',
+    group: '크기', groupId: 'size',
     tab: 'block',
     label: '폭 범위',
     ariaLabel: '최소 폭',
@@ -940,7 +980,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     min: 0,
     when: { attr: 'position', is: [undefined, '', 'sticky'] },
     with: [
-      { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0 }
+      { attr: 'maxWidth', command: 'setBlockFormat', group: '크기', groupId: 'size', tab: 'block', label: '최대', ariaLabel: '최대 폭', control: 'number', unit: 'px', min: 0 }
     ]
   },
   /*
@@ -957,7 +997,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'minHeight',
     command: 'setBlockFormat',
-    group: '크기',
+    group: '크기', groupId: 'size',
     tab: 'block',
     label: '높이 범위',
     ariaLabel: '최소 높이',
@@ -966,7 +1006,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     min: 0,
     when: { attr: 'position', is: [undefined, '', 'sticky'] },
     with: [
-      { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', tab: 'block', label: '최대', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0 }
+      { attr: 'maxHeight', command: 'setBlockFormat', group: '크기', groupId: 'size', tab: 'block', label: '최대', ariaLabel: '최대 높이', control: 'number', unit: 'px', min: 0 }
     ]
   },
   /**
@@ -983,7 +1023,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'minScreens',
     command: 'setBlockFormat',
-    group: '크기',
+    group: '크기', groupId: 'size',
     tab: 'block',
     label: '화면 높이',
     ariaLabel: '화면 높이',
@@ -1002,7 +1042,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    * Empty is a **fault** the panel reports (`formFaults`) rather than a blank that looks fine — a
    * form with nowhere to send to is identical on screen to one that works.
    */
-  { attr: 'sends', command: 'setBlockFormat', group: '폼', tab: 'block', label: '보낼 곳', ariaLabel: '보낼 곳 연결', control: 'sends', on: ['form'] },
+  { attr: 'sends', command: 'setBlockFormat', group: '폼', groupId: 'form', tab: 'block', label: '보낼 곳', ariaLabel: '보낼 곳 연결', control: 'sends', on: ['form'] },
   /**
    * And **the address that connection points at**, edited from here.
    *
@@ -1012,7 +1052,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    * worth having exactly because one edit reaches every use, and a reader has to be told when they
    * are about to make one.
    */
-  { attr: 'endpoint', of: 'service', command: 'setServiceInfo', group: '폼', tab: 'block', label: '주소', ariaLabel: '연결 주소', control: 'endpoint', on: ['form'] },
+  { attr: 'endpoint', of: 'service', command: 'setServiceInfo', group: '폼', groupId: 'form', tab: 'block', label: '주소', ariaLabel: '연결 주소', control: 'endpoint', on: ['form'] },
   /*
    * And how. `post` for anything a person typed — a `get` puts a visitor's message in the address
    * bar, in their history, and in every log between here and there.
@@ -1021,7 +1061,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'method',
     of: 'service',
     command: 'setServiceInfo',
-    group: '폼',
+    group: '폼', groupId: 'form',
     tab: 'block',
     label: '방식',
     ariaLabel: '보내는 방식',
@@ -1036,13 +1076,13 @@ export const SITE_PANEL: SitePanelRow[] = [
    * the site's design, header and footer are replaced by a stranger's. One hidden field fixes it, and
    * the service's name for that field is on the connection because it is a fact about the service.
    */
-  { attr: 'thanks', command: 'setBlockFormat', group: '폼', tab: 'block', label: '보낸 뒤', ariaLabel: '보낸 뒤 갈 페이지', control: 'thanks', on: ['form'] },
+  { attr: 'thanks', command: 'setBlockFormat', group: '폼', groupId: 'form', tab: 'block', label: '보낸 뒤', ariaLabel: '보낸 뒤 갈 페이지', control: 'thanks', on: ['form'] },
   /*
    * And the two names the service uses for its own hidden fields — written once for the whole site,
    * because they are the service's vocabulary rather than this form's.
    */
-  { attr: 'returnField', of: 'service', command: 'setServiceInfo', group: '폼', tab: 'block', label: '돌아오기 칸', ariaLabel: '돌아올 주소를 담는 칸 이름', control: 'serviceField', on: ['form'] },
-  { attr: 'trapField', of: 'service', command: 'setServiceInfo', group: '폼', tab: 'block', label: '스팸 칸', ariaLabel: '스팸을 거르는 칸 이름', control: 'serviceField', on: ['form'] },
+  { attr: 'returnField', of: 'service', command: 'setServiceInfo', group: '폼', groupId: 'form', tab: 'block', label: '돌아오기 칸', ariaLabel: '돌아올 주소를 담는 칸 이름', control: 'serviceField', on: ['form'] },
+  { attr: 'trapField', of: 'service', command: 'setServiceInfo', group: '폼', groupId: 'form', tab: 'block', label: '스팸 칸', ariaLabel: '스팸을 거르는 칸 이름', control: 'serviceField', on: ['form'] },
 
   // ── 질문 — one field of a form ────────────────────────────────────────────
   /**
@@ -1052,7 +1092,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    * let a reader make by accident, because the alternative everyone reaches for — labelling with the
    * placeholder — takes the question off the screen the moment somebody types in it.
    */
-  { attr: 'label', command: 'setBlockFormat', group: '질문', tab: 'block', label: '이름표', ariaLabel: '질문 이름표', control: 'text', on: ['field'] },
+  { attr: 'label', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '이름표', ariaLabel: '질문 이름표', control: 'text', on: ['field'] },
   /*
    * And which control it is. One row rather than five node types: the difference between a line and
    * an address really is one word, which is the same thing `<input type>` has said since the
@@ -1061,7 +1101,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'kind',
     command: 'setBlockFormat',
-    group: '질문',
+    group: '질문', groupId: 'question',
     tab: 'block',
     label: '종류',
     ariaLabel: '질문 종류',
@@ -1100,7 +1140,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'choices',
     command: 'setBlockFormat',
-    group: '질문',
+    group: '질문', groupId: 'question',
     tab: 'block',
     label: '고를 것',
     ariaLabel: '고를 수 있는 항목',
@@ -1112,20 +1152,20 @@ export const SITE_PANEL: SitePanelRow[] = [
    * And the browser's own validation, which is most of a form feature and costs nothing: it runs with
    * scripts off, in the visitor's own language. `pattern` is deliberately not here — see the schema.
    */
-  { attr: 'min', command: 'setBlockFormat', group: '질문', tab: 'block', label: '최소', ariaLabel: '가장 작은 값', control: 'number', when: { attr: 'kind', is: ['number'] }, on: ['field'] },
-  { attr: 'max', command: 'setBlockFormat', group: '질문', tab: 'block', label: '최대', ariaLabel: '가장 큰 값', control: 'number', when: { attr: 'kind', is: ['number'] }, on: ['field'] },
-  { attr: 'maxLength', command: 'setBlockFormat', group: '질문', tab: 'block', label: '글자 수', ariaLabel: '최대 글자 수', control: 'number', min: 1, when: { attr: 'kind', is: ['text', 'email', 'tel', 'paragraph'] }, on: ['field'] },
+  { attr: 'min', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '최소', ariaLabel: '가장 작은 값', control: 'number', when: { attr: 'kind', is: ['number'] }, on: ['field'] },
+  { attr: 'max', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '최대', ariaLabel: '가장 큰 값', control: 'number', when: { attr: 'kind', is: ['number'] }, on: ['field'] },
+  { attr: 'maxLength', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '글자 수', ariaLabel: '최대 글자 수', control: 'number', min: 1, when: { attr: 'kind', is: ['text', 'email', 'tel', 'paragraph'] }, on: ['field'] },
   /*
    * What the answer arrives **called**, which is what the person reading the messages sees. Not the
    * label: they get `email`, not 이메일 주소. Minted from the label when nobody says.
    */
-  { attr: 'name', command: 'setBlockFormat', group: '질문', tab: 'block', label: '보낼 이름', ariaLabel: '답이 도착할 이름', control: 'text', on: ['field'] },
-  { attr: 'required', command: 'setBlockFormat', group: '질문', tab: 'block', label: '필수', ariaLabel: '반드시 답해야 함', control: 'toggle', on: ['field'] },
+  { attr: 'name', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '보낼 이름', ariaLabel: '답이 도착할 이름', control: 'text', on: ['field'] },
+  { attr: 'required', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '필수', ariaLabel: '반드시 답해야 함', control: 'toggle', on: ['field'] },
   /*
    * The grey words **inside** the box, which are a hint and never the question — see the schema.
    */
-  { attr: 'placeholder', command: 'setBlockFormat', group: '질문', tab: 'block', label: '안내글', ariaLabel: '상자 안 안내글', control: 'text', on: ['field'] },
-  { attr: 'lines', command: 'setBlockFormat', group: '질문', tab: 'block', label: '줄 수', ariaLabel: '보이는 줄 수', control: 'number', min: 1, max: 20, when: { attr: 'kind', is: ['paragraph'] }, on: ['field'] },
+  { attr: 'placeholder', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '안내글', ariaLabel: '상자 안 안내글', control: 'text', on: ['field'] },
+  { attr: 'lines', command: 'setBlockFormat', group: '질문', groupId: 'question', tab: 'block', label: '줄 수', ariaLabel: '보이는 줄 수', control: 'number', min: 1, max: 20, when: { attr: 'kind', is: ['paragraph'] }, on: ['field'] },
 
   // ── 위치 — the category of design a column of boxes could not express ──────
   /**
@@ -1141,7 +1181,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'position',
     command: 'setBlockFormat',
-    group: '위치',
+    group: '위치', groupId: 'position',
     tab: 'block',
     label: '방식',
     ariaLabel: '배치 방식',
@@ -1183,7 +1223,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'insetLeft',
     command: 'setBlockFormat',
-    group: '위치',
+    group: '위치', groupId: 'position',
     tab: 'block',
     label: 'X',
     ariaLabel: '가로 위치',
@@ -1193,13 +1233,13 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: PLACED,
     // Side by side, because X and Y are one decision said twice — the layout every tool draws.
     with: [
-      { attr: 'insetTop', command: 'setBlockFormat', group: '위치', tab: 'block', label: 'Y', ariaLabel: '세로 위치', control: 'number', unit: 'px', on: PLACED }
+      { attr: 'insetTop', command: 'setBlockFormat', group: '위치', groupId: 'position', tab: 'block', label: 'Y', ariaLabel: '세로 위치', control: 'number', unit: 'px', on: PLACED }
     ]
   },
   {
     attr: 'maxWidth',
     command: 'setBlockFormat',
-    group: '위치',
+    group: '위치', groupId: 'position',
     tab: 'block',
     label: 'W',
     ariaLabel: '너비',
@@ -1209,14 +1249,14 @@ export const SITE_PANEL: SitePanelRow[] = [
     when: { attr: 'position', is: ['absolute'] },
     on: PLACED,
     with: [
-      { attr: 'minHeight', command: 'setBlockFormat', group: '위치', tab: 'block', label: 'H', ariaLabel: '높이', control: 'number', unit: 'px', min: 0, on: PLACED }
+      { attr: 'minHeight', command: 'setBlockFormat', group: '위치', groupId: 'position', tab: 'block', label: 'H', ariaLabel: '높이', control: 'number', unit: 'px', min: 0, on: PLACED }
     ]
   },
 
-  { attr: 'insetTop', command: 'setBlockFormat', group: '위치', tab: 'block', label: '위', ariaLabel: '위에서', icon: 'padding-top', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
-  { attr: 'insetRight', command: 'setBlockFormat', group: '위치', tab: 'block', label: '오른쪽', ariaLabel: '오른쪽에서', icon: 'padding-right', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
-  { attr: 'insetBottom', command: 'setBlockFormat', group: '위치', tab: 'block', label: '아래', ariaLabel: '아래에서', icon: 'padding-bottom', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
-  { attr: 'insetLeft', command: 'setBlockFormat', group: '위치', tab: 'block', label: '왼쪽', ariaLabel: '왼쪽에서', icon: 'padding-left', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
+  { attr: 'insetTop', command: 'setBlockFormat', group: '위치', groupId: 'position', tab: 'block', label: '위', ariaLabel: '위에서', icon: 'padding-top', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
+  { attr: 'insetRight', command: 'setBlockFormat', group: '위치', groupId: 'position', tab: 'block', label: '오른쪽', ariaLabel: '오른쪽에서', icon: 'padding-right', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
+  { attr: 'insetBottom', command: 'setBlockFormat', group: '위치', groupId: 'position', tab: 'block', label: '아래', ariaLabel: '아래에서', icon: 'padding-bottom', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
+  { attr: 'insetLeft', command: 'setBlockFormat', group: '위치', groupId: 'position', tab: 'block', label: '왼쪽', ariaLabel: '왼쪽에서', icon: 'padding-left', control: 'number', unit: 'px', when: { attr: 'position', is: ['sticky'] }, on: PLACED },
   /*
    * And what is **over** what. Offered with no position chosen as well, because a block in the flow
    * needs it too: a header that scrolls under a hero picture is this one number.
@@ -1225,7 +1265,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    * row wrapped to 54 where every other row is 24, and the panel came out no shorter. At this width a
    * row holds two numbers or two checkboxes; a select takes the row.
    */
-  { attr: 'zOrder', command: 'setBlockFormat', group: '위치', tab: 'block', label: '순서', ariaLabel: '겹침 순서', control: 'number', on: PLACED },
+  { attr: 'zOrder', command: 'setBlockFormat', group: '위치', groupId: 'position', tab: 'block', label: '순서', ariaLabel: '겹침 순서', control: 'number', on: PLACED },
   /**
    * **How many columns of a grid this one takes** — what turns a page of equal tiles into a bento.
    *
@@ -1246,7 +1286,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'centred',
     command: 'setBlockFormat',
-    group: '위치',
+    group: '위치', groupId: 'position',
     tab: 'block',
     label: '가운데',
     ariaLabel: '가운데에 놓기',
@@ -1256,7 +1296,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'span',
     command: 'setBlockFormat',
-    group: '위치',
+    group: '위치', groupId: 'position',
     tab: 'block',
     label: '칸 수',
     ariaLabel: '그리드에서 차지할 칸 수',
@@ -1301,7 +1341,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'fontSize',
     command: 'setFontSize',
-    group: '글자',
+    group: '글자', groupId: 'text',
     tab: 'text',
     label: '크기',
     ariaLabel: '글자 크기',
@@ -1313,7 +1353,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'fontColor',
     command: 'setFontColor',
-    group: '글자',
+    group: '글자', groupId: 'text',
     tab: 'text',
     label: '색',
     /*
@@ -1330,8 +1370,8 @@ export const SITE_PANEL: SitePanelRow[] = [
 
   ...PAINT,
 
-  { attr: 'stroke', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '색', ariaLabel: '테두리 색', control: 'colour' },
-  { attr: 'strokeWidth', command: 'setBlockFormat', group: '테두리', tab: 'style', label: '두께', ariaLabel: '테두리 두께', control: 'number', unit: 'px', min: 0 },
+  { attr: 'stroke', command: 'setBlockFormat', group: '테두리', groupId: 'border', tab: 'style', label: '색', ariaLabel: '테두리 색', control: 'colour' },
+  { attr: 'strokeWidth', command: 'setBlockFormat', group: '테두리', groupId: 'border', tab: 'style', label: '두께', ariaLabel: '테두리 두께', control: 'number', unit: 'px', min: 0 },
 
   // ── 등장 — how this block arrives as a visitor scrolls to it ──────────────
   /**
@@ -1348,7 +1388,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'reveal',
     command: 'setBlockFormat',
-    group: '등장',
+    group: '등장', groupId: 'entrance',
     tab: 'style',
     label: '방식',
     ariaLabel: '등장 방식',
@@ -1371,7 +1411,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'revealStagger',
     command: 'setBlockFormat',
-    group: '등장',
+    group: '등장', groupId: 'entrance',
     tab: 'style',
     label: '차례로',
     ariaLabel: '안에 있는 것들이 차례로',
@@ -1400,7 +1440,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'transitionMs',
     command: 'setBlockFormat',
-    group: '전환',
+    group: '전환', groupId: 'transition',
     tab: 'style',
     label: '시간',
     ariaLabel: '전환 시간',
@@ -1440,7 +1480,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'goes',
     command: 'setBlockFormat',
-    group: '누르면',
+    group: '누르면', groupId: 'interaction',
     tab: 'block',
     label: '가는 곳',
     ariaLabel: '누르면 가는 곳',
@@ -1456,7 +1496,7 @@ export const SITE_PANEL: SitePanelRow[] = [
      * document can carry. See `setOpens`.
      */
     command: 'setOpens',
-    group: '열림',
+    group: '열림', groupId: 'open-state',
     tab: 'block',
     label: '여는 것',
     ariaLabel: '이 블록이 여는 블록',
@@ -1474,7 +1514,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'openAtRest',
     command: 'setBlockFormat',
-    group: '열림',
+    group: '열림', groupId: 'open-state',
     tab: 'block',
     label: '처음부터',
     ariaLabel: '처음부터 열려 있음',
@@ -1496,7 +1536,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'opensOne',
     command: 'setBlockFormat',
-    group: '열림',
+    group: '열림', groupId: 'open-state',
     tab: 'block',
     label: '하나만',
     ariaLabel: '안에서 하나만 열림',
@@ -1519,7 +1559,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    */
   {
     attr: 'opensOne',
-    group: '열림',
+    group: '열림', groupId: 'open-state',
     tab: 'block',
     label: '',
     ariaLabel: '하나만 열림일 때의 동작',
@@ -1532,7 +1572,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'cornerRadius',
     command: 'setBlockFormat',
-    group: '상자',
+    group: '상자', groupId: 'box',
     tab: 'style',
     label: '둥글기',
     ariaLabel: '모서리 둥글기',
@@ -1557,13 +1597,13 @@ export const SITE_PANEL: SitePanelRow[] = [
      * A corner honestly wants a **drawing** — a square with one rounded corner, which is what every
      * design tool puts here and what `office-icons` has no entry for. See `BACKLOG.md`.
      */
-      { attr: 'cornerTopLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상좌', ariaLabel: '왼쪽 위 둥글기', icon: 'corner-top-left', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerTopRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '상우', ariaLabel: '오른쪽 위 둥글기', icon: 'corner-top-right', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerBottomRight', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하우', ariaLabel: '오른쪽 아래 둥글기', icon: 'corner-bottom-right', control: 'number', unit: 'px', min: 0, on: STACKS },
-      { attr: 'cornerBottomLeft', command: 'setBlockFormat', group: '상자', tab: 'style', label: '하좌', ariaLabel: '왼쪽 아래 둥글기', icon: 'corner-bottom-left', control: 'number', unit: 'px', min: 0, on: STACKS }
+      { attr: 'cornerTopLeft', command: 'setBlockFormat', group: '상자', groupId: 'box', tab: 'style', label: '상좌', ariaLabel: '왼쪽 위 둥글기', icon: 'corner-top-left', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerTopRight', command: 'setBlockFormat', group: '상자', groupId: 'box', tab: 'style', label: '상우', ariaLabel: '오른쪽 위 둥글기', icon: 'corner-top-right', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomRight', command: 'setBlockFormat', group: '상자', groupId: 'box', tab: 'style', label: '하우', ariaLabel: '오른쪽 아래 둥글기', icon: 'corner-bottom-right', control: 'number', unit: 'px', min: 0, on: STACKS },
+      { attr: 'cornerBottomLeft', command: 'setBlockFormat', group: '상자', groupId: 'box', tab: 'style', label: '하좌', ariaLabel: '왼쪽 아래 둥글기', icon: 'corner-bottom-left', control: 'number', unit: 'px', min: 0, on: STACKS }
     ]
   },
-  { attr: 'clipsContent', command: 'setBlockFormat', group: '상자', tab: 'style', label: '넘침', ariaLabel: '넘치는 것 자르기', control: 'toggle', on: STACKS },
+  { attr: 'clipsContent', command: 'setBlockFormat', group: '상자', groupId: 'box', tab: 'style', label: '넘침', ariaLabel: '넘치는 것 자르기', control: 'toggle', on: STACKS },
   /**
    * **How much of the block comes through.**
    *
@@ -1584,7 +1624,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'opacity',
     command: 'setBlockFormat',
-    group: '상자',
+    group: '상자', groupId: 'box',
     tab: 'style',
     label: '투명도',
     ariaLabel: '투명도',
@@ -1605,7 +1645,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'rotate',
     command: 'setBlockFormat',
-    group: '상자',
+    group: '상자', groupId: 'box',
     tab: 'style',
     label: '기울기',
     ariaLabel: '기울기',
@@ -1625,7 +1665,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'blend',
     command: 'setBlockFormat',
-    group: '상자',
+    group: '상자', groupId: 'box',
     tab: 'style',
     label: '섞임',
     ariaLabel: '아래와 섞이는 방식',
@@ -1647,7 +1687,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'backdropBlur',
     command: 'setBlockFormat',
-    group: '상자',
+    group: '상자', groupId: 'box',
     tab: 'style',
     label: '뒤 흐리기',
     ariaLabel: '뒤 흐리기 (반투명한 바탕에서만 보입니다)',
@@ -1670,7 +1710,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'letterSpacing',
     command: 'setBlockFormat',
-    group: '글 리듬',
+    group: '글 리듬', groupId: 'text-rhythm',
     tab: 'style',
     label: '자간',
     ariaLabel: '글자 사이 간격',
@@ -1685,7 +1725,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'lineHeight',
     command: 'setBlockFormat',
-    group: '글 리듬',
+    group: '글 리듬', groupId: 'text-rhythm',
     tab: 'style',
     label: '줄 간격',
     ariaLabel: '줄 사이 간격',
@@ -1708,9 +1748,9 @@ export const SITE_PANEL: SitePanelRow[] = [
    * The file itself is read by the **app** — a browser's job, and the same line `publish` draws about
    * writing one — and arrives as `insertAsset`.
    */
-  { attr: 'src', command: 'setBlockFormat', group: '이미지', tab: 'style', label: '그림', ariaLabel: '그림 파일', control: 'picture', on: ['picture'] },
+  { attr: 'src', command: 'setBlockFormat', group: '이미지', groupId: 'image', tab: 'style', label: '그림', ariaLabel: '그림 파일', control: 'picture', on: ['picture'] },
   // Not decoration: it is what a reader of the published page hears.
-  { attr: 'alt', command: 'setBlockFormat', group: '이미지', tab: 'style', label: '설명', ariaLabel: '대체 텍스트', control: 'text', on: ['picture'] },
+  { attr: 'alt', command: 'setBlockFormat', group: '이미지', groupId: 'image', tab: 'style', label: '설명', ariaLabel: '대체 텍스트', control: 'text', on: ['picture'] },
   /**
    * **The shape it keeps** at every width, which a height cannot say — see `aspect.ts`.
    *
@@ -1721,7 +1761,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'aspect',
     command: 'setBlockFormat',
-    group: '이미지',
+    group: '이미지', groupId: 'image',
     tab: 'style',
     label: '비율',
     ariaLabel: '그림 비율',
@@ -1741,7 +1781,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'defer',
     command: 'setBlockFormat',
-    group: '이미지',
+    group: '이미지', groupId: 'image',
     tab: 'style',
     label: '나중에',
     ariaLabel: '보일 때 불러오기',
@@ -1751,7 +1791,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'fit',
     command: 'setBlockFormat',
-    group: '이미지',
+    group: '이미지', groupId: 'image',
     tab: 'style',
     label: '채우기',
     ariaLabel: '채우기',
@@ -1769,7 +1809,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'level',
     command: 'setBlockFormat',
-    group: '제목',
+    group: '제목', groupId: 'title',
     tab: 'style',
     label: '단계',
     ariaLabel: '제목 단계',
@@ -1780,12 +1820,12 @@ export const SITE_PANEL: SitePanelRow[] = [
   },
 
   // ── 데이터 — the question a list asks of its dataset ───────────────────────
-  { attr: 'source', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '목록', ariaLabel: '데이터 목록', control: 'dataset', on: ['collection', 'chart'] },
-  { attr: 'sortBy', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '정렬', ariaLabel: '정렬 기준', control: 'column', on: ['collection', 'chart'] },
+  { attr: 'source', command: 'setBlockFormat', group: '데이터', groupId: 'data', tab: 'data', label: '목록', ariaLabel: '데이터 목록', control: 'dataset', on: ['collection', 'chart'] },
+  { attr: 'sortBy', command: 'setBlockFormat', group: '데이터', groupId: 'data', tab: 'data', label: '정렬', ariaLabel: '정렬 기준', control: 'column', on: ['collection', 'chart'] },
   {
     attr: 'sortDir',
     command: 'setBlockFormat',
-    group: '데이터',
+    group: '데이터', groupId: 'data',
     tab: 'data',
     label: '순서',
     ariaLabel: '정렬 순서',
@@ -1798,9 +1838,9 @@ export const SITE_PANEL: SitePanelRow[] = [
     ]
   },
   // Empty means all of them, which is what a list with nothing said has always drawn.
-  { attr: 'limit', command: 'setBlockFormat', group: '데이터', tab: 'data', label: '개수', ariaLabel: '개수', control: 'number', min: 0, on: ['collection', 'chart'] },
-  { attr: 'where', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '칸', ariaLabel: '거를 칸', control: 'column', on: ['collection', 'chart'] },
-  { attr: 'equals', command: 'setBlockFormat', group: '거르기', tab: 'data', label: '값', ariaLabel: '거를 값', control: 'text', on: ['collection', 'chart'], needs: 'where' },
+  { attr: 'limit', command: 'setBlockFormat', group: '데이터', groupId: 'data', tab: 'data', label: '개수', ariaLabel: '개수', control: 'number', min: 0, on: ['collection', 'chart'] },
+  { attr: 'where', command: 'setBlockFormat', group: '거르기', groupId: 'filter', tab: 'data', label: '칸', ariaLabel: '거를 칸', control: 'column', on: ['collection', 'chart'] },
+  { attr: 'equals', command: 'setBlockFormat', group: '거르기', groupId: 'filter', tab: 'data', label: '값', ariaLabel: '거를 값', control: 'text', on: ['collection', 'chart'], needs: 'where' },
 
   /**
    * ── 차트 — the two columns that turn rows into a picture ───────────────────
@@ -1815,7 +1855,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'kind',
     command: 'setBlockFormat',
-    group: '차트',
+    group: '차트', groupId: 'chart',
     tab: 'block',
     label: '종류',
     ariaLabel: '차트 종류',
@@ -1824,9 +1864,9 @@ export const SITE_PANEL: SitePanelRow[] = [
     on: ['chart'],
     options: CHART_KINDS.map((one) => ({ id: one, label: CHART_KIND_NAMES[one] }))
   },
-  { attr: 'labelBy', command: 'setBlockFormat', group: '차트', tab: 'block', label: '이름', ariaLabel: '이름 칸', control: 'column', on: ['chart'] },
-  { attr: 'valueBy', command: 'setBlockFormat', group: '차트', tab: 'block', label: '값', ariaLabel: '값 칸', control: 'column', on: ['chart'] },
-  { attr: 'title', command: 'setBlockFormat', group: '차트', tab: 'block', label: '제목', ariaLabel: '차트 제목', control: 'text', on: ['chart'] },
+  { attr: 'labelBy', command: 'setBlockFormat', group: '차트', groupId: 'chart', tab: 'block', label: '이름', ariaLabel: '이름 칸', control: 'column', on: ['chart'] },
+  { attr: 'valueBy', command: 'setBlockFormat', group: '차트', groupId: 'chart', tab: 'block', label: '값', ariaLabel: '값 칸', control: 'column', on: ['chart'] },
+  { attr: 'title', command: 'setBlockFormat', group: '차트', groupId: 'chart', tab: 'block', label: '제목', ariaLabel: '차트 제목', control: 'text', on: ['chart'] },
 
   /**
    * ── 묶기 — the other half of what a dashboard asks ─────────────────────────
@@ -1837,11 +1877,11 @@ export const SITE_PANEL: SitePanelRow[] = [
    * `agg` waits for `groupBy`, because an arithmetic with nothing to group by is a control that
    * changes nothing — the same `needs` the filter's 값 row already uses.
    */
-  { attr: 'groupBy', command: 'setBlockFormat', group: '묶기', tab: 'data', label: '기준', ariaLabel: '묶을 칸', control: 'column', on: ['chart'] },
+  { attr: 'groupBy', command: 'setBlockFormat', group: '묶기', groupId: 'grouping', tab: 'data', label: '기준', ariaLabel: '묶을 칸', control: 'column', on: ['chart'] },
   {
     attr: 'agg',
     command: 'setBlockFormat',
-    group: '묶기',
+    group: '묶기', groupId: 'grouping',
     tab: 'data',
     label: '셈',
     ariaLabel: '묶어서 셀 방법',
@@ -1851,7 +1891,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     needs: 'groupBy',
     options: CHART_AGGS.map((one) => ({ id: one, label: CHART_AGG_NAMES[one] }))
   },
-  { attr: 'plotInk', command: 'setBlockFormat', group: '차트', tab: 'style', label: '색', ariaLabel: '차트 색', control: 'colour', on: ['chart'] },
+  { attr: 'plotInk', command: 'setBlockFormat', group: '차트', groupId: 'chart', tab: 'style', label: '색', ariaLabel: '차트 색', control: 'colour', on: ['chart'] },
 
   // ── The blocks that have a question of their own ──────────────────────────
   /*
@@ -1862,7 +1902,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'type',
     command: 'setBlockFormat',
-    group: '목록',
+    group: '목록', groupId: 'list',
     tab: 'block',
     label: '종류',
     ariaLabel: '목록 종류',
@@ -1881,7 +1921,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'language',
     command: 'setBlockFormat',
-    group: '코드',
+    group: '코드', groupId: 'code',
     tab: 'block',
     label: '언어',
     ariaLabel: '코드 언어',
@@ -1915,7 +1955,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentBind',
     writes: 'child',
     command: 'bindPartText',
-    group: '컴포넌트 변수',
+    group: '컴포넌트 변수', groupId: 'component-variables',
     tab: 'block',
     label: '연결',
     ariaLabel: '연결된 변수',
@@ -1928,7 +1968,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentVar',
     writes: 'child',
     command: 'bindPartText',
-    group: '컴포넌트 변수',
+    group: '컴포넌트 변수', groupId: 'component-variables',
     tab: 'block',
     label: '새 변수',
     ariaLabel: '새 변수 이름',
@@ -1948,7 +1988,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentVar',
     writes: 'child',
     command: 'setComponentVar',
-    group: '컴포넌트 변수',
+    group: '컴포넌트 변수', groupId: 'component-variables',
     tab: 'block',
     label: '값 종류',
     ariaLabel: '변수가 담는 값의 종류',
@@ -1964,7 +2004,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentVar',
     writes: 'child',
     command: 'setComponentVar',
-    group: '컴포넌트 변수',
+    group: '컴포넌트 변수', groupId: 'component-variables',
     tab: 'block',
     label: '표시 형식',
     ariaLabel: '값을 보여주는 형식',
@@ -1988,7 +2028,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentVar',
     writes: 'child',
     command: 'setComponentVar',
-    group: '컴포넌트 변수',
+    group: '컴포넌트 변수', groupId: 'component-variables',
     tab: 'block',
     label: '변수 관리',
     ariaLabel: '변수 이름 바꾸기',
@@ -2006,7 +2046,7 @@ export const SITE_PANEL: SitePanelRow[] = [
         attr: 'componentVar',
         writes: 'child',
         command: 'removeComponentVar',
-        group: '컴포넌트 변수',
+        group: '컴포넌트 변수', groupId: 'component-variables',
         tab: 'block',
         label: '삭제',
         ariaLabel: '변수 삭제',
@@ -2027,7 +2067,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentValue',
     writes: 'child',
     command: 'setComponentValue',
-    group: '이 인스턴스의 값',
+    group: '이 인스턴스의 값', groupId: 'instance-values',
     tab: 'values',
     label: '값',
     ariaLabel: '값',
@@ -2055,7 +2095,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     attr: 'componentValue',
     writes: 'child',
     command: 'setComponentValue',
-    group: '카드 변수에 넣을 컬럼',
+    group: '카드 변수에 넣을 컬럼', groupId: 'column-bindings',
     tab: 'data',
     label: '변수',
     ariaLabel: '카드 변수에 넣을 컬럼',
@@ -2081,7 +2121,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    */
   {
     attr: 'rowEdit',
-    group: '데이터',
+    group: '데이터', groupId: 'data',
     tab: 'data',
     label: '행',
     ariaLabel: '이 행을 폼으로 편집',
@@ -2119,7 +2159,7 @@ export const SITE_PANEL: SitePanelRow[] = [
     of: 'document',
     writes: 'child',
     command: 'insertWidth',
-    group: '폭',
+    group: '폭', groupId: 'width',
     tab: 'page',
     label: '폭',
     ariaLabel: '이 사이트를 그리는 폭',
@@ -2136,7 +2176,7 @@ export const SITE_PANEL: SitePanelRow[] = [
         of: 'document',
         writes: 'child',
         command: 'setWidth',
-        group: '폭',
+        group: '폭', groupId: 'width',
         tab: 'page',
         label: '폭 고치기',
         ariaLabel: '폭 고치기',
@@ -2160,7 +2200,7 @@ export const SITE_PANEL: SitePanelRow[] = [
         of: 'document',
         writes: 'child',
         command: 'setBaseWidth',
-        group: '폭',
+        group: '폭', groupId: 'width',
         tab: 'page',
         label: '기준 폭',
         ariaLabel: '이 폭을 기준으로',
@@ -2172,7 +2212,7 @@ export const SITE_PANEL: SitePanelRow[] = [
         of: 'document',
         writes: 'child',
         command: 'removeWidth',
-        group: '폭',
+        group: '폭', groupId: 'width',
         tab: 'page',
         label: '폭 삭제',
         ariaLabel: '폭 삭제',
@@ -2184,7 +2224,7 @@ export const SITE_PANEL: SitePanelRow[] = [
         of: 'document',
         writes: 'child',
         command: 'moveWidth',
-        group: '폭',
+        group: '폭', groupId: 'width',
         tab: 'page',
         label: '폭 순서',
         ariaLabel: '폭 순서 바꾸기',
@@ -2197,7 +2237,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'address',
     command: 'setSiteAddress',
-    group: '사이트',
+    group: '사이트', groupId: 'site',
     tab: 'page',
     label: '주소',
     ariaLabel: '사이트 주소',
@@ -2215,7 +2255,7 @@ export const SITE_PANEL: SitePanelRow[] = [
    * A file the document holds, which is why it could not exist before the assets did: a favicon is
    * bytes, and until a document could carry a file there was nowhere for them to be.
    */
-  { attr: 'icon', of: 'document', command: 'setSiteFiles', group: '사이트', tab: 'page', label: '탭 그림', ariaLabel: '브라우저 탭 그림', control: 'picture', on: ['surface'] },
+  { attr: 'icon', of: 'document', command: 'setSiteFiles', group: '사이트', groupId: 'site', tab: 'page', label: '탭 그림', ariaLabel: '브라우저 탭 그림', control: 'picture', on: ['surface'] },
   /*
    * And what a crawler is told, which matters most in the state nobody tests: a staging copy of a
    * site that was published before it was ready and is now in somebody's search result.
@@ -2231,12 +2271,12 @@ export const SITE_PANEL: SitePanelRow[] = [
    * The `ariaLabel`s were already distinct, which is the tell: somebody had already noticed the two
    * needed telling apart and told only the screen reader.
    */
-  { attr: 'noIndex', of: 'document', command: 'setSiteFiles', group: '사이트', tab: 'page', label: '사이트 전체 제외', ariaLabel: '검색 엔진에서 사이트 전체를 제외', control: 'toggle', on: ['surface'] },
+  { attr: 'noIndex', of: 'document', command: 'setSiteFiles', group: '사이트', groupId: 'site', tab: 'page', label: '사이트 전체 제외', ariaLabel: '검색 엔진에서 사이트 전체를 제외', control: 'toggle', on: ['surface'] },
 
 
   // ── 페이지 — shown when nothing is selected, because a page is the board ───
-  { attr: 'name', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이름', ariaLabel: '페이지 이름', control: 'text', on: ['surface'] },
-  { attr: 'path', command: 'setPageInfo', group: '페이지', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] },
+  { attr: 'name', command: 'setPageInfo', group: '페이지', groupId: 'page', tab: 'page', label: '이름', ariaLabel: '페이지 이름', control: 'text', on: ['surface'] },
+  { attr: 'path', command: 'setPageInfo', group: '페이지', groupId: 'page', tab: 'page', label: '주소', ariaLabel: '페이지 주소', control: 'text', on: ['surface'] },
   /**
    * And what the page is **about**, which is the third thing it is.
    *
@@ -2247,7 +2287,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'description',
     command: 'setPageInfo',
-    group: '페이지',
+    group: '페이지', groupId: 'page',
     tab: 'page',
     label: '설명',
     ariaLabel: '페이지 설명',
@@ -2271,15 +2311,15 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'template',
     command: 'setPageTemplate',
-    group: '페이지',
+    group: '페이지', groupId: 'page',
     tab: 'page',
     label: '템플릿',
     ariaLabel: '이 페이지를 그리는 템플릿',
     control: 'template',
     on: ['surface']
   },
-  { attr: 'notFound', command: 'setPageInfo', group: '페이지', tab: 'page', label: '없는 주소용', ariaLabel: '주소가 틀렸을 때 보일 페이지', control: 'toggle', on: ['surface'] },
-  { attr: 'noIndex', command: 'setPageInfo', group: '페이지', tab: 'page', label: '이 페이지만 제외', ariaLabel: '이 페이지를 검색에서 제외', control: 'toggle', on: ['surface'] },
+  { attr: 'notFound', command: 'setPageInfo', group: '페이지', groupId: 'page', tab: 'page', label: '없는 주소용', ariaLabel: '주소가 틀렸을 때 보일 페이지', control: 'toggle', on: ['surface'] },
+  { attr: 'noIndex', command: 'setPageInfo', group: '페이지', groupId: 'page', tab: 'page', label: '이 페이지만 제외', ariaLabel: '이 페이지를 검색에서 제외', control: 'toggle', on: ['surface'] },
 
   /**
    * And the **picture** a shared link shows — the half of an unfurl anybody actually looks at.
@@ -2290,7 +2330,7 @@ export const SITE_PANEL: SitePanelRow[] = [
   {
     attr: 'image',
     command: 'setPageInfo',
-    group: '페이지',
+    group: '페이지', groupId: 'page',
     tab: 'page',
     label: '공유 그림',
     ariaLabel: '공유했을 때 보이는 그림',
@@ -2310,19 +2350,19 @@ export const SITE_PANEL: SitePanelRow[] = [
    * **document's** answer, like the address, and not the page's. `of: 'document'` says so, which is
    * what the check that reads these rows compares against.
    */
-  { attr: 'bodyFace', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '본문', ariaLabel: '본문 글꼴', control: 'choice', fallback: '', options: FACES.map((one) => ({ id: one.id, label: one.label })), on: ['surface'] },
+  { attr: 'bodyFace', of: 'document', command: 'setSiteType', group: '서체', groupId: 'typography', tab: 'page', label: '본문', ariaLabel: '본문 글꼴', control: 'choice', fallback: '', options: FACES.map((one) => ({ id: one.id, label: one.label })), on: ['surface'] },
   /*
    * A site that says nothing about its headings is set in one face, which is what most sites are —
    * so the fallback is *the body's*, and the row says so rather than repeating the list's first entry.
    */
-  { attr: 'headingFace', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '제목', ariaLabel: '제목 글꼴', control: 'choice', fallback: '', options: [{ id: '', label: '본문과 같게' }, ...FACES.filter((one) => one.id).map((one) => ({ id: one.id, label: one.label }))], on: ['surface'] },
-  { attr: 'baseSize', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '글자 크기', ariaLabel: '본문 글자 크기', control: 'number', unit: 'px', min: 12, max: 24, on: ['surface'] },
+  { attr: 'headingFace', of: 'document', command: 'setSiteType', group: '서체', groupId: 'typography', tab: 'page', label: '제목', ariaLabel: '제목 글꼴', control: 'choice', fallback: '', options: [{ id: '', label: '본문과 같게' }, ...FACES.filter((one) => one.id).map((one) => ({ id: one.id, label: one.label }))], on: ['surface'] },
+  { attr: 'baseSize', of: 'document', command: 'setSiteType', group: '서체', groupId: 'typography', tab: 'page', label: '글자 크기', ariaLabel: '본문 글자 크기', control: 'number', unit: 'px', min: 12, max: 24, on: ['surface'] },
   /*
    * A **ratio**, and the steps are geometric — which is what a design system means by a scale and what
    * four hand-picked numbers only approximate. A reader who wants bigger headings wants all of them
    * bigger in proportion, and keeping four numbers in proportion by hand is the work this replaces.
    */
-  { attr: 'scale', of: 'document', command: 'setSiteType', group: '서체', tab: 'page', label: '제목 단계', ariaLabel: '제목 크기 단계', control: 'choice', fallback: '', options: SCALES.map((one) => ({ id: one.id, label: one.label })), on: ['surface'] },
+  { attr: 'scale', of: 'document', command: 'setSiteType', group: '서체', groupId: 'typography', tab: 'page', label: '제목 단계', ariaLabel: '제목 크기 단계', control: 'choice', fallback: '', options: SCALES.map((one) => ({ id: one.id, label: one.label })), on: ['surface'] },
 
   /**
    * **And the page's own paint** — the same rows a block gets, asked of the page.
@@ -2381,7 +2421,10 @@ export function sitePanelGroups(
   tab: SitePanelTab,
   declares?: (stype: string, attr: string) => boolean
 ) {
-  return panelGroupsFor(sitePanelRows(stype, tab, declares));
+  // Every Site declaration, including companions and page paint, requires a stable group ID.
+  return panelGroupsFor(sitePanelRows(stype, tab, declares)) as {
+    id: SitePanelGroupId; label: string; rows: SitePanelRow[];
+  }[];
 }
 
 /** Every command the panel can run — the third answer to "what can a reader reach". */

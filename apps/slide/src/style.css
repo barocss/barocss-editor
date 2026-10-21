@@ -135,13 +135,13 @@
 
 /* Shared controls use office-ui tokens; --sl-* remains the slide canvas palette. */
 
-html,
-body,
-#root {
+html:not(:has(.office-auth)),
+body:not(:has(.office-auth)),
+#root:not(:has(.office-auth)) {
   height: 100%;
 }
 
-body {
+body:not(:has(.office-auth)) {
   margin: 0;
   background: var(--sl-ground);
   color: var(--sl-ink);
@@ -184,6 +184,34 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Icon-only header controls retain the same status and document actions. */
+.sl-topbar [data-menu-icon],
+.sl-topbar .office-save-status[data-icon-only] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+}
+.sl-topbar .office-save-status[data-icon-only] > span:last-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.sl-topbar .office-save-status[data-icon-only]:focus-visible {
+  border-radius: var(--ou-radius);
+  outline: 2px solid var(--ou-accent);
+  outline-offset: 2px;
 }
 
 /*
@@ -284,6 +312,51 @@ body {
 
 .sl-toolbar.office-compact-toolbar .sl-font-row { display: contents; }
 
-/* All navigation views occupy the same column. */
-.sl-workspace-navigation { display:flex; min-height:0; }
+/* Both panels float over a full-width, stable editing area. */
+.sl-body > [data-floating-panel] { bottom:var(--sl-panel-bottom,12px); }
+.sl-workspace-navigation { display:flex; flex:1; min-height:0; }
 .sl-shell[data-presenting='true'] .sl-body > .office-workspace-side-panel { display:none; }
+
+
+
+/* The authenticated entry styles its own sections, not native slide sheets. */
+.office-auth .sl-shell .sl-slide { max-width: none; margin: 0; }
+
+/* Observe owned reselection before the native range settles; expose no pending actions. */
+[data-slides-formatting][data-slides-selection-pending="true"] { display: none; }
+
+/* Global commands occupy the header; the native selection owner stays beside the stage. */
+.sl-header-edit-tools { flex: 0 0 auto; }
+.sl-insertion-chrome { min-width:0; position:relative; z-index:var(--ou-z-popover); }
+.sl-header-edit-tools .sl-insertion-chrome > .office-toolbar,
+.sl-header-view-tools.office-toolbar {
+  height:36px; min-height:36px; padding:2px 6px; gap:2px;
+  border:0; border-radius:18px; background:transparent; box-shadow:none;
+}
+.sl-header-edit-tools .sl-insertion-chrome > .office-toolbar :is(button,input):not([data-floating-surface] *),
+.sl-header-view-tools :is(button,input) { height:32px; min-height:32px; min-width:32px; border-radius:8px; flex-shrink:0; }
+.sl-header-edit-tools .sl-insertion-chrome > .office-toolbar svg,
+.sl-header-view-tools svg { width:16px; height:16px; }
+.sl-header-edit-tools [data-secondary-trigger] { width:auto; padding-inline:8px; }
+.sl-insert-trigger { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+.sl-header-view-tools .office-zoom { gap:2px; }
+.sl-header-view-tools [data-zoom-value] { width:48px; }
+.sl-document-detail { width: min(880px, calc(100vw - 24px)); max-height: min(65vh, 560px); overflow: auto; }
+.sl-workspace-navigation[hidden] { display: none; }
+
+[data-server-slides-workspace] { display:flex; flex-direction:column; height:100%; min-height:0; }
+[data-server-slides-workspace] > .sl-shell { height:auto; flex:1; min-height:0; }
+[data-server-slides-workspace] > aside, [data-server-slides-workspace] [data-secondary-popup] > aside { display:flex; flex-direction:column; gap:6px; padding:12px; }
+
+/* Keep the native stage mounted and measured while the deck map owns its region. */
+.sl-stage-owner { display: contents; }
+.sl-stage-region { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.sl-stage-region > .sl-map { position: absolute; inset: 0; z-index: 20; }
+.sl-insertion-chrome[hidden] { display: none; }
+
+/* Keep definition controls reachable beside floating panels without resizing the stage. */
+.sl-body:has(> #slides-details:not([hidden])) .sl-editing { padding-inline-end:308px; }
+.sl-body:has(> #slides-objects:not([hidden])) .sl-editing { padding-inline-start:268px; }
+.sl-editing { flex-wrap:nowrap; }
+.sl-editing > span:first-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sl-editing > button { flex-shrink:0; }

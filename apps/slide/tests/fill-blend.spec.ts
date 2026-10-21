@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickInsert, setPanel } from './helpers';
 
 test('blend belongs to each inspector fill and leaves colour and opacity unchanged', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   const id = await page.evaluate(async () => {
     const editor = (window as any).editor, id = editor.selection.nodeIds[0];
     await editor.executeCommand('setBoxStyle', { nodeIds: [id], fills: [

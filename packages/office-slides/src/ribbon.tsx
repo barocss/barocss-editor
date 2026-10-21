@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type RefObject } from 'react';
 import type { Editor } from '@barocss/editor-core';
 import {
   ChoiceSelect,
@@ -36,10 +36,12 @@ import {
 import { WORD_FONTS, WORD_FONT_SIZES, WORD_TEXT_COLOR, WORD_TEXT_HIGHLIGHT } from '@barocss/office-controls';
 import { ControlRows } from '@barocss/office-editor-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
-import { SLIDES_TOOLBAR, slidesToolbarPayload, type SlidesToolbarControl } from './toolbar-model';
+import { SLIDES_TOOLBAR, type SlidesToolbarControl } from './toolbar-model';
+import { slidesControlActions } from './toolbar-actions';
 import { keyLabel, shortcutOf } from './keymap';
 import { resolveDeckFormat } from './layout-format';
 import type { Slide } from './deck';
+import { readSelectedObjectText, type SelectedObjectTextMark } from './selected-object-text';
 
 /**
  * The deck's ribbon.
@@ -61,9 +63,22 @@ export interface RibbonProps {
   slides: Slide[];
   /** Which slide the reader is on — the app's fact, not the document's. */
   current?: string;
+  /** Opt-in composition; omitted keeps the complete existing Ribbon. */
+  groupIds?: readonly string[];
+  canRunIntent?: () => boolean;
+  captureIntent?: () => (() => boolean);
+  portalContainer?: RefObject<HTMLElement | null>;
+  /** Selection surfaces show direct actions; permanent/full Ribbon retains menus. */
+  directControls?: boolean;
+  /** Render actual commands inside a caller-owned compact toolbar. */
+  inline?: boolean;
+  /** Vertical secondary commands do not use the horizontal overflow navigator. */
+  panel?: boolean;
+  controlIds?: readonly string[];
+  fontControls?: readonly ('family' | 'size' | 'color' | 'highlight')[];
 }
 
-export function Ribbon({ editor, slides, current }: RibbonProps) {
+export function Ribbon({ editor, slides, current, groupIds, canRunIntent, captureIntent, portalContainer, directControls = false, inline = false, panel = false, controlIds, fontControls }: RibbonProps) {
   /**
    * Which way to draw a chord, asked once — and asked of `office-ui`.
    *
@@ -105,7 +120,13 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
    * so at the first render rather than looking like a document with no
    * formatting in it.
    */
-  const summary = useMemo(() => editor.getSelectionSummary(), [editor, tick]);
+  const objectText = useMemo(() => readSelectedObjectText(editor), [editor, tick]);
+  const summary = useMemo(() => objectText.available ? objectText.summary : editor.getSelectionSummary(), [editor, tick, objectText]);
+  const textPayload = (mark: string, value?: unknown) => ({ nodeIds: objectText.nodeIds, mark, ...(value !== undefined ? { value: String(value) } : {}), canApply: captureIntent?.() ?? canRunIntent });
+  const textControl = (control: SlidesToolbarControl): SlidesToolbarControl => {
+    const mark = ({ bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikethrough' } as Record<string, SelectedObjectTextMark>)[control.id ?? ''];
+    return objectText.available && mark ? { ...control, command: 'toggleSelectedObjectTextMark', payload: textPayload(mark) } : control;
+  };
 
   /**
    * What the layout says, for a control the selection does not answer.
@@ -136,126 +157,7 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
     [slides, current]
   );
 
-  /**
-   * What a slide control does when it is pressed.
-   *
-   * The model says a control needs a slide; this is the only place that knows
-   * which one, and the two directions of `moveSlide` are the one case where the
-   * control's id is the whole difference. Numbers here are the reader's — slide
-   * one is number one — and the command translates them.
-   */
-  /**
-   * Choosing a picture, which is the one thing a button press cannot supply.
-   *
-   * Read as a data URL rather than kept as a blob URL: a blob URL dies with the
-   * page, so a deck saved with one would come back with a broken picture and no
-   * way to tell what it had been. The file travels *in* the document, which is
-   * also what makes copy between decks work without a server.
-   *
-   * Measured before it is placed, because a picture dropped into a box of the
-   * wrong shape is either stretched or cropped, and a reader who has just chosen
-   * a photograph expects neither. The natural size is scaled to fit a quarter of
-   * the slide, keeping its proportions.
-   */
-  const pickPicture = (
-    run: (payload: Record<string, unknown>) => void,
-    accept = 'image/*'
-  ) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = accept;
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        const src = String(reader.result ?? '');
-        if (!src) return;
-
-        /**
-         * A film is measured the same way a picture is, from the file itself.
-         *
-         * `videoWidth` is only known once the browser has read the metadata, so
-         * this waits for that event rather than the load — a film's first frame
-         * may be megabytes away and its dimensions are in the first kilobyte.
-         *
-         * A sound has no dimensions at all, so it takes a strip: full width of a
-         * quarter-slide and the height of the browser's own player.
-         */
-        if (file.type.startsWith('video/')) {
-          const video = document.createElement('video');
-          video.preload = 'metadata';
-          const place = () => {
-            const limit = { width: 19200 / 2, height: 10800 / 2 };
-            const natural = {
-              width: (video.videoWidth || 640) * 15,
-              height: (video.videoHeight || 360) * 15
-            };
-            const scale = Math.min(limit.width / natural.width, limit.height / natural.height, 1);
-            run({
-              src,
-              width: Math.round(natural.width * scale),
-              height: Math.round(natural.height * scale)
-            });
-          };
-          video.onloadedmetadata = place;
-          // A file the browser cannot decode still goes in, at the default box,
-          // rather than silently doing nothing to a reader who chose it.
-          video.onerror = () => run({ src });
-          video.src = src;
-          return;
-        }
-
-        if (file.type.startsWith('audio/')) {
-          run({ src, width: 9600, height: 810 });
-          return;
-        }
-
-        const image = new Image();
-        image.onload = () => {
-          // A quarter of a 16:9 slide, in twips, and never larger than that.
-          const limit = { width: 19200 / 2, height: 10800 / 2 };
-          const scale = Math.min(
-            limit.width / Math.max(1, image.naturalWidth * 15),
-            limit.height / Math.max(1, image.naturalHeight * 15),
-            1
-          );
-          run({
-            src,
-            alt: file.name,
-            width: Math.round(image.naturalWidth * 15 * scale),
-            height: Math.round(image.naturalHeight * 15 * scale)
-          });
-        };
-        // A file the browser cannot decode still goes in, at the default size,
-        // rather than silently doing nothing to a reader who chose it.
-        image.onerror = () => run({ src, alt: file.name });
-        image.src = src;
-      };
-      reader.readAsDataURL(file);
-    };
-    input.click();
-  };
-
-  const payloadFor = (control: SlidesToolbarControl) => slidesToolbarPayload(control, current, here?.number);
-
-  /**
-   * Whether a control can run.
-   *
-   * Asked of the editor rather than decided here, so the toolbar and the
-   * command agree by construction: `deleteSlide` refuses the last slide, and
-   * this draws that refusal rather than restating the rule and drifting from it.
-   */
-  const enabled = (control: SlidesToolbarControl): boolean => {
-    if (control.needsSlide && !current) return false;
-    // A file-picking control is asking whether a *picture* could be placed, and
-    // the command cannot answer that without a file. Whether there is a slide is
-    // the whole of what it can be asked before one is chosen.
-    if (control.needsFile) return !!current;
-    const can = editor?.canExecuteCommand(control.command, payloadFor(control));
-    return can !== false;
-  };
+  const actions = slidesControlActions({ editor, current, number: here?.number, canRunIntent, captureIntent });
 
   const stateOf = (control: SlidesToolbarControl) => {
     if (control.slideFlag === 'hidden') return here?.hidden ? 'on' : 'off';
@@ -278,7 +180,9 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
    * sets a size — the layout does, and the slide follows it.
    */
   const choice = (model: ChoiceControl, width: string) => {
-    const current = summary ? currentChoice(model, summary as never, () => inherited(model)) : null;
+    const current = summary ? currentChoice(model, summary as never, () => objectText.available ? undefined : inherited(model)) : null;
+    const command = objectText.available ? 'setSelectedObjectTextFormat' : model.command;
+    const payload = (value: unknown) => objectText.available ? textPayload(model.markType, value) : { [model.key]: value };
     /**
      * A size the presets do not offer is still the size — see `choiceOptions`.
      *
@@ -290,18 +194,19 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
     const options = choiceOptions(model, current);
 
     return (
-    <ChoiceSelect
+    <ChoiceSelect portalContainer={portalContainer}
       key={model.id}
       testClass={`sl-toolbar-${model.id}`}
       ariaLabel={model.label}
       className={width}
       options={options}
       value={current}
-      disabled={!summary || (summary as never as { empty?: boolean }).empty === true}
+      disabled={!summary || (summary as never as { empty?: boolean }).empty === true || !editor.canExecuteCommand(command, payload(model.options[0]?.value))}
       onChange={(id) => {
         const chosen = model.options.find((option) => String(option.value) === id);
         if (!chosen) return;
-        void editor?.executeCommand(model.command, { [model.key]: chosen.value });
+        if (!editor.isEditable || canRunIntent?.() === false) return;
+        void editor?.executeCommand(command, payload(chosen.value));
       }}
     />
     );
@@ -315,7 +220,11 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
    * control as permanently unavailable — the trap the picture button fell into
    * here.
    */
-  const palette = (model: PaletteControl) => (
+  const palette = (model: PaletteControl) => {
+    const command = objectText.available ? 'setSelectedObjectTextFormat' : model.command;
+    const clearCommand = objectText.available ? 'clearSelectedObjectTextFormat' : model.clearCommand;
+    const payload = (value?: unknown) => objectText.available ? textPayload(model.markType!, value) : value === undefined ? undefined : { [model.key]: value };
+    return (
     <ColorPalette
       key={model.id}
       id={model.id}
@@ -325,23 +234,19 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
       swatches={model.swatches}
       disabled={
         !summary ||
-        editor?.canExecuteCommand(model.command, {
-          [model.key]: model.swatches[0].value
-        }) === false
+        editor?.canExecuteCommand(command, payload(model.swatches[0].value)) === false
       }
       clearLabel={model.clearCommand ? '없음' : undefined}
-      onPick={(value) =>
-        void editor?.executeCommand(model.command, { [model.key]: value })
-      }
-      onClear={() => void editor?.executeCommand(model.clearCommand!)}
+      onPick={(value) => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(command, payload(value)); }}
+      onClear={() => { if (editor.isEditable && canRunIntent?.() !== false) void editor.executeCommand(clearCommand!, payload()); }}
     />
   );
+  };
 
-  return (
-    <RibbonToolbar compact className="sl-toolbar" label="슬라이드 서식">
-      {summary && !summary.empty && <RibbonGroup id="font" label="글꼴" layout="stack">
-      <div className="sl-font-row">{choice(WORD_FONTS, 'min-w-36')}
-      {choice(WORD_FONT_SIZES, 'min-w-16')}</div>
+  const contents = <>
+      {(!groupIds || groupIds.includes('character')) && summary && !summary.empty && <RibbonGroup id="font" label="글꼴" layout="stack">
+      <div className="sl-font-row">{(!fontControls || fontControls.includes('family')) && choice(WORD_FONTS, 'min-w-36')}
+      {(!fontControls || fontControls.includes('size')) && choice(WORD_FONT_SIZES, 'min-w-16')}</div>
       {/*
         * Word's palettes, because a colour means the same thing in both.
         *
@@ -357,8 +262,8 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
         * would be one of them wrong, and that is the rule for what belongs in one
         * place.
         */}
-      <div className="sl-font-row">{palette(WORD_TEXT_COLOR)}
-      {palette(WORD_TEXT_HIGHLIGHT)}</div>
+      <div className="sl-font-row">{(!fontControls || fontControls.includes('color')) && palette(WORD_TEXT_COLOR)}
+      {(!fontControls || fontControls.includes('highlight')) && palette(WORD_TEXT_HIGHLIGHT)}</div>
       </RibbonGroup>}
       {/*
         A **contextual** group is drawn only when there is something for it to act on.
@@ -375,8 +280,10 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
       */}
       {SLIDES_TOOLBAR.filter(
         (group) =>
+          (!groupIds || groupIds.includes(group.id)) &&
+          (!controlIds || group.controls.some(control => !!control.id && controlIds.includes(control.id))) &&
           (!['character', 'paragraph', 'list'].includes(group.id) || (summary && !summary.empty)) &&
-          (!group.when || group.controls.some((control) => editor.canRun(control.command, control.payload)))
+          (!group.when || group.controls.some((control) => { const target = textControl(control); return editor.canRun(target.command, target.payload); }))
       ).map((group) => (
           <RibbonGroup key={group.id} id={group.id} layout="columns" label={({ history: '실행 기록', slide: '슬라이드', character: '글자', paragraph: '문단', list: '목록', insert: '삽입', order: '순서', align: '정렬', table: '표', group: '객체' } as Record<string, string>)[group.id]}>
             {/*
@@ -397,38 +304,14 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
             */}
             <ControlRows
               editor={editor}
-              controls={group.controls}
+              controls={(controlIds ? group.controls.filter(control => !!control.id && controlIds.includes(control.id)) : group.controls).map(textControl)}
               options={{
                 apple,
-                can: (control) => enabled(control),
-                state: (control) => stateOf(control) as never,
-                onRun: (control) => {
-                  if (control.needsFile) {
-                    /*
-                     * What the picker will accept, from what the command makes: a video button that
-                     * offered every image is a button that produces a film with a picture in it.
-                     */
-                    const accept =
-                      control.command === 'insertVideo'
-                        ? 'video/*'
-                        : control.command === 'insertAudio'
-                          ? 'audio/*'
-                          : 'image/*';
-                    pickPicture(
-                      (payload) =>
-                        void editor?.executeCommand(control.command, {
-                          ...payloadFor(control),
-                          ...payload
-                        }),
-                      accept
-                    );
-                    return;
-                  }
-                  void editor?.executeCommand(control.command, payloadFor(control));
-                }
+                ...actions,
+                state: (control) => stateOf(control) as never
               }}
             >
-              {(rows) => !['history', 'insert'].includes(group.id) ? <MenuBar label={`${group.id} 도구`} menus={[{
+              {(rows) => !directControls && !['history', 'insert'].includes(group.id) ? <MenuBar portalContainer={portalContainer} label={`${group.id} 도구`} menus={[{
                 id: `tools-${group.id}`, label: ({ slide: '슬라이드', character: '글자', paragraph: '문단', list: '목록', order: '순서', align: '정렬', table: '표', group: '객체' } as Record<string, string>)[group.id] ?? group.id,
                 blocks: [{ id: group.id, items: rows.map(one => ({ id: one.key, label: one.label, hint: one.shortcut, disabled: one.disabled, checked: one.state === 'on' ? true : undefined })) }]
               }]} onPick={id => rows.find(one => one.key === id)?.run()} /> :
@@ -457,6 +340,6 @@ export function Ribbon({ editor, slides, current }: RibbonProps) {
             </ControlRows>
           </RibbonGroup>
       ))}
-    </RibbonToolbar>
-  );
+  </>;
+  return inline ? <div className="sl-inline-ribbon">{contents}</div> : <RibbonToolbar compact={!panel} className="sl-toolbar" label="슬라이드 서식">{contents}</RibbonToolbar>;
 }

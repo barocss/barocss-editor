@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSchema } from '@barocss/schema';
+import { panelGroupsFor, panelAttrs, panelCommands } from '@barocss/office-controls';
 import {
   SITE_PANEL,
   sitePanelAttrs,
@@ -409,5 +410,34 @@ describe('every pane a reader can open', () => {
       }
     }
     expect(twice).toEqual([]);
+  });
+});
+
+
+describe('Site panel stable group identity', () => {
+  it('declares an identity for every row, companion and page paint row', () => {
+    const walk = (rows: typeof SITE_PANEL): void => {
+      for (const row of rows) {
+        expect(row.groupId, row.ariaLabel).toEqual(expect.any(String));
+        if (row.with) walk(row.with);
+      }
+    };
+    walk(SITE_PANEL);
+    const groups = sitePanelGroups('surface', 'page');
+    expect(groups.length).toBeGreaterThan(0);
+    expect(groups.every((group) => typeof group.id === 'string')).toBe(true);
+  });
+
+  it('preserves grouping, attributes and commands when every visible heading and row label changes', () => {
+    const original = sitePanelRows('surface', 'page');
+    const renamed = original.map((row) => ({ ...row, group: 'Identical translated heading', label: 'Translated field', ariaLabel: 'Translated accessible field' }));
+    const before = panelGroupsFor(original);
+    const after = panelGroupsFor(renamed);
+    expect(before.length).toBeGreaterThan(1);
+    expect(after.map((group) => ({ id: group.id, attrs: group.rows.map((row) => row.attr) }))).toEqual(
+      before.map((group) => ({ id: group.id, attrs: group.rows.map((row) => row.attr) }))
+    );
+    expect(panelAttrs(renamed)).toEqual(panelAttrs(original));
+    expect(panelCommands(renamed)).toEqual(panelCommands(original));
   });
 });

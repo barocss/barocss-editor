@@ -3,7 +3,7 @@ const port = process.env.OFFICE_AUTH_TEST_PORT ?? '5191';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: 'auth-entry.spec.ts',
+  testMatch: ['auth-note-command.spec.ts', 'auth-site.spec.ts', 'auth-site-authority.spec.ts', 'auth-entry.spec.ts', 'auth-word.spec.ts', 'auth-slides.spec.ts'],
   timeout: 45_000,
   workers: 1,
   use: { baseURL: `http://127.0.0.1:${port}` },

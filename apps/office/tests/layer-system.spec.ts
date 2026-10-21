@@ -1,12 +1,15 @@
 import { expect, test, type Page, type Locator } from '@playwright/test';
+import { nativeEditor, nativeFrame } from './helpers/native-editor';
+import { openLocalLibrary } from './helpers/local-library';
 import { mkdir } from 'node:fs/promises';
 const output = `${process.cwd()}/../../.dev/artifacts/design-system`;
 async function create(page: Page, product: string) {
   await page.goto('/');
-  await page.getByRole('button', { name: `${product[0]} ${product} 새 자료 만들기`, exact: true }).click();
+  await openLocalLibrary(page);
+  await page.getByRole('button', { name: `${product} 새 자료 만들기`, exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('레이어 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
-  await expect.poll(() => page.locator('[data-document-identity]').evaluate(el => el.querySelector('input')?.value || el.textContent?.trim())).toBe('레이어 검증');
+  await expect.poll(() => nativeEditor(page).locator('[data-document-identity]').evaluate(el => el.querySelector('input')?.value || el.textContent?.trim())).toBe('레이어 검증');
 }
 const order = (rows: Locator) => rows.evaluateAll(rows => rows.map(row => row.getAttribute('data-layer')));
 async function drag(page: Page, from: Locator, to: Locator) {
@@ -49,11 +52,13 @@ test('shared layer tools retain selection, reveal on focus and keep the row widt
 });
 test('Slides supports keyboard selection, independent row tools, reorder and cancel', async ({ page }) => {
   await create(page, 'Slides');
-  await page.getByRole('tab', { name: '레이어', exact: true }).click();
-  const rows = page.locator('.sl-layers-list [data-layer]');
+  const ui = nativeEditor(page);
+  await ui.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await ui.getByRole('menuitemcheckbox', { name: '레이어 · 개체 순서와 컴포넌트' }).click();
+  const rows = ui.locator('.sl-layers-list [data-layer]');
   await expect(rows).toHaveCount(2);
   const ids = await order(rows);
-  const first = page.locator(`[data-layer="${ids[0]}"]`), last = page.locator(`[data-layer="${ids[1]}"]`);
+  const first = ui.locator(`[data-layer="${ids[0]}"]`), last = ui.locator(`[data-layer="${ids[1]}"]`);
   await last.locator('.office-layer-pick').press('Space');
   await expect(last).toHaveAttribute('data-layer-selected', 'true');
   await first.hover();
@@ -77,13 +82,16 @@ test('Slides supports keyboard selection, independent row tools, reorder and can
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => order(rows)).toEqual(ids);
   await mkdir(output, { recursive: true });
-  await page.locator('.sl-sidebar').screenshot({ path: `${output}/layers-slides.png` });
+  await ui.locator('.sl-sidebar').screenshot({ path: `${output}/layers-slides.png` });
 });
 test('Site has separate disclosure and tools, and cancels drops outside the list', async ({ page }) => {
   await create(page, 'Site');
-  await page.locator('[data-admin-open]').first().click();
-  await page.getByRole('tab', { name: '구성', exact: true }).click();
-  const list = page.locator('[data-layers]'), rows = list.locator('[data-layer]');
+  const ui = nativeEditor(page);
+  const frame = await nativeFrame(page);
+  await ui.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await ui.getByRole('menuitemcheckbox', { name: '페이지 및 구조', exact: true }).click();
+  await ui.getByRole('tab', { name: '구성', exact: true }).click();
+  const list = ui.locator('[data-layers]'), rows = list.locator('[data-layer]');
   await expect(rows.first()).toBeVisible();
   await expect(list.locator('button button')).toHaveCount(0);
   const firstId = await rows.first().getAttribute('data-layer');
@@ -111,18 +119,18 @@ test('Site has separate disclosure and tools, and cancels drops outside the list
   await expect(blocks).toHaveCount(2);
   const movingId = await blocks.last().getAttribute('data-layer');
   const moving = list.locator(`[data-layer="${movingId}"]`);
-  const before = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
+  const before = await frame.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
   await drag(page, moving.locator('.office-layer-pick'), first);
   await page.keyboard.press('Escape'); await page.mouse.up();
-  expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
+  expect(await frame.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
   await drag(page, moving.locator('.office-layer-pick'), first);
   await page.mouse.move(700, 250); await page.mouse.up();
-  expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
+  expect(await frame.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
   await drag(page, moving.locator('.office-layer-pick'), first);
   await page.mouse.up();
-  await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).not.toBe(before);
+  await expect.poll(() => frame.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).not.toBe(before);
   await page.keyboard.press('ControlOrMeta+z');
-  await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
+  await expect.poll(() => frame.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(before);
   await mkdir(output, { recursive: true });
   await list.screenshot({ path: `${output}/layers-site.png` });
 });

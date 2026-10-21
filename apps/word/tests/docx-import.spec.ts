@@ -1,9 +1,10 @@
+import { openWordDocumentAction } from './helpers';
 import { test, expect } from '@playwright/test';
 import path from 'node:path';
 test('DOCX opens as a new document, preserves the previous document and survives reload', async ({ page }) => {
  await page.goto('/?sample'); const status = page.locator('[data-word-save-status]'); await expect(status).toHaveText('저장됨');
  const title = page.getByLabel('문서 제목', { exact: true }); await title.fill('가져오기 전 원본'); await title.blur(); await expect(status).toHaveText('저장됨');
- await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+ await openWordDocumentAction(page, '문서 작업');
  const original = page.url(); const file = page.getByLabel('DOCX 파일 선택', { exact: true });
  await file.setInputFiles(path.resolve('tests/fixtures/basic-import.docx'));
  const dialog = page.getByRole('dialog', { name: 'DOCX 가져오기', exact: true }); await expect(dialog).toContainText('원본 DOCX');
@@ -13,7 +14,7 @@ test('DOCX opens as a new document, preserves the previous document and survives
  await expect(title).toHaveValue('basic-import'); await expect(page.locator('.w-paragraph').first()).toHaveText('가져온 문서  공백 ');
  await expect(page.locator('.w-cell').first()).toHaveText('테이블 셀'); await expect(status).toHaveText('저장됨'); expect(page.url()).not.toBe(original);
  await page.reload(); await expect(title).toHaveValue('basic-import'); await expect(page.locator('.w-cell').first()).toHaveText('테이블 셀');
- await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+ await openWordDocumentAction(page, '문서 작업');
  await file.setInputFiles({ name: 'broken.docx', mimeType: 'application/octet-stream', buffer: Buffer.from('broken') });
  await expect(page.getByRole('alert')).toContainText('읽지 못했습니다'); await expect(title).toHaveValue('basic-import');
  await page.goto(original); await page.reload(); await expect(title).toHaveValue('가져오기 전 원본');

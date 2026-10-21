@@ -1,12 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
-import { openDeck, pickMenu, visibleBoxes } from './helpers';
+import { openDeck, pickMenu, visibleBoxes, pickInsert } from './helpers';
 
 const saved = (page: Page) => expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
 const id = (page: Page) => new URL(page.url()).hash;
 const tree = (page: Page) => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument(), (key, value) => key === 'sid' || key === 'metadata' ? undefined : value));
 const add = async (page: Page) => {
-  await page.getByRole('toolbar', { name: '슬라이드 서식' }).getByRole('menuitem', { name: '슬라이드', exact: true }).click();
-  await page.getByRole('menu', { name: '슬라이드', exact: true }).getByRole('menuitem', { name: '새 슬라이드', exact: true }).click();
+  await pickInsert(page, '새 슬라이드');
 };
 
 test('autosaves text and preserves the previous deck when starting a template', async ({ page }) => {
@@ -28,7 +27,7 @@ test('autosaves text and preserves the previous deck when starting a template', 
   await saved(page);
   expect(id(page)).not.toBe(originalId);
   await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(5);
-  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await pickMenu(page, 'workspace.recent');
   await page.locator(`[data-slide-document="${originalId.slice(8)}"]`).getByRole('button').click();
   await saved(page);
   expect(await tree(page)).toBe(original);
@@ -43,7 +42,7 @@ test('keeps a conflicting tab in a draft and recovers it into a new document', a
   const newer = await tree(page);
   await add(other); await add(other);
   await expect(other.locator('[data-slide-save-status]')).toHaveText('충돌한 초안 보관됨');
-  await other.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await pickMenu(other, 'workspace.recent');
   await expect(other.locator('[data-slide-draft]')).toHaveCount(1);
   await other.getByRole('button', { name: '새 자료로 복구' }).click();
   await saved(other);
@@ -86,7 +85,7 @@ test('keeps a missing document URL intact and does not overwrite it with a sampl
   await page.goto('/#slides=missing-deck');
   await expect(page.locator('[data-slide-save-status]')).toHaveText('복원 실패');
   expect(id(page)).toBe('#slides=missing-deck');
-  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await pickMenu(page, 'workspace.recent');
   await expect(page.locator('[data-slide-document]')).toHaveCount(0);
 });
 
@@ -110,7 +109,7 @@ test('keeps the saved deck after a partial load failure and requires a saved-cop
     (window as any).restoreSetNode = () => { store.setNode = setNode; };
   });
 
-  await page.getByRole('button', { name: '최근 자료', exact: true }).click();
+  await pickMenu(page, 'workspace.recent');
   const dialog = page.getByRole('dialog', { name: '최근 발표 자료' });
   await page.locator(`[data-slide-document="${targetId}"]`).getByRole('button').click();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('복구 필요');

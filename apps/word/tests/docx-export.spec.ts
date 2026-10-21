@@ -1,9 +1,10 @@
+import { openWordDocumentAction } from './helpers';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 test('DOCX export reports fidelity before downloading and keeps the active document', async ({ page }) => {
  await page.goto('/?sample'); await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
- await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+ await openWordDocumentAction(page, '문서 작업');
  const before = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
  await page.getByRole('button', { name: 'DOCX 내보내기', exact: true }).click();
  const dialog = page.getByRole('dialog', { name: 'DOCX 내보내기', exact: true }); await expect(dialog).toBeVisible();
@@ -22,7 +23,7 @@ test('DOCX export reports fidelity before downloading and keeps the active docum
 test('DOCX conversion and download errors can be retried without changing the document', async ({ page }) => {
  await page.goto('/?sample'); await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
  const before = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
- await page.getByRole('button', { name: '문서 작업', exact: true }).click();
+ await openWordDocumentAction(page, '문서 작업');
  await page.evaluate(() => {
    const ed = (window as any).editor, original = ed.exportDocument;
    ed.exportDocument = () => { ed.exportDocument = original; throw new Error('test conversion failure'); };

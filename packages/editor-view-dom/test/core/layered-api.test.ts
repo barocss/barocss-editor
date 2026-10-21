@@ -9,6 +9,7 @@ import { EditorViewDOM } from '../../src/editor-view-dom';
 const mockEditor = {
   emit: vi.fn(),
   on: vi.fn(),
+  off: vi.fn(),
   executeCommand: vi.fn()
 } as any;
 

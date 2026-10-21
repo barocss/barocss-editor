@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
+import { useOfficePortalContainer } from './portal-owner';
+import { useEffect, useLayoutEffect, useRef, useState, type HTMLAttributes, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@barocss/office-icons';
-import { IconButton, keepsDraftTextAreaEscape } from './controls';
+import { IconButton, keepsDraftFieldEscape } from './controls';
 import { placeNear, type PlaceOptions } from './place-near';
 import { TipProvider, dismissVisibleTooltip } from './tip';
 import { createPortal } from 'react-dom';
@@ -47,6 +48,10 @@ export type FloatingOwnedElement = Element | null | { readonly current: Element 
 
 export interface FloatingSurfaceProps extends HTMLAttributes<HTMLDivElement> {
   open: boolean;
+  /** Opt into shared compact geometry when the content is a compact primary toolbar. */
+  compact?: boolean;
+  /** Retain secondary field drafts while closed; hidden content remains inert. */
+  keepMounted?: boolean;
   /** The anchor is measured by the caller in viewport coordinates. */
   at: DOMRect | null;
   gap?: number;
@@ -56,6 +61,8 @@ export interface FloatingSurfaceProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'toolbar' | 'panel' | 'menu';
   /** Explicit action menus can take keyboard focus; selection/slash surfaces retain it. */
   focusOnOpen?: boolean;
+  /** Optional opening host: never take focus after the reader moves elsewhere. */
+  focusOrigin?: RefObject<HTMLElement | null>;
   /** A host outside the editable region, inside the desired theme scope. */
   portalRoot?: HTMLElement | null;
   onDismiss?: (reason: FloatingDismissReason, event: KeyboardEvent | PointerEvent) => void;
@@ -79,15 +86,16 @@ export function dismissOwnedFloatingLayer(event: KeyboardEvent): boolean {
 }
 
 export function FloatingSurface({
-  open, at, gap = 8, margin = 8, prefer = 'above', align = 'center',
-  variant = 'toolbar', portalRoot, onDismiss, ownedElements = [], focusOnOpen = false,
+  open, compact = false, at, gap = 8, margin = 8, prefer = 'above', align = 'center',
+  variant = 'toolbar', portalRoot, onDismiss, ownedElements = [], focusOnOpen = false, focusOrigin, keepMounted = false,
   className, children, role, style, onKeyDown, ...attributes
 }: FloatingSurfaceProps) {
+  const container = useOfficePortalContainer();
   const host = useRef<HTMLDivElement>(null);
   const [placed, setPlaced] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const latest = useRef({ onDismiss, ownedElements });
   latest.current = { onDismiss, ownedElements };
-  const destination = portalRoot ?? (typeof document === 'undefined' ? null : document.body);
+  const destination = portalRoot ?? (container === undefined ? (typeof document === 'undefined' ? null : document.body) : container);
 
   useLayoutEffect(() => {
     const surface = host.current;
@@ -121,9 +129,13 @@ export function FloatingSurface({
   const dismissible = !!onDismiss;
   useEffect(() => {
     if (open && at && placed && focusOnOpen) {
-      host.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled), [role="menuitemcheckbox"]:not(:disabled)')?.focus({ preventScroll: true });
+      const surface = host.current;
+      if (!surface?.isConnected || (focusOrigin && !focusOrigin.current?.contains(surface.ownerDocument.activeElement))) return;
+      const first = [...surface.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled), [role="menuitemcheckbox"]:not(:disabled), [role="menuitemradio"]:not(:disabled), button:not(:disabled), input:not(:disabled):not([type="hidden"]), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])')]
+        .find(element => !element.closest('[hidden], [inert]') && getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility !== 'hidden');
+      first?.focus({ preventScroll: true });
     }
-  }, [open, at !== null, placed !== null, focusOnOpen]);
+  }, [open, at !== null, placed !== null, focusOnOpen, focusOrigin]);
   useEffect(() => {
     const surface = host.current;
     if (!open || !at || !surface || !dismissible) return;
@@ -144,13 +156,20 @@ export function FloatingSurface({
       latest.current.onDismiss?.('outside', event);
     };
     const key = (event: KeyboardEvent): boolean => {
-      if (keepsDraftTextAreaEscape(event)) return false;
+      if (keepsDraftFieldEscape(event)) return false;
       if (!topmost() || event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.key !== 'Escape') return false;
+      // A modal opened from this panel may live in a separate portal. Its own
+      // Escape and focus restoration must run before the background panel.
+      const modal = event.target instanceof Element ? event.target.closest('[data-office-dialog], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]') : null;
+      if (modal && !inside(event)) return false;
       if (dismissVisibleTooltip(event)) return true;
+      // Owned child pickers consume their first Escape before the enclosing surface.
+      const picker = event.target instanceof Element ? event.target.closest('[role="listbox"], [role="menu"], [role="dialog"]') : null;
+      if (picker && picker !== surface && surface.contains(picker)) return false;
       // Separately portalled pickers own Escape until they close. Keep their parent panel open.
-      if (event.target instanceof Node && latest.current.ownedElements.some(owned => {
+      if (picker && picker !== surface && latest.current.ownedElements.some(owned => {
         const element = owned && 'current' in owned ? owned.current : owned;
-        return element && ['listbox', 'menu', 'dialog'].includes(element.getAttribute('role') ?? '') && element.contains(event.target as Node);
+        return element?.contains(picker);
       })) return false;
       event.preventDefault();
       event.stopPropagation();
@@ -170,16 +189,20 @@ export function FloatingSurface({
     };
   }, [open, at !== null, dismissible, destination]);
 
-  if (!open || !at || !destination) return null;
+  if ((!open && !keepMounted) || !at || !destination) return null;
   return createPortal(
     <TipProvider><div
       {...attributes}
       ref={host}
+      hidden={!open || attributes.hidden}
+      inert={!open || attributes.inert}
+      data-compact={compact || undefined}
       data-floating-surface
-      data-floating-ready={placed ? 'true' : undefined}
+      data-floating-ready={open && placed ? 'true' : undefined}
       data-floating-variant={variant}
       role={role ?? (variant === 'toolbar' ? 'toolbar' : variant === 'menu' ? 'menu' : 'group')}
       onKeyDown={event => {
+        if (!open) return;
         onKeyDown?.(event);
         if (event.defaultPrevented || variant !== 'menu') return;
         const target = event.target instanceof Element ? event.target : null;
@@ -205,6 +228,7 @@ export function FloatingSurface({
       )}
       style={{
         ...style,
+        display: open ? style?.display : 'none',
         position: 'fixed',
         boxSizing: 'border-box',
         maxWidth: `calc(100vw - ${margin * 2}px)`,

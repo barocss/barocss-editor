@@ -38,7 +38,9 @@ describe('패키지가 여는 문', () => {
       const entries = library.entry as Record<string, string>;
       for (const [key, target] of Object.entries(json.exports as Json)) {
         if (key.endsWith('.css')) continue;
-        const source = typeof target === 'string' ? target : (target as Json).import as string;
+        // Node-ready subpaths may import compiled JS while their types identify the source.
+        const imported = typeof target === 'string' ? target : (target as Json).import as string;
+        const source = /\.tsx?$/.test(imported) ? imported : (target as Json).types as string;
         expect(entries[key === '.' ? 'index' : key.slice(2)], `${name}/${key}`).toBe(resolve(PACKAGES, name, source));
       }
     }

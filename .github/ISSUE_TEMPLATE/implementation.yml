@@ -1,0 +1,93 @@
+name: Product implementation or defect
+description: Scoped product work with a testable result. Planner decides readiness and dispatch.
+title: "[Product] "
+body:
+  - type: markdown
+    attributes:
+      value: "Use the current-state block from docs/operations/wonffice-workflow.md after triage. Creating this Issue does not assign Execute."
+  - type: dropdown
+    id: work-type
+    attributes:
+      label: Work type
+      options: [implementation, defect]
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Primary category
+      options: [product, i18n, authority, recovery, accessibility]
+    validations:
+      required: true
+  - type: input
+    id: user-source
+    attributes:
+      label: User request and authority
+      description: Link or date the direct request; distinguish a research suggestion.
+      placeholder: "2026-10-04 user request; exact scope..."
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and current evidence
+      description: Include source SHA, actual behavior and limits. For a defect, give reproduction, expected and actual results.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Small scope and non-goals
+      description: State the smallest user-visible result and what is excluded.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Number independently observable criteria; preserve old criteria when updating an Issue.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification and evidence
+      description: Commands, real user flows, source/environment and evidence limits.
+    validations:
+      required: true
+  - type: textarea
+    id: dependency
+    attributes:
+      label: Dependencies, ownership and safe checkpoint
+      description: Related Issues/PRs, current owner, worktree and what must be preserved. Write none if none.
+    validations:
+      required: true
+  - type: textarea
+    id: cross-cutting
+    attributes:
+      label: i18n, authority, recovery and accessibility
+      description: State the applicable checks or why each does not apply.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Proposed priority (Planner confirms)
+      options: [unranked, P2, P1, P0]
+    validations:
+      required: true
+  - type: dropdown
+    id: readiness
+    attributes:
+      label: Initial readiness
+      options: [needs-triage, backlog, ready]
+    validations:
+      required: true
+  - type: dropdown
+    id: release-commitment
+    attributes:
+      label: Release commitment
+      description: A milestone alone is not a commitment.
+      options: [none, candidate, committed]
+    validations:
+      required: true

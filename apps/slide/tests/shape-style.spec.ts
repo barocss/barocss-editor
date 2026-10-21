@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { drawnFill, openDeck } from './helpers';
+import { drawnFill, openDeck, pickInsert, setPanel } from './helpers';
 
 /**
  * A shape with a gradient, a shadow and a dash.
@@ -18,7 +18,7 @@ import { drawnFill, openDeck } from './helpers';
  * it, the renderer reads it, and the browser paints it.
  */
 const newRectangle = async (page: Page) => {
-  await page.getByRole('button', { name: '사각형' }).click();
+  await pickInsert(page, '사각형');
   await expect
     .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
     .not.toBeNull();
@@ -27,7 +27,7 @@ const newRectangle = async (page: Page) => {
 
 const cssOf = (page: Page, sid: string) =>
   page.evaluate((id) => {
-    const el = document.querySelector(`[data-bc-sid="${CSS.escape(id)}"]`)!;
+    const el = document.querySelector(`.sl-stage [data-bc-sid="${CSS.escape(id)}"]`)!;
     const style = getComputedStyle(el);
     return {
       backgroundImage: style.backgroundImage,
@@ -46,7 +46,7 @@ const cssOf = (page: Page, sid: string) =>
  * they are asserting on.
  */
 const setColour = async (page: Page, label: string, value: string) => {
-  await page.getByLabel(label, { exact: true }).click();
+  await page.locator('.sl-properties').getByLabel(label, { exact: true }).click();
   // The field opens the picker, whose hex box carries the digits without the
   // `#` — the picker draws that, because a reader typing a colour types six
   // characters and not seven.
@@ -65,6 +65,7 @@ test.describe('designing a shape', () => {
    */
   test('takes a gradient from the panel and paints it', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     await page.locator('.sl-properties').getByLabel('1번 채우기 종류').selectOption('linear');
@@ -97,6 +98,7 @@ test.describe('designing a shape', () => {
    */
   test('will not let a gradient fall below two stops', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await newRectangle(page);
 
     await page.locator('.sl-properties').getByLabel('1번 채우기 종류').selectOption('linear');
@@ -108,6 +110,7 @@ test.describe('designing a shape', () => {
 
   test('takes a shadow, and lets it be moved', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     await page.locator('.sl-properties').getByLabel('효과 추가').click();
@@ -128,10 +131,14 @@ test.describe('designing a shape', () => {
 
   test('draws the dash the panel names', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     await setColour(page, '선 색', '#111111');
-    await page.getByLabel('선 모양').selectOption('dash');
+    // Escape can leave the canvas selection. Select the same drawn original again.
+    const box = await page.locator(`.sl-stage [data-bc-sid="${sid}"]`).boundingBox();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.locator('.sl-properties').getByRole('combobox', { name: '선 모양', exact: true }).selectOption('dash');
 
     await expect.poll(async () => (await cssOf(page, sid)).border).toContain('dashed');
   });
@@ -143,6 +150,7 @@ test.describe('designing a shape', () => {
    */
   test('offers the design rows only where the shape declares them', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await newRectangle(page);
     await expect(page.locator('.sl-properties').getByLabel('채우기 추가')).toBeVisible();
     await expect(page.locator('.sl-properties').getByLabel('효과 추가')).toBeVisible();
@@ -154,6 +162,7 @@ test.describe('designing a shape', () => {
      * gesture; Escape clears a selection now, and the deselect suite proves it.
      */
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await expect(page.locator('.sl-properties').getByLabel('채우기 추가')).toHaveCount(0);
   });
 });
@@ -204,6 +213,7 @@ test.describe('a panel about more than one shape', () => {
 
   test('says nothing where they differ, and the value where they agree', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await two(page);
     const panel = page.locator('.sl-properties');
 
@@ -223,6 +233,7 @@ test.describe('a panel about more than one shape', () => {
 
   test('changes both, in one edit', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const { rect, oval } = await two(page);
     const panel = page.locator('.sl-properties');
 
@@ -259,6 +270,7 @@ test.describe('a panel about more than one shape', () => {
    */
   test('says when the fills differ, and stops saying it once they do not', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const { rect, oval } = await two(page);
     await page.evaluate(
       ([a, b]) => {
@@ -304,6 +316,7 @@ test.describe('a panel about more than one shape', () => {
    */
   test('writes what a shape declares and skips what it does not', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const { rect, oval } = await two(page);
     const panel = page.locator('.sl-properties');
 
@@ -329,6 +342,7 @@ test.describe('a panel about more than one shape', () => {
 test.describe('flipping a box', () => {
   test('mirrors after the turn, and is its own undo', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
     await page.evaluate(
       (id) => (window as any).editor.executeCommand('setBoxGeometry', { nodeId: id, rotation: 30 }),
@@ -346,7 +360,7 @@ test.describe('flipping a box', () => {
     const before = await drawn();
     expect(before.rotation).toBe(30);
 
-    await page.locator('[data-control="flip-h"]').click();
+    await page.locator('.sl-properties [data-control="flip-h"]').click();
     await page.waitForTimeout(450);
 
     const after = await drawn();
@@ -355,7 +369,7 @@ test.describe('flipping a box', () => {
     expect(after.rotation).toBe(30);
     expect(after.transform).not.toBe(before.transform);
 
-    await page.locator('[data-control="flip-h"]').click();
+    await page.locator('.sl-properties [data-control="flip-h"]').click();
     await page.waitForTimeout(450);
     // Exactly back: a toggle is its own undo, which is what makes it safe to try.
     expect((await drawn()).transform).toBe(before.transform);
@@ -369,6 +383,7 @@ test.describe('flipping a box', () => {
    */
   test('flips each of a selection on its own', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const rect = await newRectangle(page);
     const oval = await page.evaluate(async () => {
       await (window as any).editor.executeCommand('insertEllipse', {
@@ -391,7 +406,7 @@ test.describe('flipping a box', () => {
     );
     await page.waitForTimeout(300);
 
-    await page.locator('[data-control="flip-v"]').click();
+    await page.locator('.sl-properties [data-control="flip-v"]').click();
     await page.waitForTimeout(500);
 
     const flips = await page.evaluate(

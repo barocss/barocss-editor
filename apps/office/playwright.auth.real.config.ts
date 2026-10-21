@@ -13,7 +13,7 @@ if (!Number.isInteger(apiPort) || apiPort < 1024 || apiPort > 65535) {
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
 
 export default defineConfig({
-  testDir: './tests', testMatch: 'auth-real-local.spec.ts', timeout: 90_000, workers: 1,
+  testDir: './tests', testMatch: ['auth-real-site.spec.ts', 'auth-real-local.spec.ts', 'auth-real-recovery.spec.ts', 'auth-real-privacy.spec.ts', 'auth-real-destination-conflict.spec.ts', 'auth-real-word.spec.ts', 'auth-real-slides.spec.ts', 'auth-real-note-navigation.spec.ts', 'auth-real-mixed-native.spec.ts', 'connected-project-auth.spec.ts', 'word-mixed-feedback-auth.spec.ts', 'connected-execution-auth.spec.ts', 'business-pair-auth.spec.ts', 'standalone-requirement-auth.spec.ts', 'criterion-confirmation-auth.spec.ts', 'criterion-verification-auth.spec.ts'], timeout: 90_000, workers: 1,
   use: { baseURL: officeOrigin },
   webServer: [
     {

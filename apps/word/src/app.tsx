@@ -1,10 +1,15 @@
-import { EditorHeader, ProductMenu, CommandSearch, CommandSearchTrigger } from '@barocss/office-ui';
+import type { CriterionVerificationHost } from './criterion-verification-client';
+import type { WordWorkHost } from './work-result-verification-client';
+import type { CriterionConfirmationHost } from './criterion-confirmation-client';
+import { EditorHeader, DocumentMenu, CommandSearch, CommandSearchTrigger, FloatingSurface, FloatingPanelHeader } from '@barocss/office-ui';
 import { DocumentLibrary, type DocumentLibraryHandle } from './document-library';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Editor, ModelSelection } from '@barocss/editor-core';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { Editor } from '@barocss/editor-core';
 import { watchAnswers } from '@barocss/editor-core';
-import type { EditorViewDOM } from '@barocss/editor-view-dom';
-import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, MenuBar, onApple, useRevision } from '@barocss/office-ui';
+import type { WordRuntime } from './runtime';
+import { productDocumentHost, registerProductFeedbackHost } from '@barocss/shared';
+import type { ReactNode } from 'react';
+import { Button, AdaptiveWorkspace, WorkspaceSidePanel, AppChrome, AppMain, AppShell, Icon, Tip, onApple, useRevision, useOfficeLocale } from '@barocss/office-ui';
 import {
   captureBookmarkSession, type BookmarkSession,
   captureCaptionSession, type CaptionSession,
@@ -12,7 +17,7 @@ import {
   captureTocSession, type TocSession,
   captureFurnitureTarget, type FurnitureTarget,
   authoringKind, canAuthor, captureAuthoring, type WordAuthoringSession,
-  createStarterDocument,
+  createStarterDocument, createWordFeedbackHost,
   readWordFile,
   wordFileName,
   wordFileText,
@@ -22,7 +27,6 @@ import {
   WORD_VIEW_KEYS,
   wordMenuEntry,
   wordMenuId,
-  type FontLoader
 } from '@barocss/office-word';
 import { useFormatPainter, captureTextSelection, clipboardAction, canUseClipboard, useClipboardActions, FileActions, type DocumentFileActions } from '@barocss/office-editor-ui';
 import {
@@ -48,7 +52,10 @@ import {
   ZoomControl
 } from '@barocss/office-word/ui';
 import { matchesKey } from '@barocss/office-controls';
+import { ParagraphProposalPanel } from './paragraph-proposal-panel';
 import { InputLab } from './input-lab/panel';
+import { BusinessPairPanel } from './business-pair-panel';
+import { createWordCommandOwner, type WordCommandTarget } from './command-owner';
 
 /**
  * The app shell.
@@ -72,12 +79,50 @@ const painterOptions = {
     </Button>,
 };
 
-export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: string) => void) => { editor: Editor; view: EditorViewDOM; fonts: FontLoader; editFurniture: (id?: string) => void } }) {
+function ReadOnlyControls({ enabled, children }: { enabled?: boolean; children: ReactNode }) {
+  return enabled ? <fieldset disabled inert style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>{children}</fieldset> : <>{children}</>;
+}
+
+export interface WordServerHost {
+  criterionConfirmation?: CriterionConfirmationHost;
+  criterionVerification?: CriterionVerificationHost;
+  workVerification?: WordWorkHost;
+  active?: boolean;
+  isActive?: () => boolean;
+  headerActions?: ReactNode;
+  headerNavigation?: ReactNode;
+  navigation?: ReactNode;
+  workspaceNavigation?: boolean;
+  readOnly?: boolean;
+  onRuntime: (runtime: WordRuntime) => void;
+  feedbackDocumentId: () => string;
+  canComment: () => boolean;
+  onFileAction: (action: 'new' | 'open' | 'save') => void;
+  nativeExport?: { available: boolean; run: () => void };
+}
+
+export function App({ mount, server }: {
+  mount: (host: HTMLElement, onFurniture?: (id?: string) => void) => WordRuntime;
+  server?: WordServerHost;
+}) {
+  const { t } = useOfficeLocale();
+  const proposalSample = !server && new URLSearchParams(location.search).get('sample') === 'paragraph-proposal';
   const library = useRef<DocumentLibraryHandle>(null);
   const [compact, setCompact] = useState(false);
+  const [ribbonExpanded, setRibbonExpanded] = useState(false);
+  const [rulerShown, setRulerShown] = useState(false);
+  const [businessOpen, setBusinessOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<'navigation' | 'inspector' | null>(null);
+  const panelId = useId();
+  const panelMenuAnchor = useRef<HTMLSpanElement>(null);
+  const restorePanelFocus = useCallback((_side: 'navigation' | 'inspector') => {
+    panelMenuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
+  }, []);
   const host = useRef<HTMLDivElement>(null);
+  const detailAnchor = useRef<HTMLSpanElement>(null);
   const mounted = useRef(false);
+  const serverRef = useRef(server);
+  serverRef.current = server;
   /**
    * 페이지가 스크롤되는 칸 — **조립하는 쪽이 알고 있는 것**.
    *
@@ -87,7 +132,11 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
    * 아니라 `closest` 로 찾는다: 자기 서브트리에서 위로 올라가는 것은 자기 것이다.
    */
   const [pane, setPane] = useState<HTMLElement | null>(null);
-  const [instance, setInstance] = useState<{ editor: Editor; view: EditorViewDOM; fonts: FontLoader; editFurniture: (id?: string) => void } | null>(null);
+  const [instance, setInstance] = useState<WordRuntime | null>(null);
+  const [reading, setReading] = useState(() => new URLSearchParams(location.search).get('mode') === 'read');
+  const readingRef = useRef(reading); readingRef.current = reading;
+  const authorityReadOnly = Boolean(server?.readOnly || instance?.editor.isEditable === false);
+  const readOnly = authorityReadOnly || reading;
   const [editingFurniture, setEditingFurniture] = useState<string>();
   const [toc, setToc] = useState<TocSession>();
   const [figures, setFigures] = useState<TocSession>();
@@ -100,17 +149,35 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
 
   useEffect(() => {
     if (!host.current || mounted.current) return;
-    // Guarded because StrictMode runs effects twice on purpose, and it was
-    // right to: without this the editor was built into the same element twice
-    // and the document appeared three times over.
-    //
-    // Not cleaned up on unmount either. The editor owns this subtree for the
-    // life of the page, and tearing it down and rebuilding it would throw away
-    // the layout, the caret and the history for a re-render the user cannot see.
     mounted.current = true;
     setPane(host.current.closest('.w-shell-document') as HTMLElement | null);
-    setInstance(mount(host.current, setEditingFurniture));
+    const runtime = mount(host.current, setEditingFurniture);
+    runtime.setReading(readingRef.current);
+    setInstance(runtime);
+    serverRef.current?.onRuntime(runtime);
+    return () => {
+      runtime.dispose();
+      mounted.current = false;
+    };
   }, [mount]);
+
+  useEffect(() => {
+    if (!instance || server?.active === false) return;
+    const feedback = createWordFeedbackHost({
+      editor: instance.editor,
+      id: () => serverRef.current ? serverRef.current.feedbackDocumentId() :
+        productDocumentHost()?.product === 'word' ? productDocumentHost()!.id() : '',
+      canComment: () => !serverRef.current || serverRef.current.canComment(),
+      captureSelection: () => captureTextSelection(instance.editor, instance.view, { allowBlurred: true }),
+      reading: value => { instance.setReading(value); setReading(value); },
+      nativeDocument: () => instance.exportNativeDocument(),
+      captureInputIntent: () => instance.captureInputIntent(),
+      captureCommentIntent: () => instance.captureInputIntent({ command: 'insertComment', selection: 'gesture' }),
+      captureRevisionIntent: () => instance.captureInputIntent({ selection: true })
+    });
+    const unregister = registerProductFeedbackHost(feedback);
+    return () => { unregister(); feedback.dispose(); };
+  }, [instance, server?.active]);
 
   /**
    * Whether the search box is open.
@@ -133,11 +200,18 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
    * Open on request so the initial workspace gives its width to the page.
    */
   const [outlining, setOutlining] = useState(false);
+  const [documentActionsOpen, setDocumentActionsOpen] = useState(false);
+  const documentMenuAnchor = useRef<HTMLSpanElement>(null);
+  useEffect(() => setDocumentActionsOpen(false), [instance]);
   const togglePanel = useCallback((side: 'navigation' | 'inspector') => {
+    const shown = compact ? activePanel === side : side === 'navigation' ? outlining : commenting;
+    const closingRegion = side === 'navigation' && !compact && server?.navigation && !server.workspaceNavigation ? `${panelId}-outline` : `${panelId}-${side}`;
+    const closingFromPanel = shown && document.getElementById(closingRegion)?.contains(document.activeElement);
     if (compact) setActivePanel(current => current === side ? null : side);
-    else if (side === 'navigation') setOutlining(shown => !shown);
-    else setCommenting(shown => !shown);
-  }, [compact]);
+    else if (side === 'navigation') setOutlining(value => !value);
+    else setCommenting(value => !value);
+    if (closingFromPanel) requestAnimationFrame(() => restorePanelFocus(side));
+  }, [compact, activePanel, outlining, commenting, panelId, restorePanelFocus, server?.navigation]);
   const outlineShown = compact ? activePanel === 'navigation' : outlining;
   const commentsShown = compact ? activePanel === 'inspector' : commenting;
 
@@ -151,7 +225,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
    * meet it. Read once: whether it is open is not something the page changes its
    * mind about.
    */
-  const [lab] = useState(() => new URLSearchParams(window.location.search).has('lab'));
+  const [lab] = useState(() => !server && new URLSearchParams(window.location.search).has('lab'));
 
   /** What the editor has to say about itself right now — see the `menus` memo. */
   const answers = useRevision(
@@ -179,7 +253,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             label: item.label,
             hint: item.hint,
             checked: item.view === 'outline' ? outlineShown : item.view === 'comments' ? commentsShown : undefined,
-            disabled: item.view === 'dialog.caption' ? !instance || !captureCaptionSession(instance.editor) : ['dialog.bookmark', 'dialog.reference'].includes(item.view ?? '') ? !instance || !captureBookmarkSession(instance.editor) : item.view === 'dialog.styles' ? !instance || !captureStyleSession(instance.editor) : ['dialog.toc', 'dialog.figures'].includes(item.view ?? '') ? !instance || !captureTocSession(instance.editor) : item.view === 'format-painter'
+            disabled: readOnly && !['print', 'find', 'outline', 'comments', 'zoom.in', 'zoom.out', 'zoom.reset'].includes(item.view ?? '') ? true : item.view === 'dialog.caption' ? !instance || !captureCaptionSession(instance.editor) : ['dialog.bookmark', 'dialog.reference'].includes(item.view ?? '') ? !instance || !captureBookmarkSession(instance.editor) : item.view === 'dialog.styles' ? !instance || !captureStyleSession(instance.editor) : ['dialog.toc', 'dialog.figures'].includes(item.view ?? '') ? !instance || !captureTocSession(instance.editor) : item.view === 'format-painter'
               ? !instance || (!painter.active && !captureWordFormat(instance.editor))
               : item.view && clipboardAction(item.view)
               ? clipboard.busy || !canUseClipboard(instance?.editor ?? null, clipboardAction(item.view)!)
@@ -197,7 +271,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
      * as nothing else re-rendered this component — a menu that is stale is a menu a reader stops
      * trusting.
      */
-    [instance, answers, outlineShown, commentsShown, clipboard.busy, painter.active]
+    [instance, answers, outlineShown, commentsShown, clipboard.busy, painter.active, readOnly]
   );
 
   /**
@@ -237,6 +311,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
 
   const runEntry = useCallback(
     (entry: { command?: string; view?: string; payload?: Record<string, unknown> }) => {
+      if (readOnly && !['print', 'find', 'outline', 'comments', 'zoom.in', 'zoom.out', 'zoom.reset'].includes(entry.view ?? '')) return;
       if (entry.view?.startsWith('furniture.') && instance) {
         const target = captureFurnitureTarget(instance.editor);
         if (target) setFurniture({ target, mode: entry.view.slice(10) as 'header' | 'footer' | 'number' });
@@ -249,11 +324,12 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
       if (kind && instance) { setAuthoring(captureAuthoring(instance.editor, kind)); return; }
       switch (entry.view) {
         case 'file.new':
-          return files.current?.create();
+          return server ? server.onFileAction('new') : files.current?.create();
         case 'file.open':
-          return files.current?.open();
+          if (server?.workspaceNavigation) { setDocumentActionsOpen(true); return; }
+          return server ? server.onFileAction('open') : files.current?.open();
         case 'file.save':
-          return files.current?.save();
+          return server ? server.onFileAction('save') : files.current?.save();
         case 'print':
           return window.print();
         case 'dialog.bookmark':
@@ -308,52 +384,88 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
 
       if (entry.command) void instance?.editor?.executeCommand(entry.command, entry.payload as never);
     },
-    [instance, clipboard.run, painter.activate, togglePanel]
+    [instance, clipboard.run, painter.activate, togglePanel, server, readOnly]
   );
 
   const [commandSearchOpen, setCommandSearchOpen] = useState(false);
   const [recentCommands, setRecentCommands] = useState<string[]>([]);
   const [commandError, setCommandError] = useState('');
-  const searchTarget = useRef<{ rootId: string; selection: ModelSelection | undefined } | undefined>(undefined);
+  const searchTarget = useRef<{ owner: WordCommandTarget; authority: number; generation: number } | undefined>(undefined);
+  const searchGeneration = useRef(0);
+  const commandContext = useRef({ instance, readOnly, active: server?.active !== false, reading, authority: 0 });
+  const previousContext = commandContext.current;
+  commandContext.current = { instance, readOnly, active: server?.active !== false, reading,
+    authority: previousContext.authority + Number(previousContext.instance !== instance || previousContext.readOnly !== readOnly ||
+      previousContext.active !== (server?.active !== false) || previousContext.reading !== reading) };
+  const commandOwner = useMemo(() => instance ? createWordCommandOwner(instance, () => commandContext.current.instance === instance &&
+    commandContext.current.active && !commandContext.current.reading && (!serverRef.current?.isActive || serverRef.current.isActive())) : undefined, [instance]);
+  useEffect(() => commandOwner?.track(), [commandOwner]);
   const searchEntries = useMemo(() => wordSearchCommands(onApple()), []);
   const searchCommands = searchEntries.map(entry => {
     const menu = menus.flatMap(menu => menu.blocks.flatMap(block => block.items)).find(item => item.id === entry.id);
     const disabled = !instance || (menu ? menu.disabled : !instance.editor.canExecuteCommand(entry.command!, entry.payload as never));
-    return { ...entry, disabled, disabledReason: '현재 선택 또는 문서 상태에서는 실행할 수 없습니다.' };
+    return { ...entry, disabled, disabledReason: t('word.commandSearch.unavailable') };
   });
   const openCommandSearch = () => {
-    if (!instance) return;
-    const rootId = instance.editor.getRootId();
-    if (!rootId) return;
-    searchTarget.current = { rootId, selection: structuredClone(captureTextSelection(instance.editor, instance.view, { allowBlurred: true }) ?? instance.editor.selection ?? undefined) };
+    if (!instance || !commandOwner) return;
+    if (!commandOwner.capture()?.isCurrent()) { setCommandError(t('word.commandSearch.inputPending')); return; }
+    const selection = captureTextSelection(instance.editor, instance.view, { allowBlurred: true });
+    if (selection && JSON.stringify(selection) !== JSON.stringify(instance.editor.selection))
+      instance.editor.updateSelection({ selection, applySelectionToView: false });
+    const owner = commandOwner.capture();
+    if (!owner?.isCurrent()) { setCommandError(t('word.commandSearch.inputPending')); return; }
+    searchTarget.current = { owner, authority: commandContext.current.authority, generation: ++searchGeneration.current };
     setCommandError(''); setCommandSearchOpen(true);
   };
-  const pickCommand = async (id: string) => {
-    const target = searchTarget.current;
+  const ownsSearch = (target: NonNullable<typeof searchTarget.current>) => searchTarget.current === target &&
+    searchGeneration.current === target.generation && commandContext.current.authority === target.authority && target.owner.isCurrent();
+  const pickCommand = async (id: string, target: NonNullable<typeof searchTarget.current>) => {
     const entry = searchEntries.find(entry => entry.id === id);
-    if (!instance || !target || !entry || instance.editor.getRootId() !== target.rootId) { setCommandError('문서가 변경되었습니다. 명령을 다시 선택하세요.'); return; }
-    if (target.selection) instance.editor.updateSelection({ selection: target.selection, applySelectionToView: true });
+    if (!instance || !entry || !ownsSearch(target) || !target.owner.restore() || !ownsSearch(target)) {
+      setCommandError(t('word.commandSearch.changed')); return;
+    }
     try {
+      if (readOnly || !instance.editor.isEditable) {
+        if (entry.command) { setCommandError(t('word.commandSearch.readOnly')); return; }
+      }
       if (entry.command) {
         if (!instance.editor.canExecuteCommand(entry.command, entry.payload as never) || !await instance.editor.executeCommand(entry.command, entry.payload as never)) {
-          setCommandError('현재 선택에서 명령을 실행할 수 없습니다.'); return;
+          setCommandError(t('word.commandSearch.unavailable')); return;
         }
       } else runEntry(entry);
       setRecentCommands(previous => [id, ...previous.filter(value => value !== id)].slice(0, 5));
-    } catch { setCommandError('명령을 실행하지 못했습니다. 다시 시도하세요.'); }
+    } catch { setCommandError(t('word.commandSearch.failed')); }
   };
+  const captureCommandIntent = (id: string) => {
+    const target = searchTarget.current, entry = searchCommands.find(entry => entry.id === id);
+    if (!target || !entry || entry.disabled || !ownsSearch(target)) {
+      setCommandError(t('word.commandSearch.changed')); return undefined;
+    }
+    let picked = false;
+    return () => { if (!picked) { picked = true; void pickCommand(id, target); } };
+  };
+  const documentMenus = menus.filter(menu => menu.id === 'file');
 
   /** A pick in the menubar, which is `runEntry` with the entry looked up. */
   const onMenu = useCallback(
     (id: string) => {
+      if (id === 'server.native-export') {
+        if (server?.nativeExport?.available) server.nativeExport.run();
+        return;
+      }
+      if (!server && !proposalSample && (id === 'local.library' || id === 'local.actions')) {
+        library.current?.open(id === 'local.library' ? 'library' : 'actions');
+        return;
+      }
       const entry = wordMenuEntry(id);
       if (entry) runEntry(entry);
     },
-    [runEntry]
+    [runEntry, server, proposalSample]
   );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (serverRef.current?.isActive && !serverRef.current.isActive()) return;
       /*
        * The **view** bindings, which are this app's half of what Word binds.
        *
@@ -393,25 +505,63 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
    * the document.
    */
   return (
-    <AppShell className="w-shell">
-      <CommandSearch open={commandSearchOpen} onOpenChange={setCommandSearchOpen} commands={searchCommands} recentIds={recentCommands} onPick={id => void pickCommand(id)} />
-      {commandError && <div role="alert" className="w-command-error">{commandError}<Button tone="quiet" onClick={() => setCommandError('')}>닫기</Button></div>}
+    <AppShell className="w-shell" data={{ reading: String(reading) }}>
+      <CommandSearch open={commandSearchOpen} onOpenChange={setCommandSearchOpen} commands={searchCommands} recentIds={recentCommands}
+        onPickIntent={captureCommandIntent} onPick={id => captureCommandIntent(id)?.()} />
+      {commandError && <div role="alert" className="w-command-error">{commandError}<Button tone="quiet" onClick={() => setCommandError('')}>{t('word.commandSearch.close')}</Button></div>}
       <AppChrome className="w-chrome">
         {instance && <>
-          <EditorHeader product="Word" className="w-document-header"
-            title={<DocumentTitle editor={instance.editor} compact />}
-            menus={<MenuBar className="w-menubar" label="문서 메뉴" menus={menus} onPick={onMenu} />}
-            fallbackNavigation={<ProductMenu product="Word" blocks={[{ id: 'library', items: [{ id: 'library', label: '문서 보관함' }, { id: 'actions', label: '문서 작업' }] }]} onPick={id => library.current?.open(id as 'library' | 'actions')} />}
-            actions={<><CommandSearchTrigger onClick={openCommandSearch} /><DocumentLibrary ref={library} editor={instance.editor} /></>}
-            view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />} />
-          <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>
+          <EditorHeader compact product="Word" className="w-document-header"
+            title={readOnly ? <span>{wordTitle(instance.editor.dataStore as never) ?? '문서'}</span> : <DocumentTitle editor={instance.editor} compact />}
+            menus={<span ref={documentMenuAnchor} data-word-document-menu><DocumentMenu label="문서 메뉴" icon={<Icon name="disclosed" size={16} />} menus={server?.nativeExport ? documentMenus.map(menu => ({ ...menu,
+              blocks: [...menu.blocks, { id: 'native-export', items: [{ id: 'server.native-export', label: t('word.file.nativeExport'), disabled: !server.nativeExport!.available }] }]
+            })) : server || proposalSample ? documentMenus : [...documentMenus, {
+              id: 'local-library', label: '문서 작업', blocks: [{ id: 'local-library', items: [
+                { id: 'local.library', label: '문서 보관함' }, { id: 'local.actions', label: '문서 작업' }
+              ] }]
+            }]} onPick={onMenu} /></span>}
+            fallbackNavigation={server?.headerNavigation}
+            tools={<div className="w-header-editing-group" role="group" aria-label={t('office.header.editing')}>
+              {([{ command: 'historyUndo', label: t('office.header.undo'), icon: 'undo' }, { command: 'historyRedo', label: t('office.header.redo'), icon: 'redo' }] as const).map(action =>
+                <Tip key={action.command} label={action.label}><Button square tone="quiet" ariaLabel={action.label}
+                  disabled={readOnly || !instance.editor.canExecuteCommand(action.command)}
+                  onMouseDown={event => event.preventDefault()} onClick={() => runEntry({ command: action.command })}>
+                  <Icon name={action.icon} size={16} />
+                </Button></Tip>)}
+              <span className="w-header-insert"><DocumentMenu label={t('office.header.insert')} icon={<><Icon name="add" size={16} /><span>{t('office.header.insert')}</span></>}
+                menus={menus.filter(menu => menu.id === 'insert')} onPick={onMenu} /></span>
+            </div>}
+            view={<ZoomControl zoom={zoom} onChange={setZoom} pane={pane} />}
+            actions={<>
+              <div className="w-header-command-group">
+                <span ref={detailAnchor}><span ref={panelMenuAnchor}><DocumentMenu label={t('word.header.panels')} portalContainer={panelMenuAnchor} icon={<Icon name="outline" />} menus={[{
+                  id: 'panels', label: t('word.header.panels'), blocks: [{ id: 'panels', items: [
+                    { id: 'panel.outline', label: t('word.header.outline'), checked: outlineShown },
+                    { id: 'panel.comments', label: t('word.header.comments'), checked: commentsShown },
+                    { id: 'panel.business', label: t('word.header.requirements'), checked: businessOpen },
+                    { id: 'panel.tools', label: t('office.header.tools'), checked: ribbonExpanded, disabled: readOnly }
+                  ] }]
+                }]} onPick={id => {
+                  if (id === 'panel.outline') togglePanel('navigation');
+                  else if (id === 'panel.comments') togglePanel('inspector');
+                  else if (id === 'panel.tools' && !readOnly) setRibbonExpanded(value => !value);
+                  else if (id === 'panel.business') { setBusinessOpen(value => !value); setActivePanel('navigation'); if (!compact) setOutlining(true); }
+                }} /></span></span>
+                <CommandSearchTrigger iconOnly onClick={openCommandSearch} />
+              </div>
+              {server ? server.headerActions : proposalSample ? null : <DocumentLibrary menuOnly ref={library} editor={instance.editor} native={instance} />}
+            </>} />
+          {!server && <div className="w-file-actions"><FileActions ref={files} editor={instance.editor} kind={fileKind} /></div>}
         </>}
-        {instance ? (
-          <Ribbon
+        {instance && !reading ? (
+          <ReadOnlyControls enabled={readOnly}><Ribbon
+            documentPresentation detailAnchor={detailAnchor} expanded={ribbonExpanded} onExpandedChange={setRibbonExpanded} scope={host}
             editor={instance.editor}
             view={instance.view}
             fonts={instance.fonts}
             panes={{
+              ruler: rulerShown,
+              onRuler: () => setRulerShown(value => !value),
               outline: outlineShown,
               comments: commentsShown,
               onOutline: () => togglePanel('navigation'),
@@ -424,26 +574,37 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             onViewAction={view => runEntry({ view })}
             clipboardBusy={clipboard.busy}
             formatPainterActive={painter.active}
-          />
+          /></ReadOnlyControls>
         ) : null}
         {painter.feedback}
         {editingFurniture && <div className="w-furniture-editing" role="status"><span>머리글·바닥글 편집 중</span><Button onClick={() => instance?.editFurniture()}>본문으로 돌아가기</Button></div>}
         {/* Above the page and as wide as it, because every position on it is a
             position in the text below. */}
-        {instance ? <Ruler editor={instance.editor} zoom={zoom} pane={pane} /> : null}
+        {instance && rulerShown && !reading ? <ReadOnlyControls enabled={readOnly}><Ruler editor={instance.editor} zoom={zoom} pane={pane} /></ReadOnlyControls> : null}
       </AppChrome>
 
-      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: '개요', inspector: '댓글' }}
+      {server?.workspaceNavigation && <FloatingSurface open={documentActionsOpen} keepMounted at={documentMenuAnchor.current?.getBoundingClientRect() ?? null}
+        prefer="below" align="start" variant="panel" focusOnOpen portalRoot={host.current?.closest('.w-shell') as HTMLElement | null}
+        ownedElements={[documentMenuAnchor]} role="region" aria-label={t('workspace.document.actions')} style={{ width: 320, maxWidth: 'calc(100vw - 24px)' }}
+        onDismiss={reason => { setDocumentActionsOpen(false); if (reason === 'escape') documentMenuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true }); }}>
+        <FloatingPanelHeader title={t('workspace.document.actions')} onClose={() => { setDocumentActionsOpen(false); const opener = documentMenuAnchor.current?.querySelector<HTMLElement>('[role="menuitem"]'); if (opener?.isConnected) opener.focus({ preventScroll: true }); }} />
+        {server.navigation}
+      </FloatingSurface>}
+
+      <AdaptiveWorkspace className="w-shell-body" panelLabels={{ navigation: t(server?.navigation ? 'word.header.documentsOutline' : 'word.header.outline'), inspector: t('word.header.comments') }}
+        showPanelControls={false} restorePanelFocus={restorePanelFocus}
+        panelIds={{ navigation: `${panelId}-navigation`, inspector: `${panelId}-inspector` }}
         activePanel={activePanel} onActivePanelChange={setActivePanel} onCompactChange={setCompact}>
-        {instance ? <WorkspaceSidePanel side="navigation" width={compact || outlining ? 240 : 40}><OutlinePane
+        {instance ? <WorkspaceSidePanel side="navigation" width={240} hidden={!outlineShown && (!server?.navigation || server.workspaceNavigation)}>{!server?.workspaceNavigation && server?.navigation}<div className="w-outline-slot" id={`${panelId}-outline`} hidden={!outlineShown}><OutlinePane
             editor={instance.editor}
-            open={compact || outlining}
+            open={outlineShown}
             onToggle={() => togglePanel('navigation')}
             /* 어느 요소에 문서가 그려졌는지는 조립하는 쪽이 안다 — `#editor` 는 이 파일의 id 다. */
             host={host.current}
-          /></WorkspaceSidePanel> : null}
+          /></div>{businessOpen && <BusinessPairPanel runtime={instance} readOnly={readOnly} confirmation={server?.criterionConfirmation} verification={server?.criterionVerification} workVerification={server?.workVerification} />}</WorkspaceSidePanel> : null}
 
-        <AppMain className="w-shell-document relative" data-workspace-main>
+        <div className="w-document-slot" data-workspace-main tabIndex={-1}>
+        <AppMain className="w-shell-document relative">
           {clipboard.feedback}
           {instance ? (
             <FindPanel
@@ -451,6 +612,7 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
               view={instance.view}
               open={finding}
               initialField={findTarget}
+              readOnly={readOnly || !instance.editor.isEditable}
               onClose={() => setFinding(false)}
             />
           ) : null}
@@ -458,28 +620,28 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             테두리 및 음영. 대화상자이므로 문서 위가 아니라 문서 **밖**에 떠야 하고, `Dialog` 가
             포털로 그것을 한다 — 여기 두는 것은 편집기를 아는 자리이기 때문이다.
           */}
-          {bookmarkSession && instance && <BookmarkDialog editor={instance.editor} view={instance.view} {...bookmarkSession} onClose={() => setBookmarkSession(undefined)} />}
-          {styleSession && instance && <ParagraphStyleDialog editor={instance.editor} session={styleSession} onClose={() => setStyleSession(undefined)} />}
-          {toc && instance && <TocDialog editor={instance.editor} session={toc} onClose={() => setToc(undefined)} />}
-          {figures && instance && <TocDialog editor={instance.editor} session={figures} captions onClose={() => setFigures(undefined)} />}
-          {caption && instance && <CaptionDialog editor={instance.editor} session={caption} onClose={() => setCaption(undefined)} />}
-          {furniture && instance && <FurnitureDialog editor={instance.editor} {...furniture} onClose={() => setFurniture(undefined)} onEdit={instance.editFurniture} />}
-          {authoring && instance && <WordAuthoringDialog key={`${authoring.kind}-${authoring.rootId}`} editor={instance.editor} session={authoring}
+          {!readOnly && bookmarkSession && instance && <BookmarkDialog editor={instance.editor} view={instance.view} {...bookmarkSession} onClose={() => setBookmarkSession(undefined)} />}
+          {!readOnly && styleSession && instance && <ParagraphStyleDialog editor={instance.editor} session={styleSession} onClose={() => setStyleSession(undefined)} />}
+          {!readOnly && toc && instance && <TocDialog editor={instance.editor} session={toc} onClose={() => setToc(undefined)} />}
+          {!readOnly && figures && instance && <TocDialog editor={instance.editor} session={figures} captions onClose={() => setFigures(undefined)} />}
+          {!readOnly && caption && instance && <CaptionDialog editor={instance.editor} session={caption} onClose={() => setCaption(undefined)} />}
+          {!readOnly && furniture && instance && <FurnitureDialog editor={instance.editor} {...furniture} onClose={() => setFurniture(undefined)} onEdit={instance.editFurniture} />}
+          {!readOnly && authoring && instance && <WordAuthoringDialog key={`${authoring.kind}-${authoring.rootId}`} editor={instance.editor} session={authoring}
             onClose={kind => { setAuthoring(undefined); if (kind === 'comment') { if (compact) setActivePanel('inspector'); else setCommenting(true); } }} />}
-          <TableInsertDialog editor={instance?.editor ?? null} open={insertingTable} onClose={() => setInsertingTable(false)} />
+          <TableInsertDialog editor={instance?.editor ?? null} open={insertingTable && !readOnly} onClose={() => setInsertingTable(false)} />
           <BordersDialog
             editor={instance?.editor ?? null}
-            open={bordering}
+            open={bordering && !readOnly}
             onClose={() => setBordering(false)}
           />
           <SpacingDialog
             editor={instance?.editor ?? null}
-            open={spacing}
+            open={spacing && !readOnly}
             onClose={() => setSpacing(false)}
           />
           <PageSetupDialog
             editor={instance?.editor ?? null}
-            open={paging}
+            open={paging && !readOnly}
             onClose={() => setPaging(false)}
           />
           {/*
@@ -497,17 +659,19 @@ export function App({ mount }: { mount: (host: HTMLElement, onFurniture?: (id?: 
             hairline at every zoom and a handle will be the same size to grab. Inside the frame it
             would be scaled with the page, which is right for the document and wrong for a control.
           */}
-          {instance ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
+          {instance && !readOnly ? <DrawingOverlay editor={instance.editor} host={host.current} /> : null}
         </AppMain>
+        </div>
 
         {instance ? (
-          <WorkspaceSidePanel side="inspector" width={compact || commenting ? 280 : 40}><CommentsPane
+          <WorkspaceSidePanel side="inspector" width={280} hidden={!commentsShown}><CommentsPane readOnly={authorityReadOnly}
             editor={instance.editor}
             view={instance.view}
-            open={compact || commenting}
+            open={commentsShown}
             onToggle={() => togglePanel('inspector')}
           /></WorkspaceSidePanel>
         ) : null}
+        {instance && proposalSample ? <ParagraphProposalPanel runtime={instance} /> : null}
         {instance && lab ? <InputLab editor={instance.editor} view={instance.view} /> : null}
       </AdaptiveWorkspace>
     </AppShell>

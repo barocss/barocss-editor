@@ -70,12 +70,13 @@ test.afterEach(async ({ page }, info) => {
 for (const closeWith of ['Escape', 'Enter'] as const) {
   test(`recent documents restores the same opener after closing with ${closeWith}`, async ({ page }) => {
     await ready(page);
-    const trigger = page.getByRole('button', { name: '최근 자료', exact: true });
+    const trigger = page.getByRole('menuitem', { name: '문서 메뉴', exact: true });
     await trigger.focus();
     await expect(trigger).toBeFocused();
     const originalButton = await trigger.elementHandle();
-    if (!originalButton) throw new Error('Recent documents button is missing');
+    if (!originalButton) throw new Error('Document menu opener is missing');
     await page.keyboard.press('Enter');
+    await page.locator('[data-menu-item="workspace.recent"]').press('Enter');
     const dialog = page.getByRole('dialog', { name: '최근 발표 자료', exact: true });
     await expect(dialog).toBeVisible();
     const close = dialog.getByRole('button', { name: '닫기', exact: true });
@@ -92,19 +93,30 @@ for (const closeWith of ['Escape', 'Enter'] as const) {
 test('recent documents stays disabled during library reads and repeated input opens only one dialog', async ({ page }) => {
   await ready(page);
   await delayLibraryReads(page);
-  const trigger = page.getByRole('button', { name: '최근 자료', exact: true });
+  const trigger = page.getByRole('menuitem', { name: '문서 메뉴', exact: true });
   await trigger.focus();
   await expect(trigger).toBeFocused();
   const originalButton = await trigger.elementHandle();
-  if (!originalButton) throw new Error('Recent documents button is missing');
+  if (!originalButton) throw new Error('Document menu opener is missing');
   await page.keyboard.press('Enter');
-  const loading = page.getByRole('button', { name: '처리 중…', exact: true });
+  await page.locator('[data-menu-item="workspace.recent"]').press('Enter');
+  const loading = page.locator('[data-menu-item="workspace.recent"]');
+  await trigger.click();
   await expect(loading).toBeDisabled();
-  expect(await loading.evaluate((element, original) => element === original, originalButton)).toBe(true);
+  expect(await originalButton.evaluate(element => element.isConnected)).toBe(true);
   await expect.poll(async () => (await readGate(page)).blocked).toBe(2);
   const dialog = page.getByRole('dialog', { name: '최근 발표 자료', exact: true });
   await expect(dialog).toHaveCount(0);
-  for (let attempt = 0; attempt < 3; attempt++) await page.keyboard.press('Enter');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await trigger.focus();
+    expect(await originalButton.evaluate(element => element.isConnected && element === document.activeElement)).toBe(true);
+    await page.keyboard.press('Enter');
+  }
+  // Disabled Recent cannot take focus; Enter can toggle the persistent menu opener.
+  if (!await loading.isVisible()) await trigger.click();
+  await expect(loading).toBeDisabled();
+  await expect(dialog).toHaveCount(0);
+  expect((await readGate(page)).calls).toHaveLength(2);
   const bounds = await loading.boundingBox();
   if (!bounds) throw new Error('Loading button has no bounds');
   await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
@@ -116,13 +128,18 @@ test('recent documents stays disabled during library reads and repeated input op
   ]));
   expect((await readGate(page)).calls).toHaveLength(2);
 
+  // Finish inspecting the reopened menu before the held read opens its modal.
+  await page.keyboard.press('Escape');
+  await expect(loading).toHaveCount(0);
+  await expect(dialog).toHaveCount(0);
+  expect((await readGate(page)).calls).toHaveLength(2);
   await page.evaluate(() => (window as unknown as { libraryReadGate: ReadGate }).libraryReadGate.release());
   await expect(dialog).toHaveCount(1);
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: '닫기', exact: true })).toBeFocused();
   // The open modal hides its background from role queries; inspect the same opener directly.
   await expect.poll(() => originalButton.evaluate(element =>
-    element instanceof HTMLButtonElement && !element.disabled
+    element instanceof HTMLElement && element.getAttribute('aria-disabled') !== 'true'
   )).toBe(true);
   expect((await readGate(page)).calls).toHaveLength(2);
   await page.keyboard.press('Escape');

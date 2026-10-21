@@ -217,13 +217,12 @@ describe('캐럿 리터럴', () => {
      * React 쪽 셋이 값이다. `docs/specs/selection.md` 가 그 이유를 적어 두었다: 뷰 층이 두 벌이라
      * **선택 고치기는 두 번씩 필요하다**, 그리고 그것 자체가 결함이다.
      */
+    // The two datastore insertion carets now explicitly carry collapsed: true.
     expect(found, `깃발 없는 캐럿 리터럴:\n${found.join('\n')}`).toEqual([
-      'packages/datastore/src/operations/range-operations.ts:422',
-      'packages/datastore/src/operations/range-operations.ts:505',
       'packages/editor-view-react/src/input-handler.ts:583',
       'packages/editor-view-react/src/input-handler.ts:636',
       'packages/editor-view-react/src/input-handler.ts:827',
-      'packages/model/src/operations/insertText.ts:74'
+      'packages/model/src/operations/insertText.ts:79'
     ]);
   });
 

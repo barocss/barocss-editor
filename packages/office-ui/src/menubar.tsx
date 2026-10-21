@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject, type ReactNode } from 'react';
 import { cn } from './cn';
+import { Tip } from './tip';
 import { Menu, type MenuBlock } from './menu';
 
 /**
@@ -45,24 +46,40 @@ export interface MenuBarMenu {
   id: string;
   /** What the trigger says — 파일, 편집, 보기. */
   label: string;
+  /** Accessible trigger/popup name when the visible product name is shorter. */
+  ariaLabel?: string;
+  /** Optional icon trigger; its accessible name remains ariaLabel or label. */
+  icon?: ReactNode;
   blocks: MenuBlock[];
 }
 
 export function MenuBar({
   menus,
   onPick,
+  onOpenChange,
   label,
-  className
+  className,
+  portalContainer,
+  compact = false
 }: {
   menus: MenuBarMenu[];
   /** The entry a reader chose. Which command that is, is the product's business. */
   onPick: (id: string) => void;
+  /** Notify the owning product before menu focus can blur its pending fields. */
+  onOpenChange?: (open: boolean) => void;
   /** What the row is, for a reader who cannot see it. */
   label: string;
   className?: string;
+  /** Resolve the current owned host when the menu opens; default remains body. */
+  portalContainer?: RefObject<HTMLElement | null>;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState<string | undefined>(undefined);
   const host = useRef<HTMLDivElement>(null);
+  const openChange = useRef(onOpenChange);
+  openChange.current = onOpenChange;
+  useLayoutEffect(() => { onOpenChange?.(open !== undefined); }, [open, onOpenChange]);
+  useLayoutEffect(() => () => { openChange.current?.(false); }, []);
 
   /** Where the open menu hangs: under its own trigger, left edges aligned. */
   const at = (id: string): { x: number; y: number } => {
@@ -106,10 +123,11 @@ export function MenuBar({
       className={cn('office-command-surface office-menubar', className)}
     >
       {menus.map((one) => (
-        <button
-          key={one.id}
+        <Tip key={one.id} label={one.icon ? one.ariaLabel ?? one.label : undefined}><button
           type="button"
           role="menuitem"
+          aria-label={one.ariaLabel ?? (one.icon ? one.label : undefined)}
+          data-menu-icon={one.icon ? true : undefined}
           aria-haspopup="menu"
           aria-expanded={open === one.id}
           data-menu={one.id}
@@ -133,15 +151,17 @@ export function MenuBar({
             open === one.id && 'bg-[color:var(--ou-ground)]'
           )}
         >
-          {one.label}
-        </button>
+          {one.icon ?? one.label}
+        </button></Tip>
       ))}
 
       {shown && (
         <Menu
           at={at(shown.id)}
           blocks={shown.blocks}
-          label={shown.label}
+          label={shown.ariaLabel ?? shown.label}
+          portalContainer={portalContainer}
+          compact={compact}
           onPick={(id) => {
             setOpen(undefined);
             onPick(id);

@@ -90,7 +90,18 @@ export class SiteClipboardExtension implements Extension {
     ) =>
       editor.registerCommand({
         name,
-        execute: async (_ed: Editor, payload?: Record<string, unknown>) => await execute(payload),
+        execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
+          if (name === 'copyBlocks') return execute(payload);
+          const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+          let retired = !editor.isEditable;
+          const changed = () => { retired = true; };
+          const supplied = payload?.canApply as (() => boolean) | undefined;
+          const owns = () => !retired && editor.isEditable && editor.getRootId() === root
+            && editor.dataStore.getDocumentEpoch() === epoch && (!supplied || supplied());
+          editor.on('editor:editable.change', changed);
+          try { return owns() && await execute({ ...payload, canApply: owns }); }
+          finally { editor.off('editor:editable.change', changed); }
+        },
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
       });
 
@@ -212,8 +223,13 @@ export class SiteClipboardExtension implements Extension {
     return true;
   }
 
+  private _inputCurrent(payload?: Record<string, unknown>): boolean {
+    const canApply = payload?.canApply as (() => boolean) | undefined;
+    return !canApply || canApply();
+  }
+
   private async _cut(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
-    if (!(await this._copy(editor, payload))) return false;
+    if (!(await this._copy(editor, payload)) || !this._inputCurrent(payload)) return false;
     // Through the command rather than by hand, so cutting refuses exactly what removing refuses.
     return (await editor.executeCommand('removeBlocks', payload)) === true;
   }
@@ -248,7 +264,7 @@ export class SiteClipboardExtension implements Extension {
     const store = this._store(editor);
     const held = (await this._read()) ?? this._held;
     const into = this._into(editor, payload);
-    if (!store || !held || held.blocks.length === 0 || !into) return false;
+    if (!store || !held || held.blocks.length === 0 || !into || !this._inputCurrent(payload)) return false;
 
     /*
      * Placed from the last backwards at one index, so the blocks arrive in the order they were
@@ -279,7 +295,9 @@ export class SiteClipboardExtension implements Extension {
       ...[...held.blocks].reverse().map((block) => addChild(into.parentId, stripped(block) as never, into.at))
     ];
 
-    if ((await transaction(editor, steps as never).commit()).success !== true) return false;
+    if ((await transaction(editor, steps as never, {
+      validateIntent: () => this._inputCurrent(payload) ? undefined : 'Stale Site clipboard input'
+    }).commit()).success !== true) return false;
 
     /**
      * The pasted blocks are what is selected now — `duplicateBlocks`' rule and its reason.

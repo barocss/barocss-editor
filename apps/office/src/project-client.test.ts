@@ -1,0 +1,185 @@
+// @vitest-environment jsdom
+import { beforeEach, expect, it, vi } from 'vitest';
+import { createHash, randomUUID, webcrypto } from 'node:crypto';
+import { createProjectRecord, requestProjectWork, type ProjectRecord, type Pin, type ProjectComment } from '@barocss/shared';
+const transport = vi.hoisted(() => ({ fetch: vi.fn(), epoch: 0 }));
+vi.mock('./auth-client', () => ({ captureAuthorizedFetch: () => { const epoch = transport.epoch; return (...args: unknown[]) => { if (epoch !== transport.epoch) throw new Error('account generation changed'); return transport.fetch(...args); }; }, listSnapshotDocuments: vi.fn() }));
+import { serverProjectRepository } from './project-client';
+beforeEach(() => { vi.stubGlobal('crypto', webcrypto); transport.fetch.mockReset(); transport.epoch++; });
+it('replays one frozen comment operation after a real-shaped lost acknowledgement and an intervening project change', async () => {
+  const original = createProjectRecord('Windows 베타 공개', '설치와 교육');
+  original.results.push({ id: 'result', name: '고객 설치 안내', document: { product: 'word', id: 'guide' }, inputs: [] });
+  const current = structuredClone(original); let revision = 1, lost = true;
+  const actor = { kind: 'human' as const, id: 'verified-user', label: 'Member' }, replies = new Map<string, unknown>();
+  const posted: Array<{ expectedRevision: number; idempotencyKey: string; action: { type: string } }> = [];
+  const text = JSON.stringify({ format: 'barocss-word', version: 1, document: { stype: 'document', content: [] } });
+  const response = () => ({ project: { record: structuredClone(current), revision }, tenantId: 'tenant', workspaceId: 'workspace', actor });
+  transport.fetch.mockImplementation(async (input: string, init?: RequestInit) => {
+    const url = new URL(input);
+    if (url.pathname.endsWith('/documents/guide')) return new Response(JSON.stringify({ document: { workspaceId: 'workspace', product: 'word', revision: 1, mode: 'snapshot', title: '고객 설치 안내', snapshotHash: createHash('sha256').update(text).digest('hex') }, snapshotText: text }));
+    if (init?.method !== 'PATCH') return new Response(JSON.stringify(response()));
+    const body = JSON.parse(init.body as string) as typeof posted[number] & { action: { type: string; body: string; target: ProjectComment['target']; source: { revision: number } } };
+    posted.push(body);
+    const previous = replies.get(body.idempotencyKey);
+    if (previous) return new Response(JSON.stringify(previous));
+    const pin: Pin = { id: randomUUID(), document: { product: 'word', id: 'guide' }, revision: body.action.source.revision, text, title: '고객 설치 안내' };
+    current.comments.push({ id: 'canonical-comment', resultId: 'result', target: body.action.target, pin, actor, body: body.action.body, createdAt: new Date().toISOString(), status: 'open' });
+    revision++; const reply = response(); replies.set(body.idempotencyKey, reply);
+    if (lost) { lost = false; current.goal = '사람이 중간에 수정한 목표'; revision++; throw new Error('acknowledgement lost'); }
+    return new Response(JSON.stringify(reply));
+  });
+  const repo = serverProjectRepository('tenant', 'workspace', 'editor');
+  const before = await repo.read(original.id); expect(before).not.toBeNull();
+  const pin = await repo.pin({ product: 'word', id: 'guide' });
+  const pending: ProjectComment = { id: 'one-client-gesture', resultId: 'result', target: { kind: 'document', id: 'guide', quote: '' }, pin, actor: { kind: 'local', id: 'local', label: 'Local' }, body: '교육자료에도 반영해줘.', createdAt: new Date().toISOString(), status: 'open' };
+  const next = { ...before!.record, comments: [pending] };
+  await expect(repo.save(next, before!.revision)).rejects.toThrow('acknowledgement lost');
+  const refreshed = await repo.read(original.id); expect(refreshed!.record.comments).toHaveLength(1);
+  const retried: ProjectRecord = { ...refreshed!.record, comments: [...refreshed!.record.comments, pending] };
+  const saved = await repo.save(retried, refreshed!.revision);
+  expect(posted).toHaveLength(2); expect(posted[1]).toEqual(posted[0]);
+  expect(saved.commentId).toBe('canonical-comment'); expect(current.comments).toHaveLength(1);
+  expect(current.goal).toBe('사람이 중간에 수정한 목표'); expect(current.works).toHaveLength(0);
+});
+
+it('sends a deliberate follow-up association as one canonical pin operation on the existing work', async () => {
+  const record = createProjectRecord('Windows 베타 공개', '교육자료까지 연결');
+  record.results = [{ id: 'guide-result', name: '고객 설치 안내', document: { product: 'word', id: 'guide' }, inputs: [] },
+    { id: 'training-result', name: '팀 교육자료', document: { product: 'slides', id: 'training' }, inputs: [] }];
+  const text = JSON.stringify({ format: 'barocss-word', version: 1, document: { stype: 'document', content: [] } });
+  const priorPin: Pin = { id: 'captured', document: { product: 'word', id: 'guide' }, revision: 1, text, title: '고객 설치 안내' };
+  record.comments.push({ id: 'opinion', resultId: 'guide-result', target: { kind: 'document', id: 'guide', quote: '' }, pin: priorPin,
+    actor: { kind: 'human', id: 'verified', label: 'Member' }, body: '교육자료에도 반영해줘.', createdAt: new Date().toISOString(), status: 'open', workId: 'same-work' });
+  record.works.push({ id: 'same-work', commentId: 'opinion', request: '교육자료에도 반영해줘.', state: 'unconnected', inputs: [priorPin], outputs: ['guide-result'], reason: 'Not connected', createdAt: new Date().toISOString() });
+  let posted: { action: Record<string, unknown> } | undefined;
+  const view = (value: ProjectRecord, revision: number) => ({ project: { record: value, revision }, tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: 'verified', label: 'Member' } });
+  transport.fetch.mockImplementation(async (input: string, init?: RequestInit) => {
+    if (new URL(input).pathname.endsWith('/documents/guide')) return new Response(JSON.stringify({ document: { workspaceId: 'workspace', product: 'word', revision: 1, mode: 'snapshot', title: '고객 설치 안내' }, snapshotText: text }));
+    if (init?.method === 'PATCH') { posted = JSON.parse(init.body as string); return new Response(JSON.stringify(view(record, 2))); }
+    return new Response(JSON.stringify(view(record, 1)));
+  });
+  const repository = serverProjectRepository('tenant', 'workspace', 'editor'); await repository.read(record.id);
+  const pin = await repository.pin({ product: 'word', id: 'guide' }), next = structuredClone(record);
+  next.results[1]!.inputs.push(pin); next.results[1]!.request = 'same-work'; next.works[0]!.inputs.push(pin); next.works[0]!.outputs.push('training-result');
+  await repository.save(next, 1);
+  expect(posted?.action).toEqual({ type: 'pin-input', resultId: 'training-result', requestId: 'same-work', source: { documentId: 'guide', revision: 1, snapshotHash: createHash('sha256').update(text).digest('hex') } });
+  expect(posted?.action).not.toHaveProperty('text');
+});
+
+it('allows explicit same-gesture recovery after a confirmed CAS rejection without overwriting the intervening goal', async () => {
+  const record = createProjectRecord('Windows 베타 공개', '처음 목표');
+  record.results.push({ id: 'result', name: '안내', document: { product: 'word', id: 'guide' }, inputs: [] });
+  const text = JSON.stringify({ document: { stype: 'document', content: [] } });
+  const pin: Pin = { id: 'source', document: { product: 'word', id: 'guide' }, revision: 1, text, title: '안내' };
+  const pending: ProjectComment = { id: 'same-gesture', resultId: 'result', target: { kind: 'document', id: 'guide', quote: '' }, pin, actor: { kind: 'local', id: 'local', label: 'Local' }, body: '보존할 의견', createdAt: new Date().toISOString(), status: 'open' };
+  let revision = 1; const posted: Array<{ expectedRevision: number; idempotencyKey: string }> = [];
+  const view = () => ({ tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: 'verified', label: 'Member' }, project: { record: structuredClone(record), revision } });
+  transport.fetch.mockImplementation(async (input: string, init?: RequestInit) => {
+    if (new URL(input).pathname.endsWith('/documents/guide')) return new Response(JSON.stringify({ document: { workspaceId: 'workspace', product: 'word', revision: 1 }, snapshotText: text }));
+    if (init?.method === 'PATCH') {
+      const body = JSON.parse(init.body as string); posted.push(body);
+      if (posted.length === 1) { record.goal = '중간 사용자 목표'; revision = 2; return new Response(JSON.stringify({ status: 'revision_conflict' }), { status: 409 }); }
+      record.comments.push({ ...pending, id: 'canonical', actor: { kind: 'human', id: 'verified', label: 'Member' } }); revision++;
+    }
+    return new Response(JSON.stringify(view()));
+  });
+  const repo = serverProjectRepository('tenant', 'workspace', 'editor'), before = (await repo.read(record.id))!;
+  await expect(repo.save({ ...before.record, comments: [pending] }, before.revision)).rejects.toThrow('다른 변경');
+  const refreshed = (await repo.read(record.id))!;
+  const saved = await repo.save({ ...refreshed.record, comments: [pending] }, refreshed.revision);
+  expect(posted.map(one => one.expectedRevision)).toEqual([1, 2]); expect(posted[1]!.idempotencyKey).not.toBe(posted[0]!.idempotencyKey);
+  expect(saved.record.goal).toBe('중간 사용자 목표'); expect(saved.record.comments).toHaveLength(1); expect(saved.record.works).toHaveLength(0);
+});
+
+it('retires an old repository before sending any request after account ABA', async () => {
+  const old = serverProjectRepository('tenant', 'workspace', 'editor');
+  transport.epoch++; transport.epoch++;
+  await expect(old.read('project')).rejects.toThrow('account generation changed');
+  await expect(old.create('제목', '목표')).rejects.toThrow('account generation changed');
+  expect(transport.fetch).not.toHaveBeenCalled();
+});
+
+function requestedProject() {
+  const record = createProjectRecord('공개 준비', '사용자 검토');
+  const pin: Pin = { id: 'pin', document: { product: 'word', id: 'guide' }, revision: 1, text: 'source', title: '안내' };
+  record.results.push({ id: 'result', name: '안내', document: pin.document, inputs: [] });
+  record.comments.push({ id: 'comment', resultId: 'result', target: { kind: 'document', id: 'guide', quote: '' }, pin,
+    actor: { kind: 'human', id: 'verified', label: 'Member' }, body: '수정 의견', createdAt: '2026-10-03T00:00:00Z', status: 'open' });
+  return record;
+}
+it('replays the identical frozen work request after a lost ACK and a refreshed canonical work', async () => {
+  const current = requestedProject(); let revision = 1;
+  const posted: string[] = [], replies = new Map<string, unknown>();
+  const view = () => ({ tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: 'verified', label: 'Member' }, project: { record: structuredClone(current), revision } });
+  transport.fetch.mockImplementation(async (_input: string, init?: RequestInit) => {
+    if (init?.method !== 'PATCH') return new Response(JSON.stringify(view()));
+    posted.push(init.body as string);
+    const body = JSON.parse(init.body as string);
+    if (replies.has(body.idempotencyKey)) return new Response(JSON.stringify(replies.get(body.idempotencyKey)));
+    const requested = requestProjectWork(current, body.action.commentId, body.action.request);
+    Object.assign(current, requested); current.works[0]!.id = 'canonical-work'; current.comments[0]!.workId = 'canonical-work'; revision++;
+    replies.set(body.idempotencyKey, view()); current.goal = '다른 사용자의 새 목표'; revision++;
+    throw new Error('request ACK lost');
+  });
+  const repo = serverProjectRepository('tenant', 'workspace', 'editor'), before = (await repo.read(current.id))!;
+  const frozen = requestProjectWork(before.record, 'comment', '범위 수정');
+  await expect(repo.save(frozen, before.revision)).rejects.toThrow('request ACK lost');
+  await expect(repo.save({ ...frozen, drafts: { comment: 'unrelated draft' } }, before.revision)).rejects.toThrow('요청 입력');
+  expect(posted).toHaveLength(1);
+  const refreshed = (await repo.read(current.id))!;
+  expect(refreshed.record.works[0]!.id).toBe('canonical-work');
+  await expect(repo.save({ ...frozen, goal: 'unrelated metadata' }, before.revision)).rejects.toThrow('버전');
+  await expect(repo.save({ ...frozen, drafts: { comment: 'unrelated draft' } }, before.revision)).rejects.toThrow('버전');
+  expect(posted).toHaveLength(1);
+  const saved = await repo.save(frozen, before.revision);
+  expect(posted).toHaveLength(2); expect(posted[1]).toBe(posted[0]);
+  expect(saved.record.works[0]!.id).toBe('canonical-work'); expect(current.works).toHaveLength(1);
+  expect(current.goal).toBe('다른 사용자의 새 목표');
+  await expect(repo.save(frozen, before.revision)).rejects.toThrow('버전');
+  expect(posted).toHaveLength(2);
+});
+it('allocates a fresh work request receipt only after a confirmed CAS rejection', async () => {
+  const current = requestedProject(); let revision = 1;
+  const posted: Array<{ expectedRevision: number; idempotencyKey: string; action: { commentId: string; request: string } }> = [];
+  const view = () => ({ tenantId: 'tenant', workspaceId: 'workspace', actor: { kind: 'human', id: 'verified', label: 'Member' }, project: { record: structuredClone(current), revision } });
+  transport.fetch.mockImplementation(async (_input: string, init?: RequestInit) => {
+    if (init?.method === 'PATCH') {
+      const body = JSON.parse(init.body as string); posted.push(body);
+      if (posted.length === 1) { current.goal = '보존할 새 목표'; revision++; return new Response(JSON.stringify({ status: 'revision_conflict' }), { status: 409 }); }
+      Object.assign(current, requestProjectWork(current, body.action.commentId, body.action.request)); revision++;
+    }
+    return new Response(JSON.stringify(view()));
+  });
+  const repo = serverProjectRepository('tenant', 'workspace', 'editor'), before = (await repo.read(current.id))!;
+  const frozen = requestProjectWork(before.record, 'comment', '범위 수정');
+  await expect(repo.save(frozen, before.revision)).rejects.toMatchObject({ code: 'project_revision_conflict' });
+  const refreshed = (await repo.read(current.id))!;
+  await repo.save(requestProjectWork(refreshed.record, 'comment', '범위 수정'), refreshed.revision);
+  expect(posted.map(one => one.expectedRevision)).toEqual([1, 2]);
+  expect(posted[1]!.idempotencyKey).not.toBe(posted[0]!.idempotencyKey);
+  expect(current.goal).toBe('보존할 새 목표'); expect(current.works).toHaveLength(1);
+});
+
+it('reads server-derived Note operation binding without changing its coordinate or native source', async () => {
+  const target = { kind: 'note-paragraph' as const, id: randomUUID(), quote: 'Selected paragraph',
+    selector: { version: 1 as const, pageId: randomUUID(), paragraphIndex: 2 } };
+  const execution = { id: randomUUID(), tenantId: 'tenant', workspaceId: 'workspace', projectId: 'project', workId: 'work',
+    resultId: 'result', documentId: 'note', actorId: 'owner', phase: 'proposal', reason: null, pendingOutputs: [],
+    binding: { product: 'note', operation: 'note.paragraph.replace/v1', schema: 'barocss-note@1', target },
+    input: { request: 'Clarify only this paragraph', revision: 1, snapshotHash: 'a'.repeat(64), snapshotText: 'exact pinned native bytes',
+      target: { nodeId: target.id, text: target.quote, from: 0, to: target.quote.length }, inputs: [] } };
+  transport.fetch.mockImplementation(async () => new Response(JSON.stringify({ execution })));
+  const repository = serverProjectRepository('tenant', 'workspace', 'editor');
+  expect(await repository.execution!('project', 'work')).toEqual(execution);
+  expect(transport.fetch).toHaveBeenCalledTimes(1);
+  for (const mode of ['version', 'extra-selector', 'capture', 'range', 'schema']) {
+    const invalid = structuredClone(execution);
+    if (mode === 'version') Object.assign(invalid.binding.target.selector, { version: 2 });
+    if (mode === 'extra-selector') Object.assign(invalid.binding.target.selector, { sid: 'runtime-only' });
+    if (mode === 'capture') invalid.input.target.nodeId = randomUUID();
+    if (mode === 'range') invalid.input.target.from = 1;
+    if (mode === 'schema') invalid.binding.schema = 'model-invented-schema';
+    transport.fetch.mockImplementation(async () => new Response(JSON.stringify({ execution: invalid })));
+    await expect(repository.execution!('project', 'work')).rejects.toThrow();
+  }
+});

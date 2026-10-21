@@ -31,6 +31,10 @@ const ready = async (page: Page) => {
   await page.waitForSelector('[data-frame="desktop"] .st-page');
   // The boards render on an effect; one settle is enough because a page places nothing.
   await page.waitForTimeout(400);
+  // Compact editing starts with both detail panels closed. Open the actual tools
+  // these inspector scenarios use, without changing the document.
+  if (!await page.locator('.st-detail-slot').isVisible()) await page.getByRole('button', { name: '자세한 속성', exact: true }).click();
+  if (!await page.locator('.st-navigation-slot').isVisible()) await page.getByRole('button', { name: '페이지 및 구조', exact: true }).click();
 };
 
 /** The admin, which is where the window opens — for the checks that are about it. */
@@ -2676,9 +2680,12 @@ test.describe('the exported page', () => {
      * gestures, the panel's rows, the menubar's greying, and the command a chord would run.
      */
     await ready(page);
-    await page.locator('[aria-label^="글만 고칩니다"]').click();
-    await page.waitForTimeout(900);
-    await expect(page.locator('[data-writing-toggle]')).toHaveCount(1);
+    const documentMenu = page.getByRole('menuitem', { name: '문서 메뉴', exact: true });
+    await documentMenu.focus(); await page.keyboard.press('Enter');
+    await page.getByRole('menuitemcheckbox', { name: '글 고치기', exact: true }).click();
+    await documentMenu.click();
+    await expect(page.getByRole('menuitemcheckbox', { name: '글 고치기', exact: true })).toBeChecked();
+    await page.keyboard.press('Escape');
 
     /*
      * **The board's gestures are gone** — not greyed. A writer is put in the mode where a press puts
@@ -2710,8 +2717,7 @@ test.describe('the exported page', () => {
 
     // And the menubar greys what the mode refuses, because a mode a reader leaves through a menu is
     // not a mode.
-    await page.locator('[data-menu="edit"]').click();
-    await page.waitForTimeout(300);
+    await documentMenu.click();
     await expect(menuItem(page, '모두 선택')).toBeDisabled();
     await expect(menuItem(page, '복제')).toBeDisabled();
     /*
@@ -9086,6 +9092,7 @@ test.describe('a card can be asked something new', () => {
     await page.waitForTimeout(200);
 
     await expect(panel(page).getByLabel('연결된 변수')).toHaveValue('이름');
+    const beforeNative = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
     await panel(page).getByLabel('연결된 변수').selectOption('');
     await page.waitForTimeout(600);
 
@@ -9097,6 +9104,13 @@ test.describe('a card can be asked something new', () => {
      * the same question.
      */
     expect(said.asks).toContain('이름');
+    const afterNative = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
+    expect(afterNative).not.toBe(beforeNative);
+    await panel(page).getByLabel('연결된 변수').evaluate(element => (element as HTMLElement).blur());
+    await page.keyboard.press('Meta+z');
+    await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(beforeNative);
+    await page.keyboard.press('Meta+Shift+z');
+    await expect.poll(() => page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(afterNative);
   });
 
   /**
@@ -9487,8 +9501,8 @@ test.describe('the menubar', () => {
     await ready(page);
 
     const wait = page.waitForEvent('download');
-    await bar(page).locator('[data-menu="file"]').click();
-    await page.locator('[data-menu-item="file.publish.0"]').click();
+    await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitem', { name: '이 페이지 내보내기', exact: true }).click();
     const file = await wait;
 
     // The address becomes the filename the way a host would serve it.
@@ -9509,8 +9523,8 @@ test.describe('the menubar', () => {
      * Both need a tree, and a zip is the only shape a browser will take one in.
      */
     const wait = page.waitForEvent('download');
-    await bar(page).locator('[data-menu="file"]').click();
-    await page.locator('[data-menu-item="file.publish.1"]').click();
+    await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+    await page.getByRole('menuitem', { name: '사이트 전체 내보내기', exact: true }).click();
     const file = await wait;
 
     // Named after the site's own home page, so two publishes are not two `download.zip`.
@@ -10435,6 +10449,10 @@ test.describe('a panel section that folds', () => {
     const named = async (at: number) =>
       await page.locator('.office-properties [aria-expanded] h3').nth(at).innerText();
     const label = await named(1);
+    const group = page.locator('.office-properties [data-property-group]').nth(1);
+    const stableId = await group.getAttribute('data-property-group-id');
+    expect(stableId).toBeTruthy();
+    const beforeNative = await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()));
     await page.locator('.office-properties [aria-expanded]').nth(1).click();
     await page.waitForTimeout(200);
 
@@ -10443,6 +10461,8 @@ test.describe('a panel section that folds', () => {
 
     const head = page.locator('.office-properties [aria-expanded]', { hasText: label }).first();
     await expect(head).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator(`.office-properties [data-property-group-id="${stableId}"] [aria-expanded]`)).toHaveAttribute('aria-expanded', 'false');
+    expect(await page.evaluate(() => JSON.stringify((window as any).editor.exportDocument()))).toBe(beforeNative);
   });
 });
 

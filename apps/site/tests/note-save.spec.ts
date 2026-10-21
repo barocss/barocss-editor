@@ -67,6 +67,8 @@ async function setup(page: Page, blog = false) {
   await page.goto('/');
   if (blog) {
     await page.locator('[data-admin-open="blog"]').click();
+    await page.getByRole('menuitem', { name: '패널', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name: '전체 도구', exact: true }).click();
     await page.locator('[data-to-admin]').click();
   }
   await page.locator('[data-admin-tab="data"]').click();
@@ -132,7 +134,7 @@ test('a rejected host write prevents downloading and keeps the body available fo
   expect(downloads).toHaveLength(1);
 });
 
-for (const all of [false, true]) test(`${all ? 'site ZIP' : 'page HTML'} export waits for a body write still pending after the row closes`, async ({ page }) => {
+for (const all of [false, true]) test(`${all ? 'site ZIP' : 'page HTML'} export includes the body write awaited by row close`, async ({ page }) => {
   await setup(page, true); await type(page, ' EXPORT-LATEST', '요약');
   await page.evaluate(() => {
     const editor = (window as any).editor, original = editor.executeCommand.bind(editor);
@@ -142,15 +144,20 @@ for (const all of [false, true]) test(`${all ? 'site ZIP' : 'page HTML'} export 
       return original(name, payload);
     };
   });
-  await page.keyboard.press('Escape');
-  await expect(page.locator('[data-row-form]')).toHaveCount(0);
-  await expect.poll(() => page.evaluate(() => (window as any).bodyWriteStarted)).toBe(true);
   const downloads: Download[] = []; page.on('download', file => downloads.push(file));
-  const wait = page.waitForEvent('download');
-  await page.locator('[data-menu="file"]').click();
-  await page.locator(`[data-menu-item="file.publish.${all ? 1 : 0}"]`).click();
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => (window as any).bodyWriteStarted)).toBe(true);
+  await expect(page.locator('[data-row-form]')).toHaveCount(1);
+  await expect(body(page, '요약')).toBeVisible();
+  await expect(body(page, '요약')).toContainText('EXPORT-LATEST');
   expect(downloads).toHaveLength(0);
+  expect(await hostText(page)).not.toContain('EXPORT-LATEST');
   await page.evaluate(() => (window as any).releaseBody());
+  await expect(page.locator('[data-row-form]')).toHaveCount(0);
+  expect(await hostText(page)).toContain('EXPORT-LATEST');
+  const wait = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
+  await page.locator(`[data-menu-item="file.publish.${all ? 1 : 0}"]`).click();
   const file = await wait;
   // Both the published blog page and the archive must include the final summary.
   expect(await hostText(page)).toContain('EXPORT-LATEST');

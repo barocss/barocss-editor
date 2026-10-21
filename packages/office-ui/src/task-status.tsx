@@ -1,26 +1,31 @@
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useOfficePortalContainer } from './portal-owner';
 import { Button } from './controls';
 import { Icon } from '@barocss/office-icons';
 
 export type TaskPhase = 'running' | 'success' | 'error' | 'cancelled';
 
-const taskStacks = new WeakMap<Document, { element: HTMLDivElement; users: number }>();
+const taskStacks = new WeakMap<Document | HTMLElement, { element: HTMLDivElement; users: number }>();
 /** Concurrent file/export notices share a stack instead of covering one another. */
 export function TaskStatusRegion({ label, children }: { label: string; children: ReactNode }) {
-  const [target, setTarget] = useState<HTMLElement>();
+  const container = useOfficePortalContainer();
+  const owner = container === undefined ? (typeof document === 'undefined' ? null : document) : container;
+  const [target, setTarget] = useState<{ owner: Document | HTMLElement; element: HTMLElement }>();
   useLayoutEffect(() => {
-    let stack = taskStacks.get(document);
+    if (!owner) return;
+    let stack = taskStacks.get(owner);
     if (!stack) {
-      const element = document.createElement('div');
+      const doc = owner instanceof Document ? owner : owner.ownerDocument;
+      const element = doc.createElement('div');
       element.className = 'office-task-region';
-      document.body.append(element);
-      stack = { element, users: 0 }; taskStacks.set(document, stack);
+      (owner instanceof Document ? owner.body : owner).append(element);
+      stack = { element, users: 0 }; taskStacks.set(owner, stack);
     }
-    stack.users++; setTarget(stack.element);
-    return () => { if (--stack.users === 0) { stack.element.remove(); taskStacks.delete(document); } };
-  }, []);
-  return target ? createPortal(<aside aria-label={label}>{children}</aside>, target) : null;
+    stack.users++; setTarget({ owner, element: stack.element });
+    return () => { if (--stack.users === 0) { stack.element.remove(); taskStacks.delete(owner); } };
+  }, [owner]);
+  return target && target.owner === owner ? createPortal(<aside aria-label={label}>{children}</aside>, target.element) : null;
 }
 
 /** The host owns the task. Omit progress and actions when the operation cannot provide them. */

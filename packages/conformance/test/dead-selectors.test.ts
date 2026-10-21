@@ -53,7 +53,10 @@ const read = (dirs: string[], keep: (name: string) => boolean) => {
       if (SKIP.includes(entry)) continue;
       const path = join(dir, entry);
       // `test` and `tests` hold fixtures, which are not what a product draws with.
-      if (statSync(path).isDirectory()) {
+      const stat = statSync(path, { throwIfNoEntry: false });
+      // Concurrent Vite jobs create and remove temporary config files.
+      if (!stat) continue;
+      if (stat.isDirectory()) {
         if (entry !== 'test' && entry !== 'tests') walk(path);
         continue;
       }
@@ -133,14 +136,14 @@ describe('a stylesheet rule that can never match', () => {
        * with a misspelt name: the day a product grows a theme switch they answer, and the day the
        * library stops offering them they come off. Named rather than counted for exactly that.
        */
-      // data-side is emitted by Radix. Other unused library states are exercised
+      // data-side and data-radix-popper-content-wrapper are emitted by Radix. Other unused library states are exercised
       // by the gallery: layers, data tables and selection frames. Keep these
       // scoped to tokens.css; product-local misspellings must still fail.
       const offered: Record<typeof product, string[]> = {
-        word: ['data-theme', 'data-density', 'data-side', 'data-row-hidden', 'data-row-drop', 'data-cell-editor', 'data-row-control', 'data-selection-state', 'data-handle'],
+        word: ['data-theme', 'data-density', 'data-side', 'data-radix-popper-content-wrapper', 'data-row-hidden', 'data-row-drop', 'data-cell-editor', 'data-row-control', 'data-selection-state', 'data-handle'],
         // The deck's step inspector is drawn `data-density="dense"`, which is the offer taken up.
-        slide: ['data-theme', 'data-side', 'data-cell-editor', 'data-row-control', 'data-selection-state'],
-        site: ['data-density', 'data-side', 'data-selection-state', 'data-handle']
+        slide: ['data-theme', 'data-side', 'data-radix-popper-content-wrapper', 'data-cell-editor', 'data-row-control', 'data-selection-state'],
+        site: ['data-density', 'data-side', 'data-radix-popper-content-wrapper', 'data-selection-state', 'data-handle']
       };
       const open = new Set(offered[product]);
 

@@ -67,6 +67,7 @@ export { ColorField, type ThemeSwatch } from './color-field';
 export { ColorPicker, type ColorPickerProps } from './color-picker';
 
 export { Dialog, DialogButton, Drawer } from './dialog';
+export { OfficePortalOwner } from './portal-owner';
 export { SidePeek, type SidePeekProps } from './side-peek';
 export { PropertySheet, type SheetGroup, type SheetRow } from './property-sheet';
 
@@ -269,3 +270,10 @@ export { CommandSearch, CommandSearchTrigger, type SearchCommand } from './comma
 export { TaskStatus, TaskStatusRegion, type TaskPhase } from './task-status';
 
 export { visibleRangeRect, observeRangeAnchor } from './range-anchor';
+
+export { ParagraphProposalReview, type ParagraphProposalReviewProps } from './paragraph-proposal-review';
+
+export { DocumentMenu } from './document-bar';
+export { SecondaryPopup, type SecondaryPopupProps } from './secondary-popup';
+
+export { OfficeLocaleProvider, useOfficeLocale } from './locale';

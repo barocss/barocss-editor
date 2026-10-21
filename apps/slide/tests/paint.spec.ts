@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { drawnFill, drawnFills, openDeck, visibleBoxes } from './helpers';
+import { drawnFill, drawnFills, openDeck, visibleBoxes, pickInsert, setPanel } from './helpers';
 
 /**
  * A shape's fills and effects, as stacks.
@@ -32,7 +32,7 @@ const cssOf = (page: Page, sid: string) =>
   }, sid);
 
 const newRectangle = async (page: Page) => {
-  await page.getByRole('button', { name: '사각형' }).click();
+  await pickInsert(page, '사각형');
   await expect
     .poll(() => page.evaluate(() => (window as any).editor?.selection?.startNodeId ?? null))
     .not.toBeNull();
@@ -45,6 +45,7 @@ const fills = (page: Page, sid: string) =>
 test.describe('a stack of fills', () => {
   test('starts as the one fill the shape already had', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     // A new rectangle has a flat fill and no list; the panel shows it as the
@@ -55,6 +56,7 @@ test.describe('a stack of fills', () => {
 
   test('takes a second fill, and paints both', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     await panel(page).getByLabel('채우기 추가').click();
@@ -75,6 +77,7 @@ test.describe('a stack of fills', () => {
 
   test('switches one off without losing it', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
     await panel(page).getByLabel('채우기 추가').click();
     await page.waitForTimeout(400);
@@ -94,6 +97,7 @@ test.describe('a stack of fills', () => {
    */
   test('becomes a gradient, keeping the colour it had', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     await panel(page).getByLabel('1번 채우기 종류').selectOption('linear');
@@ -117,6 +121,7 @@ test.describe('a stack of fills', () => {
 test.describe('a stack of effects', () => {
   test('takes a shadow and then a second one', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     await panel(page).getByLabel('효과 추가').click();
@@ -139,6 +144,7 @@ test.describe('a stack of effects', () => {
 
   test('turns one into an inner shadow, and a blur into a filter', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
     await panel(page).getByLabel('효과 추가').click();
     await page.waitForTimeout(400);
@@ -171,6 +177,7 @@ test.describe('a stack of effects', () => {
 test.describe('arranging a stack', () => {
   test('reorders by dragging a row', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     // Two fills, told apart by their kind rather than by their colour.
@@ -206,6 +213,7 @@ test.describe('arranging a stack', () => {
 
   test('takes a picture as a fill, sized the way it says', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
 
     await panel(page).getByLabel('1번 채우기 종류').selectOption('image');
@@ -238,6 +246,7 @@ test.describe('arranging a stack', () => {
 
   test('mixes a fill with what is under it', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await newRectangle(page);
     await panel(page).getByLabel('채우기 추가').click();
     await page.waitForTimeout(400);
@@ -273,6 +282,7 @@ test.describe('a gradient aimed on the canvas', () => {
 
   test('draws its axis on the shape while its editor is open', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await openGradient(page);
 
     // Two stops, and the far end that points it.
@@ -297,6 +307,7 @@ test.describe('a gradient aimed on the canvas', () => {
    */
   test('turns the gradient towards where the handle is dragged', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await openGradient(page);
 
     const drawnAngle = async () => {
@@ -337,6 +348,7 @@ test.describe('a gradient aimed on the canvas', () => {
 
   test('moves a stop along the axis, and the colour stops there', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await openGradient(page);
 
     const first = await page.locator('[data-gradient-stop="0"]').boundingBox();
@@ -432,6 +444,7 @@ test.describe('a gradient’s stops, on the canvas', () => {
     page
   }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await opened(page);
     expect(await stopsOf(page, sid)).toHaveLength(2);
 
@@ -459,6 +472,7 @@ test.describe('a gradient’s stops, on the canvas', () => {
 
   test('refuses to go below two stops without deleting the shape instead', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await opened(page);
 
     await page.locator('[data-gradient-stop]').first().click();
@@ -485,6 +499,7 @@ test.describe('a gradient’s stops, on the canvas', () => {
 test.describe('a gradient placed by its ends', () => {
   test('drags its start, writes points, and remaps the stops into them', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await page.evaluate(async () => {
       await (window as any).editor.executeCommand('insertRectangle', {
         x: 3000,
@@ -621,6 +636,7 @@ test.describe('the canvas gradient editor', () => {
     page
   }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await openLinear(page);
 
     /*
@@ -662,6 +678,7 @@ test.describe('the canvas gradient editor', () => {
    */
   test('shares which stop is selected with the panel', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await openLinear(page);
 
     // The middle dot, on the shape.
@@ -689,6 +706,7 @@ test.describe('the canvas gradient editor', () => {
    */
   test('gives a radial two radius handles that do not fight the stops', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const sid = await openLinear(page, { kind: 'radial', from: { x: 0.5, y: 0.5 }, to: { x: 0.8, y: 0.75 } });
 
     await expect(page.locator('[data-radial-handle="rx"]')).toBeVisible();
@@ -730,6 +748,7 @@ test.describe('the canvas gradient editor', () => {
 test.describe('a fill under the words', () => {
   test('paints behind the text, and the text still takes typing', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const [box] = await visibleBoxes(page, '.sl-text-frame');
 
     const before = await page.evaluate((id) => {

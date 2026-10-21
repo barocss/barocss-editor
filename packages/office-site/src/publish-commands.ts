@@ -21,6 +21,7 @@
  * a host — is the app's question, and the day this product grows a deploy target it will be a
  * different answer with the same command in front of it.
  */
+import type { RendererRegistry } from '@barocss/dsl';
 import { Editor, Extension } from '@barocss/editor-core';
 import { exportPage, exportSite, robotsFor, sitemapFor, type ExportedPage } from './export-html';
 import { assetFileName, assetsOf, renditionFileName } from './assets';
@@ -118,7 +119,7 @@ export class SitePublishExtension implements Extension {
          * Rendered first, and recorded only if the render produced pages. A record of a publish that
          * produced nothing is a line in a history that says something happened when it did not.
          */
-        const pages = exportSite(editor);
+        const pages = exportSite(editor, payload?.registry as RendererRegistry | undefined);
         if (pages.length === 0) return false;
 
         const store = editor.dataStore as
@@ -160,7 +161,7 @@ export class SitePublishExtension implements Extension {
         return this._hand(payload, pages, [
           ...(sitemapFor(editor) ? [{ file: 'sitemap.xml', text: sitemapFor(editor)!, type: 'application/xml' }] : []),
           ...(robotsFor(editor) ? [{ file: 'robots.txt', text: robotsFor(editor)!, type: 'text/plain' }] : []),
-          ...(this._notFound(editor) ? [this._notFound(editor)!] : []),
+          ...(this._notFound(editor, payload?.registry as RendererRegistry | undefined) ? [this._notFound(editor, payload?.registry as RendererRegistry | undefined)!] : []),
           ...this._assetFiles(editor)
         ]);
       },
@@ -173,8 +174,8 @@ export class SitePublishExtension implements Extension {
         // The sitemap goes with the whole site and never with one page of it.
         const map = sitemapFor(editor);
         const robots = robotsFor(editor);
-        const missing = this._notFound(editor);
-        return this._hand(payload, exportSite(editor), [
+        const missing = this._notFound(editor, payload?.registry as RendererRegistry | undefined);
+        return this._hand(payload, exportSite(editor, payload?.registry as RendererRegistry | undefined), [
           ...(map ? [{ file: 'sitemap.xml', text: map, type: 'application/xml' }] : []),
           /*
            * And what a crawler reads **before** anything else. A sitemap nothing points at is a file
@@ -217,7 +218,7 @@ export class SitePublishExtension implements Extension {
       async (payload) => {
         const sid = this._pageAt(editor, payload?.pageId);
         if (!sid) return false;
-        return this._hand(payload, [exportPage(editor, sid)]);
+        return this._hand(payload, [exportPage(editor, sid, payload?.registry as RendererRegistry | undefined)]);
       },
       (payload) => !!this._pageAt(editor, payload?.pageId)
     );
@@ -247,7 +248,7 @@ export class SitePublishExtension implements Extension {
    * page keeps its own address and gains a second one, and a site that has not marked any gets no
    * file — a host's own blank 404 is honest where a made-up one would be a page saying nothing.
    */
-  private _notFound(editor: Editor): PublishedFile | undefined {
+  private _notFound(editor: Editor, registry?: RendererRegistry): PublishedFile | undefined {
     const store = editor.dataStore as { getNode: (sid: string) => any } | undefined;
     if (!store) return undefined;
 
@@ -256,7 +257,7 @@ export class SitePublishExtension implements Extension {
     );
     if (!found) return undefined;
 
-    return { file: '404.html', type: 'text/html', text: exportPage(editor, found.sid).html };
+    return { file: '404.html', type: 'text/html', text: exportPage(editor, found.sid, registry).html };
   }
 
   private _assetFiles(editor: Editor): PublishedFile[] {

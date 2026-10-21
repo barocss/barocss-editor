@@ -92,6 +92,64 @@ export class EditorViewDOM implements IEditorViewDOM {
   private selectionHandler: DOMSelectionHandlerImpl;
   private mutationObserverManager: MutationObserverManagerImpl;
   private _isComposing: boolean = false;
+  private inputDisposed = false;
+  private inputAuthorityGeneration = 0;
+  private retireInputAuthority = () => { this.inputAuthorityGeneration += 1; };
+
+  captureInputOwner(): () => boolean {
+    const root = this.editor.getRootId?.(), store = this.editor.dataStore, epoch = store?.getDocumentEpoch?.();
+    const authority = this.inputAuthorityGeneration, composition = this._compositionGeneration;
+    return () => !this.inputDisposed && this.contentEditableElement.isConnected && this.editor.isEditable &&
+      this.inputAuthorityGeneration === authority && this._compositionGeneration === composition &&
+      this.editor.getRootId?.() === root && this.editor.dataStore === store && store?.getDocumentEpoch?.() === epoch;
+  }
+
+  /** Deliver this view's pending native input before an owned host transition. */
+  async deliverInput(isCurrent: () => boolean): Promise<boolean> {
+    const root = this.editor.getRootId?.();
+    const store = this.editor.dataStore;
+    const epoch = store?.getDocumentEpoch?.();
+    const composition = this._compositionGeneration;
+    const owns = () => !this.inputDisposed && this.contentEditableElement.isConnected &&
+      !this._isComposing && this._compositionGeneration === composition && isCurrent() &&
+      this.editor.getRootId?.() === root && this.editor.dataStore === store &&
+      store?.getDocumentEpoch?.() === epoch;
+    if (!owns()) return false;
+    const release = this.inputHandler.registerDeliveryOwner(owns);
+    try {
+      do {
+        if (!await this.mutationObserverManager.deliverInput(owns) || !owns()) return false;
+        if (!await this.inputHandler.deliverInput(owns) || !owns()) return false;
+        if (!await this.mutationObserverManager.deliverInput(owns) || !owns()) return false;
+      } while (this.inputHandler.hasPendingInput);
+      return owns();
+    } finally { release(); }
+  }
+  get hasFailedInputDelivery(): boolean {
+    return this.inputHandler.hasFailedInputDelivery || this.mutationObserverManager.hasFailedInputDelivery;
+  }
+
+  /** Correlate a host error before recovery; false-without-error input never matches unrelated errors. */
+  hasFailedInputDeliveryError(error: unknown): boolean {
+    return this.inputHandler.hasFailedInputDeliveryError(error) || this.mutationObserverManager.hasFailedInputDeliveryError(error);
+  }
+
+  /** Explicit recovery preserves refused payloads; stale or subsequently edited input cannot be replayed. */
+  async retryInputDelivery(isCurrent: () => boolean): Promise<boolean> {
+    if (!this.hasFailedInputDelivery || this.inputDisposed || this._isComposing || !this.contentEditableElement.isConnected || !isCurrent()) return false;
+    const root = this.editor.getRootId?.(), store = this.editor.dataStore, epoch = store?.getDocumentEpoch?.();
+    const owns = () => !this.inputDisposed && !this._isComposing && this.contentEditableElement.isConnected && isCurrent() &&
+      this.editor.getRootId?.() === root && this.editor.dataStore === store && store?.getDocumentEpoch?.() === epoch;
+    const inputOwns = this.captureInputOwner();
+    const retryOwns = () => owns() && inputOwns();
+    const release = this.inputHandler.registerDeliveryOwner(retryOwns);
+    try {
+      if (!await this.inputHandler.retryInputDelivery(retryOwns) || !retryOwns()) return false;
+      if (!await this.mutationObserverManager.retryInputDelivery(retryOwns) || !retryOwns()) return false;
+      return this.deliverInput(retryOwns);
+    } finally { release(); }
+  }
+
   /** Which composition is running, so an ending one cannot clear its successor. */
   private _compositionGeneration: number = 0;
   private _selectionChangeTimeout: number | null = null;
@@ -190,6 +248,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     // Generate unique ID
     this.__instanceId = `editorview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.editor = editor;
+    editor.on('editor:editable.change', this.retireInputAuthority);
     
     // Set _viewDOM reference in Editor (for access from AutoTracer, etc.)
     (editor as any)._viewDOM = this;
@@ -425,7 +484,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     this._boundHandlePaste = this.handlePaste.bind(this);
     this._boundHandleDrop = this.handleDrop.bind(this);
     this._fragmentDrag = attachFragmentDrag(this.contentEditableElement, {
-      command: (name, payload) => this.editor.executeCommand(name, payload), selection: () => this.editor.selection,
+      command: (name, payload) => this.inputHandler.executeInputCommand(name, payload), selection: () => this.editor.selection,
       fromSelection: value => { const selected = this.selectionHandler.convertDOMSelectionToModel(value); return selected?.type === 'none' ? null : selected; },
       fromRange: value => this.selectionHandler.convertStaticRangeToModel(value), node: id => this.editor.dataStore.getNode(id),
       isBlock: id => this.editor.dataStore.getActiveSchema()?.getNodeType(this.editor.dataStore.getNode(id)?.stype ?? '')?.group === 'block',
@@ -543,7 +602,7 @@ export class EditorViewDOM implements IEditorViewDOM {
         this._nodeSelectionHoldsUntilGesture = true;
       }
 
-      this._pendingModelSelection = selectionEvent.selection;
+      this.queueModelSelection(selectionEvent.selection);
       
       // Wait until rendering completes if rendering is in progress (applied in rendering completion callback)
       // Apply immediately if rendering is complete
@@ -888,7 +947,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (selection && this.editor.selection?.type === 'range') {
         this.editor.updateSelection({ selection, applySelectionToView: false });
       }
-      void this.editor.executeCommand(command, {
+      void this.inputHandler.executeInputCommand(command, {
         ...(args ?? {}),
         ...(selection ? { selection } : {})
       });
@@ -914,7 +973,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
 
     // Call Backspace Command (all case branching and logic handled in Command)
-    this.editor.executeCommand('backspace', { selection: modelSelection });
+    this.inputHandler.executeInputCommand('backspace', { selection: modelSelection });
   }
 
   /**
@@ -933,7 +992,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     }
     
     // Call DeleteForward Command (all case branching and logic handled in Command)
-    this.editor.executeCommand('deleteForward', { selection: modelSelection });
+    this.inputHandler.executeInputCommand('deleteForward', { selection: modelSelection });
   }
 
   /**
@@ -960,7 +1019,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       const model = this.selectionHandler.convertDOMSelectionToModel(selection);
       if (model?.type === 'range') {
         let handled = false;
-        void this.editor.executeCommand(event.type === 'cut' ? 'cut' : 'copy', {
+        void this.inputHandler.executeInputCommand(event.type === 'cut' ? 'cut' : 'copy', {
           selection: model, clipboardData: event.clipboardData,
           onClipboardWrite: () => { handled = true; event.preventDefault(); },
         });
@@ -1007,7 +1066,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       && this.contentEditableElement.contains(domSelection.anchorNode)
       && this.contentEditableElement.contains(domSelection.focusNode)
       ? this.selectionHandler.convertDOMSelectionToModel(domSelection) : undefined;
-    this.editor.executeCommand('paste', {
+    this.inputHandler.executeInputCommand('paste', {
       ...(selection?.type === 'range' ? { selection } : {}),
       clipboardFragment: clipboardFragment || undefined,
       clipboardHtml: html || undefined,
@@ -1018,13 +1077,19 @@ export class EditorViewDOM implements IEditorViewDOM {
   handleDrop(event: DragEvent): void { this._fragmentDrag?.drop(event); }
 
   handleSelectionChange(): void {
-    // 1. Ignore if programmatic selection change
-    if ((this.selectionHandler as any)._isProgrammaticChange) {
+    // Ignore if focus is outside editor (fastest check).
+    if (document.activeElement !== this.contentEditableElement) {
       return;
     }
 
-    // 2. Ignore if focus is outside editor (fastest check)
-    if (document.activeElement !== this.contentEditableElement) {
+    // Caret restoration and a real user selection can share one event turn.
+    // Defer the received report until restoration ends instead of losing it.
+    if ((this.selectionHandler as any)._isProgrammaticChange) {
+      if (this._selectionChangeTimeout !== null) window.clearTimeout(this._selectionChangeTimeout);
+      this._selectionChangeTimeout = window.setTimeout(() => {
+        this._selectionChangeTimeout = null;
+        this.handleSelectionChange();
+      }, 0);
       return;
     }
 
@@ -1059,12 +1124,16 @@ export class EditorViewDOM implements IEditorViewDOM {
     const debounceDelay = isRapidChange ? 100 : 16; // During drag: 100ms, normal: 16ms (60fps)
 
     this._selectionChangeTimeout = window.setTimeout(() => {
-      this._processSelectionChange();
       this._selectionChangeTimeout = null;
+      this._processSelectionChange();
     }, debounceDelay);
   }
 
   private _processSelectionChange(): void {
+    if ((this.selectionHandler as any)._isProgrammaticChange) {
+      this.handleSelectionChange();
+      return;
+    }
     if (this.isEmbeddedInput(this.contentEditableElement.ownerDocument.activeElement)) return;
     try {
       /**
@@ -1135,7 +1204,40 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private handleMouseDown(event: MouseEvent): void {
+    this.clearPointerFocusIntent();
     if (this.isEmbeddedInput(event.target)) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const sid = target?.closest('[data-bc-sid]')?.getAttribute('data-bc-sid');
+    const editableHost = target?.closest('[contenteditable]');
+    const scope = this._viewRootId ?? this.editor.getRootId?.();
+    let drawnRoot: Element | null = target;
+    while (drawnRoot && drawnRoot !== this.contentEditableElement && drawnRoot.getAttribute('data-bc-sid') !== scope) {
+      drawnRoot = drawnRoot.parentElement;
+    }
+    if (
+      event.button === 0 && !event.defaultPrevented && !this._isComposing &&
+      target && drawnRoot && drawnRoot !== this.contentEditableElement && this.contentEditableElement.contains(target) &&
+      !target.closest('input, textarea, select, button, [contenteditable="false"]') &&
+      (!editableHost || editableHost === this.contentEditableElement) &&
+      sid && holdsText(this.editor.dataStore.getNode(sid)) &&
+      !insideLockedRegion(this.editor.dataStore, sid)
+    ) {
+      const owns = this.captureInputOwner();
+      const selection = this.editor.selection;
+      const session = this.editor.dataStore.getSessionId();
+      const generation = this._modelSelectionGeneration;
+      const intent = () => !event.defaultPrevented && owns() &&
+        this.editor.dataStore.getSessionId() === session &&
+        this.editor.selection === selection && this._modelSelectionGeneration === generation;
+      this._pointerFocusIntent = intent;
+      // A prevented gesture can never claim a later Tab/programmatic focus.
+      this._pointerFocusExpiry = window.setTimeout(() => this.clearPointerFocusIntent(), 0);
+      // For an already focused view, there is no focus event. Retire only the
+      // selection owed before this gesture, after all mousedown listeners ran.
+      queueMicrotask(() => {
+        if (this._pointerFocusIntent === intent && intent()) this.clearPendingModelSelection();
+      });
+    }
     // Check drag possibility on mouse down
     this._isDragging = false;
     // A pointer moves the caret, so nothing the input handler remembers about
@@ -1151,6 +1253,7 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private handleMouseUp(event: MouseEvent): void {
+    this.clearPointerFocusIntent();
     // End drag on mouse up
     if (this._isDragging) {
       this._isDragging = false;
@@ -1227,6 +1330,36 @@ export class EditorViewDOM implements IEditorViewDOM {
   }
 
   private _pendingModelSelection: any | null = null;
+  private _pendingModelSelectionOwner: (() => boolean) | null = null;
+  private _modelSelectionGeneration = 0;
+  private _pointerFocusIntent: (() => boolean) | null = null;
+  private _pointerFocusExpiry: number | null = null;
+
+  private clearPointerFocusIntent(): void {
+    if (this._pointerFocusExpiry !== null) window.clearTimeout(this._pointerFocusExpiry);
+    this._pointerFocusExpiry = null;
+    this._pointerFocusIntent = null;
+  }
+
+  private clearPendingModelSelection(): void {
+    this._pendingModelSelection = null;
+    this._pendingModelSelectionOwner = null;
+    this._retryCount = 0;
+  }
+
+  private queueModelSelection(selection: ModelSelection | null): void {
+    const root = this.editor.getRootId?.(), store = this.editor.dataStore;
+    const epoch = store?.getDocumentEpoch?.(), session = store?.getSessionId?.();
+    const current = this.editor.selection;
+    const authority = this.inputAuthorityGeneration, composition = this._compositionGeneration;
+    this._modelSelectionGeneration += 1;
+    this._pendingModelSelection = selection;
+    this._retryCount = 0;
+    this._pendingModelSelectionOwner = () => !this.inputDisposed && this.contentEditableElement.isConnected &&
+      this.editor.getRootId?.() === root && this.editor.dataStore === store && store?.getDocumentEpoch?.() === epoch &&
+      store?.getSessionId?.() === session && this.editor.selection === current &&
+      this.inputAuthorityGeneration === authority && this._compositionGeneration === composition;
+  }
   /** Whether a node selection is still the reader's meaning. See setupEventListeners. */
   /**
    * The reader has gone into the text, by a route the editor cannot see.
@@ -1275,7 +1408,12 @@ export class EditorViewDOM implements IEditorViewDOM {
     };
   }
 
-  private applyModelSelectionWithRetry(): void {
+  private applyModelSelectionWithRetry(generation = this._modelSelectionGeneration): void {
+    if (generation !== this._modelSelectionGeneration) return;
+    if (this._pendingModelSelectionOwner && !this._pendingModelSelectionOwner()) {
+      this.clearPendingModelSelection();
+      return;
+    }
     const sel = this._pendingModelSelection;
     if (!sel || sel.type === 'none') return;
     
@@ -1284,8 +1422,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     
     if (found) {
       this.applyModelSelectionToDOM(sel);
-      this._pendingModelSelection = null;
-      this._retryCount = 0;
+      this.clearPendingModelSelection();
       return;
     }
     if (this._retryCount > 10) {
@@ -1294,22 +1431,31 @@ export class EditorViewDOM implements IEditorViewDOM {
       return;
     }
     this._retryCount++;
-    requestAnimationFrame(() => this.applyModelSelectionWithRetry());
+    requestAnimationFrame(() => this.applyModelSelectionWithRetry(generation));
   }
 
   private handleFocus(): void {
     this.editor.emit('editor:selection.focus');
+    const pointerOwnsFocus = this._pointerFocusIntent?.() ?? false;
+    this.clearPointerFocusIntent();
+    if (pointerOwnsFocus) {
+      // Native caret placement follows focus. Replaying the old range here
+      // steals that gesture and can also leave a retry queued for a later render.
+      this.clearPendingModelSelection();
+      return;
+    }
     // Try to reapply last model selection to DOM when focus returns
     try {
       const current = this.editor.selectionManager.getCurrentSelection();
       if (current) {
-        this._pendingModelSelection = current;
+        this.queueModelSelection(current);
         this.applyModelSelectionWithRetry();
       }
     } catch {}
   }
 
   private handleBlur(): void {
+    this.clearPointerFocusIntent();
     // Detect input end when focus leaves
     this._onInputEnd();
     this.editor.emit('editor:selection.blur');
@@ -1348,7 +1494,7 @@ export class EditorViewDOM implements IEditorViewDOM {
     const domSelection = window.getSelection();
     if (!domSelection || domSelection.rangeCount === 0) {
       // Execute simple command if no selection (extension determines default position)
-      this.editor.executeCommand('insertParagraph', {});
+      this.inputHandler.executeInputCommand('insertParagraph', {});
       return;
     }
 
@@ -1357,7 +1503,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       console.warn('[EditorViewDOM] insertParagraph: Failed to convert DOM selection', {
         modelSelection
       });
-      this.editor.executeCommand('insertParagraph', {});
+      this.inputHandler.executeInputCommand('insertParagraph', {});
       return;
     }
 
@@ -1375,13 +1521,13 @@ export class EditorViewDOM implements IEditorViewDOM {
       return;
     }
 
-    this.editor.executeCommand('insertParagraph', { selection: modelSelection });
+    this.inputHandler.executeInputCommand('insertParagraph', { selection: modelSelection });
   }
 
   insertText(text: string): void {
     const domSelection = window.getSelection();
     if (!domSelection || domSelection.rangeCount === 0) {
-      this.editor.executeCommand('insertText', { text });
+      this.inputHandler.executeInputCommand('insertText', { text });
       return;
     }
 
@@ -1390,11 +1536,11 @@ export class EditorViewDOM implements IEditorViewDOM {
       console.warn('[EditorViewDOM] insertText: Failed to convert DOM selection', {
         modelSelection
       });
-      this.editor.executeCommand('insertText', { text });
+      this.inputHandler.executeInputCommand('insertText', { text });
       return;
     }
 
-    this.editor.executeCommand('insertText', { text, selection: modelSelection });
+    this.inputHandler.executeInputCommand('insertText', { text, selection: modelSelection });
   }
 
   insertLineBreak(): void {
@@ -1413,36 +1559,36 @@ export class EditorViewDOM implements IEditorViewDOM {
       return;
     }
 
-    this.editor.executeCommand('deleteSelection', { selection: modelSelection });
+    this.inputHandler.executeInputCommand('deleteSelection', { selection: modelSelection });
   }
 
   historyUndo(): void {
-    this.editor.executeCommand('historyUndo', {});
+    this.inputHandler.executeInputCommand('historyUndo', {});
   }
 
   historyRedo(): void {
-    this.editor.executeCommand('historyRedo', {});
+    this.inputHandler.executeInputCommand('historyRedo', {});
   }
 
   private selectAll(): void {
-    this.editor.executeCommand('selectAll', {});
+    this.inputHandler.executeInputCommand('selectAll', {});
   }
 
   // Editing commands
   toggleBold(): void {
-    this.editor.executeCommand('toggleBold');
+    this.inputHandler.executeInputCommand('toggleBold');
   }
 
   toggleItalic(): void {
-    this.editor.executeCommand('toggleItalic');
+    this.inputHandler.executeInputCommand('toggleItalic');
   }
 
   toggleUnderline(): void {
-    this.editor.executeCommand('toggleUnderline');
+    this.inputHandler.executeInputCommand('toggleUnderline');
   }
 
   toggleStrikeThrough(): void {
-    this.editor.executeCommand('toggleStrikeThrough');
+    this.inputHandler.executeInputCommand('toggleStrikeThrough');
   }
 
   blur(): void {
@@ -1454,6 +1600,14 @@ export class EditorViewDOM implements IEditorViewDOM {
 
   // Lifecycle
   destroy(): void {
+    this.inputDisposed = true;
+    this.clearPointerFocusIntent();
+    this.clearPendingModelSelection();
+    this.editor.off('editor:editable.change', this.retireInputAuthority);
+    if (this._selectionChangeTimeout !== null) {
+      window.clearTimeout(this._selectionChangeTimeout);
+      this._selectionChangeTimeout = null;
+    }
     // Cleanup Decorator system
     this.decoratorManager.clear();
     this.decoratorManager.removeAllListeners();
@@ -2114,8 +2268,9 @@ export class EditorViewDOM implements IEditorViewDOM {
               // Apply pending selection after Reconcile completes
               if (this._pendingModelSelection) {
                 // Apply in next frame (ensure DOM update completes)
+                const generation = this._modelSelectionGeneration;
                 requestAnimationFrame(() => {
-                  this.applyModelSelectionWithRetry();
+                  this.applyModelSelectionWithRetry(generation);
                 });
               }
             }
@@ -2143,8 +2298,9 @@ export class EditorViewDOM implements IEditorViewDOM {
               // Apply pending selection after Reconcile completes
               if (this._pendingModelSelection) {
                 // Apply in next frame (ensure DOM update completes)
+                const generation = this._modelSelectionGeneration;
                 requestAnimationFrame(() => {
-                  this.applyModelSelectionWithRetry();
+                  this.applyModelSelectionWithRetry(generation);
                 });
               }
             }
@@ -2302,7 +2458,7 @@ export class EditorViewDOM implements IEditorViewDOM {
       if (!hasSelection) {
         const current = this.editor.selection;
         if (current) {
-          this._pendingModelSelection = current;
+          this.queueModelSelection(current);
           this.applyModelSelectionWithRetry();
         }
       }

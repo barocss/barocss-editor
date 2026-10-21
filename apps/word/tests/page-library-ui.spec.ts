@@ -1,3 +1,4 @@
+import { openWordDocumentAction } from './helpers';
 import { test, expect } from '@playwright/test';
 import { placeCaret, settled } from './helpers';
 
@@ -79,7 +80,7 @@ test('library recovers from a load failure and provides title search and an empt
       throw new Error('Test: library read unavailable');
     };
   });
-  await page.getByRole('button', { name: '문서 보관함', exact: true }).click();
+  await openWordDocumentAction(page, '문서 보관함');
   const dialog = page.getByRole('dialog', { name: '문서 보관함', exact: true });
   await expect(dialog.getByRole('alert')).toBeVisible();
   await expect(dialog.getByText('보관한 문서가 없습니다', { exact: true })).toHaveCount(0);

@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { selectedNodeIds, type Editor } from '@barocss/editor-core';
 import { cellOf, cellPlacementOf, columnsOf, gridOf, tableRowsOf, tableDimensionGrid } from '@barocss/office-text';
 import { ChoiceSelect, NumberField, RibbonAction, RibbonGroup, Icon } from '@barocss/office-ui';
 import { TWIPS_PER_CM, type WordObjectTarget } from './object-layout';
 
-export function WordTableDimensionControls({ editor, target, container }: { editor: Editor; target: WordObjectTarget; container?: HTMLElement | null }) {
+export function WordTableDimensionControls({ editor, target, container, portalContainer }: { editor: Editor; target: WordObjectTarget; container?: HTMLElement | null; portalContainer?: RefObject<HTMLElement | null> }) {
   const doc = { rootId: target.rootId, getNode: (id: string) => editor.dataStore.getNode(id) };
   const table = doc.getNode(target.nodeId)!;
   const count = columnsOf(doc, tableRowsOf(doc, table));
@@ -34,12 +34,12 @@ export function WordTableDimensionControls({ editor, target, container }: { edit
         <NumberField ariaLabel="행 높이" prefix="행 높이" suffix="cm" value={typeof height === 'number' && rule !== 'auto' ? height / TWIPS_PER_CM : null}
           min={0.1} max={55} step={0.1} decimals={2} disabled={rowDisabled}
           onCommit={value => void run('setRowHeight', { height: Math.round(value * TWIPS_PER_CM), rule: rule === 'exact' ? 'exact' : 'atLeast' })} />
-        <ChoiceSelect ariaLabel="행 높이 방식" value={typeof rule === 'string' ? rule : null} disabled={rowDisabled}
+        <ChoiceSelect portalContainer={portalContainer} ariaLabel="행 높이 방식" value={typeof rule === 'string' ? rule : null} disabled={rowDisabled}
           options={[{ id: 'auto', label: '자동 높이' }, { id: 'atLeast', label: '최소 높이' }, { id: 'exact', label: '고정 높이' }]}
           onChange={rule => void run('setRowHeight', { rule, height: rule === 'auto' ? 0 : typeof height === 'number' && height > 0 ? height : Math.round(TWIPS_PER_CM) })} />
       </div>
       <div className="w-ribbon-row">
-        <ChoiceSelect ariaLabel="크기를 바꿀 열" value={String(columnIndex)} disabled={!editor.isEditable || !count}
+        <ChoiceSelect portalContainer={portalContainer} ariaLabel="크기를 바꿀 열" value={String(columnIndex)} disabled={!editor.isEditable || !count}
           options={Array.from({ length: count }, (_, i) => ({ id: String(i), label: `${i + 1}열` }))} onChange={id => setColumn(Number(id))} />
         <NumberField ariaLabel="열 너비" prefix="열 너비" suffix="cm" value={grid[columnIndex] ? grid[columnIndex] / TWIPS_PER_CM : null}
           min={0.1} max={55} step={0.1} decimals={2} disabled={!editor.isEditable || !count}

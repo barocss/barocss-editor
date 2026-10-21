@@ -25,8 +25,8 @@
   */
 import type { ReactElement } from 'react';
 import {
-  Star,
-  Search, FileCog, ArrowDownUp, ArrowUpRight, FilePlus2, Printer,
+  Star, History, House, Files, FolderKanban, Info, NotebookPen, FileText, Presentation, PanelsTopLeft,
+  Search, FileCog, ArrowDownUp, ArrowUpRight, FilePlus2, Printer, LogOut, Download, Play, ChevronLeft,
   AlignCenter,
   Network,
   Baseline,
@@ -466,6 +466,10 @@ const TYPES: Record<string, Drawn> = {
 };
 
 const ICONS: Record<string, LucideIcon> = {
+  export: Download,
+  present: Play,
+  'previous-page': ChevronLeft,
+  'next-page': ChevronRight,
   undo: Undo2,
   redo: Redo2,
   bold: Bold,
@@ -589,6 +593,7 @@ const ICONS: Record<string, LucideIcon> = {
    * `stack.tsx` records about `␡`, in the same chrome, a year apart.
    */
   back: ArrowLeft,
+  logout: LogOut,
   /**
    * The three widths a site builder draws at once.
    *
@@ -622,6 +627,15 @@ const ICONS: Record<string, LucideIcon> = {
   expand: PanelRightOpen,
   'dialog-launch': ArrowUpRight,
   'document-search': Search,
+  'recent-documents': History,
+  'document-info': Info,
+  'product-note': NotebookPen,
+  'product-word': FileText,
+  'product-slides': Presentation,
+  'product-site': PanelsTopLeft,
+  'workspace-home': House,
+  'workspace-files': Files,
+  'workspace-projects': FolderKanban,
   'page-setup': FileCog,
   'page-header': PanelTop,
   'page-footer': PanelBottom,

@@ -73,6 +73,11 @@ describe('i18n', () => {
     });
   });
 
+  it('reads region locales from the central built-in catalog', () => {
+    expect(getLocalizedMessage('context.editorFocus.description', undefined, 'ko-KR')).toBe('에디터가 포커스를 가지고 있는지 여부');
+    expect(hasLocaleMessages('en-US')).toBe(true);
+  });
+
   describe('registerLocaleMessages', () => {
     it('should register new locale messages', () => {
       registerLocaleMessages('ja', {

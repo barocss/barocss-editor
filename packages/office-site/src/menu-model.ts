@@ -593,7 +593,7 @@ export function siteMenusIn(
  */
 export function siteMenusFor(widths: SiteWidth[] = BREAKPOINTS, apple = false): SiteMenu[] {
   return siteMenus(apple).map((menu) =>
-    menu.label !== '보기'
+    menu.id !== 'view'
       ? menu
       : {
           ...menu,

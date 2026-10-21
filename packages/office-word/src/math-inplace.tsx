@@ -118,7 +118,7 @@ export function useWordMathInplace(editor: Editor, view: EditorViewDOM) {
       <WordMathContextToolbar editor={editor} view={view} editing={!!session} onEdit={open} />
       {error && <span role="alert">{error}</span>}
       {session && createPortal(<MathInlineInput initial={session.initial} excludedStructures={wordMathExcludedStructures}
-        keepOpenOnOutsidePointerDown={target => !!target.closest('.w-zoom-control, .w-ribbon [role="tab"][id$="-view"], [data-menu="view"], [data-menu-item^="view.zoom."]')}
+        keepOpenOnOutsidePointerDown={target => !!target.closest('.w-zoom-control, [data-word-document-menu] [data-menu="document"], .w-ribbon [role="tab"][id$="-view"], [data-menu="view"], [data-menu-item^="view.zoom."]')}
         onCancel={() => close()}
         onApply={async draft => {
           mathEditorToWord(draft); // Validate before unmounting the draft surface.

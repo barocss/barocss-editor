@@ -71,9 +71,20 @@ export class SiteDataExtension implements Extension {
       editor.registerCommand({
         name,
         execute: async (_ed: Editor, payload?: Record<string, unknown>) => {
-          if (!recordWrites.has(name)) return execute(payload);
-          const sameTarget = this._queuedDatasetTarget(editor, name, payload);
-          return this._enqueueDatasetWrite(editor, () => sameTarget() ? execute(payload) : Promise.resolve(false));
+          const root = editor.getRootId(), epoch = editor.dataStore.getDocumentEpoch();
+          let retired = !editor.isEditable;
+          const changed = () => { retired = true; };
+          const supplied = payload?.canApply as (() => boolean) | undefined;
+          const owns = () => !retired && editor.isEditable && editor.getRootId() === root
+            && editor.dataStore.getDocumentEpoch() === epoch && (!supplied || supplied());
+          editor.on('editor:editable.change', changed);
+          const input = { ...payload, canApply: owns };
+          try {
+            if (!owns()) return false;
+            if (!recordWrites.has(name)) return await execute(input);
+            const sameTarget = this._queuedDatasetTarget(editor, name, input);
+            return await this._enqueueDatasetWrite(editor, () => owns() && sameTarget() ? execute(input) : Promise.resolve(false));
+          } finally { editor.off('editor:editable.change', changed); }
         },
         canExecute: (_ed: Editor, payload?: Record<string, unknown>) => can(payload)
       });
@@ -256,13 +267,29 @@ export class SiteDataExtension implements Extension {
           .map((one) => removeChild(sid, one));
         const put = blocks.map((one, at) => addChild(sid, one as never, gone.length + at));
 
-        const done = await transaction(editor, [...gone, ...put] as never).commit();
-        return done.success === true;
+        const nativeStore = editor.dataStore, root = editor.getRootId(), epoch = nativeStore.getDocumentEpoch();
+        // Overlay reads change during our own transaction; the committed node owns this input.
+        const identity = nativeStore.getNodes().get(String(held.sid));
+        const canApply = payload?.canApply as (() => boolean) | undefined;
+        let authorityCurrent = editor.isEditable;
+        const retireAuthority = () => { authorityCurrent = false; };
+        const owns = () => authorityCurrent && editor.isEditable && editor.dataStore === nativeStore &&
+          editor.getRootId() === root && nativeStore.getDocumentEpoch() === epoch &&
+          !!identity && nativeStore.getNodes().get(String(held.sid)) === identity && (!canApply || canApply());
+        if (!owns()) return false;
+        editor.on('editor:editable.change', retireAuthority);
+        try {
+          const done = await transaction(editor, [...gone, ...put] as never, {
+            validateIntent: () => owns() ? undefined : 'Stale rich-text input'
+          }).commit();
+          return done.success === true;
+        } finally { editor.off('editor:editable.change', retireAuthority); }
       },
       (payload) => {
         const store = this._store(editor);
         const sid = String(payload?.nodeId ?? '');
-        return !!sid && !!store?.getNode(sid) && Array.isArray(payload?.blocks);
+        return !!sid && !!store?.getNode(sid) && Array.isArray(payload?.blocks) &&
+          (payload?.canApply === undefined || typeof payload.canApply === 'function');
       }
     );
 
@@ -362,6 +389,13 @@ export class SiteDataExtension implements Extension {
     );
   }
 
+  private _inputOptions(payload?: Record<string, unknown>) {
+    return { validateIntent: () => {
+      const canApply = payload?.canApply as (() => boolean) | undefined;
+      return canApply && !canApply() ? 'Stale Site data command' : undefined;
+    } };
+  }
+
   private _enqueueDatasetWrite(editor: Editor, write: () => Promise<boolean>): Promise<boolean> {
     const previous = this._datasetWriteQueue.get(editor) ?? Promise.resolve();
     const result = previous.then(write);
@@ -458,7 +492,7 @@ export class SiteDataExtension implements Extension {
     );
     /* And the copied words beside it, in the same box and the same transaction. */
     const words = copied.nodes.map((one) => addChild(parentId, one as never));
-    return (await transaction(editor, [step, ...words] as never).commit()).success === true;
+    return (await transaction(editor, [step, ...words] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   // ── Reading ────────────────────────────────────────────────────────────────
@@ -723,7 +757,7 @@ export class SiteDataExtension implements Extension {
       node('dataset', { name, label, kind: 'inline', fields: ['이름'], records: [{ 이름: '' }] }, []) as never,
       ((box!.content ?? []) as unknown[]).length
     );
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    return (await transaction(editor, [step] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   /**
@@ -788,7 +822,7 @@ export class SiteDataExtension implements Extension {
             : { success: false, error: 'stale dataset refresh plan' };
         }),
         setAttrs(String(dataset.sid), { fields, records })
-      ] as never).commit();
+      ] as never, this._inputOptions(payload)).commit();
       return done.success === true;
     });
   }
@@ -858,6 +892,7 @@ export class SiteDataExtension implements Extension {
     );
     // Assets are resources, not a caret destination. Keep the active canvas selection.
     return (await transaction(editor, [step, ...attached] as never, {
+      ...this._inputOptions(payload),
       applySelectionToView: false,
       preserveSelectionInHistory: false,
     }).commit()).success === true;
@@ -930,7 +965,7 @@ export class SiteDataExtension implements Extension {
     if (Object.keys(attrs).length === 0) return false;
 
     const step = setAttrs(String(service.sid), attrs);
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    return (await transaction(editor, [step] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   private _canSetInfo(editor: Editor, payload?: Record<string, unknown>): boolean {
@@ -958,7 +993,7 @@ export class SiteDataExtension implements Extension {
     if (typeof payload!.live === 'boolean') attrs.live = payload!.live;
 
     const step = setAttrs(String(dataset.sid), attrs);
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    return (await transaction(editor, [step] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   private _advancedDependency(editor: Editor, source: string, name: string): boolean {
@@ -1075,7 +1110,7 @@ export class SiteDataExtension implements Extension {
     }
 
     const step = setAttrs(String(dataset.sid), { fields: nextFields, records: nextRecords });
-    return (await transaction(editor, [step, ...dropped] as never).commit()).success === true;
+    return (await transaction(editor, [step, ...dropped] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   private _emptyRichTextCell(editor: Editor, payload?: Record<string, unknown>) {
@@ -1136,7 +1171,7 @@ export class SiteDataExtension implements Extension {
           }),
           addChild(String(box.sid), body as never, (box.content ?? []).length),
           setAttrs(String(dataset.sid), { records })
-        ] as never).commit();
+        ] as never, this._inputOptions(payload)).commit();
         if (done.success) return true;
         if (!done.errors.some(error => error.includes('stale dataset body plan'))) return false;
       }
@@ -1173,7 +1208,7 @@ export class SiteDataExtension implements Extension {
           return fresh ? { success: true } : { success: false, error: 'stale dataset cell plan' };
         }),
         setAttrs(String(dataset.sid), { records })
-      ] as never).commit();
+      ] as never, this._inputOptions(payload)).commit();
       if (done.success) return true;
       if (!done.errors.some(error => error.includes('stale dataset cell plan'))) return false;
     }
@@ -1229,7 +1264,7 @@ export class SiteDataExtension implements Extension {
     const rowIds = Array.isArray(dataset.attributes?.rowIds) ? [...dataset.attributes.rowIds] : undefined;
     if (rowIds) while (rowIds.length < records.length) rowIds.push(newStableRowId());
     const step = setAttrs(String(dataset.sid), { records, ...(rowIds ? { rowIds } : {}) });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    return (await transaction(editor, [step] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   private async _addRow(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -1243,7 +1278,7 @@ export class SiteDataExtension implements Extension {
     const rowIds = Array.isArray(dataset.attributes?.rowIds) ? [...dataset.attributes.rowIds] : undefined;
     if (rowIds) rowIds.splice(at, 0, newStableRowId());
     const step = setAttrs(String(dataset.sid), { records, ...(rowIds ? { rowIds } : {}) });
-    return (await transaction(editor, [step] as never).commit()).success === true;
+    return (await transaction(editor, [step] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   private async _remove(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -1255,7 +1290,7 @@ export class SiteDataExtension implements Extension {
     /* Every row's words go with it — the dataset is the last thing that could have pointed at them. */
     const rich = this._dropRich(editor, this._records(dataset));
     const step = removeChild(String(box.sid), String(dataset.sid));
-    return (await transaction(editor, [step, ...rich] as never).commit()).success === true;
+    return (await transaction(editor, [step, ...rich] as never, this._inputOptions(payload)).commit()).success === true;
   }
 
   private async _removeRow(editor: Editor, payload?: Record<string, unknown>): Promise<boolean> {
@@ -1276,7 +1311,7 @@ export class SiteDataExtension implements Extension {
     const body = itemId && (box?.content ?? []).map((sid: string) => this._store(editor)?.getNode(sid)).find((node: Node) => node?.stype === 'richText' && node.attributes?.id === itemId);
     const steps = [setAttrs(String(dataset.sid), { records, ...(rowIds ? { rowIds } : {}) }), ...this._dropRich(editor, [gone]),
       ...(body?.sid && box?.sid ? [removeChild(String(box.sid), String(body.sid))] : [])];
-    return (await transaction(editor, steps as never).commit()).success === true;
+    return (await transaction(editor, steps as never, this._inputOptions(payload)).commit()).success === true;
   }
 }
 

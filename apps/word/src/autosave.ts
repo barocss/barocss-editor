@@ -1,24 +1,59 @@
 import type { Editor } from '@barocss/editor-core';
-import { documentLibrary, DocumentSession, type DocumentSessionStatus } from '@barocss/shared';
+import type { WordRuntime } from './runtime';
+import { deriveBusinessPair, readBusinessPair } from '../../../packages/office-word/src/business-pair';
+import { documentLibrary, DocumentSession, type DocumentSessionStatusCode } from '@barocss/shared';
 import { readWordFile, wordFileText, wordTitle } from '@barocss/office-word';
 
 export const wordStore = documentLibrary({ db: 'barocss-word', store: 'documents' });
 export const wordDrafts = documentLibrary({ db: 'barocss-word-recovery', store: 'drafts' });
+type AutosaveNative = Pick<WordRuntime, 'exportNativeDocument' | 'loadNativeDocument'> &
+  Partial<Pick<WordRuntime, 'view' | 'flushCommands' | 'captureInputIntent'>>;
 export class WordAutosave extends DocumentSession {
-  constructor(editor: Editor, notify: (status: DocumentSessionStatus, error?: string) => void) {
+  private inputLifetime: { active: boolean };
+  constructor(editor: Editor, notify: (status: DocumentSessionStatusCode) => void, native?: AutosaveNative) {
+    const lifetime = { active: true };
+    const beforeSnapshot = native?.view ? async () => {
+      const view = native.view!, root = editor.getRootId(), store = editor.dataStore, epoch = store.getDocumentEpoch();
+      const inputOwner = view.captureInputOwner();
+      const owns = () => lifetime.active && view.editor === editor && inputOwner() &&
+        editor.getRootId() === root && editor.dataStore === store && store.getDocumentEpoch() === epoch;
+      if (!native.flushCommands || !native.captureInputIntent || !owns() || !await view.deliverInput(owns) || !owns())
+        throw new Error('Finish the current Word input before saving.');
+      // Delivery can legitimately commit text and history. Capture the settled
+      // input only now, then refuse any newer input during the command drain.
+      const intent = native.captureInputIntent();
+      if (!intent || !intent()) throw new Error('The Word input is not ready for its snapshot.');
+      await native.flushCommands();
+      if (!owns() || !intent()) throw new Error('The Word input changed while preparing its snapshot.');
+    } : undefined;
+    // Only a local "new document" recovery derives identity. Server pending
+    // records and retries use their separate unchanged frozen-byte store.
+    const recoveryDrafts = { ...wordDrafts, async read(name: string) {
+      const snapshot = await wordDrafts.read(name);
+      if (!snapshot) return snapshot;
+      const parsed = readWordFile(snapshot.text);
+      if ('error' in parsed || readBusinessPair(parsed.document).status === 'absent') return snapshot;
+      return { ...snapshot, text: wordFileText(deriveBusinessPair(parsed.document), '') };
+    } };
     super({
-      key: 'word', documents: wordStore, drafts: wordDrafts,
-      snapshot: () => ({ text: wordFileText(editor.exportDocument(), ''), title: wordTitle(editor.dataStore) || '제목 없는 문서', count: 1 }),
+      key: 'word', documents: wordStore, drafts: recoveryDrafts, beforeSnapshot,
+      snapshot: () => ({ text: wordFileText(native ? native.exportNativeDocument() : editor.exportDocument(), ''), title: wordTitle(editor.dataStore) || '제목 없는 문서', count: 1 }),
       replace: text => {
         const parsed = readWordFile(text);
         if ('error' in parsed) throw new Error(parsed.error);
-        editor.loadDocument(parsed.document, 'word');
+        if (native) native.loadNativeDocument(parsed.document);
+        else editor.loadDocument(parsed.document, 'word');
       },
       subscribe: changed => {
         const listener = (event?: { rootId?: string }) => changed(!!event?.rootId);
         editor.on('editor:content.change', listener);
         return () => { editor.off('editor:content.change', listener); };
       }
-    }, status => notify(status, status === '저장 실패' ? '현재 작업을 저장하지 못했습니다. 다시 시도하거나 파일로 내보내세요.' : status === '복원 실패' ? '문서를 열지 못했습니다. 보관함에서 다시 시도하세요.' : undefined));
+    }, notify);
+    this.inputLifetime = lifetime;
+  }
+  override stop() {
+    this.inputLifetime.active = false;
+    super.stop();
   }
 }

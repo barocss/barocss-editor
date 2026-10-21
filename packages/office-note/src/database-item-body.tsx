@@ -17,46 +17,57 @@ export function DatabaseItemBody({ editor, nodeId, row, renderEditor, registerBe
   const flush = useRef<() => Promise<boolean>>(async () => false);
   useEffect(() => {
     let canceled = false;
+    const epoch = editor.dataStore.getDocumentEpoch(), root = editor.getRootId(), name = editor.dataStore.getSessionId();
+    const ownsDocument = () => !canceled && editor.dataStore.getDocumentEpoch() === epoch
+      && editor.getRootId() === root && editor.dataStore.getSessionId() === name && !!editor.dataStore.getNode(nodeId);
+    let authority = 0, editable = editor.isEditable;
+    const changedAuthority = () => { if (editable !== editor.isEditable) { editable = editor.isEditable; authority++; } };
+    editor.on('editor:editable.change', changedAuthority);
     let session: NoteSession | undefined;
     let removeListeners: (() => void) | undefined;
     setHeld(undefined); setProblem('');
     const start = async () => {
       if (!getNoteDatabaseItemId(editor, nodeId, row) && editor.isEditable) {
-        await editor.executeCommand('ensureNoteDatabaseItem', { nodeId, row });
+        const generation = authority;
+        if (!await editor.executeCommand('ensureNoteDatabaseItem', { nodeId, row,
+          canApply: () => ownsDocument() && editor.isEditable && authority === generation })) return;
       }
-      if (canceled) return;
+      if (!ownsDocument()) return;
       const itemId = getNoteDatabaseItemId(editor, nodeId, row);
       if (!itemId && editor.isEditable) { setProblem('이 항목의 본문을 열 수 없습니다.'); return; }
       const original = getNoteDatabaseItemBody(editor, nodeId, row);
       let stored = JSON.stringify(original);
       let remoteStored = stored;
       let pending = '';
+      let inFlight = false;
       let writes: Promise<void> = Promise.resolve();
       let lastWrite: Promise<boolean> = Promise.resolve(true);
       const write = (blocks: unknown[]): Promise<boolean> => {
         const value = JSON.stringify(blocks);
-        if (!editor.isEditable) return Promise.resolve(true);
-        if (value === pending) return lastWrite;
-        if (value === stored && !pending) return writes.then(() => true);
+        if (value === stored && !pending) return writes.then(() => ownsDocument());
+        if (value === pending && inFlight) return lastWrite;
         pending = value;
+        const generation = authority;
+        const canApply = () => ownsDocument() && editor.isEditable && authority === generation
+          && !!itemId && (getNoteDatabase(editor, nodeId)?.rowIds.includes(itemId) ?? false);
+        inFlight = true;
         lastWrite = writes.then(async () => {
           let ok = false;
-          try { ok = !!await editor.executeCommand('setNoteDatabaseItemBody', { nodeId, itemId, blocks }); }
+          try { ok = canApply() && !!await editor.executeCommand('setNoteDatabaseItemBody', { nodeId, itemId, blocks, canApply }); }
           catch { ok = false; }
           if (ok) {
             stored = value;
             const index = getNoteDatabase(editor, nodeId)?.rowIds.indexOf(itemId ?? '') ?? -1;
             if (index >= 0) remoteStored = JSON.stringify(getNoteDatabaseItemBody(editor, nodeId, index));
           }
-          if (pending === value) pending = '';
+          if (pending === value) { inFlight = false; if (ok) pending = ''; }
           if (!canceled) setProblem(ok ? '' : '본문을 저장하지 못했습니다. 내용을 유지한 채 다시 시도하세요.');
           return ok;
         });
         writes = lastWrite.then(() => {});
         return lastWrite;
       };
-      session = openNoteTree({ stype: 'note', content: original }, { after: 150, onChange: write });
-      if (!editor.isEditable) session.editor.setEditable(false);
+      session = openNoteTree({ stype: 'note', content: original }, { authority: editor, after: 150, onChange: write });
       const current = session;
       const snapshot = () => (noteTreeOf(current.editor.dataStore, current.editor.getRootId() ?? current.rootId)?.content ?? []) as unknown[];
       stored = JSON.stringify(snapshot());
@@ -74,7 +85,7 @@ export function DatabaseItemBody({ editor, nodeId, row, renderEditor, registerBe
       // Browser navigation does not run React cleanup. Protect typing that has not reached the host.
       const unload = (event: BeforeUnloadEvent) => {
         const blocks = snapshot();
-        if (!editor.isEditable || (!pending && JSON.stringify(blocks) === stored)) return;
+        if (!pending && JSON.stringify(blocks) === stored) return;
         write(blocks);
         event.preventDefault();
         event.returnValue = '';
@@ -82,7 +93,7 @@ export function DatabaseItemBody({ editor, nodeId, row, renderEditor, registerBe
       const sync = () => {
         const database = getNoteDatabase(editor, nodeId);
         const index = itemId ? database?.rowIds.indexOf(itemId) ?? -1 : -1;
-        if (index < 0 || pending) return;
+        if (!ownsDocument() || index < 0 || pending) return;
         const blocks = getNoteDatabaseItemBody(editor, nodeId, index);
         const value = JSON.stringify(blocks);
         if (value === remoteStored) return;
@@ -109,7 +120,7 @@ export function DatabaseItemBody({ editor, nodeId, row, renderEditor, registerBe
       inspect(); setHeld(current);
     };
     void start().catch(() => { if (!canceled) setProblem('본문을 열지 못했습니다.'); });
-    return () => { canceled = true; removeListeners?.(); session?.close(); };
+    return () => { canceled = true; editor.off('editor:editable.change', changedAuthority); removeListeners?.(); session?.close(); };
   }, [editor, nodeId, row, registerBeforeNavigate]);
   return <div ref={host} className="ondb-item-body" data-db-item-body data-empty={empty || undefined}>
     {problem && <p role="alert" className="ondb-error">{problem}</p>}

@@ -82,12 +82,15 @@ export const toggleMark = defineOperationDSL(
  * `applyMark` learned this first. Restoring the list is exact, and it is a
  * short list on one node.
  */
-const marksBefore = (dataStore: any, nodeId: string) => {
+const marksBefore = (dataStore: TransactionContext['dataStore'], nodeId: string) => {
   const node = dataStore.getNode(nodeId);
-  return Array.isArray(node?.marks) ? JSON.parse(JSON.stringify(node.marks)) : [];
+  return Array.isArray(node?.marks) ? structuredClone(node.marks) : undefined;
 };
 
 defineOperation('toggleMark', async (operation: any, context: TransactionContext) => {
+  if (context.editor && 'isEditable' in context.editor && context.editor.isEditable === false) {
+    throw new Error('Cannot toggle a mark in a read-only editor');
+  }
   const payload = operation.payload;
   const markType = payload.markType;
   const attrs = payload.attrs;
@@ -102,6 +105,7 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
       const node = context.dataStore.getNode(startNodeId);
       if (node && typeof node.text === 'string') {
         endOffset = Math.min(startOffset + 1, node.text.length);
+        if (endOffset <= startOffset) throw new Error('Cannot toggle a mark without a following character');
       }
     }
 
@@ -118,15 +122,16 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
     }
 
     const contentRange = { type: 'range' as const, startNodeId, startOffset, endNodeId, endOffset };
-    const before = startNodeId === endNodeId ? marksBefore(context.dataStore, startNodeId) : null;
+    const before = [...context.dataStore.createRangeIterator(startNodeId, endNodeId, { includeStart: true, includeEnd: true })]
+      .filter(nodeId => typeof context.dataStore.getNode(nodeId)?.text === 'string')
+      .map(nodeId => ({ nodeId, marks: marksBefore(context.dataStore, nodeId) }));
     context.dataStore.range.toggleMark(contentRange, markType, attrs);
 
     return {
       ok: true,
-      // Exactly what the run carried before, not "toggle it again".
-      // A mark spanning several nodes has no single operation that restores
-      // them all, so it says nothing rather than restoring only the first.
-      ...(before ? { inverse: { type: 'setMarks', payload: { nodeId: startNodeId, marks: before } } } : {})
+      inverse: { type: 'batch', payload: { operations: before.map(was => ({
+        type: 'setMarks', payload: { nodeId: was.nodeId, marks: was.marks, restoreAbsent: was.marks === undefined, restoreExact: true }
+      })) } }
     };
   }
 
@@ -152,7 +157,7 @@ defineOperation('toggleMark', async (operation: any, context: TransactionContext
   return {
     ok: true,
     data: context.dataStore.getNode(nodeId),
-    inverse: { type: 'setMarks', payload: { nodeId, marks: beforeSingle } }
+    inverse: { type: 'setMarks', payload: { nodeId, marks: beforeSingle, restoreAbsent: beforeSingle === undefined, restoreExact: true } }
   };
 });
 

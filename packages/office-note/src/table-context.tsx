@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { selectedNodeIds, type Editor, type ModelSelection } from '@barocss/editor-core';
 import { buildTableGrid, findAncestorCell, findAncestorTable, findCellPosition } from '@barocss/model';
 import { ownsEditorSelection, useEditorRevision, useNodeRect } from '@barocss/office-editor-ui';
-import { FloatingSurface, Button, Tip, MenuAction } from '@barocss/office-ui';
+import { FloatingSurface, Toolbar, Button, Tip, MenuAction } from '@barocss/office-ui';
 import { Icon } from '@barocss/office-icons';
 import { actsFor } from './block-model';
 import { cellAt } from './selection';
@@ -164,16 +164,16 @@ export function TableContext({ editor, scope, active = true }: {
   const fill = String(editor.dataStore.getNode(context?.cellId ?? '')?.attributes?.shadingFill ?? '').replace(/^#/, '');
   const visible = active && !!grid && !dismissed;
   return <>
-    <FloatingSurface open={visible} at={at} prefer="above" align="end" gap={36} aria-label="표 편집"
+    <FloatingSurface open={visible} compact role="group" at={at} prefer="above" align="end" gap={36} aria-label="표 편집" className="office-compact-selection"
       data-note-table-context portalRoot={scope.current} ownedElements={[scope, menu]}
       onDismiss={() => { setDismissed(true); setGroup(null); }}>
-      <div ref={chrome} className="flex items-center gap-0.5">
+      <Toolbar variant="compact" elementRef={chrome} label="표 편집 도구">
         <span className="px-1 text-xs text-[color:var(--ou-muted)]">{grid?.rowIds.length} × {grid?.columnCount}</span>
         {groups.map(item => <Tip key={item.id} label={item.label}><Button ariaLabel={item.label} tone="quiet" pressed={group === item.id}
           className="gap-1 px-2" onMouseDown={event => event.preventDefault()} onClick={() => setGroup(current => current === item.id ? null : item.id)}>
           <Icon name={item.icon} /><span>{item.text}</span>
         </Button></Tip>)}
-      </div>
+      </Toolbar>
     </FloatingSurface>
     <FloatingSurface key={group} open={visible && !!group} at={menuAt} prefer="below" align="start" variant="menu"
       aria-label={groups.find(item => item.id === group)?.label} focusOnOpen portalRoot={scope.current}

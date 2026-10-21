@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import type { RendererRegistry } from '@barocss/dsl';
 import { TextField } from '@barocss/office-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import type { Slide } from './deck';
@@ -23,6 +24,8 @@ import { Thumbnail } from './thumbnail';
 /** What the strip down the side is told. */
 export interface FilmstripProps {
   editor: Editor | null;
+  /** The same renderer owner as the native stage. */
+  registry?: RendererRegistry;
   thumbnailWidth?: number;
   slides: Slide[];
   current?: string;
@@ -31,16 +34,28 @@ export interface FilmstripProps {
   revision: number;
   /** Naming one — see the field below for why the filmstrip is where it happens. */
   onRename: (sid: string, name: string) => void;
+  orientation?: 'vertical' | 'horizontal';
+  readOnly?: boolean;
+  lifetimeKey?: string;
+  /** Folding retains the field, but cannot accept its blur as a rename. */
+  active?: boolean;
+  canRename?: () => boolean;
 }
 
 export function Filmstrip({
   editor,
+  registry,
   slides,
   current,
   onSelect,
   onRename,
   revision,
-  thumbnailWidth = 128
+  thumbnailWidth = 128,
+  orientation = 'vertical',
+  readOnly = false,
+  lifetimeKey,
+  active = true,
+  canRename
 }: FilmstripProps) {
   /**
    * The slide whose name a reader is typing, if any.
@@ -50,22 +65,66 @@ export function Filmstrip({
    * three gestures for the smallest edit there is. Double-click, which is what a list of names has
    * meant since before any of this.
    */
-  const [renaming, setRenaming] = useState<string | undefined>();
+  const strip = useRef<HTMLElement>(null);
+  const generation = useRef(0);
+  const rootId = editor?.getRootId();
+  const nativeRoot = rootId ? editor?.dataStore.getNode(rootId) : undefined;
+  const documentEpoch = editor?.dataStore.getDocumentEpoch();
+  const [renaming, setRenaming] = useState<{
+    sid: string; current?: string; root: typeof nativeRoot; version: number; generation: number;
+  }>();
+  const latest = useRef({ editor, current, nativeRoot, readOnly, active, canRename, slides });
+  latest.current = { editor, current, nativeRoot, readOnly, active, canRename, slides };
+  useLayoutEffect(() => { generation.current += 1; setRenaming(undefined); }, [editor, current, rootId, documentEpoch, readOnly, lifetimeKey]);
+  useEffect(() => {
+    if (!editor) return;
+    const retire = () => { generation.current += 1; setRenaming(undefined); };
+    editor.on('editor:content.change', retire);
+    editor.on('editor:editable.change', retire);
+    return () => { retire(); editor.off('editor:content.change', retire); editor.off('editor:editable.change', retire); };
+  }, [editor]);
+  useLayoutEffect(() => {
+    if (renaming && !slides.some(slide => slide.sid === renaming.sid)) { generation.current += 1; setRenaming(undefined); }
+  }, [slides, renaming]);
+
+  const commitRename = (next: string) => {
+    const now = latest.current, owner = renaming;
+    if (!owner || !now.editor || now.readOnly || !now.editor.isEditable || !now.active || now.canRename?.() === false ||
+      strip.current?.closest('[hidden], [inert]') || !strip.current?.isConnected ||
+      owner.generation !== generation.current || owner.current !== now.current || owner.root !== now.nativeRoot ||
+      owner.root !== now.editor.dataStore.getNode(now.editor.getRootId()!) || owner.version !== now.editor.dataStore.getVersion()) return;
+    const slide = now.slides.find(slide => slide.sid === owner.sid);
+    if (!slide) return;
+    setRenaming(undefined);
+    if (next !== slide.name) onRename(slide.sid, next);
+  };
 
   return (
-    <nav className="sl-filmstrip" aria-label="슬라이드">
+    <nav ref={strip} className="sl-filmstrip" data-orientation={orientation} aria-label="슬라이드"
+      onKeyDown={event => {
+        if (orientation !== 'horizontal' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          !(event.target instanceof HTMLButtonElement) || !event.target.matches('[data-slide]')) return;
+        const buttons = Array.from(strip.current?.querySelectorAll<HTMLButtonElement>('button[data-slide]') ?? []);
+        const at = buttons.indexOf(event.target);
+        const next = event.key === 'ArrowRight' ? Math.min(at + 1, buttons.length - 1) :
+          event.key === 'ArrowLeft' ? Math.max(at - 1, 0) : event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : -1;
+        if (next < 0) return;
+        event.preventDefault(); event.stopPropagation();
+        buttons[next]?.focus({ preventScroll: true });
+        buttons[next]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }}>
       <ol>
         {slides.map((slide) => (
-          <li key={slide.sid}>
-            {renaming === slide.sid ? (
-              <span className="sl-filmstrip-rename">
+          <li key={slide.sid} style={orientation === 'horizontal' ? { width: thumbnailWidth + 8 } : undefined}>
+            {renaming?.sid === slide.sid ? (
+              <span className="sl-filmstrip-rename" onBlurCapture={event => {
+                if (!latest.current.active || latest.current.canRename?.() === false || strip.current?.closest('[hidden], [inert]')) event.stopPropagation();
+              }}>
                 <TextField
                   value={slide.name}
                   ariaLabel={`슬라이드 ${slide.number} 새 이름`}
-                  onCommit={(next: string) => {
-                    setRenaming(undefined);
-                    if (next !== slide.name) onRename(slide.sid, next);
-                  }}
+                  readOnly={readOnly || !editor?.isEditable}
+                  onCommit={commitRename}
                 />
               </span>
             ) : null}
@@ -75,11 +134,16 @@ export function Filmstrip({
               data-current={slide.sid === current ? 'true' : undefined}
               data-hidden={slide.hidden ? 'true' : undefined}
               aria-current={slide.sid === current ? 'true' : undefined}
+              aria-label={`${slide.number} · ${slide.name || `슬라이드 ${slide.number}`}`}
+              title={slide.name || `슬라이드 ${slide.number}`}
               onClick={() => onSelect(slide.sid)}
-              onDoubleClick={() => setRenaming(slide.sid)}
+              onDoubleClick={() => {
+                if (readOnly || !editor?.isEditable || !active || canRename?.() === false) return;
+                setRenaming({ sid: slide.sid, current, root: nativeRoot, version: editor.dataStore.getVersion(), generation: generation.current });
+              }}
             >
               <span className="sl-filmstrip-number">{slide.number}</span>
-              <Thumbnail editor={editor} slideSid={slide.sid} width={thumbnailWidth} revision={revision} />
+              <Thumbnail registry={registry} editor={editor} slideSid={slide.sid} width={thumbnailWidth} revision={revision} />
               <span className="sl-filmstrip-name">
                 {/*
                  * A slide the author never named and whose title is empty gets

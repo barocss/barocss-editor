@@ -53,13 +53,13 @@ try {
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
       '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators',
       '0006_company_member_admin', '0007_document_collaboration_seed',
-      '0008_document_capabilities', '0009_full_note_collaboration_seed']);
+      '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry', '0017_company_member_confirmation']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('upgrade quarantines legacy confirmed raw roots without changing snapshot bytes', async () => {
     await admin.query('CREATE DATABASE office_upgrade OWNER wonffice_owner');
     const upgrade = await connect('wonffice_owner', 'office_upgrade'); clients.push(upgrade);
-    await migrate(upgrade, migrations.slice(0, -1));
+    await migrate(upgrade, migrations.filter(entry => entry.id < '0009'));
     const tenantId = randomUUID(), workspaceId = randomUUID(), documentId = randomUUID();
     const seedId = randomUUID(), original = '{"legacy":"raw snapshot"}';
     const digest = createHash('sha256').update(original).digest('hex');
@@ -81,7 +81,8 @@ try {
       VALUES ($1, $2, 'yorkie', 'old-project', 'old-build', $3,
         'old-attempt', 1, $4, 'confirmed', now(), 'old-checkpoint', $4)`,
     [tenantId, documentId, seedId, digest]);
-    assert.deepEqual(await migrate(upgrade), ['0009_full_note_collaboration_seed']);
+    assert.deepEqual(await migrate(upgrade, migrations.filter(entry => entry.id < '0010')),
+      ['0009_full_note_collaboration_seed']);
     const result = (await upgrade.query(`SELECT d.mode, s.snapshot_text, c.status,
       c.confirmed_provider_checkpoint, c.confirmed_provider_snapshot_hash
       FROM wonffice.documents d JOIN wonffice.document_snapshots s
@@ -91,6 +92,15 @@ try {
       WHERE d.tenant_id = $1 AND d.id = $2`, [tenantId, documentId])).rows[0];
     assert.deepEqual(result, { mode: 'initializing', snapshot_text: original, status: 'uncertain',
       confirmed_provider_checkpoint: null, confirmed_provider_snapshot_hash: null });
+    assert.deepEqual(await migrate(upgrade), ['0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry', '0017_company_member_confirmation']);
+    const legacy = (await upgrade.query(`SELECT d.creator_user_id, s.snapshot_text
+      FROM wonffice.documents d JOIN wonffice.document_snapshots s
+        ON s.tenant_id = d.tenant_id AND s.document_id = d.id
+      WHERE d.tenant_id = $1 AND d.id = $2`, [tenantId, documentId])).rows[0];
+    assert.deepEqual(legacy, { creator_user_id: null, snapshot_text: original });
+    await assert.rejects(upgrade.query(`UPDATE wonffice.documents SET creator_user_id = $3
+      WHERE tenant_id = $1 AND id = $2`, [tenantId, documentId, randomUUID()]),
+    error => error.code === '23000' && error.message === 'document_creator_immutable');
   });
   await check('failed DDL and migration history roll back together', async () => {
     await assert.rejects(migrate(owner, [...migrations, {
@@ -168,16 +178,16 @@ try {
   });
   await check('principal list contains only active tenant names and roles', async () => {
     assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'alice' }), {
-      tenants: [{ tenantId: alpha, name: 'Alpha', role: 'editor' }], nextCursor: null,
+      currentUserId: alice, tenants: [{ tenantId: alpha, name: 'Alpha', role: 'editor' }], nextCursor: null,
     });
     assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'bob' }), {
-      tenants: [{ tenantId: beta, name: 'Beta', role: 'viewer' }], nextCursor: null,
+      currentUserId: bob, tenants: [{ tenantId: beta, name: 'Beta', role: 'viewer' }], nextCursor: null,
     });
     assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'unknown' }), {
-      tenants: [], nextCursor: null,
+      currentUserId: null, tenants: [], nextCursor: null,
     });
     assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'alice' }, alpha), {
-      tenants: [], nextCursor: null,
+      currentUserId: alice, tenants: [], nextCursor: null,
     });
     assert.equal((await pool.query('SELECT id FROM wonffice.tenants')).rowCount, 0);
   });
@@ -189,7 +199,7 @@ try {
     assert.equal(called, false);
     assert.equal(pool.totalCount, 0);
     assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'alice' }), {
-      tenants: [], nextCursor: null,
+      currentUserId: alice, tenants: [], nextCursor: null,
     });
     await owner.query('UPDATE wonffice.tenant_memberships SET revoked_at = NULL WHERE tenant_id = $1', [alpha]);
   });
@@ -318,20 +328,52 @@ try {
     await owner.query(`INSERT INTO wonffice.tenant_memberships (tenant_id, identity_id, role)
       SELECT ids.id, $2, 'viewer' FROM unnest($1::uuid[]) AS ids(id)`, [extra, alice]);
     const first = await memberships.listTenantAccess({ issuer, subject: 'alice' });
+    assert.equal(first.currentUserId, alice);
     assert.equal(first.tenants.length, 50);
     assert.ok(first.nextCursor);
     const second = await memberships.listTenantAccess({ issuer, subject: 'alice' }, first.nextCursor);
+    assert.equal(second.currentUserId, alice);
     assert.equal(second.tenants.length, 3);
     assert.equal(second.nextCursor, null);
     assert.equal(new Set([...first.tenants, ...second.tenants].map(row => row.tenantId)).size, 53);
     assert.ok(first.tenants.every(row => row.name && row.role));
     assert.deepEqual(await memberships.listTenantAccess({ issuer, subject: 'bob' }), {
-      tenants: [{ tenantId: beta, name: 'Beta', role: 'viewer' }], nextCursor: null,
+      currentUserId: bob, tenants: [{ tenantId: beta, name: 'Beta', role: 'viewer' }], nextCursor: null,
     });
   });
   const documents = new DocumentStore(pool);
   const alicePrincipal = { issuer, subject: 'alice' };
   const bobPrincipal = { issuer, subject: 'bob' };
+  await check('Slides version upgrade preserves immutable receipts, authority and revision conflicts', async () => {
+    const text = version => JSON.stringify({ format: 'barocss-slides', version,
+      document: { stype: 'document', content: [] } });
+    const input = { workspaceId: a.id, product: 'slides', title: 'Slides compatibility',
+      fileFormat: 'barocss-slides', fileVersion: 1, snapshotText: text(1), idempotencyKey: 'slides-v1-create' };
+    const source = await documents.create(alicePrincipal, alpha, input);
+    const upgraded = await documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 1, snapshotText: text(2), idempotencyKey: 'slides-v2-upgrade' });
+    assert.equal(upgraded.document.fileVersion, 2);
+    assert.equal(upgraded.document.revision, 2);
+    assert.equal(upgraded.document.documentId, source.document.documentId);
+    assert.deepEqual(await documents.create(alicePrincipal, alpha, input), source);
+    assert.equal(source.document.fileVersion, 1);
+    assert.equal(source.snapshotText, text(1));
+    assert.deepEqual(await documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 1, snapshotText: text(2), idempotencyKey: 'slides-v2-upgrade' }), upgraded);
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 1, snapshotText: text(1), idempotencyKey: 'slides-stale-v1' }),
+      error => error instanceof DocumentError && error.reason === 'revision_conflict');
+    await assert.rejects(documents.updateSnapshot(alicePrincipal, alpha, source.document.documentId,
+      { expectedRevision: 2, snapshotText: text(1), idempotencyKey: 'slides-no-downgrade' }),
+      error => error instanceof DocumentError && error.reason === 'invalid_document_format');
+    for (const change of [{ fileVersion: 2 }, { snapshotText: text(3), fileVersion: 3 },
+      { product: 'word', fileFormat: 'barocss-word', snapshotText: text(2), fileVersion: 2 }]) {
+      await assert.rejects(documents.create(alicePrincipal, alpha, { ...input, ...change }), DocumentError);
+    }
+    const native = { ...input, fileVersion: 2, snapshotText: text(2), idempotencyKey: 'slides-v2-create' };
+    assert.equal((await documents.create(alicePrincipal, alpha, native)).document.fileVersion, 2);
+    await assert.rejects(documents.create(bobPrincipal, alpha, native), TenantAccessDeniedError);
+  });
   const originalPage = 'old-page';
   const noteFile = (body, pageId = originalPage) => JSON.stringify({
     format: 'barocss-note', version: 1,
@@ -347,6 +389,7 @@ try {
   let created;
   await check('document create, exact retry and receipt are atomic; Note gets a new page identity', async () => {
     created = await documents.create(alicePrincipal, alpha, noteInput);
+    assert.equal(created.document.creatorUserId, alice);
     assert.equal(created.document.revision, 1);
     assert.notEqual(created.document.pageId, originalPage);
     assert.equal(created.document.documentKey,
@@ -429,6 +472,54 @@ try {
     await assert.rejects(documents.open(alicePrincipal, alpha, randomUUID()),
       error => error instanceof DocumentError && error.status === 404);
   });
+  await check('creator attribution survives independent copy, ordinary updates and immutable receipt recovery', async () => {
+    const snapshotText = JSON.stringify({ format: 'barocss-word', version: 1,
+      document: { stype: 'document', attributes: { language: 'en' }, content: [{ stype: 'paragraph',
+        attributes: { align: 'center' }, content: [{ stype: 'inline-text', text: 'Authored original',
+          marks: [{ stype: 'bold', range: [0, 8] }] }] }], metadata: { preserved: 'creator-test' } } });
+    const input = { workspaceId: a.id, product: 'word', title: 'Creator original', fileFormat: 'barocss-word',
+      fileVersion: 1, snapshotText, idempotencyKey: 'creator-a-original' };
+    const original = await documents.create(alicePrincipal, alpha, input);
+    const copyInput = { ...input, title: 'Creator independent copy', idempotencyKey: 'creator-b-copy' };
+    const copy = await documents.create(bobPrincipal, alpha, copyInput);
+    assert.equal(original.document.creatorUserId, alice); assert.equal(copy.document.creatorUserId, bob);
+    assert.notEqual(original.document.documentId, copy.document.documentId);
+    assert.equal(copy.snapshotText, snapshotText);
+    assert.deepEqual(await documents.create(bobPrincipal, alpha, copyInput), copy);
+    assert.deepEqual(await documents.getReceipt(bobPrincipal, alpha, 'create', copyInput.idempotencyKey), copy);
+    await assert.rejects(documents.create(bobPrincipal, alpha, { ...copyInput, title: 'Changed retry' }),
+      error => error instanceof DocumentError && error.reason === 'key_reuse');
+    const metadata = await documents.updateMetadata(bobPrincipal, alpha, original.document.documentId,
+      { title: 'Shared original updated', expectedMetadataRevision: 1, idempotencyKey: 'creator-b-metadata' });
+    assert.equal(metadata.document.creatorUserId, alice);
+    const updated = await documents.updateSnapshot(bobPrincipal, alpha, original.document.documentId,
+      { snapshotText, expectedRevision: 1, idempotencyKey: 'creator-b-snapshot' });
+    assert.equal(updated.document.creatorUserId, alice);
+    const heads = (await documents.list(bobPrincipal, alpha, { workspaceId: a.id })).documents;
+    assert.equal(heads.find(head => head.documentId === original.document.documentId).creatorUserId, alice);
+    assert.equal(heads.find(head => head.documentId === copy.document.documentId).creatorUserId, bob);
+    const before = await documents.open(alicePrincipal, alpha, original.document.documentId);
+    await assert.rejects(owner.query(`UPDATE wonffice.documents SET creator_user_id = $3
+      WHERE tenant_id = $1 AND id = $2`, [alpha, original.document.documentId, bob]),
+      error => error.code === '23000' && error.message === 'document_creator_immutable');
+    await assert.rejects(owner.query('DELETE FROM wonffice.identities WHERE id = $1', [alice]),
+      error => error.code === '23503');
+    assert.deepEqual(await documents.open(alicePrincipal, alpha, original.document.documentId), before);
+    await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'viewer'
+      WHERE tenant_id = $1 AND identity_id = $2`, [alpha, bob]);
+    assert.equal((await documents.open(bobPrincipal, alpha, copy.document.documentId)).document.creatorUserId, bob);
+    await assert.rejects(documents.updateSnapshot(bobPrincipal, alpha, copy.document.documentId,
+      { snapshotText, expectedRevision: 1, idempotencyKey: 'creator-viewer-write' }),
+      error => error instanceof DocumentError && error.status === 403);
+    await owner.query(`UPDATE wonffice.tenant_memberships SET revoked_at = now()
+      WHERE tenant_id = $1 AND identity_id = $2`, [alpha, bob]);
+    await assert.rejects(documents.list(bobPrincipal, alpha), TenantAccessDeniedError);
+    await assert.rejects(documents.open(bobPrincipal, alpha, copy.document.documentId), TenantAccessDeniedError);
+    await assert.rejects(documents.getReceipt(bobPrincipal, alpha, 'create', copyInput.idempotencyKey), TenantAccessDeniedError);
+    await owner.query(`UPDATE wonffice.tenant_memberships SET role = 'editor', revoked_at = NULL
+      WHERE tenant_id = $1 AND identity_id = $2`, [alpha, bob]);
+    assert.deepEqual(await documents.getReceipt(bobPrincipal, alpha, 'create', copyInput.idempotencyKey), copy);
+  });
   await check('Word, Slides and Site retain their distinct v1 envelopes and product-filtered list', async () => {
     for (const [product, fileFormat] of [
       ['word', 'barocss-word'], ['slides', 'barocss-slides'], ['site', 'barocss-site'],
@@ -437,6 +528,7 @@ try {
         document: { stype: 'document', content: [] } });
       const receipt = await documents.create(alicePrincipal, alpha, { workspaceId: a.id, product,
         title: product, fileFormat, fileVersion: 1, snapshotText, idempotencyKey: `create-${product}` });
+      assert.equal(receipt.document.creatorUserId, alice);
       assert.equal((await documents.open(bobPrincipal, alpha, receipt.document.documentId)).snapshotText,
         snapshotText);
       assert.equal((await documents.list(bobPrincipal, alpha, { product })).documents

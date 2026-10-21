@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import type { RendererRegistry } from '@barocss/dsl';
 import { Button } from '@barocss/office-ui';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
 import { noteTextOf, type Slide } from './deck';
@@ -45,6 +46,8 @@ import { Thumbnail } from './thumbnail';
 /** What the presenter's screen is told. */
 export interface PresenterProps {
   editor: Editor | null;
+  /** The same renderer owner as the native stage. */
+  registry?: RendererRegistry;
   slides: Slide[];
   current?: string;
   revision: number;
@@ -59,6 +62,7 @@ export interface PresenterProps {
 
 export function Presenter({
   editor,
+  registry,
   slides,
   current,
   revision,
@@ -114,7 +118,7 @@ export function Presenter({
         <h2>다음 슬라이드</h2>
         {next ? (
           <div className="sl-presenter-thumb">
-            <Thumbnail editor={editor} slideSid={next.sid} width={280} revision={revision} />
+            <Thumbnail registry={registry} editor={editor} slideSid={next.sid} width={280} revision={revision} />
             <span className="sl-presenter-caption">
               {next.number}. {next.name}
             </span>

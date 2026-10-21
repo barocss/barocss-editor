@@ -11,7 +11,9 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@barocss/office-note": "workspace:*",
     "@barocss/office-workspace": "workspace:*",
+    "@barocss/shared": "workspace:*",
     "@barocss/office-ui": "workspace:*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

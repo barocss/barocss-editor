@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Editor } from '@barocss/editor-core';
+import type { RendererRegistry } from '@barocss/dsl';
 import { Button, Choice } from '@barocss/office-ui';
 import { twipToPx } from '@barocss/shared';
 /* 자기 배럴을 거치지 않는다 — 심볼이 사는 모듈에서 곧장. */
@@ -31,6 +32,8 @@ import { Thumbnail } from './thumbnail';
 /** What the deck map is told. */
 export interface DeckMapViewProps {
   editor: Editor | null;
+  /** The same renderer owner as the native stage. */
+  registry?: RendererRegistry;
   /** Bumped when the deck changes, so the picture and its thumbnails are redrawn. */
   revision: number;
   current?: string;
@@ -51,6 +54,7 @@ export interface DeckMapViewProps {
 
 export function DeckMapView({
   editor,
+  registry,
   revision,
   current,
   onGoTo,
@@ -281,6 +285,7 @@ export function DeckMapView({
                 title={`${page.number}. ${page.name || '제목 없음'}`}
               >
                 <Thumbnail
+                  registry={registry}
                   editor={editor}
                   slideSid={page.sid}
                   width={Math.max(24, Math.round(px(page.width)))}

@@ -1,7 +1,7 @@
 import type { DataStore, INode } from '@barocss/datastore';
 import { validateEditingContent, validateEditingFragment, type Schema } from '@barocss/schema';
 import type { Editor, ModelSelection } from '@barocss/editor-core';
-import { transaction } from '../transaction-dsl';
+import { transaction, type TransactionOptions } from '../transaction-dsl';
 import { defineOperation } from '../operations/define-operation';
 import { subtreeOf } from '../operations/subtree';
 import type { TransactionContext } from '../types';
@@ -315,12 +315,15 @@ export class FragmentEditor {
       if (!target) losses.push({ kind: 'attribute', reason: `Open ${node.stype} boundary attributes are not transferred to the target` });
     }
   }
-  apply(plan: EditingPlan): Promise<TransactionResult> {
+  /** A per-intent guard supplements the host transaction guards, including queued application. */
+  apply(plan: EditingPlan, options: Pick<TransactionOptions, 'validateIntent'> = {}): Promise<TransactionResult> {
+    const { validateIntent } = options;
     if (plan.noop) {
       const valid = this.editor.isEditable !== false && !this.store.isTransactionActive() && this.isCurrent(signature(plan.basis));
-      return Promise.resolve({ success: valid, committed: false, operations: [], errors: valid ? [] : ['Stale or read-only editing plan'] });
+      const reason = valid ? validateIntent?.() : 'Stale or read-only editing plan';
+      return Promise.resolve({ success: !reason, committed: false, operations: [], errors: reason ? [reason] : [] });
     }
-    return transaction(this.editor, [{ type: 'fragmentEdit', payload: { plan } }]).commit();
+    return transaction(this.editor, [{ type: 'fragmentEdit', payload: { plan } }], { validateIntent }).commit();
   }
   /** Called only under TransactionManager's lock, before any fragment writes. */
   materialize(plan: EditingPlan): { children: INode[]; caret: { nodeId: string; offset: number } | null } {

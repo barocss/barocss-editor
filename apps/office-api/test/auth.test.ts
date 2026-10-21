@@ -9,6 +9,7 @@ import { createApiServer } from '../src/server.js';
 
 const tenant = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const otherTenant = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const currentUserId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const jwks = createServer();
 let issuer: string;
 let jwksUrl: URL;
@@ -125,7 +126,7 @@ describe('authenticated Fastify boundary', () => {
         if (principal.subject !== 'alice' || tenantId !== tenant) throw new TenantAccessDeniedError();
         return { tenantId, role: 'editor' as const };
       }, async listTenantAccess() {
-        return { tenants: [{ tenantId: tenant, name: 'Alpha', role: 'editor' as const }], nextCursor: null };
+        return { currentUserId, tenants: [{ tenantId: tenant, name: 'Alpha', role: 'editor' as const }], nextCursor: null };
       } },
     });
     try {
@@ -133,7 +134,7 @@ describe('authenticated Fastify boundary', () => {
       const bearer = `Bearer ${await token()}`;
       const me = await app.inject({ url: '/v1/me', headers: { authorization: bearer } });
       expect(me.statusCode).toBe(200);
-      expect(me.json()).toEqual({ issuer, subject: 'alice',
+      expect(me.json()).toEqual({ issuer, subject: 'alice', currentUserId,
         tenants: [{ tenantId: tenant, name: 'Alpha', role: 'editor' }], nextCursor: null });
       expect((await app.inject({ url: '/v1/me?after=bad', headers: { authorization: bearer } })).statusCode).toBe(400);
       const allowed = await app.inject({ url: `/v1/tenants/${tenant}/access`, headers: { authorization: bearer } });

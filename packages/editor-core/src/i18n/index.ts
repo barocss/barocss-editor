@@ -1,6 +1,4 @@
-import { messagesEn } from './messages.en';
-import { messagesKo } from './messages.ko';
-import { replacePlaceholders, normalizeLocale } from '@barocss/shared';
+import { messagesEn, messagesKo, replacePlaceholders, normalizeLocale } from '@barocss/shared';
 
 // Built-in languages (provided by default)
 const builtinMessages: Record<string, Record<string, string>> = {
@@ -60,7 +58,7 @@ export function getLocalizedMessage(
   }
   
   // 2. Check built-in language pack
-  const builtin = builtinMessages[effectiveLocale];
+  const builtin = builtinMessages[normalizeLocale(effectiveLocale)];
   if (builtin) {
     message = builtin[id];
     if (message) {
@@ -104,7 +102,7 @@ export function getDefaultLocale(): string {
  */
 export function hasLocaleMessages(locale: string): boolean {
   return (
-    builtinMessages[locale] !== undefined ||
+    builtinMessages[normalizeLocale(locale)] !== undefined ||
     externalMessages[locale] !== undefined
   );
 }

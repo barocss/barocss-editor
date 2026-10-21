@@ -72,13 +72,13 @@
  * So the shell fills the viewport and does not scroll; the document scrolls
  * inside its own pane, and the chrome stays where the reader left it.
  */
-html,
-body,
-#root {
+html:not(:has(.office-auth)),
+body:not(:has(.office-auth)),
+#root:not(:has(.office-auth)) {
   height: 100%;
 }
 
-body {
+body:not(:has(.office-auth)) {
   margin: 0;
   background: var(--ou-ground);
   font-family: system-ui, sans-serif;
@@ -338,23 +338,25 @@ body {
 .w-library-row strong { display: block; font-size: 13px; font-weight: 500; }
 .w-library-row small { display: block; margin-top: 4px; color: var(--ou-muted); }
 
-/* Product chrome: file identity above commands, formatting above the paper. */
-.w-shell > .w-chrome { padding: 0; background: var(--ou-panel); }
+/* One header holds document commands; selection formatting stays native-owned. */
+.w-shell > .w-chrome { padding: 0; border:0; background: var(--ou-panel); color: var(--ou-ink); }
 .w-document-header .doc-title-bar { width: 100%; min-width: 0; padding: 0; align-items: center; flex-wrap: nowrap; }
-.w-document-header .doc-title-docTitle { height: 30px; padding: 0; line-height: 28px; font-size: 13px; font-weight: 600; min-width: 8ch; max-width: 100%; flex: 1 1 auto; }
+.w-document-header .doc-title-docTitle { height: 32px; padding: 0; line-height: 30px; font-size: 13px; font-weight: 600; min-width: 8ch; max-width: 100%; flex: 1 1 auto; }
+.w-document-header .w-zoom-control button { width:32px; height:32px; }
+.w-document-header .w-zoom-control input { height:32px; }
 .w-document-header .w-document-library { margin-left: auto; padding: 0; border: 0; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
 .w-document-header .w-document-library > * { flex-shrink: 0; white-space: nowrap; }
 .w-document-library [data-word-save-status] { margin-left: 10px; }
 .w-menubar { padding-inline: var(--ou-command-inset); }
 .w-file-actions .w-file-picker { display: none; }
 .w-file-actions .w-file-problem { display: block; padding: 6px 20px; }
-.w-shell-document { background: var(--ou-studio); padding: 28px; }
+.w-shell-document { --w-document-inset: 28px; background: var(--ou-studio); padding: var(--w-document-inset); }
 .w-file-action-list { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 4px 0; }
 .w-file-action-list > button { justify-content: flex-start; min-height: 36px; }
 @media(max-width: 760px) {
   .w-document-header .doc-title-docTitle { max-width: none; }
   .w-menubar { padding-inline: 12px; }
-  .w-shell-document { padding: 16px; }
+  .w-shell-document { --w-document-inset: 16px; }
 }
 
 .w-furniture-editing { display: flex; align-items: center; justify-content: space-between; padding: 6px 20px; background: #eef4ff; color: #244d87; border-bottom: 1px solid #ccd9ef; font-size: 13px; }
@@ -362,3 +364,47 @@ body {
 .w-document-header .w-document-library [data-word-save-status] { order: -1; margin: 0 6px 0 0; }
 
 .w-shell-body > .office-workspace-side-panel > * { flex: 1; min-width: 0; }
+
+[data-server-word-workspace] { display:flex; flex-direction:column; height:100%; min-height:0; }
+[data-server-word-workspace] > .w-shell { height:auto; flex:1; min-height:0; }
+[data-server-word-workspace] aside { display:flex; flex-direction:column; gap:6px; padding:12px; }
+
+[data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] { flex-direction:column; }
+[data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > aside { flex:none; }
+[data-server-word-workspace] .w-shell-body > .office-workspace-side-panel[data-workspace-panel="navigation"] > .w-outline-slot { flex:1; min-height:0; }
+[data-server-word-workspace] .w-business-pair { flex: none; }
+.w-business-pair { padding: 12px; border-top: 1px solid var(--office-border, #d8dce4); font-size: 12px; overflow: auto; max-height: 50vh; }
+.w-business-pair summary { cursor: pointer; font-weight: 600; }
+.w-business-pair p { margin: 8px 0; overflow-wrap: anywhere; }
+.w-business-pair section { margin-block: 12px; }
+.w-business-pair button { max-width: 100%; min-height: 32px; height: auto; white-space: normal; overflow-wrap: anywhere; }
+
+.w-business-pair label { display: flex; align-items: center; gap: 8px; margin-block: 8px; }
+.w-business-pair select { min-height: 32px; min-width: 104px; padding: 4px 8px; border: 0; border-radius: var(--ou-radius, 7px); background: var(--ou-panel); color: inherit; font: inherit; }
+.w-business-pair select:focus-visible { outline: 2px solid var(--ou-accent); outline-offset: 2px; }
+
+.w-business-item-excerpt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Document commands stay compact; the native paper and panel geometry are unchanged. */
+.w-header-command-group, .w-header-editing-group { display:flex; align-items:center; gap:2px; flex-shrink:0; height:36px; padding-inline:6px; border-radius:18px; }
+.w-header-editing-group { background:var(--ou-ground); box-sizing:border-box; }
+.w-header-editing-group > span, .w-header-insert { display:inline-flex; }
+.w-header-insert .office-menubar > button { display:inline-flex; align-items:center; gap:4px; width:auto; min-width:64px; padding-inline:6px; }
+.w-document-header :is(.w-header-command-group,.w-header-editing-group,.w-zoom-control) button { border-radius:8px; min-width:32px; min-height:32px; }
+.w-document-header .w-zoom-control { height:36px; padding-inline:6px; border-radius:18px; background:var(--ou-ground); box-sizing:border-box; }
+.w-document-header .w-zoom-control input { width:48px; border-radius:8px; }
+.w-document-header .w-zoom-control svg { width:16px; height:16px; }
+.w-header-command-group > span { display: inline-flex; }
+
+/* Native paper keeps its existing document slot. */
+.w-document-slot { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+/* The host reserves scroll room behind comments. Width-fit then measures the
+   unobscured padding box; paper layout and the current zoom stay unchanged. */
+.w-shell-body[data-compact]:has(> [data-workspace-panel="inspector"]:not([hidden])) .w-shell-document {
+  padding-right: calc(var(--w-document-inset) + 280px);
+}
+
+/* Server document actions remain visible; the outline has its own disclosure. */
+.w-outline-slot { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.w-outline-slot[hidden] { display: none; }
+.w-outline-slot > .w-outline { flex: 1; min-width: 0; min-height: 0; }

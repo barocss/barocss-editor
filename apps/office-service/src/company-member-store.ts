@@ -18,6 +18,8 @@ type MemberListRow = {
   member_role: MemberRole | null;
   active: boolean | null;
   is_self: boolean | null;
+  display_label: string | null; member_code: string | null; source_category: 'company_roster' | null;
+  directory_revision: number | null; directory_updated_at: Date | null;
 };
 type MemberChangeRow = {
   status: 'applied' | 'no_change' | 'forbidden' | 'conflict';
@@ -45,25 +47,34 @@ export class CompanyMemberStore {
     if (after) assertUuid(after);
     const rows = await this.withPrincipal(principal, tenantId, async client => {
       const result = await client.query<MemberListRow>(
-        'SELECT * FROM wonffice.company_member_list($1::uuid, $2::uuid, $3::uuid)',
+        'SELECT * FROM wonffice.company_member_directory_list($1::uuid, $2::uuid, $3::uuid)',
         [tenantId, after ?? null, randomUUID()]);
       return result.rows;
     });
     if (!rows.length || rows[0].status === 'forbidden') throw new CompanyMemberAccessDeniedError();
     const members = rows.filter(row => row.member_id).slice(0, 50).map(row => ({
       memberId: row.member_id!, role: row.member_role!, active: row.active!, isSelf: row.is_self!,
+      identification: row.display_label && row.member_code && row.source_category &&
+        row.directory_revision && row.directory_updated_at ? {
+          state: 'identified' as const, displayLabel: row.display_label, memberCode: row.member_code,
+          sourceCategory: row.source_category, revision: row.directory_revision,
+          updatedAt: row.directory_updated_at.toISOString(),
+        } : { state: 'unidentified' as const, displayLabel: null, memberCode: null,
+          sourceCategory: null, revision: null, updatedAt: null },
     }));
     return { members, nextCursor: rows.filter(row => row.member_id).length > 50
       ? members[49].memberId : null };
   }
 
   private async change(principal: VerifiedPrincipal, tenantId: string, memberId: string,
-    action: 'set_role' | 'revoke', role: EditableRole | null) {
+    action: 'set_role' | 'revoke', role: EditableRole | null, expectedDirectoryRevision: number) {
+    if (!Number.isInteger(expectedDirectoryRevision) || expectedDirectoryRevision < 1 ||
+      expectedDirectoryRevision > 2147483647) throw new Error('invalid_directory_revision');
     assertUuid(memberId);
     const row = await this.withPrincipal(principal, tenantId, async client => {
       const result = await client.query<MemberChangeRow>(
-        'SELECT * FROM wonffice.company_member_change($1::uuid, $2::uuid, $3::text, $4::text, $5::uuid)',
-        [tenantId, memberId, action, role, randomUUID()]);
+        'SELECT * FROM wonffice.company_member_change_confirmed($1::uuid, $2::uuid, $3::text, $4::text, $5::integer, $6::uuid)',
+        [tenantId, memberId, action, role, expectedDirectoryRevision, randomUUID()]);
       return result.rows[0];
     });
     if (!row || row.status === 'forbidden') throw new CompanyMemberAccessDeniedError();
@@ -71,12 +82,13 @@ export class CompanyMemberStore {
     return { memberId, role: row.new_role!, active: row.active!, changed: row.status === 'applied' };
   }
 
-  async setRole(principal: VerifiedPrincipal, tenantId: string, memberId: string, role: EditableRole) {
+  async setRole(principal: VerifiedPrincipal, tenantId: string, memberId: string, role: EditableRole,
+    expectedDirectoryRevision: number) {
     if (role !== 'editor' && role !== 'viewer') throw new Error('invalid_company_member_role');
-    return this.change(principal, tenantId, memberId, 'set_role', role);
+    return this.change(principal, tenantId, memberId, 'set_role', role, expectedDirectoryRevision);
   }
 
-  async revoke(principal: VerifiedPrincipal, tenantId: string, memberId: string) {
-    return this.change(principal, tenantId, memberId, 'revoke', null);
+  async revoke(principal: VerifiedPrincipal, tenantId: string, memberId: string, expectedDirectoryRevision: number) {
+    return this.change(principal, tenantId, memberId, 'revoke', null, expectedDirectoryRevision);
   }
 }

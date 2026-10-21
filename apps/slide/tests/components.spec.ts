@@ -1,6 +1,13 @@
+import { bindPropertyVariable } from './property-variable-helpers';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, currentSlide, visibleBoxes } from './helpers';
+import { openDeck as openNativeDeck, currentSlide, visibleBoxes, pickMenu, setPanel, openFilmstrip, pickInsert } from './helpers';
+
+// Expose the actual current panels before selecting an object; menu entry can retire selection.
+const openDeck = async (page: Page) => {
+  await openNativeDeck(page);
+  await openFilmstrip(page);
+};
 
 /**
  * A component's definition, opened and closed.
@@ -80,6 +87,7 @@ const deckWithComponent = async (page: Page) =>
   });
 
 const openPanel = async (page: Page) => {
+  await setPanel(page, 'layers', true);
   await page.getByRole('tab', { name: '컴포넌트' }).click();
   await expect(page.locator('.sl-components')).toHaveCount(1);
   // The list is drawn from the document, so it arrives with the next render rather than with
@@ -98,16 +106,15 @@ const row = (page: Page, id: string) => page.locator(`.sl-components [data-compo
 
 test('navigation tabs share one column and keep the current slide', async ({ page }) => {
   await openDeck(page);
+  await setPanel(page, 'layers', true);
   const tabs = page.getByRole('tablist', { name: '탐색 방식' });
-  const slidesTab = tabs.getByRole('tab', { name: '슬라이드' });
   const layersTab = tabs.getByRole('tab', { name: '레이어' });
   const componentsTab = tabs.getByRole('tab', { name: '컴포넌트' });
   const slide = await currentSlide(page);
+  expect(slide).toBeTruthy();
   const width = await page.locator('[data-workspace-panel="navigation"]').evaluate(node => node.getBoundingClientRect().width);
 
-  await slidesTab.focus();
-  await slidesTab.press('ArrowRight');
-  await expect(layersTab).toHaveAttribute('aria-selected', 'true');
+  await layersTab.focus();
   await layersTab.press('ArrowRight');
   await expect(componentsTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.sl-sidebar .sl-components')).toBeVisible();
@@ -115,16 +122,16 @@ test('navigation tabs share one column and keep the current slide', async ({ pag
   await expect(page.locator('[data-doc-var-row="주의"]')).toHaveCount(1);
   expect(await page.locator('[data-workspace-panel="navigation"]').evaluate(node => node.getBoundingClientRect().width)).toBe(width);
 
-  await slidesTab.click();
-  await expect(slidesTab).toHaveAttribute('aria-selected', 'true');
+  await componentsTab.press('ArrowLeft');
+  await expect(layersTab).toHaveAttribute('aria-selected', 'true');
   expect(await currentSlide(page)).toBe(slide);
   expect(await page.locator('[data-workspace-panel="navigation"]').evaluate(node => node.getBoundingClientRect().width)).toBe(width);
 });
 
 test('focused navigation arrows do not nudge a selected shape', async ({ page }) => {
   await openDeck(page);
+  await setPanel(page, 'layers', true);
   const tabs = page.getByRole('tablist', { name: '탐색 방식' });
-  const slidesTab = tabs.getByRole('tab', { name: '슬라이드' });
   const layersTab = tabs.getByRole('tab', { name: '레이어' });
   const componentsTab = tabs.getByRole('tab', { name: '컴포넌트' });
 
@@ -143,15 +150,15 @@ test('focused navigation arrows do not nudge a selected shape', async ({ page })
   });
   expect(before.sid).toBeTruthy();
 
-  await slidesTab.focus();
-  await slidesTab.press('ArrowRight');
-  await expect(layersTab).toBeFocused();
+  await layersTab.focus();
   await layersTab.press('ArrowRight');
   await expect(componentsTab).toBeFocused();
   await componentsTab.press('ArrowLeft');
   await expect(layersTab).toBeFocused();
   await layersTab.press('ArrowLeft');
-  await expect(slidesTab).toBeFocused();
+  await expect(componentsTab).toBeFocused();
+  await componentsTab.press('ArrowRight');
+  await expect(layersTab).toBeFocused();
   expect(await page.evaluate(() => {
     const editor = (window as any).editor;
     return {
@@ -173,18 +180,22 @@ test.describe('a component’s definition', () => {
   test('is listed beside the deck, and is not one of its slides', async ({ page }) => {
     await openDeck(page);
     await deckWithComponent(page);
+    await openFilmstrip(page);
     await page.waitForTimeout(500);
     await openPanel(page);
 
     await expect(row(page, 'card')).toContainText('카드');
     // Not a page: one slide in the deck, one row in the filmstrip, and the count says 1 / 1.
     await expect(page.locator('.sl-filmstrip button[data-slide]')).toHaveCount(1);
-    await expect(page.locator('.sl-count')).toContainText('1 / 1');
+    await page.getByRole('button', { name: '슬라이드 탐색 접기', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: '현재 슬라이드', exact: true })).toHaveText('1');
+    await expect(page.locator('.sl-count')).toHaveText('/ 1');
   });
 
   test('is drawn hidden until it is opened, and shown when it is', async ({ page }) => {
     await openDeck(page);
     await deckWithComponent(page);
+    await openFilmstrip(page);
     await page.waitForTimeout(500);
     await openPanel(page);
 
@@ -203,6 +214,7 @@ test.describe('a component’s definition', () => {
   test('takes a new shape while it is open, rather than the slide taking it', async ({ page }) => {
     await openDeck(page);
     await deckWithComponent(page);
+    await openFilmstrip(page);
     await page.waitForTimeout(500);
     await openPanel(page);
     await row(page, 'card').click();
@@ -219,7 +231,7 @@ test.describe('a component’s definition', () => {
      * `slideId` against the deck's **slides**, so the definition's own sid was refused
      * outright — the button would have done nothing at all.
      */
-    await page.locator('[data-control="insert-ellipse"]').click();
+    await pickInsert(page, '타원');
     await page.waitForTimeout(500);
 
     const where = await page.evaluate(() => {
@@ -235,6 +247,7 @@ test.describe('a component’s definition', () => {
   test('says where the reader is, and gives them the way back', async ({ page }) => {
     await openDeck(page);
     await deckWithComponent(page);
+    await openFilmstrip(page);
     await page.waitForTimeout(500);
     const was = await currentSlide(page);
 
@@ -261,6 +274,7 @@ test.describe('a component’s definition', () => {
   test('says how many places use it', async ({ page }) => {
     await openDeck(page);
     await deckWithComponent(page);
+    await openFilmstrip(page);
     await page.waitForTimeout(500);
     await openPanel(page);
 
@@ -367,6 +381,7 @@ test.describe('working with a component', () => {
 
   test('asks a placement for its values, and the words on the slide change', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await cardSlide(page);
 
     // Click the first card's own background, which selects the placement's part…
@@ -460,6 +475,10 @@ test.describe('working with a component', () => {
    */
   test('fits a definition to itself, and rules it by its own size', async ({ page }) => {
     await openDeck(page);
+    await pickMenu(page, 'view.panes.3');
+    await expect(page.locator('[data-ruler="x"]')).toBeVisible();
+    await setPanel(page, 'layers', true);
+    await expect(page.locator('#slides-objects')).toBeVisible();
     await openPanel(page);
     await page.locator('.sl-components [data-component-id="metric-card"]').click();
     await page.waitForTimeout(600);
@@ -487,6 +506,7 @@ test.describe('working with a component', () => {
 
   test('lets a placement go, and leaves the parts arranged', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const slide = await cardSlide(page);
 
     await page.evaluate((sid) => {
@@ -529,6 +549,7 @@ test.describe('working with a component', () => {
 test.describe('declaring what a card takes', () => {
   test('declares a variable, binds a part to it, and the placement follows', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await openPanel(page);
 
     // A card of the reader's own, so the test is not reading the sample's declaration.
@@ -587,7 +608,7 @@ test.describe('declaring what a card takes', () => {
     }, made);
     await page.waitForTimeout(400);
 
-    await page.locator('.sl-properties').getByLabel('글자 변수').selectOption('heading');
+    await bindPropertyVariable(page, '텍스트 내용', 'heading');
     await page.waitForTimeout(500);
     /*
      * The binding is the **definition's** declaration now, not an attribute on the part: three
@@ -691,6 +712,7 @@ test.describe('how big a card is', () => {
 
   test('offers a placement no resize handles, and says why', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const slide = await cardSlide(page);
     await selectPlacement(page, slide);
 
@@ -707,6 +729,7 @@ test.describe('how big a card is', () => {
 
   test('changes the card’s size, and every placement follows', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     const slide = await cardSlide(page);
     const placement = await selectPlacement(page, slide);
 
@@ -775,9 +798,10 @@ test.describe('a card in the layer list', () => {
         );
       });
     });
-    await page.getByRole('tab', { name: '슬라이드' }).click();
+    await openFilmstrip(page);
     await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
     await page.waitForTimeout(400);
+    await setPanel(page, 'layers', true);
     await page.getByRole('tab', { name: '레이어', exact: true }).click();
     await expect(page.locator('.sl-layers')).toHaveCount(1);
     await page.waitForTimeout(400);
@@ -943,7 +967,7 @@ test.describe('a card with motion of its own', () => {
         (one: string) => store.getNode(one)?.attributes?.id === 'cards'
       );
     });
-    await page.getByRole('tab', { name: '슬라이드' }).click();
+    await openFilmstrip(page);
     await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
     await page.waitForTimeout(600);
 
@@ -1025,7 +1049,7 @@ test.describe('the timeline’s line about a card', () => {
         (one: string) => store.getNode(one)?.attributes?.id === 'cards'
       );
     });
-    await page.getByRole('tab', { name: '슬라이드' }).click();
+    await openFilmstrip(page);
     await page.locator(`.sl-filmstrip button[data-slide="${slide}"]`).click();
     await page.waitForTimeout(600);
 
@@ -1258,6 +1282,7 @@ test.describe('a card built out of a frame', () => {
 
   test('gets its handles back, and a drag reaches the parts', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await deckWithFillingCard(page);
     await page.waitForTimeout(600);
 
@@ -1332,6 +1357,7 @@ test.describe('a card built out of a frame', () => {
 test.describe('a variable that drives an attribute', () => {
   test('offers what the part declares, and writes a number as a number', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await openPanel(page);
     await page.locator('.sl-components [data-component-id="metric-card"]').click();
     await page.waitForTimeout(600);
@@ -1370,9 +1396,9 @@ test.describe('a variable that drives an attribute', () => {
      * A row per attribute the part declares — 둥근 정도 among them, which no binding could reach
      * before — and each row offers only the variables whose *kind* fits.
      */
-    const radius = panel.getByLabel('둥근 정도 변수');
+    const radius = panel.getByRole('button', { name: '모서리 둥글기 변수 연결', exact: true });
     await expect(radius).toHaveCount(1);
-    await radius.selectOption('round');
+    await bindPropertyVariable(page, '모서리 둥글기', 'round');
     await page.waitForTimeout(600);
 
     // The declaration is the card's.

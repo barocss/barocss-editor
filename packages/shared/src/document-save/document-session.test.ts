@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, webcrypto } from 'node:crypto';
+import { LibraryRevisionConflict } from '../document-library/document-library';
 import { DocumentSession, type DocumentSessionOptions } from './document-session';
+import { registerDocumentLocation } from './document-location';
+import { captureProductNavigation, registerProductReplacementPreparation } from './product-host';
+import { createWordEditor } from '../../../office-word/src/word-kit';
+import { createSampleDocument } from '../../../office-word/src/sample-document';
 
 function setup() {
   const records = new Map<string, { row: any; text: string }>();
@@ -29,13 +34,235 @@ function setup() {
 
 describe('local document session', () => {
   const running: DocumentSession[] = [];
+  const owned: Array<() => void> = [];
   beforeEach(() => {
-    vi.useFakeTimers(); vi.stubGlobal('crypto', { randomUUID });
+    vi.useFakeTimers(); vi.stubGlobal('crypto', { randomUUID, getRandomValues: webcrypto.getRandomValues.bind(webcrypto) });
     history.replaceState(null, '', '#');
   });
-  afterEach(() => { running.splice(0).forEach(session => session.stop()); vi.useRealTimers(); vi.unstubAllGlobals(); });
+  afterEach(() => { running.splice(0).forEach(session => session.stop()); owned.splice(0).reverse().forEach(dispose => dispose()); vi.useRealTimers(); vi.unstubAllGlobals(); });
   const start = async () => { const one = setup(); running.push(one.session); await one.session.start(); await one.session.flush(); return one; };
+  const native = async (key = 'test') => {
+    const one = setup(), editor = createWordEditor(); one.options.key = key; editor.loadDocument(createSampleDocument());
+    owned.push(() => editor.destroy());
+    one.options.snapshot = () => ({ text: JSON.stringify({ format: 'barocss-word', version: 1, document: editor.exportDocument() }), title: 'Native Word', count: 1 });
+    one.options.replace = text => editor.loadDocument(JSON.parse(text).document);
+    one.options.subscribe = changed => {
+      const listener = (event: { transaction?: unknown }) => changed(!event.transaction);
+      editor.on('editor:content.change', listener); return () => editor.off('editor:content.change', listener);
+    };
+    running.push(one.session); await one.session.start(); await one.session.flush();
+    const run = [...editor.dataStore.getNodes().values()].find(node => node.stype === 'inline-text' && node.text &&
+      node.parentId && editor.dataStore.getNode(node.parentId)?.stype === 'paragraph')!;
+    editor.setRange({ type: 'range', startNodeId: run.sid!, endNodeId: run.sid!, startOffset: 0, endOffset: 0, collapsed: true });
+    expect(await editor.run('insertText', { text: 'Owned source edit ' })).toBe(true);
+    expect(editor.canUndo()).toBe(true); await one.session.flush();
+    const target = structuredClone(editor.exportDocument()); target.attributes = { ...target.attributes, name: 'Target original' };
+    one.records.set('target', { row: { name: 'target', revision: 1 }, text: JSON.stringify({ format: 'barocss-word', version: 1, document: target }) });
+    const original = one.session.id, tree = structuredClone(editor.exportDocument()), history = editor.getHistoryStats(), records = structuredClone([...one.records]);
+    const unchanged = () => {
+      expect(one.session.id).toBe(original); expect(editor.exportDocument()).toEqual(tree);
+      expect(editor.getHistoryStats()).toEqual(history); expect([...one.records]).toEqual(records);
+    };
+    return { ...one, editor, unchanged, original };
+  };
+  const feedback = (save: (body: string) => Promise<void> = async () => {}) => {
+    let body = 'Original feedback', composing = false, saved: string | undefined;
+    const register = () => registerProductReplacementPreparation(() => ({
+      async prepare() { if (composing) return false; const captured = body; await save(captured); saved = captured; return !composing && body === captured; },
+      isPrepared: () => !composing && saved === body
+    }));
+    const remove = register(); owned.push(remove);
+    return { edit: (value: string) => { body = value; }, compose: () => { composing = true; }, saved: () => saved, register, remove };
+  };
 
+
+  it('saves the real current Word tree while newer feedback composition still blocks replacement', async () => {
+    const one = await native('word'), draft = feedback(); draft.compose();
+    const guard = captureProductNavigation()!, before = structuredClone(one.editor.exportDocument());
+    expect(await one.editor.run('insertText', { text: 'Submitted native change ' })).toBe(true);
+    const tree = structuredClone(one.editor.exportDocument()), stats = one.editor.getHistoryStats();
+    const writes = one.store.keep.mock.calls.length;
+    expect(await guard.saveCurrentSnapshot!()).toBe(true);
+    expect(one.store.keep).toHaveBeenCalledTimes(writes + 1);
+    expect(JSON.parse(one.records.get(one.original)!.text).document).toEqual(tree);
+    expect(one.editor.getHistoryStats()).toEqual(stats); expect(tree).not.toEqual(before);
+    expect(one.session.id).toBe(one.original); expect(draft.saved()).toBeUndefined();
+    expect(await guard.prepare()).toBe(false); expect(await one.session.open('target')).toBe(false);
+    expect(one.store.read).not.toHaveBeenCalled(); expect(one.editor.exportDocument()).toEqual(tree);
+    expect(one.editor.getHistoryStats()).toEqual(stats);
+  });
+  it('settles actual nested Word input before capturing the explicit current write', async () => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    one.options.beforeSnapshot = async () => { expect(await one.editor.run('insertText', { text: 'Nested input ' })).toBe(true); };
+    one.session.input();
+    expect(await guard.saveCurrentSnapshot!()).toBe(true);
+    expect(JSON.parse(one.records.get(one.original)!.text).document).toEqual(one.editor.exportDocument());
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
+  });
+  it.each(['stop', 'replacement ABA', 'caller retired'])('does not capture or publish after %s while nested input is held', async reason => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    let release!: () => void, entered = false, allowed = true;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    one.options.beforeSnapshot = async () => { entered = true; await pending; };
+    one.session.input(); const writes = one.store.keep.mock.calls.length;
+    const saving = guard.saveCurrentSnapshot!(() => allowed); await vi.waitFor(() => expect(entered).toBe(true));
+    if (reason === 'stop') one.session.stop();
+    if (reason === 'replacement ABA') { one.editor.loadDocument(createSampleDocument()); one.session.id = one.original; }
+    if (reason === 'caller retired') allowed = false;
+    release(); expect(await saving).toBe(false);
+    if (reason !== 'replacement ABA') expect(one.store.keep).toHaveBeenCalledTimes(writes);
+    expect(one.records.get(one.original)?.text).not.toBe('new native lifetime');
+  });
+  it('keeps a newer native edit pending when the earlier immutable write finishes', async () => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    expect(await one.editor.run('insertText', { text: 'Earlier submitted edit ' })).toBe(true);
+    const earlier = one.options.snapshot().text;
+    const keep = one.store.keep.getMockImplementation()!; let release!: () => void, entered = false;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    one.store.keep.mockImplementationOnce(async (...args) => { entered = true; await pending; return keep(...args); });
+    const saving = guard.saveCurrentSnapshot!(); await vi.waitFor(() => expect(entered).toBe(true));
+    expect(await one.editor.run('insertText', { text: 'Later native input ' })).toBe(true);
+    const later = one.options.snapshot().text; release(); expect(await saving).toBe(false);
+    expect(one.records.get(one.original)?.text).toBe(earlier); expect(one.options.snapshot().text).toBe(later);
+    expect(await guard.saveCurrentSnapshot!()).toBe(true); expect(one.records.get(one.original)?.text).toBe(later);
+  });
+  it.each(['storage error', 'revision conflict'])('does not confirm the original after %s and preserves the native tree/history', async reason => {
+    const one = await native('word'), guard = captureProductNavigation()!;
+    const saved = structuredClone(one.records.get(one.original));
+    expect(await one.editor.run('insertText', { text: 'Preserve submitted edit ' })).toBe(true);
+    const tree = structuredClone(one.editor.exportDocument()), stats = one.editor.getHistoryStats();
+    one.store.keep.mockRejectedValueOnce(reason === 'storage error' ? new Error('storage unavailable') : new LibraryRevisionConflict(saved!.row.revision, saved));
+    expect(await guard.saveCurrentSnapshot!()).toBe(false); expect(one.records.get(one.original)).toEqual(saved);
+    expect(one.editor.exportDocument()).toEqual(tree); expect(one.editor.getHistoryStats()).toEqual(stats);
+    expect(one.notify).toHaveBeenLastCalledWith(reason === 'storage error' ? 'save-error' : 'conflict');
+    if (reason === 'revision conflict') {
+      expect(await guard.saveCurrentSnapshot!()).toBe(false);
+      const drafts = [...one.records].filter(([name]) => name !== one.original && name !== 'target');
+      expect(drafts).toHaveLength(1); expect(drafts[0][1].row.metadata.originalId).toBe(one.original);
+      expect(JSON.parse(drafts[0][1].text).document).toEqual(tree);
+    } else { expect(await guard.saveCurrentSnapshot!()).toBe(true); expect(JSON.parse(one.records.get(one.original)!.text).document).toEqual(tree); }
+  });
+  it('refuses a quarantined Word original without flushing its partial native replacement', async () => {
+    const one = await native('word');
+    one.options.replace = () => { throw new Error('native load failed'); };
+    await expect(one.session.open('target')).rejects.toThrow('native load failed');
+    const guard = captureProductNavigation()!, writes = one.store.keep.mock.calls.length;
+    one.options.beforeSnapshot = vi.fn(async () => {});
+    expect(await guard.saveCurrentSnapshot!()).toBe(false);
+    expect(one.options.beforeSnapshot).not.toHaveBeenCalled(); expect(one.store.keep).toHaveBeenCalledTimes(writes);
+    expect(one.session.recoveryRequired).toBe(true);
+  });
+  it('does not add explicit current save capability to the local Note host', async () => {
+    const one = setup(); one.options.key = 'note'; running.push(one.session); await one.session.start();
+    expect(captureProductNavigation()!.saveCurrentSnapshot).toBeUndefined();
+  });
+
+  it('awaits actual feedback persistence before native preparation or target reading, without adding it to autosave', async () => {
+    const one = await native(); let release!: () => void, entered = false;
+    const savedSource = structuredClone(one.records.get(one.original));
+    const persistence = new Promise<void>(resolve => { release = resolve; });
+    const draft = feedback(async () => { entered = true; await persistence; });
+    const prepareNative = vi.fn(async () => {}); one.options.beforeSnapshot = prepareNative;
+    expect(await one.session.flush()).toBe(true); expect(draft.saved()).toBeUndefined(); prepareNative.mockClear();
+    const opening = one.session.open('target');
+    await vi.waitFor(() => expect(entered).toBe(true));
+    expect(prepareNative).not.toHaveBeenCalled(); expect(one.store.read).not.toHaveBeenCalled(); one.unchanged();
+    release(); expect(await opening).toBe(true); expect(draft.saved()).toBe('Original feedback');
+    expect(one.session.id).toBe('target'); expect(one.editor.exportDocument().attributes?.name).toBe('Target original');
+    expect(one.records.get(one.original)).toEqual(savedSource);
+  });
+
+  it('refuses newer feedback entered while deepest native preparation is pending and preserves the real native tree/history/store', async () => {
+    const one = await native(), draft = feedback(); let release!: () => void, entered = false;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    one.options.beforeSnapshot = async () => { entered = true; await pending; };
+    const opening = one.session.open('target'); await vi.waitFor(() => expect(entered).toBe(true));
+    draft.edit('Latest feedback during native preparation'); release();
+    expect(await opening).toBe(false); expect(one.store.read).not.toHaveBeenCalled(); one.unchanged();
+  });
+
+  it('refuses newer feedback after the target read starts and does not replace the native original', async () => {
+    const one = await native(), draft = feedback(); let release!: (value: ReturnType<typeof one.records.get>) => void;
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const opening = one.session.open('target'); await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('target'));
+    draft.edit('Latest feedback while the target loads'); release(one.records.get('target'));
+    expect(await opening).toBe(false); one.unchanged(); expect(one.notify).toHaveBeenLastCalledWith('saved');
+  });
+
+  it.each(['failed persistence', 'active composition'])('refuses %s before touching the native source or target', async reason => {
+    const one = await native();
+    const draft = feedback(reason === 'failed persistence' ? async () => { throw new Error('Feedback repository unavailable'); } : undefined);
+    if (reason === 'active composition') draft.compose();
+    one.options.beforeSnapshot = vi.fn(async () => {});
+    expect(await one.session.open('target')).toBe(false); expect(one.options.beforeSnapshot).not.toHaveBeenCalled();
+    expect(one.store.read).not.toHaveBeenCalled(); one.unchanged();
+  });
+
+  it('refuses a captured feedback registration ABA and allows an explicit owned retry', async () => {
+    const one = await native(), draft = feedback(); let release!: (value: ReturnType<typeof one.records.get>) => void;
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const opening = one.session.open('target'); await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('target'));
+    draft.remove(); const removeNext = draft.register(); owned.push(removeNext); draft.remove();
+    release(one.records.get('target')); expect(await opening).toBe(false); one.unchanged();
+    expect(await one.session.open('target')).toBe(true); expect(one.session.id).toBe('target');
+  });
+
+  it('does not create a recovery document when feedback changes during the held draft read', async () => {
+    const one = await native(), draft = feedback(); let release!: (value: ReturnType<typeof one.records.get>) => void;
+    const writes = one.store.keep.mock.calls.length;
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+    const recovering = one.session.recover(one.records.get('target')!.row);
+    await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('target'));
+    draft.edit('Latest feedback while recovery is loading'); release(one.records.get('target'));
+    expect(await recovering).toBe(false); expect(one.store.keep).toHaveBeenCalledTimes(writes); one.unchanged();
+  });
+
+  it('reports an invalid host address without subscribing, saving a sample or replacing its route', async () => {
+    const one = setup(); running.push(one.session);
+    const subscription = vi.spyOn(one.options, 'subscribe');
+    const remove = registerDocumentLocation({ product: 'test', workspaceId: 'w', readId: () => undefined, url: () => '/w/sample' });
+    const originalURL = location.href;
+    try {
+      await one.session.start();
+      expect(one.notify).toHaveBeenLastCalledWith('restore-error');
+      expect(subscription).not.toHaveBeenCalled(); expect(one.store.keep).not.toHaveBeenCalled();
+      expect(one.content()).toBe('initial'); expect(location.href).toBe(originalURL);
+    } finally { remove(); }
+  });
+
+  it('does not install a delayed initial original after its validated address retires', async () => {
+    const one = setup(); running.push(one.session);
+    let current = true, finish!: (value: any) => void;
+    const remove = registerDocumentLocation({ product: 'test', workspaceId: '', readId: () => 'original',
+      url: id => `/w/${id}`, isCurrent: () => current });
+    one.store.read.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      const opening = one.session.start();
+      await vi.waitFor(() => expect(one.store.read).toHaveBeenCalledWith('original'));
+      current = false; history.replaceState(null, '', '/w/different');
+      finish({ row: { name: 'original', revision: 1 }, text: 'original saved content' });
+      await opening;
+      expect(one.content()).toBe('initial'); expect(one.store.keep).not.toHaveBeenCalled();
+      expect(one.session.id).not.toBe('original');
+      expect(one.notify).toHaveBeenLastCalledWith('restore-error');
+      expect(location.pathname).toBe('/w/different');
+    } finally { remove(); }
+  });
+
+  it('reports loading/saved through the single status-code callback without altering saved native bytes', async () => {
+    const one = setup(); running.push(one.session); await one.session.start();
+    expect(one.notify).toHaveBeenLastCalledWith('saving');
+    expect(await one.session.flush()).toBe(true);
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
+    const original = one.session.id, saved = structuredClone(one.records.get(original));
+    one.records.set('other', { row: { name: 'other', revision: 1 }, text: 'other native bytes' });
+    expect(await one.session.open('other')).toBe(true);
+    expect(one.notify.mock.calls.map(([code]) => code)).toContain('loading');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
+    expect(one.records.get(original)).toEqual(saved);
+    expect(one.records.get('other')).toEqual({ row: { name: 'other', revision: 1 }, text: 'other native bytes' });
+    expect(one.session.id).toBe('other'); expect(one.content()).toBe('other native bytes');
+  });
   it('keeps stable file identities and saves the source before opening another', async () => {
     const one = await start(); const original = one.session.id;
     one.edit('edited'); await one.session.flush();
@@ -51,7 +278,7 @@ describe('local document session', () => {
     one.options.beforeSnapshot = async () => { one.edit('last child input'); };
     one.session.input(); await one.session.flush();
     expect(one.records.get(one.session.id)?.text).toBe('last child input');
-    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
   });
   it('does not navigate over an edit made while storage is reading', async () => {
     const one = await start(); const original = one.session.id;
@@ -71,7 +298,7 @@ describe('local document session', () => {
     one.store.keep.mockRejectedValueOnce(new Error('full'));
     one.edit('preserve');
     expect(await one.session.beforeReplace()).toBe(false);
-    expect(one.notify).toHaveBeenLastCalledWith('저장 실패');
+    expect(one.notify).toHaveBeenLastCalledWith('save-error');
     expect(await one.session.flush()).toBe(true);
     expect(one.records.get(one.session.id)?.text).toBe('preserve');
   });
@@ -79,7 +306,7 @@ describe('local document session', () => {
     const one = await start(); const writes = one.store.keep.mock.calls.length;
     one.session.input(); await one.session.flush();
     expect(one.store.keep).toHaveBeenCalledTimes(writes);
-    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
   });
   it('never writes a partially replaced B model under B after A fails', async () => {
     const one = await start();
@@ -91,7 +318,7 @@ describe('local document session', () => {
     await expect(one.session.open('a')).rejects.toThrow('load failed');
     expect(one.session.id).toBe(b);
     expect(one.session.recoveryRequired).toBe(true);
-    expect(one.notify).toHaveBeenLastCalledWith('복구 필요');
+    expect(one.notify).toHaveBeenLastCalledWith('recovery-required');
     await expect(one.session.open('a')).rejects.toThrow('Reopen the current saved document');
     one.edit('B edited after failure');
     expect(await one.session.flush()).toBe(false);
@@ -113,7 +340,7 @@ describe('local document session', () => {
     expect(one.session.recoveryRequired).toBe(false);
     expect(one.session.id).toBe(b);
     expect(one.content()).toBe('initial');
-    expect(one.notify).toHaveBeenLastCalledWith('저장됨');
+    expect(one.notify).toHaveBeenLastCalledWith('saved');
     expect(await one.session.open('a', true)).toBe(true);
     expect(one.session.id).toBe('a');
     expect(one.content()).toBe('A saved');
@@ -135,7 +362,7 @@ describe('local document session', () => {
     history.replaceState(null, '', '#test=missing');
     const one = setup(); running.push(one.session);
     await one.session.start();
-    expect(one.notify).toHaveBeenLastCalledWith('복원 실패');
+    expect(one.notify).toHaveBeenLastCalledWith('restore-error');
 
     one.edit('B saved after startup failure');
     const b = one.session.id;
@@ -150,6 +377,24 @@ describe('local document session', () => {
     expect(await one.session.open(b)).toBe(true);
     expect(one.content()).toBe('B saved after startup failure');
     expect(one.session.recoveryRequired).toBe(false);
+  });
+  it('reports stable conflict codes while preserving the original and exactly one recovery draft', async () => {
+    const one = await start(), original = one.session.id;
+    const saved = structuredClone(one.records.get(original));
+    one.store.keep.mockRejectedValueOnce(new LibraryRevisionConflict(saved!.row.revision, saved));
+    one.edit('keep this conflicting draft');
+    expect(await one.session.flush()).toBe(true);
+    expect(one.notify).toHaveBeenLastCalledWith('conflict');
+    expect(one.records.get(original)).toEqual(saved);
+    const drafts = [...one.records.entries()].filter(([name]) => name !== original);
+    expect(drafts).toHaveLength(1); expect(drafts[0][1].text).toBe('keep this conflicting draft');
+    expect(drafts[0][1].row.metadata.originalId).toBe(original);
+    const writes = one.store.keep.mock.calls.length;
+    one.session.input(); expect(one.notify).toHaveBeenLastCalledWith('saving');
+    expect(await one.session.flush()).toBe(true);
+    expect(one.notify).toHaveBeenLastCalledWith('conflict');
+    expect(one.store.keep).toHaveBeenCalledTimes(writes);
+    expect(one.records.size).toBe(2);
   });
   it('retries the original startup target when no current document was saved', async () => {
     history.replaceState(null, '', '#test=startup');

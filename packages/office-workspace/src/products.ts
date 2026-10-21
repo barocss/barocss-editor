@@ -1,11 +1,12 @@
 import { documentLibrary } from '@barocss/shared';
+import { formatWorkspaceRoute } from './routes';
 
 /** Durable product keys. No renderer is registered by the workspace catalog. */
 export const products = {
-  note: { label: 'Note', format: 'barocss-note', db: 'barocss-note', store: 'documents', color: '#6255a5' },
-  word: { label: 'Word', format: 'barocss-word', db: 'barocss-word', store: 'documents', color: '#2861b5' },
-  slides: { label: 'Slides', format: 'barocss-slides', db: 'barocss-slides-workspace', store: 'documents', color: '#b35f23' },
-  site: { label: 'Site', format: 'barocss-site', db: 'barocss-site-workspace', store: 'documents', color: '#397e69' }
+  note: { icon: 'product-note', label: 'Note', format: 'barocss-note', db: 'barocss-note', store: 'documents', color: '#6255a5' },
+  word: { icon: 'product-word', label: 'Word', format: 'barocss-word', db: 'barocss-word', store: 'documents', color: '#2861b5' },
+  slides: { icon: 'product-slides', label: 'Slides', format: 'barocss-slides', db: 'barocss-slides-workspace', store: 'documents', color: '#b35f23' },
+  site: { icon: 'product-site', label: 'Site', format: 'barocss-site', db: 'barocss-site-workspace', store: 'documents', color: '#397e69' }
 } as const;
 export type Product = keyof typeof products;
 export const productKeys = Object.keys(products) as Product[];
@@ -18,6 +19,8 @@ export interface ProductCodec {
   read(text: string): { document: unknown } | { error: string };
   text(document: never): string;
   schema(): unknown;
+  /** Optional domain identity remap for an independent copy. Refusals preserve the source. */
+  deriveIndependent?(document: unknown): unknown;
 }
 /** File adapters are separate package entries, so loading four codecs does not register four editors. */
 export async function productCodec(product: Product): Promise<ProductCodec> {
@@ -29,10 +32,10 @@ export async function productCodec(product: Product): Promise<ProductCodec> {
   }
 }
 
-export interface DocumentAddress { workspace: string; product: Product; id: string; }
+export interface DocumentAddress { workspace: string; product: Product; id: string; project?: string; mode?: 'read' | 'edit'; }
 export function documentURL(address: DocumentAddress): string {
-  const { workspace, product, id } = address;
-  return `/products/${product}/index.html?workspace=${encodeURIComponent(workspace)}#${product === 'note' ? '' : `${product}=`}${encodeURIComponent(id)}`;
+  return formatWorkspaceRoute({ kind: 'item', workspaceId: address.workspace, itemId: address.id,
+    ...(address.project ? { projectId: address.project } : {}), ...(address.mode ? { mode: address.mode } : {}) });
 }
 export function referenceKey(address: Pick<DocumentAddress, 'product' | 'id'>): string {
   return `${address.product}:${address.id}`;

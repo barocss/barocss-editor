@@ -1,5 +1,17 @@
+import { setWordWholeTools } from './helpers';
 import { test, expect, type Page } from '@playwright/test';
 import { settled } from './helpers';
+
+async function showRuler(page: Page) {
+  if (await page.locator('.w-ruler').count()) return;
+  await setWordWholeTools(page, true);
+  const detail = page.getByLabel('전체 Word 도구', { exact: true });
+  await detail.getByRole('tab', { name: '보기', exact: true }).click();
+  await detail.getByRole('button', { name: '눈금자', exact: true }).click();
+  await expect(page.locator('.w-ruler')).toBeVisible();
+  await setWordWholeTools(page, false);
+}
+
 
 async function geometry(page: Page) {
   return page.evaluate(() => {
@@ -21,13 +33,13 @@ async function geometry(page: Page) {
 }
 
 async function load(page: Page, attributes: Record<string, unknown>) {
-  await page.goto('/'); await settled(page);
+  await page.goto('/'); await settled(page); await showRuler(page);
   await page.evaluate(attributes => (window as any).editor.loadDocument({ stype: 'document', content: [
     { stype: 'surface', attributes: { kind: 'flow', ...attributes }, content: [
       { stype: 'paragraph', content: [{ stype: 'inline-text', text: 'Page margins must match the ruler and printed page.' }] }
     ] }
   ] }), attributes);
-  await settled(page);
+  await settled(page); await showRuler(page);
 }
 
 for (const entry of [
@@ -50,7 +62,7 @@ for (const entry of [
 }
 
 test('the format painter document keeps its margins after zoom and reopening', async ({ page }) => {
-  await page.goto('/?sample=format-painter'); await settled(page);
+  await page.goto('/?sample=format-painter'); await settled(page); await showRuler(page);
   const check = async () => {
     const result = await geometry(page);
     expect(result.width).toBeCloseTo(816, 0);
@@ -60,10 +72,11 @@ test('the format painter document keeps its margins after zoom and reopening', a
     await expect.poll(async () => (await geometry(page)).rulerWidth).toBeCloseTo(0, 0);
   };
   await check();
+  await setWordWholeTools(page, true);
   await page.getByRole('tab', { name: '보기', exact: true }).click();
-  await page.locator('[data-zoom-out]').click(); await settled(page); await check();
+  await page.locator('[data-zoom-out]').click(); await settled(page); await showRuler(page); await check();
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨');
-  await page.reload(); await settled(page); await check();
+  await page.reload(); await settled(page); await showRuler(page); await check();
   await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
   const print = page.locator('.w-print-copy .w-surface').first();
   await expect(print).toHaveCSS('padding-left', '96px');

@@ -299,7 +299,11 @@ export class RangeOperations {
       updatedMarks = resultMarks;
     }
     
-    this.dataStore.updateNode(nodeId, { text: updatedText, marks: coalesceMarks(updatedMarks) });
+    // Plain insertion keeps an authored omission distinct from explicit empty marks.
+    const changes = node.marks === undefined && updatedMarks.length === 0
+      ? { text: updatedText }
+      : { text: updatedText, marks: coalesceMarks(updatedMarks) };
+    this.dataStore.updateNode(nodeId, changes);
     return text;
   }
 
@@ -424,7 +428,8 @@ export class RangeOperations {
       startNodeId: contentRange.startNodeId,
       startOffset: contentRange.startOffset,
       endNodeId: contentRange.startNodeId,
-      endOffset: contentRange.startOffset
+      endOffset: contentRange.startOffset,
+      collapsed: true
     };
     this.insertText(insertRange, newText);
     return deletedText;
@@ -507,7 +512,8 @@ export class RangeOperations {
       startNodeId: contentRange.endNodeId,
       startOffset: contentRange.endOffset,
       endNodeId: contentRange.endNodeId,
-      endOffset: contentRange.endOffset
+      endOffset: contentRange.endOffset,
+      collapsed: true
     };
     this.insertText(insertRange, textToDuplicate);
     return textToDuplicate;

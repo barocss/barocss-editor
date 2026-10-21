@@ -1,3 +1,5 @@
+import { nativeEditor } from './helpers/native-editor';
+import { openLocalLibrary } from './helpers/local-library';
 import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 const output = '../../.dev/artifacts/design-system';
@@ -93,19 +95,24 @@ test('colour surfaces share the light and dark theme', async ({ page }) => {
 
 test('Slides applies a picker colour to an actual shape', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'S Slides 새 자료 만들기', exact: true }).click();
+  await openLocalLibrary(page);
+  await page.getByRole('button', { name: 'Slides 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('색상 도구 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
-  const trigger = page.locator('.sl-properties').getByRole('button', { name: '선 색', exact: true });
+  const ui = nativeEditor(page);
+  await ui.getByRole('menuitem', { name: '패널', exact: true }).click();
+  await ui.getByRole('menuitemcheckbox', { name: '속성 · 크기, 위치, 모양', exact: true }).click();
+  await ui.getByRole('button', { name: '삽입', exact: true }).click();
+  await ui.getByRole('menuitem', { name: '사각형', exact: true }).click();
+  const trigger = ui.locator('.sl-properties').getByRole('button', { name: '선 색', exact: true });
   await trigger.click();
-  const popup = page.locator('[data-color-panel]');
+  const popup = ui.locator('[data-color-panel]');
   await popup.getByRole('textbox', { name: '색상 코드' }).fill('e11d48');
   await page.keyboard.press('Enter');
   await expect(trigger).toHaveAttribute('data-value', '#e11d48');
-  await expect.poll(() => page.locator('.sl-stage .sl-rectangle').evaluateAll(nodes => nodes.some(node => getComputedStyle(node).borderTopColor === 'rgb(225, 29, 72)'))).toBe(true);
+  await expect.poll(() => ui.locator('.sl-stage .sl-rectangle').evaluateAll(nodes => nodes.some(node => getComputedStyle(node).borderTopColor === 'rgb(225, 29, 72)'))).toBe(true);
   await popup.getByRole('button', { name: /닫기$/ }).click();
   await expect(popup).toHaveCount(0);
-  await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
+  await expect(ui.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.screenshot({ path: `${output}/colors-slides.png` });
 });

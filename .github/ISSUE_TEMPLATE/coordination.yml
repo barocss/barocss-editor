@@ -1,0 +1,59 @@
+name: Delivery or coordination
+description: Operating, release or documentation work with a bounded finish.
+title: "[Delivery] "
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Primary category
+      options: [operations, release, documentation]
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: User request and authority
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Problem and bounded outcome
+      description: Say what changes and what remains outside this Issue.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance and verification
+      description: Number criteria, include links/readback and distinguish document rollout from product acceptance.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies, owner and safe checkpoint
+      description: Identify existing product/research work to preserve.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Proposed priority (Planner confirms)
+      options: [unranked, P2, P1, P0]
+    validations:
+      required: true
+  - type: dropdown
+    id: readiness
+    attributes:
+      label: Initial readiness
+      options: [needs-triage, backlog, ready]
+    validations:
+      required: true
+  - type: dropdown
+    id: release-commitment
+    attributes:
+      label: Release commitment
+      options: [none, candidate, committed]
+    validations:
+      required: true

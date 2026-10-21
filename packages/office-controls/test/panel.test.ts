@@ -142,3 +142,24 @@ describe('when 이 붙은 행', () => {
     expect(panelRowShown(row(undefined), {}, 2)).toBe(true);
   });
 });
+
+
+describe('stable panel group identity', () => {
+  it('keeps explicit groups separate when translated headings collide and preserves row behavior', () => {
+    const rows = [
+      { attr: 'name', command: 'setName', groupId: 'selection', group: 'Same', label: 'Renamed', ariaLabel: 'Name', control: 'text' },
+      { attr: 'width', command: 'setWidth', groupId: 'size', group: 'Same', label: 'Renamed', ariaLabel: 'Width', control: 'number' },
+      { attr: 'stype', command: 'setType', groupId: 'selection', group: 'Different', label: 'Type', ariaLabel: 'Type', control: 'text' },
+      { attr: 'legacy', command: 'setLegacy', group: 'selection', label: 'Legacy', ariaLabel: 'Legacy', control: 'text' }
+    ];
+    const groups = panelGroupsFor(rows);
+    expect(groups.map((group) => ({ id: group.id, attrs: group.rows.map((row) => row.attr) }))).toEqual([
+      { id: 'selection', attrs: ['name', 'stype'] },
+      { id: 'size', attrs: ['width'] },
+      { id: undefined, attrs: ['legacy'] }
+    ]);
+    expect(groups[0].rows[0]).toBe(rows[0]);
+    expect(panelCommands(rows)).toEqual(['setName', 'setWidth', 'setType', 'setLegacy']);
+    expect(panelAttrs(rows)).toEqual(['name', 'width', 'stype', 'legacy']);
+  });
+});

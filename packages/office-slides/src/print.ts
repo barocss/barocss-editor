@@ -1,6 +1,6 @@
 import type { Editor } from '@barocss/editor-core';
 import { DOMRenderer } from '@barocss/renderer-dom';
-import { getGlobalRegistry } from '@barocss/dsl';
+import { getGlobalRegistry, type RendererRegistry } from '@barocss/dsl';
 import { WORD_ENV_KEY } from '@barocss/office-text';
 import { twipToPx } from '@barocss/shared';
 import { deckSlides, type DeckAccess } from './deck';
@@ -8,7 +8,7 @@ import { slideSize } from './geometry';
 import { createDeckEnv } from './layout-format';
 
 /** Render the saved model at physical size, without the editor's camera or motion state. */
-export function createSlidePrint(editor: Editor, owner: Document = document) {
+export function createSlidePrint(editor: Editor, owner: Document = document, registry?: RendererRegistry) {
   let container: HTMLDivElement | undefined;
   const clear = () => { container?.remove(); container = undefined; };
   const build = () => {
@@ -34,7 +34,7 @@ export function createSlidePrint(editor: Editor, owner: Document = document) {
       page.style.cssText = `width:${width}px;height:${height}px;page:sl-page-${index}`;
       // Named pages retain custom and mixed slide sizes. Twips / 20 = points.
       rules.push(`@page sl-page-${index} { size:${size.width / 20}pt ${size.height / 20}pt; margin:0; }`);
-      const renderer = new DOMRenderer(getGlobalRegistry(), {
+      const renderer = new DOMRenderer(registry ?? getGlobalRegistry(), {
         env: { [WORD_ENV_KEY]: createDeckEnv(doc) }
       } as never);
       renderer.render(page, JSON.parse(JSON.stringify(proxy)));

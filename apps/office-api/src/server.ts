@@ -1,3 +1,10 @@
+import { registerCriterionVerificationRoutes } from './criterion-verification-routes.js';
+import type { CriterionVerificationStore } from '@barocss/office-service/criterion-verification-store';
+import { registerCriterionConfirmationRoutes } from './criterion-confirmation-routes.js';
+import type { CriterionConfirmationStore } from '@barocss/office-service/criterion-confirmation-store';
+import { registerProjectRoutes } from './project-routes.js';
+import type { ProjectStore } from '@barocss/office-service/project-store';
+import type { ProjectExecutionStore } from '@barocss/office-service/project-execution';
 import Fastify from 'fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { InvalidWorkspaceCursorError, TenantAccessDeniedError } from '@barocss/office-service/membership-store';
@@ -25,8 +32,12 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export interface ApiAuthDependencies {
   verifier: Pick<OidcVerifier, 'verify'> & Partial<Pick<OidcVerifier, 'verifySession'>>;
   memberships: Pick<MembershipStore, 'getTenantAccess' | 'listTenantAccess'>;
+  projects?: Pick<ProjectStore, 'list' | 'get' | 'create' | 'update' | 'getPin'>;
+  projectExecutions?: Pick<ProjectExecutionStore, 'get' | 'execute' | 'authorizeAcceptance' | 'acknowledge' | 'reject'>;
   workspaces?: Pick<MembershipStore, 'listWorkspaces'>;
   documents?: Pick<DocumentStore, 'create' | 'list' | 'open' | 'updateSnapshot' | 'updateMetadata' | 'getReceipt'>;
+  criterionVerifications?: Pick<CriterionVerificationStore,'getContext'|'run'|'list'|'get'>;
+  criterionConfirmations?: Pick<CriterionConfirmationStore,'getContext' | 'confirm' | 'list'>;
   collaboration?: Pick<CollaborationStore, 'requestTransition' | 'reconcile'>;
   capabilities?: {
     issue(input: { principal: VerifiedPrincipal; sessionId: string; oidcExpiresAt: number;
@@ -158,7 +169,7 @@ export function createApiServer(auth?: ApiAuthDependencies) {
       }
       try {
         const page = await auth.memberships.listTenantAccess(principal, query.after as string | undefined);
-        return { issuer: principal.issuer, subject: principal.subject, ...page };
+        return { issuer: principal.issuer, subject: principal.subject, ...page, currentUserId: page.currentUserId ?? null };
       } catch {
         return reply.code(503).send({ status: 'service_unavailable' });
       }
@@ -196,6 +207,11 @@ export function createApiServer(auth?: ApiAuthDependencies) {
         }
       });
     }
+    if (auth.projects) registerProjectRoutes(app, { authenticate, projects: auth.projects, executions: auth.projectExecutions });
+    if (auth.criterionVerifications) registerCriterionVerificationRoutes(app,
+      { authenticate, verifications:auth.criterionVerifications });
+    if (auth.criterionConfirmations) registerCriterionConfirmationRoutes(app,
+      { authenticate, confirmations:auth.criterionConfirmations });
     if (auth.operators) registerOperatorRoutes(app, { authenticate, operators: auth.operators });
     if (auth.companyMembers) registerCompanyMemberRoutes(app,
       { authenticate, companyMembers: auth.companyMembers });

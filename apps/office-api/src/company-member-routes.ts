@@ -7,11 +7,27 @@ import type { VerifiedPrincipal } from '@barocss/office-service/membership-store
 const uuid = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 const statusSchema = { type: 'object', required: ['status'], additionalProperties: false,
   properties: { status: { type: 'string' } } } as const;
+const identificationSchema = { anyOf: [{
+  type: 'object', additionalProperties: false,
+  required: ['state', 'displayLabel', 'memberCode', 'sourceCategory', 'revision', 'updatedAt'],
+  properties: { state: { type: 'string', const: 'identified' },
+    displayLabel: { type: 'string', minLength: 1, maxLength: 120 },
+    memberCode: { type: 'string', pattern: '^M-[0-9a-f]{32}$' },
+    sourceCategory: { type: 'string', const: 'company_roster' },
+    revision: { type: 'integer', minimum: 1 }, updatedAt: { type: 'string', format: 'date-time' } },
+}, {
+  type: 'object', additionalProperties: false,
+  required: ['state', 'displayLabel', 'memberCode', 'sourceCategory', 'revision', 'updatedAt'],
+  properties: { state: { type: 'string', const: 'unidentified' }, displayLabel: { type: 'null' },
+    memberCode: { type: 'null' }, sourceCategory: { type: 'null' },
+    revision: { type: 'null' }, updatedAt: { type: 'null' } },
+}] } as const;
 const memberSchema = { type: 'object', additionalProperties: false,
-  required: ['memberId', 'role', 'active', 'isSelf'], properties: {
+  required: ['memberId', 'role', 'active', 'isSelf', 'identification'], properties: {
     memberId: { type: 'string' }, role: { type: 'string', enum: ['owner', 'admin', 'editor', 'viewer'] },
-    active: { type: 'boolean' }, isSelf: { type: 'boolean' },
+    active: { type: 'boolean' }, isSelf: { type: 'boolean' }, identification: identificationSchema,
   } } as const;
+const directoryRevisionSchema = { type: 'integer', minimum: 1, maximum: 2147483647 } as const;
 const changeSchema = { type: 'object', additionalProperties: false,
   required: ['memberId', 'role', 'active', 'changed'], properties: {
     memberId: { type: 'string' }, role: { type: 'string', enum: ['editor', 'viewer'] },
@@ -55,23 +71,26 @@ export function registerCompanyMemberRoutes(app: FastifyInstance, deps: CompanyM
     properties: { tenantId: { type: 'string', pattern: uuid }, memberId: { type: 'string', pattern: uuid } } } as const;
   const response = { 200: changeSchema, 403: statusSchema, 409: statusSchema, 503: statusSchema } as const;
   app.patch('/v1/tenants/:tenantId/members/:memberId', {
-    schema: { params, body: { type: 'object', required: ['role'], additionalProperties: false,
-      properties: { role: { type: 'string', enum: ['editor', 'viewer'] } } }, response },
+    schema: { params, body: { type: 'object', required: ['role', 'expectedDirectoryRevision'], additionalProperties: false,
+      properties: { role: { type: 'string', enum: ['editor', 'viewer'] },
+        expectedDirectoryRevision: directoryRevisionSchema } }, response },
   }, async (request, reply) => {
     const principal = await deps.authenticate(request, reply);
     if (!principal) return;
     const { tenantId, memberId } = request.params as { tenantId: string; memberId: string };
-    const { role } = request.body as { role: 'editor' | 'viewer' };
-    try { return await deps.companyMembers.setRole(principal, tenantId, memberId, role); }
+    const { role, expectedDirectoryRevision } = request.body as { role: 'editor' | 'viewer'; expectedDirectoryRevision: number };
+    try { return await deps.companyMembers.setRole(principal, tenantId, memberId, role, expectedDirectoryRevision); }
     catch (error) { return failure(error, reply); }
   });
   app.delete('/v1/tenants/:tenantId/members/:memberId', {
-    schema: { params, response },
+    schema: { params, body: { type: 'object', required: ['expectedDirectoryRevision'], additionalProperties: false,
+      properties: { expectedDirectoryRevision: directoryRevisionSchema } }, response },
   }, async (request, reply) => {
     const principal = await deps.authenticate(request, reply);
     if (!principal) return;
     const { tenantId, memberId } = request.params as { tenantId: string; memberId: string };
-    try { return await deps.companyMembers.revoke(principal, tenantId, memberId); }
+    const { expectedDirectoryRevision } = request.body as { expectedDirectoryRevision: number };
+    try { return await deps.companyMembers.revoke(principal, tenantId, memberId, expectedDirectoryRevision); }
     catch (error) { return failure(error, reply); }
   });
 }

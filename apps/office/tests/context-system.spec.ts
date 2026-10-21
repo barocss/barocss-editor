@@ -1,3 +1,5 @@
+import { nativeEditor } from './helpers/native-editor';
+import { openLocalLibrary } from './helpers/local-library';
 import { test, expect, type Locator } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 const output = `${process.cwd()}/../../.dev/artifacts/design-system`;
@@ -61,15 +63,17 @@ test('Escape closes a tooltip before its contextual toolbar and tools keep worki
 
 test('Note waits for a completed drag, preserves dismissed selection through resize, and applies formatting', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'N Note 새 자료 만들기', exact: true }).click();
+  await openLocalLibrary(page);
+  await page.getByRole('button', { name: 'Note 새 자료 만들기', exact: true }).click();
   await page.getByRole('textbox', { name: '새 자료 이름' }).fill('문맥 도구 검증');
   await page.getByRole('button', { name: '만들기', exact: true }).click();
-  const paragraph = page.locator('.on-doc > p').first();
+  const ui = nativeEditor(page);
+  const paragraph = ui.locator('.on-doc > p').first();
   await paragraph.click(); await page.keyboard.type('Shared context toolbar check');
   const box = await paragraph.boundingBox();
   await page.mouse.move(box!.x + 2, box!.y + box!.height / 2); await page.mouse.down();
   await page.mouse.move(box!.x + 195, box!.y + box!.height / 2, { steps: 10 });
-  const toolbar = page.locator('[data-note-formatting]');
+  const toolbar = ui.locator('[data-note-formatting]');
   await expect(toolbar).toHaveCount(0);
   await page.mouse.up(); await expect(toolbar).toBeVisible();
   await page.keyboard.press('Escape'); await expect(toolbar).toHaveCount(0);

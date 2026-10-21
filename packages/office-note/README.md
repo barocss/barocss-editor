@@ -93,3 +93,83 @@ For a new block type, provide its schema, commands, rendering, and controls. A n
 ## License
 
 MIT. The published archive includes the license in `dist/LICENSE`.
+
+## Explicit native2 local sessions
+
+`createNoteNative2Context(rawSnapshotText)` validates a full version2 envelope and retains its original bytes, savedAt and complete immutable schema bundle. `openNoteNativeSnapshot(context)` is read-only by default. A file or bundle does not grant editing rights. A trusted local host can supply its existing `authority` editor. Parent editability, document epoch, root and session constrain local commands and pending delivery. This is local lifetime control, not authenticated server authorization.
+
+```ts
+import type { Editor } from '@barocss/editor-core';
+import { createNoteNative2Context, openNoteNativeSnapshot } from '@barocss/office-note';
+
+export function openNativeNote(
+  snapshotText: string,
+  hostEditor: Editor,
+  saveLocalSnapshot: (text: string) => void,
+) {
+  const context = createNoteNative2Context(snapshotText);
+  const session = openNoteNativeSnapshot(context, {
+    authority: hostEditor,
+    onSnapshotChange: text => saveLocalSnapshot(text),
+  });
+  // First await NoteEditor's registerBeforeSnapshot delivery, then settle child
+  // sessions and the host's own asynchronous storage work.
+  session.flush();
+  const wholeSnapshot = session.exportSnapshot();
+  return { session, wholeSnapshot };
+}
+```
+
+`exportNativeDocument()` extracts the whole live model. `exportSnapshot()` validates that model with the fixed context. Only an unchanged whole document can reuse original bytes. Supported attributes and metadata preserve unknown JSON, authored loadedAt, nulls, omitted keys, empty mark arrays, resources and page references. Undo/redo retains source shape by owned node identity. A bare `editor.loadDocument()` is refused; reopen with a new explicit context after settling input. A failed local delivery retains the dirty model and reports failure.
+
+The first bridge accepts the existing trusted Note, heading, paragraph, inline-text, codeBlock, bTable/body/row/cell, pageReference, resources, richText and dataset vocabulary, with bold, italic, underline and literal `strike` marks. Explicit native2 factories and descendants use the trusted Note-only strike schema and command selector. Default v1 editors and shared schemas keep canonical `strikethrough`. Source names are never rewritten. Dataset fields remain passive text, number, boolean and choice data. It does not install a schema or renderer from imported JSON. Arbitrary extra root/descendant **node** keys remain codec-valid retained contexts but are refused before editor creation. Their original raw data is preserved. Unknown JSON **inside attributes or metadata** is supported. Other vocabulary is closed until its runtime behavior is separately verified.
+
+For an authored richText resource, `openChildResource(resourceId)` creates a child bound to that exact resource, parent and document generation. Await the child's view input delivery, flush it, then await `commitChildResource(resourceId, child)` before parent export. Delivery uses one existing guarded engine transaction and local history, with full native and schema validation. Unrelated, reloaded, revoked or detached child/resource instances refuse delivery. The existing nonempty block schema rejects an empty body; no placeholder body is fabricated. Close child sessions before the parent. A retired dirty child remains a recoverable draft, not a successful save.
+
+The local desktop diagnostic is `apps/note/scenarios.html?case=native2-A` (also A2, B and C). It does not activate native2 in the product workspace, public client, authenticated storage or backup. Full B local strike editing is supported. Server schema adoption, OIDC/product integration, pending lineage and external release remain separate work. The `/file` codec and Node facade remain independent of the browser editor entry.
+
+Native text-range undo captures every affected text SID and restores exact mark omission, whole-run ranges, attributes and order through existing transactions. Local native extraction omits only known engine-created optional `attrs: undefined` on supported marks; other non-JSON values still refuse export. Interior collapsed formatting targets the next glyph. At the end of a text run, it refuses without changing the document or history. This is not sticky typing formatting. Synthetic desktop keyboard checks do not establish physical OS IME support.
+
+The private app diagnostic `apps/note/scenarios.html?case=native2-transport-A` (also A2, B and C) exercises an explicitly imported GET-only reader. Its caller supplies the captured fetch/current-owner guard. It verifies the original document ID, native page ID, revision, UTF-8 raw hash and complete ordered immutable schema bundle before the trusted read-only session is installed. A raced, foreign, revoked or unrepresentable result keeps the previous model and retains refused native raw data. It neither grants editing rights nor installs a JSON renderer.
+
+This diagnostic uses controlled HTTP fixtures. Supplied A2 and C files prove read preservation, not new server adoption or create-copy. It has no writes, receipts, pin-CAS digest, automatic retry, pending migration or ordinary workspace activation. The default v1 client remains native2 closed. Genuine two-account product UI, PostgreSQL/API, native2 writable recovery, backup and release require separate integration evidence.
+
+## Experimental preserve-existing diagnostic
+
+`apps/note/scenarios.html?case=native2-preserve-A` (also A2, B and C) adds an app-private writer and recovery journal. It uses the actual native editor, guarded root/child input delivery and browser Storage. Its HTTP store and issuer/subject/authority are controlled test fixtures. The diagnostic requires the test fixture routes; opening the URL alone does not provide a server or authenticated account.
+
+Use **Save fixed request** to flush and protect the whole native draft, freeze its exact update request and verify durable read-back before PUT. The request uses only the existing experimental `/v1/tenants/{tenant}/note-native2/documents/{document}/snapshot` namespace with `schemaAction: preserve`. It retains the original document/page identity and the entire ordered schema bundle. Revision, raw snapshot hash and the experimental prior-pin CAS prevent implicit adoption or rebasing. Imported A2 and C remain supplied inputs; this diagnostic does not adopt a schema or create a copy.
+
+**Check receipt** sends GET only. A lookup after total response loss cannot prove request correlation from an opaque `requestHash`, so it remains unconfirmed. **Retry fixed request** explicitly resends only the same durable key and exact six-key body. A direct response supplies the observed opaque hash; confirmation also requires a full same-owner current read with matching head, raw snapshot and bundle. Historical receipts and retired owners cannot confirm the fixed generation. A later draft remains dirty and cannot replace the attempted request. The private journal permits an explicit subsequent freeze only from that owner's verified fixed confirmation and retains prior fixed requests as lineage; the diagnostic itself does not expose that subsequent-freeze control.
+
+Recovery records use the isolated `wonffice.note.experimental-native2-preserve.v1:` prefix and the exact issuer, subject, tenant, workspace and document scope. Records keep the verified base, immutable fixed attempt, latest whole draft and observed receipt lineage separately. Reload recovers the same bytes without sending. Corrupt records are retained and refused. Quota or read-back failure does not report successful protection. **Leave after protecting input** flushes and verifies protection before retiring the owner; failure blocks a clean leave. Abrupt revocation retains unresolved input and never claims unflushed DOM input was durably saved. Exit never sends or retries.
+
+This prefix provides functional discovery separation, not encryption, cross-account confidentiality or complete logout retirement. The recovery journal is not a second authoritative content store. Ordinary v1 workspace/client/pending paths remain native2 closed. Genuine OIDC users, PostgreSQL/API/product UI persistence, shared account retirement, adoption/copy/backup, agent transport and external release remain separate gates. Desktop synthetic input and controlled role revocation do not prove physical OS IME or genuine server authorization.
+
+## Experimental exact-version adoption prerequisite
+
+`apps/note/scenarios.html?case=native2-adopt-A` is a controlled client diagnostic. **Prepare exact schema 111 v2** protects the whole source input, captures the actual dataset node/path and reads the chosen exact registered version and complete parent/dependency closure. **Adopt fixed target** freezes a separate update/adopt request and verifies recovery read-back before PUT to the existing experimental snapshot namespace. Registration or a schema file does not grant adoption rights. The caller and server must still enforce current authority.
+
+The first supported target replaces the selected v1 tuple with that schema's explicit v2 tuple, retains all old definition texts and their order, and appends the exact registered v2 definition. It separately appends the passive `Owner` text field labelled `\uB2F4\uB2F9\uC790` (the original authored Korean label) to the captured dataset. The four old field declarations, all records, omitted values, authored metadata, native IDs, resources, page references, marks and `savedAt` remain. A pure pin swap fails the existing codec's same-name field check. Ambiguous paths, renamed/removed/retyped fields, changed old options, unknown kinds or executable renderer requirements refuse. This is a closed first prerequisite, not arbitrary schema installation or a public SDK.
+
+The isolated `wonffice.note.experimental-native2-adopt.v1:` journal retains the old source base, fixed whole target/action/key/body and latest whole original-context source draft separately. Unresolved legacy or preserve recovery blocks a new adoption and is not rewritten or removed. **Check receipt** is GET-only. A lookup after total reply loss stays unconfirmed until an explicit **Retry fixed request** returns correlation for exactly the durable action/key/body. `requestHash` remains opaque. Confirmation also requires matching whole current target head, raw data and full bundle under the same captured writable owner. Origin lifetime is checked again across awaited Storage validation and immediately before effects/read-back.
+
+Fixed target confirmation never installs a new schema into the live editor. The original A1 context, model SIDs, local history, selection and focus remain; later root/last-child input stays a separate dirty source draft. **Leave after protecting input** settles input and verifies recovery before retiring the owner. Failure blocks a clean leave, and abrupt revocation does not claim unflushed DOM input is durable. Exit never sends or retries. **Leave protected and open target read-only** performs that protected exit first, then opens the existing separate read-only transport diagnostic. It does not demonstrate an editable in-place v2 context transition or cross-context history migration.
+
+The diagnostic uses actual native editing and browser Storage with controlled HTTP, issuer/subject and authority fixtures. It requires the fixture routes; the URL alone supplies no server or genuine account. Scoped prefixes provide functional separation, not encryption, confidentiality or complete account retirement. Ordinary v1/product routes and pending storage stay closed to native2. Genuine OIDC users, API/PostgreSQL/product UI, current locked permissions, live schema/context transition, adoption concurrency/restart, backup, agent transport, installation and release need their own integration evidence. Synthetic desktop input does not establish physical OS IME support.
+
+### Protected experimental native2 target diagnostic
+
+Open `apps/note/scenarios.html?case=native2-editable-target-A` with the existing Note Vite server. This isolated controlled fixture requires the experimental native2 snapshot, complete schema bundle, exact version, and receipt routes. It is not the Workspace product or a genuine authenticated PostgreSQL flow.
+
+Type in the source, prepare exact schema 111 version 2, and explicitly adopt the fixed target. Choose **Begin target editing** only after the source is fully protected and its latest generation and bytes match the confirmed fixed source. The host settles root and every opened child input before retirement. Divergent source input blocks handoff. No handoff or exit sends a PUT.
+
+The old actual native session, editor, immutable context, history manager, entry and operation references, and history index stay parked read-only. Old API, receipt, and journal callbacks retire permanently. They cannot grant the new owner rights. A separately captured reader and current controlled role requalify the full target after retirement. Failed requalification leaves no editing owner and supports an explicit retry.
+
+The new target keeps the same canonical document and page, full ordered definitions and passive `Owner` field (label `\uB2F4\uB2F9\uC790`). Its runtime SIDs, authority lifetime, and empty undo history are new. The initial heading-end caret is explicitly focused. Old selection and history are not migrated. Parked runtime history is in-memory only and ends on explicit cleanup; no browser-restart undo history guarantee is made.
+
+**Save target change** uses the existing preserve-only protocol, verified target revision/hash/pin CAS, a distinct key, and durable fixed request readback before PUT. **Check target receipt** is GET-only. A lost acknowledgement remains unconfirmed until explicit same-body fixed retry or a known direct receipt. Later target input stays a separate dirty generation. A subsequent fixed request requires this owner's own confirmed current base.
+
+The supplied Storage adapter exposes one virtual preserve key at a physical `wonffice.note.experimental-native2-target-preserve.v1:` slot whose scope includes issuer, subject, tenant, workspace, document, immutable adoption key, and target seed hash. It never clears, migrates, or overwrites old v1, preserve, or adoption records. This recovery namespace is not encryption, a second canonical document store, or an account confidentiality claim. Corruption, quota, stale role, and failed input protection block clean exit. Abrupt unmount is not verified protection.
+
+The diagnostic supports actual root and child input, BIUS, structure, undo/redo, explicit target save, retained late drafts, and protected read-only server reopen. Controlled HTTP identities and imported fixtures do not prove real OIDC, two-account permissions, persistent API/PostgreSQL collaboration, backup, installation, or external alpha readiness. Physical OS IME and mobile verification are separate and unrun.

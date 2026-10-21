@@ -69,6 +69,33 @@ This initial additive schema has no destructive `down` command. After data exist
 
 CLI logs are JSON `migration_complete` (applied IDs) or `migration_failed`, with a nonzero exit on failure. URLs, SQL errors, credentials, and row values are not logged. For diagnosis, an authorized operator checks the database connection/role, migration history and database logs through controlled access. Do not copy customer rows or secrets into issues.
 
+## Document creator attribution
+
+Migration `0015_document_creator_attribution` adds nullable `documents.creator_user_id`
+with an identity foreign key and an immutable-update trigger. Apply it with the
+existing owner migration command before starting an API that reads this column.
+There is no new configuration variable or destructive rollback command.
+
+A genuine create or independent copy records the internal identity UUID resolved
+from the verified OIDC issuer and subject. Ordinary metadata, snapshot, Project
+placement and replay operations cannot replace it. A referenced identity cannot
+be deleted while its originals remain. Membership revocation still works and is
+the access-control operation; creator attribution is not a membership or grant.
+
+Existing originals remain `NULL` (Unknown). There is no inferred backfill, owner
+transfer, per-document grant or personal-private collection. `/api/v1/me` adds
+`currentUserId: UUID | null` from the same verified membership transaction,
+including a provisioned person with zero active tenants. Reads never provision
+an identity. Current tenant membership and role still control every read/write.
+
+Old frozen receipt JSON is unchanged. The response adapter exposes an absent
+legacy creator as `null`; it does not fill it from the current user. New receipt
+replays preserve their original creator. Backup/restore verification must keep
+this column, identity reference, trigger and frozen receipts with the native
+snapshot bytes and revision. The actual PostgreSQL integration test exercises
+legacy migration, immutable updates, foreign-key rejection, independent copy,
+retry conflict, viewer denial and revocation on synthetic records.
+
 ## Backup and restore into a new database
 
 Use the PostgreSQL 16 `pg_dump`/`pg_restore` client tools. For operator commands, configure host/port and a protected `PGPASSFILE` through the environment; do not put passwords in a command line. The following names are examples for an operator-created source and a **new empty** recovery database:
@@ -108,3 +135,94 @@ The integration runner always creates and cleans its own temporary PostgreSQL cl
 Evidence covers concurrent/repeated migration, failed DDL rollback, history mismatch, real app-role privileges, no-context/cross-tenant RLS, composite references, connection re-use after failure, rejection of configured tenant defaults and backup membership, owner bootstrap/grant/revoke audit, document create/retry/receipt, two-actor reads, metadata and body revision conflicts, stale-snapshot denial, document key rejection, and a fresh database restore with matching snapshot and metadata hashes. The office-api PostgreSQL test also exercises signed synthetic OIDC tokens across two users and API restart. Actual Keycloak document routes, Yorkie seeding/capabilities, product saving, capacity, full backup scheduling and production installation remain unverified or unimplemented.
 
 References: [PostgreSQL row security](https://www.postgresql.org/docs/16/ddl-rowsecurity.html), [SQL dump and restore](https://www.postgresql.org/docs/16/backup-dump.html), [node-postgres transactions](https://node-postgres.com/features/transactions).
+
+### Exact criterion self-confirmation
+
+Migration `0013_criterion_confirmations` adds append-only Word criterion receipts. The app role can read and insert these rows. It cannot update or delete them. Current tenant writers can obtain a context, explicitly confirm it, and read prior receipts. Viewer, revoked and foreign-tenant access is refused. The service locks current membership before reading its existing authority epoch, then locks the document and snapshot in the same RLS transaction.
+
+A confirmation binds the exact snapshot bytes, storage revision/hash, requirement ID/version/locator, current decision context and its full historical referenced pin. The server supplies the actor UUID, receipt UUID and database time. Snapshot saves and native authored approval labels do not create receipts. Confirmation leaves verification `not-run` and records only `writer-self-confirmation`; it is not company approval or a legal signature.
+
+The fixed request order is `schemaVersion`, `expectedRevision`, `snapshotHash`, `snapshotText`, `context` (independently reconstructed from exact source), `authorityEpoch`, `idempotencyKey`. The request hash is SHA-256 of `JSON.stringify(['criterion-confirmation-v1', tenantId, documentId, serverActorId, frozenRequest])`. Exact retries return the same immutable receipt under current authority, including after a later document revision. Changed authority epoch and conflicting key reuse refuse the old request. Independent documents and derived business IDs have no inherited receipt.
+
+## Explicit fictional criterion verification (#431)
+
+`CriterionVerificationStore` is a narrow, private execution record store. It requires an existing, exact #428 writer confirmation of the saved Word snapshot, pinned requirement/decision context, current actor, and membership authority epoch. A qualitative proposal is readable but cannot run. Only the explicit authored fictional active-button contrast sentence and registered version 1 dark/low/transparent HTML specimens are supported. This fixture does not establish a company policy.
+
+The trusted local Playwright Chromium adapter measures rendered CSS from the registered specimen. The service recalculates the registered evaluator result. Clients cannot submit measurements, outcomes, actor identity, time, URL, code, or an alternative evaluator. Production starts the live adapter. A missing adapter or an execution error creates a durable `error` record; it is never reported as browser execution or success.
+
+Migration `0014_criterion_verifications` stores append-only run identity, exact source/context/confirmation/authority, registered specimen/evaluator versions, server requester/time, private output bytes, and SHA-256 output digest. Current writer authority protects both reads and writes; viewers and revoked members cannot retrieve private output. App and backup roles cannot update or delete original records. Membership and document locks remain held during execution. A tenant/actor/idempotency-key transaction lock prevents concurrent duplicate browser calls, including conflicting key reuse across documents. Lost acknowledgements replay the same immutable result under current authority; changed authority or conflicting frozen input refuses the old intent. Ordinary document saves and confirmations do not execute verification.
+
+Validation: `test/criterion-verification.test.ts` checks service contracts with a controlled unit adapter. `test/criterion-verification.postgres.integration.mjs` is the serial runtime owner's private Unix-socket PostgreSQL and actual registered Chromium check; run it only after the service build and existing browser installation. It accepts no external database URL. The real browser/UI verification and final integration gates remain separate from unit tests.
+
+
+### Native2 Project read policy (#508 source preparation)
+
+`new ProjectStore(pool, { noteSchemaPolicy })` uses the existing trusted
+`DocumentSchemaScopePolicy[]`. Its default is an empty list. A native2 Project
+source with no matching read policy is refused with `403 scope_forbidden`.
+Configuration and operator policy file parsing remain owned by the API host.
+Pass the same configured ProjectStore as the third argument to
+`ProjectExecutionStore`; constructing a second default instance loses that policy.
+This option does not configure DocumentStore or permit schema adoption.
+
+Current native2 heads are checked inside the existing Project transaction:
+snapshot mode, Note file format/version, page identity, exact raw SHA, full codec
+and registered bundle/closure/capability policy. Schema admission borrows the
+same PoolClient and rechecks the current schema actor/role/epoch after its reads.
+A policy or registry failure is a named ProjectError; a snapshot above the
+existing 512 KiB bound is `413 snapshot_too_large`. Project execution continues
+to require the existing write role and actor/membership lifetime. A viewer read
+policy does not permit execution.
+
+Every native2 bundle returned in a historical pin or an embedded Project
+result/comment/work is separately admitted under the current policy. The
+original raw bytes remain the source. An allowed current head does not replace
+or authorize an unavailable historical bundle. Receipt replay checks current
+and original Project sources. The service does not use a nested DocumentStore
+transaction, HTTP request or new data store for admission.
+
+This read-policy source component does not enable native2 paragraph execution,
+apply, acknowledgement, schema adoption or ordinary native2 catalog editing.
+The shared pure witness/Node facade and review-only canonical/Agent counterpart
+are separate #508 dependencies. Controlled source/SQL fixture tests are distinct
+from actual API/OIDC/private PostgreSQL/model/browser acceptance.
+
+### Native2 paragraph review (Issue #508)
+
+The distinct `note-native2-paragraph-review` Project target carries a UUID anchor,
+complete paragraph JSON quote and `{version: 2, pageId, paragraphIndex}` selector.
+The current locked source and stored selector select the paragraph. Quote search,
+flattened runs and caller-supplied role or mode are not supported. The same pure
+`captureNative2ParagraphReview` is exported through the existing Node-ready
+`office-note-file` facade and this service's `project-execution` entry.
+
+Configured current Project write authority remains required to start execution.
+Current and historical source bundles additionally pass the registered read
+policy checks above. The optional trusted `generateNative2Review(input, witness)`
+method receives the unchanged 13-field model input plus a complete frozen data
+witness. Missing review wiring refuses with `native2_review_unconnected`; the
+legacy generator is never a fallback. Existing quote, target, prompt and pure
+SHA input limits remain; unsupported or oversized whole sources are not cropped.
+
+The server persists a versioned `note.paragraph.review/native2-v1` binding with
+original target, source revision/hash, ordered selected-pin CAS digest and the
+full witness. Retrieval and retry recheck the current actor/epoch, Project
+context, exact source and binding. Complete JSON values and array order are
+compared across pure null-prototype records and ordinary restored JSON records.
+Held responses after authority, policy, source or request changes are withheld;
+the original one-use completion claim retains the blocked outcome. Unknown
+outcomes are observed without a second dispatch.
+
+These proposals do not carry an expected native snapshot or a write receipt.
+Accept and acknowledgment refuse with `native2_review_only`, including restored
+or altered review metadata. Ordinary native2 editing, schema adoption, document
+writes, API bootstrap and model activation are separate responsibilities.
+Controlled unit tests do not prove actual OIDC, PostgreSQL, installed-model or
+browser acceptance. Issue #508 stays open until its original integrated criteria
+pass. Product source remains local.
+
+### Mixed Note metadata discovery (#495/#497)
+
+The existing authenticated document list returns both Note file versions 1 and 2 as unchanged `DocumentHead` metadata. It keeps tenant membership/RLS, workspace/product/cursor filters and the 50-row cursor boundary. It does not fetch snapshot bodies, definitions or receipts, normalize native2 originals, or grant raw access from a metadata row. Unsupported Note versions and mismatched native2 format still refuse.
+
+Native2 raw reads require the existing current actor and registered document-schema policy admission. Default/unaware native2 open, update and metadata-write paths remain closed; this list amendment does not change their checks or the experimental reader. Mixed metadata fixtures and SQL doubles are controlled evidence only. Same private PostgreSQL/current OIDC and full native2 A/B staging acceptance remain Integration-owned.

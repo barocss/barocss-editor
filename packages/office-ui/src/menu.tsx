@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useOfficePortalContainer } from './portal-owner';
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@barocss/office-icons';
 import { cn } from './cn';
@@ -68,6 +69,8 @@ export interface MenuEntry {
 
 export interface MenuBlock {
   id: string;
+  /** Optional visible name for a group in a single document menu. */
+  label?: string;
   items: MenuEntry[];
 }
 
@@ -76,7 +79,9 @@ export function Menu({
   blocks,
   onPick,
   onClose,
-  label
+  label,
+  portalContainer,
+  compact = false
 }: {
   /** Where the pointer was, in client coordinates. */
   at: { x: number; y: number };
@@ -84,7 +89,12 @@ export function Menu({
   onPick: (id: string) => void;
   onClose: () => void;
   label: string;
+  /** Optional owned chrome host; omitted keeps the existing body portal. */
+  portalContainer?: RefObject<HTMLElement | null>;
+  compact?: boolean;
 }) {
+  const container = useOfficePortalContainer();
+  const destination = portalContainer?.current ?? (container === undefined ? document.body : container);
   const host = useDismiss<HTMLDivElement>(true, onClose);
   const [place, setPlace] = useState<{ left: number; top: number }>({ left: at.x, top: at.y });
 
@@ -111,7 +121,7 @@ export function Menu({
     if (host.current) observer.observe(host.current);
     window.addEventListener('resize', measure);
     return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
-  }, [at.x, at.y, host]);
+  }, [at.x, at.y, host, destination]);
 
   /**
    * The arrows walk it, Enter picks, Escape closes.
@@ -131,14 +141,16 @@ export function Menu({
         previous.focus({ preventScroll: true });
       }
     };
-  }, [host]);
+  }, [host, destination]);
 
+  if (!destination) return null;
   return createPortal(
     <div
       ref={host}
       role="menu"
       aria-label={label}
       data-context-menu
+      data-compact={compact || undefined}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return;
         if (event.key === 'Tab') { event.preventDefault(); onClose(); return; }
@@ -163,6 +175,7 @@ export function Menu({
       {blocks.map((block, index) => (
         <div key={block.id} data-menu-block={block.id}>
           {index > 0 && <hr className="my-1 border-[color:var(--ou-line)]" />}
+          {block.label && <div className="office-menu-heading">{block.label}</div>}
           {block.items.map((entry) => {
             const hot = flat[hotIndex]?.id === entry.id;
             return (
@@ -215,6 +228,6 @@ export function Menu({
         </div>
       ))}
     </div>,
-    document.body
+    destination
   );
 }

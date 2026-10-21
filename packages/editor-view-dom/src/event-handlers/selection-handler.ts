@@ -161,7 +161,9 @@ export class DOMSelectionHandlerImpl implements DOMSelectionHandler {
     // Convert DOM Selection to Model Selection
     const modelSelection = this.convertDOMSelectionToModel(selection);
 
-    this.editor.updateSelection?.(modelSelection);
+    // The browser already owns these endpoints. Replaying them to the DOM suppresses
+    // the next real selectionchange while the programmatic-change flag is set.
+    this.editor.updateSelection?.({ selection: modelSelection, applySelectionToView: false });
   }
 
   convertDOMSelectionToModel(selection: Selection): any {

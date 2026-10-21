@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { openDeck, currentSlide } from './helpers';
+import { openDeck, pickMenu, currentSlide, pickInsert, setPanel } from './helpers';
 
 async function openCanvas(page: import('@playwright/test').Page) {
   await openDeck(page);
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   await expect(page.locator('.sl-stage')).toHaveAttribute('data-freeboard', 'true');
   await expect(page.locator('[data-board-label]')).toHaveCount(6);
 }
@@ -18,17 +18,26 @@ test('places slides in two dimensions and activates the slide being edited', asy
   const sid = await labels.nth(1).getAttribute('data-board-label');
   const text = page.locator(`.sl-stage .sl-slide[data-bc-sid="${sid}"] .sl-text-frame`).first();
   await text.click();
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
-  expect(await currentSlide(page)).toBe(sid);
+  await expect.poll(() => currentSlide(page)).toBe(sid);
+  await setPanel(page, 'properties', true);
   await expect(page.locator('.sl-properties')).toContainText('위치');
-  await text.dblclick({ force: true });
+  await setPanel(page, 'properties', false);
+  // The selected-slide overlay owns pointer input and forwards a real double
+  // click into native text. Send the pointer to its visible document location.
+  const bounds = (await text.boundingBox())!;
+  const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  expect(await page.evaluate(({ point, sid }) => {
+    const hit = document.elementFromPoint(point.x, point.y);
+    return !!hit?.closest(`.sl-slide[data-bc-sid="${sid}"], .sl-overlay[data-slide-overlay="${sid}"]`);
+  }, { point, sid })).toBe(true);
+  await page.mouse.dblclick(point.x, point.y);
   await page.keyboard.press('End');
   await page.keyboard.type(' canvas');
   await expect(text).toContainText('canvas');
-  await expect(page.locator('.sl-count')).toHaveText('2 / 6');
+  await expect.poll(() => currentSlide(page)).toBe(sid);
   const slide = page.locator(`.sl-stage .sl-slide[data-bc-sid="${sid}"]`);
   const before = await slide.locator('.sl-rectangle').count();
-  await page.locator('[data-control="insert-rectangle"]').click();
+  await pickInsert(page, '사각형');
   await expect(slide.locator('.sl-rectangle')).toHaveCount(before + 1);
 });
 
@@ -62,7 +71,7 @@ test('moves a slide without changing slide order or local object coordinates and
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
   await page.reload();
   await expect(page.locator('[data-slide-save-status]')).toHaveText('저장됨');
-  await page.locator('[data-focus-toggle]').click();
+  await pickMenu(page, 'view.panes.2');
   const restoredSid = await page.locator('[data-board-label]').first().getAttribute('data-board-label');
   expect(await page.evaluate(sid => (window as any).editor.dataStore.getNode(sid).attributes.canvasX, restoredSid)).toBe(attrs.canvasX);
   expect(await page.evaluate(sid => (window as any).editor.dataStore.getNode(sid).attributes.canvasY, restoredSid)).toBe(attrs.canvasY);

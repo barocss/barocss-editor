@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 const saved = (page: Page) => expect(page.locator('[data-site-save-status]')).toHaveText('저장됨');
 const ready = async (page: Page) => { await page.goto('/'); await saved(page); };
 const newSite = async (page: Page) => {
-  await page.getByRole('menuitem', { name: '파일', exact: true }).click();
+  await page.getByRole('menuitem', { name: '문서 메뉴', exact: true }).click();
   await page.getByRole('menuitem', { name: '새 사이트', exact: true }).click();
 };
 const rename = async (page: Page, value: string) => {

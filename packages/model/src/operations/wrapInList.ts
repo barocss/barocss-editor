@@ -174,6 +174,7 @@ defineOperation('wrapInList', async (operation: { type: string; payload: WrapInL
   const listId = dataStore.content.addChild(parentId, listNode, blockIndex);
   const listItemNode = {
     stype: 'listItem',
+    attributes: {},
     content: [] as string[]
   };
   const listItemId = dataStore.content.addChild(listId, listItemNode, 0);

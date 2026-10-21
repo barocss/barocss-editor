@@ -2584,6 +2584,28 @@
 .sl-sidebar .sl-layers-list { padding: 8px; }
 .sl-shell[data-presenting='true'] .sl-sidebar { display: none; }
 
+/* The app reserves this flex row below the stage; navigation never covers a slide. */
+.sl-slide-navigation { flex:none; min-width:0; width:100%; display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px 12px 12px; box-sizing:border-box; }
+.sl-slide-navigation-panel { max-width:100%; width:max-content; min-width:0; border:1px solid var(--ou-line); border-radius:18px; background:var(--ou-panel); box-shadow:var(--ou-lift-2); overflow:hidden; }
+.sl-slide-navigation-panel[hidden] { display:none; }
+.sl-slide-navigation-tools { flex:none; }
+.sl-slide-navigation-choice.office-choice { min-width:64px; width:max-content; max-width:180px; }
+.sl-slide-navigation-tools .sl-count { flex:none; white-space:nowrap; font-variant-numeric:tabular-nums; font-size:12px; color:var(--ou-muted); }
+.sl-slide-navigation-fold.office-button { width:32px; padding:0; }
+.sl-slide-navigation-separator { flex:none; width:1px; height:18px; margin:0 4px; background:var(--ou-line); }
+.sl-filmstrip[data-orientation='horizontal'] { width:auto; max-width:100%; border:0; padding:8px; overflow-x:auto; overflow-y:hidden; box-sizing:border-box; }
+.sl-filmstrip[data-orientation='horizontal'] ol { flex-direction:row; gap:8px; width:max-content; }
+.sl-filmstrip[data-orientation='horizontal'] li { flex:none; width:176px; }
+.sl-filmstrip[data-orientation='horizontal'] button { min-width:32px; min-height:32px; padding:8px; border-radius:10px; }
+.sl-filmstrip[data-orientation='horizontal'] .sl-filmstrip-rename { display:block; margin-bottom:4px; }
+.sl-filmstrip[data-orientation='horizontal'] .sl-filmstrip-rename input { height:32px; min-height:32px; }
+.sl-shell[data-presenting='true'] .sl-slide-navigation { display:none; }
+
+/* Only caller-owned inline controls lose Ribbon layout; the full detail Ribbon keeps it. */
+.sl-inline-ribbon, .sl-inline-ribbon .office-ribbon-group, .sl-inline-ribbon .office-ribbon-group[data-layout] > .office-ribbon-group-body, .sl-inline-ribbon .sl-font-row { display:contents; }
+.sl-inline-ribbon .office-ribbon-group-footer { display:none; }
+.sl-selection-tools { display:flex; flex-wrap:nowrap; align-items:center; gap:2px; }
+
 .sl-sidebar .sl-layer-kind { display: inline-flex; align-items: center; justify-content: center; width: 20px; color: var(--ou-muted, #666); }
 
 /* A camera translates the workspace; slide placement never changes slide-local coordinates. */
@@ -2592,8 +2614,9 @@
 .sl-stage[data-freeboard='true'] .sl-stage-scaled { width: 1px; }
 .sl-stage[data-freeboard='true'] .sl-host .w-document { position: relative; display: block; width: 1px; height: 1px; }
 .sl-board-labels { position: absolute; left: 0; top: 0; z-index: 4; }
-.sl-board-labels button { position: absolute; display: block; height: 26px; width: max-content; padding: 0 8px; border: 1px solid transparent; border-radius: 4px; color: var(--ou-muted); background: var(--ou-panel); font: inherit; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; touch-action: none; }
-.sl-board-labels button[data-active='true'] { color: var(--ou-accent); border-color: var(--ou-accent); }
+.sl-board-labels button { position: absolute; display: block; height: 26px; width: max-content; padding: 0; border: 0; border-radius: 0; color: var(--ou-muted); background: transparent; box-shadow: none; font: inherit; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: grab; touch-action: none; }
+.sl-board-labels .office-button:hover, .sl-board-labels .office-button:active { background: transparent; box-shadow: none; }
+.sl-board-labels button[data-active='true'] { color: var(--ou-accent); font-weight: 600; }
 .sl-board-labels button:active { cursor: grabbing; }
 
 .sl-stage[data-freeboard='true'] .sl-host { overflow: visible !important; }
@@ -2620,3 +2643,34 @@
   width: min(36rem, calc(100vw - 2rem));
   --ou-label-w: 104px;
 }
+
+/* Slides composes inspector tabs and the reader's unit preference in one header. */
+.sl-properties-header { gap: 8px; padding: 4px 12px; }
+.sl-properties-tab-controls { flex: 1; min-width: 0; border: 0; padding: 0; margin: 0; }
+.sl-properties-header .office-ribbon-tabs[data-variant='panel'] { padding: 0; border-bottom: 0; }
+.sl-properties-header .sl-unit { flex-shrink: 0; }
+
+.sl-properties-body { border: 0; padding: 0; margin: 0; min-width: 0; }
+
+/* Secondary commands read vertically in the floating inspector. */
+.sl-inspector-commands .office-ribbon-toolbar, .sl-insert-more .office-ribbon-toolbar { display:flex; flex-direction:column; align-items:stretch; gap:8px; height:auto; padding:0; border:0; background:transparent; overflow:visible; }
+.sl-inspector-commands .office-ribbon-group, .sl-insert-more .office-ribbon-group { width:100%; padding:0; border:0; }
+.sl-inspector-commands .office-ribbon-group-footer, .sl-insert-more .office-ribbon-group-footer { order:-1; justify-content:flex-start; min-height:20px; margin:0 0 4px; font-size:11px; }
+.sl-inspector-commands .office-ribbon-group-body, .sl-insert-more .office-ribbon-group-body { min-height:0; flex-wrap:wrap; justify-content:flex-start; }
+.sl-inspector-commands .office-ribbon-group[data-layout='columns'] > .office-ribbon-group-body { display:flex; flex-wrap:wrap; }
+.sl-inspector-commands .office-ribbon-group[data-layout='stack'] > .office-ribbon-group-body { align-items:stretch; }
+.sl-inspector-tools:not(:empty) { padding:12px; border-bottom:1px solid var(--ou-line); --ou-control-h:32px; }
+.sl-inspector-tools[hidden] { display:none; }
+.sl-inspector-commands .sl-font-row { display:flex; height:auto; }
+.sl-insert-more { width:280px; max-width:calc(100vw - 32px); }
+.sl-insert-more .office-toolbar { width:100%; }
+.sl-insert-more .office-ribbon-group-body { gap:4px; }
+.sl-insert-more .office-ribbon-group-footer { display:none; }
+.sl-properties-header.office-panel-header { min-height:44px; padding:6px 8px; gap:6px; border-bottom:1px solid var(--ou-line); }
+.sl-properties-header .office-ribbon-tabs[data-variant='panel'] > button { height:32px; flex:1; }
+.sl-properties-header .sl-unit { width:64px; height:32px; }
+.sl-workspace-navigation .sl-sidebar { flex:1; width:100%; border:0; }
+.sl-workspace-navigation .sl-sidebar-context { min-height:36px; padding:6px 12px; }
+
+/* Floating detail controls retain the compact surface's real pointer targets. */
+#slides-details button { min-width:32px; min-height:32px; }

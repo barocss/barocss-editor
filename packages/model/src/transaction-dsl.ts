@@ -95,6 +95,12 @@ export type EditProvenanceInput =
 
 /** Options for transaction execution. */
 export interface TransactionOptions {
+  /**
+   * A synchronous, side-effect-free check that this individual UI intent is still current.
+   * Return a reason to refuse. This supplements, and never replaces, host authority guards.
+   * Checked under the lock, after preparation, and before commit (including after an awaited guard).
+   */
+  validateIntent?: () => string | void;
   /** Remote edits require their transport identity and never enter local history. */
   provenance?: EditProvenanceInput;
   /**

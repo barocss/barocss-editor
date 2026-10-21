@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openDeck } from './helpers';
+import { openDeck, pickInsert, setPanel } from './helpers';
 
 test('inspector colour tools float beside the panel, drag, clamp and keep their edit state', async ({ page }) => {
   await openDeck(page);
-  await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await setPanel(page, 'properties', true);
+  await pickInsert(page, '사각형');
   const inspector = page.locator('.sl-properties');
   const trigger = page.getByRole('button', { name: '1번 채우기', exact: true });
   await trigger.press('Enter');
@@ -50,7 +51,7 @@ test('inspector colour tools float beside the panel, drag, clamp and keep their 
   await expect(popup).toHaveCount(0);
   await expect(trigger).toBeFocused();
 
-  const line = page.getByRole('button', { name: '선 색', exact: true });
+  const line = inspector.getByRole('button', { name: '선 색', exact: true });
   await line.press('Enter');
   const colour = page.locator('[data-color-panel="선 색"]');
   await expect(colour).toBeVisible();
@@ -70,12 +71,13 @@ test.describe('a short desktop window', () => {
   test.use({ viewport: { width: 1440, height: 600 } });
   test('the gradient body scrolls while its drag handle and close button stay visible', async ({ page }) => {
     await openDeck(page);
+    await setPanel(page, 'properties', true);
     await page.evaluate(async () => {
       for (let i = 0; i < 32; i++) await (window as any).editor.executeCommand('setDocumentVar', {
         name: `brand-${i}`, label: `브랜드 색 ${i + 1}`, kind: 'color', value: '#2563eb'
       });
     });
-    await page.getByRole('button', { name: '사각형', exact: true }).click();
+    await pickInsert(page, '사각형');
     await page.getByLabel('1번 채우기 종류').selectOption('linear');
     await page.getByRole('button', { name: '1번 채우기', exact: true }).click();
     const popup = page.locator('[data-stack-editor="0"]');

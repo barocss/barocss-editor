@@ -10,7 +10,7 @@ export const wordCaptions = (editor: Editor) => createFieldResolver(docOf(editor
 export function captureBookmarkSession(editor: Editor): BookmarkSession | undefined {
   return editor.selection?.type === 'range' ? { rootId: editor.getRootId()!, selection: structuredClone(editor.selection) } : undefined;
 }
-export type BookmarkPayload = Partial<BookmarkSession> & { name?: string; nextName?: string; format?: 'text' | 'aboveBelow' | 'labelNumber' | 'number'; targetKind?: 'bookmark' | 'caption'; targetSid?: string };
+export type BookmarkPayload = Partial<BookmarkSession> & { name?: string; nextName?: string; format?: 'text' | 'aboveBelow' | 'labelNumber' | 'number'; targetKind?: 'bookmark' | 'caption'; targetSid?: string; validateIntent?: () => string | void };
 type Payload = BookmarkPayload;
 function textTarget(editor: Editor, at?: ModelSelection | null) {
   if (at?.type !== 'range') return;
@@ -130,7 +130,7 @@ export function createWordBookmarkCommands(): Extension {
         }
         if (!ops.length) return false;
         ed.historyManager.closeGroup();
-        const result = await transaction(ed, ops as never).commit();
+        const result = await transaction(ed, ops as never, { validateIntent: p.validateIntent }).commit();
         ed.historyManager.closeGroup(); return result.success;
       } });
     }

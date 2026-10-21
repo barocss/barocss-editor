@@ -895,3 +895,5 @@ export {
 } from './menu-model';
 
 export { slidesSearchCommands, slidesSearchPayload, type SlidesSearchCommand } from './command-search-model';
+
+export { normalizeSlidesNativeDocument, assertSlidesNativeReferences, prepareSlidesNativeLoad, newSlidesObjectId } from './native-identity';

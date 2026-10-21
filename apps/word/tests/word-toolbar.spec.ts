@@ -1,3 +1,5 @@
+import { toggleWordPanel } from './helpers';
+import { setWordWholeTools } from './helpers';
 import { test, expect } from '@playwright/test';
 import { placeCaret } from './helpers';
 
@@ -11,7 +13,7 @@ import { placeCaret } from './helpers';
 test.describe('the toolbar', () => {
   test('shows a mark as on when it covers the whole selection', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
 
     // The sample has a code mark over one word
     await page.locator('.mark-code').first().click();
@@ -29,7 +31,7 @@ test.describe('the toolbar', () => {
 
   test('shows a mark as mixed when it covers only part of it', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
 
     // Select across the boundary of the marked run into unmarked text
     const summary = await page.evaluate(() => {
@@ -61,7 +63,7 @@ test.describe('the toolbar', () => {
 
   test('draws the three states apart', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     /**
@@ -98,11 +100,11 @@ test.describe('the toolbar', () => {
 
   test('shows the style the blocks agree on, and nothing when they do not', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
 
     await placeCaret(page, '.w-paragraph', 1);
     // The control is a button showing the current value, not a <select>
-    await expect(page.locator('.w-toolbar-style')).toContainText('Body text');
+    await expect(page.locator('.w-toolbar-style')).toContainText('Body Text');
 
     // Across a heading and a paragraph there is no single style to show
     await page.evaluate(() => {
@@ -126,7 +128,7 @@ test.describe('the toolbar', () => {
 
   test('applies alignment to every block the selection touches', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     await page.locator('[data-control="align-center"]').dispatchEvent('pointerdown');
@@ -143,7 +145,7 @@ test.describe('the toolbar', () => {
 
   test('shows the font and size the text inherits, not a dash', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     // Almost no text in a Word document carries direct font formatting — it
@@ -156,7 +158,7 @@ test.describe('the toolbar', () => {
 
   test('applies the size chosen in the dropdown', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
     await page.keyboard.down('Shift');
     for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
@@ -203,7 +205,7 @@ test.describe('the toolbar', () => {
     });
 
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
     await page.keyboard.down('Shift');
     for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowRight');
@@ -257,7 +259,7 @@ test.describe('the toolbar', () => {
 
   test('makes a list, moves it between levels, and lets it go again', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     // The block is captured before anything is pressed. Clicking a toolbar
@@ -305,7 +307,7 @@ test.describe('the toolbar', () => {
 
   test('shows a list button as on only for the list the caret is in', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     const pressed = async (name: string) =>
@@ -323,7 +325,7 @@ test.describe('the toolbar', () => {
 
   test('disables a command that cannot run', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
 
     // Nothing has been edited, so there is nothing to undo. A toolbar wired to
     // canExecuteCommand directly would have shown every button disabled here,
@@ -350,7 +352,7 @@ test.describe('the toolbar', () => {
    */
   test('notices a selection that is cleared, not only one that moves', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     /**
@@ -380,7 +382,7 @@ test.describe('the toolbar', () => {
 
     const font = page.locator('.w-toolbar-font-family');
     await expect(font).toBeEnabled();
-    await expect(page.locator('.w-toolbar-style')).toContainText('Body text');
+    await expect(page.locator('.w-toolbar-style')).toContainText('Body Text');
 
     // Cleared the way the document clears it — `deleteTable` does exactly this.
     await page.evaluate(() => (window as any).editor.updateSelection(null));
@@ -403,7 +405,7 @@ test.describe('the ribbon at any width', () => {
     test(`keeps every control on screen at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 700 });
       await page.goto('/?sample');
-      await page.waitForSelector('.w-toolbar');
+      await setWordWholeTools(page);
 
       const measured = await page.evaluate(() => {
         const bar = document.querySelector('.w-toolbar')!;
@@ -429,7 +431,7 @@ test.describe('the ribbon at any width', () => {
   test('never breaks a group across two rows', async ({ page }) => {
     await page.setViewportSize({ width: 820, height: 700 });
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
 
     // A group squeezed in half is a row of buttons that belong together drawn
     // as though they do not.
@@ -463,7 +465,7 @@ test.describe('the ribbon at any width', () => {
 test.describe('the toolbar’s icons', () => {
   test('every control draws one, and none falls back to a glyph', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     const withoutIcon = await page.evaluate(() =>
@@ -489,7 +491,7 @@ test.describe('the toolbar’s icons', () => {
    */
   test('and so does every button in the panes beside it', async ({ page }) => {
     await page.goto('/?sample');
-    await page.waitForSelector('.w-toolbar');
+    await setWordWholeTools(page);
     await placeCaret(page, '.w-paragraph', 1);
 
     /**
@@ -500,12 +502,12 @@ test.describe('the toolbar’s icons', () => {
      * comments are not. A test that pressed both toggles closed the one that was
      * already open, and then looked for buttons in a pane that was a strip.
      */
-    const reveal = async (strip: string, pane: string) => {
-      if ((await page.locator(strip).count()) > 0) await page.locator(strip).click();
+    const reveal = async (name: '개요' | '댓글', pane: string) => {
+      if ((await page.locator(pane).count()) === 0) await toggleWordPanel(page, name);
       await expect(page.locator(pane)).toHaveCount(1);
     };
-    await reveal('.w-outline-closed', '.w-outline');
-    await reveal('.w-comments-closed', '.w-comments-pane');
+    await reveal('개요', '.w-outline');
+    await reveal('댓글', '.w-comments-pane');
 
     // Ctrl+F rather than a control, because the find bar has none — it is bound
     // and nothing else opens it.

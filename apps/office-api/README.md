@@ -24,8 +24,11 @@ curl -i http://127.0.0.1:4100/health/ready
 | `OFFICE_OIDC_JWKS_URL` | unset | JWKS URL on the same origin as the issuer |
 | `OFFICE_OIDC_AUDIENCE` | unset | API audience in access tokens |
 | `OFFICE_API_DATABASE_URL` | unset | App-role PostgreSQL URL, never owner/backup |
+| `OFFICE_API_NOTE_DOCUMENT_POLICY_FILE` | unset (native2 admission denied) | Absolute path to a private operator JSON file using `DocumentSchemaScopePolicy[]` |
 
 Set all four auth variables together. Partial configuration fails startup. When absent, authenticated routes do not exist. Configure the issuer and JWKS from trusted installation settings, never from a request or token header. The server accepts only configured signature algorithms and verifies issuer, audience, signature, expiry and token type. It never trusts a browser-selected role or tenant ID as proof of access.
+
+The optional Note policy file uses the same strict scope parser as Schema Server. Invalid configuration fails before the HTTP listener opens. Browser flags and the separate Schema Server policy variable do not configure this API. The API supplies one configured ProjectStore to both project routes and ProjectExecutionStore. Each native2 current or historical input must pass current schema admission within the existing transaction; admission is not permission to edit or adopt. Snapshot DocumentStore remains unchanged. This source connection is part of #508, whose actual model/API/PostgreSQL/browser acceptance remains pending.
 
 `GET /v1/me` requires a `Bearer` access token and returns the verified `{ issuer, subject, tenants, nextCursor }`. Each tenant entry has its UUID, name and current role. The page has at most 50 entries; pass `?after=<nextCursor>` until the cursor is null. A user with no membership receives an empty list. `GET /v1/tenants/:tenantId/access` checks active membership in PostgreSQL on every request and returns `{ tenantId, role }`. A missing, invalid or expired token returns 401. A valid token with no active membership returns 403. Provider or database unavailability returns 503. Responses use `Cache-Control: no-store`. Browser auth-code/PKCE callback, refresh, logout and UI role-based entry remain separate product integration work. There is no CORS allowlist or trusted reverse proxy configuration yet.
 
@@ -33,7 +36,7 @@ Set all four auth variables together. Partial configuration fails startup. When 
 
 `GET /v1/operator/access`, `/v1/operator/tenants` and `/v1/operator/status` require a separate active platform-operator grant for the verified `(issuer, subject)`. Each request checks PostgreSQL again; tenant ownership never grants this access. The tenant page returns at most 50 IDs, names and `owner_provisioned` or `owner_missing`. This reflects owner bootstrap only, not product readiness. The status route reports the same live/ready values as the local health probes; a 503 ready probe remains `service_not_configured`. A missing token returns 401, a missing or revoked grant returns 403, and database or audit failure returns 503. Operator status does not include customer documents, logs or deploy actions. Real operator grant approval remains undecided; only synthetic local accounts have been verified.
 
-The company member API for #377 has `GET /v1/tenants/:tenantId/members?after=<uuid>`, `PATCH /v1/tenants/:tenantId/members/:memberId` with `{ "role": "editor" | "viewer" }`, and `DELETE` at the same member URL. Each route checks the caller's current owner/admin membership in that tenant. The list returns at most 50 internal member IDs, current roles, active flags and self flags. It does not return OIDC subjects, email or tokens. Changes are limited to existing editor/viewer members; owner/admin promotion, demotion and revocation are rejected. Unauthenticated requests return 401, denied requests 403, conflicts 409, and database or audit failures 503. An internal UUID cannot identify a person safely for a human administrator. The Office UI must wait for a reviewed display identifier and target confirmation contract before enabling member changes. This API alone is not an external administration workflow.
+The company member API for #377 has `GET /v1/tenants/:tenantId/members?after=<uuid>`, `PATCH /v1/tenants/:tenantId/members/:memberId` with `{ "role": "editor" | "viewer", "expectedDirectoryRevision": <displayed revision> }`, and `DELETE` at the same member URL with `{ "expectedDirectoryRevision": <displayed revision> }`. The required revision is an integer from 1 to 2147483647, copied from the explicitly observed identified member entry. Missing or coerced values and extra fields return 400. No latest-revision substitution or automatic retry is supported. A missing or stale approved directory entry returns 409 and requires a fresh list plus explicit target/role reconfirmation. The additive 0017 guard locks current actor membership, target membership, then directory revision through commit. App/PUBLIC cannot execute the legacy five-argument mutation directly. Stale refusal preserves membership, directory, provisioning/operator streams and all prior audit rows, and appends exactly one secret-free conflict to the existing company admin audit. Migration registration and actual SQL/OIDC/browser checks remain Integration-owned; source alone is not acceptance. Each route checks the caller's current owner/admin membership in that tenant. The list returns at most 50 internal member IDs, current roles, active flags and self flags. It does not return OIDC subjects, email or tokens. Changes are limited to existing editor/viewer members; owner/admin promotion, demotion and revocation are rejected. Unauthenticated requests return 401, denied requests 403, conflicts 409, and database or audit failures 503. An internal UUID cannot identify a person safely for a human administrator. The Office UI must wait for a reviewed display identifier and target confirmation contract before enabling member changes. This API alone is not an external administration workflow.
 
 The process uses explicit settings, not `NODE_ENV`, to select its network binding. It does not load `.env` files. Startup errors do not print environment values. SIGINT and SIGTERM close the listener and drain active HTTP connections. The deadline closes remaining connections and terminates the process with a failure exit code, even if a close hook has not completed. Logs contain lifecycle events only.
 
@@ -109,3 +112,57 @@ The file format/version for Note, Word, Slides and Site is the product's `barocs
 An optional server-owned collaboration dependency registers `POST /v1/tenants/:tenantId/documents/:documentId/collaboration` with `{expectedRevision, idempotencyKey}` and `POST .../collaboration/reconcile` with an empty body. A current writer may request the first transition. The service freezes the snapshot revision and hash with the document lock, then stores an initializing attempt before calling the pinned provider. During initialization, document open returns `transitionStatus` and no snapshot body; snapshot writes and receipt replay remain blocked. A lost or unverified provider outcome becomes `uncertain`. An exact retry returns the current state without another provider write. The protected reconciliation route only inspects the same pinned provider project/build and seed identity; it does not repeat a seed write. Promotion requires a provider-native checkpoint and a read-back body hash that matches the frozen snapshot. The production API does **not** configure a seeder, so these routes are not registered there. Synthetic tests use an in-memory fake provider and do not prove actual Yorkie persistence, attach authorization, or convergence. #367 remains open for real Yorkie evidence, while #366 owns capabilities and webhooks.
 
 Wonffice does not implement its own collaboration server. Yorkie is the selected alpha provider, but this API check does not authenticate Yorkie connections or stop a direct local Yorkie client. Provider authorization and revocation require separate [#366](https://github.com/barocss/barocss-editor/issues/366) evidence. See the [provider contract](../../docs/specs/wonffice-collaboration-providers.md).
+
+### Word criterion confirmation
+
+Authenticated routes under `/v1/tenants/:tenantId/documents/:documentId/criterion-confirmations`:
+
+- `GET /context`: current full Word snapshot, business context, authority epoch and server actor identity.
+- `POST`: version-1 request with `expectedRevision`, `snapshotHash`, `snapshotText`, `context`, `authorityEpoch` and `idempotencyKey`. Extra actor, time or approval-status fields are rejected.
+- `GET`: `{ confirmations: [...] }` containing immutable server receipts for the document.
+
+All three require current writer authority and return `Cache-Control: no-store`. No query parameters are accepted. Confirmation is an explicit fictional writer self-confirmation. Ordinary storage receipts remain separate. Server actor/time and `verification: 'not-run'` cannot be supplied by the client.
+
+## Private fictional criterion verification (#431)
+
+Verified, current writers use `/v1/tenants/:tenantId/documents/:documentId/criterion-verifications`:
+
+- `GET /context` returns the exact saved Word basis, current actor/authority epoch, exact current confirmation ID (or null), executable/unsupported explanation, and registered specimens/evaluator.
+- `POST` requires exactly `schemaVersion`, `expectedRevision`, `snapshotHash`, `snapshotText`, `context`, `authorityEpoch`, `idempotencyKey`, `confirmationId`, `specimen`, and `evaluator`. It returns one immutable `CriterionRunReceipt`. Caller actor, time, flags, measurements, arbitrary source, URL and code are rejected.
+- `GET` returns `{runs:[]}`; `GET /:runId` returns the private receipt and exact `outputText`/`outputHash`. All responses use `Cache-Control: no-store`.
+
+The receipt includes server requester identity, source revision/hash/context/epoch, confirmation, registered versions, outcome and server timestamps. The immutable output also includes the full frozen request with native source bytes, executor identity/browser version when execution occurred, measured inputs, evaluator calculation, and explicit error/unsupported reasons. The service checks canonical source and current authority before and after execution. Viewer/revoked/private and conflicting-context requests refuse. No run occurs on ordinary save, import, reopen, or criterion confirmation.
+
+The protected local auth supervisor supports only the private IPC command `{action:"criterion-executor-mode",mode:"live"|"unavailable"}` to restart its API child with the live or absent adapter. It adds no production endpoint, browser hook, arbitrary code or authority bypass. The runtime owner restores `live` in test cleanup. Production main always constructs the live adapter.
+
+## Native2 paragraph proposals (#508)
+
+`createNative2AgentProposal(env, transport?)` exposes only
+`generateNative2Review(input, witness)` and returns null when the existing local
+Agent opt-in is disabled. Startup combines this method with the unchanged legacy
+Agent method. The complete model input remains the original thirteen fields.
+The trusted witness is a separate data argument and is never a permission grant.
+
+The wrapper consumes `captureNative2ParagraphReview` from the existing
+`@barocss/office-service/project-execution` public entry. It recomputes the complete
+witness from exact raw bytes and the supplied paragraph index, then compares every
+own field, full bundle, ordered segment, paragraph JSON and hash. Plain and
+null-prototype JSON records with the same values are equivalent; missing, extra,
+accessor and non-enumerable fields and changed array order refuse before model
+transport. Full raw/paragraphJSON/hash strings remain exact. The input target is
+the complete paragraph JSON, from zero to its complete length, without flattening.
+
+The unchanged bounded local engine uses the same installed loopback model/digest,
+parser, prompt/context/output limits and no automatic retry. Its trusted review
+instruction returns replacement prose, reason and assumptions; provenance uses
+`4-native2-review-v1`. Helper refusal codes remain `not_dispatched` reasons;
+inconsistent data uses `native2_paragraph_review_witness_mismatch`.
+
+Canonical stored-selector/current source/actor/policy and durable attempt checks
+remain in ProjectExecutionStore. Equal paragraphs can occur at different indices:
+a coherent alternate-index witness is data-consistent, and the canonical stored
+selector decides which paragraph was requested. The wrapper performs no schema
+registration/adoption, native write, Apply, save acknowledgement or receipt.
+Native2 review accept/ack refuses. Actual current OIDC/API/PostgreSQL/model and
+no-effect verification must pass before closing #508; controlled provider tests
+and source gates do not supply those results.
