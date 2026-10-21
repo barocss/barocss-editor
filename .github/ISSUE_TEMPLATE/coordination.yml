@@ -54,6 +54,7 @@ body:
     id: release-commitment
     attributes:
       label: Release commitment
-      options: [none, candidate, committed]
+      description: Select No commitment for the workflow's `none` state.
+      options: [No commitment, candidate, committed]
     validations:
       required: true
