@@ -1,5 +1,9 @@
 # Wonffice operating contract
 
+## Latest human testing policy — 2026-10-21, Office v2 M0 #522
+
+Authors run changed-area tests/types and directly affected contract checks only. They do not run whole-repository preflight, tests or builds for each candidate. Execute Integration owns broad/full verification and schedules it for meaningful integrated batches when combined source, dependencies, interfaces or release risk requires it. Integration reports the exact source SHA, commands, coverage, exit status, first failure and next owner to Planner and affected Executes. This policy supersedes earlier author-full-preflight wording. Budgets and final integration/release gates stay unchanged. M0 work stays in its explicitly leased isolated experiment; old lanes and schedules are not resumed.
+
 ## Execution role names — latest human instruction, #499
 
 Use `Execute XXX` as the name of every implementation/verification execution chat and its existing continuation automation. Current names are `Execute Editor`, `Execute Workspace`, `Execute Agent`, `Execute Storage`, `Execute Verification` and `Execute Integration`. A split role uses a clear responsibility name, for example `Execute Storage`; a merged role gets one current responsibility name and preserves predecessor links. Keep IDs, history, candidates and exact file/runtime ownership distinct from the display name. Naming is not new execution authority. Planner and paused Research remain coordination/intake roles rather than implementation Executes. Change existing titles in place; do not create duplicate chats or schedules solely to rename them.

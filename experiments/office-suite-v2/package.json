@@ -1,0 +1,24 @@
+{
+  "name": "@office-suite-v2/m0",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated Office v2 M0 risk probes; no production engine registration.",
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": "22.22.0",
+    "pnpm": "8.15.0"
+  },
+  "scripts": {
+    "type-check": "node scripts/type-check.mjs",
+    "test": "node scripts/test.mjs",
+    "check": "pnpm --ignore-workspace type-check && pnpm --ignore-workspace test"
+  },
+  "dependencies": {
+    "yjs": "13.6.29"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "typescript": "5.9.3"
+  }
+}
