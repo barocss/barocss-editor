@@ -1,0 +1,102 @@
+{
+  "schema": "office-v2-m0/word-renderer531-evidence-integrity-v4",
+  "capturedUtc": "2026-10-21T23:47:55.505Z",
+  "rawSha256": "a30efe793b0a163d720454424d229d50fd992b68a23c99dd20039b583228f7ca",
+  "sourceHead": "ee61af6f66f74f84708e0e434077122d91394cf6",
+  "sourceTree": "342b1cdd7f7c8eb898c34852e24ea34ae3767e62",
+  "checks": {
+    "runtimeExit": 0,
+    "successfulFreshNativeSamples": 6,
+    "phasesCompleted": 30,
+    "actualPagesAndParagraphs": "PASS",
+    "fontsAndBrowser": "PASS",
+    "perPidRssSumsAndPeaks": "PASS",
+    "exactProductionBindings": 17,
+    "changedRendererSourceVsO": 3,
+    "unchangedProductionVsO": 14,
+    "normalHarnessUnchanged": 7,
+    "CoreV2ExactReuse": 10,
+    "budgetSha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+    "timingTargetsAndRepeatability": "PASS all6phase gates",
+    "nodeGrowthRatio": 2.9995556542990447,
+    "Word100RSS": "FAIL all3, preserved",
+    "Word300RSS": "PASS all3",
+    "consolePageGuardCleanupErrors": false
+  },
+  "cleanup": {
+    "rawFinalStatus": "Owned browser/server/Vite close completed within5s",
+    "independentProbeUtc": "2026-10-21T23:47:55.501Z",
+    "ownedBrowserRootPids": [
+      4474,
+      4633,
+      4703,
+      4778,
+      4912,
+      5132
+    ],
+    "allObservedOwnedPids": [
+      4474,
+      4488,
+      4489,
+      4493,
+      4633,
+      4639,
+      4640,
+      4641,
+      4703,
+      4705,
+      4706,
+      4707,
+      4778,
+      4795,
+      4796,
+      4797,
+      4912,
+      4917,
+      4918,
+      4919,
+      5132,
+      5134,
+      5135,
+      5136
+    ],
+    "allObservedOwnedPidsAbsent": true,
+    "port55260Listening": false,
+    "psExit": 1,
+    "lsofExit": 1,
+    "slotReturnedBeforeOfflineAssessment": true
+  },
+  "command": "PATH=/Users/user/.nvm/versions/node/v22.22.0/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin M0_WORD_PERFORMANCE_LEASE=/Users/user/barocss-editor/.omx/m0/phase-c-renderer531-word-performance-lease.json M0_WORD_SAMPLES=3 /Users/user/.nvm/versions/node/v22.22.0/bin/node experiments/office-suite-v2/verification/word-performance-runner.mjs",
+  "sourceProofReceipt": {
+    "head": "ee61af6f66f74f84708e0e434077122d91394cf6",
+    "tree": "342b1cdd7f7c8eb898c34852e24ea34ae3767e62",
+    "checks": {
+      "Renderer41": "109files819PASS/4existingSKIP112.108s",
+      "View42": "50files596PASS/3existingSKIP58.657s",
+      "Word43": "9files114PASS0skip16.660s",
+      "root44": "PASS483.905s;lint2766files533err7381warn0new/source45known3/test41targets1251of1251",
+      "browser45": "A8S6all14PASS0skip/retry/flaky/errors111.220s;19observedownedPIDs+55261absent/RETURNED",
+      "PDF": "6actualPDFs/all24nonblank/continuationheaderspresent/24renderpixelsidenticaltopriorS",
+      "Core": "10source/harness/budgetexactreuse, no rerun"
+    },
+    "status": "Sourceproofqualified beforeNEWnormalprofile; M0OPEN/oldW3FAILpreserved"
+  },
+  "sourceProofReceiptSha256": "157837719412e373144cf4beeb498e3204c2e07e1f96b147279ee27815fa997f",
+  "method": "UnchangednormalGwall-v3/H7/frozenv1.1/nativefixtures/fonts/media/noGC; noCore/fullcheck rerun; no retry",
+  "offlineValidation": {
+    "exitCode": 0,
+    "rawSha256": "PASS",
+    "assessmentRawExactCopiesAndDerivedPhaseMaxima": "PASS",
+    "matrixSourceAndWholeOpen": "PASS",
+    "historicalRawAssessmentsCoreAndBudgetUnchanged": "PASS",
+    "heldSourceExactAndClean": "PASS",
+    "noNewRuntime": "PASS"
+  },
+  "readOnlyNativeReview": {
+    "runtimeActions": "No tests/browser/process/file mutations",
+    "numericalResult": "All6timing/repeatability/100RSSFAILall3/300RSSPASS/nodes/phase maxima/source+H7bindings verified",
+    "firstFinding": "Current source-print-proof criterion initially retained previousOraw link despite newee61 text",
+    "correction": "Criterion now points to v4 assessment containing exact ee61/342b Integration receipt; historical Oraw unchanged",
+    "correctedLinkAndReceiptPinCheck": "PASS exit0"
+  }
+}

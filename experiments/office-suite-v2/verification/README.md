@@ -552,3 +552,39 @@ observed diagnostic RSS maximum464273408bytes does not replace the normal O
 Word100failure at577470464/598196224/575438848bytes. Frozen budget, normal method,
 Corev2 evidence and original first failures remain unchanged. No retry or
 production optimization follows. Whole M0 remains OPEN.
+
+## Renderer531 normal window — Word evidence v4
+
+Measured source `ee61af6f66f74f84708e0e434077122d91394cf6`, tree
+`342b1cdd7f7c8eb898c34852e24ea34ae3767e62`, after Integration's source checks
+and actual A8/S6 browser14. This source changes exactly3renderer files from O;
+the other14production bindings,7normal harness files, actual fonts, Core10
+bindings and frozen v1.1 budget remain unchanged. No diagnostic wrapper,
+media override or GC ran. One authorized normal window completed100x3/300x3.
+
+Raw: `reports/word-performance-2026-10-21T23-45-36-459Z/report.json`.
+SHA256: `a30efe793b0a163d720454424d229d50fd992b68a23c99dd20039b583228f7ca`.
+Assessment: `reports/word-candidate-assessment-v4.json`; current matrix:
+`reports/criteria-phase-c-v6.json`. The prior matrices/raw remain intact.
+
+| Profile | Cold ms, all3 | Warm ms, all3 | Print build ms, all3 | Sampled owned RSS bytes, all3 |
+| --- | --- | --- | --- | --- |
+| 100pages | 316.5 / 308.8 / 309.1 | 95.9 / 95.1 / 103.4 | 25.2 / 26.0 / 25.4 | 597786624 / 590364672 / 545865728 |
+| 300pages | 1000.5 / 984.7 / 976.8 | 335.6 / 345.3 / 329.1 | 71.3 / 71.1 / 68.9 | 803897344 / 812335104 / 797818880 |
+
+All timing targets/repeatability, actual fonts/native counts, printed node growth
+and300RSS meet frozen v1.1. Printed CDP deltas stay4501/13501, ratio2.99955565.
+All3of100RSS exceed536870912bytes. Its preprint sampled maxima are
+524025856/525467648/545865728; sample2already exceeds before print and has no
+print-tagged RSS poll. It is not a measured print peak. Source labels span
+readout/deferred work; the original method does not isolate warm/print allocation.
+Raw CDP heaps are retained separately and have no new intermediate seam.
+
+Actual normal run exited0 with no phase/resource/console/page/cleanup error;
+product RSS qualification stillFAILS. All24observed owned PIDs and55260 were
+absent after bounded cleanup. The slot was returned before offline analysis.
+No identical retry or Core profile follows. Source-object retention regression
+proof and this sampled RSS result address different properties; no causal
+RSS saving or universal speedup is claimed. Prior R/P2b/O failures remain intact.
+Portal text/title baselineFAIL and combined async portal cleanupNOT VERIFIED
+remain separate. Whole M0 remains OPEN.

@@ -1,0 +1,68 @@
+{
+  "schema": "office-v2-m0/phase-c-current-criteria-v6",
+  "capturedUtc": "2026-10-21T23:47:55.504Z",
+  "sourceHead": "ee61af6f66f74f84708e0e434077122d91394cf6",
+  "sourceTree": "342b1cdd7f7c8eb898c34852e24ea34ae3767e62",
+  "priorCurrentMatrix": "reports/criteria-phase-c-v5.json",
+  "historicalRule": "All originalR/P2b/Oqualification and ONEdiagnosticraw/matrices remain immutable history; currentnormalstates sourcebound to renderer531ee61 and exactCorev2reuse. Diagnostic remains separately sourcebound to6e3.",
+  "criteria": [
+    {
+      "criterion": "sheet-frozen-v1.1-performance-reference",
+      "status": "PASS reused exact10bytes",
+      "boundary": "Corev2 measuredat6b3ea4a; all10source/harness/budget hashes unchangedatee61; reused, noCoreprofile/providerUIclaim.",
+      "evidence": "reports/sheet-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "word-normal100-300-latency-and-fonts",
+      "status": "PASS bounded recorded reference",
+      "boundary": "Sixfresh normal samples, actualpage/root/surface/paragraphcounts and font identities match; all6timing/repeatabilitygates meet frozenv1.1.",
+      "evidence": "reports/word-candidate-assessment-v4.json"
+    },
+    {
+      "criterion": "word-printed-node-growth",
+      "status": "PASS frozen CDPcounter method",
+      "boundary": "Actual100deltas4501each,30013501each, ratio2.99955565<=3.5; globalcounterdeltas are not independent tree traversal or causalbyteproof.",
+      "evidence": "reports/word-candidate-assessment-v4.json"
+    },
+    {
+      "criterion": "word100-sampled-owned-RSS",
+      "status": "FAIL all3samples",
+      "boundary": "597786624/590364672/545865728 exceed536870912; preprintsample2alreadyover. R531100sample2hasno print-tagpoll. No measuredprintpeak or exactHWMclaim.",
+      "evidence": "reports/word-candidate-assessment-v4.json"
+    },
+    {
+      "criterion": "word300-sampled-owned-RSS",
+      "status": "PASS bounded sampled reference",
+      "boundary": "803897344/812335104/797818880 below1073741824; all3print-tagmaximaobserved, same200ms/sharedpage limits.",
+      "evidence": "reports/word-candidate-assessment-v4.json"
+    },
+    {
+      "criterion": "separate-Word-source-print-proof",
+      "status": "PASS bounded Integration receipt",
+      "boundary": "Integration41Renderer819+4skip/42View596+3skip/43Word114/44rootPASS/45A8S6all14PASS and24PDFpixels matchpriorS; reported independentfromperformance, no releaseacceptance.",
+      "evidence": "reports/word-candidate-assessment-v4.json"
+    },
+    {
+      "criterion": "word100-ONE-bounded-memory-diagnostic",
+      "status": "COMPLETED diagnostic only",
+      "boundary": "11seams/22sequentialreadsets; warm heap growth is larger than print heap growth, without exact RSS cause or allocation owner. Screen-media print DOM observed; one finalGC is diagnostic only. Existing normal Word100 RSSFAIL remains.",
+      "evidence": "reports/word-memory-diagnostic-assessment-v1.json"
+    },
+    {
+      "criterion": "M0-whole-acceptance",
+      "status": "OPEN",
+      "boundary": "100RSSstillmissesall3afterrenderer531; portaltextbaselineFAIL/combinedasyncportalNOTVERIFIED remain. Plannerownsnextdisposition/wholedecision. No retry/thresholdchange.",
+      "evidence": null
+    }
+  ],
+  "noHeavyRepeat": true,
+  "noProductionEdits": true,
+  "diagnosticSourceHead": "6e3bcc03a5e2cb1f50fe7291e582aa92e85f659e",
+  "diagnosticSourceTree": "0fe8be1c63531c2b3eaa9f02fcdb076f652a3d0f",
+  "diagnosticDoesNotReplaceNormalQualification": true,
+  "knownIndependentLimits": {
+    "portalTextBaseline": "FAIL on original andcandidate; no performanceclosure",
+    "combinedAsyncPortalCleanup": "NOT VERIFIED; no performanceclosure"
+  },
+  "normalQualificationAfterDiagnostic": true
+}
