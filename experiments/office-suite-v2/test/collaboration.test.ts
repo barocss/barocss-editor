@@ -3,7 +3,7 @@ import { rmSync } from 'node:fs';
 import { test } from 'node:test';
 import * as Y from 'yjs';
 import { encodeCellKey } from '../src/contracts.ts';
-import type { CellInput, CellKey } from '../src/contracts.ts';
+import type { CellInput, CellKey, WorkbookEvent } from '../src/contracts.ts';
 import { createWorkbookContext } from '../src/workbook.ts';
 import { SheetReplica, sheetAdmission, sheetUpdateValidator } from '../src/collaboration.ts';
 import { DisposableDurableStore, PendingUpdates } from '../src/durable-store.ts';
@@ -33,6 +33,32 @@ function service(): DisposableDurableStore {
   return DisposableDurableStore.create({ admission: sheetAdmission(context), currentAccess: session => ['controlled-user-a', 'controlled-user-b'].includes(session.actorId), validateDocument: sheetUpdateValidator(context) });
 }
 function close(store: DisposableDurableStore): void { store.close(); rmSync(store.directory, { recursive: true, force: true }); }
+
+function dependencyFixture(template: SheetReplica, specs: readonly { id: string; dependencies: readonly string[] }[]): Uint8Array {
+  const original = new Y.Doc(), updates = new Y.Doc();
+  try {
+    original.getMap('native-events-v1'); Y.applyUpdate(original, template.exportUpdate());
+    const body = original.getMap<string>('native-events-v1').get('seed-sheet-1'); assert(body);
+    for (const spec of specs) {
+      const event = JSON.parse(body); event.eventId = spec.id; event.dependencies = spec.dependencies;
+      event.command.sheetId = `sheet-${spec.id}`; event.command.name = spec.id;
+      updates.getMap('native-events-v1').set(spec.id, JSON.stringify(event));
+    }
+    return Y.encodeStateAsUpdate(updates);
+  } finally { original.destroy(); updates.destroy(); }
+}
+
+function assertCausalCoverage(observed: readonly string[], event: WorkbookEvent, events: readonly WorkbookEvent[]): void {
+  const known = new Map(events.map(item => [item.eventId, item]));
+  const reached = new Set<string>(), stack = [...event.dependencies];
+  while (stack.length) {
+    const id = stack.pop();
+    if (id === undefined || reached.has(id)) continue;
+    reached.add(id);
+    for (const dependency of known.get(id)?.dependencies ?? []) stack.push(dependency);
+  }
+  for (const id of observed) assert(reached.has(id), `observed event ${id} was lost from causal context`);
+}
 
 test('independent pinned Yjs replicas converge atomic native cell commits and retain alternatives', () => {
   const a = seed(), b = new SheetReplica(context, actorB, a.exportUpdate());
@@ -231,4 +257,88 @@ test('two offline Sheet writers converge through durable ACK loss, checkpoint/re
       assert.deepEqual(a.projection, fresh.projection); assert.deepEqual(a.projection, b.projection);
     } finally { fresh.destroy(); }
   } finally { a.destroy(); b.destroy(); close(store); }
+});
+
+test('bounded sequential/concurrent histories store linear dependency edges and preserve convergence/undo', () => {
+  const a = seed();
+  let b: SheetReplica | undefined;
+  try {
+    const sequential = [];
+    for (let i = 0; i < 64; i++) sequential.push(a.commit({ kind: 'cell.commit', key, input: literal(i) }, `sequential-${i}`).event);
+    const sequentialEdges = sequential.reduce((total, event) => total + event.dependencies.length, 0);
+    assert.equal(sequentialEdges, 64, 'a sequential edit depends on its one causal frontier, not every historical event');
+    b = new SheetReplica(context, actorB, a.exportUpdate());
+    for (let i = 0; i < 16; i++) {
+      a.commit({ kind: 'cell.commit', key, input: literal(`a-${i}`) }, `branch-a-${i}`);
+      b.commit({ kind: 'cell.commit', key, input: literal(`b-${i}`) }, `branch-b-${i}`);
+    }
+    sync(a, b);
+    const observed = a.events.map(event => event.eventId);
+    const join = a.commit({ kind: 'cell.commit', key: { ...key, sheetId: 's2' }, input: literal('join') }, 'join-branches').event;
+    assert.deepEqual(join.dependencies, ['branch-a-15', 'branch-b-15']);
+    assertCausalCoverage(observed, join, a.events);
+    assert.equal(a.commit({ kind: 'unsupported', operation: 'merge' }, 'refused-after-join').event.dependencies.length, 1);
+    const undo = a.undo('branch-a-15', 'undo-after-join').event;
+    assert.deepEqual(undo.dependencies, ['refused-after-join']);
+    sync(a, b);
+    assert.deepEqual(a.projection.cells[encodeCellKey(key)]?.winner?.input, literal('b-15'));
+    assert.equal(a.projection.outcomes['undo-after-join']?.status, 'applied');
+    assert.equal(a.projection.outcomes['refused-after-join']?.status, 'refused');
+    const totalEdges = a.events.reduce((total, event) => total + event.dependencies.length, 0);
+    assert(totalEdges <= a.events.length + 1, `dependency edges ${totalEdges} exceeded linear fixture bound`);
+  } finally { a.destroy(); b?.destroy(); }
+});
+
+test('causal frontier retains unrelated pending/refused events and unblocks only after the missing event arrives', () => {
+  const a = seed();
+  let b: SheetReplica | undefined;
+  try {
+    a.commit({ kind: 'unsupported', operation: 'merge' }, 'refused-last');
+    a.receive(dependencyFixture(a, [{ id: 'pending-head', dependencies: ['missing-later'] }]));
+    const observed = a.events.map(event => event.eventId);
+    const blocked = a.commit({ kind: 'cell.commit', key, input: literal('after-all-observed') }, 'blocked-local').event;
+    assert.deepEqual(blocked.dependencies, ['pending-head', 'refused-last']);
+    assertCausalCoverage(observed, blocked, a.events);
+    assert.equal(a.projection.outcomes['blocked-local']?.status, 'pending');
+    assert.equal(a.projection.outcomes['refused-last']?.status, 'refused');
+    a.receive(dependencyFixture(a, [{ id: 'missing-later', dependencies: [] }]));
+    assert.equal(a.projection.outcomes['blocked-local']?.status, 'applied');
+    assert.equal(a.projection.outcomes['pending-head']?.status, 'applied');
+    const next = a.commit({ kind: 'cell.commit', key, input: literal('next') }, 'after-resolution').event;
+    assert.deepEqual(next.dependencies, ['blocked-local']);
+    b = new SheetReplica(context, actorB, a.exportUpdate());
+    assert.deepEqual(a.projection, b.projection);
+    a.undo('after-resolution', 'undo-resolved'); sync(a, b);
+    assert.deepEqual(a.projection.cells[encodeCellKey(key)]?.winner?.input, literal('after-all-observed'));
+  } finally { a.destroy(); b?.destroy(); }
+});
+
+test('cyclic pending components keep a deterministic covering frontier instead of disappearing', () => {
+  const a = seed();
+  let b: SheetReplica | undefined;
+  try {
+    a.commit({ kind: 'unsupported', operation: 'merge' }, 'refused-last');
+    a.receive(dependencyFixture(a, [
+      { id: 'cycle-alpha', dependencies: ['cycle-omega'] },
+      { id: 'cycle-omega', dependencies: ['cycle-alpha'] },
+      { id: 'pending-head', dependencies: ['not-observed'] },
+    ]));
+    b = new SheetReplica(context, actorB, a.exportUpdate());
+    const observed = a.events.map(event => event.eventId);
+    const event = a.commit({ kind: 'cell.commit', key, input: literal('pending') }, 'cycle-dependent').event;
+    assert.deepEqual(event.dependencies, ['cycle-alpha', 'pending-head', 'refused-last']);
+    assertCausalCoverage(observed, event, a.events);
+    assert.equal(a.projection.outcomes['cycle-alpha']?.status, 'pending');
+    assert.equal(a.projection.outcomes['cycle-omega']?.status, 'pending');
+    assert.equal(a.projection.outcomes['cycle-dependent']?.status, 'pending');
+    assert.equal(a.projection.outcomes['refused-last']?.status, 'refused');
+    const peer = b.commit({ kind: 'cell.commit', key, input: literal('peer-pending') }, 'cycle-peer').event;
+    assert.deepEqual(peer.dependencies, event.dependencies);
+    assertCausalCoverage(observed, peer, b.events);
+    sync(a, b);
+    const next = b.commit({ kind: 'cell.commit', key, input: literal('also-pending') }, 'next-dependent').event;
+    assert.deepEqual(next.dependencies, ['cycle-dependent', 'cycle-peer']);
+    assertCausalCoverage(a.events.map(item => item.eventId), next, b.events);
+    sync(a, b); assert.equal(a.projection.outcomes['next-dependent']?.status, 'pending');
+  } finally { a.destroy(); b?.destroy(); }
 });

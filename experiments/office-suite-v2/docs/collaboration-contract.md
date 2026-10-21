@@ -6,7 +6,10 @@ not Office, OIDC, PostgreSQL, product UI, full Note blocks or M0 acceptance.
 Environment: scaffold S `9b390602d90e07f496b7b699915b7d605582d8a4`, shared C
 `6ad373b4c31b7ec7aa97b75d8f6cb89b7174fc0e`, Integration correction I1
 `1d443e47f39d9e6009a7f0ae8724d7cc9f9e05da`; Node 22.22.0, pnpm 8.15.0.
-Current source parent is qualified join J
+Current source parent is qualified join M
+`8184e7f4a7bea8981825c5b0924920e304553dd1`, which preserves H
+`702b9f8dc7d412c41d179fddeaf2e1e0d3ce85d3` and genuine Formula source.
+H's parent was qualified join J
 `a332facd6740c491f761be39dbeee2c6a6a24f70`, containing genuine Core runtime R
 `1458fa7d4c7396bbd8b9edb36f07ee4e1864f326` and the first partial delivery P
 `7f1602c4b2c3519c1af14f4d259de9ee70d89078`. C remains unchanged.
@@ -16,7 +19,7 @@ Root dependencies, locks, configuration and budgets are unchanged.
 
 P contained `prose.ts`, `durable-store.ts`, their two test files and this manual;
 strict types had 0 diagnostics and the 12 partial tests passed. Sheet code was not
-included or claimed verified in P. This successor adds the binding/tests against
+included or claimed verified in P. H added the binding/tests against
 the actual Core runtime at J and preserves rejection results and opaque IDs in the
 store. There is no substitute engine. Formula calculation is still a separate
 source/verification dependency and is not accepted by AST preservation alone.
@@ -74,6 +77,44 @@ bytes. Chunked initial-load transport above that limit is not implemented.
 | Missing native dependency | Core projection | Persist pending event, later deterministic replay |
 | Missing binary Yjs dependency | Transport admission | Refuse incomplete packet for retry with base |
 
+## Causal frontier correction after H
+
+Planner identified a concrete storage defect in H: every local edit depended on
+all prior observed IDs. A bounded 64-edit regression reproduced **2,528 stored
+dependency IDs instead of 64**, and failed before repair. That is quadratic edge
+growth, not just an unmeasured renderer cost. H remains preserved in Git; admitted
+events and their existing dependencies are immutable and are not rewritten.
+
+New commits use a sufficient causal frontier. The frontier covers **every** observed
+event by transitive reachability, regardless of applied, refused or pending outcome.
+On receive, an iterative strongly connected component pass finds dependency-graph
+heads. A cyclic pending component uses its smallest code-unit ID as representative,
+so it does not disappear when every cycle member has an incoming edge. Missing
+IDs are not invented as observed events. A local append depends on this covering
+frontier, then becomes the single new frontier head. This cache is derived from
+the one immutable event log; it cannot mutate workbook content or authorize a
+pending/refused operation.
+
+Receive-side frontier reconstruction costs O(V+E) work and space for the admitted
+event graph, without recursive traversal. The local append no longer reparses all
+historical events to construct dependencies. Sequential edits store one dependency
+each after bootstrap. A join of two independent branches needs both heads; the
+next sequential edit again needs one. Frontier size follows actual concurrent
+graph width, not total history length. It is not a constant-width guarantee for
+arbitrary independent writers. Existing Core dependency/event-byte limits, the
+1 MB packet and 8 MB service state limits remain unchanged. If the required causal
+context cannot fit those limits, command admission refuses; it never truncates
+context. Full replay/revision, wide concurrency, initial transfer and product-scale
+costs remain separate limitations, not accepted capacities.
+
+Three bounded regressions cover 64 sequential edits, two 16-edit disconnected
+branches, a two-head join, subsequent refusal/undo, exact replica convergence,
+transitive coverage of all observed IDs, pending/refused histories with late
+dependency arrival, and cyclic pending component retention. A dependent local edit
+stays pending until its native missing dependency arrives; a permanent cycle stays
+pending. Neither is silently dropped or converted into successful application.
+These are correctness/edge-count tests, not machine performance benchmarks.
+
 ## Bounded prose source and selective undo
 
 `ProseReplica(sessionId, initialUpdate?)` owns a private `Y.Doc` and a single real
@@ -103,7 +144,7 @@ It never restores a prior document snapshot. The supported profile bounds visibl
 text at 100,000 UTF-16 units, paragraphs at 512 and incoming updates at 1,000,000
 bytes. Undo/redo conservatively refuse before mutation if all retained character
 content could exceed these bounds when restored. This refusal can occur even when
-one particular undo would fit. Bounds are measured prototype limits, not product
+one particular undo would fit. Bounds are configured prototype limits, not product
 capacity or performance promises.
 
 Incoming bytes are applied to an isolated trial document. Unknown roots, pending
@@ -170,7 +211,7 @@ receipts with their input. No automatic reauthorization or upload occurs.
 
 ## Verification and remaining work
 
-The final source runs only owned changed-area strict types and tests, with
+At H, the source ran only owned changed-area strict types and tests, with
 direct imports checked. Commands ran sequentially after the bounded Word resource
 hold was released:
 
@@ -179,8 +220,8 @@ pnpm --ignore-workspace type-check -- src/collaboration.ts src/prose.ts src/dura
 pnpm --ignore-workspace test -- test/collaboration.test.ts test/prose.test.ts test/recovery.test.ts
 ```
 
-Result: strict TypeScript 5.9.3, **0 diagnostics**; native Node tests **22/22 PASS**,
-0 failed, 0 skipped. First executed correctness failure: none. Coverage is 9 Sheet
+H result: strict TypeScript 5.9.3, **0 diagnostics**; native Node tests **22/22 PASS**,
+0 failed, 0 skipped. There was no executed correctness failure before H. Coverage was 9 Sheet
 tests, 6 prose tests and 7 recovery tests. Tests cover independent replicas,
 same-cell alternatives, insert versus cross-sheet typed formula input, delete
 versus remote edit, same-ID deletion undo, insertion-undo refusal, actor/session
@@ -198,6 +239,25 @@ the actual durable service, loses one ACK, checkpoints, reopens, retries the sam
 ID, converges both clients, undoes only one session and re-edits a freshly opened
 second sheet. Formula input identity is checked; calculated Formula results are
 not reimplemented in this lane.
+
+For the frontier successor, only the changed binding/test and their direct imports
+were rerun sequentially:
+
+```sh
+pnpm --ignore-workspace type-check -- src/collaboration.ts test/collaboration.test.ts
+pnpm --ignore-workspace test -- test/collaboration.test.ts
+```
+
+Result: **0 strict diagnostics, 12/12 Sheet tests PASS, 0 failed, 0 skipped**.
+The preserved first failure is the preceding new regression at the H behavior:
+test exit 1, original 9 tests PASS / new test FAIL, assertion `2528 !== 64`.
+After repair the same 64-edit probe stores exactly 64 dependency IDs. The current
+source coverage combines this changed-file result with the unchanged H prose 6/6
+and recovery 7/7 evidence; a fresh 25-test aggregate was not run by this author.
+Unchanged source/test blobs: prose `22a4fde333bdac358645d2c1f6589f99513a4ea9`,
+prose test `38cf5023e5ecf49f22a028050736e81bc7977e8f`, durable store
+`026028b3a81da20bd070c6c2604f17774e31d9f4`, recovery test
+`8fba63194eaad5189e9ab60886079a3473131002`.
 
 Controlled acceptance mapping: A native convergence/alternatives/structure and
 atomic reference-input preservation PASS; B bounded prose/marks/paragraphs/selection

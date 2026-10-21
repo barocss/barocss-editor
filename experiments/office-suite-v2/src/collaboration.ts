@@ -26,6 +26,57 @@ function readEvent(body: unknown, key: string, context: WorkbookContext): Workbo
   return result.event;
 }
 
+/** Heads of the observed dependency graph, with one representative per cyclic SCC.
+ * Every observed event remains reachable from this frontier, including pending/refused
+ * events. Iterative Kosaraju avoids recursion limits; missing IDs are not invented.
+ */
+function causalFrontier(events: readonly WorkbookEvent[]): readonly string[] {
+  const known = new Map(events.map(event => [event.eventId, event]));
+  const dependents = new Map<string, string[]>();
+  for (const event of events) for (const dependency of event.dependencies) {
+    if (!known.has(dependency)) continue;
+    const list = dependents.get(dependency) ?? [];
+    list.push(event.eventId); dependents.set(dependency, list);
+  }
+  const visited = new Set<string>(), finished: string[] = [];
+  for (const event of events) {
+    if (visited.has(event.eventId)) continue;
+    const stack: { id: string; exit: boolean }[] = [{ id: event.eventId, exit: false }];
+    while (stack.length) {
+      const next = stack.pop();
+      if (next === undefined) break;
+      if (next.exit) { finished.push(next.id); continue; }
+      if (visited.has(next.id)) continue;
+      visited.add(next.id); stack.push({ id: next.id, exit: true });
+      for (const dependency of known.get(next.id)?.dependencies ?? []) {
+        if (known.has(dependency) && !visited.has(dependency)) stack.push({ id: dependency, exit: false });
+      }
+    }
+  }
+  const components = new Map<string, number>(), representatives: string[] = [];
+  for (let i = finished.length - 1; i >= 0; i--) {
+    const id = finished[i];
+    if (id === undefined || components.has(id)) continue;
+    const component = representatives.length;
+    let representative = id;
+    const stack = [id];
+    while (stack.length) {
+      const next = stack.pop();
+      if (next === undefined || components.has(next)) continue;
+      components.set(next, component);
+      if (next < representative) representative = next;
+      for (const dependent of dependents.get(next) ?? []) if (!components.has(dependent)) stack.push(dependent);
+    }
+    representatives.push(representative);
+  }
+  const covered = new Set<number>();
+  for (const event of events) for (const dependency of event.dependencies) {
+    const target = components.get(dependency);
+    if (target !== undefined && target !== components.get(event.eventId)) covered.add(target);
+  }
+  return Object.freeze(representatives.filter((_, component) => !covered.has(component)).sort());
+}
+
 /** Validate visible AND hidden Yjs items. Plain map projection misses overwritten losers. */
 function validateNativeDocument(context: WorkbookContext, candidate: Y.Doc, previous: Y.Doc, update: Uint8Array, authenticated?: AuthenticatedSession): void {
   if (candidate.store.pendingStructs !== null || candidate.store.pendingDs !== null) throw new Error('incomplete-update');
@@ -83,6 +134,7 @@ export class SheetReplica {
   readonly identity: AuthenticatedSession;
   #doc: Y.Doc;
   #events: Y.Map<string>;
+  #causalFrontier: readonly string[] = Object.freeze([]);
 
   constructor(context: WorkbookContext, identity: AuthenticatedSession, initial?: Uint8Array) {
     this.context = Object.freeze({ ...context });
@@ -100,9 +152,12 @@ export class SheetReplica {
 
   commit(command: WorkbookCommand, eventId: string = globalThis.crypto.randomUUID()): Readonly<{ event: WorkbookEvent; update: Uint8Array }> {
     if (this.#events.has(eventId)) throw new Error('duplicate-event-id');
-    const event = createEvent(this.context, { ...this.identity, eventId }, this.events.map(event => event.eventId), command);
+    const event = createEvent(this.context, { ...this.identity, eventId }, this.#causalFrontier, command);
     const before = Y.encodeStateVector(this.#doc);
     this.#doc.transact(() => this.#events.set(event.eventId, canonical(event)), this.identity);
+    // The new event causally covers every previously observed event, irrespective
+    // of its applied/refused/pending outcome. This is a derived transport cache.
+    this.#causalFrontier = Object.freeze([event.eventId]);
     return Object.freeze({ event, update: Y.encodeStateAsUpdate(this.#doc, before) });
   }
 
@@ -122,7 +177,9 @@ export class SheetReplica {
       Y.applyUpdate(candidate, this.exportUpdate());
       Y.applyUpdate(candidate, update);
       validateNativeDocument(this.context, candidate, this.#doc, update);
+      const frontier = causalFrontier([...candidate.getMap<string>(root)].map(([key, body]) => readEvent(body, key, this.context)));
       Y.applyUpdate(this.#doc, update, 'remote');
+      this.#causalFrontier = frontier;
     } finally { candidate.destroy(); }
   }
 
