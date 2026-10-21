@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { settled } from './helpers';
 
 /**
@@ -8,12 +8,36 @@ import { settled } from './helpers';
  */
 
 test.describe('print', () => {
-  test('puts the same number of pages on paper as on screen', async ({ page }) => {
+  const fontFailures = new WeakMap<Page, string[]>();
+  test.beforeEach(async ({ page }) => {
+    const failures: string[] = []; fontFailures.set(page, failures);
+    page.on('response', response => {
+      if (/katex.*\/fonts\//i.test(response.url()) && !response.ok()) failures.push(`${response.status()} ${response.url()}`);
+    });
+    page.on('requestfailed', request => {
+      if (/katex.*\/fonts\//i.test(request.url())) failures.push(`${request.failure()?.errorText} ${request.url()}`);
+    });
+  });
+  test.afterEach(async ({ page }, testInfo) => {
+    const faces = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return [...document.fonts].filter(face => face.family.includes('KaTeX')).map(face => ({ family: face.family, status: face.status }));
+    });
+    const failures = fontFailures.get(page) ?? [];
+    await testInfo.attach('actual-katex-font-status', { body: JSON.stringify({ failures, faces }), contentType: 'application/json' });
+    expect(failures, 'KaTeX font requests must succeed').toEqual([]);
+    expect(faces.some(face => face.status === 'loaded'), 'The actual sample must load its KaTeX fonts').toBe(true);
+    expect(faces.filter(face => face.status === 'error')).toEqual([]);
+  });
+
+  test('puts the same number of pages on paper as on screen', async ({ page }, testInfo) => {
     await page.goto('/?sample');
     await settled(page);
     const sheets = await page.locator('.w-sheet').count();
 
-    const pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+    const path = testInfo.outputPath('word-print.pdf');
+    const pdf = await page.pdf({ path, printBackground: true, preferCSSPageSize: true });
+    await testInfo.attach('actual-word-print', { path, contentType: 'application/pdf' });
 
     // Read out of the PDF itself rather than from anything the app says. A page
     // tree records how many pages it holds, and that is the only number a

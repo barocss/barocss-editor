@@ -178,6 +178,13 @@ attempt only, not qualified font fidelity. No identical rerun or Stage B ran.
 The private listener was gone after the Playwright-owned server closed. A fresh
 exact-source/config lease is required for the corrected method. M0 remains OPEN.
 
+The test-only followup also records actual KaTeX `FontFace` status and failed
+font resource responses per case; it requires a loaded KaTeX face and no errors.
+The first real PDF test saves `word-print.pdf` through Playwright's output path
+and attaches the actual bytes for independent text/render inspection. Its page
+count assertion alone is not called complete PDF fidelity. No print production
+source changed in this followup.
+
 The required 100/300 layout/print, exact fonts and performance budget remain open.
 No product, release or complete-M0 acceptance is claimed.
 
