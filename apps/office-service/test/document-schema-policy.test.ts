@@ -1,6 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { readDocumentSchemaPolicyFile } from '../src/document-schema-policy.js';
 
 const roots: string[] = [];
@@ -11,7 +12,7 @@ const policy = () => ({ tenantId: '11111111-1111-4111-8111-111111111111',
   workspaceId: '22222222-2222-4222-8222-222222222222', readRoles: ['editor', 'viewer'],
   preserveRoles: [], adoptRoles: ['editor'], capabilities: ['note.field.text.v1'] });
 function file(text: string): string {
-  const root = mkdtempSync('/private/tmp/note-policy-test-'); roots.push(root);
+  const root = mkdtempSync(join(tmpdir(), 'note-policy-test-')); roots.push(root);
   const path = join(root, 'private-policy.json'); writeFileSync(path, text, { mode: 0o600 }); return path;
 }
 afterEach(() => { roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })); });
