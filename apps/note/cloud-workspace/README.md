@@ -1,5 +1,8 @@
 # Cloud Note workspace
 
+Historical Note trial. The current original Wonffice publishing entry is documented in
+[apps/office/sites](../../office/sites/README.md); use that target to host the existing full UI.
+
 This slice embeds the existing `@barocss/office-note` `NoteEditor`, `openNoteTree`, native
 history and Note v1 codec. It does not replace the editor or enable held Word Apply, Yorkie,
 native2 adoption, local-model services, or a second task store.
