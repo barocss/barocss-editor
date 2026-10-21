@@ -1,0 +1,209 @@
+{
+  "schema": "office-v2-m0/word-candidate-assessment-v1",
+  "sourceHead": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+  "rawReport": "reports/word-performance-2026-10-21T16-01-52-773Z/report.json",
+  "rawSha256": "914f222eba6c4143d8b6a48ebb1bbc4fd676ae372dc9942574cc7d0754e95a52",
+  "frozenBudget": "reports/reference-budget-v1.1.json",
+  "status": "FAIL: print resource defect; full300profile incomplete",
+  "pages100": [
+    {
+      "phase": "coldOpenMs",
+      "samples": [
+        337.39999997615814,
+        322.39999997615814,
+        323
+      ],
+      "worstOfThree": 337.39999997615814,
+      "coarseNearestRankP95": 337.39999997615814,
+      "coefficientOfVariation": 0.021165977791233453,
+      "spread": 15.0,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    },
+    {
+      "phase": "fullNativeWarmRenderMs",
+      "samples": [
+        110.80000007152557,
+        101.70000004768372,
+        99.30000007152557
+      ],
+      "worstOfThree": 110.80000007152557,
+      "coarseNearestRankP95": 110.80000007152557,
+      "coefficientOfVariation": 0.04765879878320589,
+      "spread": 11.5,
+      "repeatable": true,
+      "target": 250,
+      "targetMet": true
+    },
+    {
+      "phase": "printDOMBuildMs",
+      "samples": [
+        65.60000002384186,
+        60.90000009536743,
+        64.70000004768372
+      ],
+      "worstOfThree": 65.60000002384186,
+      "coarseNearestRankP95": 65.60000002384186,
+      "coefficientOfVariation": 0.03195944745538095,
+      "spread": 4.699999928474426,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    }
+  ],
+  "pages100Memory": {
+    "samplesBytes": [
+      1603551232,
+      1631666176,
+      1631027200
+    ],
+    "targetBytes": 536870912,
+    "targetMet": false,
+    "meaning": "Sum of owned browser process RSS, includes shared pages; not private resident bytes",
+    "maxBeforePrintBytes": [
+      524075008,
+      562053120,
+      525844480
+    ],
+    "layoutDurationCumulativeSecondsAfterPrint": [
+      3.066158,
+      2.793043,
+      2.912689
+    ],
+    "printTimingLimit": "buildMs is synchronous DOM construction; does not include all deferred browser style/layout work or PDF/paper fidelity.",
+    "maximumDefinition": "Maximum observed200ms aggregate RSS sample, not a proven continuous peak"
+  },
+  "pages100PrintedNodes": {
+    "actualDeltas": [
+      331601,
+      331601,
+      331601
+    ],
+    "method": "Native CDP counter delta; no printed-tree traversal"
+  },
+  "pages300": {
+    "successfulCompleteSamples": 0,
+    "attemptedSamples": 1,
+    "remainingSamplesNotRun": 2,
+    "normalColdOpenMs": 1027.8999999761581,
+    "fullNativeWarmRenderMs": 347.5,
+    "printBuildMs": 537.2999999523163,
+    "guardFailure": "Owned browser RSS exceeded2GiB",
+    "lastObservedRssBytes": 2198929408,
+    "nodeCounter": "NOT OBSERVED: guard closed browser before postprint metrics",
+    "percentile": "NOT QUALIFIED: only one incomplete sample",
+    "rssDefinition": "Last maximum sampled owned aggregate RSS, sufficient to demonstrate2GiBguard exceedance"
+  },
+  "growthRatio": "NOT OBSERVED: no300postprint counter; do not infer measured ratio",
+  "actualFontsAllKnown": true,
+  "normalRuntime": {
+    "forcedRender": false,
+    "methodPatches": false,
+    "allAttemptedCountsRootsSurfacesCorrect": true
+  },
+  "sourceCause": {
+    "path": "packages/office-word/src/print-pages.ts",
+    "observation": "build loops all sheets and source.cloneNode(true) for each; actual100node count331601matches repeated full source tree",
+    "classification": "Source duplication is confirmed;300measured ratio remains unavailable",
+    "owner": "Planner must assign exact production print repair lease; Verification does not edit production",
+    "exact100NodeAccounting": "100 * (2514 descendant elements +800text +1source root) +100page wrappers +1container =331601 actual nodes",
+    "rssAttributionLimit": "Second100sample already562053120bytes before print; do not attribute every RSS miss solely to print. JS heap decreases after print while DOM/layout grow; this is not evidence of a JS heap leak."
+  },
+  "cleanup": {
+    "checkedUtc": "2026-10-21T16:03:53.654749+00:00",
+    "ownedBrowserRootPids": [
+      96294,
+      97057,
+      97545,
+      97848
+    ],
+    "ownedRootsStillPresent": [],
+    "port55260Listening": false,
+    "scope": "Only own disposable processes were closed"
+  },
+  "qualification": {
+    "reference": "Recorded loaded host; actual raw pressure/swap preserved",
+    "absoluteIdleRequired": false,
+    "rootPreflight": "Pending Integration; candidate observations only",
+    "m0": "OPEN",
+    "pdfPaperFidelity": "NOT VERIFIED"
+  },
+  "findingId": "526/word-print-resource-v1",
+  "measurementLimits": [
+    "Word45s wall timer and RSS monitor begin after launchServer/connect; browser startup is not bounded by that timer. Normal cold-open timing excludes browser/module startup.",
+    "RSS maximum is sampled every200ms across owned process tree; short peaks can be missed and shared pages are counted in multiple processes. Observed exceedances are valid; no precise process high-water mark is claimed.",
+    "Native CDP global DOM counter deltas can undercount if unrelated nodes are garbage-collected;100exact source-clone accounting matches all3observed deltas.",
+    "100buildMs measures synchronous construction only; deferred native style/layout and PDF/paper are separate."
+  ],
+  "timingBasis": {
+    "targetBasis": "Browser-inner performance.now durations as returned by frozen predata harness; no target or method change. Cold includes schema admission, native mount/fonts and completion+3stableframes; warm includes actual view.render and completion+3stableframes.",
+    "printBasis": "Synchronous actual window.wordPrintPages.build only, not deferred browser layout.",
+    "runnerWall": "stage elapsed includes Playwright evaluate transport/scheduling/result transfer and post-duration result inventory; raw wrapper times retained separately. Browser/module startup excluded from inner and phase timing; module navigation separately recorded.",
+    "samples": [
+      {
+        "pages": 100,
+        "sample": 0,
+        "innerMs": {
+          "cold": 337.39999997615814,
+          "warm": 110.80000007152557,
+          "print": 65.60000002384186
+        },
+        "runnerWallMs": {
+          "module-navigation": 3915.5605410000003,
+          "normal-cold-open": 349.0314159999998,
+          "full-native-view-layout-completion": 163.39850000000024,
+          "actual-print-DOM-build": 89.11149999999998,
+          "print-node-inventory": 2.5675410000003467
+        }
+      },
+      {
+        "pages": 100,
+        "sample": 1,
+        "innerMs": {
+          "cold": 322.39999997615814,
+          "warm": 101.70000004768372,
+          "print": 60.90000009536743
+        },
+        "runnerWallMs": {
+          "module-navigation": 1061.445667,
+          "normal-cold-open": 324.8337080000001,
+          "full-native-view-layout-completion": 125.57829099999981,
+          "actual-print-DOM-build": 62.49920899999961,
+          "print-node-inventory": 1.4668330000022252
+        }
+      },
+      {
+        "pages": 100,
+        "sample": 2,
+        "innerMs": {
+          "cold": 323,
+          "warm": 99.30000007152557,
+          "print": 64.70000004768372
+        },
+        "runnerWallMs": {
+          "module-navigation": 736.5575839999983,
+          "normal-cold-open": 325.7386250000018,
+          "full-native-view-layout-completion": 153.19879100000253,
+          "actual-print-DOM-build": 124.5097910000004,
+          "print-node-inventory": 12.233917000001384
+        }
+      },
+      {
+        "pages": 300,
+        "sample": 0,
+        "innerMs": {
+          "cold": 1027.8999999761581,
+          "warm": 347.5,
+          "print": 537.2999999523163
+        },
+        "runnerWallMs": {
+          "module-navigation": 881.8601249999992,
+          "normal-cold-open": 1031.2025829999984,
+          "full-native-view-layout-completion": 386.39949999999953,
+          "actual-print-DOM-build": 538.3256250000013
+        }
+      }
+    ]
+  }
+}

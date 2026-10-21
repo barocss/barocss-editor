@@ -1,0 +1,6 @@
+word-candidate-assessment-v1.json: raw SHA256 binding PASS
+sheet-candidate-assessment-v1.json: raw SHA256 binding PASS
+Word: 3complete100/1guarded300, exact fonts/counts/node deltas/firstguard/absent300counter PASS
+Sheet: 3fresh successful children/raw phase and total identity/exact50k10k/200ms misses PASS
+Current matrix evidence references PASS
+Tracked modifications confined to Verification README; new raw/assessment paths independently staged later

@@ -1,0 +1,341 @@
+{
+  "schema": "office-v2-m0/sheet-candidate-assessment-v1",
+  "sourceHead": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+  "rawReport": "reports/sheet-scale-2026-10-21T16-05-01-114Z-summary.json",
+  "rawSha256": "11c4023e4a79575782bf7d2f8ee7bce1bd27e7da02682e70e204c3cd0a5566f7",
+  "status": "FAIL: one-cell TOTAL exceeds frozen200ms in all3rawsamples; overall repeatability incomplete",
+  "frozenBudget": "reports/reference-budget-v1.1.json",
+  "profile": {
+    "rows": 10000,
+    "columns": 100,
+    "populatedCells": 50000,
+    "formulaCells": 10000,
+    "sheetCount": 2
+  },
+  "gates": [
+    {
+      "phase": "cold-native-projection",
+      "samples": [
+        213.291334,
+        227.16620899999998,
+        247.64329199999997
+      ],
+      "worstOfThree": 247.64329199999997,
+      "coarseNearestRankP95": 247.64329199999997,
+      "coefficientOfVariation": 0.06151802562748645,
+      "spreadMs": 34.35195799999997,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    },
+    {
+      "phase": "full-native-diff",
+      "samples": [
+        69.3316249999998,
+        79.96070899999995,
+        64.08012499999995
+      ],
+      "worstOfThree": 79.96070899999995,
+      "coarseNearestRankP95": 79.96070899999995,
+      "coefficientOfVariation": 0.09287930896925398,
+      "spreadMs": 15.880583999999999,
+      "repeatable": true,
+      "target": 250,
+      "targetMet": true
+    },
+    {
+      "phase": "initial-formula-calculation",
+      "samples": [
+        53.98637499999995,
+        85.22529200000008,
+        57.316749999999956
+      ],
+      "worstOfThree": 85.22529200000008,
+      "coarseNearestRankP95": 85.22529200000008,
+      "coefficientOfVariation": 0.21382146903750926,
+      "spreadMs": 31.23891700000013,
+      "repeatable": true,
+      "target": 250,
+      "targetMet": true
+    },
+    {
+      "phase": "dirty-formula-calculation",
+      "samples": [
+        0.1065840000001117,
+        0.08979099999987739,
+        0.06683399999974426
+      ],
+      "worstOfThree": 0.1065840000001117,
+      "coarseNearestRankP95": 0.1065840000001117,
+      "coefficientOfVariation": 0.1857015928676023,
+      "spreadMs": 0.039750000000367436,
+      "repeatable": true,
+      "target": 16,
+      "targetMet": true
+    },
+    {
+      "phase": "range-paste-native-projection-plus-diff",
+      "samples": [
+        221.5731249999999,
+        311.37433199999987,
+        280.36008400000037
+      ],
+      "worstOfThree": 311.37433199999987,
+      "coarseNearestRankP95": 311.37433199999987,
+      "coefficientOfVariation": 0.1373688005052767,
+      "spreadMs": 89.80120699999998,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    },
+    {
+      "phase": "coldConstructionProjectionCalculationMs",
+      "samples": [
+        1262.370458,
+        1539.7525429999998,
+        1355.033958
+      ],
+      "worstOfThree": 1539.7525429999998,
+      "coarseNearestRankP95": 1539.7525429999998,
+      "coefficientOfVariation": 0.08320642174152888,
+      "spreadMs": 277.38208499999973,
+      "repeatable": true,
+      "target": 2000,
+      "targetMet": true
+    },
+    {
+      "phase": "oneCellAdmissionProjectionDiffCalculationMs",
+      "samples": [
+        296.46254299999964,
+        462.17008399999986,
+        268.91920799999957
+      ],
+      "worstOfThree": 462.17008399999986,
+      "coarseNearestRankP95": 462.17008399999986,
+      "coefficientOfVariation": 0.24918816396380797,
+      "spreadMs": 193.2508760000003,
+      "repeatable": true,
+      "target": 200,
+      "targetMet": false
+    },
+    {
+      "phase": "paste1000AdmissionProjectionDiffCalculationMs",
+      "samples": [
+        232.8385000000003,
+        324.96958099999983,
+        295.6661680000002
+      ],
+      "worstOfThree": 324.96958099999983,
+      "coarseNearestRankP95": 324.96958099999983,
+      "coefficientOfVariation": 0.1350951425729737,
+      "spreadMs": 92.13108099999954,
+      "repeatable": true,
+      "target": 500,
+      "targetMet": true
+    }
+  ],
+  "phaseRepeatability": {
+    "construct-native-events": {
+      "samples": [
+        920.1248330000001,
+        1124.6318749999998,
+        981.810958
+      ],
+      "worstOfThree": 1124.6318749999998,
+      "coarseNearestRankP95": 1124.6318749999998,
+      "coefficientOfVariation": 0.08489996454675826,
+      "spreadMs": 204.50704199999973,
+      "repeatable": true
+    },
+    "cold-native-projection": {
+      "samples": [
+        213.291334,
+        227.16620899999998,
+        247.64329199999997
+      ],
+      "worstOfThree": 247.64329199999997,
+      "coarseNearestRankP95": 247.64329199999997,
+      "coefficientOfVariation": 0.06151802562748645,
+      "spreadMs": 34.35195799999997,
+      "repeatable": true
+    },
+    "register-calculation": {
+      "samples": [
+        74.96791600000006,
+        102.72916699999996,
+        68.26295800000003
+      ],
+      "worstOfThree": 102.72916699999996,
+      "coarseNearestRankP95": 102.72916699999996,
+      "coefficientOfVariation": 0.1819855701180585,
+      "spreadMs": 34.466208999999935,
+      "repeatable": true
+    },
+    "initial-recalculate": {
+      "samples": [
+        53.98637499999995,
+        85.22529200000008,
+        57.316749999999956
+      ],
+      "worstOfThree": 85.22529200000008,
+      "coarseNearestRankP95": 85.22529200000008,
+      "coefficientOfVariation": 0.21382146903750926,
+      "spreadMs": 31.23891700000013,
+      "repeatable": true
+    },
+    "edit-event-admission": {
+      "samples": [
+        0.25962499999968713,
+        0.13758400000006077,
+        0.14599999999995816
+      ],
+      "worstOfThree": 0.25962499999968713,
+      "coarseNearestRankP95": 0.25962499999968713,
+      "coefficientOfVariation": 0.30735776130564835,
+      "spreadMs": 0.12204099999962637,
+      "repeatable": true
+    },
+    "edit-native-projection": {
+      "samples": [
+        226.6034169999998,
+        381.66712499999994,
+        204.41770799999995
+      ],
+      "worstOfThree": 381.66712499999994,
+      "coarseNearestRankP95": 381.66712499999994,
+      "coefficientOfVariation": 0.2910668937974782,
+      "spreadMs": 177.249417,
+      "repeatable": false
+    },
+    "edit-native-diff": {
+      "samples": [
+        69.3316249999998,
+        79.96070899999995,
+        64.08012499999995
+      ],
+      "worstOfThree": 79.96070899999995,
+      "coarseNearestRankP95": 79.96070899999995,
+      "coefficientOfVariation": 0.09287930896925398,
+      "spreadMs": 15.880583999999999,
+      "repeatable": true
+    },
+    "edit-calculation-update": {
+      "samples": [
+        0.16129200000023047,
+        0.3148750000000291,
+        0.20854099999996834
+      ],
+      "worstOfThree": 0.3148750000000291,
+      "coarseNearestRankP95": 0.3148750000000291,
+      "coefficientOfVariation": 0.28141047588997203,
+      "spreadMs": 0.15358299999979863,
+      "repeatable": true
+    },
+    "dirty-recalculate": {
+      "samples": [
+        0.1065840000001117,
+        0.08979099999987739,
+        0.06683399999974426
+      ],
+      "worstOfThree": 0.1065840000001117,
+      "coarseNearestRankP95": 0.1065840000001117,
+      "coefficientOfVariation": 0.1857015928676023,
+      "spreadMs": 0.039750000000367436,
+      "repeatable": true
+    },
+    "paste-event-admission": {
+      "samples": [
+        7.86829200000011,
+        6.562083000000257,
+        10.53729199999998
+      ],
+      "worstOfThree": 10.53729199999998,
+      "coarseNearestRankP95": 10.53729199999998,
+      "coefficientOfVariation": 0.19877974768476905,
+      "spreadMs": 3.9752089999997224,
+      "repeatable": true
+    },
+    "paste-native-projection": {
+      "samples": [
+        160.98900000000003,
+        230.117166,
+        159.9106670000001
+      ],
+      "worstOfThree": 230.117166,
+      "coarseNearestRankP95": 230.117166,
+      "coefficientOfVariation": 0.17882092124868829,
+      "spreadMs": 70.2064989999999,
+      "repeatable": true
+    },
+    "paste-native-diff": {
+      "samples": [
+        60.58412499999986,
+        81.25716599999987,
+        120.44941700000027
+      ],
+      "worstOfThree": 120.44941700000027,
+      "coarseNearestRankP95": 120.44941700000027,
+      "coefficientOfVariation": 0.2839594779875856,
+      "spreadMs": 59.86529200000041,
+      "repeatable": false
+    },
+    "paste-calculation-update": {
+      "samples": [
+        2.2735830000001442,
+        5.22695799999974,
+        2.2961669999999685
+      ],
+      "worstOfThree": 5.22695799999974,
+      "coarseNearestRankP95": 5.22695799999974,
+      "coefficientOfVariation": 0.4247167126745793,
+      "spreadMs": 2.953374999999596,
+      "repeatable": true
+    },
+    "paste-recalculate": {
+      "samples": [
+        1.1235000000001492,
+        1.8062079999999696,
+        2.47262499999988
+      ],
+      "worstOfThree": 2.47262499999988,
+      "coarseNearestRankP95": 2.47262499999988,
+      "coefficientOfVariation": 0.30586305563675764,
+      "spreadMs": 1.3491249999997308,
+      "repeatable": true
+    }
+  },
+  "nonrepeatablePhases": [
+    "edit-native-projection",
+    "paste-native-diff"
+  ],
+  "memory": {
+    "samplesBytes": [
+      336936960,
+      315965440,
+      348602368
+    ],
+    "targetBytes": 536870912,
+    "targetMet": true
+  },
+  "workload": "3fresh real native Core/Formula processes, all invariants pass; no guard/time failure",
+  "formulaWork": {
+    "dirtyChangedCells": 1,
+    "dirtyEvaluatedFormulas": 1,
+    "pasteChangedCells": 1000,
+    "pasteEvaluatedFormulas": 250,
+    "source": "actual engine cumulative statistics deltas in all3samples"
+  },
+  "diagnosis": {
+    "measured": "One-cell projection204.4\u2013381.7ms plus diff64.1\u201380.0ms dominates; admission0.138\u20130.260ms and dirty recalculation0.067\u20130.107ms are small",
+    "boundary": "Measured decomposition; no unmeasured algorithmic attribution. E source owner must assess next repair scope."
+  },
+  "qualification": {
+    "allPhasesRepeatable": false,
+    "ambient": "Raw load/memory/swap preserved; loaded host reference; no absolute idle requirement",
+    "percentile": "Coarse nearest-rank p95 of3samples, not population tail",
+    "noRerun": true,
+    "uiCapacity": "NOT VERIFIED",
+    "m0": "OPEN"
+  },
+  "findingId": "526/core-edit-total-v1"
+}

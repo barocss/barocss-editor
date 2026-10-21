@@ -1,0 +1,1687 @@
+{
+  "runId": "2026-10-21T16-05-01-114Z",
+  "modelLease": {
+    "scope": "office-v2-m0/phase-c-frozen-v1.1-candidate-profile",
+    "owner": "Execute Verification #526",
+    "owner_thread": "01a15eca-e1d3-7910-9aa1-d590162dbf18",
+    "status": "granted",
+    "granted_utc": "2026-10-21T16:01:36.564976+00:00",
+    "deadline_utc": "2026-10-21T16:16:36.564976+00:00",
+    "source_head": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+    "source_tree": "300251a4c121e39c4df43690108669035adda08f",
+    "source_root": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor",
+    "frozen_budget": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+    "reference_scope": "Named recorded loaded workstation; noabsoluteidle/loadcap;actualfont/browser/source/pressurebindings",
+    "qualification": "candidate observations only; rootpreflight pending; no localdevelop/productacceptance",
+    "serialization": "Verification sole expensiveM0producer:WordthenheadlessCore sequential. Integration holds rootpreflight until completion/deadline. Independent lightcode/docs continue. No all-authorACKhold.",
+    "sample_method": "3freshseqrawsamples;CV<=.25 OR spread<=10ms;allraw/worstof3/coarsep95;normalcold,no diagnosticforce/methodpatch",
+    "guards": "Word45ssample/10scold/15sprint/2GiBownedPIDtree;model45schild/768MiBheap;frozenproducttargetsseparate",
+    "failure_rule": "Firstresource/timeguardfailure stops identical heavy repeats and reports concreteowner+partialraw. Do notdiscardfailuresorinflatebudgets. Cleanonlyownedresources;no unrelatedstop.",
+    "current_loadavg": [
+      167.3212890625,
+      89.1630859375,
+      69.984375
+    ],
+    "swapusage": "vm.swapusage: total = 17408.00M  used = 16986.19M  free = 421.81M  (encrypted)",
+    "checks_before_candidate_observation": {
+      "View": "596PASS/3legacySKIP",
+      "renderer": "810PASS/4legacySKIP",
+      "Wordunit": "99PASS",
+      "Canvasconnector": "192PASS",
+      "M0native": "111/111strict0 atcurrentcandidate",
+      "Slides": "21PASS/5f4baselineFAIL/17NOTRUN+2suiteerrors;notallgreen",
+      "root_preflight": "PLANNEDAFTERWINDOW,notwaived"
+    },
+    "no_dependency_install": true,
+    "kind": "performance-model-candidate-v1.1",
+    "model_profile": {
+      "rows": 10000,
+      "columns": 100,
+      "populated": 50000,
+      "formulas": 10000
+    },
+    "not_claimed": "Notprovider/Canvas/UIcapacity;separatefromWord/sharedView"
+  },
+  "budget": {
+    "schema": "office-v2-m0/reference-budget-v1.1",
+    "status": "FROZEN before fixed E/W measured baseline; no current result PASS",
+    "reference": "Apple M3 Max14logical/36GiB, Darwin24.6, Node22.22, Chromium145.0.7632.6, desktop1280x900,DPR1",
+    "measurementQuality": {
+      "exactSourcePin": true,
+      "actualFontFaceVersionHash": true,
+      "successfulFreshBrowserSamplesPerWordProfile": 3,
+      "maximumPhaseCoefficientOfVariation": 0.25,
+      "absoluteIdleMachineRequired": false,
+      "ambientConditions": "record load/memory and actual swap-in/out before and after each sample; qualify recorded loaded reference, never silently suppress resource pressure",
+      "resourceGuard": "2GiB aggregate owned browser RSS,15sprint/10sopen phase guards,45ssample wall cap; first guard failure stops remaining heavy samples",
+      "coarsePercentile": "Three observations: report worst-of-three/nearest-rank p95, not population tail",
+      "repeatability": "For each phase3fresh sequential samples: CV<=0.25 OR max-min<=10ms",
+      "absoluteSpreadNoiseFloorMs": 10,
+      "printNodeInventory": "Native CDP DOM node counter delta before/after build, avoiding millions of JS wrappers during print readout; source element/text counts separately recorded"
+    },
+    "wordTargets": [
+      {
+        "phase": "normal-native-cold-open-to-stable-pages",
+        "pages100P95ms": 1000,
+        "pages300P95ms": 3000
+      },
+      {
+        "phase": "full-native-view-layout-completion-plus3stableframes",
+        "pages100P95ms": 250,
+        "pages300P95ms": 750,
+        "observer": "Read-only W private completion flags bound to exact source; never repaint workaround or paint inference"
+      },
+      {
+        "phase": "actual-print-DOM-build",
+        "pages100P95ms": 1000,
+        "pages300P95ms": 3000
+      },
+      {
+        "phase": "peak-owned-browser-aggregate-RSS",
+        "pages100Bytes": 536870912,
+        "pages300Bytes": 1073741824
+      },
+      {
+        "phase": "printed-DOM-node-growth-300-vs-100",
+        "maximumRatio": 3.5,
+        "intent": "3x source content should not create9x printed content"
+      }
+    ],
+    "sheetModelTargets": [
+      {
+        "phase": "cold-native-projection",
+        "p95ms": 1000
+      },
+      {
+        "phase": "full-native-diff",
+        "p95ms": 250
+      },
+      {
+        "phase": "initial-formula-calculation",
+        "p95ms": 250
+      },
+      {
+        "phase": "dirty-formula-calculation",
+        "p95ms": 16
+      },
+      {
+        "phase": "range-paste-native-projection-plus-diff",
+        "p95ms": 1000
+      },
+      {
+        "phase": "peak-child-RSS",
+        "bytes": 536870912
+      },
+      {
+        "phase": "cold-TOTAL-construction-admission-projection-calculation",
+        "p95ms": 2000
+      },
+      {
+        "phase": "one-cell-TOTAL-admission-projection-diff-calculation",
+        "p95ms": 200
+      },
+      {
+        "phase": "paste1000-TOTAL-admission-projection-diff-calculation",
+        "p95ms": 500
+      }
+    ],
+    "excludedClaims": [
+      "No benchmark result is recorded in this proposal",
+      "Targets do not increase to fit a later failure",
+      "Full native lifecycle completion is distinct from browser paint; source-bound completion observer required",
+      "No physicalIME/Canvas/scroll/keystroke-to-paint claim",
+      "PDF/spool/paper fidelity remains separate",
+      "No fullSheetprovider/UI capacity from a model workload"
+    ],
+    "authority": "Planner M0 authority, direct message2026-10-22Asia/Seoul, parent#521",
+    "version": "1.1",
+    "frozenRecordedUtc": "2026-10-21T15:35:40.382890+00:00",
+    "sourceBeforeMeasurement": "WordW522b25bd + CoreE9e823ba3 + VerificationDccdaf138, exact Integration join pending",
+    "supersededDraft": "Integration looser draft values are NOT adopted. v1 phase gates retained; v1.1 total gates added before measurements."
+  },
+  "schema": "office-v2-m0/sheet-scale-v2",
+  "profile": {
+    "rows": 10000,
+    "columns": 100,
+    "populatedCells": 50000,
+    "formulaCells": 10000,
+    "sheetCount": 2
+  },
+  "environment": {
+    "node": "v22.22.0",
+    "platform": "darwin",
+    "release": "24.6.0",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytesAtStart": 385925120,
+    "capturedUtc": "2026-10-21T16:05:01.209Z"
+  },
+  "source": {
+    "head": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+    "tree": "300251a4c121e39c4df43690108669035adda08f",
+    "dirty": "?? experiments/office-suite-v2/verification/reports/word-candidate-assessment-v1.json\n?? experiments/office-suite-v2/verification/reports/word-performance-2026-10-21T16-01-52-773Z/",
+    "files": [
+      {
+        "path": "experiments/office-suite-v2/src/contracts.ts",
+        "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/workbook.ts",
+        "sha256": "31991b7d3b80c3985a433ec0dd4de06e19725bdd846ee20bdcca1f10f97b7d96"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/sheet-scale.mjs",
+        "sha256": "d8f18546ae3771d9b770c1c1a93232da710b5db0de3e276e75cc65a56e2f52d2"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/profiles.ts",
+        "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/performance-guards.ts",
+        "sha256": "5ae0528f30e146e8b21c498d3628e4af3289ec8285c2af278e3a67472cf7eda5"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/metrics.ts",
+        "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+        "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/calculation.ts",
+        "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/formula.ts",
+        "sha256": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/references.ts",
+        "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393"
+      }
+    ]
+  },
+  "bounds": {
+    "perSampleTimeoutMs": 45000,
+    "maxOldSpaceMiB": 768,
+    "samples": 3
+  },
+  "samples": [
+    {
+      "sample": 0,
+      "environment": {
+        "node": "v22.22.0",
+        "platform": "darwin",
+        "release": "24.6.0",
+        "arch": "arm64",
+        "cpu": "Apple M3 Max",
+        "logicalCpus": 14,
+        "totalMemoryBytes": 38654705664,
+        "freeMemoryBytesAtStart": 408633344,
+        "capturedUtc": "2026-10-21T16:05:02.468Z"
+      },
+      "source": {
+        "head": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+        "tree": "300251a4c121e39c4df43690108669035adda08f",
+        "dirty": "?? experiments/office-suite-v2/verification/reports/word-candidate-assessment-v1.json\n?? experiments/office-suite-v2/verification/reports/word-performance-2026-10-21T16-01-52-773Z/",
+        "files": [
+          {
+            "path": "experiments/office-suite-v2/src/contracts.ts",
+            "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/workbook.ts",
+            "sha256": "31991b7d3b80c3985a433ec0dd4de06e19725bdd846ee20bdcca1f10f97b7d96"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/sheet-scale.mjs",
+            "sha256": "d8f18546ae3771d9b770c1c1a93232da710b5db0de3e276e75cc65a56e2f52d2"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/profiles.ts",
+            "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/performance-guards.ts",
+            "sha256": "5ae0528f30e146e8b21c498d3628e4af3289ec8285c2af278e3a67472cf7eda5"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/metrics.ts",
+            "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+            "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/calculation.ts",
+            "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/formula.ts",
+            "sha256": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/references.ts",
+            "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393"
+          }
+        ]
+      },
+      "phases": [
+        {
+          "name": "construct-native-events",
+          "elapsedMs": 920.1248330000001,
+          "memory": {
+            "rss": 207896576,
+            "heapTotal": 87982080,
+            "heapUsed": 52531184,
+            "external": 9201385,
+            "arrayBuffers": 24815
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "cold-native-projection",
+          "elapsedMs": 213.291334,
+          "memory": {
+            "rss": 260669440,
+            "heapTotal": 137478144,
+            "heapUsed": 117275528,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "register-calculation",
+          "elapsedMs": 74.96791600000006,
+          "memory": {
+            "rss": 274382848,
+            "heapTotal": 149340160,
+            "heapUsed": 106276520,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "initial-recalculate",
+          "elapsedMs": 53.98637499999995,
+          "memory": {
+            "rss": 275415040,
+            "heapTotal": 150503424,
+            "heapUsed": 117974344,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "edit-event-admission",
+          "elapsedMs": 0.25962499999968713,
+          "memory": {
+            "rss": 275415040,
+            "heapTotal": 150503424,
+            "heapUsed": 118028440,
+            "external": 9023919,
+            "arrayBuffers": 25225
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "edit-native-projection",
+          "elapsedMs": 226.6034169999998,
+          "memory": {
+            "rss": 290439168,
+            "heapTotal": 179437568,
+            "heapUsed": 149396424,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "edit-native-diff",
+          "elapsedMs": 69.3316249999998,
+          "memory": {
+            "rss": 271220736,
+            "heapTotal": 176898048,
+            "heapUsed": 134790680,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "edit-calculation-update",
+          "elapsedMs": 0.16129200000023047,
+          "memory": {
+            "rss": 271220736,
+            "heapTotal": 176898048,
+            "heapUsed": 134808816,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "dirty-recalculate",
+          "elapsedMs": 0.1065840000001117,
+          "memory": {
+            "rss": 271220736,
+            "heapTotal": 176898048,
+            "heapUsed": 134826416,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "paste-event-admission",
+          "elapsedMs": 7.86829200000011,
+          "memory": {
+            "rss": 271237120,
+            "heapTotal": 176898048,
+            "heapUsed": 146835000,
+            "external": 9118839,
+            "arrayBuffers": 120145
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "paste-native-projection",
+          "elapsedMs": 160.98900000000003,
+          "memory": {
+            "rss": 329105408,
+            "heapTotal": 237731840,
+            "heapUsed": 211590112,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "paste-native-diff",
+          "elapsedMs": 60.58412499999986,
+          "memory": {
+            "rss": 326238208,
+            "heapTotal": 234536960,
+            "heapUsed": 208187368,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "paste-calculation-update",
+          "elapsedMs": 2.2735830000001442,
+          "memory": {
+            "rss": 326270976,
+            "heapTotal": 234536960,
+            "heapUsed": 209007648,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        },
+        {
+          "name": "paste-recalculate",
+          "elapsedMs": 1.1235000000001492,
+          "memory": {
+            "rss": 326270976,
+            "heapTotal": 234536960,
+            "heapUsed": 209957592,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            123.92529296875,
+            94.8271484375,
+            75.60546875
+          ]
+        }
+      ],
+      "status": "PASS: bounded real model workload",
+      "population": {
+        "sheets": 2,
+        "rows": 10000,
+        "columns": 100,
+        "cells": 50000,
+        "formulas": 10000,
+        "events": 10152,
+        "revisionBytes": 12466063
+      },
+      "initialStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 0,
+        "evaluatedFormulas": 10000,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 40000
+      },
+      "dirtyStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 1,
+        "evaluatedFormulas": 10001,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 40004
+      },
+      "pasteStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 1001,
+        "evaluatedFormulas": 10251,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 41004
+      },
+      "totals": {
+        "coldConstructionProjectionCalculationMs": 1262.370458,
+        "oneCellAdmissionProjectionDiffCalculationMs": 296.46254299999964,
+        "paste1000AdmissionProjectionDiffCalculationMs": 232.8385000000003
+      },
+      "totalDefinition": "Sum of measured actual native work phases, excluding evidence serialization/population inventory; construction/admission costs included, never hidden in cache",
+      "processHighWaterRssBytes": 336936960,
+      "dirtyStatsDelta": {
+        "initialCellVisits": 0,
+        "changedCellVisits": 1,
+        "evaluatedFormulas": 1,
+        "dependencyEdges": 0,
+        "rangeCellsVisited": 4
+      },
+      "pasteStatsDelta": {
+        "initialCellVisits": 0,
+        "changedCellVisits": 1000,
+        "evaluatedFormulas": 250,
+        "dependencyEdges": 0,
+        "rangeCellsVisited": 1000
+      },
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T16:05:01.373Z",
+        "load": [
+          123.92529296875,
+          94.8271484375,
+          75.60546875
+        ],
+        "memoryFreePercent": 34,
+        "pageBytes": 16384,
+        "swapins": 6707987,
+        "swapouts": 9762578,
+        "swapusage": "vm.swapusage: total = 19456.00M  used = 18470.62M  free = 985.38M  (encrypted)"
+      },
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T16:05:04.376Z",
+        "load": [
+          123.92529296875,
+          94.8271484375,
+          75.60546875
+        ],
+        "memoryFreePercent": 35,
+        "pageBytes": 16384,
+        "swapins": 6708294,
+        "swapouts": 9762578,
+        "swapusage": "vm.swapusage: total = 19456.00M  used = 18470.62M  free = 985.38M  (encrypted)"
+      },
+      "swapInBytes": 5029888,
+      "swapOutBytes": 0,
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "stdout": "{\"sample\":0,\"status\":\"PASS: bounded real model workload\"}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "sample": 1,
+      "environment": {
+        "node": "v22.22.0",
+        "platform": "darwin",
+        "release": "24.6.0",
+        "arch": "arm64",
+        "cpu": "Apple M3 Max",
+        "logicalCpus": 14,
+        "totalMemoryBytes": 38654705664,
+        "freeMemoryBytesAtStart": 399360000,
+        "capturedUtc": "2026-10-21T16:05:05.545Z"
+      },
+      "source": {
+        "head": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+        "tree": "300251a4c121e39c4df43690108669035adda08f",
+        "dirty": "?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-0.json\n?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-summary.json\n?? experiments/office-suite-v2/verification/reports/word-candidate-assessment-v1.json\n?? experiments/office-suite-v2/verification/reports/word-performance-2026-10-21T16-01-52-773Z/",
+        "files": [
+          {
+            "path": "experiments/office-suite-v2/src/contracts.ts",
+            "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/workbook.ts",
+            "sha256": "31991b7d3b80c3985a433ec0dd4de06e19725bdd846ee20bdcca1f10f97b7d96"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/sheet-scale.mjs",
+            "sha256": "d8f18546ae3771d9b770c1c1a93232da710b5db0de3e276e75cc65a56e2f52d2"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/profiles.ts",
+            "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/performance-guards.ts",
+            "sha256": "5ae0528f30e146e8b21c498d3628e4af3289ec8285c2af278e3a67472cf7eda5"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/metrics.ts",
+            "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+            "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/calculation.ts",
+            "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/formula.ts",
+            "sha256": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/references.ts",
+            "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393"
+          }
+        ]
+      },
+      "phases": [
+        {
+          "name": "construct-native-events",
+          "elapsedMs": 1124.6318749999998,
+          "memory": {
+            "rss": 202522624,
+            "heapTotal": 88834048,
+            "heapUsed": 56656856,
+            "external": 9201385,
+            "arrayBuffers": 202731
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "cold-native-projection",
+          "elapsedMs": 227.16620899999998,
+          "memory": {
+            "rss": 245710848,
+            "heapTotal": 128729088,
+            "heapUsed": 96305512,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "register-calculation",
+          "elapsedMs": 102.72916699999996,
+          "memory": {
+            "rss": 271106048,
+            "heapTotal": 154992640,
+            "heapUsed": 124144608,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "initial-recalculate",
+          "elapsedMs": 85.22529200000008,
+          "memory": {
+            "rss": 278626304,
+            "heapTotal": 161660928,
+            "heapUsed": 135570488,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "edit-event-admission",
+          "elapsedMs": 0.13758400000006077,
+          "memory": {
+            "rss": 278626304,
+            "heapTotal": 161660928,
+            "heapUsed": 135625656,
+            "external": 9023919,
+            "arrayBuffers": 25225
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "edit-native-projection",
+          "elapsedMs": 381.66712499999994,
+          "memory": {
+            "rss": 258981888,
+            "heapTotal": 195133440,
+            "heapUsed": 159872424,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "edit-native-diff",
+          "elapsedMs": 79.96070899999995,
+          "memory": {
+            "rss": 249806848,
+            "heapTotal": 192086016,
+            "heapUsed": 145651368,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "edit-calculation-update",
+          "elapsedMs": 0.3148750000000291,
+          "memory": {
+            "rss": 249708544,
+            "heapTotal": 192086016,
+            "heapUsed": 145669912,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "dirty-recalculate",
+          "elapsedMs": 0.08979099999987739,
+          "memory": {
+            "rss": 249708544,
+            "heapTotal": 192086016,
+            "heapUsed": 145687912,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "paste-event-admission",
+          "elapsedMs": 6.562083000000257,
+          "memory": {
+            "rss": 250003456,
+            "heapTotal": 192086016,
+            "heapUsed": 157633600,
+            "external": 9118839,
+            "arrayBuffers": 120145
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "paste-native-projection",
+          "elapsedMs": 230.117166,
+          "memory": {
+            "rss": 299794432,
+            "heapTotal": 208584704,
+            "heapUsed": 168022184,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "paste-native-diff",
+          "elapsedMs": 81.25716599999987,
+          "memory": {
+            "rss": 300433408,
+            "heapTotal": 209387520,
+            "heapUsed": 169670880,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "paste-calculation-update",
+          "elapsedMs": 5.22695799999974,
+          "memory": {
+            "rss": 300433408,
+            "heapTotal": 209387520,
+            "heapUsed": 170525176,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "paste-recalculate",
+          "elapsedMs": 1.8062079999999696,
+          "memory": {
+            "rss": 300433408,
+            "heapTotal": 209387520,
+            "heapUsed": 171475264,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        }
+      ],
+      "status": "PASS: bounded real model workload",
+      "population": {
+        "sheets": 2,
+        "rows": 10000,
+        "columns": 100,
+        "cells": 50000,
+        "formulas": 10000,
+        "events": 10152,
+        "revisionBytes": 12466063
+      },
+      "initialStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 0,
+        "evaluatedFormulas": 10000,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 40000
+      },
+      "dirtyStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 1,
+        "evaluatedFormulas": 10001,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 40004
+      },
+      "pasteStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 1001,
+        "evaluatedFormulas": 10251,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 41004
+      },
+      "totals": {
+        "coldConstructionProjectionCalculationMs": 1539.7525429999998,
+        "oneCellAdmissionProjectionDiffCalculationMs": 462.17008399999986,
+        "paste1000AdmissionProjectionDiffCalculationMs": 324.96958099999983
+      },
+      "totalDefinition": "Sum of measured actual native work phases, excluding evidence serialization/population inventory; construction/admission costs included, never hidden in cache",
+      "processHighWaterRssBytes": 315965440,
+      "dirtyStatsDelta": {
+        "initialCellVisits": 0,
+        "changedCellVisits": 1,
+        "evaluatedFormulas": 1,
+        "dependencyEdges": 0,
+        "rangeCellsVisited": 4
+      },
+      "pasteStatsDelta": {
+        "initialCellVisits": 0,
+        "changedCellVisits": 1000,
+        "evaluatedFormulas": 250,
+        "dependencyEdges": 0,
+        "rangeCellsVisited": 1000
+      },
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T16:05:04.439Z",
+        "load": [
+          123.92529296875,
+          94.8271484375,
+          75.60546875
+        ],
+        "memoryFreePercent": 36,
+        "pageBytes": 16384,
+        "swapins": 6708298,
+        "swapouts": 9762578,
+        "swapusage": "vm.swapusage: total = 19456.00M  used = 18470.62M  free = 985.38M  (encrypted)"
+      },
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T16:05:08.184Z",
+        "load": [
+          118.40576171875,
+          94.16552734375,
+          75.484375
+        ],
+        "memoryFreePercent": 34,
+        "pageBytes": 16384,
+        "swapins": 6709922,
+        "swapouts": 9762578,
+        "swapusage": "vm.swapusage: total = 19456.00M  used = 18446.62M  free = 1009.38M  (encrypted)"
+      },
+      "swapInBytes": 26607616,
+      "swapOutBytes": 0,
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "stdout": "{\"sample\":1,\"status\":\"PASS: bounded real model workload\"}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "sample": 2,
+      "environment": {
+        "node": "v22.22.0",
+        "platform": "darwin",
+        "release": "24.6.0",
+        "arch": "arm64",
+        "cpu": "Apple M3 Max",
+        "logicalCpus": 14,
+        "totalMemoryBytes": 38654705664,
+        "freeMemoryBytesAtStart": 340754432,
+        "capturedUtc": "2026-10-21T16:05:08.807Z"
+      },
+      "source": {
+        "head": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+        "tree": "300251a4c121e39c4df43690108669035adda08f",
+        "dirty": "?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-0.json\n?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-1.json\n?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-summary.json\n?? experiments/office-suite-v2/verification/reports/word-candidate-assessment-v1.json\n?? experiments/office-suite-v2/verification/reports/word-performance-2026-10-21T16-01-52-773Z/",
+        "files": [
+          {
+            "path": "experiments/office-suite-v2/src/contracts.ts",
+            "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/workbook.ts",
+            "sha256": "31991b7d3b80c3985a433ec0dd4de06e19725bdd846ee20bdcca1f10f97b7d96"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/sheet-scale.mjs",
+            "sha256": "d8f18546ae3771d9b770c1c1a93232da710b5db0de3e276e75cc65a56e2f52d2"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/profiles.ts",
+            "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/performance-guards.ts",
+            "sha256": "5ae0528f30e146e8b21c498d3628e4af3289ec8285c2af278e3a67472cf7eda5"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/metrics.ts",
+            "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+          },
+          {
+            "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+            "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/calculation.ts",
+            "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/formula.ts",
+            "sha256": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64"
+          },
+          {
+            "path": "experiments/office-suite-v2/src/references.ts",
+            "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393"
+          }
+        ]
+      },
+      "phases": [
+        {
+          "name": "construct-native-events",
+          "elapsedMs": 981.810958,
+          "memory": {
+            "rss": 203784192,
+            "heapTotal": 88309760,
+            "heapUsed": 57029608,
+            "external": 9201385,
+            "arrayBuffers": 202731
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "cold-native-projection",
+          "elapsedMs": 247.64329199999997,
+          "memory": {
+            "rss": 248872960,
+            "heapTotal": 130039808,
+            "heapUsed": 96431008,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "register-calculation",
+          "elapsedMs": 68.26295800000003,
+          "memory": {
+            "rss": 276578304,
+            "heapTotal": 156827648,
+            "heapUsed": 124811176,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "initial-recalculate",
+          "elapsedMs": 57.316749999999956,
+          "memory": {
+            "rss": 283262976,
+            "heapTotal": 163233792,
+            "heapUsed": 135698376,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "edit-event-admission",
+          "elapsedMs": 0.14599999999995816,
+          "memory": {
+            "rss": 283279360,
+            "heapTotal": 163233792,
+            "heapUsed": 135753344,
+            "external": 9023919,
+            "arrayBuffers": 25225
+          },
+          "loadAverage": [
+            118.40576171875,
+            94.16552734375,
+            75.484375
+          ]
+        },
+        {
+          "name": "edit-native-projection",
+          "elapsedMs": 204.41770799999995,
+          "memory": {
+            "rss": 316719104,
+            "heapTotal": 194134016,
+            "heapUsed": 145006120,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "edit-native-diff",
+          "elapsedMs": 64.08012499999995,
+          "memory": {
+            "rss": 301989888,
+            "heapTotal": 194019328,
+            "heapUsed": 150943488,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "edit-calculation-update",
+          "elapsedMs": 0.20854099999996834,
+          "memory": {
+            "rss": 301989888,
+            "heapTotal": 194019328,
+            "heapUsed": 150962216,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "dirty-recalculate",
+          "elapsedMs": 0.06683399999974426,
+          "memory": {
+            "rss": 301989888,
+            "heapTotal": 194019328,
+            "heapUsed": 150980408,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "paste-event-admission",
+          "elapsedMs": 10.53729199999998,
+          "memory": {
+            "rss": 302039040,
+            "heapTotal": 194019328,
+            "heapUsed": 146796616,
+            "external": 9118839,
+            "arrayBuffers": 120145
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "paste-native-projection",
+          "elapsedMs": 159.9106670000001,
+          "memory": {
+            "rss": 341639168,
+            "heapTotal": 238829568,
+            "heapUsed": 201195872,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "paste-native-diff",
+          "elapsedMs": 120.44941700000027,
+          "memory": {
+            "rss": 327778304,
+            "heapTotal": 204849152,
+            "heapUsed": 150822256,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "paste-calculation-update",
+          "elapsedMs": 2.2961669999999685,
+          "memory": {
+            "rss": 327778304,
+            "heapTotal": 204849152,
+            "heapUsed": 151675056,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        },
+        {
+          "name": "paste-recalculate",
+          "elapsedMs": 2.47262499999988,
+          "memory": {
+            "rss": 327778304,
+            "heapTotal": 204849152,
+            "heapUsed": 152625304,
+            "external": 9023533,
+            "arrayBuffers": 24839
+          },
+          "loadAverage": [
+            113.16796875,
+            93.48193359375,
+            75.3525390625
+          ]
+        }
+      ],
+      "status": "PASS: bounded real model workload",
+      "population": {
+        "sheets": 2,
+        "rows": 10000,
+        "columns": 100,
+        "cells": 50000,
+        "formulas": 10000,
+        "events": 10152,
+        "revisionBytes": 12466063
+      },
+      "initialStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 0,
+        "evaluatedFormulas": 10000,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 40000
+      },
+      "dirtyStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 1,
+        "evaluatedFormulas": 10001,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 40004
+      },
+      "pasteStats": {
+        "initialCellVisits": 50000,
+        "changedCellVisits": 1001,
+        "evaluatedFormulas": 10251,
+        "dependencyEdges": 40000,
+        "rangeCellsVisited": 41004
+      },
+      "totals": {
+        "coldConstructionProjectionCalculationMs": 1355.033958,
+        "oneCellAdmissionProjectionDiffCalculationMs": 268.91920799999957,
+        "paste1000AdmissionProjectionDiffCalculationMs": 295.6661680000002
+      },
+      "totalDefinition": "Sum of measured actual native work phases, excluding evidence serialization/population inventory; construction/admission costs included, never hidden in cache",
+      "processHighWaterRssBytes": 348602368,
+      "dirtyStatsDelta": {
+        "initialCellVisits": 0,
+        "changedCellVisits": 1,
+        "evaluatedFormulas": 1,
+        "dependencyEdges": 0,
+        "rangeCellsVisited": 4
+      },
+      "pasteStatsDelta": {
+        "initialCellVisits": 0,
+        "changedCellVisits": 1000,
+        "evaluatedFormulas": 250,
+        "dependencyEdges": 0,
+        "rangeCellsVisited": 1000
+      },
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T16:05:08.237Z",
+        "load": [
+          118.40576171875,
+          94.16552734375,
+          75.484375
+        ],
+        "memoryFreePercent": 34,
+        "pageBytes": 16384,
+        "swapins": 6709922,
+        "swapouts": 9762578,
+        "swapusage": "vm.swapusage: total = 19456.00M  used = 18446.62M  free = 1009.38M  (encrypted)"
+      },
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T16:05:11.050Z",
+        "load": [
+          113.16796875,
+          93.48193359375,
+          75.3525390625
+        ],
+        "memoryFreePercent": 36,
+        "pageBytes": 16384,
+        "swapins": 6710002,
+        "swapouts": 9762578,
+        "swapusage": "vm.swapusage: total = 19456.00M  used = 18446.62M  free = 1009.38M  (encrypted)"
+      },
+      "swapInBytes": 1310720,
+      "swapOutBytes": 0,
+      "process": {
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "stdout": "{\"sample\":2,\"status\":\"PASS: bounded real model workload\"}\n",
+        "stderr": ""
+      }
+    }
+  ],
+  "status": "PASS: observational headless workload only",
+  "limitations": [
+    "Headless model/calculation only: no Canvas, scroll, keystroke-to-paint or physical IME.",
+    "Frozen v1.1 engineering targets are separate from measured results; ambient before/after contention must be recorded, no clean-machine/interactive capacity claim.",
+    "Main sheet has10000rows/100columns; second sheet is empty.50k populated include10k formulas.",
+    "Formula AST fixtures use the actual frozen native SUM/range contract, not a second parser/evaluator."
+  ],
+  "totalPercentiles": [
+    {
+      "name": "coldConstructionProjectionCalculationMs",
+      "ms": {
+        "count": 3,
+        "min": 1262.370458,
+        "p50": 1355.033958,
+        "p95": 1539.7525429999998,
+        "p99": 1539.7525429999998,
+        "max": 1539.7525429999998,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "name": "oneCellAdmissionProjectionDiffCalculationMs",
+      "ms": {
+        "count": 3,
+        "min": 268.91920799999957,
+        "p50": 296.46254299999964,
+        "p95": 462.17008399999986,
+        "p99": 462.17008399999986,
+        "max": 462.17008399999986,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "name": "paste1000AdmissionProjectionDiffCalculationMs",
+      "ms": {
+        "count": 3,
+        "min": 232.8385000000003,
+        "p50": 295.6661680000002,
+        "p95": 324.96958099999983,
+        "p99": 324.96958099999983,
+        "max": 324.96958099999983,
+        "method": "nearest-rank"
+      }
+    }
+  ],
+  "processHighWaterRssBytes": {
+    "count": 3,
+    "min": 315965440,
+    "p50": 336936960,
+    "p95": 348602368,
+    "p99": 348602368,
+    "max": 348602368,
+    "method": "nearest-rank"
+  },
+  "percentiles": [
+    {
+      "phase": "construct-native-events",
+      "elapsedMs": {
+        "count": 3,
+        "min": 920.1248330000001,
+        "p50": 981.810958,
+        "p95": 1124.6318749999998,
+        "p99": 1124.6318749999998,
+        "max": 1124.6318749999998,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 202522624,
+        "p50": 203784192,
+        "p95": 207896576,
+        "p99": 207896576,
+        "max": 207896576,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "cold-native-projection",
+      "elapsedMs": {
+        "count": 3,
+        "min": 213.291334,
+        "p50": 227.16620899999998,
+        "p95": 247.64329199999997,
+        "p99": 247.64329199999997,
+        "max": 247.64329199999997,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 245710848,
+        "p50": 248872960,
+        "p95": 260669440,
+        "p99": 260669440,
+        "max": 260669440,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "register-calculation",
+      "elapsedMs": {
+        "count": 3,
+        "min": 68.26295800000003,
+        "p50": 74.96791600000006,
+        "p95": 102.72916699999996,
+        "p99": 102.72916699999996,
+        "max": 102.72916699999996,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 271106048,
+        "p50": 274382848,
+        "p95": 276578304,
+        "p99": 276578304,
+        "max": 276578304,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "initial-recalculate",
+      "elapsedMs": {
+        "count": 3,
+        "min": 53.98637499999995,
+        "p50": 57.316749999999956,
+        "p95": 85.22529200000008,
+        "p99": 85.22529200000008,
+        "max": 85.22529200000008,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 275415040,
+        "p50": 278626304,
+        "p95": 283262976,
+        "p99": 283262976,
+        "max": 283262976,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "edit-event-admission",
+      "elapsedMs": {
+        "count": 3,
+        "min": 0.13758400000006077,
+        "p50": 0.14599999999995816,
+        "p95": 0.25962499999968713,
+        "p99": 0.25962499999968713,
+        "max": 0.25962499999968713,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 275415040,
+        "p50": 278626304,
+        "p95": 283279360,
+        "p99": 283279360,
+        "max": 283279360,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "edit-native-projection",
+      "elapsedMs": {
+        "count": 3,
+        "min": 204.41770799999995,
+        "p50": 226.6034169999998,
+        "p95": 381.66712499999994,
+        "p99": 381.66712499999994,
+        "max": 381.66712499999994,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 258981888,
+        "p50": 290439168,
+        "p95": 316719104,
+        "p99": 316719104,
+        "max": 316719104,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "edit-native-diff",
+      "elapsedMs": {
+        "count": 3,
+        "min": 64.08012499999995,
+        "p50": 69.3316249999998,
+        "p95": 79.96070899999995,
+        "p99": 79.96070899999995,
+        "max": 79.96070899999995,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 249806848,
+        "p50": 271220736,
+        "p95": 301989888,
+        "p99": 301989888,
+        "max": 301989888,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "edit-calculation-update",
+      "elapsedMs": {
+        "count": 3,
+        "min": 0.16129200000023047,
+        "p50": 0.20854099999996834,
+        "p95": 0.3148750000000291,
+        "p99": 0.3148750000000291,
+        "max": 0.3148750000000291,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 249708544,
+        "p50": 271220736,
+        "p95": 301989888,
+        "p99": 301989888,
+        "max": 301989888,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "dirty-recalculate",
+      "elapsedMs": {
+        "count": 3,
+        "min": 0.06683399999974426,
+        "p50": 0.08979099999987739,
+        "p95": 0.1065840000001117,
+        "p99": 0.1065840000001117,
+        "max": 0.1065840000001117,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 249708544,
+        "p50": 271220736,
+        "p95": 301989888,
+        "p99": 301989888,
+        "max": 301989888,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "paste-event-admission",
+      "elapsedMs": {
+        "count": 3,
+        "min": 6.562083000000257,
+        "p50": 7.86829200000011,
+        "p95": 10.53729199999998,
+        "p99": 10.53729199999998,
+        "max": 10.53729199999998,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 250003456,
+        "p50": 271237120,
+        "p95": 302039040,
+        "p99": 302039040,
+        "max": 302039040,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "paste-native-projection",
+      "elapsedMs": {
+        "count": 3,
+        "min": 159.9106670000001,
+        "p50": 160.98900000000003,
+        "p95": 230.117166,
+        "p99": 230.117166,
+        "max": 230.117166,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 299794432,
+        "p50": 329105408,
+        "p95": 341639168,
+        "p99": 341639168,
+        "max": 341639168,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "paste-native-diff",
+      "elapsedMs": {
+        "count": 3,
+        "min": 60.58412499999986,
+        "p50": 81.25716599999987,
+        "p95": 120.44941700000027,
+        "p99": 120.44941700000027,
+        "max": 120.44941700000027,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 300433408,
+        "p50": 326238208,
+        "p95": 327778304,
+        "p99": 327778304,
+        "max": 327778304,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "paste-calculation-update",
+      "elapsedMs": {
+        "count": 3,
+        "min": 2.2735830000001442,
+        "p50": 2.2961669999999685,
+        "p95": 5.22695799999974,
+        "p99": 5.22695799999974,
+        "max": 5.22695799999974,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 300433408,
+        "p50": 326270976,
+        "p95": 327778304,
+        "p99": 327778304,
+        "max": 327778304,
+        "method": "nearest-rank"
+      }
+    },
+    {
+      "phase": "paste-recalculate",
+      "elapsedMs": {
+        "count": 3,
+        "min": 1.1235000000001492,
+        "p50": 1.8062079999999696,
+        "p95": 2.47262499999988,
+        "p99": 2.47262499999988,
+        "max": 2.47262499999988,
+        "method": "nearest-rank"
+      },
+      "rssBytes": {
+        "count": 3,
+        "min": 300433408,
+        "p50": 326270976,
+        "p95": 327778304,
+        "p99": 327778304,
+        "max": 327778304,
+        "method": "nearest-rank"
+      }
+    }
+  ]
+}

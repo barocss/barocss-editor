@@ -1,0 +1,59 @@
+{
+  "schema": "office-v2-m0/phase-c-current-criteria-v1",
+  "capturedUtc": "2026-10-21T16:06:50.734178+00:00",
+  "sourceHead": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+  "historicalCriteria": "reports/criteria.json",
+  "historicalRule": "Original pre-Phase-C criteria and raw files remain historical; the following replaces only the named current states. Other original requirements remain unchanged.",
+  "criteria": [
+    {
+      "criterion": "word-normal100-layout",
+      "status": "PASS bounded normal runtime",
+      "boundary": "3fresh normal100page samples, correct800paragraph/root/surface/pages, no forced cold render or method patches",
+      "evidence": "reports/word-candidate-assessment-v1.json"
+    },
+    {
+      "criterion": "word-normal300-layout",
+      "status": "PARTIAL",
+      "boundary": "First fresh sample produced300pages/2400paragraphs; print resource guard stopped sample and remaining2samples. Not full300performance qualification.",
+      "evidence": "reports/word-candidate-assessment-v1.json"
+    },
+    {
+      "criterion": "actual-font-face-version-hash",
+      "status": "PASS bounded attempted samples",
+      "boundary": "All4attempts CDP glyph faces match exact CoreText PostScript name/version/filehash; no font redistribution",
+      "evidence": "reports/word-performance-2026-10-21T16-01-52-773Z/report.json"
+    },
+    {
+      "criterion": "frozen-performance-budget-record",
+      "status": "PASS frozen before data",
+      "boundary": "One Planner v1.1 target record; no numeric values changed after observation",
+      "evidence": "reports/reference-budget-v1.1.json"
+    },
+    {
+      "criterion": "word-memory-print-growth",
+      "status": "FAIL / incomplete growth observation",
+      "boundary": "100RSS target missed;300firstsample exceeded2GiBguard; actual300postprint nodecount absent, no measured ratio. Production wholeclone amplification confirmed.",
+      "evidence": "reports/word-candidate-assessment-v1.json"
+    },
+    {
+      "criterion": "sheet-model-profile-functional",
+      "status": "PASS bounded headless workload",
+      "boundary": "3fresh actualCore/Formula children; exact10000x100/50000populated/10000formulas; no provider/Canvas/UI capacity claim",
+      "evidence": "reports/sheet-scale-2026-10-21T16-05-01-114Z-summary.json"
+    },
+    {
+      "criterion": "sheet-frozen-performance-gates",
+      "status": "FAIL",
+      "boundary": "OnecellTOTAL200ms missed all3samples; editprojection/pastediff perphase repeatability not met. Cold/pasteTOTAL and other original phase targets/RSS met.",
+      "evidence": "reports/sheet-candidate-assessment-v1.json"
+    },
+    {
+      "criterion": "M0-whole-acceptance",
+      "status": "OPEN",
+      "boundary": "Wordprintresource andCoreedittotal remain; rootqualification pending Integration; fullproduct/authenticatedM1/M2 separate",
+      "evidence": null
+    }
+  ],
+  "noHeavyRepeat": true,
+  "noProductionEdits": true
+}

@@ -1,0 +1,339 @@
+{
+  "sample": 2,
+  "environment": {
+    "node": "v22.22.0",
+    "platform": "darwin",
+    "release": "24.6.0",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytesAtStart": 340754432,
+    "capturedUtc": "2026-10-21T16:05:08.807Z"
+  },
+  "source": {
+    "head": "7d902bc69bf98b0dc6aaf681a24d34c7066703a1",
+    "tree": "300251a4c121e39c4df43690108669035adda08f",
+    "dirty": "?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-0.json\n?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-1.json\n?? experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T16-05-01-114Z-summary.json\n?? experiments/office-suite-v2/verification/reports/word-candidate-assessment-v1.json\n?? experiments/office-suite-v2/verification/reports/word-performance-2026-10-21T16-01-52-773Z/",
+    "files": [
+      {
+        "path": "experiments/office-suite-v2/src/contracts.ts",
+        "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/workbook.ts",
+        "sha256": "31991b7d3b80c3985a433ec0dd4de06e19725bdd846ee20bdcca1f10f97b7d96"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/sheet-scale.mjs",
+        "sha256": "d8f18546ae3771d9b770c1c1a93232da710b5db0de3e276e75cc65a56e2f52d2"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/profiles.ts",
+        "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/performance-guards.ts",
+        "sha256": "5ae0528f30e146e8b21c498d3628e4af3289ec8285c2af278e3a67472cf7eda5"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/metrics.ts",
+        "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+      },
+      {
+        "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+        "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/calculation.ts",
+        "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/formula.ts",
+        "sha256": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64"
+      },
+      {
+        "path": "experiments/office-suite-v2/src/references.ts",
+        "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393"
+      }
+    ]
+  },
+  "phases": [
+    {
+      "name": "construct-native-events",
+      "elapsedMs": 981.810958,
+      "memory": {
+        "rss": 203784192,
+        "heapTotal": 88309760,
+        "heapUsed": 57029608,
+        "external": 9201385,
+        "arrayBuffers": 202731
+      },
+      "loadAverage": [
+        118.40576171875,
+        94.16552734375,
+        75.484375
+      ]
+    },
+    {
+      "name": "cold-native-projection",
+      "elapsedMs": 247.64329199999997,
+      "memory": {
+        "rss": 248872960,
+        "heapTotal": 130039808,
+        "heapUsed": 96431008,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        118.40576171875,
+        94.16552734375,
+        75.484375
+      ]
+    },
+    {
+      "name": "register-calculation",
+      "elapsedMs": 68.26295800000003,
+      "memory": {
+        "rss": 276578304,
+        "heapTotal": 156827648,
+        "heapUsed": 124811176,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        118.40576171875,
+        94.16552734375,
+        75.484375
+      ]
+    },
+    {
+      "name": "initial-recalculate",
+      "elapsedMs": 57.316749999999956,
+      "memory": {
+        "rss": 283262976,
+        "heapTotal": 163233792,
+        "heapUsed": 135698376,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        118.40576171875,
+        94.16552734375,
+        75.484375
+      ]
+    },
+    {
+      "name": "edit-event-admission",
+      "elapsedMs": 0.14599999999995816,
+      "memory": {
+        "rss": 283279360,
+        "heapTotal": 163233792,
+        "heapUsed": 135753344,
+        "external": 9023919,
+        "arrayBuffers": 25225
+      },
+      "loadAverage": [
+        118.40576171875,
+        94.16552734375,
+        75.484375
+      ]
+    },
+    {
+      "name": "edit-native-projection",
+      "elapsedMs": 204.41770799999995,
+      "memory": {
+        "rss": 316719104,
+        "heapTotal": 194134016,
+        "heapUsed": 145006120,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "edit-native-diff",
+      "elapsedMs": 64.08012499999995,
+      "memory": {
+        "rss": 301989888,
+        "heapTotal": 194019328,
+        "heapUsed": 150943488,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "edit-calculation-update",
+      "elapsedMs": 0.20854099999996834,
+      "memory": {
+        "rss": 301989888,
+        "heapTotal": 194019328,
+        "heapUsed": 150962216,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "dirty-recalculate",
+      "elapsedMs": 0.06683399999974426,
+      "memory": {
+        "rss": 301989888,
+        "heapTotal": 194019328,
+        "heapUsed": 150980408,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "paste-event-admission",
+      "elapsedMs": 10.53729199999998,
+      "memory": {
+        "rss": 302039040,
+        "heapTotal": 194019328,
+        "heapUsed": 146796616,
+        "external": 9118839,
+        "arrayBuffers": 120145
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "paste-native-projection",
+      "elapsedMs": 159.9106670000001,
+      "memory": {
+        "rss": 341639168,
+        "heapTotal": 238829568,
+        "heapUsed": 201195872,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "paste-native-diff",
+      "elapsedMs": 120.44941700000027,
+      "memory": {
+        "rss": 327778304,
+        "heapTotal": 204849152,
+        "heapUsed": 150822256,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "paste-calculation-update",
+      "elapsedMs": 2.2961669999999685,
+      "memory": {
+        "rss": 327778304,
+        "heapTotal": 204849152,
+        "heapUsed": 151675056,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    },
+    {
+      "name": "paste-recalculate",
+      "elapsedMs": 2.47262499999988,
+      "memory": {
+        "rss": 327778304,
+        "heapTotal": 204849152,
+        "heapUsed": 152625304,
+        "external": 9023533,
+        "arrayBuffers": 24839
+      },
+      "loadAverage": [
+        113.16796875,
+        93.48193359375,
+        75.3525390625
+      ]
+    }
+  ],
+  "status": "PASS: bounded real model workload",
+  "population": {
+    "sheets": 2,
+    "rows": 10000,
+    "columns": 100,
+    "cells": 50000,
+    "formulas": 10000,
+    "events": 10152,
+    "revisionBytes": 12466063
+  },
+  "initialStats": {
+    "initialCellVisits": 50000,
+    "changedCellVisits": 0,
+    "evaluatedFormulas": 10000,
+    "dependencyEdges": 40000,
+    "rangeCellsVisited": 40000
+  },
+  "dirtyStats": {
+    "initialCellVisits": 50000,
+    "changedCellVisits": 1,
+    "evaluatedFormulas": 10001,
+    "dependencyEdges": 40000,
+    "rangeCellsVisited": 40004
+  },
+  "pasteStats": {
+    "initialCellVisits": 50000,
+    "changedCellVisits": 1001,
+    "evaluatedFormulas": 10251,
+    "dependencyEdges": 40000,
+    "rangeCellsVisited": 41004
+  },
+  "totals": {
+    "coldConstructionProjectionCalculationMs": 1355.033958,
+    "oneCellAdmissionProjectionDiffCalculationMs": 268.91920799999957,
+    "paste1000AdmissionProjectionDiffCalculationMs": 295.6661680000002
+  },
+  "totalDefinition": "Sum of measured actual native work phases, excluding evidence serialization/population inventory; construction/admission costs included, never hidden in cache",
+  "processHighWaterRssBytes": 348602368,
+  "dirtyStatsDelta": {
+    "initialCellVisits": 0,
+    "changedCellVisits": 1,
+    "evaluatedFormulas": 1,
+    "dependencyEdges": 0,
+    "rangeCellsVisited": 4
+  },
+  "pasteStatsDelta": {
+    "initialCellVisits": 0,
+    "changedCellVisits": 1000,
+    "evaluatedFormulas": 250,
+    "dependencyEdges": 0,
+    "rangeCellsVisited": 1000
+  }
+}

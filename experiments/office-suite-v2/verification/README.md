@@ -230,3 +230,73 @@ before/after print construction. The driver does not walk millions of printed
 nodes in JavaScript and thereby inflate its own memory observation. Source
 element/text counts and actual print page-container count remain separate.
 The frozen3.5growth target applies to actual printed DOM nodes; no limit changes.
+
+## Phase C candidate observations: memory and edit-total failures
+
+Current bounded states are in `reports/criteria-phase-c-v1.json`. The earlier
+`reports/criteria.json`, F workload and initial Word failure remain historical.
+Measured candidate is `7d902bc69bf98b0dc6aaf681a24d34c7066703a1`, with E and W.
+Integration's root qualification was pending during this explicitly leased
+candidate window. Neither a completed workload nor an individual met target
+accepts M0 or full product capacity.
+
+Word raw evidence is
+`reports/word-performance-2026-10-21T16-01-52-773Z/report.json`; its independently
+derived target assessment is `reports/word-candidate-assessment-v1.json`.
+Three fresh100page samples produced correct800paragraphs, root/surface and
+actual pages without forced cold rendering. Worst-of-three cold337.4ms,
+full-native warm110.8ms and synchronous print-DOM build65.6ms meet their
+respective frozen targets and repeatability. Actual CDP faces and CoreText
+version/file hashes match D in all attempted samples.
+
+Finding `526/word-print-resource-v1` remains FAIL.100page owned aggregate RSS
+maximum sample was1,631,666,176bytes versus536,870,912target. Each measured printed DOM
+delta is331,601nodes:100copies of3,315source nodes plus100page wrappers and
+one container. The actual print source clones the entire document per sheet.
+The second sample already exceeded512MiB before print; do not attribute all RSS
+to printing. JS heap decreases after print while native DOM and cumulative
+layout duration grow. This does not establish a JS heap leak. Synchronous DOM
+build time excludes deferred browser layout and PDF/paper fidelity.
+
+The first300page sample produced correct2,400paragraphs and300pages, cold
+1,027.9ms and full-native warm347.5ms. After print-DOM construction537.3ms,
+owned aggregate RSS reached2,198,929,408bytes and the2GiBguard killed only the
+owned browser. Post-print300node/heap counters were unavailable; the two
+remaining300samples were NOT RUN. No measured300/100growth ratio or qualified
+300percentile is claimed. All four owned browser roots and55260listener were
+confirmed absent after cleanup. Planner must assign a production print repair
+scope before source edits. No identical heavy repeat was run.
+
+Core raw evidence is `reports/sheet-scale-2026-10-21T16-05-01-114Z-summary.json`
+and its three child files; assessment is `reports/sheet-candidate-assessment-v1.json`.
+All three fresh native processes completed the exact10k-by100/50kpopulated/
+10kformula workload and invariants without guard failure. Frozen original
+projection/diff/calculation, cold TOTAL1,539.75ms, paste TOTAL324.97ms and peak
+RSS348,602,368bytes meet their targets. Finding `526/core-edit-total-v1` FAILS:
+one-cell TOTAL296.46/462.17/268.92ms all exceed200ms. Actual projection
+204.42–381.67ms plus diff64.08–79.96ms dominate; admission and dirty formula
+work remain small. Actual dirty statistics visit one changed cell/evaluate one
+formula; paste visits1,000changed cells/evaluates250formulas.
+
+Core edit projection and paste diff individually fail the frozen per-phase
+repeatability rule. Total gates are repeatable, including the failed edit gate.
+All raw host load, memory and swap counters remain recorded. No absolute idle
+requirement or raised threshold is introduced. The headless result does not
+measure provider, Canvas, scrolling or keystroke latency. Core owns any next
+semantic repair. Verification changed only evidence under its existing subtree.
+
+Word memory is the maximum of200ms owned-process RSS samples, including shared
+pages; short peaks can be missed. The45second wall timer and RSS polling begin
+after browser launch/connect, so startup is not bounded by that timer. Cold-open
+timing excludes browser/module startup. CDP global node deltas can undercount
+when other nodes are collected; the100page exact clone accounting nevertheless
+matches all three observed deltas. These limitations remain explicit and do not
+remove the observed target and guard exceedances.
+
+Frozen Word latency assessment uses browser-inner `performance.now` durations.
+Cold includes schema admission/mount/fonts/native completion plus3stable frames;
+warm includes actual render/native completion plus3stable frames. Runner wall
+phase wrappers also remain raw and in the assessment: first100cold349.03ms,
+warm163.40ms, print89.11ms versus inner337.4/110.8/65.6ms. Wrappers include
+Playwright transport/scheduling/result transfer and returned result inventory.
+They are separate observations; no target basis changed after measurement.
