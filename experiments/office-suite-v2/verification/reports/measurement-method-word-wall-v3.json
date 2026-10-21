@@ -1,0 +1,40 @@
+{
+  "schema": "office-v2-m0/measurement-method-word-wall-v3",
+  "recordedBeforeNewSourceMeasurementUtc": "2026-10-21T16:19:07.447454+00:00",
+  "status": "PREPARED; no new performance data",
+  "parent": "4473ab9f29a1e7a8420739b113eab1f50a60969f",
+  "revision": "word-wall-v3-before-new-source-data",
+  "scope": "Full45s samplewall before freshlaunch, connect/navigation/native phases/browserreadout; bounded owned cleanup and ambient readout",
+  "sampleWallMs": 45000,
+  "perSampleCleanupWallMs": 5000,
+  "finalCleanupWallMs": 5000,
+  "hostReadoutCommands": [
+    "vm_stat",
+    "memory_pressure -Q",
+    "sysctl vm.swapusage"
+  ],
+  "perHostReadoutCommandMs": 1000,
+  "hostReadoutTimeoutSignal": "SIGKILL",
+  "rss": "200ms sampled aggregate owned PIDtree; starts once launchPID available, sharedpages included, short peaks may be missed",
+  "deadlineSettlement": "Monotonic check before operations and at result settlement, including timer-blocking synchronous work; lateownedhandle retired",
+  "failureRule": "First guard/close/readoutfailure FAIL; preserve firstfailure and stop later heavy samples. Retain failed-close handles for bounded finalcleanup; unconfirmed cleanup cannot pass.",
+  "historicalRaw": "R f6f9d3d8 source7d902 untouched; original startup gap remains unqualified historically",
+  "frozenBudgetSha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+  "frozenBudgetUnchanged": true,
+  "sourceHashes": [
+    {
+      "path": "performance-guards.ts",
+      "sha256": "5454187e7f79b8613a74467a2ae33eaafcbc0eb112a205484cae90f30ea2dbf4"
+    },
+    {
+      "path": "performance-guards.test.ts",
+      "sha256": "810630e827fe2843f7ece941e4a14125feadc871479f3a4cc92c93e2d1bc65dc"
+    },
+    {
+      "path": "word-performance-runner.mjs",
+      "sha256": "9f51c8c97b97270819660ee29f5f22dc9aa94e1b5777f46f8195a1939db2eb24"
+    }
+  ],
+  "validation": "8/8 native guardcases, strict2roots0diagnostics, targetedlint3files0errors/warnings, runnerMJSsyntaxPASS; read-only helper re-review no further concrete defect",
+  "performanceAuthorization": "OldleasesRETURNED; newexactcandidate/lease required fromIntegration; no profile in this revision"
+}

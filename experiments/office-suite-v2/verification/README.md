@@ -300,3 +300,28 @@ phase wrappers also remain raw and in the assessment: first100cold349.03ms,
 warm163.40ms, print89.11ms versus inner337.4/110.8/65.6ms. Wrappers include
 Playwright transport/scheduling/result transfer and returned result inventory.
 They are separate observations; no target basis changed after measurement.
+
+## Next-source measurement method: word-wall-v3
+
+Before any repaired-source measurements, method revision `word-wall-v3` starts
+the existing45second sample wall guard before fresh browser launch. It covers
+launch, connect, navigation, native work and browser readout with one deadline.
+Playwright launch/connect also receive the remaining wall time. A browser handle
+returned after expiry is retired; it cannot start a subsequent sample. Owned
+browser/server cleanup is separately bounded at5seconds. Close promises all
+settle or reach that deadline; an early close rejection cannot discard another
+pending owned handle. A final5second cleanup covers Vite and any retained
+handles. Cleanup failure is recorded as FAIL and stops the sequence. Host
+pressure readout is separate from browser work: each of its three commands has
+a1second SIGKILL timeout. Missing post-sample readout is recorded as FAIL with
+unknown swap deltas and stops further samples. The200ms RSS poll begins
+when the owned launch PID becomes available; it remains sampled aggregate RSS,
+including shared pages, with no precise continuous high-water claim.
+
+This is an explicit harness-method correction before new data. All numerical
+v1.1targets/guards, original R raw files, source bindings and prior first failure
+remain unchanged. The historical R window did not bound browser startup; the
+new method cannot retroactively qualify it. Current performance leases were
+returned. No repaired-source profile is authorized by this method commit alone.
+Guard settlement also checks the monotonic deadline, so a synchronous task
+cannot outrun the expiry callback and turn a late result into PASS.
