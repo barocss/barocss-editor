@@ -347,7 +347,19 @@ async function tablePrintSnapshot(page: Page, printed: boolean) {
           return r.height > 0 && r.top < bounds.bottom && r.bottom > bounds.top && r.left < bounds.right && r.right > bounds.left
             ? [{ sid: el.getAttribute('data-bc-sid')!, ...rect(r, bounds, scale) }] : [];
         });
-      return { pageIndex, chars, chrome, blocks };
+      // Inline cell breaks deliberately have no text nodes. Their native
+      // header uses CSS generated content; a DOM Range cannot measure it.
+      const generatedHeaders = [...root.querySelectorAll<HTMLElement>('.w-cell-header-copy [data-word-header-text]')].flatMap(el => {
+        const r = el.getBoundingClientRect();
+        if (!belongs(r)) return [];
+        const pseudo = getComputedStyle(el, '::before');
+        const cell = getComputedStyle(el);
+        return [{ text: el.getAttribute('data-word-header-text')!, content: pseudo.content,
+          font: pseudo.font, color: pseudo.color, whiteSpace: pseudo.whiteSpace,
+          visibility: pseudo.visibility, display: pseudo.display, opacity: pseudo.opacity,
+          background: cell.backgroundColor, border: cell.border, ...rect(r, bounds, scale) }];
+      });
+      return { pageIndex, chars, chrome, generatedHeaders, blocks };
     });
     if (!printed) {
       const assigned = new Set(pages.flatMap(paper => paper.chars.map(char => char.key)));
@@ -398,9 +410,18 @@ test.describe('native table print projection', () => {
         anchorOffset: selected.anchorOffset, focusOffset: selected.focusOffset };
     });
     const source = await tablePrintSnapshot(page, false);
+    await testInfo.attach('native-source-character-geometry', { body: JSON.stringify(source), contentType: 'application/json' });
     expect(source.unassigned, 'Every source authored character must occupy a source sheet').toEqual([]);
     expect(source.pages.flatMap(paper => paper.chars).length).toBeGreaterThan(100);
-    expect(source.pages.flatMap(paper => paper.chrome).length, 'Native repeated headers must paint').toBeGreaterThan(0);
+    expect(source.pages.flatMap(paper => paper.chrome).length + source.pages.flatMap(paper => paper.generatedHeaders).length,
+      'Native repeated headers must exist on continuation sheets').toBeGreaterThan(0);
+    for (const header of source.pages.flatMap(paper => paper.generatedHeaders)) {
+      expect(header.text.length).toBeGreaterThan(0);
+      expect(['none', 'normal']).not.toContain(header.content);
+      expect(header.visibility).toBe('visible');
+      expect(header.display).not.toBe('none');
+      expect(Number(header.opacity)).toBeGreaterThan(0);
+    }
     await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
     await page.emulateMedia({ media: 'print' });
     const printed = await tablePrintSnapshot(page, true);
@@ -410,8 +431,10 @@ test.describe('native table print projection', () => {
       const expected = source.pages[index];
       expect(actual.chars.map(char => [char.key, char.text]), `Authored characters on page ${index + 1}`).toEqual(expected.chars.map(char => [char.key, char.text]));
       expect(actual.chrome.map(char => char.text), `Repeated header characters on page ${index + 1}`).toEqual(expected.chrome.map(char => char.text));
+      const paint = (headers: typeof actual.generatedHeaders) => headers.map(({ top: _top, left: _left, width: _width, height: _height, ...style }) => style);
+      expect(paint(actual.generatedHeaders), `Generated header content/style on page ${index + 1}`).toEqual(paint(expected.generatedHeaders));
       expect(actual.blocks.map(block => block.sid)).toEqual(expected.blocks.map(block => block.sid));
-      for (const kind of ['chars', 'chrome', 'blocks'] as const) for (const [at, item] of actual[kind].entries()) {
+      for (const kind of ['chars', 'chrome', 'generatedHeaders', 'blocks'] as const) for (const [at, item] of actual[kind].entries()) {
         const original = expected[kind][at];
         for (const axis of ['top', 'left', 'width', 'height'] as const) expect(item[axis], `${kind}[${at}].${axis} on page ${index + 1}`).toBeCloseTo(original[axis], 0);
       }
@@ -421,6 +444,8 @@ test.describe('native table print projection', () => {
     expect(await page.locator('.w-print-pages').count()).toBe(0);
     // Let page.pdf fire the real print lifecycle from the visible source. A
     // manually retained print media override would hide the source beforehand.
+    await page.emulateMedia({ media: null });
+    await expect(page.locator('#editor .w-document')).toBeVisible();
     const path = testInfo.outputPath(`${fixture.sample}${fixture.reduced ? '-reduced' : ''}.pdf`);
     const pdf = await page.pdf({ path, printBackground: true, preferCSSPageSize: true });
     await testInfo.attach('actual-native-table-pdf', { path, contentType: 'application/pdf' });

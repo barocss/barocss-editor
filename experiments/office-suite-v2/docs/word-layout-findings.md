@@ -284,6 +284,20 @@ KaTeX-face requirement; the original eight math-containing sample gates remain.
 Actual supplemental browser results are pending a fresh serialized source-bound
 lease. A PDF page count alone does not prove PDF character or paint fidelity.
 
+Before any supplemental browser run, read-only review found two harness errors
+in candidate `ac2652b6f281190a8b823ac2547b0a93d4268d3e`. Its lease was returned
+unused. Native inline cell-break headers intentionally contain no text nodes:
+`table-break-widget.ts` emits `data-word-header-text`, which `ui.css` paints
+through `::before`. The successor records generated content, its nonhidden CSS,
+typography/color, cell background/border and source-relative cell rectangle
+separately. It does not invent DOM Range glyphs for pseudo-elements. Real PDF
+files remain available for independent generated-header paint inspection.
+It also clears the explicit media override to `null` before `page.pdf`, with
+the source visible, so that actual PDF print CSS is used. A retained `screen`
+override would exercise the screen-PDF route. The source character snapshot is
+attached before coverage assertions, preserving the first SID/offset failure.
+These are pre-run method corrections, not production fixes or browser passes.
+
 Independent Verification reports six actual candidate100/300 measurements on
 Integration's fixed source. Print DOM deltas are16201/48601 (2.99988x); timing
 targets pass. The100-page aggregate owned RSS is527810560/591446016/604405760
