@@ -149,6 +149,35 @@ have not run at this prepared checkpoint. Verification independently owns the
 unchanged-budget normal 100/300 timing/CDP-node/RSS remeasurement after source
 integration. This source/unit result does not pass performance, PDF or M0.
 
+### First actual P browser attempt and test-only successor
+
+Exact prepared P `c0e27e86f5a8ff0ada2fe221d0046fd375e1e0b6` ran under
+Integration's serialized private55261 Stage A lease, Node22.22/pinned Chromium,
+one worker, no retry, 30 s per case and stop at first failure. Run27 exited1
+after10.9s: real PDF page count, page construction and paragraph seam passed;
+the header test failed; four remaining cases were NOT RUN. Raw results and
+artifacts remain in primary `.omx/m0/530-word-print-stage-a-*` and
+`integration-logs/27-P530-word-print-stage-a.*`.
+
+The first failure was the inherited assertion that every print copy contains
+the same total header DOM count. Trace call99 records `[1,1,1,1,1,1,1,0]`.
+The shipped sample's first surface has default and first-page header bindings;
+its second surface has no header binding (`sample-document.ts:730`). Entire
+document copies had made all DOM header counts equal even for pages that showed
+different headers. The test-only successor compares preprint SOURCE visible
+header text and coordinates per actual sheet with printed visible header text
+and coordinates, then checks the same output while editing/restoring a header.
+It retains explicit nonempty/different first/default headers and the unbound
+second section. This does not change the print implementation or drop the
+prepare/restore requirement.
+
+Separately, Vite denied KaTeX font files that resolve to the one frozen
+Integration dependency graph outside its default allow list. Integration owns
+the external harness correction. The PDF result proves page count on that
+attempt only, not qualified font fidelity. No identical rerun or Stage B ran.
+The private listener was gone after the Playwright-owned server closed. A fresh
+exact-source/config lease is required for the corrected method. M0 remains OPEN.
+
 The required 100/300 layout/print, exact fonts and performance budget remain open.
 No product, release or complete-M0 acceptance is claimed.
 

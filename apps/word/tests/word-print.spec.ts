@@ -85,18 +85,45 @@ test.describe('print', () => {
     await page.goto('/?sample');
     await settled(page);
 
+    const sourceHeaders = await page.evaluate(() => {
+      const headers = [...document.querySelectorAll<HTMLElement>('#editor .w-header')];
+      return [...document.querySelectorAll<HTMLElement>('#editor .w-sheet')].map(sheet => {
+        const paper = sheet.getBoundingClientRect();
+        return headers.flatMap(header => {
+          const r = header.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < paper.bottom && r.bottom > paper.top && r.left < paper.right && r.right > paper.left
+            ? [{ text: header.textContent?.trim(), top: r.top - paper.top, left: r.left - paper.left, width: r.width, height: r.height }] : [];
+        });
+      });
+    });
     const headersPerPage = async () => {
       await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
-      const counts = await page.evaluate(() =>
-        [...document.querySelectorAll('.w-print-page')].map((p) => p.querySelectorAll('.w-header').length)
-      );
+      await page.emulateMedia({ media: 'print' });
+      const headers = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.w-print-page')].map(paper => {
+        const p = paper.getBoundingClientRect();
+        return [...paper.querySelectorAll<HTMLElement>('.w-header')].flatMap(header => {
+          const r = header.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < p.bottom && r.bottom > p.top && r.left < p.right && r.right > p.left
+            ? [{ text: header.textContent?.trim(), top: r.top - p.top, left: r.left - p.left, width: r.width, height: r.height }] : [];
+        });
+      }));
+      await page.emulateMedia({ media: 'screen' });
       await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
-      return counts;
+      return headers;
     };
 
     const normal = await headersPerPage();
     expect(normal.length).toBeGreaterThan(1);
-    expect(new Set(normal).size).toBe(1);
+    expect(new Set(sourceHeaders.flat().map(header => header.text)).size).toBeGreaterThan(1);
+    expect(sourceHeaders.some(headers => headers.length === 0)).toBe(true); // Section 2 has no header binding.
+    expect(normal.map(headers => headers.map(header => header.text))).toEqual(sourceHeaders.map(headers => headers.map(header => header.text)));
+    for (const [index, headers] of normal.entries()) for (const [at, actual] of headers.entries()) {
+      const expected = sourceHeaders[index][at];
+      expect(actual.top).toBeCloseTo(expected.top, 0);
+      expect(actual.left).toBeCloseTo(expected.left, 0);
+      expect(actual.width).toBeCloseTo(expected.width, 0);
+      expect(actual.height).toBeCloseTo(expected.height, 0);
+    }
 
     // Editing a header shows the real node in place of the copy on the first
     // page and suppresses the copies on all the others — right for editing,
@@ -106,7 +133,8 @@ test.describe('print', () => {
     await page.evaluate(() => (window as any).setEditingFurniture('hdr-main'));
     await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
 
-    expect(await headersPerPage()).toEqual(normal);
+    const editingHeaders = await headersPerPage();
+    expect(editingHeaders).toEqual(normal);
 
     // And the reader is still in the header when the printing is over.
     await expect(page.locator('.w-header-source.is-editing')).toBeVisible();
