@@ -463,3 +463,63 @@ failures remain intact. No target increase, semantic edit or identical heavy
 retry follows. Planner must decide the residual resource disposition; whole M0
 remains OPEN. Source-level print proof is bounded and does not accept product
 release or full PDF fidelity.
+
+## ONE bounded memory diagnostic v1 — prepared before data
+
+Planner authorized one diagnostic, not another qualification profile or source
+optimization. Protocol: `reports/word-memory-diagnostic-protocol-v1.json`.
+New `word-memory-diagnostic-runner.mjs`, browser wrapper, HTML entry and timed
+record helper reuse the unchanged `window.m0WordPerformance` implementation.
+Production remains the exact17file O closure; all7normal harness hashes,
+reference font report and frozen budget remain checked. No media override,
+fixture reduction, alternate engine/bootstrap or production method patch occurs.
+
+The protocol is committed before data. Exactly one fresh100page/800paragraph
+browser attempt is allowed, after Integration issues a new diagnostic-kind
+serialized lease. An exclusive ignored `.cache/word-memory-diagnostic-v1-attempt.json`
+claim prevents an automatic second attempt. This preparation performs no actual
+browser diagnostic. Its result can never qualify a normal performance target.
+
+Eleven named seams have two sequential read sets each: module-ready before and
+after DOM/CSS enable; combined existing open/layout/source inventory; actual
+font query; full warm/native completion before print; immediate print return;
+explicit deferred geometry/style readout and3RAFcallbacks; clearPrint; dispose;
+DOM/CSS observer release; and one final diagnostic-only GC. The existing open
+API combines fixture/admission/mount/fonts/stable frames and TreeWalker inventory;
+an independent admission allocation boundary is not invented. Font query and
+warm render remain separate. Inline print-return page heap precedes diagnostic
+computed-style reads. Geometry/style readout can force browser layout and three
+RAFcallbacks do not establish paint completion.
+
+Every read persists RUNNING start before IO, then completion or failed/aborted
+end/error. Paired page Used/Total JS heap, CDP metrics/native DOM counters and
+owned PID/parent/RSS have UTC/monotonic brackets and collection skew. Reads are
+not atomic. Missing heap metrics remain unavailable, never zero. Pinned
+Playwright1.58 protocol types are hash-checked. Optional SystemInfo roles join
+only on exact reported PID with a matching browser root; other roles stay
+unavailable. Store numeric/string JSON records, not persistent DOM handles.
+
+`matchMedia('print')` is observed without changing media. Effective display,
+position and overflow for representative container/page/copy and stylesheet
+rule-presence booleans are read only at the deferred seam. A screen-media
+print-DOM build is distinguished from actual print media; it does not explain
+the preprint RSS miss by itself. DOM/CSS/Performance observation, font queries,
+pairing and readout are explicit diagnostic interventions. Final observer-release
+and GC values do not prove a leak or qualify a budget.
+
+The45second wall starts before fresh browser launch; cold10seconds, print15,
+2GiBowned aggregate RSS and200mspolling remain fail-closed. Phase settlement also
+checks the monotonic deadline. An actual crossing RSS/PID table is saved before
+failure. Owned cleanup is bounded5seconds. Ambient pressure commands have1second
+timeouts, PID `ps`1.5seconds, and CoreText font metadata5seconds; the full wall
+still applies. First failure stops the attempt, preserves partial reads and
+leaves later seams NOT RUN. No full heap snapshot, heavy trace, Core rerun,
+unrelated process stop or normal v1.1change is authorized.
+
+Integration must provide `M0_WORD_MEMORY_DIAGNOSTIC_LEASE` with status `granted`,
+kind `diagnostic-word-memory-v1`, `max_runs:1`, port55260, exact source head/root,
+browser executable, finite deadline and SHA-256 of the committed protocol file.
+The source pin must contain the committed diagnostic harness and unchanged O
+production. Old diagnostic/performance leases do not satisfy this contract.
+After the one run, report which observed phase grows, what remains unidentifiable
+and the smallest source boundary justified by data. Whole M0 remains OPEN.

@@ -1,0 +1,5 @@
+17Oproduction/7normalharness/fontreference/budget bindings unchanged PASS
+Pinned Playwright1.58 protocol SHA and SystemInfo/GC/DOM/CSS command definitions PASS
+11seams x2 sequential bracketed sets; monolithicopen/font/warm/media/oneGC boundaries recorded
+No diagnostic attempt claim or runtime data directory exists; missing/oldlease refusals happened before startup PASS
+ExistingW3/Corev2/normalguard/raw immutable evidence unchanged PASS
