@@ -28,6 +28,7 @@ pnpm --dir apps/note exec node cloud-workspace/build-worker.mjs
 pnpm --dir apps/note exec node --test cloud-workspace/server.test.mjs
 pnpm --dir apps/note exec node --experimental-vm-modules --test cloud-workspace/worker.test.mjs
 pnpm --dir apps/note exec node --test cloud-workspace/migration.test.mjs
+node --test apps/note/cloud-workspace/build-sites-target.test.mjs
 pnpm --dir apps/note exec playwright test --config cloud-workspace/playwright.config.ts --reporter=line
 pnpm --filter @barocss/office-note test:run test/note-proposal-native-history.test.ts test/connected-proposal.test.ts
 pnpm preflight
@@ -55,6 +56,14 @@ The application build emits:
 
 Client assets are embedded in the Worker. This requires only documented `env.DB`, with no
 invented static asset binding, arbitrary Node server, PostgreSQL, or R2 requirement.
+
+After dependencies are installed, the deployment build resolves each package's local Vite CLI
+and runs it with `process.execPath`; it does not invoke a global `pnpm`, `npm`, `npx` or shell
+shim. The build regression stages the app in a temporary publisher root with an empty `PATH`,
+uses the already-installed real dependencies, builds schema/client/API/Worker, checks staged
+manifests and unchanged migrations, and exercises the generated Worker. It performs no install
+or deployment. Repository engines remain Node 22.22/pnpm 8.15; running this focused build check
+on a remote builder's Node 24 does not claim whole-repository Node 24 support.
 
 ## Sites publisher contract
 

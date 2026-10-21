@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildVite } from './build-vite.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = fileURLToPath(new URL('../../../', import.meta.url));
@@ -13,7 +14,8 @@ const registered = JSON.parse(readFileSync(join(here, '.openai/hosting.json'), '
 if (manifest.project_id !== registered.project_id || manifest.d1 !== 'DB' || manifest.r2 !== null || manifest.static) {
   throw new Error('The Sites source manifest must retain the registered private Site ID and Worker/D1 configuration.');
 }
-execFileSync('pnpm', ['--filter', '@barocss/schema', 'build'], { cwd: root, stdio: 'inherit' });
+// @barocss/schema's build script is `vite build`; resolve its own installed CLI.
+buildVite(join(root, 'packages/schema'));
 execFileSync(process.execPath, [join(here, 'build-worker.mjs')], { cwd: root, stdio: 'inherit' });
 mkdirSync(join(root, 'dist/server'), { recursive: true });
 mkdirSync(join(root, 'dist/.openai'), { recursive: true });
