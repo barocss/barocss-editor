@@ -99,15 +99,25 @@ MIT. The published archive includes the license in `dist/LICENSE`.
 `createNoteNative2Context(rawSnapshotText)` validates a full version2 envelope and retains its original bytes, savedAt and complete immutable schema bundle. `openNoteNativeSnapshot(context)` is read-only by default. A file or bundle does not grant editing rights. A trusted local host can supply its existing `authority` editor. Parent editability, document epoch, root and session constrain local commands and pending delivery. This is local lifetime control, not authenticated server authorization.
 
 ```ts
-const context = createNoteNative2Context(snapshotText);
-const session = openNoteNativeSnapshot(context, {
-  authority: hostEditor,
-  onSnapshotChange: text => saveLocalSnapshot(text),
-});
-// First await NoteEditor's registerBeforeSnapshot delivery, then settle child
-// sessions and the host's own asynchronous storage work.
-session.flush();
-const wholeSnapshot = session.exportSnapshot();
+import type { Editor } from '@barocss/editor-core';
+import { createNoteNative2Context, openNoteNativeSnapshot } from '@barocss/office-note';
+
+export function openNativeNote(
+  snapshotText: string,
+  hostEditor: Editor,
+  saveLocalSnapshot: (text: string) => void,
+) {
+  const context = createNoteNative2Context(snapshotText);
+  const session = openNoteNativeSnapshot(context, {
+    authority: hostEditor,
+    onSnapshotChange: text => saveLocalSnapshot(text),
+  });
+  // First await NoteEditor's registerBeforeSnapshot delivery, then settle child
+  // sessions and the host's own asynchronous storage work.
+  session.flush();
+  const wholeSnapshot = session.exportSnapshot();
+  return { session, wholeSnapshot };
+}
 ```
 
 `exportNativeDocument()` extracts the whole live model. `exportSnapshot()` validates that model with the fixed context. Only an unchanged whole document can reuse original bytes. Supported attributes and metadata preserve unknown JSON, authored loadedAt, nulls, omitted keys, empty mark arrays, resources and page references. Undo/redo retains source shape by owned node identity. A bare `editor.loadDocument()` is refused; reopen with a new explicit context after settling input. A failed local delivery retains the dirty model and reports failure.

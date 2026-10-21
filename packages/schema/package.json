@@ -14,6 +14,7 @@
     },
     "./registry-contract": {
       "types": "./src/registry-contract.ts",
+      "browser": "./src/registry-contract.ts",
       "import": "./dist/registry-contract.js",
       "default": "./dist/registry-contract.js"
     }

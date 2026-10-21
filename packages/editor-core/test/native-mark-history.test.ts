@@ -426,7 +426,7 @@ it.each(['absent', 'empty', 'nonempty'] as const)('coalesces actual text input a
   }
   const expected = structuredClone(before);
   node(expected, 'target-run').text = 'ABxyzCDE';
-  if (input === 'absent') node(expected, 'target-run').marks = [];
+  if (input === 'absent' && kind === 'replace') node(expected, 'target-run').marks = [];
   if (input === 'nonempty') node(expected, 'target-run').marks![0].range = [0, 8];
   expect(documentOf(editor)).toEqual(expected);
   expectPosition(editor, 1, 0);
@@ -447,7 +447,7 @@ describe.each(['insert', 'delete'] as const)('%s text native history', action =>
     const { editor, before } = fixture(input);
     const expected = structuredClone(before);
     node(expected, 'target-run').text = action === 'insert' ? 'ABXYCDE' : 'ADE';
-    if (input === 'absent') node(expected, 'target-run').marks = [];
+    if (input === 'absent' && action === 'delete') node(expected, 'target-run').marks = [];
     if (input === 'nonempty') node(expected, 'target-run').marks![0].range = [0, action === 'insert' ? 7 : 3];
     const operation = action === 'insert' ? insertText('target-run', 2, 'XY') : deleteTextRange('target-run', 1, 3);
     expect((await transaction(editor, [operation]).commit()).success).toBe(true);

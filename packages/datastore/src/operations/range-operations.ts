@@ -428,7 +428,8 @@ export class RangeOperations {
       startNodeId: contentRange.startNodeId,
       startOffset: contentRange.startOffset,
       endNodeId: contentRange.startNodeId,
-      endOffset: contentRange.startOffset
+      endOffset: contentRange.startOffset,
+      collapsed: true
     };
     this.insertText(insertRange, newText);
     return deletedText;
@@ -511,7 +512,8 @@ export class RangeOperations {
       startNodeId: contentRange.endNodeId,
       startOffset: contentRange.endOffset,
       endNodeId: contentRange.endNodeId,
-      endOffset: contentRange.endOffset
+      endOffset: contentRange.endOffset,
+      collapsed: true
     };
     this.insertText(insertRange, textToDuplicate);
     return textToDuplicate;

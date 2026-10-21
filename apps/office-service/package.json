@@ -63,7 +63,7 @@
   "scripts": {
     "build": "pnpm --filter @barocss/schema build && pnpm --filter @barocss/office-note-file build && pnpm --filter @barocss/office-word build:criterion && tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "test": "pnpm --filter @barocss/office-word build:criterion && vitest run",
     "test:postgres": "pnpm build && node test/postgres.integration.mjs",
     "test:execution:postgres": "pnpm build && node test/project-execution.postgres.integration.mjs",
     "test:operator:postgres": "pnpm build && node test/platform-operator.postgres.integration.mjs",

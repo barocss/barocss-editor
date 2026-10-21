@@ -102,8 +102,8 @@ their existing units, pointer readout and guide placement behavior.
 A **ribbon, a filmstrip, a properties panel, a layer panel, a timeline pane, a
 notes pane, a components panel, an audit panel, a find bar and a deck map** —
 **32 components and 4 hooks** behind `@barocss/office-slides/ui`.
-`apps/slide/src` contains 3,785 lines of TypeScript and TSX: 2,435 in `app.tsx`,
-12 in `main.tsx`, 252 in `use-slide-menu-search.ts`, and 1,086 in the runtime,
+`apps/slide/src` contains 4,314 lines of TypeScript and TSX: 2,645 in `app.tsx`,
+13 in `main.tsx`, 252 in `use-slide-menu-search.ts`, and 1,404 in the runtime,
 floating-panel bounds and server adapters. Line counts use newline characters,
 as `wc -l` does.
 
@@ -136,14 +136,14 @@ a slide is a plane and a reader is thinking about the box they are pointing at.
 | deck templates · themes | 4 · 4 |
 | theme slots — colour, font | 12 · 2 |
 | components · hooks behind `./ui` | 32 · 4 |
-| `apps/slide/src` | **3,785 lines** — `app.tsx` 2,435, `main.tsx` 12, `use-slide-menu-search.ts` 252; runtime and server adapters 1,086 |
+| `apps/slide/src` | **4,314 lines** — `app.tsx` 2,645, `main.tsx` 12, `use-slide-menu-search.ts` 252; runtime and server adapters 1,404 |
 | browser test registrations matched by the spec counter | 530 |
 
 The browser counter matches line-start `test(` or `it(` registrations in
 `apps/slide/tests/*.spec.ts`. It does not count generated cases, skips, or passed
-tests. The additional app source is `floating-panel-bounds.ts` (21 lines),
-`runtime.ts` (206), `server-documents.ts` (232), `server-file.ts` (163),
-`server-pending.ts` (175) and `server-workspace.tsx` (289).
+tests. The additional app source includes `command-settlement.ts` (45 lines) and `floating-panel-bounds.ts` (32 lines),
+`runtime.ts` (252), `server-documents.ts` (232), `server-file.ts` (163),
+`server-pending.ts` (175) and `server-workspace.tsx` (505).
 
 There is deliberately **no line count of this package** in that table, and finding
 out why was worth the round. A package's total moves when somebody adds a

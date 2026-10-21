@@ -53,7 +53,7 @@ try {
     assert.deepEqual(result.flat().sort(), ['0001_tenant_workspaces', '0002_oidc_memberships',
       '0003_member_tenant_names', '0004_document_snapshots', '0005_platform_operators',
       '0006_company_member_admin', '0007_document_collaboration_seed',
-      '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry']);
+      '0008_document_capabilities', '0009_full_note_collaboration_seed', '0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry', '0017_company_member_confirmation']);
     assert.deepEqual(await migrate(owner), []);
   });
   await check('upgrade quarantines legacy confirmed raw roots without changing snapshot bytes', async () => {
@@ -92,7 +92,7 @@ try {
       WHERE d.tenant_id = $1 AND d.id = $2`, [tenantId, documentId])).rows[0];
     assert.deepEqual(result, { mode: 'initializing', snapshot_text: original, status: 'uncertain',
       confirmed_provider_checkpoint: null, confirmed_provider_snapshot_hash: null });
-    assert.deepEqual(await migrate(upgrade), ['0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry']);
+    assert.deepEqual(await migrate(upgrade), ['0010_member_directory', '0011_connected_projects', '0012_project_execution_attempts', '0013_criterion_confirmations', '0014_criterion_verifications', '0015_document_creator_attribution', '0016_schema_registry', '0017_company_member_confirmation']);
     const legacy = (await upgrade.query(`SELECT d.creator_user_id, s.snapshot_text
       FROM wonffice.documents d JOIN wonffice.document_snapshots s
         ON s.tenant_id = d.tenant_id AND s.document_id = d.id

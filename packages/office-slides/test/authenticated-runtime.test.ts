@@ -131,7 +131,7 @@ describe('authenticated Slides runtime', () => {
       ? node : node.content?.map(firstText).find(Boolean);
     const editedText = 'authenticated-input ';
     const insertFirstText = (node: NativeNode): boolean => {
-      if (typeof node.text === 'string') { node.text = editedText + node.text; node.marks ??= []; return true; }
+      if (typeof node.text === 'string') { node.text = editedText + node.text; return true; }
       return !!node.content?.some(insertFirstText);
     };
     const expected = native(document);

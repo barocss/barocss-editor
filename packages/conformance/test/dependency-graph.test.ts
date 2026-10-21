@@ -93,6 +93,10 @@ describe('패키지 그래프', () => {
       };
       read(join(packagesAt, name, 'src'));
       read(join(packagesAt, name, 'test'));
+      // Public root declarations can also import dependencies needed by consumers.
+      for (const entry of readdirSync(join(packagesAt, name))) {
+        if (entry.endsWith('.d.ts')) text += readFileSync(join(packagesAt, name, entry), 'utf8');
+      }
       if (!text) continue;
 
       for (const dep of deps) {

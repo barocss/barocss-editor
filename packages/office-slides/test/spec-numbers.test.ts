@@ -192,6 +192,7 @@ describe('the numbers in the Slides spec', () => {
     const main = (readFileSync(join(ROOT, 'apps', 'slide', 'src', 'main.tsx'), 'utf8').match(/\n/g) ?? []).length;
     const controller = (readFileSync(join(ROOT, 'apps', 'slide', 'src', 'use-slide-menu-search.ts'), 'utf8').match(/\n/g) ?? []).length;
     const adapters = [
+      'command-settlement.ts',
       'floating-panel-bounds.ts',
       'runtime.ts',
       'server-documents.ts',
@@ -203,7 +204,7 @@ describe('the numbers in the Slides spec', () => {
       total + (readFileSync(join(ROOT, 'apps', 'slide', 'src', name), 'utf8').match(/\n/g) ?? []).length, 0);
 
     expect(states(app), `apps/slide: ${app}`).toBe(true);
-    expect(app, 'the app is the shell, entry point, menu/search controller and six named runtime/server adapters and nothing else')
+    expect(app, 'the app is the shell, entry point, menu/search controller and seven named command/runtime/server adapters and nothing else')
       .toBe(shell + main + controller + adapterLines);
     expect(states(shell), `app.tsx: ${shell}`).toBe(true);
     expect(states(main), `main.tsx: ${main}`).toBe(true);

@@ -62,7 +62,7 @@ function findRun(tree: INode): INode | undefined {
 }
 
 function insert(store: DataStore, position: number) {
-  expect(store.range.insertText({ type: 'range', startNodeId: 'target', endNodeId: 'target', startOffset: position, endOffset: position }, '++')).toBe('++');
+  expect(store.range.insertText({ type: 'range', startNodeId: 'target', endNodeId: 'target', startOffset: position, endOffset: position, collapsed: true }, '++')).toBe('++');
 }
 
 describe('native insertion shape', () => {
