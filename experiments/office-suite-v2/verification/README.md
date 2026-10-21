@@ -3,12 +3,18 @@
 This lane owns only `experiments/office-suite-v2/verification/**`. It does not accept
 M0, the product, release, or the Office compatibility roadmap.
 
+Latest source-bound state: `reports/criteria-phase-c-v3.json`. Core v2 meets its
+bounded reference targets. Word P2b meets latency/node-growth targets but misses
+100page RSS in two samples. Whole M0 remains OPEN. The S/Q/F receipt below is
+retained history; later Phase C sections record the actual production successors.
+
 Analysis/scaffold: S `9b390602d90e07f496b7b699915b7d605582d8a4`.
 Final correctness dependency Q `3f8354c6bb733bc597488d64c3bf41e5f650f6f8`; parent K.
 K holds the checked Core/provider/prose/store dependencies. Q changes only the parser and its owner tests/manual.
 Scale source F `b785fd65c6fae71c57b70650b06f69a68bea3070`; its Core/calculation/reference files are unchanged through Q; Q parser differs. The native-AST scale run did not invoke the parser.
-Production Word files remain byte-identical to S. The runner checks those bytes
-before execution and records their SHA-256 values independently of a later HEAD.
+At the original V receipt, production Word files were byte-identical to S. The
+original runner checked those bytes and recorded their SHA-256 independently of
+a later HEAD. Current Phase C methods bind their separately recorded exact source.
 Node22.22.0, pnpm8.15.0, frozen standalone dependencies supplied by Integration.
 
 ## Reproduce the owned correctness checks
@@ -361,3 +367,53 @@ result to changed model bytes or claim provider/Canvas/scroll/keystroke/UI
 capacity. The Core-only performance slot was returned immediately after three
 children completed. No duplicate profile ran. Repaired Word browser/PDF and
 100/300-page profile, and the whole M0 decision, remain separate and pending.
+
+## Word P2b candidate: linear node growth, residual100RSS miss
+
+Latest current matrix is `reports/criteria-phase-c-v3.json`. Candidate source is
+`ccf1ffd0353eccbdc23b922e54973fb0919b81a4`, tree
+`3c4b0234375c1f944960e0f72f982530c62e79f3`. The issued window explicitly allows
+candidate metrics while supplemental native print proof remains separate.
+Raw evidence is `reports/word-performance-2026-10-21T21-03-18-829Z/report.json`;
+assessment is `reports/word-candidate-assessment-v2.json`. G wall-v3 method and
+all numerical v1.1targets remain unchanged. Core v2's ten exact source/harness/
+budget bindings remain identical and are reused; no Core profile ran again.
+
+All six fresh normal browser samples completed: three100pages then three300.
+All actual pages/paragraphs/root/surface/native completion counts were correct;
+CDP text-child faces and CoreText versions/file hashes matched. No forced cold
+render, console/page error, guard failure or cleanup failure occurred. All six
+timing gates and repeatability pass. Worst-of-three browser-inner cold/warm/
+synchronous print-DOM times are378.3/113.9/35.7ms for100 and
+1,038.4/354.1/96.7ms for300. Runner wall wrappers remain distinct and raw.
+
+Actual printed node deltas are16,201in each100sample and48,601in each300sample.
+The measured ratio2.99987655083passes3.5. This replaces the missing current
+300node observation; it does not erase the original R2GiBguard failure.
+
+Finding `526/word100-rss-v2` FAILS:100sampled owned aggregate RSS is
+527,810,560/591,446,016/604,405,760bytes; samples1and2 exceed536,870,912bytes.
+300RSS717,225,984/718,061,568/799,506,432bytes meets1,073,741,824bytes. No
+threshold increase or identical heavy repeat follows. All100preprint sampled
+maxima are below512MiB in this window. The old Rpreprint miss remains historical.
+
+For the failing100samples, the warm-labelled maximum is530,055,168/526,008,320
+bytes and print-labelled maximum591,446,016/604,405,760. The raw label includes
+post-build CDP heap/node readout until the next driver stage; it does not
+separate synchronous construction from deferred browser layout/readout. The
+assessment keeps each peak's exact PID/parent/RSS and phase maxima, plus actual
+before/open/postprint JS heap/node metrics. It does not classify unobserved
+process roles or assign every shared RSS page to one cause. JS heap growth
+from about38MB after open to61MB after print is not proof of a leak.
+
+The200ms poll can miss short peaks.100sample0 has no print-labelled RSS poll;
+its lower recorded maximum is not a continuous print high-water proof. All six
+owned browser roots and55260listener were independently confirmed absent after
+cleanup; the expensive slot was returned immediately before offline assessment.
+Actual raw font, source, harness and host pressure bindings remain available.
+
+Integration retracted its separate PDF visual finding after an exact pixel-hash
+comparison. This performance run does not independently accept PDF fidelity.
+The actual remaining gates are100RSS and supplemental native print proof;
+whole M0 remains OPEN under Planner. No source engine or measured fixture was
+changed by Verification.

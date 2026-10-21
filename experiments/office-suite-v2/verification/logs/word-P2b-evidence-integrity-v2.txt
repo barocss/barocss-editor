@@ -1,0 +1,9 @@
+Raw/budget SHA and exactccf1source/tree PASS
+17production closure and7measured harness files match immutable source PASS
+6fresh completed normal100/300samples, exact counts/fonts/browser, actual node deltas/RSS sums/pressure identity PASS
+6timing/repeatability +actualgrowth +300RSS PASS;100RSS2/3MISS correctly retained
+Corev2 all10exact byte bindings unchanged; evidence reused/noCoreprofile PASS
+Historical firstguard/raw/v1assessment/Corev2/frozenbudget unchanged PASS
+Independent cleanup: all24observed ownedPIDs absent,55260listener absent PASS
+Current matrix evidence links and honest M0OPEN boundary PASS
+Offline first generator attempt: SyntaxError in Python conditional whitespace; no artifact/runtime generated. Corrected offline only; benchmark never rerun.

@@ -1,0 +1,4886 @@
+{
+  "frozenBudget": {
+    "schema": "office-v2-m0/reference-budget-v1.1",
+    "status": "FROZEN before fixed E/W measured baseline; no current result PASS",
+    "reference": "Apple M3 Max14logical/36GiB, Darwin24.6, Node22.22, Chromium145.0.7632.6, desktop1280x900,DPR1",
+    "measurementQuality": {
+      "exactSourcePin": true,
+      "actualFontFaceVersionHash": true,
+      "successfulFreshBrowserSamplesPerWordProfile": 3,
+      "maximumPhaseCoefficientOfVariation": 0.25,
+      "absoluteIdleMachineRequired": false,
+      "ambientConditions": "record load/memory and actual swap-in/out before and after each sample; qualify recorded loaded reference, never silently suppress resource pressure",
+      "resourceGuard": "2GiB aggregate owned browser RSS,15sprint/10sopen phase guards,45ssample wall cap; first guard failure stops remaining heavy samples",
+      "coarsePercentile": "Three observations: report worst-of-three/nearest-rank p95, not population tail",
+      "repeatability": "For each phase3fresh sequential samples: CV<=0.25 OR max-min<=10ms",
+      "absoluteSpreadNoiseFloorMs": 10,
+      "printNodeInventory": "Native CDP DOM node counter delta before/after build, avoiding millions of JS wrappers during print readout; source element/text counts separately recorded"
+    },
+    "wordTargets": [
+      {
+        "phase": "normal-native-cold-open-to-stable-pages",
+        "pages100P95ms": 1000,
+        "pages300P95ms": 3000
+      },
+      {
+        "phase": "full-native-view-layout-completion-plus3stableframes",
+        "pages100P95ms": 250,
+        "pages300P95ms": 750,
+        "observer": "Read-only W private completion flags bound to exact source; never repaint workaround or paint inference"
+      },
+      {
+        "phase": "actual-print-DOM-build",
+        "pages100P95ms": 1000,
+        "pages300P95ms": 3000
+      },
+      {
+        "phase": "peak-owned-browser-aggregate-RSS",
+        "pages100Bytes": 536870912,
+        "pages300Bytes": 1073741824
+      },
+      {
+        "phase": "printed-DOM-node-growth-300-vs-100",
+        "maximumRatio": 3.5,
+        "intent": "3x source content should not create9x printed content"
+      }
+    ],
+    "sheetModelTargets": [
+      {
+        "phase": "cold-native-projection",
+        "p95ms": 1000
+      },
+      {
+        "phase": "full-native-diff",
+        "p95ms": 250
+      },
+      {
+        "phase": "initial-formula-calculation",
+        "p95ms": 250
+      },
+      {
+        "phase": "dirty-formula-calculation",
+        "p95ms": 16
+      },
+      {
+        "phase": "range-paste-native-projection-plus-diff",
+        "p95ms": 1000
+      },
+      {
+        "phase": "peak-child-RSS",
+        "bytes": 536870912
+      },
+      {
+        "phase": "cold-TOTAL-construction-admission-projection-calculation",
+        "p95ms": 2000
+      },
+      {
+        "phase": "one-cell-TOTAL-admission-projection-diff-calculation",
+        "p95ms": 200
+      },
+      {
+        "phase": "paste1000-TOTAL-admission-projection-diff-calculation",
+        "p95ms": 500
+      }
+    ],
+    "excludedClaims": [
+      "No benchmark result is recorded in this proposal",
+      "Targets do not increase to fit a later failure",
+      "Full native lifecycle completion is distinct from browser paint; source-bound completion observer required",
+      "No physicalIME/Canvas/scroll/keystroke-to-paint claim",
+      "PDF/spool/paper fidelity remains separate",
+      "No fullSheetprovider/UI capacity from a model workload"
+    ],
+    "authority": "Planner M0 authority, direct message2026-10-22Asia/Seoul, parent#521",
+    "version": "1.1",
+    "frozenRecordedUtc": "2026-10-21T15:35:40.382890+00:00",
+    "sourceBeforeMeasurement": "WordW522b25bd + CoreE9e823ba3 + VerificationDccdaf138, exact Integration join pending",
+    "supersededDraft": "Integration looser draft values are NOT adopted. v1 phase gates retained; v1.1 total gates added before measurements."
+  },
+  "schema": "office-v2-m0/word-reference-performance-v2",
+  "runId": "2026-10-21T21-03-18-829Z",
+  "lease": {
+    "scope": "office-v2-m0/P2b-word-candidate-100-300-v1.1",
+    "owner": "Execute Verification #526",
+    "owner_thread": "01a15eca-e1d3-7910-9aa1-d590162dbf18",
+    "status": "granted",
+    "granted_utc": "2026-10-21T21:02:54.465309+00:00",
+    "deadline_utc": "2026-10-21T21:17:54.465309+00:00",
+    "source_head": "ccf1ffd0353eccbdc23b922e54973fb0919b81a4",
+    "source_tree": "3c4b0234375c1f944960e0f72f982530c62e79f3",
+    "source_root": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor",
+    "frozen_budget": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+    "reference_scope": "Named recorded loaded workstation; noabsoluteidle/loadcap;actualfont/browser/source/pressurebindings",
+    "qualification": "CANDIDATE METRICS ONLY. root34P2fullPASS/A8/math2PASS; supplementalnativeprintproof and PDFpage5/6visualsourceattribution remainOPEN; no wholeM0acceptance",
+    "serialization": "VerificationONLYheavyM0producer; 3fresh100 then3fresh300; authorlighttest/docs/offlineonly, NOauthorbrowser or semanticchange to measuredIntegrationcheckout",
+    "sample_method": "3freshseqrawsamples;CV<=.25 OR spread<=10ms;allraw/worstof3/coarsep95;normalcold,no diagnosticforce/methodpatch",
+    "guards": "Word45ssample/10scold/15sprint/2GiBownedPIDtree;model45schild/768MiBheap;frozenproducttargetsseparate",
+    "failure_rule": "Firstresource/timeguardfailure stops identical heavy repeats and reports concreteowner+partialraw. Do notdiscardfailuresorinflatebudgets. Cleanonlyownedresources;no unrelatedstop.",
+    "current_loadavg": [
+      167.3212890625,
+      89.1630859375,
+      69.984375
+    ],
+    "swapusage": "vm.swapusage: total = 17408.00M  used = 16986.19M  free = 421.81M  (encrypted)",
+    "checks_before_candidate_observation": {
+      "root": "34P2preflightPASS336.767s sourceea70, P2btest/doconly appWordtypes0/0/linterrors0",
+      "A": "P2b8PASS19.407s source1ff71",
+      "B": "math2PASS/1preprintlegacyUIFAIL/5NOTRUN; supplementalprintonlypending",
+      "Core": "boundedV2PASScomplete10sourceclosureunchanged; noCoreprofile"
+    },
+    "no_dependency_install": true,
+    "kind": "performance-word-P2b-candidate-v1.1",
+    "host": "127.0.0.1",
+    "port": 55260,
+    "browser_executable": "/Users/user/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+    "cases": [
+      100,
+      300
+    ],
+    "measurement_method": "Gword-wall-v3-before-new-source-data c80bd5e9; unchangedfrozenv1.1; 45sfrombeforelaunch/phaseguards/2GiBsampledPIDtree; boundedcleanup/readouts"
+  },
+  "environment": {
+    "node": "v22.22.0",
+    "platform": "darwin",
+    "release": "24.6.0",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytesAtStart": 360775680,
+    "capturedUtc": "2026-10-21T21:03:18.831Z"
+  },
+  "source": {
+    "head": "ccf1ffd0353eccbdc23b922e54973fb0919b81a4",
+    "tree": "3c4b0234375c1f944960e0f72f982530c62e79f3",
+    "dirty": "",
+    "files": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/editor-view-dom/src/editor-view-dom.ts",
+        "sha256": "df476aec72a812df0e2c49ef657204cedd00a0cf24ee66892e16d9da466a9bfa"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/measurement.ts",
+        "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+      },
+      {
+        "path": "packages/office-word/src/layout.ts",
+        "sha256": "664e15e422665531a6ecd4a37559fd28c16994c3a3b6c593967ceea94ec8ce89"
+      },
+      {
+        "path": "packages/office-word/src/pagination.ts",
+        "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+      },
+      {
+        "path": "packages/office-word/src/print-pages.ts",
+        "sha256": "226c90ae9e9e6f3c43ed5964f3d5e05f9d60756814f585631953cc80a18dcefe"
+      },
+      {
+        "path": "packages/office-word/src/renderers/page.ts",
+        "sha256": "2f22023f5c0b7afd34a4e70ad864e00d0ec9d845d1bb83a16255f110e18dbcaa"
+      },
+      {
+        "path": "packages/office-word/src/ui.css",
+        "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+      },
+      {
+        "path": "packages/office-text/src/text.css",
+        "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+      },
+      {
+        "path": "packages/office-word/src/render-context.ts",
+        "sha256": "fe4e8f6a0acc3f0331f3abe2fa7362e95efbe8e09225e3c1bada85f653d84367"
+      },
+      {
+        "path": "packages/office-word/src/font-loader.ts",
+        "sha256": "6519ab82874bc8b1f0397838038a86f5e60743f06a806acf71901cee2968149d"
+      },
+      {
+        "path": "packages/renderer-dom/src/dom-renderer.ts",
+        "sha256": "94310528c134fd7877795623c0756c3e97b62091e1dd662abb95652d45276ee1"
+      },
+      {
+        "path": "packages/renderer-dom/src/scheduler.ts",
+        "sha256": "e79fa52c853b9bbc4511c2f6ae0318885ffea101504679639cf3def650551c9d"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/reconciler.ts",
+        "sha256": "e229a6d7edd632a80ba3f2f7011bffa07cf9355ff3ccf75dd737e32a76513872"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+        "sha256": "d190c6361aa73532da42af1b8e1b835e5c2126ecd596fc8f8a90008e18c84ce9"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+        "sha256": "4c93720795a92e71266373572c1885dbb4040274e7ec6bc0ba6c3cca5a4bd28f"
+      }
+    ]
+  },
+  "harness": [
+    {
+      "path": "word-performance-runner.mjs",
+      "sha256": "9f51c8c97b97270819660ee29f5f22dc9aa94e1b5777f46f8195a1939db2eb24"
+    },
+    {
+      "path": "word-performance-browser.mjs",
+      "sha256": "75fbfe2dee394bf0576d964da941af010b49bc1ec1bc19799e5b826bad7fe4d0"
+    },
+    {
+      "path": "performance-guards.ts",
+      "sha256": "5454187e7f79b8613a74467a2ae33eaafcbc0eb112a205484cae90f30ea2dbf4"
+    },
+    {
+      "path": "profiles.ts",
+      "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+    },
+    {
+      "path": "metrics.ts",
+      "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+    },
+    {
+      "path": "font-metadata.py",
+      "sha256": "969a6c9f66e6a94b9c492118f4e3252013b231ca83951f7b3d03ee7cbb3c0ab7"
+    },
+    {
+      "path": "word-performance.html",
+      "sha256": "c967f2a610a5d5669bea064f13408fafff2edf7181226d1f58a1fa11c97e0708"
+    }
+  ],
+  "workload": {
+    "pages": [
+      100,
+      300
+    ],
+    "samplesPerPage": 3,
+    "paragraphsPerPage": 8,
+    "explicitBreaks": true,
+    "normalColdRuntimeOnly": true,
+    "freshBrowserProcessEachSample": true
+  },
+  "measurementMethodRevision": "word-wall-v3-before-new-source-data",
+  "guards": {
+    "aggregateOwnedBrowserRssBytes": 2147483648,
+    "pollMs": 200,
+    "openPhaseMs": 10000,
+    "renderPhaseMs": 10000,
+    "printPhaseMs": 15000,
+    "sampleWallMs": 45000,
+    "cleanupWallMs": 5000,
+    "hostReadoutPerCommandMs": 1000,
+    "scope": "45swall begins before fresh browser launch; navigation/work/readout included; cleanup separately bounded5s. RSS begins when owned root PID becomes available and remains200ms sampled aggregate, not exact HWM."
+  },
+  "samples": [
+    {
+      "pages": 100,
+      "sample": 0,
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T21:03:19.387Z",
+        "load": [
+          69.09228515625,
+          58.18359375,
+          49.4345703125
+        ],
+        "memoryFreePercent": 41,
+        "pageBytes": 16384,
+        "swapins": 6981432,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "phases": [
+        {
+          "name": "module-navigation",
+          "elapsedMs": 3426.2464579999996,
+          "completed": true
+        },
+        {
+          "name": "normal-cold-open",
+          "elapsedMs": 382.4427919999998,
+          "completed": true
+        },
+        {
+          "name": "full-native-view-layout-completion",
+          "elapsedMs": 197.74612499999967,
+          "completed": true
+        },
+        {
+          "name": "actual-print-DOM-build",
+          "elapsedMs": 37.79266700000062,
+          "completed": true
+        },
+        {
+          "name": "print-node-inventory",
+          "elapsedMs": 1.813125000000582,
+          "completed": true
+        }
+      ],
+      "rssSamples": [
+        {
+          "atUtc": "2026-10-21T21:03:20.646Z",
+          "phase": "browser-start",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 64061440,
+              "cpuPercent": 8.7
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 3670016,
+              "cpuPercent": 2.5
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 32768,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 32768,
+              "cpuPercent": 0
+            }
+          ],
+          "aggregateRssBytes": 67796992
+        },
+        {
+          "atUtc": "2026-10-21T21:03:20.822Z",
+          "phase": "browser-start",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 66928640,
+              "cpuPercent": 5.2
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 51544064,
+              "cpuPercent": 11.4
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 32768,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 32768,
+              "cpuPercent": 0
+            }
+          ],
+          "aggregateRssBytes": 118538240
+        },
+        {
+          "atUtc": "2026-10-21T21:03:21.049Z",
+          "phase": "browser-start",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 67420160,
+              "cpuPercent": 2.4
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 51773440,
+              "cpuPercent": 8.4
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 26329088,
+              "cpuPercent": 4.8
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 32768,
+              "cpuPercent": 0
+            }
+          ],
+          "aggregateRssBytes": 145555456
+        },
+        {
+          "atUtc": "2026-10-21T21:03:21.240Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 71991296,
+              "cpuPercent": 1.4
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53395456,
+              "cpuPercent": 5.3
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 31473664,
+              "cpuPercent": 2.9
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 67698688,
+              "cpuPercent": 2.4
+            }
+          ],
+          "aggregateRssBytes": 224559104
+        },
+        {
+          "atUtc": "2026-10-21T21:03:21.472Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 72646656,
+              "cpuPercent": 3.6
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 2.6
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 33603584,
+              "cpuPercent": 2.7
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 72744960,
+              "cpuPercent": 11.1
+            }
+          ],
+          "aggregateRssBytes": 232374272
+        },
+        {
+          "atUtc": "2026-10-21T21:03:21.679Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 77037568,
+              "cpuPercent": 6.7
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0.8
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 39600128,
+              "cpuPercent": 4.4
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 79101952,
+              "cpuPercent": 9.1
+            }
+          ],
+          "aggregateRssBytes": 249118720
+        },
+        {
+          "atUtc": "2026-10-21T21:03:21.862Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 77971456,
+              "cpuPercent": 4.1
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0.5
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 43057152,
+              "cpuPercent": 2.7
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 82903040,
+              "cpuPercent": 5.4
+            }
+          ],
+          "aggregateRssBytes": 257310720
+        },
+        {
+          "atUtc": "2026-10-21T21:03:22.080Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 78692352,
+              "cpuPercent": 7.5
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 47104000,
+              "cpuPercent": 5.9
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 87769088,
+              "cpuPercent": 5.5
+            }
+          ],
+          "aggregateRssBytes": 266944512
+        },
+        {
+          "atUtc": "2026-10-21T21:03:22.322Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 78757888,
+              "cpuPercent": 5.1
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 47726592,
+              "cpuPercent": 4.2
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 91111424,
+              "cpuPercent": 5.3
+            }
+          ],
+          "aggregateRssBytes": 270974976
+        },
+        {
+          "atUtc": "2026-10-21T21:03:22.546Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 78757888,
+              "cpuPercent": 4
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 48840704,
+              "cpuPercent": 3.4
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 94502912,
+              "cpuPercent": 4.5
+            }
+          ],
+          "aggregateRssBytes": 275480576
+        },
+        {
+          "atUtc": "2026-10-21T21:03:22.727Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 78856192,
+              "cpuPercent": 5.6
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 50135040,
+              "cpuPercent": 4.5
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 98713600,
+              "cpuPercent": 6.5
+            }
+          ],
+          "aggregateRssBytes": 281083904
+        },
+        {
+          "atUtc": "2026-10-21T21:03:22.918Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 78856192,
+              "cpuPercent": 10.5
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 51412992,
+              "cpuPercent": 8.4
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 102350848,
+              "cpuPercent": 12
+            }
+          ],
+          "aggregateRssBytes": 285999104
+        },
+        {
+          "atUtc": "2026-10-21T21:03:23.157Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 78970880,
+              "cpuPercent": 11.4
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 51920896,
+              "cpuPercent": 8.8
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 104693760,
+              "cpuPercent": 12.6
+            }
+          ],
+          "aggregateRssBytes": 288964608
+        },
+        {
+          "atUtc": "2026-10-21T21:03:23.420Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 79085568,
+              "cpuPercent": 3.6
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 52183040,
+              "cpuPercent": 2.9
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 104693760,
+              "cpuPercent": 3.1
+            }
+          ],
+          "aggregateRssBytes": 289341440
+        },
+        {
+          "atUtc": "2026-10-21T21:03:23.725Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 80330752,
+              "cpuPercent": 13.6
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 53379072,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 56885248,
+              "cpuPercent": 10.8
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 111312896,
+              "cpuPercent": 13.6
+            }
+          ],
+          "aggregateRssBytes": 301907968
+        },
+        {
+          "atUtc": "2026-10-21T21:03:23.874Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 73285632,
+              "cpuPercent": 8.5
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 44253184,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 57114624,
+              "cpuPercent": 6.7
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 125878272,
+              "cpuPercent": 8.2
+            }
+          ],
+          "aggregateRssBytes": 300531712
+        },
+        {
+          "atUtc": "2026-10-21T21:03:24.051Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 73285632,
+              "cpuPercent": 11.3
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 44253184,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 57573376,
+              "cpuPercent": 9.6
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 127172608,
+              "cpuPercent": 17.2
+            }
+          ],
+          "aggregateRssBytes": 302284800
+        },
+        {
+          "atUtc": "2026-10-21T21:03:24.275Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 73334784,
+              "cpuPercent": 12.5
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 44253184,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 56311808,
+              "cpuPercent": 10.4
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 127680512,
+              "cpuPercent": 17.9
+            }
+          ],
+          "aggregateRssBytes": 301580288
+        },
+        {
+          "atUtc": "2026-10-21T21:03:24.460Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 73351168,
+              "cpuPercent": 17.5
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 44253184,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 59768832,
+              "cpuPercent": 14.8
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 138248192,
+              "cpuPercent": 23.6
+            }
+          ],
+          "aggregateRssBytes": 315621376
+        },
+        {
+          "atUtc": "2026-10-21T21:03:24.664Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 76808192,
+              "cpuPercent": 19.7
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 44351488,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 59867136,
+              "cpuPercent": 13.5
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 171819008,
+              "cpuPercent": 38.7
+            }
+          ],
+          "aggregateRssBytes": 352845824
+        },
+        {
+          "atUtc": "2026-10-21T21:03:24.875Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 76808192,
+              "cpuPercent": 12.3
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 44367872,
+              "cpuPercent": 0.3
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 59867136,
+              "cpuPercent": 8.4
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 240041984,
+              "cpuPercent": 61.1
+            }
+          ],
+          "aggregateRssBytes": 421085184
+        },
+        {
+          "atUtc": "2026-10-21T21:03:25.237Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 76496896,
+              "cpuPercent": 3.3
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 50544640,
+              "cpuPercent": 0.8
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 58114048,
+              "cpuPercent": 2
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 295288832,
+              "cpuPercent": 65.8
+            }
+          ],
+          "aggregateRssBytes": 480444416
+        },
+        {
+          "atUtc": "2026-10-21T21:03:25.442Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 54697,
+              "parentPid": 54574,
+              "rssBytes": 76496896,
+              "cpuPercent": 1.1
+            },
+            {
+              "pid": 54725,
+              "parentPid": 54697,
+              "rssBytes": 50561024,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 54726,
+              "parentPid": 54697,
+              "rssBytes": 58114048,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 54732,
+              "parentPid": 54697,
+              "rssBytes": 342638592,
+              "cpuPercent": 58.1
+            }
+          ],
+          "aggregateRssBytes": 527810560
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "status": "COMPLETED: measured normal runtime phases",
+      "sampleWallStartedUtc": "2026-10-21T21:03:19.405Z",
+      "ownedBrowserRootPid": 54697,
+      "browserVersion": "145.0.7632.6",
+      "memoryBefore": {
+        "Documents": 3,
+        "Nodes": 39,
+        "LayoutCount": 0,
+        "LayoutDuration": 0,
+        "JSHeapUsedSize": 21002180,
+        "JSHeapTotalSize": 24887296
+      },
+      "open": {
+        "fixtureBuildMs": 0.2999999523162842,
+        "admissionMs": 49.800000071525574,
+        "normalMountToStableLayoutMs": 328.39999997615814,
+        "coldOpenMs": 378.3000000715256,
+        "pages": 100,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 100
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 2,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 2
+        },
+        "documentFaults": [],
+        "rootId": "word:1",
+        "domRoot": "word:1",
+        "paragraphs": 800,
+        "sourceNodes": {
+          "elements": 2514,
+          "textNodes": 800
+        }
+      },
+      "memoryAfterOpen": {
+        "Documents": 1,
+        "Nodes": 3356,
+        "LayoutCount": 3,
+        "LayoutDuration": 0.079387,
+        "JSHeapUsedSize": 38392268,
+        "JSHeapTotalSize": 66420736
+      },
+      "fonts": [
+        {
+          "paragraphIndex": 0,
+          "selector": "[data-bc-sid=\"word\\:8\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 1, paragraph 1. Synthetic layout sample. 한글 문서와 Latin t",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 124
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 400,
+          "selector": "[data-bc-sid=\"word\\:808\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 51, paragraph 1. Synthetic layout sample. 한글 문서와 Latin ",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 126
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 799,
+          "selector": "[data-bc-sid=\"word\\:1606\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 100, paragraph 8. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        }
+      ],
+      "installedFonts": {
+        "schema": "office-v2-m0/coretext-font-identities-v1",
+        "fonts": [
+          {
+            "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+            "actualPostScriptName": "AppleSDGothicNeo-Regular",
+            "family": "Apple SD Gothic Neo",
+            "version": "19.0d2e1",
+            "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+            "exactNameMatched": true,
+            "fileBytes": 28427796,
+            "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+            "qualifiedIdentity": true
+          },
+          {
+            "requestedPostScriptName": "ArialMT",
+            "actualPostScriptName": "ArialMT",
+            "family": "Arial",
+            "version": "Version 5.01.2x",
+            "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "exactNameMatched": true,
+            "fileBytes": 773236,
+            "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+            "qualifiedIdentity": true
+          }
+        ]
+      },
+      "fontsQualified": true,
+      "render": {
+        "elapsedMs": 105.29999995231628,
+        "pages": 100,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 100
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 3,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 1
+        }
+      },
+      "domBeforePrint": {
+        "documents": 1,
+        "nodes": 3356,
+        "jsEventListeners": 77
+      },
+      "print": {
+        "pages": 100,
+        "buildMs": 35.39999997615814
+      },
+      "memoryAfterPrint": {
+        "Documents": 1,
+        "Nodes": 19557,
+        "LayoutCount": 4,
+        "LayoutDuration": 0.108672,
+        "JSHeapUsedSize": 61415936,
+        "JSHeapTotalSize": 80314368
+      },
+      "domAfterPrint": {
+        "documents": 1,
+        "nodes": 19557,
+        "jsEventListeners": 77
+      },
+      "printedDOMNodeDelta": 16201,
+      "nodeInventoryMethod": "Native CDP Memory.getDOMCounters before/after print build; no JS traversal/wrapper creation across printed tree",
+      "printedNodes": {
+        "pages": 100
+      },
+      "sampleWallEndedUtc": "2026-10-21T21:03:25.549Z",
+      "cleanupStatus": "Owned close/launch settlement completed within5s",
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T21:03:25.612Z",
+        "load": [
+          67.64306640625,
+          58.06396484375,
+          49.443359375
+        ],
+        "memoryFreePercent": 42,
+        "pageBytes": 16384,
+        "swapins": 6981544,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "peakAggregateOwnedRssBytes": 527810560,
+      "rssDefinition": "Maximum200ms owned aggregate RSS sample; shared pages included; not a continuous process high-water mark",
+      "swapInBytes": 1835008,
+      "swapOutBytes": 0
+    },
+    {
+      "pages": 100,
+      "sample": 1,
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T21:03:25.644Z",
+        "load": [
+          67.64306640625,
+          58.06396484375,
+          49.443359375
+        ],
+        "memoryFreePercent": 42,
+        "pageBytes": 16384,
+        "swapins": 6981548,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "phases": [
+        {
+          "name": "module-navigation",
+          "elapsedMs": 1173.4843330000003,
+          "completed": true
+        },
+        {
+          "name": "normal-cold-open",
+          "elapsedMs": 390.03750000000036,
+          "completed": true
+        },
+        {
+          "name": "full-native-view-layout-completion",
+          "elapsedMs": 162.30054200000086,
+          "completed": true
+        },
+        {
+          "name": "actual-print-DOM-build",
+          "elapsedMs": 125.14087500000096,
+          "completed": true
+        },
+        {
+          "name": "print-node-inventory",
+          "elapsedMs": 1.466374999999971,
+          "completed": true
+        }
+      ],
+      "rssSamples": [
+        {
+          "atUtc": "2026-10-21T21:03:26.141Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 77840384,
+              "cpuPercent": 22.6
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 53198848,
+              "cpuPercent": 14.5
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 42926080,
+              "cpuPercent": 10
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 85884928,
+              "cpuPercent": 17.8
+            }
+          ],
+          "aggregateRssBytes": 259850240
+        },
+        {
+          "atUtc": "2026-10-21T21:03:26.344Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 79413248,
+              "cpuPercent": 20
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 53198848,
+              "cpuPercent": 5.2
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 50331648,
+              "cpuPercent": 13
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 99647488,
+              "cpuPercent": 18.3
+            }
+          ],
+          "aggregateRssBytes": 282591232
+        },
+        {
+          "atUtc": "2026-10-21T21:03:26.508Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 80232448,
+              "cpuPercent": 27.5
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 53198848,
+              "cpuPercent": 1.9
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 53903360,
+              "cpuPercent": 19.7
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 108412928,
+              "cpuPercent": 28.6
+            }
+          ],
+          "aggregateRssBytes": 295747584
+        },
+        {
+          "atUtc": "2026-10-21T21:03:26.738Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 80773120,
+              "cpuPercent": 24.2
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 53198848,
+              "cpuPercent": 1.1
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 60997632,
+              "cpuPercent": 18.1
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 139165696,
+              "cpuPercent": 23.8
+            }
+          ],
+          "aggregateRssBytes": 334135296
+        },
+        {
+          "atUtc": "2026-10-21T21:03:26.963Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 81018880,
+              "cpuPercent": 29.6
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 53198848,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 65503232,
+              "cpuPercent": 22.9
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 153387008,
+              "cpuPercent": 36.2
+            }
+          ],
+          "aggregateRssBytes": 353107968
+        },
+        {
+          "atUtc": "2026-10-21T21:03:27.152Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 84230144,
+              "cpuPercent": 29.8
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 53231616,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 67502080,
+              "cpuPercent": 22
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 179765248,
+              "cpuPercent": 49.6
+            }
+          ],
+          "aggregateRssBytes": 384729088
+        },
+        {
+          "atUtc": "2026-10-21T21:03:27.327Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 84262912,
+              "cpuPercent": 18.5
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 53231616,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 67502080,
+              "cpuPercent": 13.6
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 230277120,
+              "cpuPercent": 51.5
+            }
+          ],
+          "aggregateRssBytes": 435273728
+        },
+        {
+          "atUtc": "2026-10-21T21:03:27.545Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 84312064,
+              "cpuPercent": 6.7
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 59260928,
+              "cpuPercent": 0.5
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 67502080,
+              "cpuPercent": 5.1
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 318095360,
+              "cpuPercent": 115.7
+            }
+          ],
+          "aggregateRssBytes": 529170432
+        },
+        {
+          "atUtc": "2026-10-21T21:03:27.736Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 84705280,
+              "cpuPercent": 2.8
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 59244544,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 67502080,
+              "cpuPercent": 1.9
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 318603264,
+              "cpuPercent": 52.1
+            }
+          ],
+          "aggregateRssBytes": 530055168
+        },
+        {
+          "atUtc": "2026-10-21T21:03:27.978Z",
+          "phase": "actual-print-DOM-build",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55017,
+              "parentPid": 54574,
+              "rssBytes": 84705280,
+              "cpuPercent": 1.7
+            },
+            {
+              "pid": 55021,
+              "parentPid": 55017,
+              "rssBytes": 59260928,
+              "cpuPercent": 0.5
+            },
+            {
+              "pid": 55022,
+              "parentPid": 55017,
+              "rssBytes": 67502080,
+              "cpuPercent": 1.2
+            },
+            {
+              "pid": 55023,
+              "parentPid": 55017,
+              "rssBytes": 379977728,
+              "cpuPercent": 65.2
+            }
+          ],
+          "aggregateRssBytes": 591446016
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "status": "COMPLETED: measured normal runtime phases",
+      "sampleWallStartedUtc": "2026-10-21T21:03:25.653Z",
+      "ownedBrowserRootPid": 55017,
+      "browserVersion": "145.0.7632.6",
+      "memoryBefore": {
+        "Documents": 3,
+        "Nodes": 39,
+        "LayoutCount": 0,
+        "LayoutDuration": 0,
+        "JSHeapUsedSize": 20993144,
+        "JSHeapTotalSize": 24625152
+      },
+      "open": {
+        "fixtureBuildMs": 0.10000002384185791,
+        "admissionMs": 27.09999990463257,
+        "normalMountToStableLayoutMs": 301.60000002384186,
+        "coldOpenMs": 328.6999999284744,
+        "pages": 100,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 100
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 2,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 2
+        },
+        "documentFaults": [],
+        "rootId": "word:1",
+        "domRoot": "word:1",
+        "paragraphs": 800,
+        "sourceNodes": {
+          "elements": 2514,
+          "textNodes": 800
+        }
+      },
+      "memoryAfterOpen": {
+        "Documents": 1,
+        "Nodes": 3356,
+        "LayoutCount": 3,
+        "LayoutDuration": 0.042423,
+        "JSHeapUsedSize": 38421192,
+        "JSHeapTotalSize": 66945024
+      },
+      "fonts": [
+        {
+          "paragraphIndex": 0,
+          "selector": "[data-bc-sid=\"word\\:8\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 1, paragraph 1. Synthetic layout sample. 한글 문서와 Latin t",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 124
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 400,
+          "selector": "[data-bc-sid=\"word\\:808\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 51, paragraph 1. Synthetic layout sample. 한글 문서와 Latin ",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 126
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 799,
+          "selector": "[data-bc-sid=\"word\\:1606\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 100, paragraph 8. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        }
+      ],
+      "installedFonts": {
+        "schema": "office-v2-m0/coretext-font-identities-v1",
+        "fonts": [
+          {
+            "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+            "actualPostScriptName": "AppleSDGothicNeo-Regular",
+            "family": "Apple SD Gothic Neo",
+            "version": "19.0d2e1",
+            "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+            "exactNameMatched": true,
+            "fileBytes": 28427796,
+            "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+            "qualifiedIdentity": true
+          },
+          {
+            "requestedPostScriptName": "ArialMT",
+            "actualPostScriptName": "ArialMT",
+            "family": "Arial",
+            "version": "Version 5.01.2x",
+            "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "exactNameMatched": true,
+            "fileBytes": 773236,
+            "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+            "qualifiedIdentity": true
+          }
+        ]
+      },
+      "fontsQualified": true,
+      "render": {
+        "elapsedMs": 113.89999997615814,
+        "pages": 100,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 100
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 3,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 1
+        }
+      },
+      "domBeforePrint": {
+        "documents": 1,
+        "nodes": 3356,
+        "jsEventListeners": 77
+      },
+      "print": {
+        "pages": 100,
+        "buildMs": 35.699999928474426
+      },
+      "memoryAfterPrint": {
+        "Documents": 1,
+        "Nodes": 19557,
+        "LayoutCount": 4,
+        "LayoutDuration": 0.071431,
+        "JSHeapUsedSize": 61489488,
+        "JSHeapTotalSize": 80576512
+      },
+      "domAfterPrint": {
+        "documents": 1,
+        "nodes": 19557,
+        "jsEventListeners": 77
+      },
+      "printedDOMNodeDelta": 16201,
+      "nodeInventoryMethod": "Native CDP Memory.getDOMCounters before/after print build; no JS traversal/wrapper creation across printed tree",
+      "printedNodes": {
+        "pages": 100
+      },
+      "sampleWallEndedUtc": "2026-10-21T21:03:28.016Z",
+      "cleanupStatus": "Owned close/launch settlement completed within5s",
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T21:03:28.071Z",
+        "load": [
+          64.22802734375,
+          57.5146484375,
+          49.2998046875
+        ],
+        "memoryFreePercent": 44,
+        "pageBytes": 16384,
+        "swapins": 6981556,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "peakAggregateOwnedRssBytes": 591446016,
+      "rssDefinition": "Maximum200ms owned aggregate RSS sample; shared pages included; not a continuous process high-water mark",
+      "swapInBytes": 131072,
+      "swapOutBytes": 0
+    },
+    {
+      "pages": 100,
+      "sample": 2,
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T21:03:28.096Z",
+        "load": [
+          64.22802734375,
+          57.5146484375,
+          49.2998046875
+        ],
+        "memoryFreePercent": 44,
+        "pageBytes": 16384,
+        "swapins": 6981556,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "phases": [
+        {
+          "name": "module-navigation",
+          "elapsedMs": 1211.9625829999986,
+          "completed": true
+        },
+        {
+          "name": "normal-cold-open",
+          "elapsedMs": 381.826665999999,
+          "completed": true
+        },
+        {
+          "name": "full-native-view-layout-completion",
+          "elapsedMs": 179.76637499999924,
+          "completed": true
+        },
+        {
+          "name": "actual-print-DOM-build",
+          "elapsedMs": 333.81366700000035,
+          "completed": true
+        },
+        {
+          "name": "print-node-inventory",
+          "elapsedMs": 1.0615839999991294,
+          "completed": true
+        }
+      ],
+      "rssSamples": [
+        {
+          "atUtc": "2026-10-21T21:03:28.521Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 77266944,
+              "cpuPercent": 21.4
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53379072,
+              "cpuPercent": 10.1
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 41926656,
+              "cpuPercent": 10.8
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 83132416,
+              "cpuPercent": 18.7
+            }
+          ],
+          "aggregateRssBytes": 255705088
+        },
+        {
+          "atUtc": "2026-10-21T21:03:28.743Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 78577664,
+              "cpuPercent": 19
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53362688,
+              "cpuPercent": 6.1
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 49184768,
+              "cpuPercent": 11.1
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 97583104,
+              "cpuPercent": 16.9
+            }
+          ],
+          "aggregateRssBytes": 278708224
+        },
+        {
+          "atUtc": "2026-10-21T21:03:28.955Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 79642624,
+              "cpuPercent": 26.1
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53362688,
+              "cpuPercent": 2.2
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 53198848,
+              "cpuPercent": 18.7
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 107446272,
+              "cpuPercent": 28
+            }
+          ],
+          "aggregateRssBytes": 293650432
+        },
+        {
+          "atUtc": "2026-10-21T21:03:29.156Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 80412672,
+              "cpuPercent": 23
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53362688,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 57180160,
+              "cpuPercent": 17.7
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 113033216,
+              "cpuPercent": 23.8
+            }
+          ],
+          "aggregateRssBytes": 303988736
+        },
+        {
+          "atUtc": "2026-10-21T21:03:29.315Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 80658432,
+              "cpuPercent": 23.4
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53362688,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 62406656,
+              "cpuPercent": 18.1
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 143867904,
+              "cpuPercent": 26.8
+            }
+          ],
+          "aggregateRssBytes": 340295680
+        },
+        {
+          "atUtc": "2026-10-21T21:03:29.543Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 81477632,
+              "cpuPercent": 38.9
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53379072,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 67256320,
+              "cpuPercent": 30.7
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 174063616,
+              "cpuPercent": 55.8
+            }
+          ],
+          "aggregateRssBytes": 376176640
+        },
+        {
+          "atUtc": "2026-10-21T21:03:29.753Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 83902464,
+              "cpuPercent": 26.6
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53379072,
+              "cpuPercent": 0.2
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 67305472,
+              "cpuPercent": 19.2
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 223313920,
+              "cpuPercent": 48.4
+            }
+          ],
+          "aggregateRssBytes": 427900928
+        },
+        {
+          "atUtc": "2026-10-21T21:03:29.944Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 83951616,
+              "cpuPercent": 10.2
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 53968896,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 67305472,
+              "cpuPercent": 7.5
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 312852480,
+              "cpuPercent": 116.5
+            }
+          ],
+          "aggregateRssBytes": 518078464
+        },
+        {
+          "atUtc": "2026-10-21T21:03:30.180Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 84344832,
+              "cpuPercent": 4.2
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 59392000,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 67305472,
+              "cpuPercent": 2.9
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 314966016,
+              "cpuPercent": 59.2
+            }
+          ],
+          "aggregateRssBytes": 526008320
+        },
+        {
+          "atUtc": "2026-10-21T21:03:30.529Z",
+          "phase": "actual-print-DOM-build",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 84344832,
+              "cpuPercent": 0.9
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 63242240,
+              "cpuPercent": 1.1
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 67305472,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 389513216,
+              "cpuPercent": 52.4
+            }
+          ],
+          "aggregateRssBytes": 604405760
+        },
+        {
+          "atUtc": "2026-10-21T21:03:30.622Z",
+          "phase": "actual-print-DOM-build",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55159,
+              "parentPid": 54574,
+              "rssBytes": 84344832,
+              "cpuPercent": 0.9
+            },
+            {
+              "pid": 55162,
+              "parentPid": 55159,
+              "rssBytes": 63225856,
+              "cpuPercent": 1.1
+            },
+            {
+              "pid": 55163,
+              "parentPid": 55159,
+              "rssBytes": 67305472,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55164,
+              "parentPid": 55159,
+              "rssBytes": 389513216,
+              "cpuPercent": 52.4
+            }
+          ],
+          "aggregateRssBytes": 604389376
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "status": "COMPLETED: measured normal runtime phases",
+      "sampleWallStartedUtc": "2026-10-21T21:03:28.107Z",
+      "ownedBrowserRootPid": 55159,
+      "browserVersion": "145.0.7632.6",
+      "memoryBefore": {
+        "Documents": 3,
+        "Nodes": 39,
+        "LayoutCount": 0,
+        "LayoutDuration": 0,
+        "JSHeapUsedSize": 21000212,
+        "JSHeapTotalSize": 24625152
+      },
+      "open": {
+        "fixtureBuildMs": 0.2999999523162842,
+        "admissionMs": 27.300000071525574,
+        "normalMountToStableLayoutMs": 302.6999999284744,
+        "coldOpenMs": 330,
+        "pages": 100,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 100
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 2,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 2
+        },
+        "documentFaults": [],
+        "rootId": "word:1",
+        "domRoot": "word:1",
+        "paragraphs": 800,
+        "sourceNodes": {
+          "elements": 2514,
+          "textNodes": 800
+        }
+      },
+      "memoryAfterOpen": {
+        "Documents": 1,
+        "Nodes": 3356,
+        "LayoutCount": 3,
+        "LayoutDuration": 0.044369,
+        "JSHeapUsedSize": 38033076,
+        "JSHeapTotalSize": 66158592
+      },
+      "fonts": [
+        {
+          "paragraphIndex": 0,
+          "selector": "[data-bc-sid=\"word\\:8\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 1, paragraph 1. Synthetic layout sample. 한글 문서와 Latin t",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 124
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 400,
+          "selector": "[data-bc-sid=\"word\\:808\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 51, paragraph 1. Synthetic layout sample. 한글 문서와 Latin ",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 126
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 799,
+          "selector": "[data-bc-sid=\"word\\:1606\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 100, paragraph 8. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        }
+      ],
+      "installedFonts": {
+        "schema": "office-v2-m0/coretext-font-identities-v1",
+        "fonts": [
+          {
+            "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+            "actualPostScriptName": "AppleSDGothicNeo-Regular",
+            "family": "Apple SD Gothic Neo",
+            "version": "19.0d2e1",
+            "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+            "exactNameMatched": true,
+            "fileBytes": 28427796,
+            "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+            "qualifiedIdentity": true
+          },
+          {
+            "requestedPostScriptName": "ArialMT",
+            "actualPostScriptName": "ArialMT",
+            "family": "Arial",
+            "version": "Version 5.01.2x",
+            "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "exactNameMatched": true,
+            "fileBytes": 773236,
+            "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+            "qualifiedIdentity": true
+          }
+        ]
+      },
+      "fontsQualified": true,
+      "render": {
+        "elapsedMs": 103.69999992847443,
+        "pages": 100,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 100
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 3,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 1
+        }
+      },
+      "domBeforePrint": {
+        "documents": 1,
+        "nodes": 3356,
+        "jsEventListeners": 77
+      },
+      "print": {
+        "pages": 100,
+        "buildMs": 34.700000047683716
+      },
+      "memoryAfterPrint": {
+        "Documents": 1,
+        "Nodes": 19557,
+        "LayoutCount": 4,
+        "LayoutDuration": 0.074322,
+        "JSHeapUsedSize": 61107192,
+        "JSHeapTotalSize": 79790080
+      },
+      "domAfterPrint": {
+        "documents": 1,
+        "nodes": 19557,
+        "jsEventListeners": 77
+      },
+      "printedDOMNodeDelta": 16201,
+      "nodeInventoryMethod": "Native CDP Memory.getDOMCounters before/after print build; no JS traversal/wrapper creation across printed tree",
+      "printedNodes": {
+        "pages": 100
+      },
+      "sampleWallEndedUtc": "2026-10-21T21:03:30.648Z",
+      "cleanupStatus": "Owned close/launch settlement completed within5s",
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T21:03:30.705Z",
+        "load": [
+          64.22802734375,
+          57.5146484375,
+          49.2998046875
+        ],
+        "memoryFreePercent": 43,
+        "pageBytes": 16384,
+        "swapins": 6981604,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "peakAggregateOwnedRssBytes": 604405760,
+      "rssDefinition": "Maximum200ms owned aggregate RSS sample; shared pages included; not a continuous process high-water mark",
+      "swapInBytes": 786432,
+      "swapOutBytes": 0
+    },
+    {
+      "pages": 300,
+      "sample": 0,
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T21:03:30.740Z",
+        "load": [
+          64.22802734375,
+          57.5146484375,
+          49.2998046875
+        ],
+        "memoryFreePercent": 43,
+        "pageBytes": 16384,
+        "swapins": 6981604,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "phases": [
+        {
+          "name": "module-navigation",
+          "elapsedMs": 1354.551875000001,
+          "completed": true
+        },
+        {
+          "name": "normal-cold-open",
+          "elapsedMs": 1098.8352080000004,
+          "completed": true
+        },
+        {
+          "name": "full-native-view-layout-completion",
+          "elapsedMs": 506.29099999999926,
+          "completed": true
+        },
+        {
+          "name": "actual-print-DOM-build",
+          "elapsedMs": 167.97204200000124,
+          "completed": true
+        },
+        {
+          "name": "print-node-inventory",
+          "elapsedMs": 1.5114160000011907,
+          "completed": true
+        }
+      ],
+      "rssSamples": [
+        {
+          "atUtc": "2026-10-21T21:03:31.196Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 77840384,
+              "cpuPercent": 24.6
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 53444608,
+              "cpuPercent": 11.5
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 44630016,
+              "cpuPercent": 11.3
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 87834624,
+              "cpuPercent": 19.5
+            }
+          ],
+          "aggregateRssBytes": 263749632
+        },
+        {
+          "atUtc": "2026-10-21T21:03:31.483Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 78462976,
+              "cpuPercent": 29.3
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 53444608,
+              "cpuPercent": 4
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 50380800,
+              "cpuPercent": 20.5
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 100958208,
+              "cpuPercent": 30.3
+            }
+          ],
+          "aggregateRssBytes": 283246592
+        },
+        {
+          "atUtc": "2026-10-21T21:03:31.639Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 78577664,
+              "cpuPercent": 19
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 53444608,
+              "cpuPercent": 2.5
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 51740672,
+              "cpuPercent": 13.3
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 105955328,
+              "cpuPercent": 19.9
+            }
+          ],
+          "aggregateRssBytes": 289718272
+        },
+        {
+          "atUtc": "2026-10-21T21:03:31.832Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 79986688,
+              "cpuPercent": 19.8
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 53444608,
+              "cpuPercent": 0.8
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 56098816,
+              "cpuPercent": 14.5
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 111312896,
+              "cpuPercent": 19.9
+            }
+          ],
+          "aggregateRssBytes": 300843008
+        },
+        {
+          "atUtc": "2026-10-21T21:03:32.047Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 73777152,
+              "cpuPercent": 28.2
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 39272448,
+              "cpuPercent": 0.3
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 57262080,
+              "cpuPercent": 22
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 128729088,
+              "cpuPercent": 38
+            }
+          ],
+          "aggregateRssBytes": 299040768
+        },
+        {
+          "atUtc": "2026-10-21T21:03:32.250Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 73826304,
+              "cpuPercent": 21.5
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 39272448,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 58556416,
+              "cpuPercent": 16.7
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 135348224,
+              "cpuPercent": 26.3
+            }
+          ],
+          "aggregateRssBytes": 307003392
+        },
+        {
+          "atUtc": "2026-10-21T21:03:32.435Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 77250560,
+              "cpuPercent": 26.3
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 39616512,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 60080128,
+              "cpuPercent": 20.2
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 183009280,
+              "cpuPercent": 44.2
+            }
+          ],
+          "aggregateRssBytes": 359956480
+        },
+        {
+          "atUtc": "2026-10-21T21:03:32.647Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 77250560,
+              "cpuPercent": 11.5
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 39616512,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 59408384,
+              "cpuPercent": 7.9
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 251117568,
+              "cpuPercent": 124.4
+            }
+          ],
+          "aggregateRssBytes": 427393024
+        },
+        {
+          "atUtc": "2026-10-21T21:03:32.867Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 76283904,
+              "cpuPercent": 7.2
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 39632896,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 53706752,
+              "cpuPercent": 4.9
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 315539456,
+              "cpuPercent": 116.3
+            }
+          ],
+          "aggregateRssBytes": 485163008
+        },
+        {
+          "atUtc": "2026-10-21T21:03:33.036Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 76169216,
+              "cpuPercent": 2.5
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 39649280,
+              "cpuPercent": 0.8
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 52477952,
+              "cpuPercent": 1.8
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 406323200,
+              "cpuPercent": 107.7
+            }
+          ],
+          "aggregateRssBytes": 574619648
+        },
+        {
+          "atUtc": "2026-10-21T21:03:33.235Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 75120640,
+              "cpuPercent": 1.6
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 46940160,
+              "cpuPercent": 1.6
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 48824320,
+              "cpuPercent": 1.1
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 478330880,
+              "cpuPercent": 130.9
+            }
+          ],
+          "aggregateRssBytes": 649216000
+        },
+        {
+          "atUtc": "2026-10-21T21:03:33.443Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 73072640,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 51822592,
+              "cpuPercent": 1.1
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 47874048,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 525123584,
+              "cpuPercent": 146
+            }
+          ],
+          "aggregateRssBytes": 697892864
+        },
+        {
+          "atUtc": "2026-10-21T21:03:33.785Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 73089024,
+              "cpuPercent": 0.3
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 51806208,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 47874048,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 527564800,
+              "cpuPercent": 45.7
+            }
+          ],
+          "aggregateRssBytes": 700334080
+        },
+        {
+          "atUtc": "2026-10-21T21:03:33.976Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 73089024,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 51822592,
+              "cpuPercent": 0.3
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 47874048,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 531808256,
+              "cpuPercent": 45.3
+            }
+          ],
+          "aggregateRssBytes": 704593920
+        },
+        {
+          "atUtc": "2026-10-21T21:03:34.195Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 73089024,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 51822592,
+              "cpuPercent": 0.5
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 47874048,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 541360128,
+              "cpuPercent": 87.8
+            }
+          ],
+          "aggregateRssBytes": 714145792
+        },
+        {
+          "atUtc": "2026-10-21T21:03:34.372Z",
+          "phase": "actual-print-DOM-build",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55324,
+              "parentPid": 54574,
+              "rssBytes": 73089024,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55327,
+              "parentPid": 55324,
+              "rssBytes": 51822592,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55328,
+              "parentPid": 55324,
+              "rssBytes": 47874048,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55329,
+              "parentPid": 55324,
+              "rssBytes": 544440320,
+              "cpuPercent": 70.2
+            }
+          ],
+          "aggregateRssBytes": 717225984
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "status": "COMPLETED: measured normal runtime phases",
+      "sampleWallStartedUtc": "2026-10-21T21:03:30.750Z",
+      "ownedBrowserRootPid": 55324,
+      "browserVersion": "145.0.7632.6",
+      "memoryBefore": {
+        "Documents": 3,
+        "Nodes": 39,
+        "LayoutCount": 0,
+        "LayoutDuration": 0,
+        "JSHeapUsedSize": 21002852,
+        "JSHeapTotalSize": 24887296
+      },
+      "open": {
+        "fixtureBuildMs": 0.5,
+        "admissionMs": 52.60000002384186,
+        "normalMountToStableLayoutMs": 985.7999999523163,
+        "coldOpenMs": 1038.3999999761581,
+        "pages": 300,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 300
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 2,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 2
+        },
+        "documentFaults": [],
+        "rootId": "word:1",
+        "domRoot": "word:1",
+        "paragraphs": 2400,
+        "sourceNodes": {
+          "elements": 7514,
+          "textNodes": 2400
+        }
+      },
+      "memoryAfterOpen": {
+        "Documents": 1,
+        "Nodes": 9956,
+        "LayoutCount": 3,
+        "LayoutDuration": 0.099894,
+        "JSHeapUsedSize": 62389716,
+        "JSHeapTotalSize": 123043840
+      },
+      "fonts": [
+        {
+          "paragraphIndex": 0,
+          "selector": "[data-bc-sid=\"word\\:8\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 1, paragraph 1. Synthetic layout sample. 한글 문서와 Latin t",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 124
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 1200,
+          "selector": "[data-bc-sid=\"word\\:2408\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 151, paragraph 1. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 2399,
+          "selector": "[data-bc-sid=\"word\\:4806\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 300, paragraph 8. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        }
+      ],
+      "installedFonts": {
+        "schema": "office-v2-m0/coretext-font-identities-v1",
+        "fonts": [
+          {
+            "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+            "actualPostScriptName": "AppleSDGothicNeo-Regular",
+            "family": "Apple SD Gothic Neo",
+            "version": "19.0d2e1",
+            "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+            "exactNameMatched": true,
+            "fileBytes": 28427796,
+            "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+            "qualifiedIdentity": true
+          },
+          {
+            "requestedPostScriptName": "ArialMT",
+            "actualPostScriptName": "ArialMT",
+            "family": "Arial",
+            "version": "Version 5.01.2x",
+            "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "exactNameMatched": true,
+            "fileBytes": 773236,
+            "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+            "qualifiedIdentity": true
+          }
+        ]
+      },
+      "fontsQualified": true,
+      "render": {
+        "elapsedMs": 349.2000000476837,
+        "pages": 300,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 300
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 3,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 1
+        }
+      },
+      "domBeforePrint": {
+        "documents": 1,
+        "nodes": 9956,
+        "jsEventListeners": 77
+      },
+      "print": {
+        "pages": 300,
+        "buildMs": 96.70000004768372
+      },
+      "memoryAfterPrint": {
+        "Documents": 1,
+        "Nodes": 58557,
+        "LayoutCount": 4,
+        "LayoutDuration": 0.181803,
+        "JSHeapUsedSize": 89830540,
+        "JSHeapTotalSize": 135888896
+      },
+      "domAfterPrint": {
+        "documents": 1,
+        "nodes": 58557,
+        "jsEventListeners": 77
+      },
+      "printedDOMNodeDelta": 48601,
+      "nodeInventoryMethod": "Native CDP Memory.getDOMCounters before/after print build; no JS traversal/wrapper creation across printed tree",
+      "printedNodes": {
+        "pages": 300
+      },
+      "sampleWallEndedUtc": "2026-10-21T21:03:34.463Z",
+      "cleanupStatus": "Owned close/launch settlement completed within5s",
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T21:03:34.534Z",
+        "load": [
+          62.44775390625,
+          57.2568359375,
+          49.2568359375
+        ],
+        "memoryFreePercent": 40,
+        "pageBytes": 16384,
+        "swapins": 6981652,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "peakAggregateOwnedRssBytes": 717225984,
+      "rssDefinition": "Maximum200ms owned aggregate RSS sample; shared pages included; not a continuous process high-water mark",
+      "swapInBytes": 786432,
+      "swapOutBytes": 0
+    },
+    {
+      "pages": 300,
+      "sample": 1,
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T21:03:34.584Z",
+        "load": [
+          62.44775390625,
+          57.2568359375,
+          49.2568359375
+        ],
+        "memoryFreePercent": 40,
+        "pageBytes": 16384,
+        "swapins": 6981652,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15797.38M  free = 586.62M  (encrypted)"
+      },
+      "phases": [
+        {
+          "name": "module-navigation",
+          "elapsedMs": 1378.8239590000012,
+          "completed": true
+        },
+        {
+          "name": "normal-cold-open",
+          "elapsedMs": 1039.7308330000014,
+          "completed": true
+        },
+        {
+          "name": "full-native-view-layout-completion",
+          "elapsedMs": 472.0117079999982,
+          "completed": true
+        },
+        {
+          "name": "actual-print-DOM-build",
+          "elapsedMs": 95.78491600000052,
+          "completed": true
+        },
+        {
+          "name": "print-node-inventory",
+          "elapsedMs": 1.9015829999989364,
+          "completed": true
+        }
+      ],
+      "rssSamples": [
+        {
+          "atUtc": "2026-10-21T21:03:35.030Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 77135872,
+              "cpuPercent": 20.5
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53346304,
+              "cpuPercent": 10.4
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 39845888,
+              "cpuPercent": 10.7
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 79888384,
+              "cpuPercent": 18.5
+            }
+          ],
+          "aggregateRssBytes": 250216448
+        },
+        {
+          "atUtc": "2026-10-21T21:03:35.287Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 78839808,
+              "cpuPercent": 16.1
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53329920,
+              "cpuPercent": 6.5
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 48578560,
+              "cpuPercent": 9.3
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 96354304,
+              "cpuPercent": 15.1
+            }
+          ],
+          "aggregateRssBytes": 277102592
+        },
+        {
+          "atUtc": "2026-10-21T21:03:35.460Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 78921728,
+              "cpuPercent": 19.2
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53329920,
+              "cpuPercent": 2.4
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 50921472,
+              "cpuPercent": 13.6
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 102793216,
+              "cpuPercent": 19.5
+            }
+          ],
+          "aggregateRssBytes": 285966336
+        },
+        {
+          "atUtc": "2026-10-21T21:03:35.698Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 80117760,
+              "cpuPercent": 23.6
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53329920,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 53919744,
+              "cpuPercent": 16.8
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 109133824,
+              "cpuPercent": 24.5
+            }
+          ],
+          "aggregateRssBytes": 296501248
+        },
+        {
+          "atUtc": "2026-10-21T21:03:35.844Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 80396288,
+              "cpuPercent": 14.8
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53329920,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 56475648,
+              "cpuPercent": 10.7
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 112558080,
+              "cpuPercent": 15.1
+            }
+          ],
+          "aggregateRssBytes": 302759936
+        },
+        {
+          "atUtc": "2026-10-21T21:03:36.019Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 80740352,
+              "cpuPercent": 26.8
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53329920,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 62226432,
+              "cpuPercent": 20.7
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 144965632,
+              "cpuPercent": 37
+            }
+          ],
+          "aggregateRssBytes": 341262336
+        },
+        {
+          "atUtc": "2026-10-21T21:03:36.220Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 80740352,
+              "cpuPercent": 25.5
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53329920,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 66895872,
+              "cpuPercent": 19.8
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 156794880,
+              "cpuPercent": 31.6
+            }
+          ],
+          "aggregateRssBytes": 357761024
+        },
+        {
+          "atUtc": "2026-10-21T21:03:36.535Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 84017152,
+              "cpuPercent": 26.1
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53346304,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 67338240,
+              "cpuPercent": 18
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 238338048,
+              "cpuPercent": 64.7
+            }
+          ],
+          "aggregateRssBytes": 443039744
+        },
+        {
+          "atUtc": "2026-10-21T21:03:36.703Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 84017152,
+              "cpuPercent": 10
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 53362688,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 67338240,
+              "cpuPercent": 7
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 283541504,
+              "cpuPercent": 128.6
+            }
+          ],
+          "aggregateRssBytes": 488259584
+        },
+        {
+          "atUtc": "2026-10-21T21:03:36.903Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 74498048,
+              "cpuPercent": 6.1
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 41320448,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 62210048,
+              "cpuPercent": 4.3
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 390889472,
+              "cpuPercent": 117.5
+            }
+          ],
+          "aggregateRssBytes": 568918016
+        },
+        {
+          "atUtc": "2026-10-21T21:03:37.061Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 74104832,
+              "cpuPercent": 2.1
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 47333376,
+              "cpuPercent": 0.8
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 57163776,
+              "cpuPercent": 1.6
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 448528384,
+              "cpuPercent": 126.6
+            }
+          ],
+          "aggregateRssBytes": 627130368
+        },
+        {
+          "atUtc": "2026-10-21T21:03:37.321Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 73433088,
+              "cpuPercent": 1.4
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 47333376,
+              "cpuPercent": 1.4
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 47808512,
+              "cpuPercent": 1
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 525533184,
+              "cpuPercent": 125.1
+            }
+          ],
+          "aggregateRssBytes": 694108160
+        },
+        {
+          "atUtc": "2026-10-21T21:03:37.540Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 70402048,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 52199424,
+              "cpuPercent": 1
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 45842432,
+              "cpuPercent": 0.2
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 530989056,
+              "cpuPercent": 87.7
+            }
+          ],
+          "aggregateRssBytes": 699432960
+        },
+        {
+          "atUtc": "2026-10-21T21:03:37.756Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 70402048,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 52215808,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 45842432,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 535068672,
+              "cpuPercent": 68.5
+            }
+          ],
+          "aggregateRssBytes": 703528960
+        },
+        {
+          "atUtc": "2026-10-21T21:03:37.927Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 70402048,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 52215808,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 45842432,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 544555008,
+              "cpuPercent": 95.3
+            }
+          ],
+          "aggregateRssBytes": 713015296
+        },
+        {
+          "atUtc": "2026-10-21T21:03:38.163Z",
+          "phase": "actual-print-DOM-build",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55500,
+              "parentPid": 54574,
+              "rssBytes": 70402048,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55503,
+              "parentPid": 55500,
+              "rssBytes": 52248576,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55504,
+              "parentPid": 55500,
+              "rssBytes": 45842432,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55505,
+              "parentPid": 55500,
+              "rssBytes": 549568512,
+              "cpuPercent": 91.7
+            }
+          ],
+          "aggregateRssBytes": 718061568
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "status": "COMPLETED: measured normal runtime phases",
+      "sampleWallStartedUtc": "2026-10-21T21:03:34.602Z",
+      "ownedBrowserRootPid": 55500,
+      "browserVersion": "145.0.7632.6",
+      "memoryBefore": {
+        "Documents": 3,
+        "Nodes": 39,
+        "LayoutCount": 0,
+        "LayoutDuration": 0,
+        "JSHeapUsedSize": 20997044,
+        "JSHeapTotalSize": 24625152
+      },
+      "open": {
+        "fixtureBuildMs": 0.6000000238418579,
+        "admissionMs": 50.799999952316284,
+        "normalMountToStableLayoutMs": 975.5,
+        "coldOpenMs": 1026.2999999523163,
+        "pages": 300,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 300
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 2,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 2
+        },
+        "documentFaults": [],
+        "rootId": "word:1",
+        "domRoot": "word:1",
+        "paragraphs": 2400,
+        "sourceNodes": {
+          "elements": 7514,
+          "textNodes": 2400
+        }
+      },
+      "memoryAfterOpen": {
+        "Documents": 1,
+        "Nodes": 9956,
+        "LayoutCount": 3,
+        "LayoutDuration": 0.099905,
+        "JSHeapUsedSize": 62080300,
+        "JSHeapTotalSize": 123305984
+      },
+      "fonts": [
+        {
+          "paragraphIndex": 0,
+          "selector": "[data-bc-sid=\"word\\:8\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 1, paragraph 1. Synthetic layout sample. 한글 문서와 Latin t",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 124
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 1200,
+          "selector": "[data-bc-sid=\"word\\:2408\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 151, paragraph 1. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 2399,
+          "selector": "[data-bc-sid=\"word\\:4806\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 300, paragraph 8. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        }
+      ],
+      "installedFonts": {
+        "schema": "office-v2-m0/coretext-font-identities-v1",
+        "fonts": [
+          {
+            "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+            "actualPostScriptName": "AppleSDGothicNeo-Regular",
+            "family": "Apple SD Gothic Neo",
+            "version": "19.0d2e1",
+            "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+            "exactNameMatched": true,
+            "fileBytes": 28427796,
+            "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+            "qualifiedIdentity": true
+          },
+          {
+            "requestedPostScriptName": "ArialMT",
+            "actualPostScriptName": "ArialMT",
+            "family": "Arial",
+            "version": "Version 5.01.2x",
+            "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "exactNameMatched": true,
+            "fileBytes": 773236,
+            "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+            "qualifiedIdentity": true
+          }
+        ]
+      },
+      "fontsQualified": true,
+      "render": {
+        "elapsedMs": 343.7000000476837,
+        "pages": 300,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 300
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 3,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 1
+        }
+      },
+      "domBeforePrint": {
+        "documents": 1,
+        "nodes": 9956,
+        "jsEventListeners": 77
+      },
+      "print": {
+        "pages": 300,
+        "buildMs": 94.19999992847443
+      },
+      "memoryAfterPrint": {
+        "Documents": 1,
+        "Nodes": 58557,
+        "LayoutCount": 4,
+        "LayoutDuration": 0.180849,
+        "JSHeapUsedSize": 89438380,
+        "JSHeapTotalSize": 136413184
+      },
+      "domAfterPrint": {
+        "documents": 1,
+        "nodes": 58557,
+        "jsEventListeners": 77
+      },
+      "printedDOMNodeDelta": 48601,
+      "nodeInventoryMethod": "Native CDP Memory.getDOMCounters before/after print build; no JS traversal/wrapper creation across printed tree",
+      "printedNodes": {
+        "pages": 300
+      },
+      "sampleWallEndedUtc": "2026-10-21T21:03:38.217Z",
+      "cleanupStatus": "Owned close/launch settlement completed within5s",
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T21:03:38.274Z",
+        "load": [
+          63.77294921875,
+          57.61767578125,
+          49.4306640625
+        ],
+        "memoryFreePercent": 40,
+        "pageBytes": 16384,
+        "swapins": 6985267,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15740.75M  free = 643.25M  (encrypted)"
+      },
+      "peakAggregateOwnedRssBytes": 718061568,
+      "rssDefinition": "Maximum200ms owned aggregate RSS sample; shared pages included; not a continuous process high-water mark",
+      "swapInBytes": 59228160,
+      "swapOutBytes": 0
+    },
+    {
+      "pages": 300,
+      "sample": 2,
+      "systemBefore": {
+        "capturedUtc": "2026-10-21T21:03:38.309Z",
+        "load": [
+          63.77294921875,
+          57.61767578125,
+          49.4306640625
+        ],
+        "memoryFreePercent": 40,
+        "pageBytes": 16384,
+        "swapins": 6985267,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15740.75M  free = 643.25M  (encrypted)"
+      },
+      "phases": [
+        {
+          "name": "module-navigation",
+          "elapsedMs": 1221.2927500000005,
+          "completed": true
+        },
+        {
+          "name": "normal-cold-open",
+          "elapsedMs": 1024.1832079999986,
+          "completed": true
+        },
+        {
+          "name": "full-native-view-layout-completion",
+          "elapsedMs": 500.0455000000002,
+          "completed": true
+        },
+        {
+          "name": "actual-print-DOM-build",
+          "elapsedMs": 219.3088749999988,
+          "completed": true
+        },
+        {
+          "name": "print-node-inventory",
+          "elapsedMs": 1.3135409999995318,
+          "completed": true
+        }
+      ],
+      "rssSamples": [
+        {
+          "atUtc": "2026-10-21T21:03:38.790Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 77856768,
+              "cpuPercent": 25.9
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52690944,
+              "cpuPercent": 9.4
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 44335104,
+              "cpuPercent": 13.9
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 87916544,
+              "cpuPercent": 19.8
+            }
+          ],
+          "aggregateRssBytes": 262799360
+        },
+        {
+          "atUtc": "2026-10-21T21:03:38.977Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 78725120,
+              "cpuPercent": 20.5
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52674560,
+              "cpuPercent": 5.8
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 49922048,
+              "cpuPercent": 12.2
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 98435072,
+              "cpuPercent": 17.2
+            }
+          ],
+          "aggregateRssBytes": 279756800
+        },
+        {
+          "atUtc": "2026-10-21T21:03:39.167Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 79806464,
+              "cpuPercent": 30.1
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52674560,
+              "cpuPercent": 2.2
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 53624832,
+              "cpuPercent": 21.5
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 106889216,
+              "cpuPercent": 31.3
+            }
+          ],
+          "aggregateRssBytes": 292995072
+        },
+        {
+          "atUtc": "2026-10-21T21:03:39.391Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 80379904,
+              "cpuPercent": 22.1
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52674560,
+              "cpuPercent": 1.3
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 60653568,
+              "cpuPercent": 16.1
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 133464064,
+              "cpuPercent": 22
+            }
+          ],
+          "aggregateRssBytes": 327172096
+        },
+        {
+          "atUtc": "2026-10-21T21:03:39.590Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 80740352,
+              "cpuPercent": 25
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52674560,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 63635456,
+              "cpuPercent": 19.4
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 141754368,
+              "cpuPercent": 32.6
+            }
+          ],
+          "aggregateRssBytes": 338804736
+        },
+        {
+          "atUtc": "2026-10-21T21:03:39.766Z",
+          "phase": "module-navigation",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 80871424,
+              "cpuPercent": 33.4
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52690944,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67469312,
+              "cpuPercent": 26.3
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 171540480,
+              "cpuPercent": 51.4
+            }
+          ],
+          "aggregateRssBytes": 372572160
+        },
+        {
+          "atUtc": "2026-10-21T21:03:39.992Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84033536,
+              "cpuPercent": 22.9
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52740096,
+              "cpuPercent": 0.2
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 16.5
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 241647616,
+              "cpuPercent": 54.3
+            }
+          ],
+          "aggregateRssBytes": 445939712
+        },
+        {
+          "atUtc": "2026-10-21T21:03:40.173Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84033536,
+              "cpuPercent": 8.7
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52756480,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 6.1
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 291897344,
+              "cpuPercent": 117.4
+            }
+          ],
+          "aggregateRssBytes": 496205824
+        },
+        {
+          "atUtc": "2026-10-21T21:03:40.351Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84033536,
+              "cpuPercent": 5.5
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 52772864,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 3.8
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 406437888,
+              "cpuPercent": 110
+            }
+          ],
+          "aggregateRssBytes": 610762752
+        },
+        {
+          "atUtc": "2026-10-21T21:03:40.576Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84033536,
+              "cpuPercent": 1.9
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 56950784,
+              "cpuPercent": 0.8
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 1.4
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 462602240,
+              "cpuPercent": 125.4
+            }
+          ],
+          "aggregateRssBytes": 671105024
+        },
+        {
+          "atUtc": "2026-10-21T21:03:40.784Z",
+          "phase": "normal-cold-open",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84033536,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 56950784,
+              "cpuPercent": 1.3
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 0.5
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 558759936,
+              "cpuPercent": 144.7
+            }
+          ],
+          "aggregateRssBytes": 767262720
+        },
+        {
+          "atUtc": "2026-10-21T21:03:41.013Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84082688,
+              "cpuPercent": 0.6
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 61784064,
+              "cpuPercent": 1.7
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 0.3
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 568246272,
+              "cpuPercent": 140.5
+            }
+          ],
+          "aggregateRssBytes": 781631488
+        },
+        {
+          "atUtc": "2026-10-21T21:03:41.205Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84082688,
+              "cpuPercent": 0.4
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 61800448,
+              "cpuPercent": 0.7
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 0.1
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 572555264,
+              "cpuPercent": 82.3
+            }
+          ],
+          "aggregateRssBytes": 785956864
+        },
+        {
+          "atUtc": "2026-10-21T21:03:41.434Z",
+          "phase": "full-native-view-layout-completion",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84082688,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 61800448,
+              "cpuPercent": 0.8
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 582385664,
+              "cpuPercent": 97
+            }
+          ],
+          "aggregateRssBytes": 795787264
+        },
+        {
+          "atUtc": "2026-10-21T21:03:41.675Z",
+          "phase": "actual-print-DOM-build",
+          "rootPresent": true,
+          "processes": [
+            {
+              "pid": 55741,
+              "parentPid": 54574,
+              "rssBytes": 84082688,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55745,
+              "parentPid": 55741,
+              "rssBytes": 61816832,
+              "cpuPercent": 0.5
+            },
+            {
+              "pid": 55746,
+              "parentPid": 55741,
+              "rssBytes": 67518464,
+              "cpuPercent": 0
+            },
+            {
+              "pid": 55747,
+              "parentPid": 55741,
+              "rssBytes": 586088448,
+              "cpuPercent": 86.7
+            }
+          ],
+          "aggregateRssBytes": 799506432
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "status": "COMPLETED: measured normal runtime phases",
+      "sampleWallStartedUtc": "2026-10-21T21:03:38.325Z",
+      "ownedBrowserRootPid": 55741,
+      "browserVersion": "145.0.7632.6",
+      "memoryBefore": {
+        "Documents": 3,
+        "Nodes": 39,
+        "LayoutCount": 0,
+        "LayoutDuration": 0,
+        "JSHeapUsedSize": 20995620,
+        "JSHeapTotalSize": 24887296
+      },
+      "open": {
+        "fixtureBuildMs": 0.5,
+        "admissionMs": 48.89999997615814,
+        "normalMountToStableLayoutMs": 971.7000000476837,
+        "coldOpenMs": 1020.6000000238419,
+        "pages": 300,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 300
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 2,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 2
+        },
+        "documentFaults": [],
+        "rootId": "word:1",
+        "domRoot": "word:1",
+        "paragraphs": 2400,
+        "sourceNodes": {
+          "elements": 7514,
+          "textNodes": 2400
+        }
+      },
+      "memoryAfterOpen": {
+        "Documents": 1,
+        "Nodes": 9958,
+        "LayoutCount": 3,
+        "LayoutDuration": 0.100554,
+        "JSHeapUsedSize": 62347464,
+        "JSHeapTotalSize": 123830272
+      },
+      "fonts": [
+        {
+          "paragraphIndex": 0,
+          "selector": "[data-bc-sid=\"word\\:8\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 1, paragraph 1. Synthetic layout sample. 한글 문서와 Latin t",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 124
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 1200,
+          "selector": "[data-bc-sid=\"word\\:2408\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 151, paragraph 1. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        },
+        {
+          "paragraphIndex": 2399,
+          "selector": "[data-bc-sid=\"word\\:4806\"] > span:nth-child(1)",
+          "fontFamily": "Arial, sans-serif",
+          "fontSize": "14.6667px",
+          "textSample": "Page 300, paragraph 8. Synthetic layout sample. 한글 문서와 Latin",
+          "actual": [
+            {
+              "familyName": "Arial",
+              "postScriptName": "ArialMT",
+              "isCustomFont": false,
+              "glyphCount": 128
+            },
+            {
+              "familyName": "Apple SD Gothic Neo",
+              "postScriptName": "AppleSDGothicNeo-Regular",
+              "isCustomFont": false,
+              "glyphCount": 30
+            }
+          ]
+        }
+      ],
+      "installedFonts": {
+        "schema": "office-v2-m0/coretext-font-identities-v1",
+        "fonts": [
+          {
+            "requestedPostScriptName": "AppleSDGothicNeo-Regular",
+            "actualPostScriptName": "AppleSDGothicNeo-Regular",
+            "family": "Apple SD Gothic Neo",
+            "version": "19.0d2e1",
+            "path": "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+            "exactNameMatched": true,
+            "fileBytes": 28427796,
+            "sha256": "0452cde17bbdfe71106680879df943034a003c537c95a4137bab124b3cfa4b66",
+            "qualifiedIdentity": true
+          },
+          {
+            "requestedPostScriptName": "ArialMT",
+            "actualPostScriptName": "ArialMT",
+            "family": "Arial",
+            "version": "Version 5.01.2x",
+            "path": "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "exactNameMatched": true,
+            "fileBytes": 773236,
+            "sha256": "525979822591a3447cfc49d943d6f7683508e25543407871c0ed8fed05fd2bd9",
+            "qualifiedIdentity": true
+          }
+        ]
+      },
+      "fontsQualified": true,
+      "render": {
+        "elapsedMs": 354.09999990463257,
+        "pages": 300,
+        "layout": [
+          {
+            "id": "word:6",
+            "pages": 300
+          }
+        ],
+        "surfaceCount": 1,
+        "completion": {
+          "generation": 3,
+          "contentPending": false,
+          "rendering": false,
+          "runningLayout": false,
+          "modelDrivenRenders": 0,
+          "layoutRounds": 1
+        }
+      },
+      "domBeforePrint": {
+        "documents": 1,
+        "nodes": 9958,
+        "jsEventListeners": 77
+      },
+      "print": {
+        "pages": 300,
+        "buildMs": 95.20000004768372
+      },
+      "memoryAfterPrint": {
+        "Documents": 1,
+        "Nodes": 58559,
+        "LayoutCount": 4,
+        "LayoutDuration": 0.179575,
+        "JSHeapUsedSize": 89792296,
+        "JSHeapTotalSize": 136413184
+      },
+      "domAfterPrint": {
+        "documents": 1,
+        "nodes": 58559,
+        "jsEventListeners": 77
+      },
+      "printedDOMNodeDelta": 48601,
+      "nodeInventoryMethod": "Native CDP Memory.getDOMCounters before/after print build; no JS traversal/wrapper creation across printed tree",
+      "printedNodes": {
+        "pages": 300
+      },
+      "sampleWallEndedUtc": "2026-10-21T21:03:41.735Z",
+      "cleanupStatus": "Owned close/launch settlement completed within5s",
+      "systemAfter": {
+        "capturedUtc": "2026-10-21T21:03:41.802Z",
+        "load": [
+          63.77294921875,
+          57.61767578125,
+          49.4306640625
+        ],
+        "memoryFreePercent": 42,
+        "pageBytes": 16384,
+        "swapins": 6985292,
+        "swapouts": 9893990,
+        "swapusage": "vm.swapusage: total = 16384.00M  used = 15740.75M  free = 643.25M  (encrypted)"
+      },
+      "peakAggregateOwnedRssBytes": 799506432,
+      "rssDefinition": "Maximum200ms owned aggregate RSS sample; shared pages included; not a continuous process high-water mark",
+      "swapInBytes": 409600,
+      "swapOutBytes": 0
+    }
+  ],
+  "status": "COMPLETED: normal measured runtime baseline",
+  "qualification": {
+    "namedReference": "M3Max14-36GiB-macOS24.6-Chromium145-DPR1-WordM0",
+    "exclusiveHost": false,
+    "ruleStatus": "Planner frozen reference-budget-v1.1, no root debt-budget change",
+    "conditions": [
+      "exact immutable source and harness",
+      "actual100/300page counts",
+      "CDP text-child faces match known CoreText name/version/file hashes",
+      "three successful sequential fresh-process samples per profile",
+      "no resource/time guard or console/page error",
+      "per-profile open/render/print CV<=0.25 OR max-min<=10ms; loaded host conditions recorded, no idle prerequisite"
+    ],
+    "observedRepeatability": true,
+    "allActualFontsKnown": true
+  },
+  "limits": [
+    "Actual Word layout/render/print-DOM construction only; no PDF/spool/paper-fidelity acceptance.",
+    "No forced post-commit render or diagnostic monkeypatch in cold path.",
+    "Full native view/layout completion uses read-only source-bound W completion flags plus3stableframes; no paint or keystroke claim.",
+    "No keystroke-to-paint, physical IME, Canvas or scroll timing claim.",
+    "Owned-process aggregate RSS includes shared pages; JS heap is recorded separately."
+  ],
+  "summaries": [
+    {
+      "pages": 100,
+      "openMs": {
+        "count": 3,
+        "min": 328.6999999284744,
+        "p50": 330,
+        "p95": 378.3000000715256,
+        "p99": 378.3000000715256,
+        "max": 378.3000000715256,
+        "method": "nearest-rank"
+      },
+      "warmRenderMs": {
+        "count": 3,
+        "min": 103.69999992847443,
+        "p50": 105.29999995231628,
+        "p95": 113.89999997615814,
+        "p99": 113.89999997615814,
+        "max": 113.89999997615814,
+        "method": "nearest-rank"
+      },
+      "printBuildMs": {
+        "count": 3,
+        "min": 34.700000047683716,
+        "p50": 35.39999997615814,
+        "p95": 35.699999928474426,
+        "p99": 35.699999928474426,
+        "max": 35.699999928474426,
+        "method": "nearest-rank"
+      },
+      "aggregateRssBytes": {
+        "count": 3,
+        "min": 527810560,
+        "p50": 591446016,
+        "p95": 604405760,
+        "p99": 604405760,
+        "max": 604405760,
+        "method": "nearest-rank"
+      },
+      "variation": {
+        "open": {
+          "count": 3,
+          "mean": 345.6666666666667,
+          "populationStandardDeviation": 23.081353756961512,
+          "coefficientOfVariation": 0.06677344384849039,
+          "absoluteSpreadMs": 49.60000014305115,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 107.63333328564961,
+          "populationStandardDeviation": 4.479087226695508,
+          "coefficientOfVariation": 0.04161431305679623,
+          "absoluteSpreadMs": 10.200000047683716,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 35.266666650772095,
+          "populationStandardDeviation": 0.41899345431580426,
+          "coefficientOfVariation": 0.01188072177234338,
+          "absoluteSpreadMs": 0.9999998807907104,
+          "qualified": true
+        }
+      }
+    },
+    {
+      "pages": 300,
+      "openMs": {
+        "count": 3,
+        "min": 1020.6000000238419,
+        "p50": 1026.2999999523163,
+        "p95": 1038.3999999761581,
+        "p99": 1038.3999999761581,
+        "max": 1038.3999999761581,
+        "method": "nearest-rank"
+      },
+      "warmRenderMs": {
+        "count": 3,
+        "min": 343.7000000476837,
+        "p50": 349.2000000476837,
+        "p95": 354.09999990463257,
+        "p99": 354.09999990463257,
+        "max": 354.09999990463257,
+        "method": "nearest-rank"
+      },
+      "printBuildMs": {
+        "count": 3,
+        "min": 94.19999992847443,
+        "p50": 95.20000004768372,
+        "p95": 96.70000004768372,
+        "p99": 96.70000004768372,
+        "max": 96.70000004768372,
+        "method": "nearest-rank"
+      },
+      "aggregateRssBytes": {
+        "count": 3,
+        "min": 717225984,
+        "p50": 718061568,
+        "p95": 799506432,
+        "p99": 799506432,
+        "max": 799506432,
+        "method": "nearest-rank"
+      },
+      "variation": {
+        "open": {
+          "count": 3,
+          "mean": 1028.4333333174388,
+          "populationStandardDeviation": 7.421739823458896,
+          "coefficientOfVariation": 0.007216549272589634,
+          "absoluteSpreadMs": 17.799999952316284,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 349,
+          "populationStandardDeviation": 4.248136789263356,
+          "coefficientOfVariation": 0.012172311717086978,
+          "absoluteSpreadMs": 10.399999856948853,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 95.36666667461395,
+          "populationStandardDeviation": 1.0274023789508642,
+          "coefficientOfVariation": 0.010773181183487381,
+          "absoluteSpreadMs": 2.5000001192092896,
+          "qualified": true
+        }
+      }
+    }
+  ],
+  "finalCleanup": "Owned browser/server/Vite close completed within5s"
+}

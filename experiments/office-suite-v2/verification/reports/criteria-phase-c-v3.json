@@ -1,0 +1,54 @@
+{
+  "schema": "office-v2-m0/phase-c-current-criteria-v3",
+  "capturedUtc": "2026-10-21T21:06:51.814870+00:00",
+  "sourceHead": "ccf1ffd0353eccbdc23b922e54973fb0919b81a4",
+  "sourceTree": "3c4b0234375c1f944960e0f72f982530c62e79f3",
+  "priorCurrentMatrix": "reports/criteria-phase-c-v2.json",
+  "historicalRule": "All old raw/matrices remain source-bound history. This currentWord candidate updates only independently observed performance and preserves exactCorev2 reuse bindings.",
+  "criteria": [
+    {
+      "criterion": "sheet-frozen-v1.1-performance-reference",
+      "status": "PASS reused exact10source/harness/budget bytes",
+      "boundary": "Original independent6b3ea4a Corev2data, every namedhash unchanged atccf1. No Coreprofile rerun/providerUIclaim.",
+      "evidence": "reports/sheet-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "word-normal100-300-layout-and-fonts",
+      "status": "PASS bounded normalruntime",
+      "boundary": "All6freshactual100/300samples correctpages/paragraphs/root/surface/completion, actualCDPfaces/CoreTextversionhashmatch, no forcedcoldrender.",
+      "evidence": "reports/word-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "word-latency-repeatability-nodegrowth",
+      "status": "PASS bounded recorded reference",
+      "boundary": "All6timinggates/repeatability and actual16201to48601nodegrowth2.99987655<=3.5. SynchronousprintDOMdistinctfromPDF/deferredlayout.",
+      "evidence": "reports/word-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "word100-sampled-owned-RSS",
+      "status": "FAIL",
+      "boundary": "527810560/591446016/604405760bytes;2of3exceed536870912. Sampledaggregateincludes sharedpages; no precisephysical/HWM or JSleak attribution.",
+      "evidence": "reports/word-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "word300-sampled-owned-RSS",
+      "status": "PASS bounded reference",
+      "boundary": "717225984/718061568/799506432bytes below1073741824; same200msaggregate samplinglimits.",
+      "evidence": "reports/word-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "supplemental-nativeprint-proof",
+      "status": "PENDING separateWordowner",
+      "boundary": "Candidateperformance window does not accept supplementalnativeprintproof. IntegrationretractedearlierPDFvisualfindingbyexactpixelhash; not a currentvisualblock.",
+      "evidence": null
+    },
+    {
+      "criterion": "M0-whole-acceptance",
+      "status": "OPEN",
+      "boundary": "Actualremaining100RSSmiss+supplementalnativeprintproof; Plannerownswholedecision.",
+      "evidence": null
+    }
+  ],
+  "noHeavyRepeat": true,
+  "noProductionEdits": true
+}
