@@ -55,3 +55,48 @@ ACK records actual worktree/branch/HEAD, dirty paths, active producer, owned pat
 M0 original criteria remain those of #521. Prototype replicas and controlled actors are labeled as such. Actual Office/current OIDC/DB/product acceptance belongs to M1/M2. M0 cannot be called complete if its required prose, native structure/reference/undo, durable retry/restart, corpus or 100/300-page and 10k-row scale evidence is missing. The final decision pack must identify implemented support, explicit refusals, measured limits and the exact M1/M2 contract and ownership split.
 
 Use disposable test storage and isolated browser contexts/ports under Integration's resource lease. Never stop unrelated processes or mutate existing databases. Do not create schedules, deploy, purchase services/licenses or resume archived work.
+
+
+## Phase C — remaining M0 prerequisites, human2026-10-22
+
+The human explicitly resumed the remaining M0 work from bounded checkpoint `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f` (tree `b0093963b96cccf62c2595dca09417e8cab0306d`). The earlier stop-current-turn receipt is superseded only for these M0 prerequisites. Preserve its104/104 native evidence, original first failures, primary main/planning WIP and all immutable author history. This is not old backlog, M1/M2, schedule or release activation.
+
+### Current exact responsibility routing
+
+- Execute Integration #522 (`01a15e91-4846-7aa2-8445-7bfc513479ee`) remains the unique shared graph/config/lock/develop/resource writer and aggregate-check owner. It may amend this Phase C routing and its existing integration report. Frozen external dependencies are linked without a new install; workspace links must point to the actual author checkout, not silently to older Integration sources.
+- Execute Sheet Core #523 (`01a15ec9-fcab-7e82-8c3d-54453bb2a1c3`) keeps only its original Core contract/workbook/tests/manual lease. The Phase C E candidate preserves C/API/native semantics and changes only qualified immutable-event/projection reuse; actual full-profile benefit remains independently measured, not inferred.
+- Execute Verification #526 (`01a15eca-e1d3-7910-9aa1-d590162dbf18`) alone writes `verification/**`: full-fixture cause traces, exact font provenance, the versioned frozen reference budget/method, guarded normal100/300-page and exact Sheet profile observations and the independent matrix. It does not repair production engines or copy a second renderer/model.
+- New Execute Word Layout #527 (`01a15f0a-7b41-7cc2-87f2-52eb044a3d73`) is the only semantic source owner for the named large-Word failure. Its explicit production exception supersedes the earlier isolated-only restriction for these paths only: `apps/word/src/runtime.ts`; `packages/office-word/src/{word-layout-pass,measurement,layout,pagination,display-preparation}.ts`; new `packages/office-word/test/m0-large-layout.test.ts`; `experiments/office-suite-v2/docs/word-layout-findings.md`. Planner's demonstrated-source extension adds only `packages/editor-view-dom/src/editor-view-dom.ts` and new `packages/editor-view-dom/test/layout-waits-for-content.test.ts`.
+- Renderer/Fiber and every other unlisted production file, including the current print implementation, remain read-only until a concrete Planner lease extension. Formula #524 and Collaboration #525 retain their preserved candidates/ownership; this continuation does not dispatch unrelated new work to them.
+
+Direct technical coordination among these owners is authorized. Do not wait for routine Planner ACKs or make all Works idle for a measurement lease. Finish current atomic writes/checks, preserve actual ownership and advance independent source/diagnosis work. Shared production semantics return to their sole owner; Integration does not invent semantic fixes.
+
+### Demonstrated first-failure cause and repair boundary
+
+The first actual100-page45s timeout is immutable history. A source-bound Phase C full100 fixture passes native admission and has matching model root/DOM root/surface. Actual layout ran before async DOM completion with zero surfaces; after renderer completion the800paragraph surface existed but no normal follow-up layout ran. One controlled post-commit render produced100pages. That force is a diagnosis, not a shipped fix or performance PASS.
+
+The Word owner must preserve actual content, geometry, selection, generation/root retirement, disposal, composition and finite `MAX_LAYOUT_ROUNDS`. No all-sync render, force-bootstrap, timeout inflation, arbitrary page cap, fixture truncation or model hiding is accepted. Preserve initial deterministic failures and any composition regression separately from final source/unit successes. Simulated composition remains distinct from physical OS IME.
+
+### Aggregate checks and resource ownership
+
+Authors run only changed-area/directly affected checks. Existing test-type debt compliance is not zero diagnostics: the View test target's104/104 budget and inherited lint errors/warnings remain explicitly qualified. No root budget or exclusion is changed to pass.
+
+The shared production View delta invalidates the earlier isolated-prototype-only reason for skipping root preflight. On the meaningful E/diagnosis/Word/reference batch, Integration assesses and runs affected View, renderer, Word layout/measurement/pagination/print and the actual Slides connector layout consumer, plus unchanged root preflight and the M0 strict/native aggregate. Preserve existing skipped rows as skipped and exact first failures; do not repeat these checks for metadata ACKs. Reuse unaffected evidence only through exact blobs/source closure.
+
+Integration issues fresh finite loopback/browser leases.55260 is the Verification diagnostic/profile entry;55261 is a serialized Word-source/other-consumer entry as explicitly allocated. Different worktrees do not isolate ports, databases or identity providers. Start no overlapping expensive M0 producer, installer or shared runtime. No unrelated process may be stopped. Independent light code/docs and bounded checks continue.
+
+### Frozen reference authority before new data
+
+The single authoritative record is Verification's `verification/reports/reference-budget-v1.1.json` and README, frozen by Planner before the corrected-source baseline. Earlier Integration proposals remain superseded history. Existing root lint/type budgets are separate and unchanged.
+
+Use the named machine/browser/viewport/actual selected fonts and file hashes, exact source/input/runner hashes,3fresh sequential raw samples and before/after load, active swap/memory and owned process RSS. A stable recorded loaded workstation is allowed; absolute idle or zero allocated swap is not a new gate. Qualify by recorded phase CV<=0.25 OR absolute max-minus-min<=10ms. Report all raw values and worst-of3/coarse percentiles without a statistical-tail claim.
+
+Guards are distinct from product targets:45s/sample,10s cold phase,15s print phase,2GiB owned fresh-browser PID tree. An error/guard failure stops identical heavy repeats and returns a concrete cause/owner. Measured over-target is a MISS/defect, not an unmeasured row. Do not raise or retune thresholds after data.
+
+Word targets: cold100/300<=1s/3s; warm full render<=250/750ms; print DOM build<=1s/3s; RSS<=512MiB/1GiB; printed-node growth300/100<=3.5x. Sheet targets: cold projection<=1s, full diff<=250ms, initial calculation<=250ms, dirty calculation<=16ms, peak RSS<=512MiB, range-paste projection+diff<=1s. Additional v1.1 totals retain construction/admission cost: cold construction+projection+calculation<=2s; single-cell admission+projection+diff+calculation<=200ms;1000-cell paste total<=500ms. These totals do not replace phase gates.
+
+Headless Core/calculator results do not prove Canvas/provider/keystroke timing. Word print DOM timing does not prove PDF or paper fidelity. Missing fonts, unstable/failed profiles and unmet targets remain visible; no whole M0 acceptance is inferred from unit checks.
+
+### Planned next stages remain inactive
+
+Planner's concrete [M1 #528](https://github.com/barocss/barocss-editor/issues/528) and [M2 #529](https://github.com/barocss/barocss-editor/issues/529) record the exact future package/service/host/test responsibility split and dependencies. Both are WAIT_M0 planning only. They supply decision-pack routing, not production source leases, new Executes, migrations or runtime activation. An actually accepted M0 source/receipt and explicit later dispatch remain prerequisites.
