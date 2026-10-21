@@ -43,8 +43,12 @@ The grammar supports decimal/exponent finite numeric literals, double-quoted
 strings with doubled quote escapes, TRUE/FALSE, unary +/-, binary +,-,*,/,^ and
 =,<>,<,<=,>,>=, parentheses, SUM and exactly-three-argument IF. English dot/comma
 syntax is the only locale. Function/boolean names and displayed sheet names are
-case-insensitive. Quoted sheet names use doubled apostrophes. `^` is right
-associative and binds before unary minus (`-2^2` is -4). Display adds parentheses
+case-insensitive. Quoted sheet names use doubled apostrophes. Unary negation binds
+before `^`; equal-precedence binary operators, including `^`, associate left to
+right. Thus `-2^2` is 4 and `2^3^2` is 64. Parentheses override those defaults:
+`-(2^2)` is -4 and `2^(3^2)` is 512. These rules follow
+[Microsoft's operator precedence table and equal-precedence evaluation rule](https://support.microsoft.com/en-us/excel/calculation-operators-and-precedence-in-excel).
+Unary plus uses the same prefix precedence in this bounded profile. Display adds parentheses
 to preserve the AST, rather than reproducing source whitespace.
 
 Numbers are finite JavaScript IEEE-754 binary64. No decimal precision or Excel
@@ -156,7 +160,7 @@ raw timing samples and independent concurrency/corpus evidence. Product Save/Ope
 two-account authorization, durable ACK/restart, actual Worker/UI, XLSX/Microsoft
 Office parity and whole M0 remain separate gates.
 
-## Immutable candidate evidence
+## Original F candidate evidence (preserved history)
 
 Candidate parent is qualified joined runtime J
 `a332facd6740c491f761be39dbeee2c6a6a24f70` (tree
@@ -213,3 +217,59 @@ Tested source SHA-256 bindings (documentation changes do not alter these):
 | test/formula.test.ts | d93266f14aa9e5fb3b09917199df9aa55024b1346b3ebf371574ec4199fc531a |
 | test/references.test.ts | 5198feff439cb7b4c39fec6053042a1e3bd052e15b3f5f25d73e72f009c40bb1 |
 | test/calculation.test.ts | b0bab36ca5c0ca74215bec2542f967c3652f5772df408d6155f02e80c434ef48 |
+
+## Arithmetic correctness successor on K
+
+Parent: checked K `23fa95116b11882be4905ae257c0859911a2b88a`, tree
+`566be01a163f81168f198345adfddb4ff5aa5b5d`. Original F remains preserved.
+Planner found that F's arithmetic precedence expectation was wrong: F placed
+negation below exponentiation and made exponentiation right-associative.
+[Microsoft's primary operator table](https://support.microsoft.com/en-us/excel/calculation-operators-and-precedence-in-excel)
+places negation before exponentiation and evaluates equal-precedence operators
+left to right. This successor corrects supported arithmetic; it does not extend
+the supported operator/function profile.
+
+First focused correctness failure, before parser edits, is preserved here:
+
+```text
+node --experimental-strip-types --test --test-concurrency=1 --test-name-pattern='Excel unary|Excel equal-precedence|explicit parentheses' test/formula.test.ts
+exit 1; 3 tests; 0 passed; 3 failed; 0 skipped
+Excel unary negation binds before exponentiation: =-2^2 actual -4, expected 4
+Excel equal-precedence exponents associate left to right: =2^3^2 actual 512, expected 64
+explicit parentheses override unary and exponent defaults and preserve AST display round trips: =-(2^3)^2 actual -64, expected 64
+```
+
+The parser change is two expressions: unary operands bind above power; the right
+operand of every binary operator uses the next precedence level. The identical
+focused command then passed 3/3. Additional cases cover negative exponents,
+consecutive unary signs, SUM, relative-reference copy and canonical display
+round trips. Explicit `=-(2^2)` remains -4; `=2^(3^2)` remains 512.
+Existing native ASTs keep their meaning; there is no automatic reparse or rewrite
+of historical source, cache, Core contracts or document state. New input derives
+the corrected AST; Core's changed revision already invalidates its derived cache.
+
+Final changed/directly affected checks, Node 22.22.0/pnpm 8.15.0/TS 5.9.3:
+
+```sh
+pnpm --ignore-workspace type-check -- src/formula.ts test/formula.test.ts test/references.test.ts test/calculation.test.ts
+pnpm --ignore-workspace test -- test/formula.test.ts
+pnpm --ignore-workspace test -- test/references.test.ts
+node --experimental-strip-types --test --test-concurrency=1 --test-name-pattern='SUM distinguishes|dirty closure|actual evaluation|structure changes' test/calculation.test.ts
+```
+
+Results: strict 4 roots plus actual imports PASS, 0 diagnostics; formula 7/7,
+references 10/10, selected calculation 4/4 PASS. These are 21 selected native
+tests with 0 failures and 0 skipped. The 2000-cell timing test, independent full
+profile and broad/root checks were not rerun for this parser correction.
+The delta is only formula.ts, formula.test.ts, references.test.ts and this manual.
+Calculation/reference engine source, shared C, Core and frozen dependencies stay
+unchanged. Whole M0, actual Excel interoperability and product/release acceptance
+remain separate from this targeted arithmetic result.
+
+Corrected tested SHA-256 bindings replace the historical F bindings only for:
+
+| File | SHA-256 |
+| --- | --- |
+| src/formula.ts | f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64 |
+| test/formula.test.ts | 5bf48339f56f6db597ff31b623ba930bb9f6ed07702ad4ee404af52972c6011b |
+| test/references.test.ts | cbcab4ed20f5531a21cc376ffef3c378de5ef4630119a89cba7a9aca87bf5fb1 |

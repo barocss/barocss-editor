@@ -74,7 +74,7 @@ export function parseFormula(source: string, context: CellKey, index: ReferenceI
     const token = tokens[at++];
     if (!token) throw new ParseFailure('Expected expression');
     let left: FormulaNode;
-    if (token.text === '+' || token.text === '-') left = node({ kind: 'unary', operator: token.text, operand: expression(4, depth + 1) });
+    if (token.text === '+' || token.text === '-') left = node({ kind: 'unary', operator: token.text, operand: expression(6, depth + 1) });
     else if (token.text === '(') { left = expression(0, depth + 1); expect(')'); }
     else if (token.kind === 'number') {
       const value = Number(token.text);
@@ -111,7 +111,7 @@ export function parseFormula(source: string, context: CellKey, index: ReferenceI
       const power = precedence[operator];
       if (power === undefined || power < minimum) break;
       at++;
-      const right = expression(operator === '^' ? power : power + 1, depth + 1);
+      const right = expression(power + 1, depth + 1);
       left = node({ kind: 'binary', operator: operator as BinaryOperator, left, right });
     }
     return left;

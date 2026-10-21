@@ -31,10 +31,29 @@ function fixture() {
 test('safe grammar, precedence, comparison, text and booleans', () => {
   const f = fixture();
   for (const [source, result] of [
-    ['=1+2*3', 7], ['=(1+2)*3', 9], ['=2^3^2', 512], ['=-2^2', -4],
+    ['=1+2*3', 7], ['=(1+2)*3', 9],
     ['=1<2', true], ['=2<>2', false], ['=TRUE+1', 2], ['="a"="a"', true], ['=SUM()', 0],
     ['=IF(FALSE,1/0,7)', 7], ['=IF(TRUE,7,F1)', 7], ['=IF(0,1,2)', 2], ['=SUM(TRUE,2)', 3],
   ] as const) assert.deepEqual(f.calculate(source), result, source);
+});
+
+test('Excel unary negation binds before exponentiation', () => {
+  const f = fixture();
+  for (const [source, result] of [['=-2^2', 4], ['=-3^2', 9], ['=2^-2', 0.25], ['=-2^-2', 0.25], ['=3*-2^2', 12], ['=--2^2', 4]] as const) assert.deepEqual(f.calculate(source), result, source);
+});
+
+test('Excel equal-precedence exponents associate left to right', () => {
+  const f = fixture();
+  for (const [source, result] of [['=2^3^2', 64], ['=3^2^3', 729], ['=2^3^-2', 0.015625], ['=+2^3^2', 64], ['=SUM(-2^2,2^3^2)', 68]] as const) assert.deepEqual(f.calculate(source), result, source);
+});
+
+test('explicit parentheses override unary and exponent defaults and preserve AST display round trips', () => {
+  const f = fixture(); const index = new ReferenceIndex(f.project());
+  for (const [source, result] of [['=-(2^2)', -4], ['=2^(3^2)', 512], ['=(-2)^2', 4], ['=(2^3)^2', 64], ['=-(2^3)^2', 64]] as const) {
+    assert.deepEqual(f.calculate(source), result, source);
+    const input = parseFormula(source, f.key, index); assert.equal(input.kind, 'formula');
+    if (input.kind === 'formula') assert.deepEqual(parseFormula(displayFormula(input.ast, index), f.key, index), input);
+  }
 });
 
 test('explicit errors, unsupported inputs, invalid syntax and resource limits', () => {

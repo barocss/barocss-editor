@@ -134,3 +134,12 @@ test('fill can reuse one source with independent relative displacements', () => 
   ] }) });
   assert.equal(f.text(f.key(2, 2)), '=A2'); assert.equal(f.text(f.key(3, 2)), '=A3');
 });
+
+test('unary and exponent precedence survives relative-reference copy and derived text', () => {
+  const f = fixture(); f.put(f.key(), 2); f.put(f.key(2), 3);
+  const from = f.key(1, 2); const to = f.key(2, 2); f.put(from, '=-A1^2');
+  assert.equal(f.value(from), 4);
+  f.add({ kind: 'cells.commit', changes: transformCells({ kind: 'copy', snapshot: f.project(), mapping: [{ from, to }] }) });
+  assert.equal(f.text(to), '=((-A2)^2)'); assert.equal(f.value(to), 9);
+  f.put(from, '=A1^3^2'); assert.equal(f.value(from), 64);
+});
