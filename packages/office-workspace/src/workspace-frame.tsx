@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useOfficeLocale } from '@barocss/office-ui';
-import { captureProductNavigation, productDocumentHost } from '@barocss/shared';
+import { captureProductNavigation, productDocumentHost, currentDocumentLibraryHost } from '@barocss/shared';
+import { Button, Icon } from '@barocss/office-ui';
 import { beginWorkspaceNavigation, prepareWorkspaceBeforeLeave } from './workspace-navigation';
 import { OfficeWorkspace, readProductDocument, workspaceIdentity, type WorkspaceDocument } from './workspace';
 import { buildLocalCatalogTree } from './catalog-tree';
@@ -25,6 +26,7 @@ function readView(workspace: string, perspective: Perspective): TreeView {
 
 /** A local catalog surrounds the existing native root, without taking over its editor. */
 export function WorkspaceFrame({ children, nativeRoot, expected, projectId, navigate, entryRecovery }: { children?: ReactNode; nativeRoot?: HTMLElement; expected?: { product: Product; id: string }; projectId?: string; navigate?: (url: string) => Promise<boolean>; entryRecovery?: ReactNode }) {
+  const storageHost = currentDocumentLibraryHost();
   const workspace = useMemo(() => new OfficeWorkspace(workspaceIdentity()), []);
   const { t } = useOfficeLocale();
   const [perspective, setPerspective] = useState<Perspective>(() => sessionStorage.getItem(`wonffice.tree-perspective:${workspace.id}`) === 'my' ? 'my' : 'project');
@@ -114,6 +116,8 @@ export function WorkspaceFrame({ children, nativeRoot, expected, projectId, navi
     requestAnimationFrame(() => tree.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' }));
   };
   return <WorkspaceFramePresentation children={entryRecovery ?? children} nativeSlotRef={slot} treeRef={tree}
+    railFooter={storageHost?.storageAction && <Button square tone="quiet" ariaLabel={storageHost.storageAction.label}
+      title={storageHost.storageAction.label} onClick={() => void storageHost.storageAction!.run().catch(() => setError('현재 입력을 보관하거나 내보낸 뒤 저장 공간을 전환하세요.'))}><Icon name="workspace-files" /></Button>}
     groups={catalog.groups.map(group => ({ ...group, title: group.label || null, label: group.label || t(group.kind === 'unlinked' ? 'workspace.tree.unlinked' : 'workspace.tree.files') }))}
     perspectives={[{ id: 'project', label: t('workspace.tree.project') }, { id: 'my', label: t('workspace.tree.my') }]}
     projectPerspective="project" perspective={perspective} views={views}
@@ -136,8 +140,8 @@ function frameLabels(t: ReturnType<typeof useOfficeLocale>['t']): WorkspaceFrame
     recent: t('workspace.rail.recent'),
     projects: t('workspace.rail.projects'),
     treeNavigation: t('workspace.tree.navigation'),
-    source: t('workspace.tree.local'),
-    workspace: t('workspace.tree.localWorkspace'),
+    source: currentDocumentLibraryHost()?.label ?? t('workspace.tree.local'),
+    workspace: currentDocumentLibraryHost()?.label ?? t('workspace.tree.localWorkspace'),
     focus: t('workspace.tree.focus'),
     perspective: t('workspace.tree.perspective'),
     search: t('workspace.tree.search'),

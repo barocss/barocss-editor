@@ -13,6 +13,6 @@
       ]
     }
   },
-  "include": ["src/**/*", "test/**/*", "tests/**/*"],
+  "include": ["src/**/*", "test/**/*", "tests/**/*", "sites/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

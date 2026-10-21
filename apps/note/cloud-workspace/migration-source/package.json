@@ -1,0 +1,12 @@
+{
+  "name": "cloud-workspace-migration-source",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "drizzle-kit generate --config drizzle.config.ts --name document_revisions"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.11",
+    "drizzle-orm": "0.45.4"
+  }
+}

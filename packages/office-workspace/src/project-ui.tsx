@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Dialog, Icon, SearchSelect, StatusNotice, TextField, useOfficeLocale } from '@barocss/office-ui';
-import { setProjectWorkPaused, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
+import { setProjectWorkPaused, currentDocumentLibraryHost, type ProjectRecord, type Pin, type ProjectExecution } from '@barocss/shared';
 import { products, type Product, plainText } from './products';
 import './project-ui.css';
 import { WorkspaceHeading } from './workspace-heading';
@@ -118,7 +118,7 @@ export function ProjectHome({ repository, onOpen, onLibrary, embedded = false, i
   const available = documents.filter(one => !one.unavailable && !resultDocuments.has(`${one.product}:${one.id}`));
   const findDocument = (key: string) => documents.find(one => `${one.product}:${one.id}` === key);
   return <div className={`ow-project-home${embedded ? ' ow-project-embedded' : ''}`}>
-    {embedded ? <WorkspaceHeading workspaceLabel={t('workspace.heading.localWorkspace')} location={t('workspace.heading.projects')} title={record?.title ?? t('workspace.heading.projects')} actions={<>
+    {embedded ? <WorkspaceHeading workspaceLabel={currentDocumentLibraryHost()?.label ?? t('workspace.heading.localWorkspace')} location={t('workspace.heading.projects')} title={record?.title ?? t('workspace.heading.projects')} actions={<>
       {record && <Button disabled={busy} tone="quiet" onClick={() => void choose(null)}><Icon name="back" />{t('workspace.heading.projects')}</Button>}
       <Button tone="quiet" disabled={busy} onClick={onLibrary}>{t('workspace.heading.library')}</Button>
       {!record && <Button tone="accent" disabled={!repository.writable || busy || !ready} onClick={() => { setName(''); setGoal(''); setCreating(true); }}>{t('workspace.heading.createProject')}</Button>}

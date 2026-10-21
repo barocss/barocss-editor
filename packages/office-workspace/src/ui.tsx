@@ -9,6 +9,7 @@ import { readLibraryOrigin, saveLibraryOrigin } from './catalog-origin';
 import { formatWorkspaceRoute, parseWorkspaceRoute } from './routes';
 import './project-ui.css';
 import { WorkspaceHeading } from './workspace-heading';
+import { currentDocumentLibraryHost } from '@barocss/shared';
 
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -68,7 +69,7 @@ export function DocumentLibrary({ onProjects, embedded = false }: { onProjects?:
     && (!needle || `${row.title} ${row.searchText}`.normalize('NFC').toLocaleLowerCase().includes(needle)));
   const folders = [...new Set<string>(rows.map(row => row.folder).filter(Boolean))].sort();
   return <div className={`ow-home${embedded ? ' ow-library-embedded' : ''}`}>
-    {embedded ? <WorkspaceHeading workspaceLabel={t('workspace.heading.localWorkspace')} location={t('workspace.heading.library')}
+    {embedded ? <WorkspaceHeading workspaceLabel={currentDocumentLibraryHost()?.label ?? t('workspace.heading.localWorkspace')} location={t('workspace.heading.library')}
       title={folder || t(`workspace.heading.${view}`)} actions={<>
         {onProjects && <Button tone="quiet" disabled={busy} onClick={onProjects}>{t('workspace.heading.projects')}</Button>}
         <Button tone="quiet" disabled={busy} onClick={() => { setProblem(''); setNotice(''); setBackupOpen(true); }}>{t('workspace.heading.backup')}</Button>

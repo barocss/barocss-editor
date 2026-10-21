@@ -1,4 +1,4 @@
-import { createProjectRecord, readProjectRecord, documentLibrary, type ProjectDocument, type ProjectRecord, type ProjectSnapshot, type Pin, type LibraryRow, type LibrarySnapshot } from '@barocss/shared';
+import { createProjectRecord, readProjectRecord, documentLibrary, currentDocumentLibraryHost, type ProjectDocument, type ProjectRecord, type ProjectSnapshot, type Pin, type LibraryRow, type LibrarySnapshot } from '@barocss/shared';
 import { createSchema, validateTree, type SchemaDefinition } from '@barocss/schema';
 import { isProduct, plainText, productCodec, productDraftStore, productKeys, products, productStore, referenceKey, setDocumentTitle, visitTree, type Product } from './products';
 
@@ -33,6 +33,8 @@ function metadata(value: unknown): WorkspaceMeta {
     ...(typeof v.copiedFrom === 'string' ? { copiedFrom: v.copiedFrom } : {}) };
 }
 export function workspaceIdentity(): string {
+  const host = currentDocumentLibraryHost();
+  if (host) return host.workspaceId;
   const key = 'wonffice.local-workspace';
   let id = localStorage.getItem(key);
   if (!id) { id = crypto.randomUUID(); localStorage.setItem(key, id); }

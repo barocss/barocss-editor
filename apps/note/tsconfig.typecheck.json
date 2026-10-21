@@ -22,7 +22,7 @@
     /** The runner's globals, for the specs that use them without importing. */
     "types": ["vitest/globals", "node"]
   },
-  "include": ["src/**/*", "test/**/*", "tests/**/*"],
+  "include": ["src/**/*", "test/**/*", "tests/**/*", "cloud-workspace/*.ts", "cloud-workspace/*.tsx", "cloud-workspace/browser-tests/**/*.ts"],
   /**
    * Restated here, never inherited — and here the trap is live: this app's
    * `tsconfig.json` extends the repository root, whose `exclude` names a `.test.ts`
