@@ -4,7 +4,10 @@ import { readFileSync } from 'node:fs';
 export function openTestDB(path = ':memory:') {
   const sqlite = new DatabaseSync(path);
   if (!sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='workspace_document_revisions'").get()) {
-    sqlite.exec(readFileSync(new URL('./migrations/0000_document_revisions.sql', import.meta.url), 'utf8'));
+    const journal = JSON.parse(readFileSync(new URL('./drizzle/meta/_journal.json', import.meta.url), 'utf8'));
+    for (const entry of journal.entries) {
+      sqlite.exec(readFileSync(new URL(`./drizzle/${entry.tag}.sql`, import.meta.url), 'utf8'));
+    }
   }
   const api = { prepare(sql) {
     let values = [];

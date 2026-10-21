@@ -27,6 +27,7 @@ pnpm --filter @barocss/schema build
 pnpm --dir apps/note exec node cloud-workspace/build-worker.mjs
 pnpm --dir apps/note exec node --test cloud-workspace/server.test.mjs
 pnpm --dir apps/note exec node --experimental-vm-modules --test cloud-workspace/worker.test.mjs
+pnpm --dir apps/note exec node --test cloud-workspace/migration.test.mjs
 pnpm --dir apps/note exec playwright test --config cloud-workspace/playwright.config.ts --reporter=line
 pnpm --filter @barocss/office-note test:run test/note-proposal-native-history.test.ts test/connected-proposal.test.ts
 pnpm preflight
@@ -55,26 +56,65 @@ invented static asset binding, arbitrary Node server, PostgreSQL, or R2 requirem
 
 ## Sites publisher contract
 
-Create a **new owner-private Site**. Do not reuse an existing prototype/monitor ID. Keep plugin
+The parent registered a **new owner-private Site once**. Reuse the tracked identity in
+`.openai/hosting.json`: `appgprj_6ad87b804224819184add84f015d82ba`. Do not create another Site.
+The expected origin is `https://barocss-cloud-workspace.easylogic2.chatgpt.site`; this is not
+proof of publication. Do not reuse an existing prototype/monitor ID. Keep plugin
 tools, downloads, credentials, generated output and repository metadata out of source commits.
 Use the official Sites setup/source/build/package helpers for publication; this script only
 builds the application. GitHub remains the code source of truth. Record the exact GitHub SHA,
 separate pushed Sites source SHA, saved version, deployment ID and final private URL.
 
-The publisher must add the returned Site identity and documented logical storage binding:
+The tracked app manifest retains the exact returned identity and documented logical storage binding:
 
 ```json
-{"project_id":"<exact returned Site ID>","d1":"DB","r2":null}
+{"project_id":"appgprj_6ad87b804224819184add84f015d82ba","d1":"DB","r2":null}
 ```
 
 This is Worker mode; there is no `static` field. Stage the built Worker as
 `dist/server/index.js`, and let official packaging include the source hosting manifest as
-`dist/.openai/hosting.json`. Use the official starter's Drizzle schema/migration generation
-to install the exact table declared in `migrations/0000_document_revisions.sql`, preserving its
-primary key and request-key uniqueness, and include the required migration journal/metadata.
-The plain SQL here is also the executable test oracle. No tables are created in request handlers.
-Do not silently ship without the migration, or invent migration metadata if the publisher
-cannot confirm the official contract.
+`dist/.openai/hosting.json`. The `drizzle/` directory contains actual Drizzle Kit-generated SQL,
+snapshot and journal metadata. It is generated from `migration-source/schema.ts` using pinned
+Drizzle Kit 0.31.11 / ORM 0.45.4; metadata was not hand-authored. Regeneration is offline with
+respect to D1 and requires no database credentials:
+
+```sh
+npm ci --prefix apps/note/cloud-workspace/migration-source
+npm --prefix apps/note/cloud-workspace/migration-source run generate
+```
+
+The nested tooling package does not alter the monorepo package or pnpm lock. It is not needed
+for the application build or Worker runtime. Applied SQL, snapshots and journal entries are
+immutable; future schema changes append a migration. The separate plain SQL under `migrations/`
+is an independently authored test oracle. A test compares generated columns, primary/unique
+constraints and positive revision checks with that oracle. All server/browser fixtures apply
+the generated journal migrations. No tables are created in production request handlers.
+
+### Portable source layout
+
+Keep the full monorepo source and its frozen pnpm lock: the app imports workspace packages.
+Open the registered Site's source with official tooling into a **separate checkout**, retaining
+its own `.git`. Export the exact GitHub commit into that checkout without Git metadata or
+ignored files (`git archive <GitHub SHA>` is suitable). Never replace the Site checkout's `.git`
+with the GitHub repository's `.git`. Record that GitHub SHA in deployment provenance.
+
+In this derived Sites source checkout only:
+
+1. Copy `apps/note/cloud-workspace/.openai/hosting.json` to root `.openai/hosting.json`, preserving
+   the registered ID and any required fields from the official profile.
+2. Set root `package.json`'s `scripts.build` to
+   `node apps/note/cloud-workspace/build-sites-target.mjs`. This reproducible deployment overlay
+   is the only required package change; it changes no dependencies or lockfile.
+3. Run the official dependency/build/source/package workflow from this root. The target builds
+   schema plus the app Worker, stages `dist/server/index.js` and its manifest, and copies
+   `apps/note/cloud-workspace/drizzle/` to root `drizzle/`. It refuses to overwrite a different
+   migration. Official packaging owns copying root `drizzle/` to `dist/.openai/drizzle` and
+   producing the archive. Do not ship the Node test harness or a static+D1 manifest.
+4. Commit/push the resulting **Sites** source through its supported credential workflow. Save
+   and deploy that exact source SHA/archive. Keep it distinct from the recorded GitHub SHA.
+
+No credential is embedded in this plan or build. Native source-write credentials and deployment
+remain parent-owned. These steps do not add a second Site or change the private audience.
 
 The trusted Sites boundary supplies `oai-authenticated-user-id`. Every API route requires it;
 every query includes its stable value as `owner_id`. Neither email nor client-supplied IDs
