@@ -1,0 +1,9 @@
+Error: The following dependencies are imported but could not be resolved:
+
+  @m0-docx-import (imported by /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-browser.mjs)
+  @m0-docx-export (imported by /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-browser.mjs)
+
+Are they installed?
+    at file:///Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules/.pnpm/vite@5.4.21_@types+node@20.19.30/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:50669:15
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules/.pnpm/vite@5.4.21_@types+node@20.19.30/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:50174:26

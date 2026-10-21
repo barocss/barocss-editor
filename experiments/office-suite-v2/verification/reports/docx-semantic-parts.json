@@ -1,0 +1,51 @@
+{
+  "boundary": "ZIP/XML evidence only; not an external reader check",
+  "files": [
+    {
+      "file": "corpus/word-features.docx",
+      "parts": [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "word/_rels/document.xml.rels",
+        "word/document.xml",
+        "word/footer1.xml",
+        "word/footnotes.xml",
+        "word/header1.xml",
+        "word/media/squares.png",
+        "word/numbering.xml"
+      ],
+      "semantics": {
+        "numPr": 1,
+        "drawing": 1,
+        "gridSpan": 1,
+        "tbl": 1,
+        "tr": 76,
+        "tc": 151,
+        "headerReference": 1,
+        "footerReference": 1,
+        "footnoteReference": 1
+      }
+    },
+    {
+      "file": "reports/word-current-export.docx",
+      "parts": [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "word/_rels/document.xml.rels",
+        "word/styles.xml",
+        "word/document.xml"
+      ],
+      "semantics": {
+        "numPr": 0,
+        "drawing": 0,
+        "gridSpan": 1,
+        "tbl": 1,
+        "tr": 76,
+        "tc": 151,
+        "headerReference": 0,
+        "footerReference": 0,
+        "footnoteReference": 0
+      }
+    }
+  ]
+}

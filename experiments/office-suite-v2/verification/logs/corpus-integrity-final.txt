@@ -1,0 +1,8 @@
+test_parts_hashes_and_relationships (__main__.CorpusIntegrity.test_parts_hashes_and_relationships) ... ok
+test_regeneration_is_byte_identical (__main__.CorpusIntegrity.test_regeneration_is_byte_identical) ... ok
+test_sheet_semantics_are_explicit_in_both_date_systems (__main__.CorpusIntegrity.test_sheet_semantics_are_explicit_in_both_date_systems) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.054s
+
+OK

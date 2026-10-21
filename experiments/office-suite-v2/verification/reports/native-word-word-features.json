@@ -1,0 +1,16 @@
+{
+  "schema": "office-v2-m0/native-office-probe-v1",
+  "capturedUtc": "2026-10-21T14:28:05.107737+00:00",
+  "reader": "Microsoft Word",
+  "installedVersion": "16.114",
+  "fixture": "corpus/word-features.docx",
+  "inputSha256": "5b39b52a8f6bfa88f72423721befc278285d2f9ddb444ee577fc1aa6d1de5c79",
+  "script": "on run argv\nset inputPath to item 1 of argv\ntell application \"Microsoft Word\"\nset fixtureDoc to missing value\ntry\nset fixtureDoc to open (POSIX file inputPath) read only true add to recent files false\nset bodyText to content of text object of fixtureDoc\nset details to \"tables=\" & (count tables of fixtureDoc) & linefeed & \"footnotes=\" & (count footnotes of fixtureDoc) & linefeed & \"inlineImages=\" & (count inline shapes of fixtureDoc) & linefeed & \"firstText=\" & (text 1 thru 100 of bodyText)\nset resultText to \"readerVersion=\" & version & linefeed & \"document=\" & name of fixtureDoc & linefeed & details\nclose fixtureDoc saving no\nreturn resultText\non error errorText number errorNumber\nif fixtureDoc is not missing value then\ntry\nclose fixtureDoc saving no\nend try\nend if\nerror errorText number errorNumber\nend try\nend tell\nend run",
+  "status": "NOT RUN: native open not confirmed",
+  "boundary": "Actual application object inspection only. Not visual fidelity, exported edited-copy support, product import, or full Office acceptance.",
+  "firstFailure": "AppleScript did not finish within25s; application may require interaction. No app/process stopped.",
+  "stdout": null,
+  "stderr": null,
+  "elapsedSeconds": 25.00506100000348,
+  "originalBytesUnchanged": true
+}

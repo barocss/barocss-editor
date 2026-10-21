@@ -1,0 +1,155 @@
+{
+  "schema": "office-v2-m0/word-baseline-v1",
+  "capturedUtc": "2026-10-21T14:32:02.079Z",
+  "source": {
+    "baseline": "9b390602d90e07f496b7b699915b7d605582d8a4",
+    "head": "7f1602c4b2c3519c1af14f4d259de9ee70d89078",
+    "tree": "f49b2bd235eb79b2c8703b49e474b5099f405e55",
+    "files": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/measurement.ts",
+        "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+      },
+      {
+        "path": "packages/office-word/src/pagination.ts",
+        "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+      },
+      {
+        "path": "packages/office-word/src/print-pages.ts",
+        "sha256": "d8d04b32e3410e996f917c6cb726fdae271d4b3acdf7b4f75b9e369480c38387"
+      },
+      {
+        "path": "packages/office-word/src/word-docx.ts",
+        "sha256": "5acfa5da2cafd79732508f6579da8b80e4da26dc181c0cfae28a0e517f2fd39a"
+      },
+      {
+        "path": "packages/office-word/src/word-docx-import.ts",
+        "sha256": "6aeccdb7440bd9bc20fa2928a6397680176fd5f65eaabde07dfafb0c8ba169a3"
+      },
+      {
+        "path": "packages/office-word/src/ui.css",
+        "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+      },
+      {
+        "path": "packages/office-text/src/text.css",
+        "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+      }
+    ]
+  },
+  "harness": {
+    "files": [
+      {
+        "path": "word-runner.mjs",
+        "sha256": "1b8b0bcc2068211a1bface1a4a715836685dcfc2a805eeb87dd2205a2dabbd1d"
+      },
+      {
+        "path": "word-browser.mjs",
+        "sha256": "4e8f0c9bd53ca05c8cf96e5e28c82fccef0a574033cf481a09552cc46a1149d7"
+      },
+      {
+        "path": "profiles.ts",
+        "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+      },
+      {
+        "path": "metrics.ts",
+        "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+      },
+      {
+        "path": "word.html",
+        "sha256": "331fee754d8d3ae45fd6a1c194e6fe859fd9aaf8ccbea10986b602e01439e48b"
+      }
+    ]
+  },
+  "environment": {
+    "node": "v22.22.0",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "platform": "darwin",
+    "release": "24.6.0",
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytes": 599572480,
+    "loadAverage": [
+      201.6171875,
+      120.5595703125,
+      73.45703125
+    ],
+    "quietWindow": "M0 authors held; machine severely contended by unrelated work; observational samples only, budgets NOT FROZEN",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "fontPolicy": "OS fonts, no external requests; CDP actual fonts recorded",
+    "browser": "145.0.7632.6"
+  },
+  "workload": {
+    "pages": [
+      100,
+      300
+    ],
+    "paragraphsPerPage": 8,
+    "explicitBreaks": true,
+    "content": "Korean and Latin synthetic prose; explicit break before each group of8 paragraphs",
+    "samples": 3
+  },
+  "samples": [],
+  "errors": [],
+  "limits": [
+    "Controlled standalone Word runtime, no Office account/DB/saved-state flow.",
+    "Print measures actual createPrintPages.build DOM construction, not OS spool/PDF fidelity.",
+    "No keystroke-to-paint, scroll or physical IME claim.",
+    "No font files included; exact loaded platform fonts recorded below."
+  ],
+  "status": "FAIL",
+  "quietLease": {
+    "owner": "Execute Verification #526",
+    "status": "granted",
+    "requested_utc": "2026-10-21T14:28:52.291343+00:00",
+    "max_seconds_after_grant": 300,
+    "ports": [
+      55260,
+      55261
+    ],
+    "scope": "Hold new CPU-heavy M0 tests/builds; no unrelated process stops. Light coding/docs/commits allowed.",
+    "author_ready": {
+      "523": {
+        "ready_utc": "2026-10-21T14:30:59.304266+00:00",
+        "active_owned_check": "NONE",
+        "mode": "Light coding/docs/commits only; new heavy checks held."
+      },
+      "524": {
+        "ready_utc": "2026-10-21T14:30:13.629976+00:00",
+        "active_owned_check": "NONE",
+        "reported_parent": "1d443e47f39d9e6009a7f0ae8724d7cc9f9e05da",
+        "mode": "light coding/docs only; no tests started"
+      },
+      "525": {
+        "ready_utc": "2026-10-21T14:30:59.304266+00:00",
+        "active_owned_check": "NONE",
+        "mode": "Light coding/docs/commits only; new heavy checks held."
+      }
+    },
+    "latest_owned_process_observation": "No matching Node/pnpm/tsc/vite/python processes observed in the five M0 worktrees.",
+    "ambient_loadavg": [
+      254.1328125,
+      108.6044921875,
+      66.05126953125
+    ],
+    "logical_cpus": 14,
+    "exclusive_machine": false,
+    "acceptance_boundary": "Word smoke/source entry is separate from100/300-page baseline. Unrelated ambient load remains uncontrolled.",
+    "granted_utc": "2026-10-21T14:30:59.304266+00:00",
+    "deadline_utc": "2026-10-21T14:35:59.304266+00:00",
+    "integration_heavy_commands": "NONE; contract/candidate metadata and Git operations only until release/deadline",
+    "auto_expiry": "All M0 authors may resume their scoped checks at deadline if no earlier release is received."
+  },
+  "firstFailure": "Error: page.evaluate: Error: Actual Word layout did not stabilize within45s\n    at settle (http://127.0.0.1:55260/word-browser.mjs:20:9)\n    at async Object.open (http://127.0.0.1:55260/word-browser.mjs:29:19)\n    at async <anonymous>:316:30"
+}

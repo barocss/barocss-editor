@@ -1,0 +1,9 @@
+{
+  "sourceEvidence": "word-smoke.json",
+  "normalization": "Exclude only the caller-supplied import filename title in docMeta; no body text normalization",
+  "checks": {
+    "importedBodyTextMatchesReopenedExport": true,
+    "tableRowsRetained": true,
+    "basicCellCountRetained": true
+  }
+}

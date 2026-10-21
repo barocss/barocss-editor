@@ -1,0 +1,338 @@
+{
+  "schema": "office-v2-m0/word-baseline-v1",
+  "capturedUtc": "2026-10-21T14:26:17.770Z",
+  "source": {
+    "baseline": "9b390602d90e07f496b7b699915b7d605582d8a4",
+    "head": "1d443e47f39d9e6009a7f0ae8724d7cc9f9e05da",
+    "tree": "b1c4c05e90b7414da03ef18895a07dae6495f62d",
+    "files": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/measurement.ts",
+        "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+      },
+      {
+        "path": "packages/office-word/src/pagination.ts",
+        "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+      },
+      {
+        "path": "packages/office-word/src/print-pages.ts",
+        "sha256": "d8d04b32e3410e996f917c6cb726fdae271d4b3acdf7b4f75b9e369480c38387"
+      },
+      {
+        "path": "packages/office-word/src/word-docx.ts",
+        "sha256": "5acfa5da2cafd79732508f6579da8b80e4da26dc181c0cfae28a0e517f2fd39a"
+      },
+      {
+        "path": "packages/office-word/src/word-docx-import.ts",
+        "sha256": "6aeccdb7440bd9bc20fa2928a6397680176fd5f65eaabde07dfafb0c8ba169a3"
+      },
+      {
+        "path": "packages/office-word/src/ui.css",
+        "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+      },
+      {
+        "path": "packages/office-text/src/text.css",
+        "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+      }
+    ]
+  },
+  "environment": {
+    "node": "v22.22.0",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "platform": "darwin",
+    "release": "24.6.0",
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytes": 1496776704,
+    "loadAverage": [
+      15.79931640625,
+      26.353515625,
+      36.5810546875
+    ],
+    "quietWindow": "NOT CONFIRMED; ambient author/integration work may contend",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "fontPolicy": "OS fonts, no external requests; CDP actual fonts recorded",
+    "browser": "145.0.7632.6"
+  },
+  "workload": {
+    "pages": [
+      100,
+      300
+    ],
+    "paragraphsPerPage": 8,
+    "explicitBreaks": true,
+    "content": "Korean and Latin synthetic prose; explicit break before each group of8 paragraphs",
+    "samples": 1
+  },
+  "samples": [
+    {
+      "pages": 1,
+      "sample": 0,
+      "moduleLoadMs": 1124.5363340000001,
+      "open": {
+        "elapsedMs": 55.90000003576279,
+        "pages": 1,
+        "expectedPages": 1,
+        "sourceParagraphs": 8,
+        "sourceElements": 39,
+        "fonts": [
+          {
+            "family": "Barocss Math Glyphs",
+            "status": "unloaded"
+          },
+          {
+            "family": "Barocss Math Glyphs",
+            "status": "unloaded"
+          },
+          {
+            "family": "Barocss Large Operators",
+            "status": "unloaded"
+          },
+          {
+            "family": "Barocss Contour",
+            "status": "unloaded"
+          },
+          {
+            "family": "Barocss Bold",
+            "status": "unloaded"
+          },
+          {
+            "family": "Barocss Calligraphic",
+            "status": "unloaded"
+          },
+          {
+            "family": "Barocss Blackboard",
+            "status": "unloaded"
+          },
+          {
+            "family": "Barocss Small Operators",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_AMS",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Caligraphic",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Caligraphic",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Fraktur",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Fraktur",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Main",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Main",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Main",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Main",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Math",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Math",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_SansSerif",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_SansSerif",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_SansSerif",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Script",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Size1",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Size2",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Size3",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Size4",
+            "status": "unloaded"
+          },
+          {
+            "family": "KaTeX_Typewriter",
+            "status": "unloaded"
+          }
+        ],
+        "bodyFont": "Arial, sans-serif"
+      },
+      "renderMs": 38.39999997615814,
+      "print": {
+        "pages": 1,
+        "elapsedMs": 0.19999998807907104,
+        "sourceElements": 39,
+        "printedElements": 41,
+        "printPageCopies": 1
+      },
+      "memoryBefore": {
+        "Documents": 3,
+        "Nodes": 40,
+        "LayoutCount": 0,
+        "LayoutDuration": 0,
+        "JSHeapUsedSize": 20971080,
+        "JSHeapTotalSize": 24625152
+      },
+      "memoryAfterPrint": {
+        "Documents": 3,
+        "Nodes": 175,
+        "LayoutCount": 3,
+        "LayoutDuration": 0.012593,
+        "JSHeapUsedSize": 22658108,
+        "JSHeapTotalSize": 29343744
+      },
+      "fonts": [],
+      "loadAverage": [
+        15.57470703125,
+        26.13134765625,
+        36.44287109375
+      ]
+    }
+  ],
+  "errors": [],
+  "limits": [
+    "Controlled standalone Word runtime, no Office account/DB/saved-state flow.",
+    "Print measures actual createPrintPages.build DOM construction, not OS spool/PDF fidelity.",
+    "No keystroke-to-paint, scroll or physical IME claim.",
+    "No font files included; exact loaded platform fonts recorded below."
+  ],
+  "status": "PASS",
+  "summaries": [
+    {
+      "pages": 1,
+      "openMs": {
+        "count": 1,
+        "min": 55.90000003576279,
+        "p50": 55.90000003576279,
+        "p95": 55.90000003576279,
+        "p99": 55.90000003576279,
+        "max": 55.90000003576279,
+        "method": "nearest-rank"
+      },
+      "renderMs": {
+        "count": 1,
+        "min": 38.39999997615814,
+        "p50": 38.39999997615814,
+        "p95": 38.39999997615814,
+        "p99": 38.39999997615814,
+        "max": 38.39999997615814,
+        "method": "nearest-rank"
+      },
+      "printMs": {
+        "count": 1,
+        "min": 0.19999998807907104,
+        "p50": 0.19999998807907104,
+        "p95": 0.19999998807907104,
+        "p99": 0.19999998807907104,
+        "max": 0.19999998807907104,
+        "method": "nearest-rank"
+      },
+      "heapAfterPrintBytes": {
+        "count": 1,
+        "min": 22658108,
+        "p50": 22658108,
+        "p95": 22658108,
+        "p99": 22658108,
+        "max": 22658108,
+        "method": "nearest-rank"
+      }
+    }
+  ],
+  "docx": {
+    "inputSha256": "5b39b52a8f6bfa88f72423721befc278285d2f9ddb444ee577fc1aa6d1de5c79",
+    "outputSha256": "c2c5d6ed6ee04a092b7b9ecb841ba9cbfdbf7865647ff1433bcd842d76100ff8",
+    "status": "EXECUTED; inspect warnings and semantic losses",
+    "importWarnings": [
+      "기본 가져오기: 문단·글자 스타일, 본문 책갈피·REF 참조, 직접 서식·기본 표·용지 설정을 읽습니다. 다중 문단 책갈피·고급 필드·테마 글꼴·목록·이미지·수식·머리글/바닥글·댓글·변경 추적·고급 표 서식은 원형 보존하지 않습니다. 원본 DOCX를 보관하세요.",
+      "일부 링크·변경 추적·객체는 표시 텍스트만 가져왔습니다.",
+      "일부 수식 또는 그림은 가져오지 못했습니다."
+    ],
+    "exportWarnings": [
+      "기본 DOCX 내보내기: 다중 문단 책갈피·고급 필드·고급 문단 서식·머리글/바닥글·각주·댓글·변경 이력·수식·이미지·목록은 원형 보존 대상이 아닙니다. 원본은 .word.json으로 보관하세요.",
+      "표는 기본 격자로 내보냅니다. 테마·셀 색·세로 병합·개별 열 너비는 보존되지 않습니다."
+    ],
+    "reopenWarnings": [
+      "기본 가져오기: 문단·글자 스타일, 본문 책갈피·REF 참조, 직접 서식·기본 표·용지 설정을 읽습니다. 다중 문단 책갈피·고급 필드·테마 글꼴·목록·이미지·수식·머리글/바닥글·댓글·변경 추적·고급 표 서식은 원형 보존하지 않습니다. 원본 DOCX를 보관하세요."
+    ],
+    "counts": {
+      "document": 1,
+      "docMeta": 1,
+      "docTitle": 1,
+      "inline-text": 156,
+      "surface": 1,
+      "paragraph": 4,
+      "bTable": 1,
+      "bTableBody": 1,
+      "bTableRow": 76,
+      "bTableCell": 151,
+      "resources": 1,
+      "docDefaults": 1,
+      "docSettings": 1,
+      "styleDef": 8
+    },
+    "reopenCounts": {
+      "document": 1,
+      "docMeta": 1,
+      "docTitle": 1,
+      "inline-text": 156,
+      "surface": 1,
+      "paragraph": 4,
+      "bTable": 1,
+      "bTableBody": 1,
+      "bTableRow": 76,
+      "bTableCell": 151,
+      "resources": 1,
+      "docDefaults": 1,
+      "styleDef": 8,
+      "docSettings": 1
+    },
+    "importText": "Synthetic corpusOffice M0 / 한글 Latin 123Numbered synthetic itemMerged header / 병합 제목Row 1 / 행Synthetic multipage table content / 여러 페이지 표Row 2 / 행Synthetic multipage table content / 여러 페이지 표Row 3 / 행Synthetic multipage table content / 여러 페이지 표Row 4 / 행Synthetic multipage table content / 여러 페이지 표Row 5 / 행Synthetic multipage table content / 여러 페이지 표Row 6 / 행Synthetic multipage table content / 여러 페이지 표Row 7 / 행Synthetic multipage table content / 여러 페이지 표Row 8 / 행Synthetic multipage table content / 여러 페이지 표Row 9 / 행Synthetic multipage table content / 여러 페이지 표Row 10 / 행Synthetic multipage table content / 여러 페이지 표Row 11 / 행Synthetic multipage table content / 여러 페이지 표Row 12 / 행Synthetic multipage table content / 여러 페이지 표Row 13 / 행Synthetic multipage table content / 여러 페이지 표Row 14 / 행Synthetic multipage table content / 여러 페이지 표Row 15 / 행Synthetic multipage table content / 여러 페이지 표Row 16 / 행Synthetic multipage table content / 여러 페이지 표Row 17 / 행Synthetic multipage table content / 여러 페이지 표Row 18 / 행Synthetic multipage table content / 여러 페이지 표Row 19 / 행Synthetic multipage table content / 여러 페이지 표Row 20 / 행Synthetic multipage table content / 여러 페이지 표Row 21 / 행Synthetic multipage table content / 여러 페이지 표Row 22 / 행Synthetic multipage table content / 여러 페이지 표Row 23 / 행Synthetic multipage table content / 여러 페이지 표Row 24 / 행Synthetic multipage table content / 여러 페이지 표Row 25 / 행Synthetic multipage table content / 여러 페이지 표Row 26 / 행Synthetic multipage table content / 여러 페이지 표Row 27 / 행Synthetic multipage table content / 여러 페이지 표Row 28 / 행Synthetic multipage table content / 여러 페이지 표Row 29 / 행Synthetic multipage table content / 여러 페이지 표Row 30 / 행Synthetic multipage table content / 여러 페이지 표Row 31 / 행Synthetic multipage table content / 여러 페이지 표Row 32 / 행Synthetic multipage table content / 여러 페이지 표Row 33 / 행Synthetic multipage table content / 여러 페이지 표Row 34 / 행Synthetic multipage table content / 여러 페이지 표Row 35 / 행Synthetic multipage table content / 여러 페이지 표Row 36 / 행Synthetic multipage table content / 여러 페이지 표Row 37 / 행Synthetic multipage table content / 여러 페이지 표Row 38 / 행Synthetic multipage table content / 여러 페이지 표Row 39 / 행Synthetic multipage table content / 여러 페이지 표Row 40 / 행Synthetic multipage table content / 여러 페이지 표Row 41 / 행Synthetic multipage table content / 여러 페이지 표Row 42 / 행Synthetic multipage table content / 여러 페이지 표Row 43 / 행Synthetic multipage table content / 여러 페이지 표Row 44 / 행Synthetic multipage table content / 여러 페이지 표Row 45 / 행Synthetic multipage table content / 여러 페이지 표Row 46 / 행Synthetic multipage table content / 여러 페이지 표Row 47 / 행Synthetic multipage table content / 여러 페이지 표Row 48 / 행Synthetic multipage table content / 여러 페이지 표Row 49 / 행Synthetic multipage table content / 여러 페이지 표Row 50 / 행Synthetic multipage table content / 여러 페이지 표Row 51 / 행Synthetic multipage table content / 여러 페이지 표Row 52 / 행Synthetic multipage table content / 여러 페이지 표Row 53 / 행Synthetic multipage table content / 여러 페이지 표Row 54 / 행Synthetic multipage table content / 여러 페이지 표Row 55 / 행Synthetic multipage table content / 여러 페이지 표Row 56 / 행Synthetic multipage table content / 여러 페이지 표Row 57 / 행Synthetic multipage table content / 여러 페이지 표Row 58 / 행Synthetic multipage table content / 여러 페이지 표Row 59 / 행Synthetic multipage table content / 여러 페이지 표Row 60 / 행Synthetic multipage table content / 여러 페이지 표Row 61 / 행Synthetic multipage table content / 여러 페이지 표Row 62 / 행Synthetic multipage table content / 여러 페이지 표Row 63 / 행Synthetic multipage table content / 여러 페이지 표Row 64 / 행Synthetic multipage table content / 여러 페이지 표Row 65 / 행Synthetic multipage table content / 여러 페이지 표Row 66 / 행Synthetic multipage table content / 여러 페이지 표Row 67 / 행Synthetic multipage table content / 여러 페이지 표Row 68 / 행Synthetic multipage table content / 여러 페이지 표Row 69 / 행Synthetic multipage table content / 여러 페이지 표Row 70 / 행Synthetic multipage table content / 여러 페이지 표Row 71 / 행Synthetic multipage table content / 여러 페이지 표Row 72 / 행Synthetic multipage table content / 여러 페이지 표Row 73 / 행Synthetic multipage table content / 여러 페이지 표Row 74 / 행Synthetic multipage table content / 여러 페이지 표Row 75 / 행Synthetic multipage table content / 여러 페이지 표Footnote anchor",
+    "reopenText": "Synthetic exported copyOffice M0 / 한글 Latin 123Numbered synthetic itemMerged header / 병합 제목Row 1 / 행Synthetic multipage table content / 여러 페이지 표Row 2 / 행Synthetic multipage table content / 여러 페이지 표Row 3 / 행Synthetic multipage table content / 여러 페이지 표Row 4 / 행Synthetic multipage table content / 여러 페이지 표Row 5 / 행Synthetic multipage table content / 여러 페이지 표Row 6 / 행Synthetic multipage table content / 여러 페이지 표Row 7 / 행Synthetic multipage table content / 여러 페이지 표Row 8 / 행Synthetic multipage table content / 여러 페이지 표Row 9 / 행Synthetic multipage table content / 여러 페이지 표Row 10 / 행Synthetic multipage table content / 여러 페이지 표Row 11 / 행Synthetic multipage table content / 여러 페이지 표Row 12 / 행Synthetic multipage table content / 여러 페이지 표Row 13 / 행Synthetic multipage table content / 여러 페이지 표Row 14 / 행Synthetic multipage table content / 여러 페이지 표Row 15 / 행Synthetic multipage table content / 여러 페이지 표Row 16 / 행Synthetic multipage table content / 여러 페이지 표Row 17 / 행Synthetic multipage table content / 여러 페이지 표Row 18 / 행Synthetic multipage table content / 여러 페이지 표Row 19 / 행Synthetic multipage table content / 여러 페이지 표Row 20 / 행Synthetic multipage table content / 여러 페이지 표Row 21 / 행Synthetic multipage table content / 여러 페이지 표Row 22 / 행Synthetic multipage table content / 여러 페이지 표Row 23 / 행Synthetic multipage table content / 여러 페이지 표Row 24 / 행Synthetic multipage table content / 여러 페이지 표Row 25 / 행Synthetic multipage table content / 여러 페이지 표Row 26 / 행Synthetic multipage table content / 여러 페이지 표Row 27 / 행Synthetic multipage table content / 여러 페이지 표Row 28 / 행Synthetic multipage table content / 여러 페이지 표Row 29 / 행Synthetic multipage table content / 여러 페이지 표Row 30 / 행Synthetic multipage table content / 여러 페이지 표Row 31 / 행Synthetic multipage table content / 여러 페이지 표Row 32 / 행Synthetic multipage table content / 여러 페이지 표Row 33 / 행Synthetic multipage table content / 여러 페이지 표Row 34 / 행Synthetic multipage table content / 여러 페이지 표Row 35 / 행Synthetic multipage table content / 여러 페이지 표Row 36 / 행Synthetic multipage table content / 여러 페이지 표Row 37 / 행Synthetic multipage table content / 여러 페이지 표Row 38 / 행Synthetic multipage table content / 여러 페이지 표Row 39 / 행Synthetic multipage table content / 여러 페이지 표Row 40 / 행Synthetic multipage table content / 여러 페이지 표Row 41 / 행Synthetic multipage table content / 여러 페이지 표Row 42 / 행Synthetic multipage table content / 여러 페이지 표Row 43 / 행Synthetic multipage table content / 여러 페이지 표Row 44 / 행Synthetic multipage table content / 여러 페이지 표Row 45 / 행Synthetic multipage table content / 여러 페이지 표Row 46 / 행Synthetic multipage table content / 여러 페이지 표Row 47 / 행Synthetic multipage table content / 여러 페이지 표Row 48 / 행Synthetic multipage table content / 여러 페이지 표Row 49 / 행Synthetic multipage table content / 여러 페이지 표Row 50 / 행Synthetic multipage table content / 여러 페이지 표Row 51 / 행Synthetic multipage table content / 여러 페이지 표Row 52 / 행Synthetic multipage table content / 여러 페이지 표Row 53 / 행Synthetic multipage table content / 여러 페이지 표Row 54 / 행Synthetic multipage table content / 여러 페이지 표Row 55 / 행Synthetic multipage table content / 여러 페이지 표Row 56 / 행Synthetic multipage table content / 여러 페이지 표Row 57 / 행Synthetic multipage table content / 여러 페이지 표Row 58 / 행Synthetic multipage table content / 여러 페이지 표Row 59 / 행Synthetic multipage table content / 여러 페이지 표Row 60 / 행Synthetic multipage table content / 여러 페이지 표Row 61 / 행Synthetic multipage table content / 여러 페이지 표Row 62 / 행Synthetic multipage table content / 여러 페이지 표Row 63 / 행Synthetic multipage table content / 여러 페이지 표Row 64 / 행Synthetic multipage table content / 여러 페이지 표Row 65 / 행Synthetic multipage table content / 여러 페이지 표Row 66 / 행Synthetic multipage table content / 여러 페이지 표Row 67 / 행Synthetic multipage table content / 여러 페이지 표Row 68 / 행Synthetic multipage table content / 여러 페이지 표Row 69 / 행Synthetic multipage table content / 여러 페이지 표Row 70 / 행Synthetic multipage table content / 여러 페이지 표Row 71 / 행Synthetic multipage table content / 여러 페이지 표Row 72 / 행Synthetic multipage table content / 여러 페이지 표Row 73 / 행Synthetic multipage table content / 여러 페이지 표Row 74 / 행Synthetic multipage table content / 여러 페이지 표Row 75 / 행Synthetic multipage table content / 여러 페이지 표Footnote anchor"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "schema": "office-v2-m0/native-office-probe-v1",
+  "capturedUtc": "2026-10-21T14:28:52.788497+00:00",
+  "reader": "Microsoft Excel",
+  "installedVersion": "16.114",
+  "fixture": "corpus/sheet-1904.xlsx",
+  "inputSha256": "2d7a50bbb877a8b310ff7af349c55ad20a982a8d8ee7d89b164a39eed9c87f42",
+  "script": "on run argv\nset inputPath to item 1 of argv\ntell application \"Microsoft Excel\"\nset fixtureDoc to missing value\ntry\nset fixtureDoc to open workbook workbook file name inputPath read only true update links do not update links add to mru false\nset sheetOne to worksheet \"Main\" of fixtureDoc\nset details to \"sheets=\" & (count worksheets of fixtureDoc) & linefeed & \"date1904=\" & (date 1904 of fixtureDoc) & linefeed & \"C1=\" & (value of range \"C1\" of sheetOne) & linefeed & \"C2=\" & (value of range \"C2\" of sheetOne) & linefeed & \"D2=\" & (value of range \"D2\" of sheetOne) & linefeed & \"C3=\" & (value of range \"C3\" of sheetOne) & linefeed & \"D2formula=\" & (formula of range \"D2\" of sheetOne)\nset resultText to \"readerVersion=\" & version & linefeed & \"document=\" & name of fixtureDoc & linefeed & details\nclose fixtureDoc saving no\nreturn resultText\non error errorText number errorNumber\nif fixtureDoc is not missing value then\ntry\nclose fixtureDoc saving no\nend try\nend if\nerror errorText number errorNumber\nend try\nend tell\nend run",
+  "status": "PASS: bounded native open/object checks",
+  "boundary": "Actual application object inspection only. Not visual fidelity, exported edited-copy support, product import, or full Office acceptance.",
+  "exitCode": 0,
+  "stdout": "readerVersion=16.114\ndocument=sheet-1904.xlsx\nsheets=2\ndate1904=true\nC1=75.0\nC2=28.0\nD2=7.0\nC3=9.0\nD2formula==IF(A1>0,Other!$A$1,0)\n",
+  "stderr": "",
+  "elapsedSeconds": 18.447882042033598,
+  "originalBytesUnchanged": true,
+  "checks": {
+    "twoSheets": true,
+    "dateSystem": true,
+    "formulaValues": true,
+    "originalBytesUnchanged": true
+  }
+}

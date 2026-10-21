@@ -1,0 +1,4 @@
+page.waitForFunction: Timeout 60000ms exceeded.
+    at /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-runner.mjs:46:107 {
+  name: 'TimeoutError'
+}

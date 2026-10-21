@@ -1,0 +1,39 @@
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs "verification/core-adverse.test.ts"
+
+Native Node TypeScript tests: 1 files.
+TAP version 13
+# Subtest: 50arrival orders yield identical native atomic alternatives and session undo result
+ok 1 - 50arrival orders yield identical native atomic alternatives and session undo result
+  ---
+  duration_ms: 180.457583
+  type: 'test'
+  ...
+# Subtest: same-position rows and delete-versus-formula preserve identities and input in either arrival direction
+ok 2 - same-position rows and delete-versus-formula preserve identities and input in either arrival direction
+  ---
+  duration_ms: 10.083542
+  type: 'test'
+  ...
+# Subtest: A-created row edited and referenced by B refuses A structural undo in all arrival orders
+ok 3 - A-created row edited and referenced by B refuses A structural undo in all arrival orders
+  ---
+  duration_ms: 9.287042
+  type: 'test'
+  ...
+# Subtest: raw version/accessor/sparse collections reject before admission and duplicate identity cannot change its body
+ok 4 - raw version/accessor/sparse collections reject before admission and duplicate identity cannot change its body
+  ---
+  duration_ms: 0.609
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 272.016458

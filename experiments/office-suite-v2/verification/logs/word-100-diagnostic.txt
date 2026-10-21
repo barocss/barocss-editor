@@ -1,0 +1,5 @@
+page.evaluate: Error: Actual Word layout did not stabilize within45s
+    at settle (http://127.0.0.1:55260/word-browser.mjs:20:9)
+    at async Object.open (http://127.0.0.1:55260/word-browser.mjs:29:19)
+    at async <anonymous>:316:30
+    at /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-runner.mjs:56:26

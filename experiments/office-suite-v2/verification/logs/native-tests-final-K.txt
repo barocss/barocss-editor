@@ -1,0 +1,165 @@
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs "verification"
+
+Native Node TypeScript tests: 7 files.
+TAP version 13
+# Subtest: 50arrival orders yield identical native atomic alternatives and session undo result
+ok 1 - 50arrival orders yield identical native atomic alternatives and session undo result
+  ---
+  duration_ms: 302.849709
+  type: 'test'
+  ...
+# Subtest: same-position rows and delete-versus-formula preserve identities and input in either arrival direction
+ok 2 - same-position rows and delete-versus-formula preserve identities and input in either arrival direction
+  ---
+  duration_ms: 14.866167
+  type: 'test'
+  ...
+# Subtest: A-created row edited and referenced by B refuses A structural undo in all arrival orders
+ok 3 - A-created row edited and referenced by B refuses A structural undo in all arrival orders
+  ---
+  duration_ms: 21.338791
+  type: 'test'
+  ...
+# Subtest: raw version/accessor/sparse collections reject before admission and duplicate identity cannot change its body
+ok 4 - raw version/accessor/sparse collections reject before admission and duplicate identity cannot change its body
+  ---
+  duration_ms: 0.683667
+  type: 'test'
+  ...
+# (node:95084) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:95076) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: ACK-loss receipt survives restart and payload compaction without duplicate text
+ok 5 - ACK-loss receipt survives restart and payload compaction without duplicate text
+  ---
+  duration_ms: 169.971417
+  type: 'test'
+  ...
+# Subtest: revoked session cannot replay old durable receipt; offline bytes remain pending
+ok 6 - revoked session cannot replay old durable receipt; offline bytes remain pending
+  ---
+  duration_ms: 28.545459
+  type: 'test'
+  ...
+# Subtest: incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+ok 7 - incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+  ---
+  duration_ms: 30.535958
+  type: 'test'
+  ...
+# Subtest: late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+ok 8 - late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+  ---
+  duration_ms: 7.125
+  type: 'test'
+  ...
+# Subtest: actual range and cross-sheet references agree after concurrent insert, deletion and explicit same-ID restore
+ok 9 - actual range and cross-sheet references agree after concurrent insert, deletion and explicit same-ID restore
+  ---
+  duration_ms: 24.25975
+  type: 'test'
+  ...
+# Subtest: actual copy differs from cross-sheet cut; both absolute and relative references follow moved content
+ok 10 - actual copy differs from cross-sheet cut; both absolute and relative references follow moved content
+  ---
+  duration_ms: 6.25575
+  type: 'test'
+  ...
+# Subtest: dirty closure evaluates one dependent formula and old revision result refuses freshness
+ok 11 - dirty closure evaluates one dependent formula and old revision result refuses freshness
+  ---
+  duration_ms: 4.955
+  type: 'test'
+  ...
+# Subtest: nearest rank retains spikes and raw order is unchanged
+ok 12 - nearest rank retains spikes and raw order is unchanged
+  ---
+  duration_ms: 0.787625
+  type: 'test'
+  ...
+# Subtest: empty, negative and nonfinite measurements cannot become zero-latency PASS
+ok 13 - empty, negative and nonfinite measurements cannot become zero-latency PASS
+  ---
+  duration_ms: 0.142792
+  type: 'test'
+  ...
+# Subtest: scale workload has exact population, formulas and bounds without materializing empty cells
+ok 14 - scale workload has exact population, formulas and bounds without materializing empty cells
+  ---
+  duration_ms: 18.80075
+  type: 'test'
+  ...
+# Subtest: Word workload names explicit breaks and scales linear source content
+ok 15 - Word workload names explicit breaks and scales linear source content
+  ---
+  duration_ms: 1.884292
+  type: 'test'
+  ...
+# Subtest: concurrent same-offset inserts converge; local undo preserves the other tab
+ok 16 - concurrent same-offset inserts converge; local undo preserves the other tab
+  ---
+  duration_ms: 12.779834
+  type: 'test'
+  ...
+# Subtest: remote formatting and text survive split undo and explicit join
+ok 17 - remote formatting and text survive split undo and explicit join
+  ---
+  duration_ms: 4.6855
+  type: 'test'
+  ...
+# Subtest: fresh reload has no old session undo; relative anchor follows remote insertion
+ok 18 - fresh reload has no old session undo; relative anchor follows remote insertion
+  ---
+  duration_ms: 0.97725
+  type: 'test'
+  ...
+# Subtest: unsupported paragraph operations and malformed ranges refuse without content mutation
+ok 19 - unsupported paragraph operations and malformed ranges refuse without content mutation
+  ---
+  duration_ms: 0.664375
+  type: 'test'
+  ...
+# (node:95095) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: real two-replica cell alternatives, same-position rows and Formula output agree
+ok 20 - real two-replica cell alternatives, same-position rows and Formula output agree
+  ---
+  duration_ms: 42.353583
+  type: 'test'
+  ...
+# Subtest: delete versus remote cross-sheet formula converges to REF; explicit deletion undo restores reference
+ok 21 - delete versus remote cross-sheet formula converges to REF; explicit deletion undo restores reference
+  ---
+  duration_ms: 21.852209
+  type: 'test'
+  ...
+# Subtest: A row created then B cell commit makes A undo recoverably refuse without lost data
+ok 22 - A row created then B cell commit makes A undo recoverably refuse without lost data
+  ---
+  duration_ms: 29.21875
+  type: 'test'
+  ...
+# Subtest: actual server refuses forged native identity and admitted-event-body replay tamper; ACK and checkpoint remain bound
+ok 23 - actual server refuses forged native identity and admitted-event-body replay tamper; ACK and checkpoint remain bound
+  ---
+  duration_ms: 25.783583
+  type: 'test'
+  ...
+# Subtest: causal frontier keeps sequential context linear and joins three offline branches without losing session undo
+ok 24 - causal frontier keeps sequential context linear and joins three offline branches without losing session undo
+  ---
+  duration_ms: 254.289792
+  type: 'test'
+  ...
+1..24
+# tests 24
+# suites 0
+# pass 24
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1890.357541

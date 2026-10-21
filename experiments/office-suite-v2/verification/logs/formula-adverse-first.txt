@@ -1,0 +1,33 @@
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs "verification/formula-adverse.test.ts"
+
+Native Node TypeScript tests: 1 files.
+TAP version 13
+# Subtest: actual range and cross-sheet references agree after concurrent insert, deletion and explicit same-ID restore
+ok 1 - actual range and cross-sheet references agree after concurrent insert, deletion and explicit same-ID restore
+  ---
+  duration_ms: 13.511292
+  type: 'test'
+  ...
+# Subtest: actual copy differs from cross-sheet cut; both absolute and relative references follow moved content
+ok 2 - actual copy differs from cross-sheet cut; both absolute and relative references follow moved content
+  ---
+  duration_ms: 4.13025
+  type: 'test'
+  ...
+# Subtest: dirty closure evaluates one dependent formula and old revision result refuses freshness
+ok 3 - dirty closure evaluates one dependent formula and old revision result refuses freshness
+  ---
+  duration_ms: 3.993542
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 357.413834

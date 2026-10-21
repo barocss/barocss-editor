@@ -1,0 +1,118 @@
+{
+  "schema": "office-v2-m0/corpus-v1",
+  "license": "CC0-1.0",
+  "generator": "generate.py",
+  "origin": "All content and 2x2 PNG authored synthetically for this probe. No third-party templates or user files.",
+  "fixtures": [
+    {
+      "file": "word-features.docx",
+      "format": "DOCX",
+      "sha256": "5b39b52a8f6bfa88f72423721befc278285d2f9ddb444ee577fc1aa6d1de5c79",
+      "bytes": 18880,
+      "parts": [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "word/_rels/document.xml.rels",
+        "word/document.xml",
+        "word/footer1.xml",
+        "word/footnotes.xml",
+        "word/header1.xml",
+        "word/media/squares.png",
+        "word/numbering.xml"
+      ],
+      "features": [
+        "Korean/Latin text",
+        "numbered list",
+        "merged 76-row multipage table",
+        "PNG image",
+        "header",
+        "footer",
+        "footnote"
+      ]
+    },
+    {
+      "file": "sheet-1900.xlsx",
+      "format": "XLSX",
+      "sha256": "3fef007afd2c565edda601b713d2fcd7b2f2e6c2e867b8de4b33a877e77b762a",
+      "bytes": 4127,
+      "parts": [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "xl/_rels/workbook.xml.rels",
+        "xl/styles.xml",
+        "xl/workbook.xml",
+        "xl/worksheets/sheet1.xml",
+        "xl/worksheets/sheet2.xml"
+      ],
+      "features": [
+        "numbers",
+        "inline text",
+        "boolean",
+        "error",
+        "date serial 61",
+        "date system 1900",
+        "SUM/IF/arithmetic",
+        "mixed and cross-sheet references",
+        "merge",
+        "two sheets"
+      ],
+      "cached_values": "Hand-authored expected literals for this synthetic fixture; never proof of external recalculation."
+    },
+    {
+      "file": "sheet-1904.xlsx",
+      "format": "XLSX",
+      "sha256": "2d7a50bbb877a8b310ff7af349c55ad20a982a8d8ee7d89b164a39eed9c87f42",
+      "bytes": 4127,
+      "parts": [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "xl/_rels/workbook.xml.rels",
+        "xl/styles.xml",
+        "xl/workbook.xml",
+        "xl/worksheets/sheet1.xml",
+        "xl/worksheets/sheet2.xml"
+      ],
+      "features": [
+        "numbers",
+        "inline text",
+        "boolean",
+        "error",
+        "date serial 61",
+        "date system 1904",
+        "SUM/IF/arithmetic",
+        "mixed and cross-sheet references",
+        "merge",
+        "two sheets"
+      ],
+      "cached_values": "Hand-authored expected literals for this synthetic fixture; never proof of external recalculation."
+    },
+    {
+      "file": "slides-features.pptx",
+      "format": "PPTX",
+      "sha256": "99688f740bd9242b6fbe115f8ae5952215fa6b48c4fa555013d6af539ea6db3b",
+      "bytes": 9599,
+      "parts": [
+        "[Content_Types].xml",
+        "_rels/.rels",
+        "ppt/_rels/presentation.xml.rels",
+        "ppt/media/squares.png",
+        "ppt/presentation.xml",
+        "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+        "ppt/slideLayouts/slideLayout1.xml",
+        "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+        "ppt/slideMasters/slideMaster1.xml",
+        "ppt/slides/_rels/slide1.xml.rels",
+        "ppt/slides/slide1.xml",
+        "ppt/theme/theme1.xml"
+      ],
+      "features": [
+        "Korean/Latin text",
+        "rectangle",
+        "PNG image",
+        "group",
+        "layout/master/theme relationships"
+      ]
+    }
+  ],
+  "evidence_limit": "OPC/XML validation is fixture integrity only. Product import/export and separately identified reader execution need separate receipts."
+}

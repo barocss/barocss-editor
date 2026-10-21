@@ -1,0 +1,1 @@
+{"pages":1,"sample":0,"openMs":55.90000003576279,"renderMs":38.39999997615814,"printMs":0.19999998807907104,"printedElements":41}

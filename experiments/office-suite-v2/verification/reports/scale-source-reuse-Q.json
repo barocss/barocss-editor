@@ -1,0 +1,42 @@
+{
+  "measuredHead": "b785fd65c6fae71c57b70650b06f69a68bea3070",
+  "finalHead": "3f8354c6bb733bc597488d64c3bf41e5f650f6f8",
+  "files": [
+    {
+      "path": "experiments/office-suite-v2/src/contracts.ts",
+      "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8",
+      "sha256InQ": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8",
+      "unchangedInQ": true,
+      "usedByASTWorkload": true
+    },
+    {
+      "path": "experiments/office-suite-v2/src/workbook.ts",
+      "sha256": "db6c996d78109cb2515aa2545d0ef94f205349c73a6717091ea313c420f2a36e",
+      "sha256InQ": "db6c996d78109cb2515aa2545d0ef94f205349c73a6717091ea313c420f2a36e",
+      "unchangedInQ": true,
+      "usedByASTWorkload": true
+    },
+    {
+      "path": "experiments/office-suite-v2/src/calculation.ts",
+      "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044",
+      "sha256InQ": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044",
+      "unchangedInQ": true,
+      "usedByASTWorkload": true
+    },
+    {
+      "path": "experiments/office-suite-v2/src/formula.ts",
+      "sha256": "defd5227086f24a1b0685d96d8e390c88ce84636e2ea1da88e593f4aa0640295",
+      "sha256InQ": "f0d9565a93ee1c90caebf08f6a0ae4f118852590ec6c8b4cd5fcc7c07fc27c64",
+      "unchangedInQ": false,
+      "usedByASTWorkload": false
+    },
+    {
+      "path": "experiments/office-suite-v2/src/references.ts",
+      "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393",
+      "sha256InQ": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393",
+      "unchangedInQ": true,
+      "usedByASTWorkload": true
+    }
+  ],
+  "boundary": "Historical F observational native-AST workload only. No final-Q capacity/budget claim. Actual consumed Core/reference/calculation blobs unchanged; parser was not invoked."
+}

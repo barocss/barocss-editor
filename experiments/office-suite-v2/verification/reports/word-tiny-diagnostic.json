@@ -1,0 +1,96 @@
+{
+  "schema": "office-v2-m0/word-tiny-diagnostic-v1",
+  "environment": {
+    "node": "v22.22.0",
+    "platform": "darwin",
+    "release": "24.6.0",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytesAtStart": 188170240,
+    "capturedUtc": "2026-10-21T14:49:31.182Z"
+  },
+  "source": {
+    "head": "8184e7f4a7bea8981825c5b0924920e304553dd1",
+    "tree": "13b94960acce5007df7c0214380be82f0074df5d",
+    "dirty": "",
+    "files": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/renderers/word.ts",
+        "sha256": "b19297f35158716099f3964c43021dcd8becf588b0e34812679d01dc580fc0e3"
+      }
+    ]
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "status": "EXECUTED: diagnostic only",
+  "observation": {
+    "fixture": "Same100-group generator, bounded to first16paragraphs/two explicit groups",
+    "observer": {
+      "sheet": ".w-sheet",
+      "surface": ".w-surface",
+      "paragraph": ".w-paragraph"
+    },
+    "schemaAdmission": "PASS",
+    "runtime": {
+      "rootId": "word:1",
+      "rootType": "document",
+      "rootDomId": "word:1",
+      "documentFaults": [],
+      "viewClass": "EditorViewDOM",
+      "modelSurfaceChildren": [
+        {
+          "sid": "word:6",
+          "stype": "surface",
+          "attributes": {
+            "kind": "flow",
+            "name": "Synthetic section",
+            "pageWidth": 12240,
+            "pageHeight": 15840,
+            "marginTop": 1440,
+            "marginBottom": 1440,
+            "marginLeft": 1440,
+            "marginRight": 1440
+          },
+          "children": 16
+        }
+      ],
+      "surfaceDom": [
+        {
+          "id": "word:6",
+          "className": "w-surface",
+          "modelType": "surface"
+        }
+      ],
+      "documentClass": "w-document",
+      "surfaceCount": 1,
+      "paragraphCount": 16,
+      "sheetCount": 2,
+      "layoutMap": [
+        {
+          "id": "word:6",
+          "pages": 2,
+          "fragments": [
+            8,
+            8
+          ]
+        }
+      ]
+    },
+    "afterExplicitRender": {
+      "sheetCount": 2,
+      "layoutKeys": [
+        "word:6"
+      ]
+    }
+  }
+}

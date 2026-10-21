@@ -1,0 +1,177 @@
+{
+  "schema": "office-v2-m0/verification-criteria-v1",
+  "capturedUtc": "2026-10-21T14:39:14.589642+00:00",
+  "parent": "3f8354c6bb733bc597488d64c3bf41e5f650f6f8",
+  "criteria": [
+    {
+      "criterion": "corpus-integrity",
+      "status": "PASS",
+      "boundary": "Synthetic4fixtures deterministic regeneration, hashes, XML, internal relationship targets",
+      "evidence": "logs/corpus-integrity.txt"
+    },
+    {
+      "criterion": "prose-two-session-conflict-undo",
+      "status": "PASS",
+      "boundary": "Actual unchanged P prose; final independent suite runs on K",
+      "evidence": "logs/native-tests-final-K.txt"
+    },
+    {
+      "criterion": "durable-ack-loss-retry-checkpoint-restart",
+      "status": "PASS",
+      "boundary": "Actual store new Node process replay, retry/checkpoint/tail; independently rechecked on K",
+      "evidence": "logs/native-tests-final-K.txt"
+    },
+    {
+      "criterion": "current-access-version-late-ack",
+      "status": "PASS",
+      "boundary": "Controlled trusted sessions and callback boundary; version/refusal/pending/late ACK independently rechecked on K",
+      "evidence": "logs/native-tests-final-K.txt"
+    },
+    {
+      "criterion": "sheet-same-cell-alternatives",
+      "status": "PASS",
+      "boundary": "Actual H SheetReplica plus F CalculationEngine: two sessions value/formula alternatives, remote edit then local undo",
+      "evidence": "logs/sheet-adverse-first.txt"
+    },
+    {
+      "criterion": "sheet-structural-concurrency-formula-reference",
+      "status": "PASS",
+      "boundary": "Actual two replicas same-position row inserts, concurrent delete/formula, REF agreement and same-ID deletion undo; actual F copy vs cross-sheet cut",
+      "evidence": "logs/native-tests-final-K.txt"
+    },
+    {
+      "criterion": "sheet-A-row-B-edit-A-undo",
+      "status": "PASS",
+      "boundary": "Actual H/Core recoverable UNDO_CONFLICT preserves B content in both replicas",
+      "evidence": "logs/sheet-adverse-first.txt"
+    },
+    {
+      "criterion": "raw-sheet-actor-spoof-and-history-rewrite",
+      "status": "PASS",
+      "boundary": "Actual validator rejects new forged actor/session despite trusted transport A and rejects admitted-body tamper by semantic code. Raw delete/other hidden collision forms are separate owner tests, not independently asserted here.",
+      "evidence": "logs/sheet-adverse-first.txt"
+    },
+    {
+      "criterion": "sheet-10000x100-50000populated-10000formulas",
+      "status": "PASS",
+      "boundary": "3 bounded fresh-process actual F Core/Formula model workloads; observational/contaminated, no budget/collaborative-provider/UI capacity claim",
+      "evidence": "reports/sheet-scale.json"
+    },
+    {
+      "criterion": "word-one-page-smoke",
+      "status": "PASS",
+      "boundary": "Actual current Word runtime/browser; controlled1page only",
+      "evidence": "reports/word-smoke.json"
+    },
+    {
+      "criterion": "word-100page-layout",
+      "status": "FAIL",
+      "boundary": "Probe did not produce100pages within45s; benchmark NOT QUALIFIED, cause UNKNOWN, not a measured slow100page layout",
+      "evidence": "reports/word-100-first-failure.json"
+    },
+    {
+      "criterion": "word-100page-diagnostic",
+      "status": "FAIL",
+      "boundary": "800paragraphs/2414elements/0sheets; no100surface/root snapshot. Tiny same-pattern diagnostic separately passes schema/root/surface/2pages",
+      "evidence": "reports/word-baseline.json"
+    },
+    {
+      "criterion": "word-300page-layout-print",
+      "status": "NOT RUN",
+      "boundary": "Planner stopped heavy repeats under unqualified load; no capacity claim",
+      "evidence": null
+    },
+    {
+      "criterion": "word-font-provenance-and-frozen-budgets",
+      "status": "NOT RUN",
+      "boundary": "Exact font versions/fallback not verified; no qualified100/300samples/budget",
+      "evidence": null
+    },
+    {
+      "criterion": "current-DOCX-basic-table-text-roundtrip",
+      "status": "PASS",
+      "boundary": "Actual importer/exporter/reopen; bounded table/text and horizontal merge only",
+      "evidence": "reports/word-smoke.json"
+    },
+    {
+      "criterion": "current-DOCX-full-corpus-feature-roundtrip",
+      "status": "FAIL",
+      "boundary": "Actual exported package loses numbering/image/header/footer/footnote; warnings explicit",
+      "evidence": "reports/docx-semantic-parts.json"
+    },
+    {
+      "criterion": "external-Word-current-export-open",
+      "status": "PASS",
+      "boundary": "Microsoft Word16.114 actual original+export UI/AX; bounded open/read only",
+      "evidence": "reports/native-ui-receipt.json"
+    },
+    {
+      "criterion": "external-Excel-synthetic-1900-1904-open",
+      "status": "PASS",
+      "boundary": "Microsoft Excel16.114 actual object reads of two synthetic fixtures; no product XLSX implementation or edit-recalc claim",
+      "evidence": "reports/native-excel-sheet-1904.json"
+    },
+    {
+      "criterion": "external-PowerPoint-synthetic-open",
+      "status": "PASS",
+      "boundary": "PowerPoint16.114 actual1slide UI/screenshot; grouping/fidelity unverified",
+      "evidence": "reports/native-ui-receipt.json"
+    },
+    {
+      "criterion": "product-XLSX-PPTX-import-export",
+      "status": "NOT RUN",
+      "boundary": "No current product exchange entry accepted or exercised",
+      "evidence": null
+    },
+    {
+      "criterion": "Canvas-scroll-keystroke-physical-IME",
+      "status": "NOT RUN",
+      "boundary": "Outside headless evidence; no physical input claim",
+      "evidence": null
+    },
+    {
+      "criterion": "M0-whole-acceptance",
+      "status": "NOT RUN",
+      "boundary": "Required native Sheet/performance/budget criteria remain open; lane cannot accept M0",
+      "evidence": null
+    },
+    {
+      "criterion": "word-tiny-admission-root-observer",
+      "status": "PASS",
+      "boundary": "16paragraph same-pattern fixture: actual schema admission,1model/DOMsurface,consistent document root,2sheet/layout pages,console/pageerrors empty. No100capacity evidence.",
+      "evidence": "reports/word-tiny-diagnostic.json"
+    },
+    {
+      "criterion": "collaborative-provider-scale-and-causal-frontier",
+      "status": "NOT RUN",
+      "boundary": "K fixes historical H all-ID growth. Independent40sequential appends/three offline branch join PASS; full10k provider scale NOT RUN.",
+      "evidence": null
+    },
+    {
+      "criterion": "qualified-reference-machine-performance-budgets",
+      "status": "NOT RUN",
+      "boundary": "All measured scale data is observational under uncontrolled contention. Word100/300/qualified fonts unavailable.",
+      "evidence": null
+    },
+    {
+      "criterion": "bounded-provider-causal-frontier",
+      "status": "PASS",
+      "boundary": "Actual K:40sequential appends total40dependency edges; three independent offline branches join with3heads and preserve remote contributions through local undo",
+      "evidence": "logs/native-tests-final-K.txt"
+    },
+    {
+      "criterion": "corrected-Excel-unary-exponent-profile",
+      "status": "PASS",
+      "boundary": "Q real parser/evaluator yields4and64. Expected values inferred from Microsoft official precedence table, separately cited. Original K failure retained.",
+      "evidence": "logs/formula-adverse-final-Q.txt"
+    }
+  ],
+  "lastUpdatedUtc": "2026-10-21T14:57:59.422122+00:00",
+  "validation": {
+    "K": "24/24 native, strict9roots/imports0",
+    "Q": "4/4 directly affected Formula adverse; strict1root/imports0; remaining K evidence reused",
+    "full25AtQ": "NOT RUN per bounded policy",
+    "corpus": "3/3",
+    "scale": "3successful raw samples at F; no repeat/final-Q capacity claim"
+  }
+}

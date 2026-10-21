@@ -1,0 +1,3 @@
+All synthetic fixture content and generated 2x2 image pixels in this directory are dedicated to the public domain under CC0 1.0 Universal (CC0-1.0).
+https://creativecommons.org/publicdomain/zero/1.0/
+No user documents, external templates, logos, font files or third-party media are included. Application code remains under the repository license.

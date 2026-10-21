@@ -1,0 +1,91 @@
+{
+  "schema": "office-v2-m0/word-baseline-v1",
+  "capturedUtc": "2026-10-21T14:24:16.390Z",
+  "source": {
+    "baseline": "9b390602d90e07f496b7b699915b7d605582d8a4",
+    "head": "6ad373b4c31b7ec7aa97b75d8f6cb89b7174fc0e",
+    "tree": "1fab82408fabb09509c7c7a768827934e41b4598",
+    "files": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/measurement.ts",
+        "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+      },
+      {
+        "path": "packages/office-word/src/pagination.ts",
+        "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+      },
+      {
+        "path": "packages/office-word/src/print-pages.ts",
+        "sha256": "d8d04b32e3410e996f917c6cb726fdae271d4b3acdf7b4f75b9e369480c38387"
+      },
+      {
+        "path": "packages/office-word/src/word-docx.ts",
+        "sha256": "5acfa5da2cafd79732508f6579da8b80e4da26dc181c0cfae28a0e517f2fd39a"
+      },
+      {
+        "path": "packages/office-word/src/word-docx-import.ts",
+        "sha256": "6aeccdb7440bd9bc20fa2928a6397680176fd5f65eaabde07dfafb0c8ba169a3"
+      },
+      {
+        "path": "packages/office-word/src/ui.css",
+        "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+      },
+      {
+        "path": "packages/office-text/src/text.css",
+        "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+      }
+    ]
+  },
+  "environment": {
+    "node": "v22.22.0",
+    "cpu": "Apple M3 Max",
+    "logicalCpus": 14,
+    "platform": "darwin",
+    "release": "24.6.0",
+    "totalMemoryBytes": 38654705664,
+    "freeMemoryBytes": 1402961920,
+    "loadAverage": [
+      13.89453125,
+      31.08642578125,
+      39.5703125
+    ],
+    "quietWindow": "NOT CONFIRMED; ambient author/integration work may contend",
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "fontPolicy": "OS fonts, no external requests; CDP actual fonts recorded",
+    "browser": "145.0.7632.6"
+  },
+  "workload": {
+    "pages": [
+      100,
+      300
+    ],
+    "paragraphsPerPage": 8,
+    "explicitBreaks": true,
+    "content": "Korean and Latin synthetic prose; explicit break before each group of8 paragraphs",
+    "samples": 1
+  },
+  "samples": [],
+  "errors": [
+    "SyntaxError: The requested module '/@fs/Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules/.pnpm/react@19.2.8/node_modules/react/index.js' does not provide an export named 'createContext'"
+  ],
+  "limits": [
+    "Controlled standalone Word runtime, no Office account/DB/saved-state flow.",
+    "Print measures actual createPrintPages.build DOM construction, not OS spool/PDF fidelity.",
+    "No keystroke-to-paint, scroll or physical IME claim.",
+    "No font files included; exact loaded platform fonts recorded below."
+  ],
+  "status": "FAIL",
+  "firstFailure": "TimeoutError: page.waitForFunction: Timeout 60000ms exceeded."
+}

@@ -1,0 +1,43 @@
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs "verification/durability-adverse.test.ts"
+
+Native Node TypeScript tests: 1 files.
+TAP version 13
+# (node:70936) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:70922) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: ACK-loss receipt survives restart and payload compaction without duplicate text
+ok 1 - ACK-loss receipt survives restart and payload compaction without duplicate text
+  ---
+  duration_ms: 239.877958
+  type: 'test'
+  ...
+# Subtest: revoked session cannot replay old durable receipt; offline bytes remain pending
+ok 2 - revoked session cannot replay old durable receipt; offline bytes remain pending
+  ---
+  duration_ms: 13.283708
+  type: 'test'
+  ...
+# Subtest: incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+ok 3 - incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+  ---
+  duration_ms: 11.575625
+  type: 'test'
+  ...
+# Subtest: late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+ok 4 - late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+  ---
+  duration_ms: 28.965208
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 706.429333

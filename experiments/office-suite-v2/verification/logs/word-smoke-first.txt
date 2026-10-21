@@ -1,0 +1,9 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-runner.mjs:35
+const server=await createServer({configFile:false,root:here,cacheDir:resolve(here,'.cache/vite'),resolve:{alias},server:{host:'127.0.0.1',port:55260,strictPort:true,fs:{allow:[here,sourceRoot]}},logLevel:'warn',optimizeDeps:{noDiscovery:true,include:[]}});
+                   ^
+
+TypeError: createServer is not a function
+    at file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-runner.mjs:35:20
+
+Node.js v22.22.0

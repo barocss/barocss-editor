@@ -1,0 +1,32 @@
+{
+  "measuredHead": "b785fd65c6fae71c57b70650b06f69a68bea3070",
+  "finalHead": "23fa95116b11882be4905ae257c0859911a2b88a",
+  "files": [
+    {
+      "path": "experiments/office-suite-v2/src/contracts.ts",
+      "sha256": "f66ee27464171fc637ad745d1ac1ea8aaf13b3ecdb3a3d51b5c91b6ace401aa8",
+      "unchangedInK": true
+    },
+    {
+      "path": "experiments/office-suite-v2/src/workbook.ts",
+      "sha256": "db6c996d78109cb2515aa2545d0ef94f205349c73a6717091ea313c420f2a36e",
+      "unchangedInK": true
+    },
+    {
+      "path": "experiments/office-suite-v2/src/calculation.ts",
+      "sha256": "87475ff54551e8ae6df7682b0d64ced3671310b8a1b99e2a93fd18f273a12044",
+      "unchangedInK": true
+    },
+    {
+      "path": "experiments/office-suite-v2/src/formula.ts",
+      "sha256": "defd5227086f24a1b0685d96d8e390c88ce84636e2ea1da88e593f4aa0640295",
+      "unchangedInK": true
+    },
+    {
+      "path": "experiments/office-suite-v2/src/references.ts",
+      "sha256": "64d0bc4cd7f51b54d1159dd6a9648e621fcd638d75b5bccbf85765ce43a5b393",
+      "unchangedInK": true
+    }
+  ],
+  "boundary": "F Core/Formula measurement reused on unchanged K sources. Provider scale not included. Any later parser correction is a separate correctness qualification; AST workload does not invoke parser."
+}

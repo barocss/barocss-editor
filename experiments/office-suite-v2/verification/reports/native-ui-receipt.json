@@ -1,0 +1,50 @@
+{
+  "schema": "office-v2-m0/native-ui-v1",
+  "readers": {
+    "Microsoft Word": {
+      "installedVersion": "16.114",
+      "originalFile": "corpus/word-features.docx",
+      "originalSha256": "5b39b52a8f6bfa88f72423721befc278285d2f9ddb444ee577fc1aa6d1de5c79",
+      "exportFile": "reports/word-current-export.docx",
+      "exportSha256": "c2c5d6ed6ee04a092b7b9ecb841ba9cbfdbf7865647ff1433bcd842d76100ff8",
+      "originalObservation": {
+        "76rowTable": true,
+        "header": true,
+        "footer": true,
+        "footnote": true,
+        "image": true,
+        "KoreanLatin": true
+      },
+      "exportObservation": {
+        "76rowTable": true,
+        "KoreanLatin": true,
+        "headerPresent": false,
+        "footerPresent": false,
+        "footnotePresent": false,
+        "imagePresent": false
+      },
+      "evidence": [
+        "word-native-original-ax.json",
+        "word-native-original.png",
+        "word-native-export-ax.json",
+        "word-native-export.png"
+      ],
+      "cleanup": "Both owned fixture windows closed via CUA. Application left running.",
+      "firstAttempt": "Native AppleScript timed out25s; retained separately. Subsequent CUA confirmed actual opened document."
+    },
+    "Microsoft PowerPoint": {
+      "installedVersion": "16.114",
+      "file": "corpus/slides-features.pptx",
+      "sha256": "99688f740bd9242b6fbe115f8ae5952215fa6b48c4fa555013d6af539ea6db3b",
+      "observedOneSlide": true,
+      "screenshotObservation": "Korean/Latin title and gray image region visible; object grouping/fidelity not independently asserted.",
+      "evidence": [
+        "pptx-native-original-ax.json",
+        "pptx-native-original.png"
+      ],
+      "cleanup": "Only owned fixture window closed via CUA. Application left running."
+    }
+  },
+  "originalCorpusBytesUnchanged": true,
+  "boundary": "Bounded native reader observations, not full Office compatibility, edited native Office save, product XLSX/PPTX implementation, or cross-platform rendering acceptance."
+}

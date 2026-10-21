@@ -1,0 +1,41 @@
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs "verification/sheet-adverse.test.ts"
+
+Native Node TypeScript tests: 1 files.
+TAP version 13
+# (node:87279) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: real two-replica cell alternatives, same-position rows and Formula output agree
+ok 1 - real two-replica cell alternatives, same-position rows and Formula output agree
+  ---
+  duration_ms: 36.30425
+  type: 'test'
+  ...
+# Subtest: delete versus remote cross-sheet formula converges to REF; explicit deletion undo restores reference
+ok 2 - delete versus remote cross-sheet formula converges to REF; explicit deletion undo restores reference
+  ---
+  duration_ms: 19.903708
+  type: 'test'
+  ...
+# Subtest: A row created then B cell commit makes A undo recoverably refuse without lost data
+ok 3 - A row created then B cell commit makes A undo recoverably refuse without lost data
+  ---
+  duration_ms: 19.60675
+  type: 'test'
+  ...
+# Subtest: actual server refuses forged native identity and admitted-event-body replay tamper; ACK and checkpoint remain bound
+ok 4 - actual server refuses forged native identity and admitted-event-body replay tamper; ACK and checkpoint remain bound
+  ---
+  duration_ms: 21.077541
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 205.072

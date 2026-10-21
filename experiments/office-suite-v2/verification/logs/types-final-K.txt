@@ -1,0 +1,5 @@
+
+> @office-suite-v2/m0@0.0.0 type-check /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/type-check.mjs "--" "verification"
+
+Strict TypeScript 5.9.3: 9 root files; imports included; 0 diagnostics.

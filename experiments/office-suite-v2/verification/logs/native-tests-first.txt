@@ -1,0 +1,89 @@
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs "verification"
+
+Native Node TypeScript tests: 4 files.
+TAP version 13
+# (node:69189) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: ACK-loss receipt survives restart and payload compaction without duplicate text
+ok 1 - ACK-loss receipt survives restart and payload compaction without duplicate text
+  ---
+  duration_ms: 121.642417
+  type: 'test'
+  ...
+# Subtest: revoked session cannot replay old durable receipt; offline bytes remain pending
+ok 2 - revoked session cannot replay old durable receipt; offline bytes remain pending
+  ---
+  duration_ms: 9.401125
+  type: 'test'
+  ...
+# Subtest: incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+ok 3 - incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+  ---
+  duration_ms: 8.383666
+  type: 'test'
+  ...
+# Subtest: late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+ok 4 - late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+  ---
+  duration_ms: 10.049125
+  type: 'test'
+  ...
+# Subtest: nearest rank retains spikes and raw order is unchanged
+ok 5 - nearest rank retains spikes and raw order is unchanged
+  ---
+  duration_ms: 1.520708
+  type: 'test'
+  ...
+# Subtest: empty, negative and nonfinite measurements cannot become zero-latency PASS
+ok 6 - empty, negative and nonfinite measurements cannot become zero-latency PASS
+  ---
+  duration_ms: 0.21
+  type: 'test'
+  ...
+# Subtest: scale workload has exact population, formulas and bounds without materializing empty cells
+ok 7 - scale workload has exact population, formulas and bounds without materializing empty cells
+  ---
+  duration_ms: 23.277708
+  type: 'test'
+  ...
+# Subtest: Word workload names explicit breaks and scales linear source content
+ok 8 - Word workload names explicit breaks and scales linear source content
+  ---
+  duration_ms: 3.45525
+  type: 'test'
+  ...
+# Subtest: concurrent same-offset inserts converge; local undo preserves the other tab
+ok 9 - concurrent same-offset inserts converge; local undo preserves the other tab
+  ---
+  duration_ms: 10.226917
+  type: 'test'
+  ...
+# Subtest: remote formatting and text survive split undo and explicit join
+ok 10 - remote formatting and text survive split undo and explicit join
+  ---
+  duration_ms: 4.9685
+  type: 'test'
+  ...
+# Subtest: fresh reload has no old session undo; relative anchor follows remote insertion
+ok 11 - fresh reload has no old session undo; relative anchor follows remote insertion
+  ---
+  duration_ms: 1.032292
+  type: 'test'
+  ...
+# Subtest: unsupported paragraph operations and malformed ranges refuse without content mutation
+ok 12 - unsupported paragraph operations and malformed ranges refuse without content mutation
+  ---
+  duration_ms: 0.627
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1009.398417
