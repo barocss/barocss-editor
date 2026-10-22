@@ -1,22 +1,51 @@
 # M0 integration — previews, source and memory evidence
 
-## C source preparation — backend human hold
+## C client source/model qualification — backend human hold
 
-Planner accepted the bounded B result below. C client source preparation uses
-the separate `533-sheet-preview-durable` checkout at11f6204f and frozen P1
-protocol6768f95d. The original B author/source remains preserved. Integration
-launcher912d2eab adds explicit durable mode, its client-entry guard and the
-same-origin55264 proxy to55265 with changeOrigin:true. Syntax/help/peer source
-check and changed-file lint pass; missing durable entry/mode and invalid mode
-refuse. These checks start no browser, service or storage.
+Planner accepted the bounded B result below and the exact C client source/model
+intake. Author e19eec186f3b1de427e0b7495f9652adcd3ed3a1, parent11f6204f,
+contains exactly14 leased preview/contract paths. Its two-file style successor
+bc947b4741fe3f11b675536c58bb459c8be16ab7 preserves behavior. Exact deltas join
+at6ff23e9c and99ed27d0 in the separate BC integration checkout. All14 final
+blobs and actual easylogic author/committer metadata match. Original A/B authors
+and the user's old522 source remain preserved. Frozen P1 protocol6768f95d is
+unchanged; no held backend WIP was adopted.
+
+The client implements a browser IndexedDB outbox, exclusive client writer,
+original native packet/identity resumption, separate persistence and delivery
+queues, per-update receipt validation and honest pending/ACK-unknown/rejected
+status. Normal persistence keeps editing available; actual persistence failure
+blocks further input. Source/model tests cover two stored packets while the
+first HTTP response remains pending. Current-view toolbar Undo starts fresh on
+reload; original native Undo events/targets persist. Outbox lifetime limits are
+256 records/8MB including confirmed/rejected entries; there is no auto-pruning.
+These are source/model properties, not actual browser storage or server proof.
+
+| Joined check | Result and binding |
+| --- | --- |
+|64 types at6ff23e9c |24 preview/protocol roots plus imports,0 diagnostics. |
+|65 tests at6ff23e9c |12 preview/protocol files,83 PASS,0 fail/skip,5.989s. |
+|66 first lint |3 new errors in2 files: two constant-condition loops and one unused type import. The failure is preserved. |
+|67–68 after99ed27d0 |Two affected type roots/imports,0 diagnostics; two changed lint files,0 errors/warnings. Two while(true) spellings become for(;;), with the same exits; unused type removed. Unchanged tests/lint retain exact-source evidence; no fresh83 aggregate is claimed. |
+
+Owner source/model timing and readonly-fixture type failures remain in its
+contract. Root review also required separate local persistence from network
+delivery and failure-only editing freeze. No eslint suppression, budget,
+configuration, native engine or production change was used. Supporting intake
+receipts and complete command outputs are primary `.omx/m0/533-C-client-*.json`
+and logs64–68. Integration launcher912d2eab adds explicit durable mode and a
+same-origin55264 proxy to55265 with changeOrigin:true. Its entry checks start
+no browser, service or storage.
 
 The relay author's later direct human instruction says "추가 실행은 하지 말고".
 Planner's resume question is pending. Do not adopt its uncommitted WIP, resume
 that lane or bypass the hold. C server runtime, saved/restart/reopen and outbox
 browser proof remain NOT RUN. Verification535 also keeps its read-only hold.
 The private C predata-v3 contains ten NOT RUN cases and exact-ID controlled
-ACK-delivery conditions. Final client/service pins and the actual capabilities
-must be bound before runtime. No server success follows from source preparation.
+ACK-delivery conditions. Final service pin and actual capabilities must be
+bound before runtime. Actual IndexedDB/WebLock, continuous keyboard focus,
+remote composition, BFCache, relay ACK/retry, new-process same-DB restart and
+reopen remain unverified. No server success follows from client source checks.
 
 ## Latest Sheet533 Phase B — actual two-tab collaboration
 
