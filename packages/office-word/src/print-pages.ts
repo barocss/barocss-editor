@@ -70,8 +70,11 @@ function snapshot(root: HTMLElement): Map<Element, Snapshot> {
     // getComputedStyle resolves a unitless line-height to used pixels. Copying
     // those pixels prevents smaller furniture from inheriting the original
     // multiplier. Typed computed values distinguish that number from fixed px.
-    const lineHeight = (element as ComputedElement).computedStyleMap?.().get('line-height')?.toString()
-      ?? ((element as HTMLElement).style?.lineHeight || style.lineHeight);
+    // Only the root and its direct surfaces pass this value to inherit().
+    const lineHeight = element === root || (element.parentElement === root && element.matches('.w-surface'))
+      ? (element as ComputedElement).computedStyleMap?.().get('line-height')?.toString()
+        ?? ((element as HTMLElement).style?.lineHeight || style.lineHeight)
+      : '';
     result.set(element, { box, paint, style, lineHeight });
     return paint;
   };
