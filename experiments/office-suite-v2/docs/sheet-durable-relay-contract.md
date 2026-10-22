@@ -1,4 +1,4 @@
-# Controlled Sheet relay v1 — #534
+# Sheet relay v1 — controlled and account modes — #534
 
 ## P3 real-account contract — new authenticated mode
 
@@ -101,6 +101,126 @@ Expired/invalid JWT cannot authorize a server logout target; UI still retires an
 reports unconfirmed provider logout. No arbitrary-subject or global logout API.
 Pure addendum checks: strict2 roots0 diagnostics, protocol10/10 PASS; actual IdP
 termination/inactive-token/old-WS denial remains Integration runtime evidence.
+
+### Account backend successor
+
+The account backend is an explicit new-store mode. `AccountSheetRelay.create`
+requires the actual PG scope/context, canonical UUID bootstrap actor,
+`AccountAuthority`, current `SheetAccessStore` port and exact allowed loopback
+origins. `resume(directory, options)` accepts only that same account scope/context.
+Controlled stores cannot be promoted. Version2 manifest and registry keep account
+bindings with the original credential hashes in one atomic registry write. The
+registry contains no JWT, ticket or current authorization proof.
+
+The bootstrap adapter replays only the bounded native seed command chain into a
+fresh native replica with the PG context and actor. It does not copy an engine,
+rewrite a binary update across contexts, or adopt a prior controlled DB. Startup
+continues to use the original native durable replay, exclusive writer,
+audit/receipt checks and accepted-byte comparison.
+
+Only opaque in-memory bound-session objects issued by this facade can call
+`withAuthorized`. Every operation verifies the original token and live provider
+session, then obtains current canonical membership/document/grant locks. The
+trusted callback runs synchronously under these locks. Native access remains a
+literal synchronous boolean; async callbacks and escaped native work are refused.
+Read-only and revoked access are checked before native dedup/retry as well as
+before state publication. The persisted access value cannot restore a grant.
+The callback also receives the same synchronous check. Account WS data/access
+frames invoke it after frame encoding and size checks, immediately before socket
+enqueue, under the current PG locks. A final callback check alone would be too
+late to protect data already enqueued by that callback.
+
+The absolute five-second operation deadline starts at queue admission. Wall-clock
+checks supplement timers, including after waits and after actual synchronous
+native candidate validation. JWT expiry and the local confirmed-logout epoch are
+checked at the same points. A confirmed own-login logout invalidates that login's
+existing proofs and waiting operations synchronously; another account or login
+SID remains separate. The private epoch map holds at most512 live bindings and
+removes entries after their latest observed token expiry. Proofs, tokens and epoch
+state stay in process memory. Restart requires fresh provider verification.
+
+The final synchronous check after native validation is the append admission
+point. Original native frontier encoding and SQLite COMMIT follow without an
+await. An expiry during that final synchronous window cannot cancel a known
+completed COMMIT. Provider checks and PG/native writes are not a distributed
+atomic transaction. External IdP changes become observable at the next live
+check; local confirmed logout additionally fences already waiting work. A later
+PG failure, delayed reply denial or authority change after a known native COMMIT
+closes the socket without a correlated rejection. The original packet remains
+ACK-unknown until a newly authorized exact retry can confirm its receipt.
+
+Integration owns migration registration/application, configured provider verifier
+and session/logout adapters, actual PG locks/RLS, fixed listeners and two-account
+browser/restart proof. Source/model/port0 checks below do not establish these
+runtime acceptance conditions. No shared settings or native engine/store source
+change belongs to this backend successor.
+
+### Successor verification record — 2026-10-22
+
+Source parent is PG checkpoint `4c776e149825d6362657facc25a994ecbe75c65d`,
+after logout addendum `6a70c76ffaea60fbcd25e026de565bdbad679e02` and
+CEC `cec21133aeb9b68e6fa0093b902ba9a00425bbf6`. Only the leased backend,
+protocol/manual and three PG source paths were changed. The predecessor source,
+Formula Q, native engine/store and shared settings stayed untouched.
+
+Checks used Node22.22.0/pnpm8.15 and Integration's frozen dependency graph.
+No full201/Word/Core/root preflight, actual IdP/PG/fixed-port/browser run or
+migration application was performed by this author.
+
+- Initial successor bootstrap: strict2 roots0, native5/5 PASS. Existing pure
+  logout protocol10/10 and PG source29/29 model checks remain separate receipts.
+- Narrow strict check of account authority/service/transport/bootstrap tests,
+  native service/HTTP/WS tests and index: eight roots0 diagnostics. Final changed
+  authority strict1 root0; final transport+index strict2 roots0.
+- Relevant source/native/port0 run:49 tests,47 PASS and2 FAIL. Both failures were
+  expiry error-code precedence after introducing the absolute deadline: expected
+  `account-session-expired`401, observed `account-authority-unavailable`503 when
+  both limits elapsed. Expiry retains its original priority. Identical two cases
+  plus three new authority regressions then passed5/5. Other fixed test/source
+  evidence was reused; this is not a claim of a new green49-test aggregate run.
+- Account service15 cases passed, including original native bytes/credential
+  restart, canonical A/B actor binding, current grant before dedup, ticket limits,
+  ignored aborts and actual native COMMIT followed by model PG failure.
+- Native service17 cases passed, including actual child-process exit after
+  COMMIT, original store recovery, audit/receipt failure and stale writer checks.
+- Selected changed HTTP account admission/logout and controlled-mode account
+  ticket refusal passed3/3. These transport tests use authority ports/models.
+- Final actual account HTTP/WS/native transport5/5 PASS: exact receipt/state
+  propagation to a read-only second account; read-only write rejection and
+  revoked open/push refusal; anonymous/legacy mode denial; both post-COMMIT
+  authority-change cases; and state publication after a clock deadline.
+
+Preserved first failures and repairs:
+
+- Two copied WS exactOptionalPropertyTypes diagnostics assigned `undefined` to
+  optional queuedReceipt. Deleting the property fixed both; strict0 followed.
+- Post-COMMIT downgrade/revoke first produced correlated rejected frames even
+  though actual native sequence2/value73 existed. Both failed, then passed after
+  the committed/unknown guard moved before401/403 handling. Exact original sender
+  packets remained pending in test memory; this is not browser IDB proof.
+- Deadline during actual native validation, JWT expiry there, and confirmed own
+  logout during a held PG lookup each first persisted one packet instead of zero.
+  Identical three tests passed after synchronous deadline/epoch checks and the
+  post-validation fence. Actual SQLite packet count was zero and accepted-state
+  hash stayed unchanged. Initial read-only test-oracle queries hit the native
+  exclusive writer lock; the corrected oracle closes only its owned relay before
+  read-only SQLite inspection. Those oracle failures are not production RED proof.
+- Waiting authenticate/current live gates and a synchronous authority gate
+  crossing5s first passed incorrectly; identical three authority tests then
+  passed after local epoch and absolute clock checks.
+- Publication first sent a correlated state frame after the test advanced the
+  clock5001ms following actual native open. The corrected socket enqueue fence
+  passed that identical case and the final five transport cases above.
+- Earlier helper test strict4 diagnostics were fixed only in new test code.
+  An ad hoc PG type command added noUncheckedIndexedAccess absent from the real
+  Office configuration and reported two existing membership diagnostics; the
+  narrow check with actual unchanged Office compiler options passed0 diagnostics.
+  A parent test command used the wrong relative append path and selected zero
+  cases; it was corrected and is not counted as passing evidence.
+
+Actual configured IdP+PG+Sheet/browser two-account, logout, ACL lock/RLS and restart
+qualification remains Integration's separate acceptance on the final combined
+candidate. This source handoff does not close #534, #521 M0, M1/M2 or release.
 
 Base `1638944c6db0d39e994ba5f12367a4b56714f958`. Contracts-only P1
 `6768f95decf5f49168639184c06fec2fd42e6681` froze the browser-neutral DTOs first.

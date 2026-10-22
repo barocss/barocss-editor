@@ -6,13 +6,15 @@ import * as Y from 'yjs';
 import { DisposableDurableStore, updateHash } from '../../src/durable-store.ts';
 import type { StoreOptions } from '../../src/durable-store.ts';
 import { sheetUpdateValidator } from '../../src/collaboration.ts';
+import type { SheetReplica } from '../../src/collaboration.ts';
 import { createPreviewReplica } from '../../preview/sheet/fixture.ts';
 import { base64ToBytes, bytesToBase64, isRelayCredential, parseSheetRelayAppendRequest, parseSheetRelaySessionRequest,
   relayAdmission, sameRelayContext, SHEET_RELAY_LIMITS } from '../../src/sheet-preview-protocol.ts';
 import type { SheetRelayAccess, SheetRelayAppendRequest, SheetRelayAppendResult, SheetRelayCheckpoint, SheetRelayReceipt,
-  SheetRelaySessionRequest, SheetRelayState, SheetRelayIdentity, SheetRelayWsSession } from '../../src/sheet-preview-protocol.ts';
+  SheetRelaySessionRequest, SheetRelayState, SheetRelayIdentity, SheetRelayWsSession, SheetRelayAccountBinding } from '../../src/sheet-preview-protocol.ts';
+import { parseSheetRelayAccountBinding, sameSheetRelayAccountBinding } from '../../src/sheet-preview-protocol.ts';
 import { persistAudit, readStartup, writeManifest, writeRegistry } from './storage.ts';
-import type { RelayManifest, SessionRegistry, StoredSession } from './storage.ts';
+import type { RelayManifest, SessionRegistry, StoredSession, AccountScope } from './storage.ts';
 import { checkOwner, claimOwner, releaseOwner, initializeReceiptMarkers, recordReceipt, validateReceiptMarkers } from './control-files.ts';
 
 export class RelayError extends Error {
@@ -22,16 +24,32 @@ export class RelayError extends Error {
 }
 const credentialHash = (credential: string): string => updateHash(new TextEncoder().encode(credential));
 const sameIdentity = (a: SheetRelayIdentity, b: SheetRelayIdentity): boolean => a.actorId === b.actorId && a.sessionId === b.sessionId;
-type AccessState = { registry: SessionRegistry; bootstrap: boolean };
+type AccountFence = { userId: string; access: SheetRelayAccess; assertCurrent: () => void };
+type AccessState = { registry: SessionRegistry; bootstrap: boolean; fence?: AccountFence };
 function options(manifest: RelayManifest, access: AccessState): StoreOptions {
   const native = sheetUpdateValidator(manifest.context);
   return {
     admission: manifest.admission,
-    currentAccess: identity => (access.bootstrap && sameIdentity(identity, manifest.bootstrap.identity)) || access.registry.sessions.some(session => session.active && session.access === 'read-write' && sameIdentity(session.identity, identity)),
+    currentAccess: identity => {
+      if (access.bootstrap && sameIdentity(identity, manifest.bootstrap.identity)) return true;
+      if (manifest.version === 2) {
+        const fence = access.fence;
+        if (!fence || fence.access !== 'read-write' || fence.userId !== identity.actorId) return false;
+        fence.assertCurrent();
+        return access.registry.sessions.some(session => session.active && sameIdentity(session.identity, identity));
+      }
+      return access.registry.sessions.some(session => session.active && session.access === 'read-write' && sameIdentity(session.identity, identity));
+    },
     validateDocument: (candidate, previous, update, authenticated) => {
       if (Y.encodeStateAsUpdate(candidate).length > SHEET_RELAY_LIMITS.updateBytes) throw new Error('relay-full-state-limit');
       if (Y.encodeStateVector(candidate).length > SHEET_RELAY_LIMITS.frontierBytes) throw new Error('relay-frontier-limit');
       native(candidate, previous, update, authenticated);
+      // Trusted persisted replay has no authenticated actor. Live appends must
+      // recheck after synchronous native validation, before native SQL admission.
+      if (manifest.version === 2 && !access.bootstrap && authenticated !== undefined) {
+        if (!access.fence) throw new RelayError('account-fence-required', 403);
+        access.fence.assertCurrent();
+      }
     },
   };
 }
@@ -50,23 +68,30 @@ export class SheetRelayService {
   #closed = false;
   #ownerToken: string;
   #accessListeners = new Set<(credential: string) => void>();
+  #commitEpoch = 0;
 
   private constructor(manifest: RelayManifest, access: AccessState, store: DisposableDurableStore, receipts: readonly SheetRelayReceipt[]) {
     this.directory = store.directory; this.context = Object.freeze({ ...manifest.context });
-    this.#manifest = Object.freeze({ ...manifest, context: this.context, admission: Object.freeze({ ...manifest.admission }),
+    this.#manifest = Object.freeze({ ...manifest, ...(manifest.scope ? { scope: Object.freeze({ ...manifest.scope }) } : {}), context: this.context, admission: Object.freeze({ ...manifest.admission }),
       bootstrap: Object.freeze({ identity: Object.freeze({ ...manifest.bootstrap.identity }), packet: Object.freeze({ ...manifest.bootstrap.packet }) }) });
     this.#access = access; this.#store = store; this.#receipts = [...receipts];
     this.#ownerToken = claimOwner(this.directory);
   }
 
   static create(): SheetRelayService {
-    const initial = createPreviewReplica(); // Exactly once, never on resume.
+    return this.#create(createPreviewReplica()); // Exactly once, never on resume.
+  }
+  /** Consumes a fresh native bootstrap; never promotes a controlled store. */
+  static createAccount(initial: SheetReplica, scope: AccountScope): SheetRelayService {
+    return this.#create(initial, scope);
+  }
+  static #create(initial: SheetReplica, scope?: AccountScope): SheetRelayService {
     let store: DisposableDurableStore | undefined;
     try {
       const bytes = initial.exportUpdate();
-      const manifest: RelayManifest = { version: 1, context: initial.context, admission: relayAdmission(initial.context),
+      const manifest: RelayManifest = { version: scope ? 2 : 1, ...(scope ? { mode: 'account' as const, scope } : {}), context: initial.context, admission: relayAdmission(initial.context),
         bootstrap: { identity: initial.identity, packet: { updateId: `bootstrap-${randomUUID()}`, bytesBase64: bytesToBase64(bytes), byteLength: bytes.length, sha256: updateHash(bytes) } } };
-      const access: AccessState = { registry: { version: 1, sessions: [] }, bootstrap: true };
+      const access: AccessState = { registry: { version: scope ? 2 : 1, ...(scope ? { mode: 'account' as const } : {}), sessions: [] }, bootstrap: true };
       store = DisposableDurableStore.create(options(manifest, access));
       writeManifest(store.directory, manifest); writeRegistry(store.directory, access.registry);
       initializeReceiptMarkers(store.directory);
@@ -81,10 +106,17 @@ export class SheetRelayService {
   }
 
   static resume(directory: string): SheetRelayService {
+    return this.#resume(directory, false);
+  }
+  static resumeAccount(directory: string): SheetRelayService {
+    return this.#resume(directory, true);
+  }
+  static #resume(directory: string, account: boolean): SheetRelayService {
     // All persisted files/receipts are validated read-only BEFORE this constructor
     // can create a missing DB/metadata. No fixture, directory or seed fallback.
     checkOwner(directory);
     const persisted = readStartup(directory);
+    if ((persisted.manifest.version === 2) !== account) throw new RelayError('store-mode-mismatch', 409);
     validateReceiptMarkers(directory, persisted.receipts);
     const access: AccessState = { registry: persisted.registry, bootstrap: false };
     const store = DisposableDurableStore.reopen(directory, options(persisted.manifest, access));
@@ -110,12 +142,20 @@ export class SheetRelayService {
     const session = this.#access.registry.sessions.find(value => value.credentialHash === credentialHash(credential));
     if (!session) throw new RelayError('session-denied', 401);
     if (!session.active) throw new RelayError('current-access-denied', 403);
+    if (this.#manifest.version === 2) {
+      const fence = this.#access.fence;
+      if (!fence || fence.userId !== session.identity.actorId || !session.accountBinding) throw new RelayError('account-fence-required', 403);
+      fence.assertCurrent();
+      if (write && fence.access !== 'read-write') throw new RelayError('read-only-denied', 403);
+      return { ...session, access: fence.access };
+    }
     if (write && session.access !== 'read-write') throw new RelayError('read-only-denied', 403);
     return session;
   }
 
   issueSession(value: SheetRelaySessionRequest): SheetRelayWsSession {
     this.#open();
+    if (this.#manifest.version === 2) throw new RelayError('account-mode-required', 403);
     const request = parseSheetRelaySessionRequest(value);
     if (request.resumeCredential !== undefined) {
       const stored = this.#session(request.resumeCredential);
@@ -131,9 +171,46 @@ export class SheetRelayService {
     return { protocolVersion: 1, controlled: true, credential, identity, context: this.context, access: stored.access };
   }
 
+  /** Trusted PG-lock callback only. Native authorization stays synchronous. */
+  withAccountGrant<T>(userId: string, access: SheetRelayAccess, assertCurrent: () => void, operation: () => T): T {
+    this.#open();
+    if (this.#manifest.version !== 2 || this.#access.fence || (access !== 'read-write' && access !== 'read-only') ||
+        Object.prototype.toString.call(operation) === '[object AsyncFunction]') throw new RelayError('account-fence-required', 403);
+    assertCurrent(); this.#access.fence = { userId, access, assertCurrent };
+    try {
+      const result = operation();
+      if (result && (typeof result === 'object' || typeof result === 'function') && typeof Reflect.get(result, 'then') === 'function') throw new RelayError('sync-operation-required', 400);
+      assertCurrent(); return result;
+    } finally { delete this.#access.fence; }
+  }
+
+  issueAccountSession(binding: SheetRelayAccountBinding, resumeCredential?: string): SheetRelayWsSession {
+    this.#open();
+    const accountBinding = parseSheetRelayAccountBinding(binding), fence = this.#access.fence, scope = this.#manifest.scope;
+    if (this.#manifest.version !== 2 || !fence || fence.userId !== accountBinding.userId || !scope ||
+        scope.tenantId !== accountBinding.tenantId || scope.workspaceId !== accountBinding.workspaceId || scope.documentId !== accountBinding.documentId) throw new RelayError('account-fence-required', 403);
+    fence.assertCurrent();
+    if (resumeCredential !== undefined) {
+      const stored = this.#session(resumeCredential);
+      if (!stored.accountBinding || !sameSheetRelayAccountBinding(stored.accountBinding, accountBinding)) throw new RelayError('account-session-mismatch', 403);
+      return { protocolVersion: 1, controlled: true, credential: resumeCredential, identity: stored.identity, context: this.context, access: fence.access };
+    }
+    if (this.#access.registry.sessions.length >= SHEET_RELAY_LIMITS.sessions) throw new RelayError('session-count-limit', 409);
+    const credential = randomBytes(32).toString('hex'), identity = Object.freeze({ actorId: accountBinding.userId, sessionId: randomUUID() });
+    const stored: StoredSession = { credentialHash: credentialHash(credential), identity, active: true, access: fence.access, accountBinding };
+    const registry: SessionRegistry = { version: 2, mode: 'account', sessions: [...this.#access.registry.sessions, stored] };
+    writeRegistry(this.directory, registry); this.#access.registry = registry;
+    return { protocolVersion: 1, controlled: true, credential, identity, context: this.context, access: fence.access };
+  }
+  get commitEpoch(): number { return this.#commitEpoch; }
+  accountScope(): AccountScope {
+    if (this.#manifest.version !== 2 || !this.#manifest.scope) throw new RelayError('store-mode-mismatch', 409);
+    return Object.freeze({ ...this.#manifest.scope });
+  }
+
   revokeSession(credential: string): void {
     const stored = this.#session(credential);
-    const registry: SessionRegistry = { version: 1, sessions: this.#access.registry.sessions.map(value => value.credentialHash === stored.credentialHash ? { ...value, active: false } : value) };
+    const registry: SessionRegistry = { ...this.#access.registry, sessions: this.#access.registry.sessions.map(value => value.credentialHash === stored.credentialHash ? { ...value, active: false } : value) };
     writeRegistry(this.directory, registry); this.#access.registry = registry;
     this.#notifyAccess(credential);
   }
@@ -143,7 +220,7 @@ export class SheetRelayService {
     const stored = this.#session(credential);
     if (access !== 'read-write' && access !== 'read-only') throw new RelayError('invalid-session-access');
     if (stored.access === access) return;
-    const registry: SessionRegistry = { version: 1, sessions: this.#access.registry.sessions.map(value => value.credentialHash === stored.credentialHash ? { ...value, access } : value) };
+    const registry: SessionRegistry = { ...this.#access.registry, sessions: this.#access.registry.sessions.map(value => value.credentialHash === stored.credentialHash ? { ...value, access } : value) };
     writeRegistry(this.directory, registry); this.#access.registry = registry;
     this.#notifyAccess(credential);
   }
@@ -187,6 +264,7 @@ export class SheetRelayService {
     const result = this.#store.append(session.identity, { admission: request.admission, updateId: request.packet.updateId, bytes });
     if (result.status === 'rejected') return reject(/^[A-Za-z0-9_:#-]{1,200}$/.test(result.code) ? result.code : 'native-update-rejected');
     if (result.status !== 'durable') throw new RelayError('unexpected-native-ack', 500);
+    this.#commitEpoch++;
     const accepted = receipt(this.#manifest, result.receipt);
     if (!this.#receipts.some(previous => previous.updateId === accepted.updateId)) this.#receipts.push(accepted);
     try { recordReceipt(this.directory, accepted); }
@@ -203,6 +281,7 @@ export class SheetRelayService {
   checkpoint(credential: string): SheetRelayCheckpoint {
     this.#session(credential, true);
     const result = this.#store.checkpoint();
+    this.#commitEpoch++;
     return { protocolVersion: 1, throughSequence: result.throughSequence, includedCount: result.includedUpdateIds.length,
       frontierBase64: bytesToBase64(result.frontier, SHEET_RELAY_LIMITS.frontierBytes), stateSha256: updateHash(this.#store.exportUpdate()) };
   }
@@ -211,7 +290,7 @@ export class SheetRelayService {
   binding(): Readonly<Record<string, unknown>> {
     this.#open();
     const bootstrap = this.#manifest.bootstrap;
-    return Object.freeze({ protocolVersion: 1, controlled: true, ownerPid: process.pid, directory: this.directory, context: this.context,
+    return Object.freeze({ protocolVersion: 1, controlled: this.#manifest.version !== 2, ownerPid: process.pid, directory: this.directory, context: this.context,
       databasePath: join(this.directory, 'updates.sqlite'), databaseMainFileSha256: updateHash(readFileSync(join(this.directory, 'updates.sqlite'))),
       manifestSha256: updateHash(readFileSync(join(this.directory, 'relay-manifest.json'))), registrySha256: updateHash(readFileSync(join(this.directory, 'relay-sessions.json'))),
       acceptedStateSha256: updateHash(this.#store.exportUpdate()), latestSequence: this.#receipts.length,

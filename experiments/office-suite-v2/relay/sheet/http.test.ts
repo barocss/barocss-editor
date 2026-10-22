@@ -4,10 +4,12 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { test } from 'node:test';
 import { WebSocket } from 'ws';
-import { SheetRelayService, startSheetRelay } from './index.ts';
+import { RelayError, SheetRelayService, startSheetRelay } from './index.ts';
+import type { SheetRelayWebSocketOptions } from './websocket.ts';
 import { SheetReplica } from '../../src/collaboration.ts';
 import { updateHash } from '../../src/durable-store.ts';
-import { base64ToBytes, bytesToBase64, decodeSheetRelayServerFrame, relayAdmission, SHEET_RELAY_LIMITS, SHEET_RELAY_PATH, SHEET_RELAY_WS_PATH } from '../../src/sheet-preview-protocol.ts';
+import { base64ToBytes, bytesToBase64, decodeSheetRelayServerFrame, relayAdmission, SHEET_RELAY_ACCOUNT_LOGOUT_PATH,
+  SHEET_RELAY_LIMITS, SHEET_RELAY_PATH, SHEET_RELAY_WS_PATH, sheetRelayAccountAdmissionPath } from '../../src/sheet-preview-protocol.ts';
 
 test('owned port0 HTTP binds credentials, rejects origin/body abuse, commits before ACK loss and returns exact retry receipt', async () => {
   const service = SheetRelayService.create(), listener = await startSheetRelay({ service, port: 0, allowedOrigins: ['http://127.0.0.1:55555'] });
@@ -111,4 +113,62 @@ test('late real ACK stays bound to its original packet while a newer update is i
     assert.equal(newer.receipt.updateId, 'packet-second'); assert.equal(newer.receipt.sha256, updateHash(second.update));
     assert(older.receipt.sequence < newer.receipt.sequence); assert.equal(service.open(session.credential).latestSequence, 3);
   } finally { client.destroy(); await listener.close(); service.close(); rmSync(service.directory, { recursive: true, force: true }); }
+});
+
+type AccountPort = Extract<SheetRelayWebSocketOptions, { mode: 'account' }>['account'];
+function accountHttpModel() {
+  const scope = { tenantId: '00000000-0000-4000-8000-000000000001', workspaceId: '00000000-0000-4000-8000-000000000002',
+    documentId: '00000000-0000-4000-8000-000000000003', workbookId: 'model-book', generation: 'model-generation' };
+  const calls: { bearer: string; origin: string; resumeCredential?: string }[] = [];
+  let confirmLogout = false, logoutCalls = 0;
+  // Explicit injected HTTP authority port. These tests prove transport routing,
+  // token confinement and confirmation handling, not actual account/PG authority.
+  const account: AccountPort = { scope,
+    async admit(input, signal) {
+      assert.equal(signal.aborted, false); calls.push(input);
+      return { protocolVersion: 1, ticket: 'a'.repeat(64), expiresAt: Date.now() + 5_000, grantExpiresAt: Date.now() + 60_000,
+        accountBinding: { issuer: 'https://model.invalid', subject: 'model-subject', userId: '00000000-0000-4000-8000-000000000004', loginBindingId: 'b'.repeat(64), tenantId: scope.tenantId, workspaceId: scope.workspaceId, documentId: scope.documentId } };
+    },
+    async consumeTicket() { throw new Error('http-test-must-not-consume-ticket'); },
+    async withAuthorized() { throw new Error('http-test-must-not-run-native-operation'); },
+    async logout(bearer, signal) {
+      assert.equal(signal.aborted, false); assert.equal(bearer, 'model-private-bearer'); logoutCalls++;
+      if (!confirmLogout) throw new RelayError('logout-unconfirmed', 503);
+    },
+  };
+  return { account, calls, get logoutCalls() { return logoutCalls; }, confirmLogout() { confirmLogout = true; } };
+}
+
+test('account HTTP admission confines Bearer to exact bound scope and rejects controlled fallback or client claims', async () => {
+  const model = accountHttpModel(), listener = await startSheetRelay({ mode: 'account', account: model.account, port: 0, allowedOrigins: ['http://127.0.0.1:55555'] });
+  const path = sheetRelayAccountAdmissionPath(model.account.scope.tenantId, model.account.scope.documentId);
+  const post = (target: string, body: unknown, headers: Record<string, string> = { authorization: 'Bearer model-private-bearer' }) => fetch(`${listener.url}${target}`, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post(path, { protocolVersion: 1 }, {})).status, 401);
+    assert.equal((await post(`${SHEET_RELAY_PATH}/session`, { protocolVersion: 1 })).status, 404);
+    assert.equal((await post(`${SHEET_RELAY_PATH}/append`, { protocolVersion: 1 })).status, 404);
+    assert.equal((await fetch(`${listener.url}${SHEET_RELAY_PATH}/open`)).status, 404);
+    assert.equal((await post(`${path}?ticket=private`, { protocolVersion: 1 })).status, 404);
+    assert.equal((await post(path, { protocolVersion: 1, role: 'owner' })).status, 400);
+    assert.equal((await post(path, { protocolVersion: 1 }, { authorization: 'Bearer model-private-bearer', origin: 'https://foreign.invalid' })).status, 403);
+    assert.equal((await post(path, { protocolVersion: 1 }, { authorization: `Bearer ${'x'.repeat(8_192)}` })).status, 401);
+    assert.equal(model.calls.length, 0);
+    const response = await post(path, { protocolVersion: 1, resumeCredential: 'c'.repeat(64) }, { authorization: 'Bearer model-private-bearer', origin: 'http://127.0.0.1:55555' });
+    assert.equal(response.status, 200); const value = await response.json(); assert.equal(value.ticket, 'a'.repeat(64));
+    assert.equal(JSON.stringify(value).includes('model-private-bearer'), false);
+    assert.deepEqual(model.calls.map(call => ({ bearer: call.bearer, origin: call.origin, resumeCredential: call.resumeCredential })), [{ bearer: 'model-private-bearer', origin: 'http://127.0.0.1:55555', resumeCredential: 'c'.repeat(64) }]);
+    assert.equal((await post(path, { protocolVersion: 1 })).status, 200); assert.equal(model.calls[1]?.origin, listener.url);
+  } finally { await listener.close(); }
+});
+
+test('account HTTP logout reports success only after its own verified authority port confirms', async () => {
+  const model = accountHttpModel(), listener = await startSheetRelay({ mode: 'account', account: model.account, port: 0 });
+  const post = (value: unknown) => fetch(`${listener.url}${SHEET_RELAY_ACCOUNT_LOGOUT_PATH}`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer model-private-bearer' }, body: JSON.stringify(value) });
+  try {
+    assert.equal((await post({ protocolVersion: 1, sid: 'somebody-else' })).status, 400); assert.equal(model.logoutCalls, 0);
+    const unconfirmed = await post({ protocolVersion: 1 }); assert.equal(unconfirmed.status, 503); assert.equal((await unconfirmed.json()).status, 'rejected');
+    model.confirmLogout(); const confirmed = await post({ protocolVersion: 1 });
+    assert.equal(confirmed.status, 200); assert.deepEqual(await confirmed.json(), { protocolVersion: 1, status: 'logged-out' });
+    assert.equal(model.logoutCalls, 2); assert.equal(model.calls.length, 0, 'logout must not require Sheet admission/ACL');
+  } finally { await listener.close(); }
 });
