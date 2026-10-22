@@ -5,15 +5,10 @@ import { Button, ChoiceSelect, Dialog, DialogButton, PropertyRow, TextField } fr
 import { useEditorRevision } from '@barocss/office-editor-ui';
 import { bookmarkSelection, wordBookmarks, wordCaptions, type BookmarkPayload, type BookmarkSession } from './bookmark-commands';
 import { WORD_CAPTION_LABELS } from './caption-commands';
+import { jumpToWordBookmark } from './bookmark-navigation';
 
-export function jumpToWordBookmark(editor: Editor, view: EditorViewDOM, name: string, kind = 'bookmark'): boolean {
-  const at = bookmarkSelection(editor, name, kind);
-  if (!at) return false;
-  view.contentEditableElement.focus({ preventScroll: true });
-  editor.updateSelection({ selection: at, applySelectionToView: true });
-  view.contentEditableElement.querySelector(`[data-bc-sid="${CSS.escape(at.startNodeId)}"]`)?.scrollIntoView({ block: 'center' });
-  return true;
-}
+export { jumpToWordBookmark } from './bookmark-navigation';
+
 export function BookmarkDialog({ editor, view, session, mode, onClose }: { editor: Editor; view: EditorViewDOM;
   session: BookmarkSession; mode: 'bookmark' | 'reference'; onClose: () => void }) {
   useEditorRevision(editor);

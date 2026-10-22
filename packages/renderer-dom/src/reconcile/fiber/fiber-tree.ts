@@ -135,7 +135,7 @@ function deepCopyVNode(vnode: VNode): VNode {
     attrs: vnode.attrs ? { ...vnode.attrs } : undefined,
     style: vnode.style ? { ...vnode.style } : undefined,
     children: vnode.children ? vnode.children.map(child => {
-      if (typeof child === 'object' && child !== null && 'tag' in child) {
+      if (typeof child === 'object' && child !== null) {
         // If VNode, recursively deep copy
         return deepCopyVNode(child);
       }
@@ -179,6 +179,19 @@ export function createFiberTree(
   returnFiber: FiberNode | null = null,
   index: number = 0,
   alternateFiber: FiberNode | null = null
+): FiberNode {
+  return createOwnedFiberTree(parent, vnode, prevVNode, context, returnFiber, index, alternateFiber, false);
+}
+
+function createOwnedFiberTree(
+  parent: HTMLElement,
+  vnode: VNode,
+  prevVNode: VNode | undefined,
+  context: FiberNode['context'],
+  returnFiber: FiberNode | null,
+  index: number,
+  alternateFiber: FiberNode | null,
+  ownsDescendants: boolean
 ): FiberNode {
   // React-style: get prevVNode from alternate
   const actualPrevVNode = alternateFiber?.vnode || prevVNode;
@@ -342,10 +355,10 @@ export function createFiberTree(
         // but createFiberTree is only called when nextVNode exists, so don't handle here
         // (handled in removeStaleChildren)
         
-        // IMPORTANT: deep copy childVNode before modifying (protect original VNode)
-        // childVNode is passed by reference, so original may be changed when modified
-        // Each VNode element in children array also needs recursive deep copy (so attrs are not lost)
-        const childVNodeCopy: VNode = deepCopyVNode(childVNode);
+        // The public root keeps its input identity. Copy each child subtree
+        // once, then let its Fibers use that owned tree. Copying again at every
+        // depth retained a separate descendant tree on every ancestor VNode.
+        const childVNodeCopy: VNode = ownsDescendants ? childVNode : deepCopyVNode(childVNode);
         
         // IMPORTANT: transfer ID from prevChildVNode to childVNodeCopy (when ID is missing)
         // To always track same component with same ID
@@ -371,14 +384,15 @@ export function createFiberTree(
         // Actual parent is determined at reconcile time, so use current parent for now
         // Updated to correct parent at reconcile time
         // React-style: pass prevChildAlternate as alternate
-        const childFiber = createFiberTree(
+        const childFiber = createOwnedFiberTree(
           parent, // Actual parent is determined at reconcile time
           childVNodeCopy, // Use copy
           prevChildVNode,
           context,
           fiber,
           i,
-          prevChildAlternate // React-style: pass previous child Fiber as alternate
+          prevChildAlternate, // React-style: pass previous child Fiber as alternate
+          true
         );
         
         // Set first VNode child as fiber.child

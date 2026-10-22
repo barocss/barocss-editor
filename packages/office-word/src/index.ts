@@ -836,6 +836,7 @@ export { installWordTableResize } from './table-resize';
 export { captureStyleSession, paragraphStylesOf, paragraphStyleFormat, canManageParagraphStyles, type StyleSession } from './paragraph-styles';
 
 export { captureBookmarkSession, wordBookmarks, bookmarkSelection, type BookmarkSession } from './bookmark-commands';
+export { jumpToWordBookmark } from './bookmark-navigation';
 export { captureCaptionSession, WORD_CAPTION_LABELS, type CaptionSession, type CaptionSettings } from './caption-commands';
 
 export { wordSearchCommands, type WordSearchCommand } from './command-search-model';

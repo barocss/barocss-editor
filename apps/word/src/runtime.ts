@@ -1,4 +1,3 @@
-import { jumpToWordBookmark } from '@barocss/office-word/ui';
 import { DataStore } from '@barocss/datastore';
 import { RendererRegistry, intoRegistry } from '@barocss/dsl';
 import { EditorViewDOM } from '@barocss/editor-view-dom';
@@ -7,6 +6,7 @@ import {
   WORD_ENV_KEY
 } from '@barocss/office-text';
 import {
+  jumpToWordBookmark,
   createFontLoader,
   createPrintPages,
   createWordEditor,
