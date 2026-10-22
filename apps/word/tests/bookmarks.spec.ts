@@ -38,6 +38,7 @@ test('renaming updates links; deleting reports a missing target; undo and reopen
   await page.getByRole('button', { name: '책갈피 삭제', exact: true }).click();
   await expect(ref).toContainText('Reference source not found');
   await page.getByRole('button', { name: '닫기', exact: true }).last().click();
+  await setWordWholeTools(page);
   await page.getByRole('tab', { name: '홈', exact: true }).click();
   await page.locator('[data-control=undo]').click(); await expect(ref).toHaveText('프로젝트 목표');
   await expect(page.locator('[data-word-save-status]')).toHaveText('저장됨'); await page.reload(); await settled(page);
