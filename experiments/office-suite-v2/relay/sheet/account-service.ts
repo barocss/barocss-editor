@@ -108,14 +108,20 @@ export class AccountSheetRelay {
       const check = () => this.#assert(proof, control.signal, assertCurrent, deadline);
       check(); await this.#authority.current(proof, control.signal); check();
       const commitBefore = this.#native.commitEpoch;
+      let operationFailure: { error: unknown } | undefined;
       try {
         return await this.#access.withCurrentAccess(proof, this.scope, intent, grant => {
-          check(); const binding = this.#binding(proof, grant);
-          if (intent === 'write' && grant.access !== 'read-write') throw new RelayError('read-only-denied', 403);
-          return this.#native.withAccountGrant(grant.userId, grant.access, check, () => operation(grant, binding, check));
+          try {
+            check(); const binding = this.#binding(proof, grant);
+            if (intent === 'write' && grant.access !== 'read-write') throw new RelayError('read-only-denied', 403);
+            return this.#native.withAccountGrant(grant.userId, grant.access, check, () => operation(grant, binding, check));
+          } catch (error) { operationFailure = { error }; throw error; }
         });
       } catch (error) {
         if (this.#native.commitEpoch !== commitBefore) throw new RelayError('native-commit-acknowledgment-unknown', 503);
+        // The store conservatively wraps any entered callback failure. Only this
+        // native owner can prove no COMMIT occurred and retain its own denial.
+        if (operationFailure) throw this.#sanitize(operationFailure.error);
         throw this.#sanitize(error);
       }
     });
