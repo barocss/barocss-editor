@@ -1,5 +1,69 @@
 # M0 integration — previews, source and memory evidence
 
+## Latest Sheet533 Phase B — actual two-tab collaboration
+
+The controlled two-tab preview passed 11 actual browser records on source
+`11f6204f91978d0784db5b11c513592947c76736`, tree
+`85ab39842b749ed3eb90fdba551b87d9403040ad`. The private test rooms and server
+are closed. Their room URLs are not user handoff URLs. Phase C storage/recovery
+follows this qualification; it has not run at this checkpoint. The user's
+Word55262/PID12634 and Sheet55263/PID21740 documents and servers remain open.
+Their old522 source checkout stays read-only to avoid HMR resets.
+
+New managed integration is `522-sheet-bc-integration`, based on clean1638944c.
+Author81960494 contains exactly nine leased preview/contract paths. Its
+826b5532 successor corrects initial peer reload guidance; its d7db7b6a successor
+retains manual Pause across controlled lifecycle suspension/restoration. The
+exact deltas join at aa998bab,4218e16f,11f6204f. No native engine, root graph,
+configuration, lock, budget or production source changed. Integration owns the
+separate55264 launcher and prepared55265 relay runner. Contracts-only relay
+P1 source6768f95d joins as ba5fd4f2; its presence is not C runtime evidence.
+All actual commits use easylogic as author and committer, without coauthors.
+
+| Check | Actual evidence and boundary |
+| --- | --- |
+| Joined native checks57–59 at4218e16f | 11 type roots/imports,0 diagnostics; five preview test files,46 PASS,0 skip; six changed TS files plus two runners lint clean. |
+| Lifecycle checks60–62 at11f6204f | Three affected type roots/imports,0 diagnostics; two lifecycle tests PASS,0 skip; three changed files lint clean. The unchanged46-test evidence remains source-bound; no fresh48-test aggregate is claimed. |
+| Real two-tab start | Actual UI Create/Open second screen; independent replicas/sessions share the same original54,751-byte bootstrap/context and91 native events. Core revision is canonical context/event bodies, not a local counter. |
+| Bidirectional edit and Undo | RatesB2 12→10 makes the other tab show BudgetD4 38 and D5 Within budget. Reverse-direction input arrives. Each session's Undo removes only its own edit and preserves the other contribution and bootstrap. |
+| Concurrent same-cell input | Both send/receive paths paused; original packet IDs/lengths/SHA remain queued and native branches stay separate. Literal17 and cross-sheet formula13 converge to identical native state with both retained inputs. A's Undo preserves B's formula; B's Undo removes only B. |
+| Remote input during a draft | Real remote edits/recalculation preserve the same editor DOM object, DOM focus, caret, draft CellKey/generation and text. Controlled composition blocks Enter until composition ends; this is not physical OS IME proof. |
+| Reload and room loss | A private reload joins a surviving peer with original event identities/bootstrap, a fresh session and empty own-Undo history; re-edit/Undo works. After the last peer closes, the original room waits without creating a new replica/bootstrap. This is temporary peer recovery, not durable storage. |
+| Desktop rendering and modules | All12 PNGs visually reviewed. DPR2 at1024x1100 has942x480 CSS/1884x960 backing,120 visible DOM cells, real two-axis wheel/hit on I15, no page horizontal overflow and real peer delivery. All16 observed JS responses200; no runtime Node/store/PendingUpdates;0 positive console/page errors. |
+
+Qualified raw receipt:
+`/Users/user/barocss-editor/.omx/m0/533-b-browser/actual-browser-receipt-v2.json`,
+SHA-256 `25c7ec8c7a26a8d3705f92c8a9d6272b6a09469514a7b3ff6e40818d4fe3dea9`,
+15,255 bytes. It preserves two harness failures: an undeclared page handle and
+an incorrect expected synonym in the initial status oracle. Both corrections
+continued the existing joined pages without product changes or reseeding.
+The first unexpected product runtime failure is null. V1 remains preserved:
+its screenshot hashes used JSON serialization of a Node Buffer; V2 uses actual
+file bytes. The raw-byte correction and original hashes are recorded in
+`533-b-evidence-hash-correction.json`; module/native string hashes were valid.
+
+Owner first failures also remain: original pending-ACK delivery, pending-to-
+applied own-Undo eligibility, initial peer reload wording and manual Pause
+restoration. Their original candidates/regressions are not rewritten. Native
+missing-base/tampering tests are separate from the browser proof; no browser
+packet fault injection or actual BFCache acceptance is claimed.
+
+All eight observed private browser PIDs are absent after201ms closure. Owned
+Vite3043/esbuild3114 and port55264 are absent; session94007 exits0. The34 bound
+source hashes,19 old live-source hashes and four primary planning WIP hashes
+match before/after. Git is clean, the private lease is returned and its source
+hold is released. Supporting predata, original read-only535 review, intake,
+pre/post bindings and logs55–62 remain under primary `.omx/m0/`.
+
+B's1MB bound applies to a delta and bootstrap-plus-state message. It is not a
+cap on accumulated live state; a later join/reload can refuse. Peer64,
+deferred256 and each8MB collection limit are distinct. C requires a separate
+full accepted-state1MB pre-COMMIT gate. Peer receipts never mean saved.
+Actual BFCache, physical IME, screen reader, durable C recovery, production
+accounts, mobile QA, performance and whole M0/release remain unverified.
+Word100 W5 RSS still fails1of3; developf4/M0OPEN/M1–M2 holds remain. No push,
+PR, deployment, existing DB mutation, unrelated stop or schedule change ran.
+
 ## Latest Sheet533 Phase A — actual editable preview
 
 The native-engine Sheet preview is available at `http://127.0.0.1:55263/`. Execute Integration owns the retained server PID21740,execsession77025. It serves source `cd0c45b3e0e3b75673a34cfe586f4486fc41f987`,tree `2d4acee0d52a816ac65d2c1ec964643fdded4b7b`. Planner received the URL/source/server owner and bounded browser proof for opening the user view. Two32x12native sheets support local cell edits, native SUM/IF/cross-sheet calculation and own-session Undo. This is session-only; reload discards edits. Saving,sync,two-tab transport and durable recovery are not active.
