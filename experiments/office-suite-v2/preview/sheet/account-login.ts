@@ -78,6 +78,7 @@ export class SheetAccountLogin {
   readonly #leases = new Set<() => void>();
   #generation = 0;
   #disposed = false;
+  #hasAuthenticatedSession = false;
 
   constructor(auth: AuthClientPort, browser: AccountLoginBrowser) {
     this.#auth = auth;
@@ -132,6 +133,7 @@ export class SheetAccountLogin {
     // Office consumes state/PKCE and scrubs the callback code before network I/O.
     const intent = await this.#auth.finishLogin();
     this.#checkGeneration(generation);
+    this.#hasAuthenticatedSession = true;
     const resume = this.#auth.consumeResumeIntent();
     if (intent !== 'user' || resume !== 'user' || !raw) throw new Error('Missing Sheet login return context.');
     const saved: unknown = JSON.parse(raw);
@@ -169,6 +171,10 @@ export class SheetAccountLogin {
   captureAuthorizedSession(expiresAtMs?: number): SheetAccountLease {
     this.#checkAlive();
     const captured = this.#auth.captureAuthorizedSession();
+    // An initial anonymous visit has no private authority to retire. Later loss
+    // of an established login must still freeze every retained consumer below.
+    if (!this.#hasAuthenticatedSession && !captured.isCurrent()) throw new Error('Sheet account sign in required.');
+    this.#hasAuthenticatedSession = true;
     const generation = this.#generation;
     let expiry = Infinity;
     let retired = false;

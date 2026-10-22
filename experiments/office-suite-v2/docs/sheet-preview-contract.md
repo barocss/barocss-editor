@@ -955,3 +955,41 @@ All these are source/native/model checks. Actual configured two-account Sheet
 WS, currentACL/read-only/revoke, real browser IDB, provider logout and new-process
 recovery remain Integration-owned and NOT RUN by the UI author on this candidate.
 No old user page, source, process, store or unfinished input was modified.
+
+## R1 initial anonymous sign-in correction
+
+Work: `wonffice-533/initial-signin-fix-v1`. Owner: the bounded initial-sign-in
+author. Base: `857b6b0ff85d2bc46853fbde71f36a91794b3c5e`, tree
+`4ba6e29c3851d01dd471cbfdd46f8d4a07307f14`. This is a local candidate for
+Integration's R1 browser retest, not account-browser or whole-Issue acceptance.
+
+Integration's first genuine R1 product visit found Sign in disabled before any
+login in two fresh Chromium contexts. Original evidence remains in primary
+`.omx/m0/account-runtime/account-first-failure-initial-login.json` and its two
+screenshots. The actual Office `captureAuthorizedSession()` returns a capture
+whose `isCurrent()` is false when no initial token exists. It does not throw.
+The older DOM port threw instead, so it missed the retirement notification that
+disabled Sign in and exposed the fresh-login link.
+
+The Sheet adapter now rejects an absent first session without retiring the page
+or starting identity, IDB or transport work. A current captured session or a
+successful callback arms the existing retirement guards. Callback success sets
+this sticky state only after the operation-generation check. After authentication,
+session loss still retires all consumers. The state is never cleared to reopen
+an already retired page. Office PKCE/token ownership, account-mode privacy state,
+late-operation generation checks, expiry guards and native/outbox rules are unchanged.
+
+The corrected DOM port models the actual false capture. The same two test files
+first produced 18 PASS / 2 FAIL (exit 1), then 20 PASS / 0 FAIL (exit 0). They cover
+initial Sign in availability, zero private reads before login, callback return
+scope, and the converse authenticated-session-loss retirement. Existing late
+HTTP/JSON, old-logout/new-login, old-begin/new-return, expiry and logout checks
+remain in those files. Four relevant TypeScript roots had zero diagnostics;
+four-file ESLint with `--max-warnings 0` exited 0. Only these scoped checks ran.
+
+Raw commands, exit codes, exact log copies, hashes and candidate source bindings
+are preserved in primary `.omx/m0/sheet-initial-signin-fix-evidence/`. Dependency
+preparation is separately recorded in primary
+`.omx/m0/sheet-initial-signin-fix-frozen-receipt.json`. No dependencies were installed.
+Actual OIDC, two-account Sheet editing, PostgreSQL/current ACL, browser IDB and
+recovery were NOT RUN by this author. Integration owns the R1 retest.

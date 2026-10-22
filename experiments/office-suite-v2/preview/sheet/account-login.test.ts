@@ -13,10 +13,10 @@ function deferred<T>() {
   const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
   return { promise, resolve, reject };
 }
-function model() {
+function model(initialCurrent = true) {
   let href = `https://sheet.example${sheetReturnPath(target)}`;
   let now = 1000;
-  let current = true;
+  let current = initialCurrent;
   let storageListener: ((event: StorageEvent) => void) | undefined;
   const storage = new Map<string, string>();
   const timers = new Set<() => void>();
@@ -55,6 +55,37 @@ function model() {
     hasListener: () => storageListener !== undefined,
   };
 }
+
+test('an absent initial Office session refuses private work without retiring the fresh sign-in page', async () => {
+  const m = model(false);
+  let retirements = 0;
+  m.login.subscribeRetirement(() => { ++retirements; });
+  await assert.rejects(m.login.loadIdentity());
+  assert.equal(retirements, 0);
+  assert.throws(() => m.login.captureAuthorizedSession());
+  assert.equal(retirements, 0);
+  await m.login.beginLogin(target);
+  assert.ok(m.calls.includes('begin:user:false:/'));
+  m.navigate('https://sheet.example/auth/callback?code=one-time&state=office-state');
+  m.auth.finishLogin = async () => { m.establishAccount(); m.browser.replace('/'); return 'user'; };
+  assert.deepEqual(await m.login.finishLogin(), target);
+  const lease = m.login.captureAuthorizedSession(2000);
+  assert.equal(lease.isCurrent(), true);
+  m.switchAccount();
+  assert.equal(lease.isCurrent(), false);
+  assert.equal(retirements, 2); // Explicit begin retires once; the real account change retires again.
+});
+
+test('an invalid new capture still retires a previously authenticated Office session', () => {
+  const m = model();
+  let retirements = 0;
+  m.login.subscribeRetirement(() => { ++retirements; });
+  const lease = m.login.captureAuthorizedSession(2000);
+  m.switchAccount();
+  assert.throws(() => m.login.captureAuthorizedSession(), /retired/);
+  assert.equal(retirements, 1);
+  assert.equal(lease.isCurrent(), false);
+});
 
 test('validated Sheet location survives Office fixed root callback and preserves new-client intent', async () => {
   const m = model();
