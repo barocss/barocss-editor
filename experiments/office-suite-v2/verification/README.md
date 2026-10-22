@@ -588,3 +588,75 @@ proof and this sampled RSS result address different properties; no causal
 RSS saving or universal speedup is claimed. Prior R/P2b/O failures remain intact.
 Portal text/title baselineFAIL and combined async portal cleanupNOT VERIFIED
 remain separate. Whole M0 remains OPEN.
+
+## Native memory attribution v1 — preparation only
+
+Protocol: `reports/word-native-memory-attribution-protocol-v1.json`.
+New runner/browser/HTML and record helper/tests use the unique
+`word-native-memory-attribution-*` prefix. Existing O diagnostic, normal7harness,
+guards, frozen v1.1, raw data and first failures remain read-only. No browser
+diagnostic has run. The new files are committed before any measurement.
+
+The reference is the17production-file ee61renderer531 closure. At execution,
+verify it against the actual Integration lease source root and immutable pin,
+including HEAD/tree/clean state. The author branch can retain older O renderer
+bytes; it is a harness/evidence producer, not the measured source checkout.
+
+One fresh100page/800paragraph browser is proposed, Chromium145,1280x900,DPR1,
+same actual font identity. Eight seams have two sequential timestamped readsets:
+module baseline; combined cold open; actual-font query; warm completion; inline
+print return; deferred geometry/3RAF; clearPrint; dispose. The public normal API
+is imported. Cold includes fixture/admission/mount, document.fonts.ready, native
+stable completion and source inventory. Only the later font QUERY is outside
+the native sampling windows. There is no admission-only allocation seam.
+
+Page used/total heap, CDP Performance, Runtime.getHeapUsage's usedSize/totalSize/
+embedderHeapUsedSize/backingStorageSize, native DOM counters and owned PID RSS
+remain separate series. Runtime values are isolate totals. Missing fields stay
+null/unavailable; actual numeric0 stays0. No sum or RSS subtraction derives
+native/live/resident bytes. Native samples have size/total/stack and module
+metadata, no PID/time/free/live/resident fields. Preserve unresolved strings
+and addresses. The page-target native profile is never automatically attributed
+to a renderer PID from browser-level SystemInfo/RSS roles.
+
+Exactly3native windows use samplingInterval131072,suppressRandomness:false:
+start -> existing cold/warm/print API+completion -> inline numeric return edge ->
+paired observations -> getSamplingProfile -> finally stopSampling. Stop returns
+an empty acknowledgement, not a profile. Each window includes allocation and
+scheduling effects of the observations and capture. Print sampling closes before
+deferred geometry. No GC, pressure simulation, purge, cache clear, JS allocation
+sampler, full heap snapshot, heavy trace, vmmap attach or source fix is allowed.
+
+Only verified structured CDP code-32601 for the requested command becomes
+UNAVAILABLE. Playwright may expose only a message; that case fails and stops.
+No parameter fallback or retry occurs. Missing start closes mayBeActive=false;
+missing get still requires current stop, then future sampler starts are skipped.
+The public API/readsets continue once. Supported empty profiles remain supported,
+not proof of zero allocation. Other monitor/schema/clock/console/lease errors
+preserve the first failure and stop. Optional exact process roles are unavailable
+only on verified method absence or root ID mismatch; other role errors stop.
+
+Full wall45s begins before launch;10scold/15sprint/2GiBownedRSS/200mspolls remain.
+Each sampler command has a5smaximum and remaining wall limit, with dispatch and
+settlement checks. At most3full JSON profile responses may be retained,16MiBeach,
+32MiBtotal. These are POST-materialization/serialization acceptance/storage caps,
+not backend/network/preallocation bounds. Preserve within-limit malformed bodies
+once; oversized bodies are omitted with byte count/SHA/error retained.
+
+Cleanup has a separate5stotal budget after wall or lease expiry. An uncertain
+start gets one stop attempt before owned kill; stopAttempted is set only at
+actual dispatch. A failed dispatched stop is not retried. A stop can exhaust
+the entire cleanup budget; the deadline triggers owned kill and records cleanup
+unconfirmed. Any failed run kills the owned browser, including a pending start
+that can settle late. A known2GiBRSS crossing first saves the actual PID table,
+then urgently kills from the common RSS read path. No unrelated process stops.
+
+Future execution requires a NEW `M0_WORD_NATIVE_MEMORY_ATTRIBUTION_LEASE`, kind
+`diagnostic-word-native-memory-attribution-v1`, max_runs1,port55260, exact clean
+source head/tree/root, browser executable, finite future deadline and committed
+protocol SHA256. A new ignored exclusive claim prevents a second attempt; old
+leases/claims cannot authorize this run. Integration reviews immutable code and
+targeted negative checks before granting its serialized runtime window.
+Normal Word100 all3RSS failures, portal baseline failure, async portal unknowns
+and whole M0 OPEN remain unchanged, even if this diagnostic does not reproduce
+RSS pressure. This preparation makes no performance qualification claim.
