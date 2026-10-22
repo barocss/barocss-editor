@@ -15,10 +15,12 @@
     "check": "pnpm --ignore-workspace type-check && pnpm --ignore-workspace test"
   },
   "dependencies": {
+    "ws": "8.22.0",
     "yjs": "13.6.29"
   },
   "devDependencies": {
     "@types/node": "22.20.2",
+    "@types/ws": "8.18.2",
     "typescript": "5.9.3"
   }
 }
