@@ -52,6 +52,10 @@
       "types": "./src/schema-registry-store.ts",
       "import": "./dist/schema-registry-store.js"
     },
+    "./sheet-access-store": {
+      "types": "./src/sheet-access-store.ts",
+      "import": "./dist/sheet-access-store.js"
+    },
     "./document-schema-policy": {
       "types": "./src/document-schema-policy.ts",
       "import": "./dist/document-schema-policy.js"

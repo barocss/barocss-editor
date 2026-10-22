@@ -8,6 +8,7 @@ import { memberDirectoryMigration } from './member-directory-migration.js';
 import { platformOperatorMigration } from './platform-operator-migration.js';
 import { companyMemberMigration } from './company-member-migration.js';
 import { companyMemberConfirmationMigration } from './company-member-confirmation-migration.js';
+import { sheetAccessMigration } from './sheet-access-migration.js';
 
 export interface Migration { id: string; sql: string }
 
@@ -297,4 +298,4 @@ UPDATE wonffice.documents AS d SET mode = 'initializing', updated_at = now()
     AND s.codec_version IS NULL AND s.status = 'uncertain'
     AND d.mode = 'collaborative';
 `,
-}, memberDirectoryMigration, projectMigration, projectExecutionMigration, criterionConfirmationMigration, criterionVerificationMigration, documentCreatorMigration, schemaRegistryMigration, companyMemberConfirmationMigration];
+}, memberDirectoryMigration, projectMigration, projectExecutionMigration, criterionConfirmationMigration, criterionVerificationMigration, documentCreatorMigration, schemaRegistryMigration, companyMemberConfirmationMigration, sheetAccessMigration];
