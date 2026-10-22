@@ -585,3 +585,95 @@ typed line-height reads outside inheritance boundaries; it must preserve
 unitless/fixed semantics and full original geometry/output. No speculative
 cache/snapshot redesign, unowned renderer fix or repeated heavy profile.
 M0 and the Word100 resource gate remain OPEN.
+
+### Scoped unused Typed OM read repair after the native observation
+
+Work `office-v2-m0/word-typed-read-repair-v1`, Issue530. The current human release
+and exact successor ownership are recorded in primary
+`.omx/m0/word-typed-read-owner-transition.json`. The predecessor root and all
+earlier findings and raw failures above stay unchanged. This successor starts at
+`95d6815857883d332cad2d8179e23729c4668265`, tree
+`9318d42a3950c1f39b3693eab5043335fabeffc1`, in a new managed root on
+`codex/530-word-typed-read-repair`. Only the named source, test and this manual
+are owned. Integration's frozen graph receipt is primary
+`.omx/m0/532-word-typed-read-repair-frozen-receipt.json`, SHA256
+`9e833be83c5768e8ec9c2d0e2c7fe12b8791c5bdac2ce31466f9e9ed7c6ac8af`.
+Package workspace aliases resolve to this successor root; no installation or
+config/lock/budget change was made.
+
+The actual single normal-sample native diagnostic did observe536 calls and536
+distinct returned maps: one root, two direct surfaces and533 nested nonboundaries.
+Its receipt is primary `.omx/m0/word-typed-native-v1/receipt.json`, SHA256
+`bf61c1b0dbffea8587a41f2bd93c5642e2846a78eecbac4306d3690bbcdaab96`.
+The diagnostic remains **FAIL** because of its independent nativeRoot/DOM
+comparison and duplicate Word store warning. These observations establish the
+unused read path, not allocation bytes, retention or an RSS cause.
+
+The repair computes typed/fallback line-height only for the source root and a
+`.w-surface` whose parent is that root. These are the only consumers through
+`inherit()`. Other snapshot entries keep their existing style, box and paint
+measurements; only their unused line-height value becomes empty. There is no
+new cache, traversal, clone, output/API or ownership change. Typed unitless and
+fixed values and their existing fallback precedence remain unchanged at both
+inheritance boundaries.
+
+The preserved95d actual-function RED is reused, not rerun:23 shim reads,21 unused,
+with the output/native-selection/geometry/cleanup assertions already passing.
+The unchanged focused case now records2 reads,0 unused. The entire normalized
+two-page markup is exactly equal to that preserved RED projection. SHA256 of
+the compact JSON projection array is
+`5ce3ac773de26fb7ffbdc00a976426517a709f5d9d852f9e41a9c6397912c2f7`.
+Only the test's existing generated-printer-ID normalization is applied.
+One added case covers two direct surfaces and a nested `.w-surface`: exactly3
+boundary reads, inherited1.5, fixed24px, untouched nested2.25, three pages and
+owned cleanup. It prevents treating every element with the surface class as a
+boundary or assuming every document has exactly one surface.
+
+Fresh scoped checks, absolute Node22.22.0, all exit0:
+
+```sh
+# cwd packages/office-word: original11 cases plus the added boundary case
+/Users/user/.nvm/versions/node/v22.22.0/bin/node node_modules/vitest/vitest.mjs run test/print-pages.test.ts --maxWorkers=1 --fileParallelism=false
+# cwd packages/office-word: directly affected ownership and print CSS only
+/Users/user/.nvm/versions/node/v22.22.0/bin/node node_modules/vitest/vitest.mjs run test/print-ownership.test.ts test/print.test.ts --maxWorkers=1 --fileParallelism=false
+# cwd repository root
+/Users/user/.nvm/versions/node/v22.22.0/bin/node node_modules/eslint/bin/eslint.js packages/office-word/src/print-pages.ts packages/office-word/test/print-pages.test.ts --max-warnings 0
+```
+
+Results: print-pages12/12; print ownership6/6 and print CSS7/7. No skips in these
+fresh runs. The two changed TypeScript roots and their imports also compile with
+zero diagnostics using TypeScript5.9.3 and the existing root compiler options:
+
+```sh
+# cwd repository root; only these two roots, not the package/repository program
+/Users/user/.nvm/versions/node/v22.22.0/bin/node --input-type=module <<'JS'
+import ts from './node_modules/typescript/lib/typescript.js';
+import path from 'node:path';
+const configPath = path.resolve('tsconfig.json');
+const config = ts.readConfigFile(configPath, ts.sys.readFile);
+if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'));
+const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, path.dirname(configPath));
+if (parsed.errors.length) throw new Error('Invalid existing TypeScript configuration');
+const roots = ['packages/office-word/src/print-pages.ts', 'packages/office-word/test/print-pages.test.ts'].map(file => path.resolve(file));
+const program = ts.createProgram(roots, parsed.options);
+const diagnostics = ts.getPreEmitDiagnostics(program);
+console.log(`Strict TypeScript ${ts.version}: ${roots.length} changed roots; imports included; ${diagnostics.length} diagnostics.`);
+if (diagnostics.length) console.log(ts.formatDiagnosticsWithColorAndContext(diagnostics, { getCurrentDirectory: ts.sys.getCurrentDirectory, getCanonicalFileName: name => name, getNewLine: () => '\n' }));
+process.exitCode = diagnostics.length ? 1 : 0;
+JS
+```
+
+Original stdout files remain unchanged for Integration's evidence intake:
+
+| File under `/tmp/` | Bytes | SHA256 |
+| --- | ---: | --- |
+| `532-word-typed-read-print-pages.log` | 3866 | `aa723ee3f6e3f6d7a46cd9bd13a62122c6740143c923f81f4e4aa50bc6093632` |
+| `532-word-typed-read-print-adjacent.log` | 381 | `a0456fa193445a935a37db0d0562809abd1cd4a1487243d2bd72eb299c058953` |
+| `532-word-typed-read-types.log` | 75 | `aec73a5f2db30dbf1f25e1b69035d16e9298614bfebe5d25aac3406a820d61b6` |
+| `532-word-typed-read-lint.log` | 0 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+
+These fresh results use jsdom with the explicitly labelled Typed OM value shim.
+No post-repair native/browser/PDF cycle, whole suite, heavy profile or RSS
+measurement ran in this author scope. The native diagnostic FAIL and original
+Word100 one-of-three RSS failure,512MiB target, M0 OPEN and Integration-owned
+runtime/aggregate gates remain intact. No memory improvement is claimed.

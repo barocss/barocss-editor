@@ -162,6 +162,43 @@ describe('page-local complete paint projections', () => {
     expect(document.querySelector<HTMLElement>('.w-print-copy .w-surface')?.style.lineHeight).toBe(lineHeight);
   });
 
+  it('reads each direct surface once while preserving inherited and fixed line-height across sections', () => {
+    const source = fixture(); source.style.lineHeight = '1.5';
+    const first = source.querySelector<HTMLElement>('.w-surface')!;
+    const nested = document.createElement('span'); nested.className = 'w-surface';
+    nested.style.lineHeight = '2.25'; nested.textContent = 'Nested text';
+    source.querySelector('#first')!.append(nested); bounds(nested, 100, 10, 100, 60);
+    const second = document.createElement('section'); second.className = 'w-surface';
+    second.style.lineHeight = '24px';
+    second.innerHTML = '<div class="w-sheets"><div class="w-sheet" data-page="3"></div></div><p>Second section</p>';
+    source.append(second);
+    bounds(source, 0, 2440); bounds(second, 1640, 800);
+    bounds(second.querySelector('.w-sheets')!, 1640, 800);
+    bounds(second.querySelector('.w-sheet')!, 1640, 800);
+    bounds(second.querySelector('p')!, 1700, 30, 60, 480);
+    const typedReads: Element[] = [];
+    const boundaries = new Set<Element>([source, first, second]);
+    for (const element of [source, ...source.querySelectorAll('*')]) {
+      Object.defineProperty(element, 'computedStyleMap', { value: () => {
+        typedReads.push(element);
+        return { get: () => ({ toString: () => element === second ? '24px' : boundaries.has(element) ? '1.5' : '999px' }) };
+      } });
+    }
+    const original = source.outerHTML;
+    const printer = createPrintPages(() => source);
+    expect(printer.build()).toBe(3);
+    const pages = [...document.querySelectorAll<HTMLElement>('.w-print-page')];
+    expect(pages.map(page => page.querySelector<HTMLElement>('.w-print-copy')!.style.lineHeight)).toEqual(['1.5', '1.5', '1.5']);
+    expect(pages.map(page => page.querySelector<HTMLElement>('.w-print-copy > .w-surface')!.style.lineHeight)).toEqual(['1.5', '1.5', '24px']);
+    expect(pages[0].querySelector<HTMLElement>('.w-surface .w-surface')!.style.lineHeight).toBe('2.25');
+    expect(pages[2].textContent).toContain('Second section');
+    expect(typedReads.filter(element => !boundaries.has(element))).toHaveLength(0);
+    for (const boundary of boundaries) expect(typedReads.filter(element => element === boundary)).toHaveLength(1);
+    expect(source.outerHTML).toBe(original);
+    printer.clear();
+    expect(document.querySelector('.w-print-pages')).toBeNull();
+  });
+
   it('reads typed line-height only at inherited print boundaries without changing complete paint', () => {
     const source = fixture();
     source.style.setProperty('--print-probe', 'preserved');
