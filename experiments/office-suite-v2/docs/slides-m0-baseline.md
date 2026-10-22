@@ -41,3 +41,15 @@ The original suite uses native commands to prepare models and to perform some ed
 - Current browser evidence: `/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/`. `result.json` contains all case results; `execution.json` records command, source hash, timestamps, process ownership and protected listener IDs. `checksums.json` binds these files.
 - The executed test SHA256 is `4189fd67594084568414b3e9286757a5ff128d712fc99b9f328ff54e45f233e5`, unchanged before and after. All observed owned processes exited. Port 55261 is free. Protected listeners 55262–55266 retain the same five PIDs.
 - The five historical failures were stale test access paths. Their actual current menu/panel flows and all downstream original assertions now pass. No production defect was demonstrated in this selected scope.
+
+## Renderer dependency follow-up
+
+Integration granted exactly three additional cases because six shared Renderer production paths changed after the historical run. These cases cover drawn SVG updates, a real drag followed by one local Undo, and double-click/inline text entry. They were not in the preceding 22-case selection.
+
+At immutable source `f08bde2285bb6926c57cbc43bb129e3b322cef6c`, all **3/3 PASS** with zero skipped, failed, flaky or suite-error cases. Browser duration was 14.209 seconds; runner duration was 17.194 seconds. The same original 30-second case/120-second global limits, one worker, zero retries and private Vite cache applied. No previously passing case from the 22-case run was repeated.
+
+Evidence: `/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/`. The JSON result and execution receipt bind exact titles, source/head hashes, times and owned process cleanup. The test SHA256 remained `4189fd67594084568414b3e9286757a5ff128d712fc99b9f328ff54e45f233e5`; HEAD stayed at f08 before and after. All observed owned processes exited and port55261 is free. The five protected listener PIDs stayed unchanged.
+
+The first wrapper invocation failed during metadata construction with a Python `NameError`, before launching a browser or server. The corrected wrapper made one actual browser run. Both the failed wrapper and failure note are retained; no product test was retried.
+
+The final evidence is **25 current passing cases** across two disjoint selections, with **18 other cases retained only as historical PASS**. This is not a fresh 43/43 claim. The complete historical 21/5/17 result remains intact. No production fix or new M0 acceptance gate was introduced.
