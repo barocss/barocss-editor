@@ -112,7 +112,7 @@ export class DurableSession {
   }
   async settled(): Promise<void> {
     // A completed persistence task may schedule a delivery task. Wait for a stable pair.
-    while (true) {
+    for (;;) {
       const writes = this.#writes, network = this.#work;
       await Promise.all([writes, network]);
       await Promise.resolve();
@@ -159,7 +159,7 @@ export class DurableSession {
       if (!response.body) throw new Error('missing-response-body');
       const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let length = 0;
       try {
-        while (true) {
+        for (;;) {
           const part = await reader.read();
           if (part.done) break;
           length += part.value.length;

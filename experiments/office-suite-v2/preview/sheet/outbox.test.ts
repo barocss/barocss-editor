@@ -5,7 +5,7 @@ import { ReferenceIndex } from '../../src/references.ts';
 import { bytesToBase64, relayAdmission } from '../../src/sheet-preview-protocol.ts';
 import type { SheetRelayAppendRequest, SheetRelayReceipt } from '../../src/sheet-preview-protocol.ts';
 import { openOutbox, outboxTransactionComplete, prepareOutboxEnqueue, prepareOutboxMark, validateOutboxSnapshot } from './outbox.ts';
-import type { OutboxSnapshot, StoredClient, StoredPacket } from './outbox.ts';
+import type { OutboxSnapshot, StoredClient } from './outbox.ts';
 
 async function hash(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes.slice()))].map(value => value.toString(16).padStart(2, '0')).join('');
