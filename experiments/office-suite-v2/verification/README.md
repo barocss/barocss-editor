@@ -3,10 +3,17 @@
 This lane owns only `experiments/office-suite-v2/verification/**`. It does not accept
 M0, the product, release, or the Office compatibility roadmap.
 
-Latest source-bound state: `reports/criteria-phase-c-v4.json`. Core v2 meets its
-bounded reference targets. Word O meets latency/node-growth targets but misses
-100page RSS in all three samples. Whole M0 remains OPEN. The S/Q/F receipt below is
-retained history; later Phase C sections record the actual production successors.
+Current decision package: [M0 decision pack v1](decision-pack/README.md), with
+`reports/m0-decision-pack-v1/current-matrix.json` and exact source/evidence hashes.
+At fixed source `4dc191bc`, Word100/300 and the headless Sheet reference meet the
+unchanged frozen budgets. Native, controlled WS and actual local account evidence
+remain separate. Known DOCX losses and unavailable product XLSX/PPTX exchange are
+explicit feature dispositions, not new full-product acceptance. Whole M0 remains
+OPEN pending Planner decision and final integration/disposition receipts.
+
+All S/Q/F and Phase C sections below are retained historical records. In
+particular, their old Word100 RSS failures do not describe the current qualified
+source. The new pack preserves those failures without rerunning completed checks.
 
 Analysis/scaffold: S `9b390602d90e07f496b7b699915b7d605582d8a4`.
 Final correctness dependency Q `3f8354c6bb733bc597488d64c3bf41e5f650f6f8`; parent K.

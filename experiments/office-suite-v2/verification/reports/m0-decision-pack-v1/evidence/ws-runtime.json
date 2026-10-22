@@ -1,0 +1,234 @@
+{
+  "utc": "2026-10-22T05:02:56.727274+00:00",
+  "owner": "Execute Integration #522",
+  "scope": "#533/#534 own WS plus pinned Yjs local controlled preview; #535 remains READONLY",
+  "head": "d7277c0098f39a59e87ca277090404f0dc1976bf",
+  "tree": "fbcd51627fa95b1f9f361af6b042f4994908fc95",
+  "sourceRoot": "/Users/user/.codex/worktrees/522-sheet-ws-integration/barocss-editor",
+  "dependency": "9cba6d6053b52dd351b3679672598c3079402075",
+  "protocol": "190518cbd792ed3c1a44fe9c22ca075821fee19d",
+  "UIAuthor": "1cf368a4fd181950987241e73947cc6bc11d443c",
+  "serviceAuthor": "765ad60fb6ae8550777352606dc73d3d829f69a7",
+  "sourceChecks": {
+    "types": {
+      "roots": 38,
+      "diagnostics": 0,
+      "log": "76-ws-joined-types"
+    },
+    "tests": {
+      "pass": 201,
+      "fail": 0,
+      "skip": 0,
+      "cancelled": 0,
+      "log": "77-ws-joined-tests"
+    },
+    "lint": {
+      "files": 23,
+      "errors": 0,
+      "log": "78-ws-joined-lint"
+    },
+    "rootPreflight": "NOT REPEATED per explicit targeted scope; no develop integration or release"
+  },
+  "raw": {
+    "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/browser-raw-evidence-v1.json",
+    "bytes": 126715,
+    "sha256": "195150fe69544f3a9ca0dd0508638e1f0dd1919c91c2cb43728c0da423a86bdf"
+  },
+  "browserPASSRecords": 15,
+  "diagnosticRefusalCases": 3,
+  "screenshots": [
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/01-two-browser-sum.png",
+      "sha256": "7d86da5ad6e74e8eee614bb1ee498625ce9d2eb8267e21d2ed5cebf5c17cf340",
+      "bytes": 101476
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/02-concurrent-alternatives.png",
+      "sha256": "d4443245fdd1f29e9a7b593e0689944ac5d0d4e2c1bbe76a800edbe74925435a",
+      "bytes": 97692
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/03-old-ack-new-input-unsaved.png",
+      "sha256": "98a75c5a722d91747609b0da71df10caddfc1fb3a773496802daa7df02209b4e",
+      "bytes": 99867
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/04-commit-reply-lost-ack-unknown.png",
+      "sha256": "7718a90b6a0b997e8c5e0ce8eb98e386162d430fd57e8f069d666e22d504ccbe",
+      "bytes": 98792
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/05-revoked-original-client-blocked.png",
+      "sha256": "1749123c3ffc36bedf2dc4fdbacad532344eccac4500928236c5850c0a9767ab",
+      "bytes": 96343
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/06-new-pid-fresh-open-dpr2.png",
+      "sha256": "b1e5b1bdc8d2692f62d8169cbedcc0dc2d4949a280d0e2b19dd81a20b4eb64d4",
+      "bytes": 237670
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/07-reedit-save-after-restart.png",
+      "sha256": "fd71dffffe901e133d86a0ded2238be404635d55ef6c6cb8cf0f943ac03184d9",
+      "bytes": 237111
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/08-final-fresh-open.png",
+      "sha256": "3313f4a8c973713e9729e9131e690f1c94314efa4d65c9d9c4e770713ecd18af",
+      "bytes": 103409
+    }
+  ],
+  "firstHarnessFailures": [
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/first-failure-1792644864209.json",
+      "bytes": 693,
+      "sha256": "4faedf7d8b2f172a04b62667a4df9f4cb705bcfc9b74020b9c647d76a3d1a477",
+      "case": "W2 current read-only blocks writes and late ACK while reads remain allowed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'rejected'\n- 'durable'\n"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/first-failure-1792645022382.json",
+      "bytes": 494,
+      "sha256": "125c32a46f7f57b83fe9d2d246f8319b1c466bcb216397aee10793f5705a4d07",
+      "case": "W5 original completed IDB packet resumes after server restart with same credential and bytes",
+      "error": "Error: operator deadline"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/first-failure-1792645069153.json",
+      "bytes": 825,
+      "sha256": "42ff610161d0dd64fad3f698ec6fa3f3b8c64abd1a6691d9bf30847d9f0df945",
+      "case": "W5 original IDB pending packet resumes after NEW process and same original private identity",
+      "error": "Error: page.evaluate: Target page, context or browser has been closed"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/first-failure-1792645107629.json",
+      "bytes": 611,
+      "sha256": "ff475efeb769a5ed020a39297bb2f25a25f8e0504e16a8508a271482d0818a11",
+      "case": "W6 fresh-open client re-edits, selectively undoes and saves",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'Item' !== 802\n"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/harness-first-direction-metadata-failure.json",
+      "bytes": 340,
+      "sha256": "77bd937ce0f9cbdf03a21d6ccd09cd78d0918978a0ff1c5bb31ee62965a297a3",
+      "case": null,
+      "error": "var loop closure mislabeled framesent as framereceived for initial observations"
+    }
+  ],
+  "recovery": {
+    "oldPID": 37087,
+    "newPID": 43851,
+    "oldExit": 0,
+    "directory": "/private/var/folders/kd/q2hh9cdj51zblmfh_3pd0p_h0000gn/T/office-v2-m0-0CZ47J",
+    "databasePath": "/private/var/folders/kd/q2hh9cdj51zblmfh_3pd0p_h0000gn/T/office-v2-m0-0CZ47J/updates.sqlite",
+    "databaseDevice": 16777232,
+    "databaseInode": 674562224,
+    "checkpointThrough": 14,
+    "tailSequenceAtRestart": 15,
+    "sameRegistryBeforeNewSession": true,
+    "sameManifestContextBootstrap": true,
+    "fullNativeEqualityIncludingProjectionCellsAndEvents": true,
+    "originalPendingResumedSequence": 16,
+    "subsequentFinalSequence": 21,
+    "privateCleanup": "all private Chromium contexts and browser closed; both owned test relay processes exited0; store retained"
+  },
+  "diagnosticEvidence": "/Users/user/barocss-editor/.omx/m0/ws-browser/startup-fail-closed.json",
+  "correctedCaseLinks": [
+    {
+      "name": "W1 two independent WS sessions and cross-sheet recalculation",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-01.json"
+    },
+    {
+      "name": "W2 each session Undo preserves peer history",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-02.json"
+    },
+    {
+      "name": "W2 concurrent same-cell alternatives across independent WS clients",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-03.json"
+    },
+    {
+      "name": "W5 actual completed IDB records survive original-client reload",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-04.json"
+    },
+    {
+      "name": "W5 genuine held old ACK cannot confirm a newer unsent IDB packet",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-05.json"
+    },
+    {
+      "name": "W4 real SQLite COMMIT then lost reply retries identical original once",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-06.json"
+    },
+    {
+      "name": "W2 read-only result continuation after exact-packet completion wait repair",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-07.json"
+    },
+    {
+      "name": "W1 remote native update preserves a live local draft",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-08.json"
+    },
+    {
+      "name": "W3 actual WS rejects cross-session original retry, changed duplicate and wrong context",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-09.json"
+    },
+    {
+      "name": "W2 revoked live session blocks held ACK, push and original resume without replacing identity",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-10.json"
+    },
+    {
+      "name": "W6 checkpoint plus later accepted tail and completed private pending outbox",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-11.json"
+    },
+    {
+      "name": "W6 NEW relay PID reopens same physical DB and fresh browser reproduces full native history",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-12.json"
+    },
+    {
+      "name": "W5 original pending IDB restart continuation with current page and child handles",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-13.json"
+    },
+    {
+      "name": "W6 fresh-open re-edit Undo save with verified cell addresses",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-14.json"
+    },
+    {
+      "name": "W6 saved re-edit survives another empty-browser fresh open",
+      "path": "/Users/user/barocss-editor/.omx/m0/ws-browser/case-15.json"
+    }
+  ],
+  "protected": {
+    "oldWordPID": 12634,
+    "oldSheetAPID": 21740,
+    "oldSheetBPID": 72188,
+    "oldBTwoUserTabs": "preserved untouched; source11f6204f read-only",
+    "primaryFourPlanningHashesUnchanged": true,
+    "develop": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f"
+  },
+  "newUserRuntime": {
+    "status": "RUNNING/HANDOFF_PENDING",
+    "sourceHead": "d7277c0098f39a59e87ca277090404f0dc1976bf",
+    "sourceTree": "fbcd51627fa95b1f9f361af6b042f4994908fc95",
+    "sourceReadOnly": true,
+    "UIURL": "http://127.0.0.1:55266/",
+    "UIPID": 37462,
+    "UIExecSession": 38140,
+    "relayPID": 48909,
+    "relayExecSession": 63393,
+    "operator": "OFF",
+    "directory": "/private/var/folders/kd/q2hh9cdj51zblmfh_3pd0p_h0000gn/T/office-v2-m0-k0zrAk",
+    "initialGeneration": "2b91492b-cdce-49af-aa5f-422ebbe17958",
+    "initialBootstrapHash": "d635498620ca01f6ecf41a1623068e799bc828751fb8df384fcab0d4f13e8497",
+    "privateTestDocumentPromoted": false,
+    "IABOwnerChat": "01a16153-cfa9-7d70-b2f9-4a9e702e78f2",
+    "rootOpenedIABTabs": 0
+  },
+  "remaining": {
+    "productionOIDCAccountsPG": "NOT RUN",
+    "physicalOSIME": "NOT RUN",
+    "screenReader": "NOT RUN",
+    "actualBFCache": "NOT RUN",
+    "hardwarePowerLoss": "NOT RUN",
+    "M0": "OPEN",
+    "WordW5RSS": "FAIL 1of3 preserved",
+    "release": "NOT STARTED"
+  }
+}

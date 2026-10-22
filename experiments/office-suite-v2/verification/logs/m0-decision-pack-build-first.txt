@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "/Users/user/.codex/worktrees/526-m0-decision-pack/barocss-editor/experiments/office-suite-v2/verification/decision-pack/build.py", line 205, in <module>
+    main()
+    ~~~~^^
+  File "/Users/user/.codex/worktrees/526-m0-decision-pack/barocss-editor/experiments/office-suite-v2/verification/decision-pack/build.py", line 120, in main
+    group('account-runtime', account['source']['head'], account_files,
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          'Integration named production-source scope only, not exhaustive dynamic dependency closure. '
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          'Controlled WS remains at d727; 46 subsequent source changes prevent relabeling its whole UI as current.')
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/user/.codex/worktrees/526-m0-decision-pack/barocss-editor/experiments/office-suite-v2/verification/decision-pack/build.py", line 67, in group
+    assert sha(data) == item['sha256'], ('source mismatch', key, path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ('source mismatch', 'account-runtime', 'apps/office-api/src/auth-config.ts')

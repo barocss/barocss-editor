@@ -1,0 +1,18 @@
+{
+  "label": "28-PKG-M0-combined",
+  "cwd": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor/experiments/office-suite-v2",
+  "argv": [
+    "pnpm",
+    "--ignore-workspace",
+    "check"
+  ],
+  "started_utc": "2026-10-21T18:57:35.037057+00:00",
+  "node": "22.22.0",
+  "pnpm": "8.15.0",
+  "status": "completed",
+  "pid": 97134,
+  "exit_code": 0,
+  "elapsed_seconds": 5.339,
+  "finished_utc": "2026-10-21T18:57:40.375679+00:00",
+  "log": "/Users/user/barocss-editor/.omx/m0/integration-logs/28-PKG-M0-combined.txt"
+}

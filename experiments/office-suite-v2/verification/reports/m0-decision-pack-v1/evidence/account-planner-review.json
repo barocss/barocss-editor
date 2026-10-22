@@ -1,0 +1,73 @@
+{
+  "schema": "planner-sheet-account-validation-v1",
+  "observed_utc": "2026-10-22T07:46:55.324220+00:00",
+  "owner": "Planner",
+  "verdict": "BOUNDED_LOCAL_ACCOUNT_AUTH_AND_SHEET_PERMISSION_DELIVERY_VERIFIED",
+  "source": {
+    "head": "7eca44213c9b9609c88b635dcfc0ee8412a7e21d",
+    "tree": "e09d6f739d05407359c5a0af88cd309b3aac9949",
+    "worktree": "/Users/user/.codex/worktrees/522-sheet-account-integration/barocss-editor",
+    "clean": true,
+    "scope": "Integrated local candidate. No push/PR/deployment or merge into protected served source."
+  },
+  "verification": {
+    "R1_R2": "Actual configured local OIDC product Sign in/PKCE and two canonical users; keyboard/mouse two-way edits,SUM/IF,concurrent alternatives,selectiveUndo. Original21executedcells independently linked. Oldcheckpoint did not serialize per12receipt IDs or originalaccountBindings; later actual stages preserve canonicalbindings/originalpacketmetadata. No false reconstructed originals.",
+    "R3": "Real PG read-only + actualreader G20 update + realUndo packet read-only-denied beforededup + append/checkpoint/retry denials + statehashunchanged + exactoriginalIDBpacket/identity/hash retained; regrant originalrequest durable seq17/nativeconvergence. Source/results independently reviewed.",
+    "R4": "Actual COMMIT/heldACK→realPGrevoke→ACKunknown/no false request rejection; sameoriginalrequest/seq18 afterregrant. Actual own-provider logout: relay403/API401, originalpendingIDB/hiddenDOMdraft retained, otheraccount writecontinues. Source/results independently reviewed.",
+    "R5": "U fix restores originalcross-account403; sameactualrequest403/native+registryhashunchanged. Anonymous401/wrongscope404/foreignOrigin403/actualone-use ticketreplay denied. Actualproductsource/result independently reviewed.",
+    "R6": "SamebrowserA→B andnewA-SID cannot adoptoriginalcredential; oldoriginalA IDBpacket/ordinal/request/identity/DOMdraft retained; B/freshA explicitly ownnativeclient and nooldunsent replay. RetiredAhold release rejected; B ownedit wasconfirmed before release. No actuallateACKwhileBpending claim. Source/binding/result independently reviewed.",
+    "R7": "Actual oldPID56150→new56298, sameDBdev16777232/inode679583234+manifest/checkpoint21/tail; originalpending352f2efa-bf06-409e-8f54-9da61fd816a8→originalreceiptseq23/native113events. A manualRetry afterlistenerready; notautomaticreconnect. ThirdprofileOpen/re-edit/Undo/all3native115events. Retrospective sourcechain independently reconstructed; no backdatedexecutionhash.",
+    "R8": "Exact6observedbearers/10tickets absent specified product-origin accountIDB/webstorage/currentURLs/executedsource/result.3036JSresponses unsafe-path0, thisrun errors0. Not everyfile/cookie/profile/nativecredential scan. Source/binding/result independently reviewed."
+  },
+  "evidence": {
+    "original_UI": "/Users/user/barocss-editor/.omx/m0/planner-ui-final-evidence/0071616-20261022/helper-originals/receipt.json",
+    "backend_ST": "/Users/user/barocss-editor/.omx/m0/534-account-final-evidence/manifest.json",
+    "backend_U": "/Users/user/barocss-editor/.omx/m0/534-account-final-evidence/r5-followup/receipt.json",
+    "initial_signin_fix": "/Users/user/barocss-editor/.omx/m0/sheet-initial-signin-fix-evidence/receipt.json",
+    "R1_R2_review": "/Users/user/barocss-editor/.omx/m0/planner-account-browser-evidence/review.json",
+    "PG_actual": "/Users/user/barocss-editor/.omx/m0/account-runtime/pg-sheet-gate-result.json",
+    "R3": "/Users/user/barocss-editor/.omx/m0/account-runtime/account-stages-result.json",
+    "R4_R7_sourcechain": "/Users/user/barocss-editor/.omx/m0/account-runtime/reconstructed-source-bindings/receipt.json",
+    "R7": "/Users/user/barocss-editor/.omx/m0/account-runtime/runs/1792653288148-3423dca5-f586-481e-8f57-cc722438b2ec/result.json",
+    "R3_R5_supplement": "/Users/user/barocss-editor/.omx/m0/account-runtime/runs/1792653824561-d4d2219e-218e-4be6-be35-175e8891e17c/result.json",
+    "provider_logout": "/Users/user/barocss-editor/.omx/m0/account-runtime/runs/1792653997811-6c2c0d61-7f8d-4782-9740-ab6fe8cb3ed8/result.json",
+    "final_ABA_R8": "/Users/user/barocss-editor/.omx/m0/account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/result.json"
+  },
+  "preservation": {
+    "old_user_pids": [
+      12634,
+      21740,
+      72188,
+      48909,
+      37462
+    ],
+    "root_ps_confirmed_alive": true,
+    "old_user_tabs": "1–10 retained; no usertab input/reload/close/restart by root",
+    "primary_original_planning_files": "4SHA256s independently unchanged",
+    "new_account_test_ports": "55267–55272 independently closed after ownedcleanup",
+    "new_runtime_data": "Testnative/profile/IdP/PGdata/evidence retained, notdeleted",
+    "new_auth_user_handoff": "NONE; diagnostic processes closed, no testedstore promoted"
+  },
+  "limits": [
+    "Local real OIDC/PG validation; not production release acceptance.",
+    "Recovery includes manual Retry. No automaticbackoff claim.",
+    "Unapplied cell draft remains originalhidden/inertDOM only; no logout/browserclose draftIDB persistence claim.",
+    "NewloginSID requires explicitfreshclient; originalunsent namespace is preserved and notauto-replayed.",
+    "Oldfailedruns/allPassedfalse/logs retained; finalpassedstage rollup does not rewrite them.",
+    "M0#521 remains OPEN; #524 prior CLOSED unchanged. No unrelated M1/M2/Word release gate activated."
+  ],
+  "integration_final_receipt": {
+    "path": "/Users/user/barocss-editor/.omx/m0/account-final-runtime-receipt.json",
+    "bytes": 21814,
+    "sha256": "9c9df065c7f98318a9c9e0831cc9782710f4f1d9bc8f6c330a01a92ed4b1113c",
+    "independently_verified_artifacts": 29,
+    "relative_artifact_base": "/Users/user/barocss-editor/.omx/m0",
+    "cleanup_and_source": "Finalsource7eca clean independently read; owned55267–55272 closed; original5PIDs alive; original4planningSHA256s unchanged."
+  },
+  "issues": {
+    "521": "OPEN; boundedaccountverification topcheckpoint published, historicalbody preserved",
+    "522": "OPEN; Integration finalcheckpoint published",
+    "524": "CLOSED priorboundedFormula unchanged"
+  },
+  "acceptance_decision": "ACCEPT bounded current user account+Sheet permission/collaboration/storage-recovery task; no additional ready authorized implementation remains in this slice; M0 whole remains open."
+}

@@ -1,0 +1,235 @@
+{
+  "schema": "m0/word100-memory-outcome-qualification-assessment-v1",
+  "atUTC": "2026-10-22T14:23:27.315704+00:00",
+  "sourceHead": "36b0fa98447d1f1b43c42066c88ec975f96f6c93",
+  "sourceTree": "566bcdfbd902946ef68f6af92ceee14db89f7aee",
+  "productionParent": "174595dd9c3f6ce83bcad4a045495dbf76376640",
+  "rawOriginal": "/Users/user/.codex/worktrees/537-word100-integration/barocss-editor/experiments/office-suite-v2/verification/reports/word-performance-2026-10-22T14-21-28-061Z/report.json",
+  "rawPreserved": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/report.json",
+  "rawBytes": 134876,
+  "rawSHA256": "16a8fe3ceb2e3fb30d9178eb47887945b5a14d466a4d040f915cf62a0473a856",
+  "profiles": [
+    {
+      "pages": 100,
+      "RSSBytes": [
+        518619136,
+        515047424,
+        481984512
+      ],
+      "RSSMiB": [
+        494.59375,
+        491.1875,
+        459.65625
+      ],
+      "limitBytes": 536870912,
+      "allRSSPass": true,
+      "timings": [
+        {
+          "metric": "openMs",
+          "p95ms": 305.5,
+          "limitms": 1000,
+          "pass": true
+        },
+        {
+          "metric": "warmRenderMs",
+          "p95ms": 100.5,
+          "limitms": 250,
+          "pass": true
+        },
+        {
+          "metric": "printBuildMs",
+          "p95ms": 24.299999952316284,
+          "limitms": 1000,
+          "pass": true
+        }
+      ],
+      "repeatability": {
+        "open": {
+          "count": 3,
+          "mean": 303.46666665871936,
+          "populationStandardDeviation": 2.8051539811852364,
+          "coefficientOfVariation": 0.009243697214165309,
+          "absoluteSpreadMs": 6,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 96.33333333333333,
+          "populationStandardDeviation": 3.0466739457354417,
+          "coefficientOfVariation": 0.031626373139122234,
+          "absoluteSpreadMs": 7.199999928474426,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 23.99999996026357,
+          "populationStandardDeviation": 0.21602468626805038,
+          "coefficientOfVariation": 0.009001028609404963,
+          "absoluteSpreadMs": 0.5,
+          "qualified": true
+        }
+      },
+      "printedNodeDeltas": [
+        4501,
+        4501,
+        4501
+      ],
+      "methodAndCleanupPass": true
+    },
+    {
+      "pages": 300,
+      "RSSBytes": [
+        843366400,
+        847101952,
+        843071488
+      ],
+      "RSSMiB": [
+        804.296875,
+        807.859375,
+        804.015625
+      ],
+      "limitBytes": 1073741824,
+      "allRSSPass": true,
+      "timings": [
+        {
+          "metric": "openMs",
+          "p95ms": 989.6000000238419,
+          "limitms": 3000,
+          "pass": true
+        },
+        {
+          "metric": "warmRenderMs",
+          "p95ms": 345.2999999523163,
+          "limitms": 750,
+          "pass": true
+        },
+        {
+          "metric": "printBuildMs",
+          "p95ms": 66.79999995231628,
+          "limitms": 3000,
+          "pass": true
+        }
+      ],
+      "repeatability": {
+        "open": {
+          "count": 3,
+          "mean": 982.8666667143503,
+          "populationStandardDeviation": 7.951659503042832,
+          "coefficientOfVariation": 0.008090272844051812,
+          "absoluteSpreadMs": 17.899999976158142,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 342.3333333333333,
+          "populationStandardDeviation": 2.0981472983393963,
+          "coefficientOfVariation": 0.006128959975674965,
+          "absoluteSpreadMs": 4.5,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 66.10000002384186,
+          "populationStandardDeviation": 0.6164413538849772,
+          "coefficientOfVariation": 0.009325890373110903,
+          "absoluteSpreadMs": 1.4999998807907104,
+          "qualified": true
+        }
+      },
+      "printedNodeDeltas": [
+        13501,
+        13501,
+        13501
+      ],
+      "methodAndCleanupPass": true
+    }
+  ],
+  "nodeGrowth": {
+    "ratio": 2.9995556542990447,
+    "limit": 3.5,
+    "pass": true
+  },
+  "qualification": "PASS all original Word100/300 gates; six fresh normal samples",
+  "methodQualityPass": true,
+  "closure": {
+    "files": 1215,
+    "aliases": 654,
+    "beforeSHA256": "bbf8dfb75538d13b8fd09697535e46e51dcb1ea7cfcda1b2b506a12fffdab8dd",
+    "afterSHA256": "15f6780fcd2c5dc270fc97cd20de6ceec6ce446400aed0b31301dd638116b514",
+    "arraysEqual": true
+  },
+  "cleanup": {
+    "scope": "office-v2-m0/word100-memory-outcome-h7-v1",
+    "kind": "performance-word100-structural-candidate-once",
+    "owner": "Execute Integration #522/#537",
+    "owner_thread": "01a15e91-4846-7aa2-8445-7bfc513479ee",
+    "status": "returned",
+    "max_runs": 1,
+    "source_head": "36b0fa98447d1f1b43c42066c88ec975f96f6c93",
+    "source_tree": "566bcdfbd902946ef68f6af92ceee14db89f7aee",
+    "source_root": "/Users/user/.codex/worktrees/537-word100-integration/barocss-editor",
+    "source_hold": "No tracked writes or HEAD moves until owned producer returns",
+    "port": 55260,
+    "browser_executable": "/Users/user/Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+    "granted_utc": "2026-10-22T14:21:26.670390+00:00",
+    "deadline_utc": "2026-10-22T14:36:26.670390+00:00",
+    "cases": [
+      100,
+      300
+    ],
+    "samplesPerPage": 3,
+    "human_message": "01a163cc-9d96-7be3-89cc-240864c124bb",
+    "harnessBaselineExact": true,
+    "frozenBudgetSHA256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+    "expandedBindingSHA256": "bbf8dfb75538d13b8fd09697535e46e51dcb1ea7cfcda1b2b506a12fffdab8dd",
+    "preflightLedger": "/Users/user/barocss-editor/.omx/m0/word100-final-preflight-ledger.json",
+    "productionParent": "174595dd9c3f6ce83bcad4a045495dbf76376640",
+    "browserEvidence": {
+      "print14At7a": "360f8fb781c73cfb2c95337dd7b6c77081173c63d391b1a5ba1ed87c78ac5f15",
+      "feature5At36": "685e6727a7287df8e118e09877f30a8849f862fda33083fb1d5613b57e2623dc",
+      "productionIdenticalAcrossTestOnlyDescendants": true
+    },
+    "method": "UNMODIFIED H7:3fresh100+3fresh300,samefixture/fonts/media/thresholds/noGC/guards/200msownedaggregateRSS; no trace/profiler/privatephasehooks.",
+    "failureRule": "First resource/time guard stopsremaining; allraw preserved; no unchangedretry-until-pass.",
+    "protected": "All existing usertabs/55262-55266/data/operatorOFF/planningWIP preserved; noinstall/push/deploy",
+    "completed_utc": "2026-10-22T14:22:15.780270+00:00",
+    "observedPIDs": [
+      9689,
+      10091,
+      10098,
+      10172,
+      16810,
+      17155,
+      17160,
+      17223,
+      22511,
+      22836,
+      22840,
+      22874,
+      31015,
+      31361,
+      31367,
+      31424,
+      40186,
+      40521,
+      40523,
+      40553,
+      95793,
+      96977,
+      96991,
+      97284
+    ],
+    "remainingObservedPIDs": [],
+    "privatePortsListening": {
+      "55260": false,
+      "55261": false
+    }
+  },
+  "limits": [
+    "200ms sampled aggregate ownedbrowser RSS including sharedpages; not privatebytes/continuousHWM.",
+    "Three observations: coarse nearest-rank p95/worst-of-three, not a populationtail guarantee.",
+    "Structural copy/module proofs and observedqualification do not isolate per-changeRSS causality.",
+    "Local native/browser acceptance; no fullM0/alpha,physicalIME,release,deploy or localdevelop merge claim."
+  ],
+  "conditionalStyleResolver": "NOTACTIVATED: currentcandidate meets budget"
+}

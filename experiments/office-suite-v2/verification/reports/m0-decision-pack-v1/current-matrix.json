@@ -1,0 +1,699 @@
+{
+  "schema": "office-v2-m0/decision-contract-v1",
+  "issue": 526,
+  "parentIssue": 521,
+  "base": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+  "baseTree": "9f36d320aff6780f86216bff5c9217114cf20634",
+  "humanSource": {
+    "thread": "01a15e6a-f62a-7fd0-9160-ec987ffddcfe",
+    "message": "01a16457-618b-7142-b1f9-46365273b52c",
+    "request": "Continue the next large M0 outcomes; do not repeat completed checks; preserve existing screens."
+  },
+  "scope": "Original #521 criteria 1–10, current evidence reconciliation, feature disposition and inactive M1/M2 contracts. This pack does not accept or close M0.",
+  "criteria": [
+    {
+      "id": 1,
+      "original": "Headless two-sheet workbook: typed inputs, A1/absolute/relative/mixed and cross-sheet references, SUM/IF, insertion/deletion/range boundaries and copy versus cut/move; one authoritative AST record.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE",
+      "evidence": [
+        "native-log",
+        "native-command",
+        "core-contract",
+        "formula-contract"
+      ],
+      "sourceGroups": [
+        "native-correctness"
+      ],
+      "finding": "Actual Core, Formula and independent adverse tests cover these operations. Cell-content relocation is supported. It is distinct from general axis move.",
+      "limits": [
+        "SUM/IF and declared arithmetic/coercion/date profile only.",
+        "Partial/nonrectangular referenced-range cut refuses before mutation; no general concurrent cut acceptance."
+      ]
+    },
+    {
+      "id": 2,
+      "original": "Independent replicas/sessions converge under concurrent row/column insertion, deletion versus formulas and same-cell alternatives without duplicate IDs, invalid structure or revived references.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE",
+      "evidence": [
+        "native-log",
+        "collaboration-contract",
+        "account-runtime"
+      ],
+      "sourceGroups": [
+        "native-correctness",
+        "account-runtime"
+      ],
+      "finding": "Actual Yjs SheetReplica and Core arrival permutations retain atomic inputs, alternatives and tombstones. Separate real-account browser evidence is additional bounded evidence.",
+      "limits": [
+        "No full 10k-provider or UI capacity claim.",
+        "Document validity and replica convergence are separate assertions."
+      ]
+    },
+    {
+      "id": 3,
+      "original": "Current-session undo preserves remote content, including A inserts a row, B edits it, A undoes insertion; define a recoverable structural conflict.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE",
+      "evidence": [
+        "native-log",
+        "core-contract",
+        "account-runtime"
+      ],
+      "sourceGroups": [
+        "native-correctness",
+        "account-runtime"
+      ],
+      "finding": "The structural case returns recoverable UNDO_CONFLICT and preserves B's value. Session-local cell Undo preserves remote contributions.",
+      "limits": [
+        "Structural safety refusal is not a successful row-removal claim.",
+        "Reload starts a new Undo session; durable Undo history is not implemented."
+      ]
+    },
+    {
+      "id": 4,
+      "original": "Prose sample covers concurrent same-paragraph text, marks, split/join; define/test move/delete policy before support, without snapshot character sync.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE",
+      "evidence": [
+        "native-log",
+        "collaboration-contract"
+      ],
+      "sourceGroups": [
+        "native-correctness"
+      ],
+      "finding": "Real Y.Text characters/newlines, bold/italic/underline, relative anchors and origin-scoped Undo are tested. Paragraph move/delete explicitly refuse.",
+      "limits": [
+        "No complete Note block codec, stable named blocks, nesting, lists, tables or embeds.",
+        "The refusal policy is complete for M0; the refused features are not implemented."
+      ]
+    },
+    {
+      "id": 5,
+      "original": "Separate local apply/sync/durable save; COMMIT then ACK loss, exact retry, server restart/reconstruction; viable current-access and engine/schema/version server boundary.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE",
+      "evidence": [
+        "native-log",
+        "ws-runtime",
+        "account-runtime",
+        "account-planner-review",
+        "collaboration-contract"
+      ],
+      "sourceGroups": [
+        "native-correctness",
+        "account-runtime"
+      ],
+      "finding": "Disposable SQLite and real child-process recovery are tested. Later controlled WS and genuine local account/OIDC/PG receipts add current-ACL/revocation, exact packet retry and same-store NEW-PID recovery.",
+      "limits": [
+        "Account recovery used manual Retry; automatic reconnect/backoff is not proven.",
+        "Unapplied draft retention is original hidden/inert page DOM, not browser-close draft persistence.",
+        "No backup/restore, hardware power-loss, production migration or asset-lifecycle acceptance."
+      ]
+    },
+    {
+      "id": 6,
+      "original": "General concurrent row/column move and overlapping merge may remain refused with explicit M3 semantics; check single-user copy/cut/move references now.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE",
+      "evidence": [
+        "native-log",
+        "core-contract",
+        "formula-contract"
+      ],
+      "sourceGroups": [
+        "native-correctness"
+      ],
+      "finding": "row.move, column.move and merge return UNSUPPORTED; their refusal leaves native data intact. FormulaTransformHook handles supported atomic cell relocation independently.",
+      "limits": [
+        "General moves/merges, Sheet rename/delete and Sheet redo are not supported.",
+        "Future M3 semantics and checks must be scoped before adding these operations."
+      ]
+    },
+    {
+      "id": 7,
+      "original": "Redistributable DOCX/XLSX/PPTX fixtures; truthful import/export, unsupported preservation/refusal and original retention; typed/date/formula/reference XLSX probe and separately identified reader.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE_WITH_DECLARED_LOSSES",
+      "evidence": [
+        "corpus-manifest",
+        "corpus-integrity",
+        "docx-smoke",
+        "docx-semantics",
+        "docx-bounded",
+        "native-office",
+        "excel-1900",
+        "excel-1904"
+      ],
+      "sourceGroups": [
+        "docx-codecs"
+      ],
+      "finding": "Four CC0 fixtures and original bytes remain fixed. Bounded DOCX body/table round trip and separately identified Microsoft Office 16.114 reads exist. The new feature disposition manifest makes loss and unavailable adapters explicit.",
+      "limits": [
+        "DOCX numbering/image/header/footer/footnote export loss remains FAIL for those features.",
+        "Product XLSX/PPTX exchange is unavailable/unverified, not a tested refusal or product read-only workflow.",
+        "Cached spreadsheet values do not prove recalculation after edit.",
+        "Artifact original-byte retention does not prove a product original-retention or lossy-new-copy UX."
+      ]
+    },
+    {
+      "id": 8,
+      "original": "Word100/300 layout/print and Sheet10k rows/100cols/50k populated/10k formulas on a named model/reference; frozen budgets, fonts/hardware/browser, raw samples and percentile/memory boundaries.",
+      "status": "BOUNDED_EVIDENCE_COMPLETE",
+      "evidence": [
+        "word-outcome",
+        "word-assessment",
+        "word-normal-raw",
+        "word-closure",
+        "sheet-assessment",
+        "sheet-summary",
+        "frozen-budget"
+      ],
+      "sourceGroups": [
+        "word-qualification",
+        "sheet-scale"
+      ],
+      "finding": "Current Word100 RSS 494.59375/491.1875/459.65625MiB and Word300 804.296875/807.859375/804.015625MiB meet frozen limits; original timing/font/repeatability/node-growth gates pass. Sheet headless reference meets all frozen gates.",
+      "limits": [
+        "Word RSS is 200ms sampled owned aggregate including shared pages, not private bytes or continuous HWM.",
+        "Three samples give coarse nearest-rank p95/worst-of-three, not a population tail or causal per-fix improvement.",
+        "Sheet benchmark excludes provider/Canvas/scroll/keystroke-to-paint capacity."
+      ]
+    },
+    {
+      "id": 9,
+      "original": "Versioned decision pack: supported/refused operations, data/checkpoint schemas, binding choice, first failures, risks, budgets and exact M1/M2 interface/ownership split.",
+      "status": "DELIVERED_FOR_PLANNER_REVIEW",
+      "evidence": [
+        "core-contract",
+        "formula-contract",
+        "collaboration-contract",
+        "frozen-budget",
+        "word-outcome",
+        "account-runtime"
+      ],
+      "sourceGroups": [
+        "native-correctness",
+        "account-runtime",
+        "word-qualification",
+        "sheet-scale",
+        "docx-codecs"
+      ],
+      "finding": "This versioned pack includes current criteria, source/evidence bindings, file capability dispositions, preserved historical failures and exact inactive #528/#529 destinations.",
+      "limits": [
+        "Whole-M0 acceptance remains Planner-owned.",
+        "Final Slides repair disposition and final integration/ancestry receipt are separate pending owner inputs, not invented evidence."
+      ]
+    },
+    {
+      "id": 10,
+      "original": "Label controlled actor/provider probes separately; M1/M2 actual Office login/two accounts/current ACL/durable reopen/re-edit is not inferred from prototypes.",
+      "status": "BOUNDARY_COMPLETE",
+      "evidence": [
+        "native-log",
+        "ws-runtime",
+        "account-runtime",
+        "account-planner-review"
+      ],
+      "sourceGroups": [
+        "native-correctness",
+        "account-runtime"
+      ],
+      "finding": "Native controlled, WS controlled, and actual configured local OIDC/PG/two-account results are separately identified. Extra local account evidence does not accept common M1/M2 product integration.",
+      "limits": [
+        "No M1/M2 implementation activated, alpha/release/deployment or account/operator/backup/install acceptance.",
+        "Physical OS IME, screen reader, true BFCache and target UI scale remain separate product checks."
+      ]
+    }
+  ],
+  "architecture": {
+    "decision": "Keep the in-house native Sheet event/typed-AST model. Retain Yjs 13.6.29 as the demonstrated low-level primitive; do not adopt a spreadsheet SDK or old generic snapshot adapter.",
+    "authority": "WorkbookEvent + WorkbookContext are authoritative. WorkbookProjection, displayed formula text, calculation cache and viewport are derived. Uncommitted drafts and pending original packets are retained user intent, not independent document writers; they cannot be reconstructed or confirmed from a projection or late ACK. Valid refused/pending events remain in history.",
+    "identity": "Stable sheet/row/column IDs, tombstones, causal dependencies/frontier and deterministic event-ID ordering; no wall-clock conflict winner or ID reuse.",
+    "nativeSchema": [
+      "WorkbookContext(documentId, workbookId, generation, contractVersion, engineVersion, schemaVersion, adapterVersion)",
+      "WorkbookEvent(context:WorkbookContext, eventId, actorId, sessionId, dependencies, command)",
+      "CellInput(literal | formula(version1, ast, context) | invalid)",
+      "CellKey JSON tuple(sheetId,rowId,columnId)"
+    ],
+    "persistenceSchema": [
+      "Admission(documentId,generation,engineId,contractVersion,engineVersion,schemaVersion,adapterVersion)",
+      "UpdatePacket(admission,updateId,native bytes)",
+      "DurableReceipt(admission,updateId,hash,sequence,frontier)",
+      "Checkpoint exact included frontier/IDs + native payload/hash; replay checkpoint then accepted tail with original identities"
+    ],
+    "wire": "SHEET_RELAY_PROTOCOL=1, /api/sheet-relay/v1; explicit current-account binding and per-original-update receipt. Browser does not import the Node store.",
+    "state": [
+      "local applied",
+      "synchronized",
+      "durably saved",
+      "acknowledgment unknown",
+      "failed/revoked"
+    ],
+    "refused": [
+      "General row/column move and merge",
+      "Sheet rename/delete/redo",
+      "Nonrectangular referenced-range cut",
+      "Prose paragraph move/delete and unsupported native structures",
+      "Snapshot replacement of collaborative native content",
+      "Incompatible engine/schema/adapter/generation or unauthorized original retry"
+    ],
+    "remainingRisks": [
+      "Native revision/full replay and wide frontier scale beyond measured model",
+      "1MB Sheet packet / 8MB disposable state and finite retained identity limits",
+      "Complete Note block mapping, migration/compaction/retention and hostile-parser resource isolation",
+      "Common runtime, durable assets, backup/isolated restore, operational and release gates",
+      "Known DOCX losses and unavailable product XLSX/PPTX adapters"
+    ]
+  },
+  "nextStages": {
+    "status": "INACTIVE_PROPOSED_CONTRACTS_ONLY",
+    "m1": {
+      "issue": 528,
+      "dependency": "Planner M0 decision and exact accepted adoption/source map",
+      "owners": [
+        {
+          "role": "Execute Runtime",
+          "paths": [
+            "packages/office-runtime/src/**",
+            "packages/office-runtime/test/**",
+            "apps/office/src/native-engine-client.ts"
+          ],
+          "contract": "Lifecycle/admission, current identity/generation/versions, truthful save states, read-only projections and retirement."
+        },
+        {
+          "role": "Execute Sheet Core",
+          "paths": [
+            "packages/sheet-core/src/**",
+            "packages/sheet-core/test/**"
+          ],
+          "contract": "Adopt exact Core source map and retain stable IDs, alternatives, tombstones, Undo/refusals and frozen model budgets."
+        },
+        {
+          "role": "Execute Formula",
+          "paths": [
+            "packages/sheet-formula/src/**",
+            "packages/sheet-formula/test/**"
+          ],
+          "contract": "Adopt parser/reference/calculation source with one typed AST and explicit freshness/coercion/date/function limits."
+        },
+        {
+          "role": "Execute Collaboration",
+          "paths": [
+            "packages/sheet-collaboration/src/**",
+            "packages/sheet-collaboration/test/**",
+            "apps/office-service/src/native-engine-admission.ts",
+            "apps/office-service/src/native-engine-updates.ts",
+            "apps/office-service/src/native-engine-checkpoints.ts",
+            "apps/office-api/src/native-engine-routes.ts"
+          ],
+          "contract": "Trusted session/current ACL, domain admission, native PostgreSQL transactions/receipts/checkpoints, exact retry and revocation. No caller-granted actor or second authority."
+        },
+        {
+          "role": "Execute Integration",
+          "paths": [
+            "Shared manifests/exports/config/build/locks",
+            "apps/office-api/src/server.ts",
+            "apps/office-api/src/main.ts",
+            "apps/office-service/src/migrations.ts",
+            "apps/office-service/src/native-engine-migration.ts",
+            "Explicit shared Office/workspace route seams"
+          ],
+          "contract": "Single registration/migration/runtime writer; record narrower existing-file leases, legacy snapshot exclusion, isolated DB and backup/restore boundary."
+        },
+        {
+          "role": "Execute Verification",
+          "paths": [
+            "tests/office-v2/m1/**",
+            ".dev/plans/office-suite-v2/"
+          ],
+          "contract": "Same-candidate actual OIDC/API/PG/two-account save/reopen/re-edit, negative authority, ACK/restart/restore and source-bound evidence."
+        }
+      ]
+    },
+    "m2": {
+      "issue": 529,
+      "dependency": "Accepted M0 and M1 source/receipts; named initial Note profile",
+      "owners": [
+        {
+          "role": "Execute Sheet View",
+          "paths": [
+            "packages/sheet-view/src/**",
+            "packages/sheet-view/test/**"
+          ],
+          "contract": "Canvas viewport/overscan, DOM input/IME, selection/clipboard and semantic accessibility from the sole native model."
+        },
+        {
+          "role": "Execute Prose",
+          "paths": [
+            "packages/prose-engine/src/**",
+            "packages/prose-engine/test/**",
+            "packages/prose-collaboration/src/**",
+            "packages/prose-collaboration/test/**",
+            "apps/note/src/native-engine-host.ts"
+          ],
+          "contract": "Versioned complete declared Note codec/binding; unsupported legacy structures explicitly retained read-only/original or conversion refused."
+        },
+        {
+          "role": "Execute Runtime",
+          "paths": [
+            "packages/office-runtime/**",
+            "apps/office/src/native-sheet-host.ts"
+          ],
+          "contract": "Shared document lifecycle, native Save/Open/re-edit, pending/error and asset capabilities."
+        },
+        {
+          "role": "Execute Sheet Core / Execute Formula / Execute Collaboration",
+          "paths": [
+            "Their activated M1 owned packages and service interfaces"
+          ],
+          "contract": "Supported native commands, copy/cut/references/freshness, granular transport, per-session history/anchors/current ACL and receipts."
+        },
+        {
+          "role": "Execute Integration",
+          "paths": [
+            "Shared registration/config/build/locks",
+            "apps/office/src/auth-client.ts",
+            "apps/office/src/auth-app.tsx",
+            "apps/office/src/connected-workspace.tsx",
+            "packages/office-workspace/src/products.ts",
+            "Explicit Note entry seam"
+          ],
+          "contract": "One route/product registration writer; preserve existing products and authority."
+        },
+        {
+          "role": "Execute Verification",
+          "paths": [
+            "tests/office-v2/m2/**"
+          ],
+          "contract": "Real same-candidate Sheet/Note two-account journeys, durable reopen/re-edit, denial/recovery, Canvas/input/accessibility; physical IME separately labeled."
+        }
+      ]
+    },
+    "later": {
+      "M3": [
+        "General Sheet move/merge policy and implementation",
+        "Declared larger function/date/error profile and XLSX",
+        "Clipboard/fill/freeze/sort/filter and UI scale"
+      ],
+      "M4": [
+        "Declared DOCX/PPTX round trips and loss handling",
+        "Word/Slides product layout/scene completion"
+      ]
+    },
+    "activationRule": "These are the current #528/#529 planned paths, not new write leases. Planner must record actual owners, exact base/interfaces and acceptance before production work. Existing local account proof can be reused only for unchanged scope; it does not waive M1/M2 missing journeys."
+  },
+  "wholeM0": {
+    "status": "OPEN_PENDING_PLANNER_DECISION_AND_FINAL_INTEGRATION",
+    "newExecutionNeededForThisPack": false,
+    "runtimeGapsFound": [],
+    "pendingOwnerInputs": [
+      "Integration final source-closure/ancestry/intake receipt",
+      "Slides owner disposition of the separately assigned UI/connector baseline failures"
+    ],
+    "recommendation": "Review original criteria with their explicit support/refusal/measurement limits. Do not re-run valid PASS, promote full-feature losses to PASS, or add full M3/M4 implementation as an unstated M0 gate."
+  },
+  "contractSHA256": "07433dfc364355422a797d8d3db5ed8964917db2826bbe6851943270d369f0cc",
+  "fileCapabilitiesSHA256": "a8f7e4ef45704c7f9e6a5c3d0895ef671d1584bdce690972ee67dbcaa3de291b",
+  "evidenceIndex": "evidence-index.json",
+  "sourceBindings": "source-bindings.json",
+  "fileCapabilities": "../../decision-pack/file-capabilities-v1.json",
+  "integrityOnly": true,
+  "newProductTestsOrMeasurementsExecuted": false,
+  "wordProfiles": [
+    {
+      "pages": 100,
+      "RSSBytes": [
+        518619136,
+        515047424,
+        481984512
+      ],
+      "RSSMiB": [
+        494.59375,
+        491.1875,
+        459.65625
+      ],
+      "limitBytes": 536870912,
+      "allRSSPass": true,
+      "timings": [
+        {
+          "metric": "openMs",
+          "p95ms": 305.5,
+          "limitms": 1000,
+          "pass": true
+        },
+        {
+          "metric": "warmRenderMs",
+          "p95ms": 100.5,
+          "limitms": 250,
+          "pass": true
+        },
+        {
+          "metric": "printBuildMs",
+          "p95ms": 24.299999952316284,
+          "limitms": 1000,
+          "pass": true
+        }
+      ],
+      "repeatability": {
+        "open": {
+          "count": 3,
+          "mean": 303.46666665871936,
+          "populationStandardDeviation": 2.8051539811852364,
+          "coefficientOfVariation": 0.009243697214165309,
+          "absoluteSpreadMs": 6,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 96.33333333333333,
+          "populationStandardDeviation": 3.0466739457354417,
+          "coefficientOfVariation": 0.031626373139122234,
+          "absoluteSpreadMs": 7.199999928474426,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 23.99999996026357,
+          "populationStandardDeviation": 0.21602468626805038,
+          "coefficientOfVariation": 0.009001028609404963,
+          "absoluteSpreadMs": 0.5,
+          "qualified": true
+        }
+      },
+      "printedNodeDeltas": [
+        4501,
+        4501,
+        4501
+      ],
+      "methodAndCleanupPass": true
+    },
+    {
+      "pages": 300,
+      "RSSBytes": [
+        843366400,
+        847101952,
+        843071488
+      ],
+      "RSSMiB": [
+        804.296875,
+        807.859375,
+        804.015625
+      ],
+      "limitBytes": 1073741824,
+      "allRSSPass": true,
+      "timings": [
+        {
+          "metric": "openMs",
+          "p95ms": 989.6000000238419,
+          "limitms": 3000,
+          "pass": true
+        },
+        {
+          "metric": "warmRenderMs",
+          "p95ms": 345.2999999523163,
+          "limitms": 750,
+          "pass": true
+        },
+        {
+          "metric": "printBuildMs",
+          "p95ms": 66.79999995231628,
+          "limitms": 3000,
+          "pass": true
+        }
+      ],
+      "repeatability": {
+        "open": {
+          "count": 3,
+          "mean": 982.8666667143503,
+          "populationStandardDeviation": 7.951659503042832,
+          "coefficientOfVariation": 0.008090272844051812,
+          "absoluteSpreadMs": 17.899999976158142,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 342.3333333333333,
+          "populationStandardDeviation": 2.0981472983393963,
+          "coefficientOfVariation": 0.006128959975674965,
+          "absoluteSpreadMs": 4.5,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 66.10000002384186,
+          "populationStandardDeviation": 0.6164413538849772,
+          "coefficientOfVariation": 0.009325890373110903,
+          "absoluteSpreadMs": 1.4999998807907104,
+          "qualified": true
+        }
+      },
+      "printedNodeDeltas": [
+        13501,
+        13501,
+        13501
+      ],
+      "methodAndCleanupPass": true
+    }
+  ],
+  "sheetProfile": {
+    "rows": 10000,
+    "columns": 100,
+    "populatedCells": 50000,
+    "formulaCells": 10000,
+    "sheetCount": 2
+  },
+  "sheetGates": [
+    {
+      "phase": "cold-native-projection",
+      "samples": [
+        169.03841699999998,
+        152.80237499999998,
+        158.81729199999995
+      ],
+      "worstOfThree": 169.03841699999998,
+      "coarseNearestRankP95": 169.03841699999998,
+      "coefficientOfVariation": 0.04183058752182456,
+      "spreadMs": 16.236041999999998,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    },
+    {
+      "phase": "full-native-diff",
+      "samples": [
+        16.876999999999953,
+        18.78908299999989,
+        17.56812500000001
+      ],
+      "worstOfThree": 18.78908299999989,
+      "coarseNearestRankP95": 18.78908299999989,
+      "coefficientOfVariation": 0.0445501706642229,
+      "spreadMs": 1.9120829999999387,
+      "repeatable": true,
+      "target": 250,
+      "targetMet": true
+    },
+    {
+      "phase": "initial-formula-calculation",
+      "samples": [
+        47.982167000000004,
+        42.32483300000001,
+        42.12541599999997
+      ],
+      "worstOfThree": 47.982167000000004,
+      "coarseNearestRankP95": 47.982167000000004,
+      "coefficientOfVariation": 0.0615057120753439,
+      "spreadMs": 5.856751000000031,
+      "repeatable": true,
+      "target": 250,
+      "targetMet": true
+    },
+    {
+      "phase": "dirty-formula-calculation",
+      "samples": [
+        0.0521249999999327,
+        0.1119170000001759,
+        0.03645800000003874
+      ],
+      "worstOfThree": 0.1119170000001759,
+      "coarseNearestRankP95": 0.1119170000001759,
+      "coefficientOfVariation": 0.4864977812328847,
+      "spreadMs": 0.07545900000013717,
+      "repeatable": true,
+      "target": 16,
+      "targetMet": true
+    },
+    {
+      "phase": "range-paste-native-projection-plus-diff",
+      "samples": [
+        63.11104099999989,
+        72.98333400000001,
+        64.55945900000006
+      ],
+      "worstOfThree": 72.98333400000001,
+      "coarseNearestRankP95": 72.98333400000001,
+      "coefficientOfVariation": 0.06507923405311358,
+      "spreadMs": 9.872293000000127,
+      "repeatable": true,
+      "target": 1000,
+      "targetMet": true
+    },
+    {
+      "phase": "coldConstructionProjectionCalculationMs",
+      "samples": [
+        898.884376,
+        882.2228749999999,
+        884.5209169999998
+      ],
+      "worstOfThree": 898.884376,
+      "coarseNearestRankP95": 898.884376,
+      "coefficientOfVariation": 0.008297393513044362,
+      "spreadMs": 16.661501000000044,
+      "repeatable": true,
+      "target": 2000,
+      "targetMet": true
+    },
+    {
+      "phase": "oneCellAdmissionProjectionDiffCalculationMs",
+      "samples": [
+        51.555248999999776,
+        54.158250000000066,
+        51.67966600000011
+      ],
+      "worstOfThree": 54.158250000000066,
+      "coarseNearestRankP95": 54.158250000000066,
+      "coefficientOfVariation": 0.022850120321670955,
+      "spreadMs": 2.6030010000002903,
+      "repeatable": true,
+      "target": 200,
+      "targetMet": true
+    },
+    {
+      "phase": "paste1000AdmissionProjectionDiffCalculationMs",
+      "samples": [
+        71.20820800000001,
+        81.31062600000041,
+        73.45437599999991
+      ],
+      "worstOfThree": 81.31062600000041,
+      "coarseNearestRankP95": 81.31062600000041,
+      "coefficientOfVariation": 0.05749911320407737,
+      "spreadMs": 10.102418000000398,
+      "repeatable": true,
+      "target": 500,
+      "targetMet": true
+    }
+  ],
+  "sheetMemory": {
+    "samplesBytes": [
+      317259776,
+      314245120,
+      316096512
+    ],
+    "targetBytes": 536870912,
+    "targetMet": true,
+    "definition": "Actual Node process.resourceUsage().maxRSS in KiB multiplied by1024; per fresh child process high-water"
+  },
+  "sourceGroupCounts": {
+    "word-qualification": 1215,
+    "sheet-scale": 10,
+    "native-correctness": 21,
+    "account-runtime": 299,
+    "docx-codecs": 2
+  }
+}

@@ -1,0 +1,793 @@
+
+> @office-suite-v2/m0@0.0.0 check /Users/user/.codex/worktrees/522-m0-integration/barocss-editor/experiments/office-suite-v2
+> pnpm --ignore-workspace type-check && pnpm --ignore-workspace test
+
+
+> @office-suite-v2/m0@0.0.0 type-check /Users/user/.codex/worktrees/522-m0-integration/barocss-editor/experiments/office-suite-v2
+> node scripts/type-check.mjs
+
+Strict TypeScript 5.9.3: 28 root files; imports included; 0 diagnostics.
+
+> @office-suite-v2/m0@0.0.0 test /Users/user/.codex/worktrees/522-m0-integration/barocss-editor/experiments/office-suite-v2
+> node scripts/test.mjs
+
+Native Node TypeScript tests: 17 files.
+TAP version 13
+# (node:97253) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: the standalone graph uses the fixed Node, TypeScript and Yjs versions
+ok 1 - the standalone graph uses the fixed Node, TypeScript and Yjs versions
+  ---
+  duration_ms: 1.155875
+  type: 'test'
+  ...
+# Subtest: native Node executes erasable TypeScript without a test framework
+ok 2 - native Node executes erasable TypeScript without a test framework
+  ---
+  duration_ms: 0.307625
+  type: 'test'
+  ...
+# Subtest: native SQLite is available without another database dependency
+ok 3 - native SQLite is available without another database dependency
+  ---
+  duration_ms: 0.044875
+  type: 'test'
+  ...
+# Subtest: the pinned primitive loads and encodes an update between disposable documents
+ok 4 - the pinned primitive loads and encodes an update between disposable documents
+  ---
+  duration_ms: 2.295084
+  type: 'test'
+  ...
+# Subtest: SUM distinguishes range/reference values from direct scalar coercion, propagates errors
+ok 5 - SUM distinguishes range/reference values from direct scalar coercion, propagates errors
+  ---
+  duration_ms: 6.169958
+  type: 'test'
+  ...
+# Subtest: dirty closure recalculates dependents only; changed formula detaches old edges
+ok 6 - dirty closure recalculates dependents only; changed formula detaches old edges
+  ---
+  duration_ms: 3.248084
+  type: 'test'
+  ...
+# Subtest: actual evaluation detects self/mutual/downstream cycles while IF stays lazy
+ok 7 - actual evaluation detects self/mutual/downstream cycles while IF stays lazy
+  ---
+  duration_ms: 1.408
+  type: 'test'
+  ...
+# Subtest: structure changes rebuild range dependencies and deletion/undo clears stale values
+ok 8 - structure changes rebuild range dependencies and deletion/undo clears stale values
+  ---
+  duration_ms: 2.0235
+  type: 'test'
+  ...
+# Subtest: iterative formula scheduling handles a 2000-cell chain and isolates dirty edits
+ok 9 - iterative formula scheduling handles a 2000-cell chain and isolates dirty edits
+  ---
+  duration_ms: 60.435042
+  type: 'test'
+  ...
+# {"profile":"controlled-2000-cell-chain","rows":50,"columns":40,"populated":2000,"formulas":1999,"initialRegisterMs":3.721999999999994,"initialRecalculationMs":2.549541000000005,"dirtyDiffUpdateRecalculationMs":0.40212499999999807,"dirtyEvaluatedFormulas":0,"initialCellVisits":2000,"changedCellVisits":1}
+# (node:97257) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: independent pinned Yjs replicas converge atomic native cell commits and retain alternatives
+ok 10 - independent pinned Yjs replicas converge atomic native cell commits and retain alternatives
+  ---
+  duration_ms: 19.712959
+  type: 'test'
+  ...
+# Subtest: insert vs cross-sheet formula commit preserves stable reference and deterministic row order
+ok 11 - insert vs cross-sheet formula commit preserves stable reference and deterministic row order
+  ---
+  duration_ms: 5.364167
+  type: 'test'
+  ...
+# Subtest: delete vs remote cell commit retains content; deletion undo restores same identity
+ok 12 - delete vs remote cell commit retains content; deletion undo restores same identity
+  ---
+  duration_ms: 8.791
+  type: 'test'
+  ...
+# Subtest: structural undo refuses another session contribution and unsupported operations remain explicit
+ok 13 - structural undo refuses another session contribution and unsupported operations remain explicit
+  ---
+  duration_ms: 12.256209
+  type: 'test'
+  ...
+# Subtest: server binds NEW native events to authenticated actor/session and allows known foreign sync events
+ok 14 - server binds NEW native events to authenticated actor/session and allows known foreign sync events
+  ---
+  duration_ms: 9.648542
+  type: 'test'
+  ...
+# Subtest: raw delete/overwrite/hidden collision and duplicate native writers cannot alter admitted events
+ok 15 - raw delete/overwrite/hidden collision and duplicate native writers cannot alter admitted events
+  ---
+  duration_ms: 6.38775
+  type: 'test'
+  ...
+# Subtest: unknown roots, malformed bytes, wrong native versions and identity collisions leave replicas unchanged
+ok 16 - unknown roots, malformed bytes, wrong native versions and identity collisions leave replicas unchanged
+  ---
+  duration_ms: 2.11925
+  type: 'test'
+  ...
+# Subtest: valid native missing dependencies remain pending and later apply; transport pending is a separate refusal
+ok 17 - valid native missing dependencies remain pending and later apply; transport pending is a separate refusal
+  ---
+  duration_ms: 5.087625
+  type: 'test'
+  ...
+# Subtest: two offline Sheet writers converge through durable ACK loss, checkpoint/restart and session undo
+ok 18 - two offline Sheet writers converge through durable ACK loss, checkpoint/restart and session undo
+  ---
+  duration_ms: 22.063459
+  type: 'test'
+  ...
+# Subtest: bounded sequential/concurrent histories store linear dependency edges and preserve convergence/undo
+ok 19 - bounded sequential/concurrent histories store linear dependency edges and preserve convergence/undo
+  ---
+  duration_ms: 80.253792
+  type: 'test'
+  ...
+# Subtest: causal frontier retains unrelated pending/refused events and unblocks only after the missing event arrives
+ok 20 - causal frontier retains unrelated pending/refused events and unblocks only after the missing event arrives
+  ---
+  duration_ms: 9.430708
+  type: 'test'
+  ...
+# Subtest: cyclic pending components keep a deterministic covering frontier instead of disappearing
+ok 21 - cyclic pending components keep a deterministic covering frontier instead of disappearing
+  ---
+  duration_ms: 11.973584
+  type: 'test'
+  ...
+# Subtest: safe grammar, precedence, comparison, text and booleans
+ok 22 - safe grammar, precedence, comparison, text and booleans
+  ---
+  duration_ms: 8.117875
+  type: 'test'
+  ...
+# Subtest: Excel unary negation binds before exponentiation
+ok 23 - Excel unary negation binds before exponentiation
+  ---
+  duration_ms: 2.182
+  type: 'test'
+  ...
+# Subtest: Excel equal-precedence exponents associate left to right
+ok 24 - Excel equal-precedence exponents associate left to right
+  ---
+  duration_ms: 2.270125
+  type: 'test'
+  ...
+# Subtest: explicit parentheses override unary and exponent defaults and preserve AST display round trips
+ok 25 - explicit parentheses override unary and exponent defaults and preserve AST display round trips
+  ---
+  duration_ms: 2.448542
+  type: 'test'
+  ...
+# Subtest: explicit errors, unsupported inputs, invalid syntax and resource limits
+ok 26 - explicit errors, unsupported inputs, invalid syntax and resource limits
+  ---
+  duration_ms: 3.620209
+  type: 'test'
+  ...
+# Subtest: canonical text derives from typed AST, with quoted sheet names and escaped strings
+ok 27 - canonical text derives from typed AST, with quoted sheet names and escaped strings
+  ---
+  duration_ms: 1.140708
+  type: 'test'
+  ...
+# Subtest: bounded civil 1900/1904 dates, no fake leap day or locale inference
+ok 28 - bounded civil 1900/1904 dates, no fake leap day or locale inference
+  ---
+  duration_ms: 1.079084
+  type: 'test'
+  ...
+# Subtest: two independent Yjs clients preserve simultaneous same-paragraph input and marks
+ok 29 - two independent Yjs clients preserve simultaneous same-paragraph input and marks
+  ---
+  duration_ms: 6.667834
+  type: 'test'
+  ...
+# Subtest: relative selections follow remote edits and paragraph split/join retains remote text and marks
+ok 30 - relative selections follow remote edits and paragraph split/join retains remote text and marks
+  ---
+  duration_ms: 2.452084
+  type: 'test'
+  ...
+# Subtest: session-local undo preserves remote edits, including another tab of the same controlled user
+ok 31 - session-local undo preserves remote edits, including another tab of the same controlled user
+  ---
+  duration_ms: 1.961541
+  type: 'test'
+  ...
+# Subtest: split undo preserves text from a remote paragraph edit; unsupported block operations refuse
+ok 32 - split undo preserves text from a remote paragraph edit; unsupported block operations refuse
+  ---
+  duration_ms: 1.070459
+  type: 'test'
+  ...
+# Subtest: malformed bytes, embeds, unknown roots and unsupported marks cannot mutate a receiver
+ok 33 - malformed bytes, embeds, unknown roots and unsupported marks cannot mutate a receiver
+  ---
+  duration_ms: 1.024917
+  type: 'test'
+  ...
+# Subtest: undo refuses before mutation if retained text plus remote input could exceed the admitted bound
+ok 34 - undo refuses before mutation if retained text plus remote input could exceed the admitted bound
+  ---
+  duration_ms: 2.332
+  type: 'test'
+  ...
+# (node:97263) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: durable COMMIT, lost ACK, identical retry and checkpoint/tail restart are idempotent
+ok 35 - durable COMMIT, lost ACK, identical retry and checkpoint/tail restart are idempotent
+  ---
+  duration_ms: 11.104167
+  type: 'test'
+  ...
+# Subtest: process exits after committed write without close; a fresh process/connection replays it
+ok 36 - process exits after committed write without close; a fresh process/connection replays it
+  ---
+  duration_ms: 75.362042
+  type: 'test'
+  ...
+# Subtest: current access is checked on every retry; rejected offline draft remains local
+ok 37 - current access is checked on every retry; rejected offline draft remains local
+  ---
+  duration_ms: 2.997166
+  type: 'test'
+  ...
+# Subtest: identity collision, wrong generation/version and snapshot replacement refuse without writes
+ok 38 - identity collision, wrong generation/version and snapshot replacement refuse without writes
+  ---
+  duration_ms: 3.717167
+  type: 'test'
+  ...
+# Subtest: malformed, oversized, unknown-root and causally incomplete payloads do not enter durable state
+ok 39 - malformed, oversized, unknown-root and causally incomplete payloads do not enter durable state
+  ---
+  duration_ms: 3.973458
+  type: 'test'
+  ...
+# Subtest: one live SQLite writer owns disposable durable state; a second writer cannot open it
+ok 40 - one live SQLite writer owns disposable durable state; a second writer cannot open it
+  ---
+  duration_ms: 2.769334
+  type: 'test'
+  ...
+# Subtest: service identity strings stay opaque and bound, including Unicode and account punctuation
+ok 41 - service identity strings stay opaque and bound, including Unicode and account punctuation
+  ---
+  duration_ms: 2.942291
+  type: 'test'
+  ...
+# Subtest: copy/fill displaces only relative axes and distinguishes qualified cross-sheet refs
+ok 42 - copy/fill displaces only relative axes and distinguishes qualified cross-sheet refs
+  ---
+  duration_ms: 6.959792
+  type: 'test'
+  ...
+# Subtest: stable reference follows insertion; deletion/explicit same-ID undo differs from fresh ID
+ok 43 - stable reference follows insertion; deletion/explicit same-ID undo differs from fresh ID
+  ---
+  duration_ms: 2.554958
+  type: 'test'
+  ...
+# Subtest: range interior insert joins, outside insert stays outside, deleted endpoint errors
+ok 44 - range interior insert joins, outside insert stays outside, deleted endpoint errors
+  ---
+  duration_ms: 2.381917
+  type: 'test'
+  ...
+# Subtest: column identities and range boundaries obey the same structural policy
+ok 45 - column identities and range boundaries obey the same structural policy
+  ---
+  duration_ms: 1.661875
+  type: 'test'
+  ...
+# Subtest: overlapping cut reads snapshot, external absolute refs follow moved content
+ok 46 - overlapping cut reads snapshot, external absolute refs follow moved content
+  ---
+  duration_ms: 1.880542
+  type: 'test'
+  ...
+# Subtest: cross-sheet cut preserves external targets of moved formula and supports whole range cut
+ok 47 - cross-sheet cut preserves external targets of moved formula and supports whole range cut
+  ---
+  duration_ms: 2.264167
+  type: 'test'
+  ...
+# Subtest: partial/non-rectangular range cuts refuse before any native mutation
+ok 48 - partial/non-rectangular range cuts refuse before any native mutation
+  ---
+  duration_ms: 1.469167
+  type: 'test'
+  ...
+# Subtest: overlapping copy preserves source cells and reads original inputs
+ok 49 - overlapping copy preserves source cells and reads original inputs
+  ---
+  duration_ms: 1.255375
+  type: 'test'
+  ...
+# Subtest: fill can reuse one source with independent relative displacements
+ok 50 - fill can reuse one source with independent relative displacements
+  ---
+  duration_ms: 1.301833
+  type: 'test'
+  ...
+# Subtest: unary and exponent precedence survives relative-reference copy and derived text
+ok 51 - unary and exponent precedence survives relative-reference copy and derived text
+  ---
+  duration_ms: 2.141542
+  type: 'test'
+  ...
+# Subtest: concurrent insert/delete ordering converges for every independent-event permutation
+ok 52 - concurrent insert/delete ordering converges for every independent-event permutation
+  ---
+  duration_ms: 7.913833
+  type: 'test'
+  ...
+# Subtest: causally later interior insertion precedes observed sibling subtree
+ok 53 - causally later interior insertion precedes observed sibling subtree
+  ---
+  duration_ms: 0.842625
+  type: 'test'
+  ...
+# Subtest: reverse-causal DAG avoids non-transitive mixed-comparator ordering
+ok 54 - reverse-causal DAG avoids non-transitive mixed-comparator ordering
+  ---
+  duration_ms: 1.001875
+  type: 'test'
+  ...
+# Subtest: column insert/delete is independent and deterministic
+ok 55 - column insert/delete is independent and deterministic
+  ---
+  duration_ms: 0.559417
+  type: 'test'
+  ...
+# Subtest: deleted IDs never reuse, and undeclared causal targets refuse
+ok 56 - deleted IDs never reuse, and undeclared causal targets refuse
+  ---
+  duration_ms: 0.505583
+  type: 'test'
+  ...
+# Subtest: concurrent delete versus formula retains atomic input under tombstone
+ok 57 - concurrent delete versus formula retains atomic input under tombstone
+  ---
+  duration_ms: 0.646959
+  type: 'test'
+  ...
+# Subtest: known deleted target refuses edit and anchor insert; concurrent edit survives restoration
+ok 58 - known deleted target refuses edit and anchor insert; concurrent edit survives restoration
+  ---
+  duration_ms: 0.393166
+  type: 'test'
+  ...
+# Subtest: independent deletion markers require both own-session undos for same-ID restore
+ok 59 - independent deletion markers require both own-session undos for same-ID restore
+  ---
+  duration_ms: 0.416917
+  type: 'test'
+  ...
+# Subtest: A inserts row, B edits, A undo safely refuses and preserves remote data
+ok 60 - A inserts row, B edits, A undo safely refuses and preserves remote data
+  ---
+  duration_ms: 0.567292
+  type: 'test'
+  ...
+# Subtest: concurrent remote edit blocks insertion undo independent of lexical scheduling
+ok 61 - concurrent remote edit blocks insertion undo independent of lexical scheduling
+  ---
+  duration_ms: 1.028
+  type: 'test'
+  ...
+# Subtest: edit causally after successful insertion undo refuses without reviving row
+ok 62 - edit causally after successful insertion undo refuses without reviving row
+  ---
+  duration_ms: 0.37
+  type: 'test'
+  ...
+# Subtest: refused or pending foreign payload cannot block insertion undo
+ok 63 - refused or pending foreign payload cannot block insertion undo
+  ---
+  duration_ms: 0.399917
+  type: 'test'
+  ...
+# Subtest: foreign formula reference or anchored structural contribution protects identity
+ok 64 - foreign formula reference or anchored structural contribution protects identity
+  ---
+  duration_ms: 0.415792
+  type: 'test'
+  ...
+# Subtest: general moves/merges explicitly refuse; undo is not redo or snapshot restore
+ok 65 - general moves/merges explicitly refuse; undo is not redo or snapshot restore
+  ---
+  duration_ms: 0.489208
+  type: 'test'
+  ...
+# Subtest: native append after successful structural undo cannot retroactively revive its identity
+ok 66 - native append after successful structural undo cannot retroactively revive its identity
+  ---
+  duration_ms: 1.723708
+  type: 'test'
+  ...
+# Subtest: prior refused structural undo and concurrent blocker survive native and cold appends
+ok 67 - prior refused structural undo and concurrent blocker survive native and cold appends
+  ---
+  duration_ms: 0.807958
+  type: 'test'
+  ...
+# Subtest: native batch touching live and tombstoned cells refuses atomically after deletion
+ok 68 - native batch touching live and tombstoned cells refuses atomically after deletion
+  ---
+  duration_ms: 0.978541
+  type: 'test'
+  ...
+# Subtest: runtime exports satisfy exact C function contracts
+ok 69 - runtime exports satisfy exact C function contracts
+  ---
+  duration_ms: 1.093708
+  type: 'test'
+  ...
+# Subtest: two-sheet native workbook is sparse, ordered and identity-bound
+ok 70 - two-sheet native workbook is sparse, ordered and identity-bound
+  ---
+  duration_ms: 1.849458
+  type: 'test'
+  ...
+# Subtest: cell key tuple round-trips delimiter and prototype names
+ok 71 - cell key tuple round-trips delimiter and prototype names
+  ---
+  duration_ms: 0.211209
+  type: 'test'
+  ...
+# Subtest: concurrent value/formula commits converge and retain atomic alternatives
+ok 72 - concurrent value/formula commits converge and retain atomic alternatives
+  ---
+  duration_ms: 2.110917
+  type: 'test'
+  ...
+# Subtest: causal successor wins despite lexically smaller ID; prior inputs remain
+ok 73 - causal successor wins despite lexically smaller ID; prior inputs remain
+  ---
+  duration_ms: 0.554125
+  type: 'test'
+  ...
+# Subtest: own cell undo preserves later remote value and its superseded history
+ok 74 - own cell undo preserves later remote value and its superseded history
+  ---
+  duration_ms: 0.480334
+  type: 'test'
+  ...
+# Subtest: another tab of same actor cannot undo another session; repeat undo refuses
+ok 75 - another tab of same actor cannot undo another session; repeat undo refuses
+  ---
+  duration_ms: 0.540167
+  type: 'test'
+  ...
+# Subtest: batch failure is atomic and supported batch undo removes only own contributions
+ok 76 - batch failure is atomic and supported batch undo removes only own contributions
+  ---
+  duration_ms: 0.843917
+  type: 'test'
+  ...
+# Subtest: dependencies retain pending descendants and cycles, then resolve by retry
+ok 77 - dependencies retain pending descendants and cycles, then resolve by retry
+  ---
+  duration_ms: 1.150791
+  type: 'test'
+  ...
+# Subtest: same-ID retry deduplicates but different body rejects projection
+ok 78 - same-ID retry deduplicates but different body rejects projection
+  ---
+  duration_ms: 1.324709
+  type: 'test'
+  ...
+# Subtest: projection and constructors detach and recursively freeze input
+ok 79 - projection and constructors detach and recursively freeze input
+  ---
+  duration_ms: 0.425292
+  type: 'test'
+  ...
+# Subtest: validation rejects malformed JSON without executing accessors
+ok 80 - validation rejects malformed JSON without executing accessors
+  ---
+  duration_ms: 0.378709
+  type: 'test'
+  ...
+# Subtest: AST limits, non-atomic formula fields and duplicate batch keys reject
+ok 81 - AST limits, non-atomic formula fields and duplicate batch keys reject
+  ---
+  duration_ms: 61.332833
+  type: 'test'
+  ...
+# Subtest: revision includes body/context; diff identifies changed cell and structure sheets
+ok 82 - revision includes body/context; diff identifies changed cell and structure sheets
+  ---
+  duration_ms: 1.116917
+  type: 'test'
+  ...
+# Subtest: replayed immutable input stays equivalent and external JSON stays untrusted
+ok 83 - replayed immutable input stays equivalent and external JSON stays untrusted
+  ---
+  duration_ms: 1.0675
+  type: 'test'
+  ...
+# Subtest: native reuse and JSON replay produce exact equal revisions, records and diffs
+ok 84 - native reuse and JSON replay produce exact equal revisions, records and diffs
+  ---
+  duration_ms: 2.981875
+  type: 'test'
+  ...
+# Subtest: caller-frozen projections retain canonical number and key comparison semantics
+ok 85 - caller-frozen projections retain canonical number and key comparison semantics
+  ---
+  duration_ms: 0.342166
+  type: 'test'
+  ...
+# Subtest: native sequential overwrite retains exact undone and alternative history with an earlier ID
+ok 86 - native sequential overwrite retains exact undone and alternative history with an earlier ID
+  ---
+  duration_ms: 2.557708
+  type: 'test'
+  ...
+# Subtest: one native overwrite batch matches cold replay across existing cells and prior winners
+ok 87 - one native overwrite batch matches cold replay across existing cells and prior winners
+  ---
+  duration_ms: 0.951541
+  type: 'test'
+  ...
+# Subtest: covering tip and concurrent same-tip suffix preserve causal alternatives
+ok 88 - covering tip and concurrent same-tip suffix preserve causal alternatives
+  ---
+  duration_ms: 2.026084
+  type: 'test'
+  ...
+# Subtest: raw, shallow-frozen and replaced prefixes never reuse stale admitted content
+ok 89 - raw, shallow-frozen and replaced prefixes never reuse stale admitted content
+  ---
+  duration_ms: 1.574958
+  type: 'test'
+  ...
+# Subtest: duplicate, collision, pending resolution and error recovery match complete replay
+ok 90 - duplicate, collision, pending resolution and error recovery match complete replay
+  ---
+  duration_ms: 1.945709
+  type: 'test'
+  ...
+# Subtest: new and missing batch cells use atomic complete replay semantics
+ok 91 - new and missing batch cells use atomic complete replay semantics
+  ---
+  duration_ms: 0.954083
+  type: 'test'
+  ...
+# Subtest: repeated and interleaved contexts preserve revisions and reject incompatible reuse
+ok 92 - repeated and interleaved contexts preserve revisions and reject incompatible reuse
+  ---
+  duration_ms: 0.732792
+  type: 'test'
+  ...
+# Subtest: mutable projection contexts are revalidated after an otherwise eligible prefix
+ok 93 - mutable projection contexts are revalidated after an otherwise eligible prefix
+  ---
+  duration_ms: 0.776083
+  type: 'test'
+  ...
+# Subtest: 50arrival orders yield identical native atomic alternatives and session undo result
+ok 94 - 50arrival orders yield identical native atomic alternatives and session undo result
+  ---
+  duration_ms: 29.312084
+  type: 'test'
+  ...
+# Subtest: same-position rows and delete-versus-formula preserve identities and input in either arrival direction
+ok 95 - same-position rows and delete-versus-formula preserve identities and input in either arrival direction
+  ---
+  duration_ms: 5.214333
+  type: 'test'
+  ...
+# Subtest: A-created row edited and referenced by B refuses A structural undo in all arrival orders
+ok 96 - A-created row edited and referenced by B refuses A structural undo in all arrival orders
+  ---
+  duration_ms: 4.730875
+  type: 'test'
+  ...
+# Subtest: raw version/accessor/sparse collections reject before admission and duplicate identity cannot change its body
+ok 97 - raw version/accessor/sparse collections reject before admission and duplicate identity cannot change its body
+  ---
+  duration_ms: 0.501042
+  type: 'test'
+  ...
+# (node:97284) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# (node:97283) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: ACK-loss receipt survives restart and payload compaction without duplicate text
+ok 98 - ACK-loss receipt survives restart and payload compaction without duplicate text
+  ---
+  duration_ms: 89.986833
+  type: 'test'
+  ...
+# Subtest: revoked session cannot replay old durable receipt; offline bytes remain pending
+ok 99 - revoked session cannot replay old durable receipt; offline bytes remain pending
+  ---
+  duration_ms: 2.800791
+  type: 'test'
+  ...
+# Subtest: incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+ok 100 - incompatible generation/schema, forged transport session and ID collision cannot mutate persisted state
+  ---
+  duration_ms: 3.04575
+  type: 'test'
+  ...
+# Subtest: late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+ok 101 - late ACK for one input cannot mark a newer input saved; mismatched receipt refuses
+  ---
+  duration_ms: 2.904083
+  type: 'test'
+  ...
+# Subtest: actual range and cross-sheet references agree after concurrent insert, deletion and explicit same-ID restore
+ok 102 - actual range and cross-sheet references agree after concurrent insert, deletion and explicit same-ID restore
+  ---
+  duration_ms: 6.72275
+  type: 'test'
+  ...
+# Subtest: actual copy differs from cross-sheet cut; both absolute and relative references follow moved content
+ok 103 - actual copy differs from cross-sheet cut; both absolute and relative references follow moved content
+  ---
+  duration_ms: 2.193
+  type: 'test'
+  ...
+# Subtest: dirty closure evaluates one dependent formula and old revision result refuses freshness
+ok 104 - dirty closure evaluates one dependent formula and old revision result refuses freshness
+  ---
+  duration_ms: 1.572792
+  type: 'test'
+  ...
+# Subtest: Excel unary and exponent binding profile is explicit in actual parser/evaluator
+ok 105 - Excel unary and exponent binding profile is explicit in actual parser/evaluator
+  ---
+  duration_ms: 1.726417
+  type: 'test'
+  ...
+# Subtest: nearest rank retains spikes and raw order is unchanged
+ok 106 - nearest rank retains spikes and raw order is unchanged
+  ---
+  duration_ms: 0.874917
+  type: 'test'
+  ...
+# Subtest: empty, negative and nonfinite measurements cannot become zero-latency PASS
+ok 107 - empty, negative and nonfinite measurements cannot become zero-latency PASS
+  ---
+  duration_ms: 0.157083
+  type: 'test'
+  ...
+# Subtest: memory guard includes only the owned browser and all descendant generations
+ok 108 - memory guard includes only the owned browser and all descendant generations
+  ---
+  duration_ms: 0.809792
+  type: 'test'
+  ...
+# Subtest: exited owned root cannot adopt unrelated orphan or malformed memory records
+ok 109 - exited owned root cannot adopt unrelated orphan or malformed memory records
+  ---
+  duration_ms: 0.1215
+  type: 'test'
+  ...
+# Subtest: repeatability reports actual variation and refuses missing/nonfinite evidence
+ok 110 - repeatability reports actual variation and refuses missing/nonfinite evidence
+  ---
+  duration_ms: 0.121833
+  type: 'test'
+  ...
+# Subtest: frozen v1.1 noise floor preserves tiny phases without admitting large unstable phases
+ok 111 - frozen v1.1 noise floor preserves tiny phases without admitting large unstable phases
+  ---
+  duration_ms: 0.072459
+  type: 'test'
+  ...
+# Subtest: sample wall expires pending startup and retires its late owned handle
+ok 112 - sample wall expires pending startup and retires its late owned handle
+  ---
+  duration_ms: 18.068375
+  type: 'test'
+  ...
+# Subtest: one wall deadline covers completed startup and the following pending phase
+ok 113 - one wall deadline covers completed startup and the following pending phase
+  ---
+  duration_ms: 17.3235
+  type: 'test'
+  ...
+# Subtest: successful sample stops its timer and refuses new operations after retirement
+ok 114 - successful sample stops its timer and refuses new operations after retirement
+  ---
+  duration_ms: 26.145292
+  type: 'test'
+  ...
+# Subtest: late synchronous settlement cannot outrun the expiry timer and be accepted
+ok 115 - late synchronous settlement cannot outrun the expiry timer and be accepted
+  ---
+  duration_ms: 20.255084
+  type: 'test'
+  ...
+# Subtest: scale workload has exact population, formulas and bounds without materializing empty cells
+ok 116 - scale workload has exact population, formulas and bounds without materializing empty cells
+  ---
+  duration_ms: 10.272667
+  type: 'test'
+  ...
+# Subtest: Word workload names explicit breaks and scales linear source content
+ok 117 - Word workload names explicit breaks and scales linear source content
+  ---
+  duration_ms: 1.555292
+  type: 'test'
+  ...
+# Subtest: concurrent same-offset inserts converge; local undo preserves the other tab
+ok 118 - concurrent same-offset inserts converge; local undo preserves the other tab
+  ---
+  duration_ms: 8.147292
+  type: 'test'
+  ...
+# Subtest: remote formatting and text survive split undo and explicit join
+ok 119 - remote formatting and text survive split undo and explicit join
+  ---
+  duration_ms: 4.568917
+  type: 'test'
+  ...
+# Subtest: fresh reload has no old session undo; relative anchor follows remote insertion
+ok 120 - fresh reload has no old session undo; relative anchor follows remote insertion
+  ---
+  duration_ms: 0.904167
+  type: 'test'
+  ...
+# Subtest: unsupported paragraph operations and malformed ranges refuse without content mutation
+ok 121 - unsupported paragraph operations and malformed ranges refuse without content mutation
+  ---
+  duration_ms: 0.614209
+  type: 'test'
+  ...
+# (node:97294) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: real two-replica cell alternatives, same-position rows and Formula output agree
+ok 122 - real two-replica cell alternatives, same-position rows and Formula output agree
+  ---
+  duration_ms: 25.601542
+  type: 'test'
+  ...
+# Subtest: delete versus remote cross-sheet formula converges to REF; explicit deletion undo restores reference
+ok 123 - delete versus remote cross-sheet formula converges to REF; explicit deletion undo restores reference
+  ---
+  duration_ms: 12.05275
+  type: 'test'
+  ...
+# Subtest: A row created then B cell commit makes A undo recoverably refuse without lost data
+ok 124 - A row created then B cell commit makes A undo recoverably refuse without lost data
+  ---
+  duration_ms: 13.635167
+  type: 'test'
+  ...
+# Subtest: actual server refuses forged native identity and admitted-event-body replay tamper; ACK and checkpoint remain bound
+ok 125 - actual server refuses forged native identity and admitted-event-body replay tamper; ACK and checkpoint remain bound
+  ---
+  duration_ms: 15.008958
+  type: 'test'
+  ...
+# Subtest: causal frontier keeps sequential context linear and joins three offline branches without losing session undo
+ok 126 - causal frontier keeps sequential context linear and joins three offline branches without losing session undo
+  ---
+  duration_ms: 116.714333
+  type: 'test'
+  ...
+1..126
+# tests 126
+# suites 0
+# pass 126
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2201.519958

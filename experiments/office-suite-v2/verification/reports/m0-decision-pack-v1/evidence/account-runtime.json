@@ -1,0 +1,458 @@
+{
+  "version": 1,
+  "status": "BOUNDED_LOCAL_ACCOUNT_SHEET_RUNTIME_VERIFIED_FOR_PLANNER_REVIEW",
+  "at": "2026-10-22T07:42:52.376687+00:00",
+  "owner": "Execute Integration #522",
+  "issues": [
+    521,
+    522,
+    533,
+    534
+  ],
+  "source": {
+    "root": "/Users/user/.codex/worktrees/522-sheet-account-integration/barocss-editor",
+    "branch": "codex/522-sheet-account-integration",
+    "head": "7eca44213c9b9609c88b635dcfc0ee8412a7e21d",
+    "tree": "e09d6f739d05407359c5a0af88cd309b3aac9949",
+    "clean": true,
+    "identity": "easylogic <cyberuls@gmail.com> / easylogic <cyberuls@gmail.com>",
+    "UI": "0071616f7be0cb99ec8b0cc7b3ae2e96525ab98b + initial-login J7c03d0d530dd56c6938da493bea1bbab6ced0e75",
+    "backend": "S2ebf8113a7a0ad8da526eea48077278a22eae5fe + T6e74ff05adf67dcd9e7ea39169347bbe09d4691f + Ufd27a13e4745e8debf8dbd0c8a9b0f2782a443d3",
+    "PG": "G4c776e149825d6362657facc25a994ecbe75c65d; actual0026 applied; export/registration b3e41b3965c29132eb3aee40ea9ad9ac5ea91248",
+    "genericAuthClientUnchanged": true,
+    "UdeltaFrom27ef91d4": [
+      "apps/office-service/test/sheet-access-store.test.ts",
+      "experiments/office-suite-v2/relay/sheet/account-service.ts"
+    ],
+    "reuseBoundary": "U changes only pre-COMMIT denial error propagation in account facade and its test. Native engine/storage/SQL/bootstrap/registry/success/receipt/recovery and browser UI sources remain identical to qualified27ef91d4. Unaffected runtime evidence is reused with its original pin; no fresh aggregate is claimed."
+  },
+  "environment": {
+    "Node": "22.22.0",
+    "pnpm": "8.15.0",
+    "TypeScript": "5.9.3",
+    "Playwright": "1.58",
+    "Chromium": "145.0.7632.6",
+    "Yjs": "13.6.29",
+    "ws": "8.22.0",
+    "IdP": "actual owned loopback Keycloak26.8.1, real PKCE S256, JWKS/audience/session introspection",
+    "PG": "actual separate owned PostgreSQL16.13, wonffice_app/RLS/current SheetAccessStore",
+    "native": "original SheetReplica and actual original native SQLite COMMIT; no engine replacement"
+  },
+  "checks": {
+    "joined75": "75PASS/0FAIL/0SKIP on joinedS+UI007; initial lint unusedvariable preserved then T fixed. No later fresh75 claim.",
+    "sourceTypes": "11 roots/imports0; T1root0; Jauthor4roots0; Uauthor2configuredroots0 and finaljoined1root0",
+    "initialLoginJ": "same2files18PASS/2FAIL to20PASS; regression models original auth-client initial missing session",
+    "U": "same real Store-class/model PG callback + actual native regression503FAIL to2PASS; actualproduct same denied request then403 PASS",
+    "rootPreflight": "NOT RERUN; scoped qualification on separate branch only, no develop merge or release",
+    "broaderSuites": "No unchanged Word/Core/root/profile repetitions"
+  },
+  "criteria": [
+    {
+      "id": "R1",
+      "status": "BOUNDED PASS",
+      "source": "27ef91d4",
+      "evidence": [
+        "account-runtime/R1-R2-checkpoint.json",
+        "account-runtime/browser-original-source/manifest.json"
+      ],
+      "result": "Two real interactive accounts through original Office API/currentPG/admission and native WS, canonical actors/distinct sessions/shared context. Initial anonymous-button product defect reproduced and J corrected.",
+      "limits": "Original public R1 snapshot omitted full seven-field accountBinding; later independent configured runs retain their actual seven-field bindings under their own pins, never substituted as original values."
+    },
+    {
+      "id": "R2",
+      "status": "BOUNDED PASS",
+      "source": "27ef91d4",
+      "evidence": [
+        "account-runtime/R1-R2-checkpoint.json",
+        "account-runtime/browser-original-source/manifest.json",
+        "planner-account-browser-evidence/review.json"
+      ],
+      "result": "Actual mouse/keyboard two-way edit, SUM44->38/IF, B48, selective A Undo56 preservingB then B Undo44; simultaneous formula/literal alternatives; active draft/caret retained; later read-only actualIDB assertion observed12 durable originals.",
+      "limits": "Original12 IDB raw packet/receipt identities were only private memory and not individually preserved before REPL reset. Original assertions/count and tool source/output remain; do not fabricate them from later runs. Original request page labels all1 and earlier untimestamped1092 warmup HMR errors cannot prove per-account traffic or full R1/R2 zero errors."
+    },
+    {
+      "id": "R3",
+      "status": "BOUNDED PASS",
+      "source": "27ef91d4 original; finalU supplementary",
+      "evidence": [
+        "account-runtime/account-stages-result.json",
+        "account-runtime/runs/1792653824561-d4d2219e-218e-4be6-be35-175e8891e17c/result.json"
+      ],
+      "result": "Actual PG RO read access; native accepted-state unchanged under denied append/checkpoint/retry, original IDB request retained; actual RW regrant confirms same original ID/hash/identity/request. FinalU supplement verifies B native/display G20 receives A value and a real prior UI Undo packet is refused before dedup under RO. UI Undo disabled separately."
+    },
+    {
+      "id": "R4",
+      "status": "BOUNDED PASS",
+      "source": "27ef91d4 COMMIT/revoke; finalU logout",
+      "evidence": [
+        "account-runtime/runs/1792653121325-f282306e-a198-4f40-ad6c-6c9fc196b789/result.json",
+        "account-runtime/runs/1792653997811-6c2c0d61-7f8d-4782-9740-ab6fe8cb3ed8/result.json"
+      ],
+      "result": "Actual COMMIT/held receipt then actual PG revoke leaves ACKunknown with no correlated false rejection, other account writes; real grant restoration/same provider session obtains same receipt sequence. Actual verified-own-SID logout: relay403/API401, original pending IDB retained, original hidden/inert draft DOM retained, other account writes.",
+      "limits": "Draft retained only in original page DOM/controller memory; no auto draft-IDB persistence or browser-close draft recovery claim."
+    },
+    {
+      "id": "R5",
+      "status": "BOUNDED PASS",
+      "source": "finalU7eca4421",
+      "evidence": [
+        "account-runtime/runs/1792653824561-d4d2219e-218e-4be6-be35-175e8891e17c/result.json"
+      ],
+      "result": "Exact real B-token/A-original-credential request changed503FAIL to403 afterU, native/registry hashes unchanged; anonymous401, wrong tenant/document404, foreignOrigin403, actual one-use ticket replay refused.",
+      "limits": "No claim of a new exhaustive forged-JWT/production-provider negative suite; model/source evidence remains separately pinned."
+    },
+    {
+      "id": "R6",
+      "status": "BOUNDED PASS",
+      "source": "finalU7eca4421",
+      "evidence": [
+        "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/result.json"
+      ],
+      "result": "Actual A->B->A within same retained browser context: A committed shared307f6140/seq34 remains visible legitimately; newer unsent78aefd51/draft remains private/retained. B original-A-client blocked; explicit newB client confirms only own update; newA loginBinding differs and oldnativecredential403; original requests/identities/ordinals/client credentials retained without automatic new-SID adoption.",
+      "limits": "release-ack returned rejected; B own update was already durable before attempted release. This proves retired A held response refused and B confirmation belonged to B; NOT an actual late A ACK arriving while B had another pending. Socket observer IDs are logging; actual corrected oracle scopes by requestId AND immutable receipt.updateId. Immutable original fields stay fixed; pending may legitimately become ACKunknown, so not every delivery metadata byte is asserted constant."
+    },
+    {
+      "id": "R7",
+      "status": "BOUNDED PASS WITH MANUAL RETRY",
+      "source": "27ef91d4; unaffected native/recovery bytes reused underU",
+      "evidence": [
+        "account-runtime/runs/1792653288148-3423dca5-f586-481e-8f57-cc722438b2ec/result.json",
+        "account-runtime/reconstructed-source-bindings/receipt.json"
+      ],
+      "result": "Actual oldPID56150 toNEW56298, same physicalSQLite dev16777232/inode679583234/manifest, checkpoint21 plus tail; same original B packet352f2efa/request/credential confirmsseq23,113events converge; third dedicated profile opens same native state, actual reedit/ownUndo then115events converge.",
+      "limits": "A explicitly clicked Retry original updates after planned outageHTTP500. No automatic reconnect/backoff PASS. Provider SID directly comparing rawvalues and pre-open IDB-empty assertion were not captured. Earlier R4/R7 harness source hashes are explicit retrospective reconstruction, not fabricated execution-time hashes. Later runs capture source before measurements."
+    },
+    {
+      "id": "R8",
+      "status": "BOUNDED PASS",
+      "source": "finalU7eca4421",
+      "evidence": [
+        "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/result.json",
+        "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/executed-source.mjs",
+        "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/execution-binding.json"
+      ],
+      "result": "Exact-value scan of6 observed bearer values and10 tickets across designated account-origin IDB/webstorage/current URLs/public executed source+result foundnone.3036 browser module responses/no observed Node/server paths; final ABA run0page/consoleerrors.",
+      "limits": "Not every file/cookie/native opaque credential/provider log. Private normal IdP cookies remain allowed. No zero-error promotion to earlier R1/R2 or planned-outage R7."
+    }
+  ],
+  "firstFailuresPreserved": [
+    {
+      "kind": "product",
+      "path": "account-runtime/account-first-failure-initial-login.json",
+      "repair": "J initial anonymous capture guard; actual R1 rerun PASS"
+    },
+    {
+      "kind": "product",
+      "path": "account-runtime/account-stages-result.json",
+      "failure": "R5 actual foreign original credential503 instead403",
+      "repair": "U; same actual request403/native+registryunchanged in finalU R5 run"
+    },
+    {
+      "kind": "harness",
+      "path": "account-runtime/R3-harness-interruption.json",
+      "failure": "var page attribution, guessed missing /ws path, refused string evaluation, timeout/REPL reset; private ephemeral browser context lost. No retry/regrant PASS from that interrupted attempt."
+    },
+    {
+      "kind": "harness",
+      "path": "account-runtime/account-stages-continuation-result.json",
+      "failure": "Whole-browser-close original client opening blocked; rawSID transition not captured, not accepted as R7/newSID proof"
+    },
+    {
+      "kind": "harness assumption",
+      "path": "account-runtime/runs/1792653121325-f282306e-a198-4f40-ad6c-6c9fc196b789/result.json",
+      "failure": "First R7 assumed auto recovery after outage500; explicit actual A Retry in next targeted run passed"
+    },
+    {
+      "kind": "harness assumption",
+      "path": "account-runtime/runs/1792653288148-3423dca5-f586-481e-8f57-cc722438b2ec/result.json",
+      "failure": "Later logout step wrongly waited draft-IDB persistence BEFORE logout. This is different from subsequent U relay-status assertion failure."
+    },
+    {
+      "kind": "harness status oracle",
+      "path": "account-runtime/runs/1792653824561-d4d2219e-218e-4be6-be35-175e8891e17c/result.json",
+      "failure": "Later actual logout returned canonical relay403, harness expected401; no auth defect or relaxed acceptance. Original Office API still requires401."
+    },
+    {
+      "kind": "harness observer",
+      "path": "account-runtime/runs/1792653997811-6c2c0d61-7f8d-4782-9740-ab6fe8cb3ed8/result.json",
+      "failure": "Later B oldA-client WebLock rejection occurs before sheetDurable global; DOM blocked is actual UI contract"
+    },
+    {
+      "kind": "harness correlation",
+      "path": "account-runtime/runs/1792654163694-41d6c4b6-e7c4-428a-86f4-4ac2606f8011/result.json",
+      "failure": "Compared requestId across connections/pages; corrected correlation also matches immutable receipt.updateId. Failed run unchanged."
+    }
+  ],
+  "preservation": {
+    "primaryPlanningFiles": {
+      "docs/ROADMAP.md": {
+        "actualSHA256": "e71ebaf85bb7d0a35c3636e310f9de1120cc9c20f4356cd7f9d4bbe05cd6caf6",
+        "originalSHA256": "e71ebaf85bb7d0a35c3636e310f9de1120cc9c20f4356cd7f9d4bbe05cd6caf6",
+        "matches": true
+      },
+      "docs/specs/office-suite-v2.md": {
+        "actualSHA256": "ea119a4d9d3d8f6b2c0b72d7c8b29c2e71ab5a899f2b604cd4f26d6298f61c95",
+        "originalSHA256": "ea119a4d9d3d8f6b2c0b72d7c8b29c2e71ab5a899f2b604cd4f26d6298f61c95",
+        "matches": true
+      },
+      ".dev/plans/office-suite-v2/10-feature-brief.md": {
+        "actualSHA256": "bb908c6f7b7b4c99dcdebc0a04d119f993b1a1b52b983c44deb4a02da024a895",
+        "originalSHA256": "bb908c6f7b7b4c99dcdebc0a04d119f993b1a1b52b983c44deb4a02da024a895",
+        "matches": true
+      },
+      ".dev/plans/office-suite-v2/20-m0-execution.md": {
+        "actualSHA256": "3331f284157fc81cb4b99783bb68fb628102f07fd5508583d18e269d7f1d7aed",
+        "originalSHA256": "3331f284157fc81cb4b99783bb68fb628102f07fd5508583d18e269d7f1d7aed",
+        "matches": true
+      }
+    },
+    "primaryHEAD": "034a42c36924bc9a9808847d065e542cb5390c4c",
+    "develop": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+    "remoteSnapshot": {
+      "main": "034a42c36924bc9a9808847d065e542cb5390c4c",
+      "develop": "1190dce8de45bc61c06ec206df4138692d413a2d",
+      "defaultBranch": "main",
+      "openPR": "519 unrelated WIP; no mutation"
+    },
+    "oldUserPIDs": {
+      "12634": true,
+      "21740": true,
+      "72188": true,
+      "48909": true,
+      "37462": true
+    },
+    "allOldIABTabs": "1-10 untouched",
+    "oldUserStoresAndFrozenSources": "not edited/reloaded/reset/replaced",
+    "noPushPRDeploy": true,
+    "issueAndGoalClosure": "NONE; Planner owns whole acceptance",
+    "M0": "OPEN; unrelated Word100 RSS FAIL1of3 remains"
+  },
+  "cleanup": {
+    "at": "2026-10-22T07:42:52.376687+00:00",
+    "newAccountPorts": {
+      "55267": {
+        "listening": false
+      },
+      "55268": {
+        "listening": false
+      },
+      "55269": {
+        "listening": false
+      },
+      "55270": {
+        "listening": false
+      },
+      "55271": {
+        "listening": false
+      },
+      "55272": {
+        "listening": false
+      }
+    },
+    "ownedProcesses": [
+      {
+        "role": "relay",
+        "pid": 84671,
+        "exec": 37843,
+        "exit": 0
+      },
+      {
+        "role": "original API",
+        "pid": 64468,
+        "exec": 28584,
+        "exit": 0
+      },
+      {
+        "role": "UI",
+        "pid": 64490,
+        "exec": 80158,
+        "exit": 0
+      },
+      {
+        "role": "Keycloak",
+        "pid": 8979,
+        "exec": 62479,
+        "exit": 143,
+        "detail": "SIGTERM; observed orderly Keycloak stop"
+      },
+      {
+        "role": "PostgreSQL",
+        "pid": 93999,
+        "detail": "exact owned PGDATA pg_ctl fast -w stop exit0"
+      }
+    ],
+    "privateProfileBrowserProcessesRemaining": 0,
+    "oldUserProcessesAlive": {
+      "12634": true,
+      "21740": true,
+      "72188": true,
+      "48909": true,
+      "37462": true
+    },
+    "oldIABTabs": "1-10 preserved; no CUA edit/reload/close/new-tab action in this account qualification",
+    "dataRetained": [
+      "/Users/user/barocss-editor/.omx/m0/account-runtime/profiles",
+      "/Users/user/barocss-editor/.omx/m0/account-runtime/pg-data",
+      "/Users/user/barocss-editor/.omx/m0/account-runtime/keycloak/keycloak-26.8.1/data",
+      "/private/var/folders/kd/q2hh9cdj51zblmfh_3pd0p_h0000gn/T/office-v2-m0-Z4860O"
+    ],
+    "newAccountUserHandoff": "NONE. All account services were diagnostic fixtures and are now stopped. No tested document promoted or original user store replaced."
+  },
+  "artifacts": [
+    {
+      "path": "account-runtime/R1-R2-checkpoint.json",
+      "bytes": 397707,
+      "sha256": "583c553ec65df976755b010dbbe1e7806ba95d3f23ba3bee23aa092265533414"
+    },
+    {
+      "path": "account-runtime/account-stages-result.json",
+      "bytes": 5873,
+      "sha256": "b03203e323a603b28c755ecf439a7e430a22f550d8f034f546b2d679ee254c4b"
+    },
+    {
+      "path": "account-runtime/runs/1792653121325-f282306e-a198-4f40-ad6c-6c9fc196b789/result.json",
+      "bytes": 6509,
+      "sha256": "747858bceb7d79fd0868e25712669b335cc6709e1783e982fa3cc243cf56281f"
+    },
+    {
+      "path": "account-runtime/runs/1792653288148-3423dca5-f586-481e-8f57-cc722438b2ec/result.json",
+      "bytes": 5518,
+      "sha256": "a347175f5be257fe3de6985437155b0d1920567fd680a011ec60a6ea2f064b47"
+    },
+    {
+      "path": "account-runtime/runs/1792653824561-d4d2219e-218e-4be6-be35-175e8891e17c/result.json",
+      "bytes": 197792,
+      "sha256": "21128c03572be8a9a13893316e2db0f56145a949e4105224a1712a40c9908a17"
+    },
+    {
+      "path": "account-runtime/runs/1792653997811-6c2c0d61-7f8d-4782-9740-ab6fe8cb3ed8/result.json",
+      "bytes": 292654,
+      "sha256": "f3a1650ecb72c3034e03c033b50ff196b2bac75a9a1749ea3f2fdb8b140ea087"
+    },
+    {
+      "path": "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/result.json",
+      "bytes": 585980,
+      "sha256": "4cc5969b93b741f44b855934f1b4505e9039a8e125dc83e27bff163ae5818a96"
+    },
+    {
+      "path": "account-runtime/browser-original-source/manifest.json",
+      "bytes": 14142,
+      "sha256": "f0cb35c82318d54eb8431a8edf30b73d2350bf6f1aaf6027448573a2dcd6f4fb"
+    },
+    {
+      "path": "account-runtime/reconstructed-source-bindings/receipt.json",
+      "bytes": 6411,
+      "sha256": "ef64a51fe1e1c904206f35c4473e8455ac8a58be8e86b08486ff259b6781d692"
+    },
+    {
+      "path": "planner-account-browser-evidence/review.json",
+      "bytes": 33340,
+      "sha256": "efa3dadd332dcd8e6ecd5049b2f677f696082b47625b5e551affa5d585187e13"
+    },
+    {
+      "path": "account-runtime/pg-final-post-browser-state.json",
+      "bytes": 424,
+      "sha256": "3812dfa55c9d3241475ab1308c20c4f5745ef19e63b8102bf97e9918b90ff9b1"
+    },
+    {
+      "path": "account-runtime/idp-prerequisite-result.json",
+      "bytes": 1886,
+      "sha256": "b0a7cebe1f8ff66f90b391d5d6832d86f668d455f165d73ec2198ae5c5f3696f"
+    },
+    {
+      "path": "account-runtime/pg-sheet-gate-result.json",
+      "bytes": 2231,
+      "sha256": "bacf7ee97a715b0063ae1d5386836c9600b91b861a82b6c632187a20662d05c8"
+    },
+    {
+      "path": "account-browser-predata-v3.json",
+      "bytes": 5185,
+      "sha256": "ab901ae1725d833b5c9f271158a45e760c4d39d19ebef49a6cba4803dabe131c"
+    },
+    {
+      "path": "account-final-source-checks.json",
+      "bytes": 651,
+      "sha256": "a273a224b77e5d8bf4fbf527854d7c1628fe7bd603df59a38a684e453d186177"
+    },
+    {
+      "path": "account-U-joined-source-types.log",
+      "bytes": 72,
+      "sha256": "c358ba37946aa8e024860ca725d35dab00a51af3cb50805b2b10b25602b605ef"
+    },
+    {
+      "path": "account-joined-tests.log",
+      "bytes": 20576,
+      "sha256": "7b822d0e482cc6630492a00e6e8d80481046142a6d027774606c96e5eb44e2f2"
+    },
+    {
+      "path": "account-joined-lint-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "account-534-S-intake.json",
+      "bytes": 1576,
+      "sha256": "f9f5f3c6e85d6e7158791c896b88c20be73cfd709ffc3c0a04b496ff0ab5c349"
+    },
+    {
+      "path": "account-runtime/runs/1792653824561-d4d2219e-218e-4be6-be35-175e8891e17c/execution-binding.json",
+      "bytes": 456,
+      "sha256": "86db72d97343715a3b6c2f8cd7779879184db6d912bdbe4239f65e23c30d800c"
+    },
+    {
+      "path": "account-runtime/runs/1792653824561-d4d2219e-218e-4be6-be35-175e8891e17c/executed-source.mjs",
+      "bytes": 25263,
+      "sha256": "14d6db8d43a2378aa8275af700babc64dc06babc1a7d54dbdf1c2a49a698bfca"
+    },
+    {
+      "path": "account-runtime/runs/1792653997811-6c2c0d61-7f8d-4782-9740-ab6fe8cb3ed8/execution-binding.json",
+      "bytes": 464,
+      "sha256": "de138589d1a915a995851fc230cf0d4ab1f1695e53c8bd34af4fe9708f11dd76"
+    },
+    {
+      "path": "account-runtime/runs/1792653997811-6c2c0d61-7f8d-4782-9740-ab6fe8cb3ed8/executed-source.mjs",
+      "bytes": 23717,
+      "sha256": "b6cac1ab80fbcb903d850af3b3e7ddcf449663273aec0532a560397123c16e73"
+    },
+    {
+      "path": "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/execution-binding.json",
+      "bytes": 474,
+      "sha256": "4d098eac5efa9fcf8d19d7bdffb54a8a1cc2b9f714c87b9b3d1420dda5811c92"
+    },
+    {
+      "path": "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/executed-source.mjs",
+      "bytes": 23160,
+      "sha256": "9e0003768b9e8d403a700a3c919e31a1db6dfd5fda896b1d63e4590584984d5c"
+    },
+    {
+      "path": "account-runtime/R2-two-account-edit-0.png",
+      "bytes": 111052,
+      "sha256": "e66365043b6cc502c295d8f5101b1819d12476157a9c2e4d9196737161c52c63"
+    },
+    {
+      "path": "account-runtime/R2-two-account-edit-1.png",
+      "bytes": 258914,
+      "sha256": "42acb14a2ce1d51e7da97e1b636c3a7df018fd36e33b485b0b15560154fdeca9"
+    },
+    {
+      "path": "account-runtime/runs/1792654328439-6b3f35bc-4769-4986-975f-d93face3de98/actual-ABA-fresh-client.png",
+      "bytes": 105191,
+      "sha256": "29e8589800fc903cdaee2321a4bd384ab4a351842dd86ecc07b43396d343546e"
+    },
+    {
+      "path": "account-runtime/account-final-cleanup.json",
+      "bytes": 1719,
+      "sha256": "b7f977a6c350da9f7d49aed00740fff3a3474d1573973f62131f3520690b1d80"
+    }
+  ],
+  "unverified": [
+    "physical OS IME",
+    "screen reader",
+    "actual BFCache",
+    "hardware power loss",
+    "production/enterprise IdP/deployment/release",
+    "permanent draft recovery across logout+browser close",
+    "automatic new-SID old-pending migration (intentionally prohibited)",
+    "wholeM0/alpha/release acceptance"
+  ]
+}

@@ -1,0 +1,334 @@
+{
+  "schema": "office-v2-m0/evidence-index-v1",
+  "base": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+  "entries": [
+    {
+      "id": "core-contract",
+      "origin": "experiments/office-suite-v2/docs/core-contract.md",
+      "sha256": "86319f8ff40f510bec327ee5a959d8971bf502a318b423d47e3d2124fdd85ab4",
+      "bytes": 22996,
+      "description": "Native operations, conflict and Undo contract.",
+      "path": "experiments/office-suite-v2/docs/core-contract.md"
+    },
+    {
+      "id": "formula-contract",
+      "origin": "experiments/office-suite-v2/docs/formula-contract.md",
+      "sha256": "4013685100b56b140b3dbe2379bfa8feb3e266c04f819f14bf3338940caf8fc4",
+      "bytes": 17477,
+      "description": "Supported function/reference/date/coercion and refusal profile.",
+      "path": "experiments/office-suite-v2/docs/formula-contract.md"
+    },
+    {
+      "id": "collaboration-contract",
+      "origin": "experiments/office-suite-v2/docs/collaboration-contract.md",
+      "sha256": "beb32ecb1bb5ebc57ec0d006c2da47cd302597d51b8f88a628255809d6b96519",
+      "bytes": 18160,
+      "description": "Granular bindings, prose, admission, persistence and explicit limits.",
+      "path": "experiments/office-suite-v2/docs/collaboration-contract.md"
+    },
+    {
+      "id": "corpus-manifest",
+      "origin": "experiments/office-suite-v2/verification/corpus/manifest.json",
+      "sha256": "ffd97ad5140699993671e41b04b30da1166ebb90628e398f2fe5c8b7808865c6",
+      "bytes": 3529,
+      "description": "Synthetic CC0 fixture inventory, not a feature-support acceptance table.",
+      "path": "experiments/office-suite-v2/verification/corpus/manifest.json"
+    },
+    {
+      "id": "corpus-integrity",
+      "origin": "experiments/office-suite-v2/verification/logs/corpus-integrity-final.txt",
+      "sha256": "0a1d4790852d4017a5a0c7101e7b10d4aeaa25fababb13a6a9adb8543ee81875",
+      "bytes": 454,
+      "description": "Historical three integrity/regeneration tests; not rerun.",
+      "path": "experiments/office-suite-v2/verification/logs/corpus-integrity-final.txt"
+    },
+    {
+      "id": "docx-smoke",
+      "origin": "experiments/office-suite-v2/verification/reports/word-smoke.json",
+      "sha256": "e3a21a899f0bceb25902601626e5b65e94c2d5ce1c5a22571a7cd4db1180c9a2",
+      "bytes": 20557,
+      "description": "Historical actual bounded codec and native/runtime observations.",
+      "path": "experiments/office-suite-v2/verification/reports/word-smoke.json"
+    },
+    {
+      "id": "docx-semantics",
+      "origin": "experiments/office-suite-v2/verification/reports/docx-semantic-parts.json",
+      "sha256": "60bcaf2bd8a53017ab1e942c51efe186ff0983cff6f02c071722696a6d655037",
+      "bytes": 1161,
+      "description": "Original/export XML feature presence and losses.",
+      "path": "experiments/office-suite-v2/verification/reports/docx-semantic-parts.json"
+    },
+    {
+      "id": "docx-bounded",
+      "origin": "experiments/office-suite-v2/verification/reports/docx-bounded-checks.json",
+      "sha256": "05343f78a25347afbb2ba8b29bf990bfdbfb504b9a783e504be164893091aa00",
+      "bytes": 294,
+      "description": "Bounded body/table equality only.",
+      "path": "experiments/office-suite-v2/verification/reports/docx-bounded-checks.json"
+    },
+    {
+      "id": "native-office",
+      "origin": "experiments/office-suite-v2/verification/reports/native-ui-receipt.json",
+      "sha256": "f38c7293acd5dfae0f783fa97cb46d5d36d801d8c8c208ce210d730c003d89fc",
+      "bytes": 2014,
+      "description": "Historical Word/PowerPoint16.114 exact-file native reader observations.",
+      "path": "experiments/office-suite-v2/verification/reports/native-ui-receipt.json"
+    },
+    {
+      "id": "excel-1900",
+      "origin": "experiments/office-suite-v2/verification/reports/native-excel-sheet-1900.json",
+      "sha256": "4131ae3aa9b21c1a1e2e239d5ed97951b875839d6e0b0d432b35ab1421376b9a",
+      "bytes": 1852,
+      "description": "Historical Excel16.114 original1900 fixture read.",
+      "path": "experiments/office-suite-v2/verification/reports/native-excel-sheet-1900.json"
+    },
+    {
+      "id": "excel-1904",
+      "origin": "experiments/office-suite-v2/verification/reports/native-excel-sheet-1904.json",
+      "sha256": "4013f50a6a27e37390bdfc1954738bcd1d61d0aab2298f2337a3eb4f8d2e0ec1",
+      "bytes": 1988,
+      "description": "Historical Excel16.114 original1904 fixture read.",
+      "path": "experiments/office-suite-v2/verification/reports/native-excel-sheet-1904.json"
+    },
+    {
+      "id": "sheet-assessment",
+      "origin": "experiments/office-suite-v2/verification/reports/sheet-candidate-assessment-v2.json",
+      "sha256": "145679da5beec948c9b6a794f0d7804ab3eb85c3857dcca756d2a9fe4c2f2b49",
+      "bytes": 14014,
+      "description": "Qualified frozen v1.1 headless model assessment.",
+      "path": "experiments/office-suite-v2/verification/reports/sheet-candidate-assessment-v2.json"
+    },
+    {
+      "id": "sheet-summary",
+      "origin": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-summary.json",
+      "sha256": "95bce09dfd12a99ef047605fa54f8db2896f434ddf9d5e4046d0a33dad48b60c",
+      "bytes": 51887,
+      "description": "Original three fresh native model samples and raw child references.",
+      "path": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-summary.json"
+    },
+    {
+      "id": "frozen-budget",
+      "origin": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json",
+      "sha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+      "bytes": 3714,
+      "description": "Unchanged budget frozen before measurement.",
+      "path": "experiments/office-suite-v2/verification/reports/reference-budget-v1.1.json"
+    },
+    {
+      "id": "historical-criteria",
+      "origin": "experiments/office-suite-v2/verification/reports/criteria.json",
+      "sha256": "a8d164ceaf3efdddf7f243aaee4a76dbadc7bfc937eb67cedbb69ebbd51e90a9",
+      "bytes": 7704,
+      "description": "Historical baseline only; superseded for current decisions.",
+      "path": "experiments/office-suite-v2/verification/reports/criteria.json"
+    },
+    {
+      "id": "historical-phase-c-v8",
+      "origin": "experiments/office-suite-v2/verification/reports/criteria-phase-c-v8.json",
+      "sha256": "83c0fbd747746344439c7a52320537384a8e3a6beb8f97215fd4a2aa787cf714",
+      "bytes": 4780,
+      "description": "Historical Word100 RSS failure retained, not current qualification.",
+      "path": "experiments/office-suite-v2/verification/reports/criteria-phase-c-v8.json"
+    },
+    {
+      "id": "fixture-word-features.docx",
+      "origin": "experiments/office-suite-v2/verification/corpus/word-features.docx",
+      "sha256": "5b39b52a8f6bfa88f72423721befc278285d2f9ddb444ee577fc1aa6d1de5c79",
+      "bytes": 18880,
+      "description": "Original synthetic fixture bytes retained, not a product retention workflow.",
+      "path": "experiments/office-suite-v2/verification/corpus/word-features.docx"
+    },
+    {
+      "id": "fixture-sheet-1900.xlsx",
+      "origin": "experiments/office-suite-v2/verification/corpus/sheet-1900.xlsx",
+      "sha256": "3fef007afd2c565edda601b713d2fcd7b2f2e6c2e867b8de4b33a877e77b762a",
+      "bytes": 4127,
+      "description": "Original synthetic fixture bytes retained, not a product retention workflow.",
+      "path": "experiments/office-suite-v2/verification/corpus/sheet-1900.xlsx"
+    },
+    {
+      "id": "fixture-sheet-1904.xlsx",
+      "origin": "experiments/office-suite-v2/verification/corpus/sheet-1904.xlsx",
+      "sha256": "2d7a50bbb877a8b310ff7af349c55ad20a982a8d8ee7d89b164a39eed9c87f42",
+      "bytes": 4127,
+      "description": "Original synthetic fixture bytes retained, not a product retention workflow.",
+      "path": "experiments/office-suite-v2/verification/corpus/sheet-1904.xlsx"
+    },
+    {
+      "id": "fixture-slides-features.pptx",
+      "origin": "experiments/office-suite-v2/verification/corpus/slides-features.pptx",
+      "sha256": "99688f740bd9242b6fbe115f8ae5952215fa6b48c4fa555013d6af539ea6db3b",
+      "bytes": 9599,
+      "description": "Original synthetic fixture bytes retained, not a product retention workflow.",
+      "path": "experiments/office-suite-v2/verification/corpus/slides-features.pptx"
+    },
+    {
+      "id": "sheet-scale-2026-10-21T20-44-45-509Z-0",
+      "origin": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-0.json",
+      "sha256": "cea9f00f0e82c1eaad33406e9933a0957a6c216b7f33c641c997d7e3f56b2da0",
+      "bytes": 8819,
+      "description": "Original child process model sample; no new measurement.",
+      "path": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-0.json"
+    },
+    {
+      "id": "sheet-scale-2026-10-21T20-44-45-509Z-1",
+      "origin": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-1.json",
+      "sha256": "1c6db40742afd9a399e0e8dc199f2ecf518aea246dd36a0af23ed31cbb9c293c",
+      "bytes": 9028,
+      "description": "Original child process model sample; no new measurement.",
+      "path": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-1.json"
+    },
+    {
+      "id": "sheet-scale-2026-10-21T20-44-45-509Z-2",
+      "origin": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-2.json",
+      "sha256": "d241e996b16599628c4c189d2986ceb88b9315edda891c11a27885939805a5d8",
+      "bytes": 9116,
+      "description": "Original child process model sample; no new measurement.",
+      "path": "experiments/office-suite-v2/verification/reports/sheet-scale-2026-10-21T20-44-45-509Z-2.json"
+    },
+    {
+      "id": "word-current-export.docx",
+      "origin": "experiments/office-suite-v2/verification/reports/word-current-export.docx",
+      "sha256": "c2c5d6ed6ee04a092b7b9ecb841ba9cbfdbf7865647ff1433bcd842d76100ff8",
+      "bytes": 2571,
+      "description": "Historical exact export or identified native reader evidence.",
+      "path": "experiments/office-suite-v2/verification/reports/word-current-export.docx"
+    },
+    {
+      "id": "word-native-original-ax.json",
+      "origin": "experiments/office-suite-v2/verification/reports/word-native-original-ax.json",
+      "sha256": "1d94a2f1802cf054eacc551942ba19ba635d842b4f44ca1423fb3f30aae4fb61",
+      "bytes": 37342,
+      "description": "Historical exact export or identified native reader evidence.",
+      "path": "experiments/office-suite-v2/verification/reports/word-native-original-ax.json"
+    },
+    {
+      "id": "word-native-original.png",
+      "origin": "experiments/office-suite-v2/verification/reports/word-native-original.png",
+      "sha256": "0526f0e2990398d6d517b76a03431bf58109e088986e42943d9b317510861a1e",
+      "bytes": 540512,
+      "description": "Historical exact export or identified native reader evidence.",
+      "path": "experiments/office-suite-v2/verification/reports/word-native-original.png"
+    },
+    {
+      "id": "word-native-export-ax.json",
+      "origin": "experiments/office-suite-v2/verification/reports/word-native-export-ax.json",
+      "sha256": "216f7d484769d85b539a9bff7b34477eba641712c40cbdb5a268176ece7cc886",
+      "bytes": 35395,
+      "description": "Historical exact export or identified native reader evidence.",
+      "path": "experiments/office-suite-v2/verification/reports/word-native-export-ax.json"
+    },
+    {
+      "id": "word-native-export.png",
+      "origin": "experiments/office-suite-v2/verification/reports/word-native-export.png",
+      "sha256": "24ab52f89b934f7b45312dab9386b7ef1c32a587647f054e910214a74d7a5076",
+      "bytes": 540223,
+      "description": "Historical exact export or identified native reader evidence.",
+      "path": "experiments/office-suite-v2/verification/reports/word-native-export.png"
+    },
+    {
+      "id": "pptx-native-original-ax.json",
+      "origin": "experiments/office-suite-v2/verification/reports/pptx-native-original-ax.json",
+      "sha256": "9b2644c20a3abec1e1b8404ab5ab214eda3fe6d2db7ce02161e906d856cfd49f",
+      "bytes": 7943,
+      "description": "Historical exact export or identified native reader evidence.",
+      "path": "experiments/office-suite-v2/verification/reports/pptx-native-original-ax.json"
+    },
+    {
+      "id": "pptx-native-original.png",
+      "origin": "experiments/office-suite-v2/verification/reports/pptx-native-original.png",
+      "sha256": "d96cc9d80f142f341f3363fea608b201ff8ce330524498368a4ae53baef2f61d",
+      "bytes": 265128,
+      "description": "Historical exact export or identified native reader evidence.",
+      "path": "experiments/office-suite-v2/verification/reports/pptx-native-original.png"
+    },
+    {
+      "id": "word-outcome",
+      "origin": "/Users/user/barocss-editor/.omx/m0/word100-outcome-final-result.json",
+      "sha256": "ce45cdb36a72c3adfd983fe5ff33f4ef980ab55c5b2ed3d2f78186008d699663",
+      "bytes": 7268,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/word-outcome.json"
+    },
+    {
+      "id": "word-assessment",
+      "origin": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/assessment.json",
+      "sha256": "8d76344f7ef7ade87d21536814d069d234ebd52476ef3dbeff3cccd3e6646794",
+      "bytes": 7624,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/word-assessment.json"
+    },
+    {
+      "id": "word-normal-raw",
+      "origin": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/report.json",
+      "sha256": "16a8fe3ceb2e3fb30d9178eb47887945b5a14d466a4d040f915cf62a0473a856",
+      "bytes": 134876,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/word-normal-raw.json"
+    },
+    {
+      "id": "word-closure",
+      "origin": "/Users/user/barocss-editor/.omx/m0/word100-bindings-before-h7-v1.json",
+      "sha256": "bbf8dfb75538d13b8fd09697535e46e51dcb1ea7cfcda1b2b506a12fffdab8dd",
+      "bytes": 495462,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/word-closure.json"
+    },
+    {
+      "id": "word-final-preflight",
+      "origin": "/Users/user/barocss-editor/.omx/m0/word100-final-preflight-ledger.json",
+      "sha256": "88a7741991616135014e608b83c9962875ec39f1c58e4354956cd687c8d7f706",
+      "bytes": 3098,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/word-final-preflight.json"
+    },
+    {
+      "id": "account-runtime",
+      "origin": "/Users/user/barocss-editor/.omx/m0/account-final-runtime-receipt.json",
+      "sha256": "9c9df065c7f98318a9c9e0831cc9782710f4f1d9bc8f6c330a01a92ed4b1113c",
+      "bytes": 21814,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/account-runtime.json"
+    },
+    {
+      "id": "account-planner-review",
+      "origin": "/Users/user/barocss-editor/.omx/m0/account-planner-validation.json",
+      "sha256": "87297155635e42bab996fa78074b3cbed35716cf683ea975e791da8aaaa0244d",
+      "bytes": 6359,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/account-planner-review.json"
+    },
+    {
+      "id": "ws-runtime",
+      "origin": "/Users/user/barocss-editor/.omx/m0/ws-final-runtime-receipt.json",
+      "sha256": "c762caf07c10fe02256cf51c4ce15354eef200f570626c8d27eebafe51781d1e",
+      "bytes": 9904,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/ws-runtime.json"
+    },
+    {
+      "id": "integration-reuse-map",
+      "origin": "/Users/user/barocss-editor/.omx/m0/m0-final-evidence-reuse-map-v1.json",
+      "sha256": "4cffaa6f1e5e1449e89f44495defe0ce6d48a40884f0a46a1fad936a159bcc19",
+      "bytes": 117691,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/integration-reuse-map.json"
+    },
+    {
+      "id": "native-log",
+      "origin": "/Users/user/barocss-editor/.omx/m0/integration-logs/28-PKG-M0-combined.txt",
+      "sha256": "9717126413c38492c7fe5609d7fedbcdd6bb28d411f923ff09e9d7293b868285",
+      "bytes": 31255,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/native-log.txt"
+    },
+    {
+      "id": "native-command",
+      "origin": "/Users/user/barocss-editor/.omx/m0/integration-logs/28-PKG-M0-combined.json",
+      "sha256": "181e6004a9ee145207f3f7aa748b1cb9274c0bcb9e66c8f397598a54120674ef",
+      "bytes": 528,
+      "description": "Exact immutable snapshot of the named original evidence; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/native-command.json"
+    }
+  ]
+}
