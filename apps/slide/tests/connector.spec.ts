@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { openDeck, attr } from './helpers';
+import { openDeck, attr, openInsertMenu, setPanel } from './helpers';
 
 /**
  * A line that remembers what it joins.
@@ -44,9 +44,16 @@ test.describe('joining two shapes', () => {
     // One shape selected: nothing to join it to.
     await page.evaluate((sid) => (window as any).editor.setNode({ nodeIds: [sid] }), pair[0]);
     await page.waitForTimeout(200);
-    await expect(page.locator('[data-control="insert-connector"]')).toBeDisabled();
+    const disabledMenu = await openInsertMenu(page);
+    await expect(disabledMenu.getByRole('menuitem', { name: '연결선', exact: true })).toBeDisabled();
+    await disabledMenu.press('Escape');
 
-    const sid = await join(page, pair);
+    await page.evaluate(([a, b]) => (window as any).editor.setNode({ nodeIds: [a, b] }), pair);
+    const readyMenu = await openInsertMenu(page);
+    const insert = readyMenu.getByRole('menuitem', { name: '연결선', exact: true });
+    await expect(insert).toBeEnabled();
+    await insert.click();
+    const sid = await page.evaluate(() => (window as any).editor.selection?.nodeIds?.[0] as string);
     expect(sid).toBeTruthy();
 
     /*
@@ -151,8 +158,9 @@ test.describe('joining two shapes', () => {
     const pair = await twoShapes(page);
     const sid = await join(page, pair);
 
+    await setPanel(page, 'properties', true);
     const panel = page.locator('.sl-properties');
-    await panel.getByLabel('경로').selectOption('curve');
+    await panel.getByRole('combobox', { name: '경로', exact: true }).selectOption('curve');
     await page.waitForTimeout(300);
     expect(await attr(page, sid, 'kind')).toBe('curve');
     await expect(page.locator('.sl-stage .sl-connector')).toHaveAttribute(
@@ -161,7 +169,7 @@ test.describe('joining two shapes', () => {
     );
 
     // A vocabulary, not a preference: a hollow triangle is UML's inheritance.
-    await panel.getByLabel('끝 모양').selectOption('hollow');
+    await panel.getByRole('combobox', { name: '끝 모양', exact: true }).selectOption('hollow');
     await page.waitForTimeout(300);
     expect(await attr(page, sid, 'endCap')).toBe('hollow');
   });
@@ -596,13 +604,9 @@ test.describe('a label on a line', () => {
     await page.evaluate((id) => (window as any).editor.setNode({ nodeIds: [id] }), sid);
     await page.waitForTimeout(300);
 
-    /*
-     * `exact`, because 이름표 now names four controls: the word itself and the three that
-     * set it (크기, 색, 굵게). An accessible name is matched by substring unless it is
-     * not, and this test had been unique only for as long as the label had no type of its
-     * own — the same trap the frame spec records for 프레임.
-     */
-    const field = page.locator('.sl-properties').getByLabel('이름표', { exact: true });
+    await setPanel(page, 'properties', true);
+    // Rows and controls share names. The role selects the actual editable field.
+    const field = page.locator('.sl-properties').getByRole('textbox', { name: '이름표', exact: true });
     await field.fill('예');
     await field.blur();
     await page.waitForTimeout(400);
@@ -911,7 +915,8 @@ test.describe('a flowing line', () => {
     await page.evaluate((id) => (window as any).editor.setNode({ nodeIds: [id] }), sid);
     await page.waitForTimeout(300);
 
-    await page.locator('.sl-properties').getByLabel('흐름').check();
+    await setPanel(page, 'properties', true);
+    await page.locator('.sl-properties').getByRole('checkbox', { name: '흐름', exact: true }).check();
     await page.waitForTimeout(400);
     expect(await attr(page, sid, 'flow')).toBeTruthy();
   });
@@ -1211,10 +1216,11 @@ test.describe('bends a reader places', () => {
     await page.evaluate((id) => (window as any).editor.setNode({ nodeIds: [id] }), sid);
     await page.waitForTimeout(400);
 
+    await setPanel(page, 'properties', true);
     // A line with a bend hidden behind a shape looks like a line with none, so the panel
     // says the count.
     await expect(page.locator('.sl-properties .sl-wp-count')).toHaveText('2개');
-    await page.locator('[data-wp-clear]').click();
+    await page.locator('.sl-properties').getByRole('button', { name: '지우기', exact: true }).click();
     await page.waitForTimeout(400);
     expect(
       await page.evaluate(
@@ -1241,12 +1247,13 @@ test.describe('turning a line round', () => {
     await page.evaluate((id) => (window as any).editor.setNode({ nodeIds: [id] }), sid);
     await page.waitForTimeout(300);
 
+    await setPanel(page, 'properties', true);
     const before = (await page
       .locator(`.sl-stage .sl-connector[data-bc-sid="${sid}"] path`)
       .nth(1)
       .getAttribute('d'))!;
 
-    await page.locator('[data-conn-reverse]').click();
+    await page.locator('.sl-properties').getByRole('button', { name: '뒤집기', exact: true }).click();
     await page.waitForTimeout(500);
 
     expect(await attr(page, sid, 'startNodeId')).toBe(pair[1]);
@@ -1285,8 +1292,9 @@ test.describe('turning a line round', () => {
       return { x: Number(at[1]), y: Number(at[2]) };
     };
 
+    await setPanel(page, 'properties', true);
     const before = await tip();
-    await page.locator('[data-conn-reverse]').click();
+    await page.locator('.sl-properties').getByRole('button', { name: '뒤집기', exact: true }).click();
     await page.waitForTimeout(500);
     const after = await tip();
 
@@ -1434,10 +1442,11 @@ test.describe('the label’s own type', () => {
     await openDeck(page);
     const sid = await labelled(page);
 
-    await page.locator('.sl-properties').getByLabel('이름표 크기').fill('16');
-    await page.locator('.sl-properties').getByLabel('이름표 크기').press('Enter');
+    await setPanel(page, 'properties', true);
+    await page.locator('.sl-properties').getByRole('spinbutton', { name: '이름표 크기', exact: true }).fill('16');
+    await page.locator('.sl-properties').getByRole('spinbutton', { name: '이름표 크기', exact: true }).press('Enter');
     await page.waitForTimeout(400);
-    await page.locator('.sl-properties').getByLabel('이름표 굵게').click();
+    await page.locator('.sl-properties').getByRole('checkbox', { name: '이름표 굵게', exact: true }).click();
     await page.waitForTimeout(400);
 
     // Points in the panel, twips in the document: sixteen point is 320.
@@ -1557,10 +1566,11 @@ test.describe('a word at each end', () => {
     await page.evaluate((id) => (window as any).editor.setNode({ nodeIds: [id] }), sid);
     await page.waitForTimeout(300);
 
-    await page.locator('.sl-properties').getByLabel('시작 이름표').fill('1');
-    await page.locator('.sl-properties').getByLabel('시작 이름표').press('Enter');
-    await page.locator('.sl-properties').getByLabel('끝 이름표').fill('0..*');
-    await page.locator('.sl-properties').getByLabel('끝 이름표').press('Enter');
+    await setPanel(page, 'properties', true);
+    await page.locator('.sl-properties').getByRole('textbox', { name: '시작 이름표', exact: true }).fill('1');
+    await page.locator('.sl-properties').getByRole('textbox', { name: '시작 이름표', exact: true }).press('Enter');
+    await page.locator('.sl-properties').getByRole('textbox', { name: '끝 이름표', exact: true }).fill('0..*');
+    await page.locator('.sl-properties').getByRole('textbox', { name: '끝 이름표', exact: true }).press('Enter');
     await page.waitForTimeout(500);
 
     await expect(wordAt(page, sid, 'start')).toHaveText('1');
