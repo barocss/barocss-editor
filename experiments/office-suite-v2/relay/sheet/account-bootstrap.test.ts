@@ -77,42 +77,44 @@ test('malformed, noncanonical or extended account scopes fail before creating a 
 test('source native fixture is read-only and destroyed after successful replay', t => {
   const descriptor = Object.getOwnPropertyDescriptor(SheetReplica.prototype, 'events'); assert.ok(descriptor?.get);
   const read = descriptor.get;
-  let source: SheetReplica | undefined, original: string | undefined, destroyed = false;
+  const sources = new Set<SheetReplica>();
+  let original: string | undefined, destroyed = false;
   Object.defineProperty(SheetReplica.prototype, 'events', { ...descriptor, get(this: SheetReplica) {
     const events = read.call(this) as readonly WorkbookEvent[];
-    if (this.identity.actorId === 'local-preview-user' && events.length === 91) { source = this; original ??= JSON.stringify(events); }
+    if (this.identity.actorId === 'local-preview-user' && events.length === 91) { sources.add(this); original ??= JSON.stringify(events); }
     return events;
   } });
   const destroy = SheetReplica.prototype.destroy;
   t.mock.method(SheetReplica.prototype, 'destroy', function(this: SheetReplica) {
-    if (this === source) { assert.equal(JSON.stringify(read.call(this)), original); destroyed = true; }
+    if (sources.has(this)) { assert.equal(JSON.stringify(read.call(this)), original); destroyed = true; }
     destroy.call(this);
   });
   let target: SheetReplica | undefined;
   try {
     target = createAccountBootstrap(context, actorId);
-    assert.ok(source); assert.equal(destroyed, true); assert.notEqual(target, source);
+    assert.equal(sources.size, 1); assert.equal(destroyed, true); assert.equal(sources.has(target), false);
   } finally { Object.defineProperty(SheetReplica.prototype, 'events', descriptor); target?.destroy(); }
 });
 
 test('unsupported source chain refuses seeding and destroys the source without creating target events', t => {
   const descriptor = Object.getOwnPropertyDescriptor(SheetReplica.prototype, 'events'); assert.ok(descriptor?.get);
   const read = descriptor.get;
-  let source: SheetReplica | undefined, destroyed = false, accountCommits = 0;
+  const sources = new Set<SheetReplica>();
+  let destroyed = false, accountCommits = 0;
   Object.defineProperty(SheetReplica.prototype, 'events', { ...descriptor, get(this: SheetReplica) {
     const events = read.call(this) as readonly WorkbookEvent[];
     if (this.identity.actorId !== 'local-preview-user' || events.length !== 91) return events;
-    source = this;
+    sources.add(this);
     return events.map(event => ({ ...event, dependencies: [] }));
   } });
   const destroy = SheetReplica.prototype.destroy, commit = SheetReplica.prototype.commit;
-  t.mock.method(SheetReplica.prototype, 'destroy', function(this: SheetReplica) { if (this === source) destroyed = true; destroy.call(this); });
+  t.mock.method(SheetReplica.prototype, 'destroy', function(this: SheetReplica) { if (sources.has(this)) destroyed = true; destroy.call(this); });
   t.mock.method(SheetReplica.prototype, 'commit', function(this: SheetReplica, ...args: Parameters<SheetReplica['commit']>) {
     if (this.identity.actorId === actorId) accountCommits++;
     return commit.apply(this, args);
   });
   try {
     assert.throws(() => createAccountBootstrap(context, actorId), /unsupported-account-bootstrap-seed/);
-    assert.equal(destroyed, true); assert.equal(accountCommits, 0);
+    assert.equal(sources.size, 1); assert.equal(destroyed, true); assert.equal(accountCommits, 0);
   } finally { Object.defineProperty(SheetReplica.prototype, 'events', descriptor); }
 });
