@@ -1,3 +1,95 @@
+## M0 final decision candidate and local integration — 2026-10-23
+
+The ten original #521 criteria now have a versioned current evidence package.
+This is a bounded architecture/native-engine decision candidate for Planner,
+not full format parity, M1/M2 implementation, alpha or release acceptance.
+Exact final candidate and completed local `develop` fast-forward are recorded in
+primary `.omx/m0/m0-final-integration-result-v1.json`. This report's commit is a
+documentation-only successor of the source/evidence inputs below.
+
+Base `4dc191bc` retains the qualified Word100/300 implementation. Verification
+`4414ab1b` plus exact successor `3621190e` were each fast-forwarded once, all
+changes under `verification/**`. Slides `f08bde22` was reconciled once as
+`d227c056`; its one-document successor `f9e47b48` was reconciled once as
+`49a8430c`. These add only one existing browser spec's navigation corrections and
+one findings page. No production source, package/lock, root configuration, codec,
+benchmark fixture, admission boundary or budget changed after the base.
+
+| Original #521 criterion | Current bounded disposition |
+| --- | --- |
+| 1 — Native workbook/reference/formula/copy-cut | Complete existing two-sheet evidence. |
+| 2 — Structure/input concurrency and convergence | Complete native replica evidence, with recoverable alternatives. |
+| 3 — Remote edit and session Undo | Complete; structural UNDO_CONFLICT preserves B rather than deleting B's work. |
+| 4 — Prose text/marks/split/join and policy | Complete prototype evidence; paragraph move/delete explicitly refuse. |
+| 5 — Durable save, ACK loss, exact retry, restart/admission | Complete bounded native evidence; controlled WS and actual local-account layers remain separately pinned. Manual Retry limits remain. |
+| 6 — General moves/overlapping merges | Explicit refusal and M3 policy, without pretending implementation. |
+| 7 — Corpus/capability/retention/readers | Complete evidence with declared DOCX losses and unimplemented XLSX/PPTX product adapters. Original artifact retention is not product-retention UX acceptance. |
+| 8 — Named Word100/300 and Sheet10k reference | Existing original frozen gates PASS. Word sampled aggregate RSS and headless Sheet model remain separate. |
+| 9 — Versioned decisions and M1/M2 split | Delivered for Planner review; exact interfaces/ownership and inactive stage contracts included. |
+| 10 — Controlled versus actual-account boundary | Complete explicit separation; prior real-account slice does not accept common runtime or whole M1/M2. |
+
+Entry: `verification/decision-pack/README.md`; current matrix, evidence index,
+source groups and capability dispositions are in
+`verification/reports/m0-decision-pack-v1/`. Metadata/source integrity passed on
+the final Verification intake:10 criteria,1547 overlapping group entries,
+47 evidence entries and17 original snapshots. The1547 entries are not unique
+files. Current bindings include Word1215, Sheet10, native21, account299 and DOCX2.
+Historical Word/Excel/PowerPoint16.114 receipts are not new Office executions.
+Known format losses remain FAIL; product original-retention/refusal/lossy-copy
+UX and broader codec fidelity are deferred explicitly, not silently accepted.
+
+No completed Word, Sheet, account, native Office or performance run was repeated.
+Account's29 retained artifact hashes and299 production-scope paths match;
+Sheet's10 named scale inputs match; Word's1215 inputs and654 actual aliases
+are bridged to the new isolated root. The old controlled WS source d727 differs
+in46 later paths and remains historical; authenticated current evidence is not
+fabricated by relabeling it. Original account provenance, missing original-IDB
+record limits, manual retry, ABA/late-ACK and privacy-scan limits remain intact.
+
+Required preflight is satisfied by the exact source-bound stage ledger, not a
+new blanket full command: literal `pnpm preflight` at4961 passed459.278s,
+then actual affected renderer/source/test/lint and Word app guards passed.
+The current sole additional lint/type input is the Slides connector spec;
+author's frozen-graph app test guard is0/0 and scoped lint is0 errors/80 existing
+warnings. No other eligible JS/TS input changed. Root scripts/manifests/configs
+are unchanged, Python/JSON/Markdown/gzip metadata is outside those product
+lint/type inputs, and new metadata integrity was checked directly. Existing
+532 lint errors/7381 warnings,1251 known test-type debt and3 known-broken source
+targets are reported separately. No budget increased and no fresh final full
+preflight or zero-debt result is claimed. Ledger:
+primary `.omx/m0/m0-final-preflight-reuse-ledger-v1.json`.
+
+The separately assigned #538 follow-up also completes its bounded selection.
+All five earlier connector failures were stale UI access paths. Actual current
+Insert-menu/property-panel actions retain every drawing/native-model assertion.
+Previously failed/unrun22 cases pass in76.053s browser/79.887s runner. Three
+renderer-sensitive historical cases pass in a disjoint14.209s browser/17.194s
+runner. This is25 current passing cases and18 other historical passes, not a
+fresh43/43 suite. Both runs use one worker/zero retry/1280x720 DPR1, original
+30s per-case/120s global limits and the pinned Chromium145 binary. Twenty-two
+ran at4dc plus frozen test SHA4189fd67; f08 commits the identical executed test;
+the three later cases ran atf08. No production defect was demonstrated.
+
+Browser source/selection/results/ownership/cleanup are retained in primary
+`.omx/m0/slides538-browser-v1/` and `slides538-renderer-impact-v1/`.
+The second wrapper's prelaunch metadata NameError is preserved; no browser or
+test had started then, and only one actual browser run followed. Both leases
+are returned, all captured owned PIDs exited,55261 is free, and protected five
+listeners remain identical. A dedicated Vite cache avoids the old shared cache;
+no original source/cache/raw/data was deleted or normalized to pass.
+
+Local integration uses a clean new managed root/branch and a strict
+fast-forward from developf4 only after preserving the qualified candidate.
+Origin/develop1190 is an ancestor of f4, and f4 is an ancestor of this candidate.
+The current branch was not checked out in another worktree. The final receipt
+records actual before/after refs, unchanged final tree and source evidence.
+Primary main034 and its four planning WIP hashes, old author/runtime roots,
+existing tabs, five55262–55266 servers/data/operatorOFF setting, prior failures
+and draft PR519 remain protected. No remote push/PR/deploy, schedule/model
+change, M1/M2 implementation or automatic Issue/Goal closure occurs.
+
+---
+
 ## Word100 memory outcome #537 — 2026-10-22
 
 **PASS: the unchanged Word100 memory gate is met in all three fresh samples.**
