@@ -1,0 +1,44 @@
+Strict TypeScript 5.9.3: 2 root files; imports included; 8 diagnostics.
+[96m../../../../522-m0-integration/barocss-editor/node_modules/.pnpm/vite@6.4.3_@types+node@20.19.30_yaml@2.9.1/node_modules/vite/dist/node/index.d.ts[0m:[93m3262[0m:[93m11[0m - [91merror[0m[90m TS2430: [0mInterface 'import("/Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules/.pnpm/vite@6.4.3_@types+node@20.19.30_yaml@2.9.1/node_modules/vite/dist/node/index", { with: { "resolution-mode": "import" } }).Plugin<A>' incorrectly extends interface 'import("/Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules/.pnpm/rollup@4.57.1/node_modules/rollup/dist/rollup").Plugin<A>'.
+  Types of property 'load' are incompatible.
+    Type 'ObjectHook<(this: PluginContext, id: string, options?: { ssr?: boolean; } | undefined) => LoadResult | Promise<LoadResult>, { filter?: { ...; }; }>' is not assignable to type 'ObjectHook<(this: PluginContext, id: string, options?: { ssr?: boolean | undefined; attributes?: Record<string, string>; } | undefined) => LoadResult | Promise<...>, { ...; }>'.
+      Type '(this: PluginContext, id: string, options?: { ssr?: boolean; } | undefined) => LoadResult | Promise<LoadResult>' is not assignable to type 'ObjectHook<(this: PluginContext, id: string, options?: { ssr?: boolean | undefined; attributes?: Record<string, string>; } | undefined) => LoadResult | Promise<...>, { ...; }>'.
+        Type '(this: PluginContext, id: string, options?: { ssr?: boolean; } | undefined) => LoadResult | Promise<LoadResult>' is not assignable to type '(this: PluginContext, id: string, options?: { ssr?: boolean | undefined; attributes?: Record<string, string>; } | undefined) => LoadResult | Promise<...>'.
+          Types of parameters 'options' and 'options' are incompatible.
+            Type '{ ssr?: boolean | undefined; attributes?: Record<string, string>; } | undefined' is not assignable to type '{ ssr?: boolean; } | undefined'.
+              Type '{ ssr?: boolean | undefined; attributes?: Record<string, string>; }' is not assignable to type '{ ssr?: boolean; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+                Types of property 'ssr' are incompatible.
+                  Type 'boolean | undefined' is not assignable to type 'boolean'.
+                    Type 'undefined' is not assignable to type 'boolean'.
+
+[7m3262[0m interface Plugin<A = any> extends rollup.Plugin<A> {
+[7m    [0m [91m          ~~~~~~[0m
+[96mverification/portal-independent.test.ts[0m:[93m2[0m:[93m60[0m - [91merror[0m[90m TS2307: [0mCannot find module '@barocss/dsl' or its corresponding type declarations.
+
+[7m2[0m import { define, element, getGlobalRegistry, portal } from '@barocss/dsl';
+[7m [0m [91m                                                           ~~~~~~~~~~~~~~[0m
+[96mverification/portal-independent.test.ts[0m:[93m3[0m:[93m29[0m - [91merror[0m[90m TS2835: [0mRelative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean '../../../packages/renderer-dom/src/dom-renderer.js'?
+
+[7m3[0m import { DOMRenderer } from '../../../packages/renderer-dom/src/dom-renderer';
+[7m [0m [91m                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[96mverification/portal-independent.test.ts[0m:[93m4[0m:[93m32[0m - [91merror[0m[90m TS2835: [0mRelative import paths need explicit file extensions in ECMAScript imports when '--moduleResolution' is 'node16' or 'nodenext'. Did you mean '../../../packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.js'?
+
+[7m4[0m import { FiberScheduler } from '../../../packages/renderer-dom/src/reconcile/fiber/fiber-scheduler';
+[7m [0m [91m                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+[96mverification/portal-independent.test.ts[0m:[93m10[0m:[93m28[0m - [91merror[0m[90m TS7006: [0mParameter '_props' implicitly has an 'any' type.
+
+[7m10[0m   define('v526-document', (_props, model) => element('main', {}, model.show ? [
+[7m  [0m [91m                           ~~~~~~[0m
+[96mverification/portal-independent.test.ts[0m:[93m10[0m:[93m36[0m - [91merror[0m[90m TS7006: [0mParameter 'model' implicitly has an 'any' type.
+
+[7m10[0m   define('v526-document', (_props, model) => element('main', {}, model.show ? [
+[7m  [0m [91m                                   ~~~~~[0m
+[96mverification/portal-independent.test.ts[0m:[93m41[0m:[93m105[0m - [91merror[0m[90m TS7006: [0mParameter 'root' implicitly has an 'any' type.
+
+[7m41[0m   vi.spyOn(FiberScheduler.prototype, 'scheduleWork').mockImplementation(function (this: FiberScheduler, root, priority) {
+[7m  [0m [91m                                                                                                        ~~~~[0m
+[96mverification/portal-independent.test.ts[0m:[93m41[0m:[93m111[0m - [91merror[0m[90m TS7006: [0mParameter 'priority' implicitly has an 'any' type.
+
+[7m41[0m   vi.spyOn(FiberScheduler.prototype, 'scheduleWork').mockImplementation(function (this: FiberScheduler, root, priority) {
+[7m  [0m [91m                                                                                                              ~~~~~~~~[0m
+
