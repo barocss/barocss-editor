@@ -1,3 +1,81 @@
+## Word runtime and print tranche — 2026-10-22
+
+The requested implementation, integrated checks, actual print qualification and
+fixed normal Word100 revalidation are delivered. **Word100 RSS remains FAIL.**
+M0/alpha/release are not accepted. No unchanged-source retry follows this result.
+
+Measured source: `760bb716bdd35b23ca28159b0b909e7cf43f9098`, tree
+`e4dc22a3f0c5b9d9931a4944c91b8a10684844ed`, managed `522-m0-portal-joint`.
+Its production code equals combined source `08cabfcd`: portal `2c889f64`,
+Word RED `95d68158` plus repair `decdf4c5`, and root ownership `64b635c7`.
+Two test-only recovery commits preserve identity assertions and align the
+OfficeService noEmit test compiler with its actual Node22 `.ts` imports.
+Production build, budgets, shared lock and package registration are unchanged.
+
+The portal fix uses one root scheduler and owned hosts. Root SID changes retire
+the previous model's components/handlers/portals before new ownership; commit
+reentry keeps one latest request and suppresses obsolete completion. Same-root
+DOM/Text identity remains covered. Word reads typed line-height only at the root
+and direct surface inheritance boundaries. The preserved two-page unit output
+is identical. These changes do not prove RSS causality or allocation savings.
+
+- Final Renderer: 13 files /113 PASS; adjacent View: 6 files /69 PASS; independent
+  verifier: 8 PASS, each with zero skips/failures. Pure Word print: 25 integrated
+  PASS on byte-identical relevant source, reused after the test-only commits.
+- Required preflight stage ledger: PASS under unchanged budgets. The original
+  `pnpm preflight` command remains FAIL at lint (39.005s); its source-identity test
+  repair passed5 native cases, scoped lint/types0 and root lint with0 growth.
+  Source types passed45 targets with3 existing known-broken projects. The first
+  full test-type guard failed five TS5097 in OfficeService; its test-only noEmit
+  config repair passed the same project guard0/0. The unchanged40 project rows
+  and earlier checks/release/npm/docs inputs are reused explicitly. Original
+  failures are not relabeled. Ledger is primary `.omx/m0/word-runtime-preflight-ledger.json`.
+- Actual original Word print browser file: **14 PASS /0 skip /0 retry /0 flaky**,
+  52.685s CLI. PDF page count, clipping/table characters, page furniture, native
+  document and selection checks passed. Physical paper/OS IME are not claimed.
+
+One unchanged H7 window ran3 fresh100 and3 fresh300 samples at the fixed
+font/media/fixture/guard/noGC/RSS definitions. All six completed, exit0,20.861s.
+Exit0 means completed observation, not all performance criteria passed.
+
+| Profile | Peak sampled owned aggregate RSS, bytes | Limit | Result |
+| --- | --- | --- | --- |
+| 100 pages | 581976064 /529956864 /552681472 | 536870912 | FAIL,2/3 misses |
+| 300 pages | 800309248 /744669184 /794951680 | 1073741824 | PASS,3/3 |
+
+All open/render/print timing targets, actual font identities, repeatability,
+resource guards and printed-node growth (`13501/4501 =2.99956`, limit3.5) passed.
+100 p95 open/render/print:346/103.9/25.2ms;300:1035.7/341.9/70.8ms.
+RSS is the maximum200ms owned browser-process aggregate sample, including shared
+pages; it is not private bytes, continuous HWM or a controlled old/new comparison.
+
+Raw: `verification/reports/word-performance-2026-10-22T11-10-19-102Z/report.json`,
+131994 bytes, SHA256 `efc93e3d5484f8ee225612aeb084644f08a5e93d78af824a22bfa634a9b85f1a`.
+Primary preserved copy: `.omx/m0/word-runtime-normal-final/report.json`.
+Assessment: `.omx/m0/word-runtime-normal-final-assessment.json`, SHA256
+`8ac083b4518415d8168ff7370372f5707e8dc0f75ef30f0b46703ec259ddc463`.
+
+Before/after1208 tracked runtime-source/manifest/harness files and654 actual
+aliases (244 workspace-source aliases) match. This expanded superset includes
+the three Renderer files outside curated17 and `line-offsets.ts`; it does not
+claim every file was dynamically imported. The source lead independently
+reviewed raw and bindings: primary `.omx/m0/word-runtime-source-review.json`.
+All24 observed browser PIDs and private ports55260/55261 are absent. The lease
+is returned; its original granted snapshot is preserved. No duplicate observer,
+performance retry, account/Sheet-scale repeat, push/PR/deploy or schedule ran.
+
+The earlier single native TypedOM diagnostic remains separately FAIL at old
+source8558/7eca for root/DOM mismatch and a duplicate-store warning; its proven
+536/533/3 call-work counts are not native allocation/RSS evidence. Root536's
+isolated defect does not establish that earlier failure's cause.
+
+All old/new user tabs, Word55262/Sheet55263/B55264/relay55265(operatorOFF)/WS55266
+PIDs, account evidence, primary WIP and local develop `f4ed8edd` are preserved.
+Next work, if selected within this tranche, needs a real source-backed cause or
+new defect for the remaining Word100 RSS gate; do not rerun unchanged source.
+
+---
+
 # M0 integration — previews, source and memory evidence
 
 ## C client source/model qualification — backend human hold
