@@ -72,9 +72,9 @@ and renderer paths outside the original curated17. This is a source superset,
 not a claim that every file dynamically loaded. All24 observed browser PIDs
 and private ports55260/55261 are absent; the lease is returned.
 
-Independent author review `.omx/m0/537-word100-author-review.json` confirms
+Independent author review `.omx/m0/word100-normal-qualification-v1/author-review-final.json` confirms
 raw/poll sums, six roots, all bindings, actual aliases and browser results; SHA256
-`42dc6a1837948ec3e3faf9183cbe4d78fdd73490c6cbfd888cb7ef222a77621e`.
+`5bbea983d7810987dba9c36e575b96eaec5ed711d2c2664c1658a972d1a293b9`.
 
 The old Word100 failure raw, native diagnostic/REDs, user tabs, five existing
 55262–55266 producers/data/operatorOFF setting, account receipt, four primary
