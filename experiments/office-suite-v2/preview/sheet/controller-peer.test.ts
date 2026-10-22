@@ -8,7 +8,7 @@ import { SheetReplica } from '../../src/collaboration.ts';
 import type { CellKey } from '../../src/contracts.ts';
 
 test('peer initial status describes room rejoin while the standalone session default stays intact', () => {
-  const peer = new SheetController(createPreviewReplica('peer-status'), () => {});
+  const peer = new SheetController(createPreviewReplica('peer-status'), () => {}, 'peer');
   const local = new SheetController(createPreviewReplica('local-status'));
   try {
     assert.equal(peer.message, 'Two-screen session. Reload joins a live peer. Nothing is saved.');
@@ -26,8 +26,8 @@ function pair(observer?: (change: NativeLocalChange) => void) {
     b = new SheetReplica(bootstrap.context, { actorId: 'peer-b', sessionId: 'session-b' }, bytes);
   } finally { bootstrap.destroy(); }
   const sentA: NativeLocalChange[] = [], sentB: NativeLocalChange[] = [];
-  const left = new SheetController(a, change => { sentA.push(change); observer?.(change); });
-  const right = new SheetController(b, change => { sentB.push(change); });
+  const left = new SheetController(a, change => { sentA.push(change); observer?.(change); }, 'peer');
+  const right = new SheetController(b, change => { sentB.push(change); }, 'peer');
   const key = (sheetId: string, row: number, column: number): CellKey => {
     const cell = left.index.keyAt(sheetId, row - 1, column - 1);
     assert.ok(cell);

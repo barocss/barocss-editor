@@ -474,3 +474,148 @@ reopen or saving guarantees. The 64 observed-peer identity limit is separate fro
 the 256 deferred sender/packet records and each collection's 8MB bound. C's separate
 full-accepted-state 1MB pre-COMMIT admission remains a C server requirement; no B
 cap increase, native engine change or chunking is added to hide this boundary.
+
+## Phase B acceptance and Phase C client preparation
+
+Planner accepted bounded B at joined source
+`11f6204f91978d0784db5b11c513592947c76736`, tree
+`85ab39842b749ed3eb90fdba551b87d9403040ad`. Actual B receipt V2 is primary
+`.omx/m0/533-b-browser/actual-browser-receipt-v2.json`, SHA256
+`25c7ec8c7a26a8d3705f92c8a9d6272b6a09469514a7b3ff6e40818d4fe3dea9`.
+Its 11 actual PASS records, 12 PNG byte hashes and 16 runtime JS responses were
+independently checked. Two harness failures and corrected V1 Buffer-JSON hash
+metadata remain preserved. B private pages/server are closed; that room is not
+a user-ready link. Old Word55262 and Sheet55263 documents remain unchanged.
+
+C client source uses the same exact base in a new managed checkout
+`/Users/user/.codex/worktrees/533-sheet-preview-durable/barocss-editor`, branch
+`codex/533-sheet-preview-durable`. Frozen preparation receipt is primary
+`.omx/m0/533-sheet-preview-durable-frozen-receipt.json`. The two author-owned
+path families remain unchanged. P1 `6768f95decf5f49168639184c06fec2fd42e6681`
+is consumed read-only. The later direct human HOLD on #534 preserves its backend
+WIP and forbids further backend execution/adoption. C source preparation is
+independent. Actual browser IDB, relay, durable receipts and process-restart
+recovery remain NOT RUN until a released immutable server candidate is joined.
+
+### C identity, persistence and delivery
+
+Integration's durable-mode meta tag selects the HTTP adapter. `?client=<UUID>`
+names a browser outbox namespace; it is not a credential. `&new=1` permits a
+fresh client only when that namespace has no client or packets. Once admitted,
+the page removes this flag. An existing namespace always resumes its original
+opaque server credential, identity, context and bootstrap descriptor. A missing,
+corrupt, orphaned or denied original blocks opening. There is no fresh fallback.
+Open second screen generates a different client namespace and server session.
+
+A named browser Web Lock is required before IndexedDB reads or session issuance.
+A duplicate writer or unavailable locking blocks the page. The editor is admitted
+only after the controlled session record finishes its IDB transaction. The private
+database is `wonffice-sheet-preview-outbox-v1`: clients are keyed by clientId and
+packets by clientId/updateId. A new packet and monotonically increasing ordinal
+are stored atomically. Resolve only on transaction complete; request success or
+transaction error alone is not completion. Validation and cryptographic hashes
+run outside IDB transactions. CAS detects unexpected concurrent record changes.
+
+Each native local callback retains original bytes synchronously, including native
+pending/refused events and Undo. Hashing/enqueue uses a separate serialized write
+queue so a pending network response cannot block later local persistence. HTTP
+delivery starts after packet transaction completion and sends the exact original
+ID/context/admission/bytes/hash under its original session. Rejected and uncertain
+records remain. An old receipt cannot confirm a newer record. Server-confirmed
+state requires a validated per-ID receipt and completed outbox result transaction.
+Accepted remote state merges through native SheetReplica, never re-authors cells.
+
+P1 bounds remain: 1,000,000 bytes per update/full accepted state, 1,500,000 bytes
+per bounded HTTP response, and decoded frontier 1..64,000 bytes (base64 preguard
+85,336 characters). The outbox retains at most 256 packets and 8,000,000 original
+bytes **over the client lifetime**, including confirmed/rejected history. It has
+no pruning or reset API. At capacity or IDB failure, original new bytes remain in
+this tab as Local only, further editing blocks, and reload has no persistence
+guarantee for those bytes. The UI never labels them saved. No cap increase,
+chunking, storage compaction or alternate engine is added.
+
+Controller mode is explicit: local, peer or durable. A callback alone does not
+imply a transport or durability. Applied native edits remain applied if delivery
+fails. Normal asynchronous IDB writes leave keyboard focus/editing intact; only
+an actual persistence failure freezes further editing. Pending input and server
+confirmation have separate status. The toolbar Undo history starts fresh when a
+controller mounts after reload. Original native Undo records/targets remain in
+the document/outbox; NEW edits after reopen use current-session selective Undo.
+No persistent toolbar-history reconstruction is part of C.
+
+### C page lifecycle and observer
+
+Controls: `#create-client`, `#open-client`, `#pause-relay`, `#retry-relay`,
+`#new-client`, `#client-identity`, `#durable-status`, `#save-state`, `#outbox-state`
+and `#durable-controls[data-phase]`. The workbook stays hidden before admission.
+Poll accepted state at 1.5-second intervals. Pause stops new network requests;
+original local persistence can finish. Retry uses retained records. Manual pause
+survives lifecycle suspension. An opening page defers BFCache suspension until
+admission, so it cannot strand an interrupted opening request. Actual BFCache
+behavior is not claimed by source or Node lifecycle models.
+
+Nonpersisted pagehide freezes editing, aborts networking and drains both task
+queues before destroying the view/native replica, closing IDB and releasing the
+writer lock. A late lock grant after pagehide is released without opening data.
+Beforeunload warns when unpersisted original bytes remain. Forced process exit
+cannot guarantee completion of an unfinished browser transaction.
+
+`sheetDurable.inspect()` is read-only metadata: client/session/actor/context,
+identity, phase, lockState, acceptedSequence/state hash, immutable bootstrap
+descriptor, localOnly/pending/ACK-unknown/rejected/confirmed counts and
+persistenceBlocked. Per packet: original updateId, SHA256, byteLength, state,
+sequence, persisted and receiptFrontierSha256. Persisted refers to completion of
+the original packet transaction, not server acceptance. Credentials and raw
+packet/frontier bodies never enter this observer. `sheetPreview.inspect()` keeps
+its actual native revision, projection and draft observation contract.
+
+C remains controlled local experimental work. Production authorization, backup,
+installation, release, physical IME, accessibility and whole-M0 acceptance are
+separate. #535 remains read-only; Integration owns all actual runtime resources.
+
+### C first failures and changed-area evidence
+
+Source review found three paths before C qualification: a stalled network request
+could block later outbox persistence in one shared queue; marking the workbook
+inert during each transient write could lose keyboard focus; and an IDB error
+event could settle the completion Promise before terminal abort. The final source
+uses separate write/network queues, freezes only actual persistence failure, and
+waits for complete/abort. These are source-review findings, not recorded red
+browser results. Native vector decoding/canonical encoding and packet-clock
+coverage also guard receipts; bounded base64 alone cannot confirm a packet.
+
+First C HTTP test run, chunk `65b78f`, was 9 PASS / 1 FAIL, 1732.035417ms. The
+late-ACK test expected localOnly=0 immediately at the memory store's completion
+hook; actual was 1, before the caller's await continuation removed its RAM mirror.
+The hard assertion already proved two stored packets before the first network
+reply was released. Keep that assertion. The corrected observation waits until
+the second request has entered, then proves old confirmed/new pending. No source
+change was needed for this test timing error. First type run, chunk `fbcb50`, had
+four TS2540 diagnostics in controlled faulty-response fixtures: sha256,
+byteLength, frontierBase64 and bootstrap.updateId retained readonly DTO types
+through structuredClone. Explicit mutable nested test copies fixed the fixtures;
+P1/native contracts were not changed. These failures remain historical.
+
+Final helper runs: outbox 13 PASS / 1189.615875ms and 2 roots / 0 diagnostics,
+chunk `91cc0f`; controlled HTTP 12 PASS / 1612.127625ms, chunk `06cbc5`, and
+2 roots / 0 diagnostics, chunk `1d727c`. These use Node transaction/event models,
+MemoryOutbox and injected HTTP responses. They do not exercise real browser IDB
+or a durable server. Parent modeled-page tests verify denied/unsupported locking
+and late lock grant after pagehide without opening IDB/network. They are not
+actual browser lifecycle or focus proof.
+
+Final author changed-preview commands, frozen Node22.22.0:
+
+```sh
+node scripts/test.mjs preview/sheet
+node scripts/type-check.mjs preview/sheet
+```
+
+Chunk `ec8b06`: 11 files, **80 PASS**, 0 FAIL/skipped, 6543.472375ms; strict
+TypeScript5.9.3 **22 roots/imports included, 0 diagnostics**. This is a fresh
+changed-preview run on the complete C client source, including retained A/B
+tests. It is not full-root preflight, an integrated runner check or actual C
+browser/server/IDB/restart acceptance. Integration must qualify the exact joined
+candidate, continuous input/focus, per-ID delayed/lost ACK, original outbox reload,
+duplicate writer refusal, native recovery/re-edit/new own Undo and module bounds
+when the held server is released. No author server/browser/install/profile ran.
