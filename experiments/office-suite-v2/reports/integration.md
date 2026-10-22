@@ -1,3 +1,17 @@
+# Active M0 implementation and verification — renewed human authority
+
+The human released the old Word, Renderer and Verification stops with “중지 해제하고 M0 수정·검증 계속”. New isolated author and Integration roots start from accepted `7eca44213c9b9609c88b635dcfc0ee8412a7e21d` / tree `e09d6f739d05407359c5a0af88cd309b3aac9949`. Old served source and the accepted account checkpoint remain frozen.
+
+Renderer owns the seven-path portal lifecycle reproduction/minimum repair. Word owns its focused print call-work reproduction and conditional print-pages fix. Verification owns independent portal tests. Integration owns source-aware dependencies, shared resources, serial intake, affected aggregate checks and any finite browser/performance lease. Exact roots, disjoint paths, receipt hashes and current queue are recorded in primary `.omx/m0/m0-active-integration-queue-v2.json`.
+
+The first proposed actual-browser diagnostic is one normal sample beforeprint/build/afterprint using a pass-through native TypedOM call counter. It is not a 100/300 performance run or RSS-cause proof. Runtime waits only for its immutable test checkpoint and frozen protocol, not routine approval. Meaningful new-source candidates precede any normal performance requalification. Authors do not repeat whole suites.
+
+Current frozen Sheet Core V2 scale is PASS with all ten bindings unchanged. Word100 W5 RSS remains below its required outcome in one of three samples; Word300 RSS and timing/font/node-growth gates pass. New native reproduction and changed-source checks will distinguish current repairs from those retained references. No M1/M2, push, PR, deployment, schedule or whole-M0 acceptance is activated. Existing user ports55262–55266/operator OFF/screens/stores and primary WIP remain protected.
+
+The records below are preserved historical checkpoints.
+
+---
+
 # M0 integration — previews, source and memory evidence
 
 ## C client source/model qualification — backend human hold
