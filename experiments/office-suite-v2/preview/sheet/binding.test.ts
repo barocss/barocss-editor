@@ -9,7 +9,7 @@ function key(key: string, extras: Partial<KeyInput> = {}) {
   let prevented = false;
   return { event: { key, ...extras, preventDefault: () => { prevented = true; } }, prevented: () => prevented };
 }
-function setup() { return new SheetController(createPreviewReplica('keyboard-tests')); }
+function setup(canEdit?: () => boolean) { return new SheetController(createPreviewReplica('keyboard-tests'), undefined, 'local', canEdit); }
 
 test('grid keys select native positions and Tab wraps at native sheet bounds', () => {
   const controller = setup();
@@ -135,5 +135,46 @@ test('selection without a draft preserves status; cancelling an actual draft rep
     assert.equal(controller.draft, null);
     assert.equal(controller.message, 'Edit cancelled. Cell content is unchanged.');
     assert.equal(controller.projection, before);
+  } finally { controller.destroy(); }
+});
+
+test('read-only keyboard navigation reads native cells while edit keys and Undo author no events', () => {
+  const controller = setup(() => false);
+  try {
+    const original = controller.projection;
+    assert.equal(gridKey(controller, key('ArrowRight').event), true);
+    assert.equal(controller.address(), 'B1');
+    assert.equal(gridKey(controller, key('Tab').event), true);
+    assert.equal(controller.address(), 'C1');
+    assert.equal(controller.switchSheet('sheet-rates'), true);
+    controller.select(controller.index.keyAt('sheet-rates', 1, 1)!);
+    assert.equal(valueText(controller.read(controller.selection)), '12');
+    for (const command of ['F2', 'Enter', 'Delete', 'Backspace', 'x']) {
+      assert.equal(gridKey(controller, key(command).event), true);
+      assert.equal(controller.draft, null);
+    }
+    assert.equal(gridKey(controller, key('z', { ctrlKey: true }).event), true);
+    assert.equal(controller.projection, original);
+  } finally { controller.destroy(); }
+});
+
+test('reader Enter cannot apply or move an existing draft, and navigation does not discard it', () => {
+  let writable = true;
+  const controller = setup(() => writable);
+  try {
+    controller.select(controller.index.keyAt('sheet-budget', 1, 1)!);
+    controller.startEdit('999');
+    const draft = controller.draft, original = controller.projection;
+    writable = false;
+    const enter = key('Enter');
+    assert.equal(editorKey(controller, enter.event), true);
+    assert.equal(enter.prevented(), true);
+    assert.equal(controller.address(), 'B2');
+    assert.deepEqual(controller.draft, draft);
+    assert.equal(gridKey(controller, key('ArrowDown').event), true);
+    assert.equal(controller.address(), 'B3');
+    assert.deepEqual(controller.draft, draft);
+    assert.equal(controller.projection, original);
+    assert.equal(valueText(controller.read(controller.index.keyAt('sheet-budget', 1, 1)!)), '3');
   } finally { controller.destroy(); }
 });

@@ -1,9 +1,12 @@
 import { SHEET_RELAY_WS_PATH, SHEET_RELAY_WS_LIMITS, encodeSheetRelayWsFrame, decodeSheetRelayServerFrame,
-  parseSheetRelaySessionRequest, parseSheetRelayAppendRequest, sameRelayContext } from '../../src/sheet-preview-protocol.ts';
+  parseSheetRelaySessionRequest, parseSheetRelayAppendRequest, sameRelayContext,
+  parseSheetRelayAccountAdmissionResponse, sameSheetRelayAccountBinding } from '../../src/sheet-preview-protocol.ts';
 import type { SheetRelayAccess, SheetRelaySession, SheetRelayWsSession, SheetRelaySessionRequest,
-  SheetRelayState, SheetRelayAppendRequest, SheetRelayAppendResult, SheetRelayClientFrame, SheetRelayServerFrame } from '../../src/sheet-preview-protocol.ts';
+  SheetRelayState, SheetRelayAppendRequest, SheetRelayAppendResult, SheetRelayClientFrame, SheetRelayServerFrame,
+  SheetRelayAccountSession, SheetRelayAccountAdmissionResponse, SheetRelayAccountBinding } from '../../src/sheet-preview-protocol.ts';
 
-export type AuthenticatedBundle = { session: SheetRelayWsSession; state: SheetRelayState };
+export type WebSocketSessionOwner = SheetRelaySession | Pick<SheetRelayAccountSession, 'protocolVersion' | 'controlled' | 'credential' | 'identity' | 'context' | 'accountBinding'>;
+export type AuthenticatedBundle = { session: SheetRelayWsSession | SheetRelayAccountSession; state: SheetRelayState };
 export type BrowserSocket = Pick<WebSocket, 'readyState' | 'bufferedAmount' | 'send' | 'close' | 'addEventListener' | 'removeEventListener'>;
 export interface WebSocketTransportOptions {
   url: string;
@@ -14,6 +17,8 @@ export interface WebSocketTransportOptions {
   changed?: () => void;
   /** Returns a cancellation function. The default uses browser deadlines. */
   schedule?: (action: () => void, delayMs: number) => () => void;
+  now?: () => number;
+  account?: { admit: (resumeCredential?: string) => Promise<SheetRelayAccountAdmissionResponse>; isCurrent: () => boolean };
 }
 export interface WebSocketRequestMetadata {
   requestId: string; operation: 'authenticate' | 'open' | 'append'; packetId: string | null; sha256: string | null; generation: number;
@@ -25,11 +30,12 @@ export interface WebSocketTransportView {
   history: readonly (WebSocketRequestMetadata & { outcome: 'reply' | 'rejected' | 'disconnected' | 'timeout' | 'aborted' })[];
 }
 type Outcome = WebSocketTransportView['history'][number]['outcome'];
-type Pending = { metadata: WebSocketRequestMetadata; expected: 'authenticated' | 'state' | 'append-result';
+type Pending = { metadata: WebSocketRequestMetadata; expected: 'authenticated' | 'account-authenticated' | 'state' | 'append-result';
   resolve: (frame: SheetRelayServerFrame) => void; reject: (error: Error) => void; cancelDeadline: () => void; cancelAbort: () => void };
 const BACKOFF = [250, 500, 1000, 2000, 4000, 5000] as const;
-const sameOwner = (a: SheetRelaySession, b: SheetRelaySession): boolean => a.protocolVersion === b.protocolVersion && a.controlled === b.controlled &&
-  a.credential === b.credential && a.identity.actorId === b.identity.actorId && a.identity.sessionId === b.identity.sessionId && sameRelayContext(a.context, b.context);
+const sameOwner = (a: WebSocketSessionOwner, b: WebSocketSessionOwner): boolean => a.protocolVersion === b.protocolVersion && a.controlled === b.controlled &&
+  a.credential === b.credential && a.identity.actorId === b.identity.actorId && a.identity.sessionId === b.identity.sessionId && sameRelayContext(a.context, b.context) &&
+  (a.controlled || (!b.controlled && sameSheetRelayAccountBinding(a.accountBinding, b.accountBinding)));
 const sameAuthentication = (a: SheetRelaySessionRequest, b: SheetRelaySessionRequest): boolean => a.resumeCredential === b.resumeCredential;
 const failure = (code: string): Error => new Error(`websocket-${code}`);
 
@@ -40,7 +46,7 @@ export class WebSocketTransport {
   readonly #schedule: (action: () => void, delayMs: number) => () => void;
   #socket: BrowserSocket | undefined;
   #cleanupSocket: (() => void) | undefined;
-  #owner: SheetRelaySession | undefined;
+  #owner: WebSocketSessionOwner | undefined;
   #bundle: AuthenticatedBundle | undefined;
   #initialRequest: SheetRelaySessionRequest | undefined;
   #authFlight: Promise<AuthenticatedBundle> | undefined;
@@ -54,6 +60,10 @@ export class WebSocketTransport {
   #cancelReconnect: (() => void) | undefined;
   #paused = false;
   #closed = false;
+  #accountBinding: SheetRelayAccountBinding | undefined;
+  #grantExpiresAt: number | undefined;
+  #cancelExpiry: (() => void) | undefined;
+  #cancelAdmission: (() => void) | undefined;
   readonly #pending = new Map<string, Pending>();
   readonly #history: (WebSocketRequestMetadata & { outcome: Outcome })[] = [];
 
@@ -65,6 +75,26 @@ export class WebSocketTransport {
   }
   #notify(action: () => void): void { try { action(); } catch { /* Observers do not own transport admission. */ } }
   #changed(): void { this.#notify(() => this.#options.changed?.()); }
+  #now(): number { return (this.#options.now ?? Date.now)(); }
+  #accountCurrent(): boolean {
+    if (!this.#options.account) return true;
+    try { return this.#options.account.isCurrent() && (this.#grantExpiresAt === undefined || this.#now() < this.#grantExpiresAt); }
+    catch { return false; }
+  }
+  #guardAccount(): boolean {
+    if (this.#accountCurrent()) return true;
+    if (this.#access !== 'denied' && !this.#closed) this.#deny();
+    return false;
+  }
+  #armExpiry(expiresAt: number): void {
+    this.#grantExpiresAt = expiresAt; this.#cancelExpiry?.();
+    // Browser timers clamp large delays. Recheck the clock before retiring the login.
+    this.#cancelExpiry = this.#schedule(() => {
+      this.#cancelExpiry = undefined;
+      if (this.#closed || this.#access === 'denied') return;
+      if (this.#now() >= expiresAt) this.#deny(); else this.#armExpiry(expiresAt);
+    }, Math.min(Math.max(0, expiresAt - this.#now()), 2_147_483_647));
+  }
   inspect(): WebSocketTransportView {
     return { kind: 'websocket', phase: this.#phase, generation: this.#generation, framesSent: this.#framesSent, framesReceived: this.#framesReceived,
       access: this.#access, reconnectAttempt: this.#attempt,
@@ -72,6 +102,7 @@ export class WebSocketTransport {
   }
   #usable(): void {
     if (this.#closed) throw failure('closed');
+    if (!this.#guardAccount()) throw failure('access-denied');
     if (this.#paused) throw failure('paused');
     if (this.#access === 'denied') throw failure('access-denied');
   }
@@ -87,6 +118,7 @@ export class WebSocketTransport {
   }
   #disconnect(code: string, reconnect: boolean, outcome: Outcome = 'disconnected'): void {
     this.#cancelBackoff();
+    this.#cancelAdmission?.(); this.#cancelAdmission = undefined;
     const socket = this.#socket; this.#socket = undefined;
     this.#cleanupSocket?.(); this.#cleanupSocket = undefined;
     if (socket && socket.readyState < 2) { try { socket.close(1000); } catch { /* The socket is already detached. */ } }
@@ -96,6 +128,7 @@ export class WebSocketTransport {
     if (reconnect && this.#owner && !this.#closed && !this.#paused && this.#access !== 'denied') this.#backoff();
   }
   #deny(): void {
+    this.#cancelExpiry?.(); this.#cancelExpiry = undefined;
     this.#access = 'denied'; this.#notify(() => this.#options.access('denied'));
     this.#disconnect('access-denied', false);
   }
@@ -112,10 +145,10 @@ export class WebSocketTransport {
     if (signal?.aborted) return Promise.reject(failure('aborted'));
     if (this.#pending.size >= SHEET_RELAY_WS_LIMITS.pendingRequests) return Promise.reject(failure('pending-limit'));
     return new Promise((resolve, reject) => {
-      const metadata: WebSocketRequestMetadata = { requestId: frame.requestId, operation: frame.type === 'authenticate' ? 'authenticate' : frame.type === 'append' ? 'append' : 'open',
+      const metadata: WebSocketRequestMetadata = { requestId: frame.requestId, operation: frame.type === 'authenticate' || frame.type === 'authenticate-account' ? 'authenticate' : frame.type === 'append' ? 'append' : 'open',
         packetId: frame.type === 'append' ? frame.request.packet.updateId : null, sha256: frame.type === 'append' ? frame.request.packet.sha256 : null, generation: this.#generation };
       const abort = (): void => {
-        if (frame.type === 'authenticate') this.#disconnect('aborted', false, 'aborted');
+        if (frame.type === 'authenticate' || frame.type === 'authenticate-account') this.#disconnect('aborted', false, 'aborted');
         else this.#finish(frame.requestId, 'aborted');
       };
       const pending: Pending = { metadata, expected, resolve, reject, cancelDeadline: () => {}, cancelAbort: () => signal?.removeEventListener('abort', abort) };
@@ -131,6 +164,7 @@ export class WebSocketTransport {
     return `g${this.#generation}-r${this.#requests}`;
   }
   #send(frame: SheetRelayClientFrame): void {
+    if (!this.#guardAccount()) return;
     const socket = this.#socket;
     if (!socket || socket.readyState !== 1) { this.#disconnect('not-open', true); return; }
     try {
@@ -144,6 +178,7 @@ export class WebSocketTransport {
   }
   #receive(event: Event, generation: number, socket: BrowserSocket, reconnect: boolean): void {
     if (this.#socket !== socket || this.#generation !== generation || this.#closed || this.#paused) return;
+    if (!this.#guardAccount()) return;
     this.#framesReceived++;
     let frame: SheetRelayServerFrame;
     try {
@@ -151,6 +186,7 @@ export class WebSocketTransport {
       if (typeof data !== 'string') throw failure('text-only');
       frame = decodeSheetRelayServerFrame(data);
     } catch { this.#disconnect('invalid-frame', true); return; }
+    if (!this.#guardAccount()) return;
     if (frame.type === 'rejected') {
       const pending = frame.requestId ? this.#pending.get(frame.requestId) : undefined;
       if (frame.code === 'session-denied' || frame.code === 'current-access-denied') {
@@ -184,7 +220,13 @@ export class WebSocketTransport {
     const pending = this.#pending.get(frame.requestId);
     if (!pending) return; // Duplicate/old correlation never resolves a newer original packet.
     if (frame.type !== pending.expected) { this.#disconnect('reply-operation-mismatch', true); return; }
-    if (frame.type === 'authenticated') {
+    if (frame.type === 'authenticated' || frame.type === 'account-authenticated') {
+      if ((frame.type === 'account-authenticated') !== Boolean(this.#options.account)) { this.#deny(); return; }
+      if (frame.type === 'account-authenticated') {
+        if (!this.#accountBinding || !sameSheetRelayAccountBinding(frame.session.accountBinding, this.#accountBinding) ||
+            frame.session.expiresAt <= this.#now() || this.#grantExpiresAt === undefined || frame.session.expiresAt > this.#grantExpiresAt) { this.#deny(); return; }
+        this.#armExpiry(frame.session.expiresAt);
+      }
       if (this.#owner && !sameOwner(frame.session, this.#owner)) { this.#deny(); return; }
       if (this.#initialRequest?.resumeCredential !== undefined && frame.session.credential !== this.#initialRequest.resumeCredential) { this.#deny(); return; }
       this.#bundle = { session: frame.session, state: frame.state }; this.#phase = 'ready'; this.#access = frame.session.access; this.#attempt = 0;
@@ -200,23 +242,25 @@ export class WebSocketTransport {
         this.#finish(frame.requestId, 'rejected', frame); this.#deny(); return;
       }
     }
+    if (!this.#guardAccount()) return;
     this.#finish(frame.requestId, 'reply', frame);
   }
-  #begin(request: SheetRelaySessionRequest, signal: AbortSignal | undefined, reconnect: boolean): Promise<AuthenticatedBundle> {
+  #connect(request: SheetRelaySessionRequest, signal: AbortSignal | undefined, reconnect: boolean, admission?: SheetRelayAccountAdmissionResponse): Promise<AuthenticatedBundle> {
     try { this.#usable(); } catch (error) { return Promise.reject(error); }
     if (signal?.aborted) return Promise.reject(failure('aborted'));
-    if (this.#authFlight) return this.#authFlight;
     this.#cancelBackoff(); this.#generation++; this.#requests = 0; this.#phase = 'connecting';
     let socket: BrowserSocket;
     try { socket = (this.#options.createSocket ?? (url => new WebSocket(url)))(this.#url); }
     catch { this.#disconnect('socket-create-failed', true); return Promise.reject(failure('socket-create-failed')); }
     this.#socket = socket;
-    const frame: SheetRelayClientFrame = { protocolVersion: 1, type: 'authenticate', requestId: this.#id(), session: request };
-    const pending = this.#reserve(frame, 'authenticated', signal, SHEET_RELAY_WS_LIMITS.handshakeMs);
+    const frame: SheetRelayClientFrame = admission ? { protocolVersion: 1, type: 'authenticate-account', requestId: this.#id(), ticket: admission.ticket } :
+      { protocolVersion: 1, type: 'authenticate', requestId: this.#id(), session: request };
+    const pending = this.#reserve(frame, admission ? 'account-authenticated' : 'authenticated', signal, SHEET_RELAY_WS_LIMITS.handshakeMs);
     const generation = this.#generation;
     let sent = false;
     const open: EventListener = () => {
-      if (sent || this.#socket !== socket || this.#closed || this.#paused) return;
+      if (sent || this.#socket !== socket || this.#closed || this.#paused || !this.#guardAccount()) return;
+      if (admission && admission.expiresAt <= this.#now()) { this.#disconnect('ticket-expired', true); return; }
       sent = true; this.#phase = 'authenticating'; this.#send(frame);
     };
     const message: EventListener = event => this.#receive(event, generation, socket, reconnect);
@@ -229,13 +273,53 @@ export class WebSocketTransport {
       socket.removeEventListener('close', close); socket.removeEventListener('error', error);
     };
     const flight = pending.then(reply => {
-      if (reply.type !== 'authenticated') throw failure('authentication-required');
+      this.#usable();
+      if (reply.type !== 'authenticated' && reply.type !== 'account-authenticated') throw failure('authentication-required');
       return { session: structuredClone(reply.session), state: structuredClone(reply.state) };
     });
-    this.#authFlight = flight;
-    void flight.then(() => { if (this.#authFlight === flight) this.#authFlight = undefined; }, () => { if (this.#authFlight === flight) this.#authFlight = undefined; });
     if (socket.readyState === 1) queueMicrotask(() => open(new Event('open')));
     this.#changed(); return flight;
+  }
+  #begin(request: SheetRelaySessionRequest, signal: AbortSignal | undefined, reconnect: boolean): Promise<AuthenticatedBundle> {
+    try { this.#usable(); } catch (error) { return Promise.reject(error); }
+    if (signal?.aborted) return Promise.reject(failure('aborted'));
+    if (this.#authFlight) return this.#authFlight;
+    const flight = this.#options.account ? this.#admit(request, signal, reconnect) : this.#connect(request, signal, reconnect);
+    this.#authFlight = flight;
+    void flight.then(() => { if (this.#authFlight === flight) this.#authFlight = undefined; }, () => { if (this.#authFlight === flight) this.#authFlight = undefined; });
+    return flight;
+  }
+  async #admit(request: SheetRelaySessionRequest, signal: AbortSignal | undefined, reconnect: boolean): Promise<AuthenticatedBundle> {
+    this.#cancelBackoff(); this.#generation++; this.#phase = 'authenticating'; this.#changed();
+    this.#usable(); if (signal?.aborted) throw failure('aborted');
+    const generation = this.#generation;
+    let cancelDeadline = (): void => {};
+    let cancelAbort = (): void => {};
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      this.#cancelAdmission = () => reject(failure('admission-cancelled'));
+      const abort = (): void => this.#disconnect('aborted', false, 'aborted');
+      cancelAbort = () => signal?.removeEventListener('abort', abort);
+      signal?.addEventListener('abort', abort, { once: true });
+      cancelDeadline = this.#schedule(() => this.#disconnect('admission-timeout', true, 'timeout'), SHEET_RELAY_WS_LIMITS.handshakeMs);
+    });
+    try {
+      const admission = parseSheetRelayAccountAdmissionResponse(await Promise.race([Promise.resolve().then(() => {
+        this.#usable();
+        if (signal?.aborted || this.#generation !== generation) throw failure('admission-retired');
+        return this.#options.account!.admit(request.resumeCredential);
+      }), cancelled]));
+      this.#usable();
+      if (signal?.aborted || this.#generation !== generation) throw failure('admission-retired');
+      if (admission.expiresAt <= this.#now() || admission.grantExpiresAt <= this.#now() ||
+          (this.#accountBinding && !sameSheetRelayAccountBinding(admission.accountBinding, this.#accountBinding))) { this.#deny(); throw failure('account-binding-denied'); }
+      this.#accountBinding = structuredClone(admission.accountBinding);
+      this.#armExpiry(admission.grantExpiresAt);
+      this.#cancelAdmission = undefined; cancelDeadline(); cancelAbort();
+      return await this.#connect(request, signal, reconnect, admission);
+    } catch (error) {
+      if (!this.#closed && !this.#paused && this.#access !== 'denied' && this.#generation === generation) this.#disconnect('admission-failed', false);
+      throw error;
+    } finally { cancelDeadline(); cancelAbort(); if (this.#generation === generation) this.#cancelAdmission = undefined; }
   }
   authenticate(request: SheetRelaySessionRequest, signal?: AbortSignal): Promise<AuthenticatedBundle> {
     try {
@@ -259,6 +343,7 @@ export class WebSocketTransport {
   }
   async #operation(type: 'open' | 'append', request: SheetRelayAppendRequest | undefined, signal: AbortSignal | undefined): Promise<SheetRelayServerFrame> {
     await this.#ensure(signal);
+    this.#usable();
     if (this.#pending.size >= SHEET_RELAY_WS_LIMITS.pendingRequests) throw failure('pending-limit');
     const requestId = this.#id();
     const frame: SheetRelayClientFrame = type === 'append' ? { protocolVersion: 1, type, requestId, request: parseSheetRelayAppendRequest(request) } : { protocolVersion: 1, type, requestId };
@@ -267,19 +352,21 @@ export class WebSocketTransport {
     if (this.#pending.has(requestId)) this.#send(frame);
     return reply;
   }
-  async open(owner: SheetRelaySession, signal?: AbortSignal): Promise<SheetRelayState> {
+  async open(owner: WebSocketSessionOwner, signal?: AbortSignal): Promise<SheetRelayState> {
     this.#usable();
     if (this.#owner ? !sameOwner(owner, this.#owner) : !this.#bundle || !sameOwner(owner, this.#bundle.session)) throw failure('original-session-mismatch');
-    if (!this.#owner) this.#owner = { protocolVersion: 1, controlled: true, credential: owner.credential, identity: { ...owner.identity }, context: { ...owner.context } };
+    if (!this.#owner) this.#owner = structuredClone(owner);
     return this.state(signal);
   }
   async append(request: SheetRelayAppendRequest, signal?: AbortSignal): Promise<SheetRelayAppendResult> {
     const reply = await this.#operation('append', request, signal);
+    if (!this.#guardAccount()) throw failure('access-denied');
     if (reply.type !== 'append-result') throw failure('reply-operation-mismatch');
     return reply.result;
   }
   async state(signal?: AbortSignal): Promise<SheetRelayState> {
     const reply = await this.#operation('open', undefined, signal);
+    if (!this.#guardAccount()) throw failure('access-denied');
     if (reply.type !== 'state') throw failure('reply-operation-mismatch');
     return reply.state;
   }
@@ -291,6 +378,6 @@ export class WebSocketTransport {
   }
   close(): void {
     if (this.#closed) return;
-    this.#closed = true; this.#disconnect('closed', false);
+    this.#closed = true; this.#cancelExpiry?.(); this.#cancelExpiry = undefined; this.#disconnect('closed', false);
   }
 }

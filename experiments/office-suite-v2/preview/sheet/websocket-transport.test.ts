@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { WebSocketTransport } from './websocket-transport.ts';
 import type { BrowserSocket } from './websocket-transport.ts';
 import { SHEET_RELAY_WS_LIMITS, SHEET_RELAY_WS_PATH, decodeSheetRelayClientFrame, encodeSheetRelayWsFrame, relayAdmission } from '../../src/sheet-preview-protocol.ts';
-import type { SheetRelayClientFrame, SheetRelayServerFrame, SheetRelayWsSession, SheetRelayState, SheetRelayAppendRequest, SheetRelayAppendResult } from '../../src/sheet-preview-protocol.ts';
+import type { SheetRelayClientFrame, SheetRelayServerFrame, SheetRelayWsSession, SheetRelayState, SheetRelayAppendRequest, SheetRelayAppendResult, SheetRelayAccountAdmissionResponse, SheetRelayAccountBinding, SheetRelayAccountSession } from '../../src/sheet-preview-protocol.ts';
 
 // P2 shape fixtures and a fake browser socket only. Native hash/admission/storage/server/ACL are not proved here.
 const context = { documentId: 'socket-shape-test', workbookId: 'book', generation: 'generation', contractVersion: 1, engineVersion: 1, schemaVersion: 1, adapterVersion: 1 } as const;
@@ -381,5 +381,226 @@ test('fake throwing observers cannot turn a correlated native packet result into
     socket.reply({ protocolVersion: 1, type: 'append-result', requestId: frame.requestId, result: durable(packet()) });
     assert.deepEqual(await promise, durable(packet())); assert.equal(h.transport.inspect().phase, 'ready');
     socket.error(); await tick(); assert.equal(h.transport.inspect().phase, 'waiting');
+  } finally { h.transport.close(); }
+});
+
+
+// P3 fixtures verify transport fencing only. They do not prove OIDC, PostgreSQL or live permission checks.
+const accountBinding: SheetRelayAccountBinding = {
+  issuer: 'https://identity.example.test/realm', subject: 'account-a', loginBindingId: '1'.repeat(64),
+  userId: '11111111-1111-4111-8111-111111111111', tenantId: '22222222-2222-4222-8222-222222222222',
+  workspaceId: '33333333-3333-4333-8333-333333333333', documentId: '44444444-4444-4444-8444-444444444444',
+};
+const accountContext = { ...context, documentId: accountBinding.documentId };
+const accountOwner: SheetRelayAccountSession = { ...owner, controlled: false, context: accountContext, accountBinding, expiresAt: 20_000 };
+const accountState: SheetRelayState = { ...state, context: accountContext, admission: relayAdmission(accountContext) };
+function accountHarness() {
+  const clock = new Clock(), sockets: FakeSocket[] = [], admissions: (string | undefined)[] = [];
+  const accepted: SheetRelayState[] = [], access: string[] = [], disconnected: string[] = [];
+  const gate = { current: true, admit: async (_credential?: string): Promise<SheetRelayAccountAdmissionResponse> => ({
+    protocolVersion: 1, ticket: admissions.length.toString(16).padStart(64, '0'), expiresAt: clock.now + 5_000,
+    grantExpiresAt: 20_000, accountBinding,
+  }) };
+  const transport = new WebSocketTransport({ url: `ws://127.0.0.1:55265${SHEET_RELAY_WS_PATH}`, now: () => clock.now, schedule: clock.schedule,
+    createSocket: () => { const socket = new FakeSocket(); sockets.push(socket); return socket; },
+    account: { isCurrent: () => gate.current, admit: credential => { admissions.push(credential); return gate.admit(credential); } },
+    accepted: value => accepted.push(value), access: value => access.push(value), disconnected: value => disconnected.push(value) });
+  const authenticate = async () => {
+    const promise = transport.authenticate({ protocolVersion: 1, resumeCredential: accountOwner.credential });
+    await tick(); const socket = sockets.at(-1)!; socket.open();
+    const frame = socket.last('authenticate-account');
+    socket.reply({ protocolVersion: 1, type: 'account-authenticated', requestId: frame.requestId, session: accountOwner, state: accountState });
+    await promise; return socket;
+  };
+  const ready = async () => {
+    const socket = await authenticate(), promise = transport.open(accountOwner); await tick();
+    socket.reply({ protocolVersion: 1, type: 'state', requestId: socket.last('open').requestId, state: accountState });
+    await promise; return socket;
+  };
+  return { clock, sockets, admissions, accepted, access, disconnected, gate, transport, authenticate, ready };
+}
+
+test('P3 fake socket privately sends one-use ticket first and keeps account secrets out of URL and metadata', async () => {
+  const h = accountHarness();
+  try {
+    const socket = await h.ready();
+    assert.deepEqual(h.admissions, [accountOwner.credential]);
+    assert.equal(socket.frames()[0]?.type, 'authenticate-account');
+    assert.equal(socket.frames().some(frame => frame.type === 'authenticate'), false);
+    const first = socket.frames()[0]!;
+    assert.equal(first.type, 'authenticate-account');
+    if (first.type !== 'authenticate-account') assert.fail();
+    assert.equal(JSON.stringify(h.transport.inspect()).includes(first.ticket), false);
+    assert.equal(JSON.stringify(h.transport.inspect()).includes(accountOwner.credential), false);
+    assert.equal(JSON.stringify(h.transport.inspect()).includes(accountBinding.subject), false);
+    assert.equal(h.transport.inspect().phase, 'ready');
+  } finally { h.transport.close(); }
+  assert.equal(h.clock.jobs.size, 0);
+});
+
+test('P3 reconnect obtains a fresh ticket for the original native credential without replaying an append', async () => {
+  const h = accountHarness();
+  try {
+    const first = await h.ready(); first.close(); await tick(); h.clock.advance(250); await tick();
+    const socket = h.sockets[1]!; socket.open();
+    const auth = socket.last('authenticate-account'), previous = first.last('authenticate-account');
+    assert.equal(auth.type, 'authenticate-account'); assert.equal(previous.type, 'authenticate-account');
+    if (auth.type !== 'authenticate-account' || previous.type !== 'authenticate-account') assert.fail();
+    assert.notEqual(auth.ticket, previous.ticket); assert.deepEqual(h.admissions, [accountOwner.credential, accountOwner.credential]);
+    socket.reply({ protocolVersion: 1, type: 'account-authenticated', requestId: auth.requestId, session: accountOwner, state: accountState });
+    await tick(); assert.equal(h.accepted.length, 1);
+    assert.equal(socket.frames().some(frame => frame.type === 'append'), false);
+  } finally { h.transport.close(); }
+});
+
+test('P3 account, login and document scope changes refuse reconnect before constructing a new socket', async () => {
+  for (const field of Object.keys(accountBinding) as (keyof SheetRelayAccountBinding)[]) {
+    const h = accountHarness();
+    try {
+      const socket = await h.ready();
+      const changed = { ...accountBinding, [field]: field === 'issuer' ? 'https://other.example.test' : field === 'subject' ? 'account-b' :
+        field === 'loginBindingId' ? '2'.repeat(64) : '55555555-5555-4555-8555-555555555555' };
+      h.gate.admit = async () => ({ protocolVersion: 1, ticket: '3'.repeat(64), expiresAt: 5_000, grantExpiresAt: 20_000, accountBinding: changed });
+      socket.close(); await tick(); h.clock.advance(250); await tick();
+      assert.equal(h.sockets.length, 1, field); assert.equal(h.transport.inspect().phase, 'denied', field);
+      h.clock.advance(30_000); assert.equal(h.sockets.length, 1);
+    } finally { h.transport.close(); }
+  }
+});
+
+test('P3 authenticated reply must match admission binding, original native owner and verified login expiry', async () => {
+  for (const change of ['binding', 'credential', 'expiry'] as const) {
+    const h = accountHarness();
+    try {
+      const promise = h.transport.authenticate({ protocolVersion: 1, resumeCredential: accountOwner.credential });
+      const denied = assert.rejects(promise, /access-denied/); await tick(); const socket = h.sockets[0]!; socket.open();
+      const session: SheetRelayAccountSession = { ...accountOwner,
+        ...(change === 'binding' ? { accountBinding: { ...accountBinding, subject: 'account-b' } } : {}),
+        ...(change === 'credential' ? { credential: 'f'.repeat(64) } : {}),
+        ...(change === 'expiry' ? { expiresAt: 20_001 } : {}) };
+      socket.reply({ protocolVersion: 1, type: 'account-authenticated', requestId: socket.last('authenticate-account').requestId, session, state: accountState });
+      await denied; assert.equal(h.transport.inspect().phase, 'denied');
+    } finally { h.transport.close(); }
+  }
+});
+
+test('P3 account retirement during held admission never constructs a socket or adopts a new account', async () => {
+  const h = accountHarness();
+  let complete!: (value: SheetRelayAccountAdmissionResponse) => void;
+  h.gate.admit = () => new Promise(resolve => { complete = resolve; });
+  try {
+    const promise = h.transport.authenticate({ protocolVersion: 1 });
+    const denied = assert.rejects(promise, /access-denied/); await tick(); h.gate.current = false;
+    complete({ protocolVersion: 1, ticket: '4'.repeat(64), expiresAt: 5_000, grantExpiresAt: 20_000, accountBinding });
+    await denied; assert.equal(h.sockets.length, 0); assert.equal(h.transport.inspect().phase, 'denied');
+  } finally { h.transport.close(); }
+});
+
+test('P3 local account retirement fences held ACKs and accepted pushes before observers see them', async () => {
+  const h = accountHarness();
+  try {
+    const socket = await h.ready(), request = { ...packet(), context: accountContext, admission: relayAdmission(accountContext) };
+    const promise = h.transport.append(request), denied = assert.rejects(promise, /access-denied/); await tick();
+    const frame = socket.last('append'); h.gate.current = false;
+    const originalResult = durable(request); if (originalResult.status !== 'durable') assert.fail();
+    const result: SheetRelayAppendResult = { ...originalResult, receipt: { ...originalResult.receipt, context: accountContext, admission: relayAdmission(accountContext) } };
+    socket.reply({ protocolVersion: 1, type: 'append-result', requestId: frame.requestId, result });
+    await denied;
+    if (result.status !== 'durable') assert.fail();
+    socket.reply({ protocolVersion: 1, type: 'accepted', receipt: result.receipt, state: accountState });
+    assert.equal(h.accepted.length, 0); assert.equal(h.transport.inspect().phase, 'denied');
+    assert.equal(h.transport.inspect().history.at(-1)?.outcome, 'disconnected');
+  } finally { h.transport.close(); }
+});
+
+test('P3 verified login expiry retires the socket and never automatically issues a new native session', async () => {
+  const h = accountHarness();
+  try {
+    await h.ready(); h.clock.advance(20_000); await tick();
+    assert.equal(h.transport.inspect().phase, 'denied'); assert.equal(h.access.at(-1), 'denied');
+    assert.equal(h.clock.jobs.size, 0); assert.equal(h.admissions.length, 1);
+    await assert.rejects(h.transport.state(), /access-denied/);
+  } finally { h.transport.close(); }
+});
+
+test('P3 held HTTP admission cancels on pause, close and abort; late completion cannot create a socket', async () => {
+  for (const action of ['pause', 'close', 'abort'] as const) {
+    const h = accountHarness(), abort = new AbortController();
+    let complete!: (value: SheetRelayAccountAdmissionResponse) => void;
+    h.gate.admit = () => new Promise(resolve => { complete = resolve; });
+    try {
+      const promise = h.transport.authenticate({ protocolVersion: 1 }, abort.signal), rejected = assert.rejects(promise, /admission-cancelled/);
+      await tick();
+      if (action === 'pause') h.transport.setPaused(true); else if (action === 'close') h.transport.close(); else abort.abort();
+      await rejected;
+      complete({ protocolVersion: 1, ticket: '5'.repeat(64), expiresAt: 5_000, grantExpiresAt: 20_000, accountBinding });
+      await tick(); assert.equal(h.sockets.length, 0); assert.equal(h.clock.jobs.size, 0);
+    } finally { h.transport.close(); }
+  }
+});
+
+
+test('P3 resumed native actor, session and context must remain the original owner', async () => {
+  for (const field of ['actorId', 'sessionId', 'context'] as const) {
+    const h = accountHarness();
+    try {
+      const first = await h.ready(); first.close(); await tick(); h.clock.advance(250); await tick();
+      const socket = h.sockets[1]!; socket.open();
+      const session: SheetRelayAccountSession = field === 'context' ? { ...accountOwner, context: { ...accountContext, generation: 'changed-generation' } } :
+        { ...accountOwner, identity: { ...accountOwner.identity, [field]: 'changed-native-owner' } };
+      const changedState = { ...accountState, context: session.context, admission: relayAdmission(session.context) };
+      socket.reply({ protocolVersion: 1, type: 'account-authenticated', requestId: socket.last('authenticate-account').requestId, session, state: changedState });
+      await tick(); assert.equal(h.transport.inspect().phase, 'denied'); assert.equal(h.accepted.length, 0);
+    } finally { h.transport.close(); }
+  }
+});
+
+test('P3 expired ticket cannot be sent and an expired admission cannot create a socket', async () => {
+  const h = accountHarness();
+  try {
+    h.gate.admit = async () => ({ protocolVersion: 1, ticket: '6'.repeat(64), expiresAt: 100, grantExpiresAt: 20_000, accountBinding });
+    const promise = h.transport.authenticate({ protocolVersion: 1 }), rejected = assert.rejects(promise, /ticket-expired/);
+    await tick(); const socket = h.sockets[0]!; h.clock.advance(100); socket.open();
+    await rejected; assert.equal(socket.sent.length, 0);
+  } finally { h.transport.close(); }
+  const a = accountHarness();
+  try {
+    a.clock.now = 6_000;
+    a.gate.admit = async () => ({ protocolVersion: 1, ticket: '6'.repeat(64), expiresAt: 5_000, grantExpiresAt: 20_000, accountBinding });
+    await assert.rejects(a.transport.authenticate({ protocolVersion: 1 }), /account-binding-denied/);
+    assert.equal(a.sockets.length, 0); assert.equal(a.transport.inspect().phase, 'denied');
+  } finally { a.transport.close(); }
+});
+
+test('P3 account authentication never accepts the controlled reply envelope', async () => {
+  const h = accountHarness();
+  try {
+    const promise = h.transport.authenticate({ protocolVersion: 1 }), rejected = assert.rejects(promise, /reply-operation-mismatch/);
+    await tick(); const socket = h.sockets[0]!; socket.open();
+    socket.reply({ protocolVersion: 1, type: 'authenticated', requestId: socket.last('authenticate-account').requestId, session: owner, state });
+    await rejected; assert.equal(h.transport.inspect().phase, 'waiting'); assert.equal(h.accepted.length, 0);
+  } finally { h.transport.close(); }
+});
+
+
+test('P3 failed admission has no controlled fallback and leaves no unhandled cancellation or socket', async () => {
+  for (const synchronous of [false, true]) {
+    const h = accountHarness();
+    try {
+      h.gate.admit = synchronous ? () => { throw new Error('fixture-admission-failed'); } : async () => { throw new Error('fixture-admission-failed'); };
+      await assert.rejects(h.transport.authenticate({ protocolVersion: 1 }), /fixture-admission-failed/);
+      await tick(); assert.equal(h.sockets.length, 0); assert.equal(h.clock.jobs.size, 0);
+      assert.equal(h.transport.inspect().phase, 'waiting');
+    } finally { h.transport.close(); }
+  }
+});
+
+
+test('P3 immediate retirement cancels admission before its HTTP callback starts', async () => {
+  const h = accountHarness();
+  try {
+    const promise = h.transport.authenticate({ protocolVersion: 1 }), rejected = assert.rejects(promise, /admission-cancelled/);
+    h.transport.close(); await rejected; await tick();
+    assert.equal(h.admissions.length, 0); assert.equal(h.sockets.length, 0); assert.equal(h.clock.jobs.size, 0);
   } finally { h.transport.close(); }
 });

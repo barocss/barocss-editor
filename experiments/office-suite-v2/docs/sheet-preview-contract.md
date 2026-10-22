@@ -745,3 +745,139 @@ using the same DB/context/bootstrap/registry/checkpoint+tail, then fresh open/
 re-edit/new own Undo. Source/model acceptance does not imply these gates passed.
 Only after qualification may new WS user tabs be opened. Existing B/A/Word tabs
 and inputs must never be refreshed, edited, closed or moved by that campaign.
+
+
+## Current account UI slice — 2026-10-22
+
+The current independent UI scope follows the human real-account request in
+Planner turn `01a1620a-654c-79c1-b06c-9cb75a117092`. The bounded raw-user chronology
+in primary `.omx/m0/account-authority-order.json` proves that the quoted backend
+STOP was at02:37UTC, before explicit04:12UTC Collaboration release and05:16UTC
+authentication approval. Earlier hold messages were historical, not a new STOP.
+The same backend owner continues. Its uncommitted account service/PG/logout WIP
+is not adopted, committed, repaired or transferred by this UI work. Published
+immutable owner contracts and Integration's final joined runtime remain required
+before actual two-account Sheet acceptance.
+
+NEW author checkout: `/Users/user/.codex/worktrees/533-sheet-account/barocss-editor`,
+branch `codex/533-sheet-account`. Prepared base d7277c0098f39a59e87ca277090404f0dc1976bf /
+fbcd51627fa95b1f9f361af6b042f4994908fc95. Integration subsequently adopted immutable
+P3 cec21133aeb9b68e6fa0093b902ba9a00425bbf6 as local parent
+7a11865e303d615668301715e4ad7c6acec1e2a0 /
+198d4000c4399690dcebafb2dd3abaf622b8b258. Frozen preparation receipts are
+`/Users/user/barocss-editor/.omx/m0/533-sheet-account-frozen-receipt.json` and
+`533-sheet-account-P3-frozen-receipt.json`. Existing dependency versions and budgets
+remain unchanged; no installation or root/config/lock/native/backend edit.
+
+### Actual auth reuse and entry
+
+The runner selects meta `sheet-collaboration-mode=account`, serves the same entry
+at `/` and `/auth/callback`, provides existing VITE_OFFICE_OIDC_ISSUER and
+VITE_OFFICE_OIDC_CLIENT_ID, and supplies same-origin meta
+`sheet-account-auth-module` pointing to the NEW checkout's actual
+`apps/office/src/auth-client.ts` source. This module owns discovery, Authorization
+Code+PKCE, code scrub, memory-only bearer/session and current canonical identity.
+The Sheet adapter does not copy PKCE, export a token, create an identity store,
+select a role/actor, or pretend that Note/Yorkie authority covers Sheet.
+
+Only root return links with a validated UUID tenant/document pair, optional
+workspace/client and explicit new=1 for a new client are retained across callback.
+No token/ticket/credential is put into a URL, observer or browser identity record.
+The dynamic module seam keeps the standalone NodeNext model/type-check graph
+bounded. Integration must still prove the actual source-aware Office browser
+module graph, callbacks and server origin registration; passing these models is
+not that proof.
+
+`account-admission.ts` uses captured authorized fetch and immutable P3 for a
+bounded 32 KiB admission response. The first no-credential probe checks the
+server's issuer/subject/canonical user and actual tenant/workspace/Sheet document
+before any private IDB load. Its ticket is discarded; WebSocket authentication
+obtains a fresh one-use ticket, with the original native credential on resume.
+Every admission/reconnect pins all seven binding fields and original verified
+login expiry. Account mode cannot fall back to controlled authentication or HTTP
+append.
+
+### Original outbox and local retirement
+
+The old v1 controlled IndexedDB database is preserved and cannot adopt v2 account
+records. Account databases use SHA-256 of the canonical seven-field namespace,
+including loginBindingId. Stored v2 sessions retain controlled:false plus the
+original native credential/identity/context/accountBinding. Ephemeral access,
+expiry, tokens and tickets are excluded. Existing exact packet bytes/ID/hash,
+ordinal, native validation and per-original receipt checks remain the authority.
+Another account or login SID does not auto-replay, relabel or delete old pending
+work. Current captured session and local generation/expiry are checked before
+private reads and before/after asynchronous results. A late old-namespace write
+may finish, but its retired result cannot update the current UI.
+
+Controller edit/apply/Undo now accept an optional fail-closed local write gate.
+Account readers can select cells and switch sheets while all native mutations
+are refused. A permission change preserves the existing draft and own history.
+If native commit already happened before retirement becomes observable at
+publish, the exact original bytes remain local-only even after close; they are
+not silently dropped or sent. Beforeunload protects these RAM-only packets and
+unfinished account drafts. Neither physical OS IME nor actual BFCache is claimed.
+
+Retirement immediately hides the old workbook/alternatives/outbox, removes public
+inspectors and closes its socket. A frozen draft stays in the original page;
+opening a new sign-in tab does not reuse its client credential or private scope.
+The account outbox exposes bounded draft retention but never auto-applies an old
+draft under a new login. Keep an unfinished original page open.
+
+### Logout decision and honest boundary
+
+Canonical decision is `/Users/user/barocss-editor/.omx/m0/account-auth-decisions.json`,
+`sheet-account-logout-v1`, version1: ONE server-verified own-login-session logout
+through captured fetch. Existing Office auth-client remains byte-identical.
+The unused RP POST implementation/model is preserved as an unapplied patch
+`/tmp/533-unused-rp-logout.patch`, 6567 bytes, SHA-256
+c9e6dc9d01b9c51d68246f8ade6da8e70a6dd5b11662fe47e33f8a782971f099;
+Integration also retained a private copy. It is excluded from this candidate.
+
+`SheetAccountLogin.logout` accepts the owner-provided server logout callback,
+retires local work before awaiting it, and clears/announces only if that original
+operation still owns the captured Office login. Confirmed requires strict true
+from the callback and unchanged operation ownership. Failure is unconfirmed.
+While the backend's logout DTO is not yet published, default account entry
+currently offers **End local session** and explicitly says provider logout is
+unconfirmed. It does not copy an unpublished DTO, invent a second endpoint or claim
+server logout. After the owner publishes the contract, consume its immutable contract and wire
+the callback before actual provider/logout acceptance. All account Sheet runtime,
+current ACL/read-only/revoke, actual IDB, IdP logout and new-relay restart checks
+remain NOT RUN by this author.
+
+### Scoped checks and preserved first failures
+
+Helpers used disjoint owned files and ran source/model checks only. First failures
+remain in the tool history: login literal-import TS2835 (fixed via injected actual
+module port); binding lint no-control-regex (removed duplicate local parser in
+favor of P3); transport unawaited rejection / timing fixtures; admission's three
+test-only exact-optional/readonly diagnostics; native session test proxy arity
+TS2554; parent unused isRelayCredential lint after reusing stored-session parser.
+No suppression, native engine repair, protocol copy or budget change was used.
+
+Two actual wrapper races were reproduced as 8 PASS / 2 FAIL: an old logout A
+finally cleared/announced over newer login B, and a failed begin A removed B's
+return record/restored A's URL. Operation-generation plus exact return-record /
+captured-session ownership now guard those mutations; 10 login models pass.
+Office's internal pending redirects/token exchange cannot be cancelled by this
+wrapper, so the page also serializes login/open/logout operations.
+
+Independent source review found the native-commit/publish expiry boundary and
+RAM-only draft unload gap. Exact original packet retention and account-draft
+beforeunload protection were added. The boundary regression runs an actual native
+commit, retires/closes before publish and checks original copied bytes, one
+local-only record, unchanged persisted history and zero append/mark calls.
+
+These model checks are not configured OIDC, genuine privatePG/ACL, actual browser,
+physical IME, release or whole-M0 acceptance. Integration owns meaningful joined
+checks and actual runtime after the named backend producer publishes its candidate. All old
+Word/A/B/WS sources, processes, stores and tabs—including added peer tabs7/8 in
+room95fa8f84-7758-47b7-88c1-0a96358004ec—remain frozen and unmodified.
+
+Current source/model checkpoint: Node22.22 sequential changed-area run checks all20
+changed TypeScript roots/imports: 0 diagnostics; 11 affected model test files:145 PASS,0 FAIL,0skip; exact20-file ESLint:0 errors/0warnings. The test selection is the9 changed test files plus durable-session.test.ts and durable-binding.test.ts.
+- /tmp/533-account-types.log: 73 bytes, SHA256 969b049b6aaa5c0234c971dbfce79c6e3a420a1c9bddec644102e8eb48fd22ba
+- /tmp/533-account-tests.log: 36991 bytes, SHA256 096525a9608a4e3336191553eb4141cb3703c3c080fbe4e4bcbec1d248af9541
+- /tmp/533-account-lint.log: 0 bytes, SHA256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+No actual browser/server/IdP/PG run by the author. This initial immutable UI checkpoint still awaits the owner-published logout contract and its final wire.

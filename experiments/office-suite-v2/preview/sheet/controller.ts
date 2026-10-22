@@ -44,13 +44,15 @@ export class SheetController {
   private readonly ownEdits: string[] = [];
   private readonly localEvent: ((change: NativeLocalChange) => void) | undefined;
   private readonly mode: SheetAdapterMode;
+  private readonly canEdit: (() => boolean) | undefined;
   transportWarning: string | null = null;
   message = 'Session only. Reload starts a new example.';
 
-  constructor(replica: SheetReplica, localEvent?: (change: NativeLocalChange) => void, mode: SheetAdapterMode = 'local') {
+  constructor(replica: SheetReplica, localEvent?: (change: NativeLocalChange) => void, mode: SheetAdapterMode = 'local', canEdit?: () => boolean) {
     this.replica = replica;
     this.localEvent = localEvent;
     this.mode = mode;
+    this.canEdit = canEdit;
     if (mode === 'peer') this.message = 'Two-screen session. Reload joins a live peer. Nothing is saved.';
     if (mode === 'durable') this.message = 'Controlled relay. Local input needs server confirmation.';
     this.current = replica.projection;
@@ -66,9 +68,16 @@ export class SheetController {
   get index(): ReferenceIndex { return this.references; }
   get selection(): CellKey { return { ...this.selectedKey }; }
   get draft(): Draft | null { return this.currentDraft ? { ...this.currentDraft, key: { ...this.currentDraft.key } } : null; }
-  get canUndo(): boolean { return !this.currentDraft && this.ownEdits.some(id => this.current.outcomes[id]?.status === 'applied'); }
+  get editable(): boolean { try { return this.canEdit ? this.canEdit() === true : true; } catch { return false; } }
+  get canUndo(): boolean { return this.editable && !this.currentDraft && this.ownEdits.some(id => this.current.outcomes[id]?.status === 'applied'); }
   get sessionId(): string { return this.replica.identity.sessionId; }
   get selectedAlternatives(): readonly CellAlternative[] { return this.current.cells[encodeCellKey(this.selectedKey)]?.alternatives ?? []; }
+
+  private requireEditable(): boolean {
+    if (this.editable) return true;
+    this.message = 'Read-only access. Editing and Undo are unavailable. Original draft and edit history are retained.';
+    return false;
+  }
 
   /** Transport observers cannot turn an applied native event into a false refusal. */
   private forwardLocal(change: NativeLocalChange): void {
@@ -110,9 +119,10 @@ export class SheetController {
     return this.references.display({ ...key, absRow: false, absColumn: false, sheetQualified: false });
   }
   select(key: CellKey): boolean {
-    if (this.currentDraft?.composing) { this.message = 'Finish text composition before changing cells.'; return false; }
+    const editable = this.editable;
+    if (this.currentDraft?.composing && editable) { this.message = 'Finish text composition before changing cells.'; return false; }
     if (!this.references.position(key)) { this.message = 'Selection refused: missing native cell.'; return false; }
-    if (this.currentDraft && !sameKey(key, this.selectedKey)) this.cancel();
+    if (this.currentDraft && !sameKey(key, this.selectedKey) && editable) this.cancel();
     this.selectedKey = { ...key };
     return true;
   }
@@ -127,6 +137,7 @@ export class SheetController {
     return key ? this.select(key) : false;
   }
   startEdit(replacement?: string): boolean {
+    if (!this.requireEditable()) return false;
     if (this.currentDraft) return true;
     this.currentDraft = { key: { ...this.selectedKey }, generation: this.current.context.generation,
       structureEpoch: this.structureEpoch, text: replacement ?? this.source(), composing: false };
@@ -134,9 +145,12 @@ export class SheetController {
     return true;
   }
   setDraft(text: string): void {
+    if (!this.requireEditable()) return;
     if (this.currentDraft) this.currentDraft = { ...this.currentDraft, text };
   }
   setComposing(composing: boolean): void {
+    // A composition may end after access changes. Clear its local flag without accepting new text.
+    if (composing && !this.requireEditable()) return;
     if (this.currentDraft) this.currentDraft = { ...this.currentDraft, composing };
   }
   cancel(): boolean {
@@ -151,6 +165,7 @@ export class SheetController {
     return false;
   }
   commit(isComposing = false): boolean {
+    if (!this.requireEditable()) return false;
     const draft = this.currentDraft;
     if (!draft || draft.composing || isComposing) return false;
     this.synchronize();
@@ -160,6 +175,7 @@ export class SheetController {
     }
     const input = inputFromText(draft.text, draft.key, this.references);
     if (input.kind === 'invalid') { this.message = `Input refused: ${input.reason}`; return false; }
+    if (!this.requireEditable()) return false;
     try {
       const change = this.replica.commit({ kind: 'cell.commit', key: draft.key, input });
       // Retain local identity even if native dependencies apply it later.
@@ -174,9 +190,11 @@ export class SheetController {
     } catch (error) { this.message = `Commit refused: ${errorText(error)}`; return false; }
   }
   undo(): boolean {
+    if (!this.requireEditable()) return false;
     if (this.currentDraft) { this.message = 'Finish or cancel the cell edit before Undo.'; return false; }
     const target = this.ownEdits.findLast(id => this.current.outcomes[id]?.status === 'applied');
     if (!target) { this.message = 'No cell edit from this session to undo.'; return false; }
+    if (!this.requireEditable()) return false;
     try {
       const change = this.replica.undo(target);
       this.forwardLocal(change);

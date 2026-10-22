@@ -91,7 +91,7 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
   const canvas = element('sheet-canvas');
   const editor = element('cell-editor');
   const alternatives = document.getElementById('alternatives');
-  if (!(canvas instanceof HTMLCanvasElement) || !(editor instanceof HTMLInputElement) || !(undo instanceof HTMLButtonElement)) throw new Error('Invalid Sheet DOM contract');
+  if (!(canvas instanceof HTMLCanvasElement) || !(editor instanceof HTMLInputElement) || !(undo instanceof HTMLButtonElement) || !(edit instanceof HTMLButtonElement)) throw new Error('Invalid Sheet DOM contract');
   let disposed = false;
   let frame = 0;
   let previousDraft = false;
@@ -125,6 +125,7 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
   };
   const render = (): void => {
     if (disposed) return;
+    const editable = controller.editable;
     updateView();
     const { rows, columns } = size();
     const selected = controller.index.position(controller.selection);
@@ -135,6 +136,7 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
     drawGrid(canvas, view, window.devicePixelRatio || 1, rows, columns, selected, read);
     grid.setAttribute('aria-rowcount', String(rows));
     grid.setAttribute('aria-colcount', String(columns));
+    grid.setAttribute('aria-readonly', String(!editable));
     const fragments = document.createDocumentFragment();
     for (let row = bounds.rowStart; row < bounds.rowEnd; row++) {
       const rowNode = document.createElement('div');
@@ -180,9 +182,12 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
       }
       alternatives.replaceChildren(fragments);
     }
-    undo.disabled = !controller.canUndo;
+    undo.disabled = !editable || !controller.canUndo;
+    edit.disabled = !editable;
+    editor.disabled = !editable;
+    editor.readOnly = !editable;
     const draft = controller.draft;
-    editor.hidden = draft === null;
+    editor.hidden = draft === null || draft.key.sheetId !== controller.selection.sheetId;
     if (draft) {
       const position = controller.index.position(draft.key);
       if (position) {
@@ -194,8 +199,8 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
         editor.style.clipPath = `inset(${Math.max(0, GRID.columnHeader - rect.y)}px ${Math.max(0, rect.x + rect.width - view.width)}px ${Math.max(0, rect.y + rect.height - view.height)}px ${Math.max(0, GRID.rowHeader - rect.x)}px)`;
       }
       editor.setAttribute('aria-label', `Cell input ${controller.address(draft.key)}`);
-      if (!draft.composing && editor.value !== draft.text) editor.value = draft.text;
-      if (!previousDraft) { editor.focus({ preventScroll: true }); editor.select(); }
+      if ((!draft.composing || !editable) && editor.value !== draft.text) editor.value = draft.text;
+      if (editable && !previousDraft) { editor.focus({ preventScroll: true }); editor.select(); }
     }
     previousDraft = draft !== null;
   };
@@ -204,7 +209,7 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
   };
   const finishAction = (): void => {
     ensureVisible(); render();
-    if (!controller.draft) grid.focus({ preventScroll: true });
+    if (!controller.editable || !controller.draft) grid.focus({ preventScroll: true });
     else if (!controller.draft.composing) editor.focus({ preventScroll: true });
   };
 
@@ -243,7 +248,7 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
       if (controller.draft && event.key.length === 1) editor.setSelectionRange(editor.value.length, editor.value.length);
     }
   }, options);
-  editor.addEventListener('input', () => { controller.setDraft(editor.value); }, options);
+  editor.addEventListener('input', () => { controller.setDraft(editor.value); if (!controller.editable) render(); }, options);
   editor.addEventListener('compositionstart', () => { controller.setComposing(true); }, options);
   editor.addEventListener('compositionend', () => { controller.setDraft(editor.value); controller.setComposing(false); render(); }, options);
   editor.addEventListener('keydown', event => { if (editorKey(controller, event)) finishAction(); }, options);
@@ -273,7 +278,7 @@ export function mountSheetPreview(controller: SheetController): { refresh(): voi
       generation: controller.projection.context.generation, source: controller.source(),
       readStatus: result.status, value: result.status === 'fresh' ? result.value : null,
       draft: controller.draft, visibleBounds: { ...bounds }, viewport: { ...view },
-      nativeEvents: controller.projection.eventIds.length, canUndo: controller.canUndo,
+      nativeEvents: controller.projection.eventIds.length, canUndo: controller.canUndo, editable: controller.editable,
       nativeRevision: controller.projection.revision, sessionId: controller.sessionId,
       context: controller.projection.context, nativeEventIds: controller.projection.eventIds,
       nativeSheets: controller.projection.sheets, nativeCells: controller.projection.cells,
