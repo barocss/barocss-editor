@@ -77,6 +77,8 @@ describe('#526 independent portal lifecycle', () => {
     const host = f.host();
     const content = host?.querySelector(leaf);
     const strong = content?.querySelector('strong');
+    const primitiveText = content?.firstChild;
+    const nestedText = strong?.firstChild;
     expect(content).not.toBeNull();
     for (let i = 1; i <= 40; i++) {
       Object.assign(f.model, { text: `value-${i}`, strong: `nested-${i}`, title: `title-${i}` });
@@ -85,6 +87,8 @@ describe('#526 independent portal lifecycle', () => {
       expect(host?.querySelectorAll(leaf).length).toBe(1);
       expect(host?.querySelector(leaf)).toBe(content);
       expect(content?.querySelector('strong')).toBe(strong);
+      expect(content?.firstChild).toBe(primitiveText);
+      expect(strong?.firstChild).toBe(nestedText);
       expect(content?.getAttribute('title')).toBe(`title-${i}`);
       expect(content?.textContent).toBe(`value-${i}nested-${i}`);
       expect(f.container.querySelector(leaf)).toBeNull();
@@ -152,6 +156,12 @@ describe('#526 independent portal lifecycle', () => {
     expect(obsolete).not.toHaveBeenCalled(); expect(newest).toHaveBeenCalledTimes(1);
     expect(f.host()).toBeNull(); expect(f.second.querySelector(leaf)).toBeNull();
     expect(f.first.firstChild).toBe(f.foreign);
+    const reedited = vi.fn();
+    Object.assign(f.model, { show: true, target: f.first, text: 're-edited-after-cancel' });
+    f.render(reedited); work.drain();
+    expect(reedited).toHaveBeenCalledTimes(1);
+    expect(f.host()?.querySelector(leaf)?.textContent).toBe('re-edited-after-cancelnested');
+    expect(f.second.querySelector(leaf)).toBeNull();
   });
 
   it('a completion callback can own the next async target move without stale cleanup', () => {

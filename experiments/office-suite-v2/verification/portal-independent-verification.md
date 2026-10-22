@@ -57,3 +57,8 @@ reported 8 diagnostics, including a Vite/Rollup declaration mismatch. The final
 two-file check inherits the existing DOM renderer's Bundler project unchanged,
 not a new or increased budget: **exit 0**, as did the scoped ESLint check. These
 are harness checks, not renderer successor acceptance. No browser or RSS run.
+
+The successor verifier strengthens this baseline with primitive/nested Text node
+identity and explicit re-edit after cancellation. The preserved baseline reaches
+its earlier duplicate/cleanup failures before those additional assertions. Their
+candidate execution must be reported separately; no baseline failure was removed.
