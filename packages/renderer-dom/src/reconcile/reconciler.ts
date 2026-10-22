@@ -20,6 +20,9 @@ export class Reconciler {
   private portalHostsById: Map<string, { target: HTMLElement, host: HTMLElement }> = new Map();
   // Set of visited portalIds in current render (cleanup on render end)
   private currentVisitedPortalIds: Set<string> | null = null;
+  private committing = false;
+  private commitDestroyed = false;
+  private pendingReconcile: (() => void) | null = null;
   
   constructor(
     private registry: RendererRegistry,
@@ -43,6 +46,12 @@ export class Reconciler {
    * @param runtime - Runtime context (optional)
    */
   reconcile(container: HTMLElement, vnode: VNode, model: ModelData, runtime?: RuntimeCtx, onComplete?: () => void): void {
+    // Lifecycle callbacks return before another root captures its baseline or
+    // changes the current token. Only the latest request is retained.
+    if (this.committing) {
+      if (!this.commitDestroyed) this.pendingReconcile = () => this.reconcile(container, vnode, model, runtime, onComplete);
+      return;
+    }
     // IMPORTANT: early return if no sid (don't change DOM)
     const sid = vnode.sid || String(model?.sid || '');
     if (!sid) {
@@ -127,6 +136,18 @@ export class Reconciler {
       rootSid: sid, // rootVNode's sid
       context: context,
       prevRootFiber: prevRootFiber, // React style: pass previous Fiber tree
+      runCommit: (commit) => {
+        this.committing = true;
+        this.commitDestroyed = false;
+        try {
+          commit();
+        } finally {
+          this.committing = false;
+          const next = this.commitDestroyed ? null : this.pendingReconcile;
+          this.pendingReconcile = null;
+          next?.();
+        }
+      },
       /**
        * The render starting now replaces any still running.
        *
@@ -170,7 +191,9 @@ export class Reconciler {
       }
       
       // Call reconcile completion callback
-      if (onComplete) {
+      // Keep the actual committed tree as the next ownership baseline, but do
+      // not notify callers about a root already superseded by a queued request.
+      if (onComplete && !this.pendingReconcile) {
         onComplete();
       }
     });
@@ -178,6 +201,8 @@ export class Reconciler {
 
   /** Stop pending work and release this renderer's retained trees and portals. */
   destroy(): void {
+    this.pendingReconcile = null;
+    if (this.committing) this.commitDestroyed = true;
     this.activeScheduler?.cancel();
     this.activeScheduler = null;
     this.rootFiber = null;
