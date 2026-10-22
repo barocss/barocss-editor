@@ -1,0 +1,35 @@
+{
+  "finding_id": "522/slides-baseline-ui-v1",
+  "readiness": "needs-triage",
+  "next_owner": "Planner/source test owner to be scoped; no unrelated UI edits granted",
+  "new_source": "7d59d0093f7ef174555608242b4734979f5cc874",
+  "baseline_source": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+  "same_frozen_graph_browser_viewport_and_per_case_limits": true,
+  "candidate_counts": {
+    "passed": 21,
+    "failed": 5,
+    "not_run": 17,
+    "suite_errors": 2,
+    "global_bound_seconds": 120
+  },
+  "baseline_only_failed_cases": {
+    "selected": 5,
+    "failed": 5,
+    "not_a_whole_file_rerun": true
+  },
+  "failed_case_lines": [
+    40,
+    149,
+    592,
+    907,
+    1196
+  ],
+  "classification": "All5failedassertionsreproduceonf4;baselineGUItest/controlvisibilitygap,notattributedtoW. Doesnotacceptlatersteps/17unruncases.",
+  "first_assertion": "connector.spec.ts47missing[data-control=insert-connector] onboth sources",
+  "logs": [
+    "21-EDWP3-slides-connector-browser.txt",
+    "22-f4-slides-five-baseline.txt"
+  ],
+  "traces": "primary.omx/m0/slide[-baseline]-impact-artifacts/",
+  "execution_note": "Five-casecomparisonwasalreadyrunningwhenrepresentative-onlyguidancearrived;completedbeloworiginal120sbound,notextendedtofinish43."
+}

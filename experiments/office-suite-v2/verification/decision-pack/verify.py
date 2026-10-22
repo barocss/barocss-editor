@@ -1,5 +1,6 @@
 """Verify this decision pack's bytes and references without executing product code."""
 import argparse
+import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -54,7 +55,13 @@ def main():
     original_count = 0
     for row in evidence['entries']:
         path = owned_input(row['path'])
-        assert path.stat().st_size == row['bytes'] and sha(path) == row['sha256'], row['id']
+        stored = path.read_bytes()
+        if row.get('encoding') == 'gzip':
+            assert len(stored) == row['storedBytes'] and sha(path) == row['storedSHA256'], row['id']
+            data = gzip.decompress(stored)
+        else:
+            data = stored
+        assert len(data) == row['bytes'] and hashlib.sha256(data).hexdigest() == row['sha256'], row['id']
         evidence_count += 1
         if args.verify_originals and Path(row['origin']).is_absolute():
             original = Path(row['origin'])

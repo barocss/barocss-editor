@@ -1,0 +1,20 @@
+{
+  "label": "21-EDWP3-slides-connector-browser",
+  "cwd": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor",
+  "argv": [
+    "node",
+    "node_modules/@playwright/test/cli.js",
+    "test",
+    "--config",
+    "/Users/user/barocss-editor/.omx/m0/slide-impact.config.mjs"
+  ],
+  "started_utc": "2026-10-21T15:48:34.380908+00:00",
+  "node": "22.22.0",
+  "pnpm": "8.15.0",
+  "status": "completed",
+  "pid": 80143,
+  "exit_code": 1,
+  "elapsed_seconds": 122.436,
+  "finished_utc": "2026-10-21T15:50:36.818477+00:00",
+  "log": "/Users/user/barocss-editor/.omx/m0/integration-logs/21-EDWP3-slides-connector-browser.txt"
+}

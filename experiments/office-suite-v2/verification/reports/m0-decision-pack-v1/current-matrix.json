@@ -184,7 +184,9 @@
         "collaboration-contract",
         "frozen-budget",
         "word-outcome",
-        "account-runtime"
+        "account-runtime",
+        "slides-baseline-disposition",
+        "word-current-integration-binding"
       ],
       "sourceGroups": [
         "native-correctness",
@@ -193,10 +195,10 @@
         "sheet-scale",
         "docx-codecs"
       ],
-      "finding": "This versioned pack includes current criteria, source/evidence bindings, file capability dispositions, preserved historical failures and exact inactive #528/#529 destinations.",
+      "finding": "This versioned pack includes current criteria, source/evidence bindings, file capability dispositions, preserved historical failures and exact inactive #528/#529 destinations. Existing Slides UI baseline failures are explicitly retained, separately from the original M0 file baseline.",
       "limits": [
-        "Whole-M0 acceptance remains Planner-owned.",
-        "Final Slides repair disposition and final integration/ancestry receipt are separate pending owner inputs, not invented evidence."
+        "Whole-M0 acceptance remains Planner-owned; final integration/ancestry receipt is a separate pending owner input.",
+        "The separately assigned Slides UI/connector repair outcome is not an added original M0 or full-M4 gate."
       ]
     },
     {
@@ -397,17 +399,28 @@
     },
     "activationRule": "These are the current #528/#529 planned paths, not new write leases. Planner must record actual owners, exact base/interfaces and acceptance before production work. Existing local account proof can be reused only for unchanged scope; it does not waive M1/M2 missing journeys."
   },
+  "slidesBaselineDisposition": {
+    "finding": "522/slides-baseline-ui-v1",
+    "source": "7d59d0093f7ef174555608242b4734979f5cc874",
+    "comparisonSource": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+    "passed": 21,
+    "failed": 5,
+    "notRun": 17,
+    "suiteErrors": 2,
+    "allFiveFailedAssertionsReproducedOnBaseline": true,
+    "boundary": "Historical bounded UI/control visibility failures remain FAIL; later steps and 17 unrun cases are not accepted. Original synthetic PPTX/reader baseline is separate. The new UI/connector repair assignment is a separate owner outcome, not an added original M0 file criterion or full-M4 completion gate."
+  },
   "wholeM0": {
     "status": "OPEN_PENDING_PLANNER_DECISION_AND_FINAL_INTEGRATION",
     "newExecutionNeededForThisPack": false,
     "runtimeGapsFound": [],
     "pendingOwnerInputs": [
-      "Integration final source-closure/ancestry/intake receipt",
-      "Slides owner disposition of the separately assigned UI/connector baseline failures"
+      "Integration final source-closure/ancestry/intake receipt"
     ],
+    "separateOwnerOutcome": "Planner routes the new Slides UI/connector repair scope; this pack preserves its historical 21PASS/5FAIL/17NOTRUN baseline without executing or adopting held source.",
     "recommendation": "Review original criteria with their explicit support/refusal/measurement limits. Do not re-run valid PASS, promote full-feature losses to PASS, or add full M3/M4 implementation as an unstated M0 gate."
   },
-  "contractSHA256": "07433dfc364355422a797d8d3db5ed8964917db2826bbe6851943270d369f0cc",
+  "contractSHA256": "2c7c7e30fcd18187422dc6bd291931e4405b5df356ec0c08bea850273ebd9fe8",
   "fileCapabilitiesSHA256": "a8f7e4ef45704c7f9e6a5c3d0895ef671d1584bdce690972ee67dbcaa3de291b",
   "evidenceIndex": "evidence-index.json",
   "sourceBindings": "source-bindings.json",

@@ -329,6 +329,60 @@
       "bytes": 528,
       "description": "Exact immutable snapshot of the named original evidence; no new execution.",
       "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/native-command.json"
+    },
+    {
+      "id": "word-current-integration-binding",
+      "origin": "/Users/user/barocss-editor/.omx/m0/m0-final-word-reuse-binding-v1.json",
+      "sha256": "5c52f81d879c44440f0a6a018fdee96702a43ea5bc59848b18fdb780a2ee9fcf",
+      "bytes": 202134,
+      "description": "Original source/alias or failed-baseline disposition receipt; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/word-current-integration-binding.json"
+    },
+    {
+      "id": "slides-baseline-disposition",
+      "origin": "/Users/user/barocss-editor/.omx/m0/phase-c-slides-baseline-comparison.json",
+      "sha256": "6e549b3cb0329d54118c03c771fc487e2bcc338023954fa977dfba0237e5bdc3",
+      "bytes": 1245,
+      "description": "Original source/alias or failed-baseline disposition receipt; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/slides-baseline-disposition.json"
+    },
+    {
+      "id": "slides-original-command",
+      "origin": "/Users/user/barocss-editor/.omx/m0/integration-logs/21-EDWP3-slides-connector-browser.json",
+      "sha256": "b629443c8787533d3ba7feae3fb835f13e84b6155ce09a16d91dc21945d1b002",
+      "bytes": 631,
+      "description": "Original source/alias or failed-baseline disposition receipt; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/slides-original-command.json"
+    },
+    {
+      "id": "slides-original-log",
+      "origin": "/Users/user/barocss-editor/.omx/m0/integration-logs/21-EDWP3-slides-connector-browser.txt",
+      "sha256": "e2498c4974a42e32117a243624075832e1668930b22dab3b8eb6cd59ba676f96",
+      "bytes": 22269,
+      "description": "Original source/alias or failed-baseline disposition receipt; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/slides-original-log.txt.gz",
+      "encoding": "gzip",
+      "storedSHA256": "ef12a05c788318999e92d05fd503d6c82430240afd2112e50b9f426b744431bb",
+      "storedBytes": 3596
+    },
+    {
+      "id": "slides-comparison-command",
+      "origin": "/Users/user/barocss-editor/.omx/m0/integration-logs/22-f4-slides-five-baseline.json",
+      "sha256": "e1fe652f2ec24a1d432a8443c932b385e26b8470d44ac9aa617c521b116ba329",
+      "bytes": 893,
+      "description": "Original source/alias or failed-baseline disposition receipt; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/slides-comparison-command.json"
+    },
+    {
+      "id": "slides-comparison-log",
+      "origin": "/Users/user/barocss-editor/.omx/m0/integration-logs/22-f4-slides-five-baseline.txt",
+      "sha256": "c6a7adaae0aa158eb0324891b06eb28f948ae780ed666a33b44edd512c1d208d",
+      "bytes": 18785,
+      "description": "Original source/alias or failed-baseline disposition receipt; no new execution.",
+      "path": "experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence/slides-comparison-log.txt.gz",
+      "encoding": "gzip",
+      "storedSHA256": "7a61ccff8ff5724299047a3e08a10dcbf55129206b57ceb8033e62afa34c5fb6",
+      "storedBytes": 2675
     }
   ]
 }

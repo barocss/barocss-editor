@@ -1,0 +1,22 @@
+{
+  "label": "22-f4-slides-five-baseline",
+  "cwd": "/Users/user/.codex/worktrees/522-phase-c-baseline/barocss-editor",
+  "argv": [
+    "node",
+    "node_modules/@playwright/test/cli.js",
+    "test",
+    "--config",
+    "/Users/user/barocss-editor/.omx/m0/slide-baseline-impact.config.mjs",
+    "--grep",
+    "draws a line between them, and the button waits for two$|takes its route and its ends from the panel$|is typed in the panel, drawn on the line, and can be cleared$|is switched on from the panel$|says how many there are, and gives them all back$"
+  ],
+  "started_utc": "2026-10-21T15:55:23.240366+00:00",
+  "node": "22.22.0",
+  "pnpm": "8.15.0",
+  "status": "completed",
+  "pid": 87666,
+  "exit_code": 1,
+  "elapsed_seconds": 51.307,
+  "finished_utc": "2026-10-21T15:56:14.547822+00:00",
+  "log": "/Users/user/barocss-editor/.omx/m0/integration-logs/22-f4-slides-five-baseline.txt"
+}

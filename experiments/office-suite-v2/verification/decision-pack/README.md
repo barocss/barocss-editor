@@ -28,7 +28,7 @@ database, user document or schedule was changed by this reconciliation.
 | 6 — General moves/merges | Refusal policy complete | Features remain `UNSUPPORTED`; supported copy/cut cell relocation is a separate API. M3 must define new semantics before support. |
 | 7 — Corpus/compatibility/retention/readers | Evidence complete with declared loss | Four CC0 fixtures, bounded DOCX import/export/reopen and historical Office16.114 readers. See feature dispositions; known losses remain failures. |
 | 8 — Word100/300 and Sheet10k reference | Current frozen gates pass | Exact-source, named loaded reference; Word sampled aggregate RSS and headless Sheet model only. |
-| 9 — Versioned decisions and next-stage contracts | Delivered for review | Native/checkpoint schemas, binding choice, risks, budgets and exact inactive #528/#529 ownership. Final integration and Slides disposition remain owner inputs. |
+| 9 — Versioned decisions and next-stage contracts | Delivered for review | Native/checkpoint schemas, binding choice, risks, budgets and exact inactive #528/#529 ownership. Final integration remains an owner input; existing Slides baseline disposition is recorded. |
 | 10 — Prototype/product evidence boundaries | Recorded explicitly | Controlled native/WS and genuine local accounts are distinct. No automatic M1/M2/alpha/release acceptance. |
 
 The machine-readable current matrix is
@@ -50,11 +50,16 @@ No completed product test or measurement was repeated for this package.
 
 Exact entries are in `../reports/m0-decision-pack-v1/source-bindings.json`.
 The evidence index records original location, bytes and SHA256. Small external
-authoritative receipts, normal raw data and source manifests are copied byte for
-byte into the package's `evidence/` directory. Existing corpus/native-reader/raw
+authoritative receipts, normal raw data and source manifests retain their exact
+payload bytes in the package's `evidence/` directory. The two raw ANSI Slides logs
+use lossless gzip with separate stored and decoded hashes; their original trailing
+spaces are preserved. Existing corpus/native-reader/raw
 files stay at their original repository paths. Large supplementary browser/account
 artifacts stay at the exact original paths/hashes named by their preserved receipts;
 the builder checked the20 Word and29 account receipt artifacts without rerunning them.
+The additional current Integration binding records1,215 same Word inputs and654
+actual aliases, including244 workspace aliases in its new isolated root. It is
+source/graph preparation evidence, not another normal browser/performance run.
 
 ## Performance decision
 
@@ -94,6 +99,14 @@ Reader versions are historical recorded versions, not a new installed-version
 check. Old Word AppleScript timeout and later native open are separate receipts.
 Warned DOCX features not individually present in this corpus have no invented
 per-feature result. Native Office application windows were not touched here.
+
+The separate historical Slides UI suite is **21 PASS / 5 FAIL / 17 NOT RUN**,
+with two suite errors. The five failed control/visibility assertions also fail
+on the fixed f4 baseline. `slides-baseline-disposition` and the exact original
+command/log snapshots preserve those results. This does not accept later steps
+or the17 unrun cases. The original M0 synthetic PPTX/reader baseline and the new
+Slides UI/connector repair assignment are separate outcomes. No new full-M4 gate
+or permission to adopt held source is inferred from the baseline disposition.
 
 ## Architecture and next-stage input
 
@@ -146,6 +159,10 @@ the builder now consumes explicit `currentSHA256` and checks both Git blobs.
 also corrected an untested “editable” classification, the required event context
 field and the distinction between derived state and uncommitted user intent.
 These are package corrections, not product failures or newly repeated tests.
+The first follow-up staged whitespace check rejected the original ANSI Slides
+logs' trailing spaces. Their bytes were not normalized: the package now stores
+lossless gzip and verifies both compressed and original decoded hashes. Original
+logs remain untouched, and the final ordinary whitespace check passes.
 
 All old Core/Formula first failures, DOCX feature loss, Word zero-page/guard/RSS
 misses, portal failures and account/harness interruptions remain in their original
@@ -156,8 +173,9 @@ existing qualification ledger; no fresh fullpreflight on4dc is claimed.
 
 Integration must intake the immutable verification delta once, preserve current
 source groups or explicitly record affected changes, and add its final integration/
-ancestry receipt. Slides owner supplies the separately assigned UI/connector
-baseline disposition and any necessary changed-source proof. This pack does not
+ancestry receipt. Planner routes the separately assigned Slides UI/connector
+repair and any necessary changed-source proof; its old baseline is already
+recorded here. This pack does not
 require repeating unaffected Word/Sheet/account/Office runs or silently making
 all Slides product behavior an original M0 gate. Planner owns the final whole-M0
 decision and any later activation. No Issue is closed automatically.

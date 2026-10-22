@@ -1,5 +1,6 @@
 """Build a source-bound evidence index. Never executes product code or a benchmark."""
 import argparse
+import gzip
 import hashlib
 import json
 import subprocess
@@ -51,9 +52,13 @@ def main():
         item = {'id': key, 'origin': str(path) if snapshot else str(path.relative_to(ROOT)),
                 'sha256': sha(data), 'bytes': len(data), 'description': description}
         if snapshot:
-            destination = OUT / 'evidence' / (key + path.suffix)
+            compressed = key in ('slides-original-log', 'slides-comparison-log')
+            destination = OUT / 'evidence' / (key + path.suffix + ('.gz' if compressed else ''))
             item['path'] = str(destination.relative_to(ROOT))
-            snapshots[destination] = data
+            stored = gzip.compress(data, mtime=0) if compressed else data
+            if compressed:
+                item.update({'encoding': 'gzip', 'storedSHA256': sha(stored), 'storedBytes': len(stored)})
+            snapshots[destination] = stored
         else:
             item['path'] = str(path.relative_to(ROOT))
         entries.append(item)
@@ -178,6 +183,21 @@ def main():
     native_command = read(external / external_evidence['native-command'])
     assert '# pass 126' in native_log and '# fail 0' in native_log and '# skipped 0' in native_log
     assert native_command['exit_code'] == 0
+    current_word = read(external / 'm0-final-word-reuse-binding-v1.json')
+    assert current_word['head'] == BASE and current_word['all1215CurrentFilesByteIdentical']
+    assert len(current_word['currentGraph']) == 654 and current_word['workspaceAliases'] == 244
+    slides = read(external / 'phase-c-slides-baseline-comparison.json')
+    assert slides['candidate_counts'] == {'passed': 21, 'failed': 5, 'not_run': 17, 'suite_errors': 2, 'global_bound_seconds': 120}
+    assert slides['baseline_only_failed_cases']['failed'] == 5
+    for key, path in {
+        'word-current-integration-binding': 'm0-final-word-reuse-binding-v1.json',
+        'slides-baseline-disposition': 'phase-c-slides-baseline-comparison.json',
+        'slides-original-command': 'integration-logs/21-EDWP3-slides-connector-browser.json',
+        'slides-original-log': 'integration-logs/21-EDWP3-slides-connector-browser.txt',
+        'slides-comparison-command': 'integration-logs/22-f4-slides-five-baseline.json',
+        'slides-comparison-log': 'integration-logs/22-f4-slides-five-baseline.txt'
+    }.items():
+        evidence(key, external / path, 'Original source/alias or failed-baseline disposition receipt; no new execution.', True)
     ids = {item['id'] for item in entries}
     assert len(ids) == len(entries)
     for row in contract['criteria'] + capability['rows']:

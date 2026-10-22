@@ -1,0 +1,1 @@
+{"status": "PASS metadata/source/evidence integrity only", "criteria": 10, "sourceBindings": 1547, "evidence": 47, "originalReceiptsAlsoChecked": 17, "productTestsOrRuntimeExecuted": false}
