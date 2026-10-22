@@ -85,8 +85,12 @@ async function main(args) {
     server: { host: '127.0.0.1', port, strictPort: true,
       fs: { strict: true, allow: [repository, realpathSync(resolve(root, 'node_modules')),
         dirname(realpathSync(resolve(repository, 'node_modules/.pnpm'))), dirname(vitePackage)] },
-      proxy: { '/api/v1': { target: 'http://127.0.0.1:55267', changeOrigin: true },
-        '/api/sheet-relay/v1': { target: 'http://127.0.0.1:55267', changeOrigin: true, ws: true } },
+      proxy: {
+        '^/api/v1/tenants/[^/]+/sheets/[^/]+/admission': { target: 'http://127.0.0.1:55267', changeOrigin: true },
+        '/api/v1/sheet/logout': { target: 'http://127.0.0.1:55267', changeOrigin: true },
+        '/api/sheet-relay/v1': { target: 'http://127.0.0.1:55267', changeOrigin: true, ws: true },
+        '/api/v1': { target: 'http://127.0.0.1:55270', changeOrigin: true, rewrite: path => path.slice(4) },
+      },
     }, logLevel: 'warn',
   });
   let closing;
