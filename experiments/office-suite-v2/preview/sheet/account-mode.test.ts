@@ -43,7 +43,8 @@ function authModel() {
     loadIdentity: async () => { state.identityCalls++; return state.identity(); },
     confirmTenant: async requested => { assert.equal(requested, tenantId); return 'editor'; },
     listWorkspaces: async () => ({ items: [], nextCursor: null }),
-    captureAuthorizedSession: () => { state.captures++; if (!state.current) throw new Error('Missing Office session'); return { requestFetch, isCurrent: () => state.current }; },
+    // Office captures an absent token without throwing; that capture stays invalid.
+    captureAuthorizedSession: () => { state.captures++; const present = state.current; return { requestFetch, isCurrent: () => present && state.current }; },
     announceLogout: () => { state.announceCalls++; }, clearSession: () => { state.current = false; state.clearCalls++; },
     isLogoutEvent: event => event.key === 'modeled-office-logout',
   };
@@ -58,6 +59,7 @@ async function modeledPage(run: (page: {
   const controls = new Map(ids.map(id => [id, id === 'account-tenant' ? new Select() : id === 'account-document' ? new Input() :
     id === 'account-fresh-login' ? new Anchor() : ['account-sign-in', 'account-logout', 'account-open'].includes(id) ? new Button() : new Control()]));
   controls.get('account-logout')!.disabled = true;
+  controls.get('account-fresh-login')!.hidden = true;
   const window = new EventTarget(), storage = new Map<string, string>(), replacements: string[] = [];
   let idbReads = 0, socketOpens = 0, rawRequests = 0;
   const location = { origin: new URL(href).origin, pathname: new URL(href).pathname, href };
@@ -109,8 +111,12 @@ test('modeled missing Office session offers sign in without opening IDB or any n
     await page.start({ auth: auth.port });
     assert.match(page.controls.get('account-status')!.textContent, /Sign in to verify/);
     assert.equal(page.controls.get('account-sign-in')!.hidden, false);
+    assert.equal(page.controls.get('account-sign-in')!.disabled, false);
+    assert.equal(page.controls.get('account-fresh-login')!.hidden, true);
     assert.equal(auth.state.identityCalls, 0); assert.equal(auth.state.requests.length, 0);
     assert.equal(page.idbReads(), 0); assert.equal(page.socketOpens(), 0); assert.equal(page.rawRequests(), 0);
+    button(page.controls, 'account-sign-in').click();
+    assert.equal(auth.state.loginCalls, 1);
   });
 });
 
