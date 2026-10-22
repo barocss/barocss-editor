@@ -1,11 +1,12 @@
 import { SheetController } from './controller.ts';
 import { mountSheetPreview } from './binding.ts';
 import { DurableSession } from './durable-session.ts';
-import { openOutbox } from './outbox.ts';
-import type { OutboxStore } from './outbox.ts';
+import { openOutbox, openAccountOutbox } from './outbox.ts';
+import type { OutboxStore, AccountOutboxStore } from './outbox.ts';
 import { acquireClientWriter } from './client-lock.ts';
 import { PeerLifecycle } from './lifecycle.ts';
 import { WebSocketTransport } from './websocket-transport.ts';
+import type { SheetRelayAccountBinding, SheetRelayAccountAdmissionResponse } from '../../src/sheet-preview-protocol.ts';
 import { SHEET_RELAY_WS_PATH } from '../../src/sheet-preview-protocol.ts';
 
 const element = (id: string): HTMLElement => {
@@ -21,7 +22,14 @@ const clientUrl = (clientId: string): URL => {
 };
 
 /** Page-owned writer lease. Credentials and packet bodies never enter the observer. */
-export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
+export interface AccountDurableOptions { binding: SheetRelayAccountBinding; isCurrent: () => boolean; admit: (resumeCredential?: string) => Promise<SheetRelayAccountAdmissionResponse> }
+export interface DurablePageHandle { freeze(): void; prepareExit(): Promise<void> }
+export function startDurableMode(mode: 'http' | 'websocket' = 'http', account?: AccountDurableOptions): DurablePageHandle {
+  const scopedClientUrl = (clientId: string): URL => {
+    const url = clientUrl(clientId);
+    if (account) { url.searchParams.set('tenant', account.binding.tenantId); url.searchParams.set('document', account.binding.documentId); url.searchParams.set('workspace', account.binding.workspaceId); }
+    return url;
+  };
   const controls = element('durable-controls');
   const workbook = element('sheet-workbook');
   const create = element('create-client');
@@ -35,12 +43,13 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
   workbook.hidden = true;
   workbook.inert = true;
   element('alternative-panel').hidden = false;
-  element('session-label').textContent = `${mode === 'websocket' ? 'WebSocket' : 'Controlled'} relay · Per-update save receipts`;
-  element('preview-scope').textContent = 'Experimental local relay and browser outbox. Controlled session permissions are enforced by this server. Production account authorization, backup, installation and production storage are outside this preview.';
+  element('session-label').textContent = `${account ? 'Account WebSocket' : mode === 'websocket' ? 'WebSocket' : 'Controlled'} relay · Per-update save receipts`;
+  element('preview-scope').textContent = account ? 'Account-bound Sheet session. The server checks current permissions for reads and writes. Original browser records stay bound to this account and login session.' : 'Experimental local relay and browser outbox. Controlled session permissions are enforced by this server. Production account authorization, backup, installation and production storage are outside this preview.';
   element('preview-status').textContent = 'Start a client or reopen its original client link.';
-  another.href = clientUrl(crypto.randomUUID()).href;
+  another.href = scopedClientUrl(crypto.randomUUID()).href;
 
   let disposed = false;
+  let frozen = false;
   let suspended = false;
   let starting = false;
   let writer: Awaited<ReturnType<typeof acquireClientWriter>> | undefined;
@@ -61,6 +70,7 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
   };
   const update = (): void => {
     if (disposed || !session) return;
+    if (account && !account.isCurrent()) { freeze(); return; }
     const state = session.inspect();
     // Opening can finish while this page is in BFCache. Suspend only after admission;
     // interrupting an opening request would leave no admitted client to resume.
@@ -69,7 +79,7 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
       controller = new SheetController(session.replica, change => {
         try { session?.publish(change.event.eventId, change.update); }
         catch (error) { failure(error); throw error; }
-      }, 'durable');
+      }, 'durable', account ? () => session?.inspect().canEdit ?? false : undefined);
       view = mountSheetPreview(controller);
       workbook.hidden = false;
       const url = new URL(location.href);
@@ -77,8 +87,9 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
       history.replaceState(null, '', url);
     }
     view?.refresh();
-    workbook.inert = !view || state.phase === 'blocked' || state.phase === 'closed' || state.persistenceBlocked || !!controller?.transportWarning ||
-      (mode === 'websocket' && !state.canEdit);
+    workbook.inert = frozen || !view || state.phase === 'blocked' || state.phase === 'closed' || state.persistenceBlocked || !!controller?.transportWarning ||
+      (mode === 'websocket' && !state.canEdit && !(account && state.access === 'read-only'));
+    if (account && state.access === 'denied') { workbook.hidden = true; element('alternative-panel').hidden = true; delete window.sheetPreview; }
     controls.dataset.phase = state.phase;
     element('client-identity').textContent = `Client: ${state.clientId} · Session: ${state.sessionId ?? 'not admitted'}${mode === 'websocket' ? ` · Access: ${state.access ?? 'unconfirmed'} · Link: ${state.transport?.phase ?? 'opening'}` : ''}`;
     element('durable-status').textContent = `${state.notice}${controller?.transportWarning ? ` ${controller.transportWarning}` : ''}`;
@@ -104,31 +115,34 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
     lockState = 'released';
   };
   const start = async (clientId: string, newClient: boolean): Promise<void> => {
-    if (starting || disposed) return;
+    if (starting || disposed || frozen || (account && !account.isCurrent())) return;
     starting = true;
     startedClient = clientId;
     create.hidden = true;
-    const url = new URL(location.origin + location.pathname);
+    const url = account ? scopedClientUrl(clientId) : new URL(location.origin + location.pathname);
     url.searchParams.set('client', clientId);
+    url.searchParams.delete('new');
     if (newClient) url.searchParams.set('new', '1');
     history.replaceState(null, '', url);
     try {
       writer = await acquireClientWriter(clientId);
       lockState = 'held';
       if (disposed) { writer.release(); lockState = 'released'; return; }
-      store = await openOutbox();
+      if (account && !account.isCurrent()) throw new Error('account-retired');
+      store = account ? await openAccountOutbox(account.binding, account.isCurrent) : await openOutbox();
       if (disposed) { store.close(); writer.release(); lockState = 'released'; return; }
       const endpoint = new URL(SHEET_RELAY_WS_PATH, location.origin);
       endpoint.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       session = new DurableSession({ clientId, newClient, store, changed: update,
-        ...(mode === 'websocket' ? { transport: events => new WebSocketTransport({ url: endpoint.href, ...events }) } : {}) });
+        ...(account ? { account: { binding: account.binding, isCurrent: account.isCurrent } } : {}),
+        ...(mode === 'websocket' ? { transport: events => new WebSocketTransport({ url: endpoint.href, ...events, ...(account ? { account: { admit: account.admit, isCurrent: account.isCurrent } } : {}) }) } : {}) });
       lifecycle = new PeerLifecycle(session);
-      window.sheetDurable = Object.freeze({ inspect: () => ({ ...session?.inspect(), mode: mode === 'websocket' ? 'websocket' : 'durable', clientId: startedClient, lockState }) });
+      window.sheetDurable = Object.freeze({ inspect: () => ({ ...session?.inspect(), mode: account ? 'account' : mode === 'websocket' ? 'websocket' : 'durable', clientId: startedClient, lockState }) });
       await session.start();
       if (disposed) return;
       update();
       if (session.inspect().phase !== 'blocked') {
-        open.href = clientUrl(crypto.randomUUID()).href;
+        open.href = scopedClientUrl(crypto.randomUUID()).href;
         open.hidden = false;
         if (mode === 'http') timer = setInterval(() => { void session?.refresh(); }, 1500);
       }
@@ -136,6 +150,24 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
       failure(error);
       await release();
     }
+  };
+  const freeze = (): void => {
+    frozen = true; workbook.inert = true; workbook.hidden = true; controls.inert = true;
+    if (account) { controls.hidden = true; delete window.sheetDurable; }
+    element('alternative-panel').hidden = true; delete window.sheetPreview;
+    session?.close();
+  };
+  const prepareExit = async (): Promise<void> => {
+    frozen = true; workbook.inert = true; controls.inert = true;
+    if (account && store && startedClient) {
+      if (!account.isCurrent()) throw new Error('account-retired; original records retained');
+      await (store as AccountOutboxStore).saveDraft(startedClient, {
+        version: 1, clientId: startedClient, accountBinding: account.binding,
+        context: session?.inspect().context, identity: session?.inspect().identity, draft: controller?.draft ?? null,
+      });
+    }
+    session?.close(); await session?.settled();
+    if ((session?.inspect().localOnly ?? 0) > 0) throw new Error('Local input is not persisted. Keep this page open.');
   };
   create.addEventListener('click', () => { void start(crypto.randomUUID(), true); });
   pause.addEventListener('click', () => {
@@ -146,7 +178,7 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
   });
   retry.addEventListener('click', () => { void session?.retry(); });
   window.addEventListener('beforeunload', event => {
-    if ((session?.inspect().localOnly ?? 0) > 0) { event.preventDefault(); event.returnValue = ''; }
+    if ((session?.inspect().localOnly ?? 0) > 0 || (account && controller?.draft)) { event.preventDefault(); event.returnValue = ''; }
   });
   window.addEventListener('pagehide', event => {
     if (event.persisted) {
@@ -166,6 +198,7 @@ export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
   const url = new URL(location.href);
   const clientId = url.searchParams.get('client');
   if (clientId !== null) void start(clientId, url.searchParams.get('new') === '1');
+  return { freeze, prepareExit };
 }
 
 declare global {

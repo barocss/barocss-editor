@@ -1,13 +1,15 @@
 import { SheetReplica } from '../../src/collaboration.ts';
 import * as Y from 'yjs';
 import { validateEvent } from '../../src/workbook.ts';
-import { SHEET_RELAY_PATH, SHEET_RELAY_LIMITS, base64ToBytes, bytesToBase64, isRelayCredential,
+import { SHEET_RELAY_PATH, SHEET_RELAY_LIMITS, base64ToBytes, bytesToBase64,
   isSha256, isSheetRelayContext, isSheetRelayAdmission, relayAdmission, sameRelayContext,
   sameRelayAdmission, parseSheetRelayAppendRequest } from '../../src/sheet-preview-protocol.ts';
-import type { SheetRelayIdentity, SheetRelaySession, SheetRelayState, SheetRelayAppendRequest, SheetRelayAccess,
+import type { SheetRelayIdentity, SheetRelayState, SheetRelayAppendRequest, SheetRelayAccess,
   SheetRelayReceipt } from '../../src/sheet-preview-protocol.ts';
-import { validateOutboxSnapshot } from './outbox.ts';
-import type { OutboxStore, StoredClient, StoredPacket, PacketResult } from './outbox.ts';
+import { validateOutboxSnapshot, parseStoredRelaySession } from './outbox.ts';
+import { sameAccountBinding } from './account-binding.ts';
+import type { SheetRelayAccountBinding } from '../../src/sheet-preview-protocol.ts';
+import type { OutboxStore, StoredClient, StoredPacket, PacketResult, StoredRelaySession } from './outbox.ts';
 import type { WorkbookContext } from '../../src/contracts.ts';
 import type { WebSocketTransport, WebSocketTransportOptions, WebSocketTransportView } from './websocket-transport.ts';
 
@@ -25,7 +27,8 @@ export interface DurableView {
   packets: readonly { updateId: string; sha256: string; byteLength: number; state: string; sequence: number | null; persisted: boolean; receiptFrontierSha256: string | null }[];
 }
 type Options = { clientId: string; newClient: boolean; store: OutboxStore; request?: typeof fetch;
-  transport?: (events: DurableTransportEvents) => DurableTransport; changed: () => void };
+  transport?: (events: DurableTransportEvents) => DurableTransport;
+  account?: { binding: SheetRelayAccountBinding; isCurrent: () => boolean }; changed: () => void };
 type Local = { readonly eventId: string; readonly bytes: Uint8Array; request?: SheetRelayAppendRequest };
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 128;
@@ -50,11 +53,7 @@ function frontier(value: unknown): Uint8Array {
   if (!equalBytes(Y.encodeStateVector(vector), bytes)) throw new Error('noncanonical-native-frontier');
   return bytes;
 }
-function session(value: unknown): SheetRelaySession {
-  if (!object(value) || !fields(value, ['protocolVersion', 'controlled', 'credential', 'identity', 'context']) || value.protocolVersion !== 1 ||
-      value.controlled !== true || !isRelayCredential(value.credential) || !identity(value.identity) || !isSheetRelayContext(value.context)) throw new Error('invalid-session');
-  return { protocolVersion: 1, controlled: true, credential: value.credential, identity: value.identity, context: value.context };
-}
+
 function bootstrap(value: unknown): SheetRelayState['bootstrap'] {
   if (!object(value) || !fields(value, ['updateId', 'sha256', 'byteLength', 'identity']) || !id(value.updateId) || !isSha256(value.sha256) ||
       !sequence(value.byteLength) || value.byteLength < 1 || value.byteLength > SHEET_RELAY_LIMITS.updateBytes || !identity(value.identity)) throw new Error('invalid-bootstrap');
@@ -68,7 +67,7 @@ function sameRequest(a: SheetRelayAppendRequest, b: SheetRelayAppendRequest): bo
     a.packet.updateId === b.packet.updateId && a.packet.sha256 === b.packet.sha256 && a.packet.byteLength === b.packet.byteLength &&
     a.packet.bytesBase64 === b.packet.bytesBase64 && a.loseAck === b.loseAck;
 }
-function packetEvent(bytes: Uint8Array, updateId: string, owner: SheetRelaySession): void {
+function packetEvent(bytes: Uint8Array, updateId: string, owner: StoredRelaySession): void {
   let found = false;
   for (const item of Y.decodeUpdate(bytes).structs) {
     if (!(item instanceof Y.Item) || !(item.content instanceof Y.ContentAny) || item.content.arr.length !== 1 || typeof item.content.arr[0] !== 'string') throw new Error('packet-native-item');
@@ -112,6 +111,7 @@ export class DurableSession {
 
   constructor(options: Options) {
     if (!id(options.clientId)) throw new Error('invalid-client-id');
+    if (options.account && !options.transport) throw new Error('account-websocket-required');
     this.#options = options;
     this.#request = options.transport ? undefined : options.request ?? globalThis.fetch.bind(globalThis);
     this.#transport = options.transport?.({
@@ -136,7 +136,10 @@ export class DurableSession {
   }
   get replica(): SheetReplica | undefined { return this.#replica; }
   #changed(): void { try { this.#options.changed(); } catch { /* Observation has no write authority. */ } }
-  #active(): boolean { return !this.#closed && !this.#paused && this.#phase !== 'blocked'; }
+  #authorized(): boolean {
+    try { return this.#options.account?.isCurrent() ?? true; } catch { return false; }
+  }
+  #active(): boolean { return this.#authorized() && !this.#closed && !this.#paused && this.#phase !== 'blocked'; }
   #readable(): boolean { return this.#active() && this.#access !== 'denied'; }
   #editable(): boolean {
     return this.#active() && (!this.#transport || (this.#socketAdmitted && this.#access === 'read-write' && this.#transport.inspect().phase === 'ready'));
@@ -173,7 +176,7 @@ export class DurableSession {
     const confirmed = packets.filter(packet => packet.state === 'durable').length;
     return { clientId: this.#options.clientId,
       phase: this.#closed ? 'closed' : this.#phase === 'blocked' ? 'blocked' : this.#paused ? 'paused' : this.#phase,
-      notice: `Controlled ${this.#transport ? 'WebSocket ' : ''}relay. ${this.#notice}${this.#outgoingPaused ? ' New outgoing changes are paused.' : ''} Local only: ${this.#local.size}. Pending: ${pending}. ACK unknown: ${ackUnknown}. Rejected: ${rejected}. Server confirmed: ${confirmed}.`,
+      notice: `${this.#options.account ? 'Account' : 'Controlled'} ${this.#transport ? 'WebSocket ' : ''}relay. ${this.#notice}${this.#outgoingPaused ? ' New outgoing changes are paused.' : ''} Local only: ${this.#local.size}. Pending: ${pending}. ACK unknown: ${ackUnknown}. Rejected: ${rejected}. Server confirmed: ${confirmed}.`,
       sessionId: this.#client?.session.identity.sessionId ?? null, actorId: this.#client?.session.identity.actorId ?? null,
       acceptedSequence: this.#acceptedSequence, bootstrap: this.#client ? structuredClone(this.#client.bootstrap) : null,
       context: this.#client ? structuredClone(this.#client.session.context) : null,
@@ -230,7 +233,7 @@ export class DurableSession {
     if (!this.#client) throw new Error('missing-original-session');
     return { 'Content-Type': 'application/json', Authorization: `Bearer ${this.#client.session.credential}` };
   }
-  async #state(value: unknown, owner: SheetRelaySession): Promise<{ state: SheetRelayState; bytes: Uint8Array }> {
+  async #state(value: unknown, owner: StoredRelaySession): Promise<{ state: SheetRelayState; bytes: Uint8Array }> {
     if (!object(value) || !fields(value, ['protocolVersion', 'context', 'admission', 'latestSequence', 'state', 'bootstrap']) || value.protocolVersion !== 1 ||
         !isSheetRelayContext(value.context) || !sameRelayContext(value.context, owner.context) || !isSheetRelayAdmission(value.admission) ||
         !sameRelayAdmission(value.admission, relayAdmission(owner.context)) || !sequence(value.latestSequence) || !object(value.state) ||
@@ -308,10 +311,12 @@ export class DurableSession {
     this.#started = true;
     return this.#queue(async () => {
       try {
+        if (!this.#authorized()) throw new Error('account-retired');
         const loaded = await this.#options.store.load(this.#options.clientId);
         const snapshot = await validateOutboxSnapshot(this.#options.clientId, loaded.client, loaded.packets);
-        if (this.#closed) return;
+        if (!this.#active()) return;
         const original = snapshot.client;
+        if (original && (this.#options.account ? original.session.controlled || !sameAccountBinding(original.session.accountBinding, this.#options.account.binding) : !original.session.controlled)) throw new Error('outbox-account-scope-mismatch');
         if (!original && (!this.#options.newClient || snapshot.packets.length)) throw new Error('missing-original-client');
         if (original && (snapshot.packets.length !== original.nextOrdinal || snapshot.packets.some((packet, i) => packet.ordinal !== i))) throw new Error('incomplete-local-history');
         this.#client = original;
@@ -322,14 +327,18 @@ export class DurableSession {
         }
         for (const packet of snapshot.packets) if (packet.state === 'durable') {
           const receipt = this.#receipt(packet.receipt, packet);
-          this.#receiptFrontiers.set(receipt.updateId, await sha256(frontier(receipt.frontierBase64)));
+          const frontierHash = await sha256(frontier(receipt.frontierBase64));
+        if (!this.#authorized() || (this.#transport && !this.#editable())) throw new Error('account-or-write-access-retired');
+        this.#receiptFrontiers.set(receipt.updateId, frontierHash);
         }
         if (!this.#active()) return;
         const request = original ? { protocolVersion: 1 as const, resumeCredential: original.session.credential } : { protocolVersion: 1 as const };
         const authenticated = this.#transport ? await this.#wire(signal => this.#transport!.authenticate(request, signal)) : undefined;
-        const issued = authenticated ? session({ protocolVersion: authenticated.session.protocolVersion, controlled: authenticated.session.controlled,
-          credential: authenticated.session.credential, identity: authenticated.session.identity, context: authenticated.session.context }) :
-          session(await this.#json('/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request) }));
+        const issued = authenticated ? parseStoredRelaySession({ protocolVersion: authenticated.session.protocolVersion, controlled: authenticated.session.controlled,
+          credential: authenticated.session.credential, identity: authenticated.session.identity, context: authenticated.session.context,
+          ...(!authenticated.session.controlled ? { accountBinding: authenticated.session.accountBinding } : {}) }) :
+          parseStoredRelaySession(await this.#json('/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request) }));
+        if (this.#options.account ? issued.controlled || !sameAccountBinding(issued.accountBinding, this.#options.account.binding) : !issued.controlled) throw new Error('issued-account-scope-mismatch');
         if (original && (issued.credential !== original.session.credential || !sameIdentity(issued.identity, original.session.identity) ||
             !sameRelayContext(issued.context, original.session.context))) throw new Error('original-session-changed');
         // Keep the issued credential private. A fresh session is not exposed to editing before createClient completes.
@@ -338,10 +347,10 @@ export class DurableSession {
           await this.#json('/open', { method: 'GET', headers: { Authorization: `Bearer ${issued.credential}` } }), issued);
         if (initial && (!sameBootstrap(initial.state.bootstrap, accepted.state.bootstrap) || accepted.state.latestSequence < initial.state.latestSequence)) throw new Error('opening-state-regression');
         if (snapshot.packets.some(packet => (packet.receipt?.sequence ?? 0) > accepted.state.latestSequence)) throw new Error('accepted-sequence-regression');
-        if (this.#closed) return;
-        const client: StoredClient = original ?? { version: 1, clientId: this.#options.clientId, session: issued, bootstrap: accepted.state.bootstrap, nextOrdinal: 0 };
+        if (!this.#active()) return;
+        const client: StoredClient = original ?? { version: issued.controlled ? 1 : 2, clientId: this.#options.clientId, session: issued, bootstrap: accepted.state.bootstrap, nextOrdinal: 0 };
         if (!original) await this.#options.store.createClient(structuredClone(client));
-        if (this.#closed) return;
+        if (!this.#active()) return;
         const replica = new SheetReplica(issued.context, issued.identity, accepted.bytes);
         try {
           for (const packet of snapshot.packets) replica.receive(base64ToBytes(packet.request.packet.bytesBase64));
@@ -358,7 +367,7 @@ export class DurableSession {
     });
   }
   publish(eventId: string, bytes: Uint8Array): void {
-    if (this.#closed) return;
+    if (this.#closed && !this.#options.account) return;
     const existing = this.#local.get(eventId), stored = this.#packets.get(eventId);
     const copy = bytes instanceof Uint8Array ? bytes.slice() : new Uint8Array();
     if (existing || stored) {
@@ -367,11 +376,15 @@ export class DurableSession {
       return;
     }
     this.#local.set(eventId, { eventId, bytes: copy });
+    if (this.#options.account && (this.#closed || !this.#authorized())) {
+      this.#notice = 'Account retired after local input. Original native bytes remain in this page; no delivery is allowed.';
+      this.#changed(); return;
+    }
     this.#notice = 'Local only until the original native packet finishes outbox persistence.'; this.#changed();
     void this.#write().then(() => this.#queue(() => this.#drain(false)));
   }
   async #persist(): Promise<void> {
-    if (!this.#client || !this.#replica || this.#phase !== 'ready') return;
+    if (!this.#authorized() || !this.#client || !this.#replica || this.#phase !== 'ready') return;
     for (const local of this.#local.values()) {
       try {
         if (!id(local.eventId) || local.bytes.length < 1 || local.bytes.length > SHEET_RELAY_LIMITS.updateBytes) throw new Error('local-packet-bounds');
@@ -381,7 +394,9 @@ export class DurableSession {
         if (!local.request) local.request = parseSheetRelayAppendRequest({ protocolVersion: 1, context: this.#client.session.context,
           admission: relayAdmission(this.#client.session.context), packet: { updateId: local.eventId, bytesBase64: bytesToBase64(local.bytes),
             byteLength: local.bytes.length, sha256: await sha256(local.bytes) } });
+        if (!this.#authorized()) return;
         const packet = await this.#options.store.enqueue(this.#options.clientId, structuredClone(local.request), this.#client.session.identity);
+        if (!this.#authorized()) return;
         if (!sameRequest(packet.request, local.request) || packet.clientId !== this.#options.clientId ||
             packet.ordinal !== this.#client.nextOrdinal || !sameIdentity(packet.identity, this.#client.session.identity)) throw new Error('persisted-packet-mismatch');
         this.#packets.set(local.eventId, structuredClone(packet));
@@ -393,20 +408,25 @@ export class DurableSession {
     }
   }
   async #mark(packet: StoredPacket, result: PacketResult): Promise<void> {
+    if (!this.#authorized()) throw new Error('account-retired');
     const current = this.#packets.get(packet.request.packet.updateId)!;
     if (current.state === 'durable') return;
     try {
       const stored = await this.#options.store.mark(this.#options.clientId, packet.request.packet.updateId, structuredClone(result));
+      if (!this.#authorized() || (result.state === 'durable' && this.#transport && !this.#editable())) throw new Error('account-or-write-access-retired');
       if (!sameRequest(stored.request, packet.request) || stored.ordinal !== packet.ordinal || stored.clientId !== this.#options.clientId ||
           !sameIdentity(stored.identity, packet.identity)) throw new Error('marked-packet-mismatch');
       if (stored.state === 'durable') {
         const receipt = this.#receipt(stored.receipt, stored);
         if (result.receipt && (receipt.sequence !== result.receipt.sequence || receipt.frontierBase64 !== result.receipt.frontierBase64)) throw new Error('marked-receipt-mismatch');
-        this.#receiptFrontiers.set(receipt.updateId, await sha256(frontier(receipt.frontierBase64)));
+        const frontierHash = await sha256(frontier(receipt.frontierBase64));
+        if (!this.#authorized() || (this.#transport && !this.#editable())) throw new Error('account-or-write-access-retired');
+        this.#receiptFrontiers.set(receipt.updateId, frontierHash);
         this.#acceptedSequence = Math.max(this.#acceptedSequence, receipt.sequence);
       } else if (stored.state !== result.state) throw new Error('marked-state-mismatch');
       this.#packets.set(packet.request.packet.updateId, structuredClone(stored));
     } catch {
+      if (!this.#authorized()) throw new Error('account-retired');
       if (this.#packets.get(packet.request.packet.updateId)?.state !== 'durable') this.#packets.set(packet.request.packet.updateId,
         { ...current, state: result.state === 'rejected' ? 'rejected' : 'acknowledgment-unknown', error: result.error ?? 'OUTBOX_RESULT_NOT_PERSISTED' });
       throw new Error('outbox-result-not-persisted');
@@ -437,6 +457,7 @@ export class DurableSession {
           this.#notice = 'Rejected. The original record and rejection code are retained.'; break;
         } else throw new Error('append-result-mismatch');
       } catch {
+        if (!this.#authorized()) return;
         if (this.#packets.get(packet.request.packet.updateId)?.state === 'rejected') {
           this.#notice = 'Rejected. Original record and rejection code remain in this tab; outbox result persistence failed.';
           this.#changed(); break;

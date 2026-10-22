@@ -8,9 +8,9 @@ import type { CellKey } from '../../src/contracts.ts';
 import { encodeCellKey } from '../../src/contracts.ts';
 import { diffWorkbook } from '../../src/workbook.ts';
 
-function fixture() {
+function fixture(canEdit?: () => boolean) {
   const replica = createPreviewReplica('00000000-0000-4000-8000-000000000533');
-  const controller = new SheetController(replica);
+  const controller = new SheetController(replica, undefined, 'local', canEdit);
   const key = (sheetId: string, row: number, column: number): CellKey => {
     const result = controller.index.keyAt(sheetId, row - 1, column - 1);
     assert.ok(result, `${sheetId}: row ${row}, column ${column} exists`);
@@ -258,5 +258,119 @@ test('fresh controller reads bind the current revision; native old-token results
     assert.notEqual(current.token.revision, old.token.revision);
     assert.equal(current.token.revision, f.controller.projection.revision);
     assert.equal(current.value, 38);
+  } finally { f.controller.destroy(); }
+});
+
+test('read-only controller selects and switches native Sheets and reads formulas without authoring events', () => {
+  const f = fixture(() => false);
+  try {
+    const original = f.controller.projection;
+    assert.equal(f.controller.editable, false);
+    assert.equal(f.controller.select(f.key('sheet-budget', 4, 4)), true);
+    assert.equal(f.value(f.controller.selection), 44);
+    assert.equal(f.controller.source(), '=SUM(D2:D3)');
+    assert.equal(f.controller.move(1, 0), true);
+    assert.equal(f.value(f.controller.selection), 'Review');
+    assert.equal(f.controller.switchSheet('sheet-rates'), true);
+    assert.equal(f.controller.select(f.key('sheet-rates', 2, 2)), true);
+    assert.equal(f.value(f.controller.selection), 12);
+    assert.equal(f.controller.startEdit('999'), false);
+    f.controller.setDraft('999'); f.controller.setComposing(true);
+    assert.equal(f.controller.commit(), false);
+    assert.equal(f.controller.undo(), false);
+    assert.equal(f.controller.canUndo, false);
+    assert.equal(f.controller.draft, null);
+    assert.equal(f.controller.projection, original);
+    assert.match(f.controller.message, /Read-only/);
+  } finally { f.controller.destroy(); }
+});
+
+test('write access dropping during a draft retains its text, metadata and own Undo history', () => {
+  let writable = true;
+  const f = fixture(() => writable);
+  try {
+    const edited = f.key('sheet-rates', 2, 2);
+    f.edit(edited, '10');
+    const draftCell = f.key('sheet-budget', 2, 2);
+    f.controller.select(draftCell); f.controller.startEdit('=5+1');
+    const draft = f.controller.draft, original = f.controller.projection;
+    writable = false;
+    assert.equal(f.controller.startEdit('replacement'), false);
+    f.controller.setDraft('replacement'); f.controller.setComposing(true);
+    assert.equal(f.controller.commit(), false);
+    assert.equal(f.controller.undo(), false);
+    assert.equal(f.controller.canUndo, false);
+    assert.deepEqual(f.controller.draft, draft);
+    assert.equal(f.controller.select(f.key('sheet-budget', 4, 4)), true);
+    assert.equal(f.controller.switchSheet('sheet-rates'), true);
+    assert.deepEqual(f.controller.draft, draft);
+    assert.equal(f.controller.projection, original);
+    assert.equal(f.value(edited), 10);
+    assert.equal(f.value(f.key('sheet-budget', 4, 4)), 38);
+    writable = true;
+    assert.equal(f.controller.cancel(), true);
+    assert.equal(f.controller.canUndo, true);
+    assert.equal(f.controller.undo(), true);
+    assert.equal(f.value(edited), 12);
+    assert.equal(f.value(f.key('sheet-budget', 4, 4)), 44);
+  } finally { f.controller.destroy(); }
+});
+
+test('read-only navigation retains a composing draft and a late composition end cannot replace its text', () => {
+  let writable = true;
+  const f = fixture(() => writable);
+  try {
+    f.controller.startEdit('한'); f.controller.setComposing(true);
+    const draft = f.controller.draft, original = f.controller.projection;
+    writable = false;
+    assert.equal(f.controller.switchSheet('sheet-rates'), true);
+    assert.deepEqual(f.controller.draft, draft);
+    f.controller.setDraft('late composition text');
+    f.controller.setComposing(false);
+    assert.deepEqual(f.controller.draft, { ...draft, composing: false });
+    assert.equal(f.controller.projection, original);
+    writable = true;
+    assert.equal(f.controller.cancel(), true);
+  } finally { f.controller.destroy(); }
+});
+
+test('permission failure and loss at the final commit check leave native history and draft unchanged', () => {
+  let checks = 0, drop = false, throwing = false;
+  const f = fixture(() => { if (throwing) throw new Error('authority unavailable'); return !drop || ++checks === 1; });
+  try {
+    f.controller.select(f.key('sheet-budget', 2, 2)); f.controller.startEdit('=5+1');
+    const draft = f.controller.draft, original = f.controller.projection;
+    drop = true; checks = 0;
+    assert.equal(f.controller.commit(), false);
+    assert.equal(checks, 2);
+    assert.deepEqual(f.controller.draft, draft);
+    assert.equal(f.controller.projection, original);
+    throwing = true;
+    assert.equal(f.controller.editable, false);
+    assert.equal(f.controller.startEdit('replacement'), false);
+    assert.equal(f.controller.commit(), false);
+    assert.equal(f.controller.undo(), false);
+    assert.equal(f.controller.switchSheet('sheet-rates'), true);
+    assert.deepEqual(f.controller.draft, draft);
+    assert.equal(f.controller.projection, original);
+  } finally { f.controller.destroy(); }
+});
+
+test('loss at the final Undo check does not consume own history or emit a native Undo', () => {
+  let checks = 0, drop = false;
+  const f = fixture(() => !drop || ++checks === 1);
+  try {
+    const edited = f.key('sheet-rates', 2, 2);
+    f.edit(edited, '10');
+    const original = f.controller.projection;
+    drop = true; checks = 0;
+    assert.equal(f.controller.undo(), false);
+    assert.equal(checks, 2);
+    assert.equal(f.controller.projection, original);
+    assert.equal(f.value(edited), 10);
+    drop = false;
+    assert.equal(f.controller.canUndo, true);
+    assert.equal(f.controller.undo(), true);
+    assert.equal(f.value(edited), 12);
   } finally { f.controller.destroy(); }
 });

@@ -12,6 +12,11 @@
         <div><p class="eyebrow">WONFFICE / M0 EXPERIMENT</p><h1>Sheet</h1><p class="description">An editable view of the native Sheet engine.</p></div>
         <p class="session-label" id="session-label"><span aria-hidden="true">●</span> Session only · Changes reset on reload</p>
       </header>
+      <section id="account-controls" class="peer-controls" aria-label="Account session" hidden>
+        <div class="peer-actions"><button type="button" id="account-sign-in">Sign in</button><button type="button" id="account-logout" disabled>Sign out</button><a id="account-fresh-login" target="_blank" rel="noopener" hidden>Open a new sign-in tab</a></div>
+        <p id="account-identity"></p><p id="account-status" role="status" aria-live="polite">Sign in to open your Sheet.</p>
+        <div class="peer-actions"><label>Company <select id="account-tenant" aria-label="Company"></select></label><label>Sheet document ID <input id="account-document" type="text" autocomplete="off" /></label><button type="button" id="account-open" disabled>Open Sheet</button></div>
+      </section>
       <section id="peer-controls" class="peer-controls" aria-label="Two-screen session" hidden>
         <div class="peer-actions"><button type="button" id="create-room">Start shared session</button><a id="open-peer" target="_blank" rel="noopener" hidden>Open second screen</a><button type="button" id="pause-link" disabled>Pause tab link</button><button type="button" id="retry-link" disabled>Retry tab connection</button><a id="new-room" target="_blank" rel="noopener">Start another room</a></div>
         <p id="peer-session"></p><p id="peer-status" role="status" aria-live="polite">Start a session, then open a second screen.</p>
