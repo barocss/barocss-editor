@@ -619,3 +619,129 @@ browser/server/IDB/restart acceptance. Integration must qualify the exact joined
 candidate, continuous input/focus, per-ID delayed/lost ACK, original outbox reload,
 duplicate writer refusal, native recovery/re-edit/new own Undo and module bounds
 when the held server is released. No author server/browser/install/profile ran.
+
+## Own WebSocket client — human activation, 2026-10-22
+
+Latest root human chooses our own WebSocket server plus Yjs and releases the
+Collaboration hold for this work. #535 retains its separate read-only hold.
+The existing live B user server55264, tabs3/4 and their room/document are frozen;
+old Word55262 and A55263 also stay untouched. This work uses a new checkout:
+`/Users/user/.codex/worktrees/533-sheet-websocket/barocss-editor`, branch
+`codex/533-sheet-websocket`. Initial base is `1ee29ee07e6e426aa73cf61dba0746c279a78350`;
+Integration's isolated dependency commit9cba6d60 plus exact P2 contracts produce
+author base `5e7f4deca2cad3a6fef97f2dfab40c81c7ebcc3c`, tree
+`bb6e3897789ec0695655cf2cdc6687786c1cbeac`. The clean base, easylogic identity and
+frozen receipt `.omx/m0/533-sheet-websocket-frozen-receipt.json` were verified
+before writes. Only preview/sheet/** and this manual remain author-owned.
+
+The immutable shared P2 pin is `190518cbd792ed3c1a44fe9c22ca075821fee19d`.
+Its protocol/DTOs/codecs are consumed read-only. P1 stored session/packet shapes
+remain unchanged. The current WS-only access wrapper is not persisted as an
+authorization grant. No browser Node ws/server/store import or new engine exists.
+The existing native controller, original packet outbox, Web Lock, native SHA/
+context/bootstrap/frontier checks, calculation, drafts and own Undo remain the
+same authority. Production identity/account authorization is not claimed.
+
+### Transport and native/outbox boundary
+
+Integration's new55266 launcher injects meta sheet-collaboration-mode=websocket
+and proxies the shared P2 route `/api/sheet-relay/v1/ws` to its owned server55265.
+`main.ts` selects the actual browser WebSocket adapter. It has no fetch or HTTP
+append fallback. DurableSession binds no fetch implementation in WS mode. The
+explicit historical HTTP mode and its source-bound tests remain separate.
+
+Authentication is the first application frame. Credentials are private message
+data, never URL/query/subprotocol/observer/log data. A new session is requested
+only after validated empty client storage; old records use only their original
+credential. After owner validation, transport.open pins credential, actor/session
+and context. Reconnect cannot choose an actor/role or create a replacement session.
+It attempts the original credential at most six times, with delays250/500/1000/
+2000/4000/5000ms. The transport never resends append. The outbox owner retries
+original IDs/bytes/hash/admission/ordinal only after admitted current state.
+
+The shared frame codecs enforce exact P2 shapes. Correlation IDs include the
+connection generation and per-connection request number; an old socket/reply or
+wrong reply operation cannot complete a newer request. Bounds remain P2 frame2MB,
+send buffer4MB, pending32, request IDs4096 per connection, private metadata history
+128, authentication5s and reply10s. Compression/fragments/reassembled text/server
+resource limits belong to the actual server's corresponding checks. Native
+update/full state1MB, decoded frontier64k and outbox lifetime256/8MB remain unchanged.
+No test deadline or native budget was raised.
+
+Pushed full native state is coalesced into one pending state plus one validation
+job. Its native SHA, context, admission, original bootstrap, frontier and sequence
+must pass the same verifier before SheetReplica.receive. This queue is independent
+of a held append response and the local persistence queue. A push never changes
+an own packet's delivery state. Only a matching correlated append result with a
+valid per-ID durable receipt can do that, after result persistence completes.
+
+Server access read-only permits accepted native state but disables new edits and
+outgoing writes. Denied/revoked access freezes input and keeps draft/original
+packets; queued state cannot apply after denial. An ordinary disconnect marks
+current permission unconfirmed and disables edits until native state and current
+server access are admitted again. Generic connection loss does not grant write
+access. Raw transport metadata may retain the last server report; parent access
+and canEdit describe current client admission. Permission changes are processed
+even when new outgoing changes are paused.
+
+### Outgoing pause, current ACK and retry
+
+In WS mode the existing #pause-relay button means **Pause outgoing changes**.
+`setOutgoingPaused`/inspect.outgoingPaused gates only subsequent append calls.
+Local editing and IDB persistence continue; the socket, the current real reply,
+read state and access notifications stay live. The old packet can become confirmed
+while a newer original is persisted, pending and unsent. Explicit Resume drains
+non-rejected originals only. A server-rejected packet needs explicit Retry;
+permission grants, reconnect pushes and lifecycle restore never automatically
+retry rejected records. Full connection suspension remains a separate lifecycle
+operation. Close drains local/native tasks before releasing the writer lock.
+
+Before accepting a WS durable result, the client also checks that write access
+and native connection admission are still current. Outgoing pause does not fail
+this check; read-only/revoked/unknown access does. Such an old unconfirmed packet
+retains ACK-unknown status and its exact original bytes. A correlated explicit
+server denial retains its actual code with that original packet; an uncorrelated
+revocation cannot invent a per-packet rejection.
+
+### Observer and proof boundary
+
+Existing #create-client/#open-client/#retry-relay/#client-identity/#save-state/
+#outbox-state and #durable-controls[data-phase] remain. Identity shows current
+access and link phase. `sheetDurable.inspect()` mode is websocket and adds access,
+canEdit, outgoingPaused and transport metadata: phase/generation, sent/received
+counts, pending/history requestId/operation/packetId/hash/outcome. Per-ID native
+packet metadata and receipt sequence/frontier hash remain. No credentials or raw
+frames/native bytes are exposed. Actual frame receipt metadata is supplemental
+to real pointer/keyboard/native/storage/server observations.
+
+First WS type check, chunk6045f1, had three diagnostics: parent TS2367 after await
+incorrectly narrowed a mutable access field; two helper TS2345 diagnostics inferred
+a default error-code parameter as the outcome union. A live helper predicate and
+explicit string parameter corrected those types without casts/suppression.
+The first parent operation-model run17PASS/3414.933333ms preceded an additional
+read-only-during-held-reply regression. That regression produced **17PASS/1FAIL**,
+3715.151542ms, chunkc69aff: expected confirmed0, actual1. This was a real client
+source defect under the controlled operation seam, not an actual WS/server fault
+run. The original oracle was kept. The current-access guard above fixed it.
+
+Corrected parent run chunkbd06d5: 21PASS/2files, 3509.991667ms, strict5roots0,
+scoped lint0. Final page-model follow-up chunk88336b: 3PASS/253.883541ms;
+strict7changed roots/imports0 and all7changed TS files lint0. Helper initial
+transport run15PASS/364.96525ms, chunk854871; types2roots0 chunk1f604c;
+lint0 chunke33c19. Planner's later source review found that a correlated
+session-denied/current-access-denied reply closed the connection before resolving
+the matched rejection, losing the server code as generic ACK-unknown. The helper
+now resolves only the exact matched append rejection/code before denying the
+connection; uncorrelated/wrong-packet denial remains unknown. Two new targeted
+cases cover both codes, optional updateId and another in-flight original. Final
+helper chunk1f495c: 17PASS/227.853125ms; types2roots0 chunk761ee5 and lint0
+chunk2c4feb. These are sequential scoped model commands, not a combined run,
+full-root preflight or actual browser/IDB/WS/permission proof.
+
+Integration must qualify its exact joined UI/server/launcher with actual WS
+traffic, current read/write/revoked roles, per-packet lost/late real ACK, a newer
+IDB-complete unsent original, same-identity outbox reload and a NEW server process
+using the same DB/context/bootstrap/registry/checkpoint+tail, then fresh open/
+re-edit/new own Undo. Source/model acceptance does not imply these gates passed.
+Only after qualification may new WS user tabs be opened. Existing B/A/Word tabs
+and inputs must never be refreshed, edited, closed or moved by that campaign.

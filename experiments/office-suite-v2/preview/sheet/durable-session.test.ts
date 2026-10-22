@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as Y from 'yjs';
 import { DurableSession } from './durable-session.ts';
+import type { DurableTransport, DurableTransportEvents } from './durable-session.ts';
+import type { WebSocketTransportView } from './websocket-transport.ts';
 import { createPreviewReplica } from './fixture.ts';
 import { SheetController } from './controller.ts';
 import { SheetReplica } from '../../src/collaboration.ts';
 import { ReferenceIndex } from '../../src/references.ts';
 import { CalculationEngine } from '../../src/calculation.ts';
 import { SHEET_RELAY_PATH, bytesToBase64, base64ToBytes, parseSheetRelayAppendRequest, relayAdmission } from '../../src/sheet-preview-protocol.ts';
-import type { SheetRelaySession, SheetRelayState, SheetRelayReceipt, SheetRelayAppendRequest, SheetRelayIdentity } from '../../src/sheet-preview-protocol.ts';
+import type { SheetRelaySession, SheetRelayState, SheetRelayReceipt, SheetRelayAppendRequest, SheetRelayIdentity, SheetRelaySessionRequest, SheetRelayAccess } from '../../src/sheet-preview-protocol.ts';
 import { prepareOutboxEnqueue, prepareOutboxMark } from './outbox.ts';
 import type { OutboxStore, OutboxSnapshot, StoredClient, StoredPacket, PacketResult } from './outbox.ts';
 
@@ -442,4 +444,180 @@ test('controlled close during a state hash/request prevents late native merge an
     f.session.publish('after-close', new Uint8Array([0])); await f.session.retry(); await f.session.refresh();
     assert.equal(f.http.calls.length, calls);
   } finally { gate.resolve(undefined); f.close(); }
+});
+
+/** Operation-level model only. The real browser framing/reconnect model lives in websocket-transport.test.ts. */
+class SocketOperations implements DurableTransport {
+  phase: WebSocketTransportView['phase'] = 'idle';
+  role: SheetRelayAccess = 'read-write';
+  denied = false;
+  readonly http: ControlledHTTP;
+  readonly events: DurableTransportEvents;
+  constructor(http: ControlledHTTP, events: DurableTransportEvents) { this.http = http; this.events = events; }
+  async authenticate(request: SheetRelaySessionRequest) {
+    const response = await this.http.request(`${SHEET_RELAY_PATH}/session`, { method: 'POST', body: JSON.stringify(request) });
+    if (!response.ok || this.denied) { this.events.access('denied'); throw new Error('controlled-current-access-denied'); }
+    this.phase = 'ready'; this.events.access(this.role);
+    return { session: { ...structuredClone(this.http.session), access: this.role }, state: await this.http.state() };
+  }
+  async open(owner: SheetRelaySession) { assert.deepEqual(owner, this.http.session); return this.state(); }
+  async state() {
+    if (this.denied) { this.events.access('denied'); throw new Error('controlled-current-access-denied'); }
+    assert.notEqual(this.phase, 'closed'); assert.notEqual(this.phase, 'paused');
+    this.phase = 'ready'; this.events.access(this.role);
+    return this.http.state();
+  }
+  async append(request: SheetRelayAppendRequest) {
+    if (this.denied) { this.events.access('denied'); throw new Error('controlled-current-access-denied'); }
+    if (this.role === 'read-only') {
+      this.events.access('read-only');
+      return { protocolVersion: 1 as const, status: 'rejected' as const, code: 'read-only-denied', updateId: request.packet.updateId };
+    }
+    const response = await this.http.request(`${SHEET_RELAY_PATH}/append`, { method: 'POST',
+      headers: { Authorization: `Bearer ${this.http.session.credential}` }, body: JSON.stringify(request) });
+    return await response.json() as Awaited<ReturnType<DurableTransport['append']>>;
+  }
+  setPaused(paused: boolean): void {
+    this.phase = paused ? 'paused' : 'waiting';
+    if (paused) this.events.disconnected('controlled-pause');
+  }
+  close(): void { this.phase = 'closed'; }
+  inspect(): WebSocketTransportView {
+    return { kind: 'websocket', phase: this.phase, access: this.denied ? 'denied' : this.role,
+      generation: 1, framesSent: 0, framesReceived: 0, reconnectAttempt: 0, pending: [], history: [] };
+  }
+  permission(access: SheetRelayAccess | 'denied'): void {
+    this.denied = access === 'denied';
+    if (access !== 'denied') this.role = access;
+    this.events.access(access);
+  }
+  async push(): Promise<void> { this.events.accepted(await this.http.state()); }
+}
+async function socketSetup(store = new MemoryOutbox(), role: SheetRelayAccess = 'read-write') {
+  const http = await ControlledHTTP.create(); let socket!: SocketOperations;
+  const session = new DurableSession({ clientId: 'client-1', newClient: true, store,
+    request: async () => { throw new Error('HTTP fallback must not run'); },
+    transport: events => { socket = new SocketOperations(http, events); socket.role = role; return socket; }, changed: () => {} });
+  await session.start(); assert.equal(session.inspect().phase, 'ready');
+  return { session, socket, http, store, close: async () => { session.close(); await session.settled(); session.replica?.destroy(); http.close(); } };
+}
+
+test('WS operation model resumes original P1 records and readonly admission cannot drain pending originals', async () => {
+  const f = await socketSetup(); let resumed: DurableSession | undefined;
+  try {
+    f.session.setOutgoingPaused(true); const change = publish(f.session); await f.session.settled();
+    const original = structuredClone(f.store.snapshot);
+    assert.equal(f.session.inspect().canEdit, true, 'outgoing pause keeps local editing and persistence available');
+    f.session.close(); await f.session.settled();
+    resumed = new DurableSession({ clientId: 'client-1', newClient: false, store: f.store,
+      request: async () => { throw new Error('HTTP fallback must not run'); },
+      transport: events => { const socket = new SocketOperations(f.http, events); socket.role = 'read-only'; return socket; }, changed: () => {} });
+    await resumed.start();
+    assert.equal(resumed.inspect().access, 'read-only'); assert.equal(resumed.inspect().canEdit, false);
+    assert.deepEqual(f.http.calls.filter(call => call.path === '/session').at(-1)?.body,
+      { protocolVersion: 1, resumeCredential: f.http.session.credential });
+    assert.equal(resumed.inspect().pending, 1); assert.equal(resumed.inspect().confirmed, 0);
+    assert.equal(resumed.replica!.events.some(event => event.eventId === change.event.eventId), true);
+    assert.deepEqual(f.store.snapshot, original);
+    assert.equal(f.http.calls.filter(call => call.path === '/append').length, 0);
+  } finally { resumed?.close(); await resumed?.settled(); resumed?.replica?.destroy(); await f.close(); }
+});
+
+test('WS operation model outgoing pause preserves its old reply while a newer original persists unsent', async () => {
+  const f = await socketSetup(), entered = deferred<void>(), reply = deferred<void>();
+  try {
+    f.http.intercept = async (call, next) => {
+      const result = await next();
+      if (call.path === '/append') { entered.resolve(undefined); await reply.promise; }
+      return result;
+    };
+    const old = publish(f.session, 8); await entered.promise;
+    f.session.setOutgoingPaused(true);
+    const stored = deferred<void>(); f.store.enqueued = () => stored.resolve(undefined);
+    const newer = publish(f.session, 10); await stored.promise;
+    assert.equal(f.store.snapshot.packets.length, 2);
+    assert.equal(f.http.calls.filter(call => call.path === '/append').length, 1);
+    assert.equal(f.session.inspect().canEdit, true); assert.equal(f.socket.phase, 'ready');
+    reply.resolve(undefined); await f.session.settled();
+    assert.equal(f.session.inspect().packets.find(packet => packet.updateId === old.event.eventId)?.state, 'durable');
+    assert.equal(f.session.inspect().packets.find(packet => packet.updateId === newer.event.eventId)?.state, 'pending');
+    assert.equal(f.session.inspect().confirmed, 1); assert.equal(f.session.inspect().outgoingPaused, true);
+    f.socket.permission('read-only'); assert.equal(f.session.inspect().canEdit, false);
+    f.socket.permission('read-write'); assert.equal(f.session.inspect().canEdit, true);
+    assert.equal(f.http.calls.filter(call => call.path === '/append').length, 1, 'permission change cannot bypass the outgoing gate');
+    f.session.setOutgoingPaused(false); await f.session.settled();
+    assert.equal(f.session.inspect().confirmed, 2);
+  } finally { reply.resolve(undefined); await f.close(); }
+});
+
+test('WS operation model push keeps composing draft and unconfirmed outbox; current Undo preserves remote edit', async () => {
+  const f = await socketSetup();
+  const controller = new SheetController(f.session.replica!, change => f.session.publish(change.event.eventId, change.update), 'durable');
+  const remote = new SheetReplica(f.http.session.context, { actorId: 'ws-remote', sessionId: 'ws-remote-session' }, f.http.native.exportUpdate());
+  try {
+    f.session.setOutgoingPaused(true);
+    controller.select(key(f.session.replica!)); controller.startEdit('5'); assert.equal(controller.commit(), true);
+    await f.session.settled();
+    controller.startEdit('kept 한국'); controller.setComposing(true); const draft = controller.draft;
+    f.http.inject(remote.commit({ kind: 'cell.commit', key: key(remote, 'sheet-rates'), input: { kind: 'literal', value: 10 } }).update);
+    await f.socket.push(); await f.session.settled(); controller.synchronize();
+    assert.deepEqual(controller.draft, draft);
+    assert.equal(value(f.session.replica!, key(f.session.replica!, 'sheet-budget', 4, 4)), 58);
+    assert.equal(f.session.inspect().pending, 1); assert.equal(f.session.inspect().confirmed, 0);
+    controller.setComposing(false); controller.cancel(); assert.equal(controller.undo(), true); await f.session.settled();
+    assert.equal(value(f.session.replica!, key(f.session.replica!, 'sheet-rates')), 10);
+    assert.equal(value(f.session.replica!, key(f.session.replica!, 'sheet-budget', 4, 4)), 38);
+  } finally { remote.destroy(); await f.close(); }
+});
+
+test('WS operation model revoke freezes editing, preserves draft/outbox and refuses a queued state push', async () => {
+  const f = await socketSetup(); const controller = new SheetController(f.session.replica!, change => f.session.publish(change.event.eventId, change.update), 'durable');
+  try {
+    f.session.setOutgoingPaused(true); publish(f.session); await f.session.settled();
+    controller.synchronize(); controller.startEdit('retained draft'); const draft = controller.draft;
+    const original = structuredClone(f.store.snapshot), native = f.session.replica!.projection;
+    const remote = new SheetReplica(f.http.session.context, { actorId: 'denied-remote', sessionId: 'denied-remote-session' }, f.http.native.exportUpdate());
+    try { f.http.inject(remote.commit({ kind: 'cell.commit', key: key(remote), input: { kind: 'literal', value: 77 } }).update); }
+    finally { remote.destroy(); }
+    const state = await f.http.state();
+    f.socket.events.accepted(state); f.socket.permission('denied');
+    await f.session.settled();
+    assert.equal(f.session.inspect().canEdit, false); assert.equal(f.session.inspect().access, 'denied');
+    assert.deepEqual(controller.draft, draft); assert.deepEqual(f.store.snapshot, original);
+    assert.deepEqual(f.session.replica!.projection, native);
+  } finally { await f.close(); }
+});
+
+test('WS operation model access grant and lifecycle resume never automatically retry a rejected original', async () => {
+  const f = await socketSetup();
+  try {
+    f.http.intercept = async (call, next) => call.path === '/append' ? json({ protocolVersion: 1, status: 'rejected',
+      code: 'read-only-denied', updateId: parseSheetRelayAppendRequest(call.body).packet.updateId }) : next();
+    const change = publish(f.session); await f.session.settled();
+    assert.equal(f.session.inspect().rejected, 1); const first = structuredClone(f.store.snapshot.packets[0]!.request);
+    f.socket.permission('read-only'); f.socket.permission('read-write'); await f.socket.push(); await f.session.settled();
+    f.session.setPaused(true); f.session.setPaused(false); await f.session.settled();
+    assert.equal(f.http.calls.filter(call => call.path === '/append').length, 1);
+    f.http.intercept = undefined; await f.session.retry();
+    assert.equal(f.session.inspect().confirmed, 1);
+    assert.deepEqual(f.store.snapshot.packets[0]!.request, first);
+    assert.equal(f.store.snapshot.packets[0]!.request.packet.updateId, change.event.eventId);
+  } finally { await f.close(); }
+});
+
+test('WS operation model readonly access during a held reply cannot confirm the older packet', async () => {
+  const f = await socketSetup(), entered = deferred<void>(), reply = deferred<void>();
+  try {
+    f.http.intercept = async (call, next) => {
+      const result = await next();
+      if (call.path === '/append') { entered.resolve(undefined); await reply.promise; }
+      return result;
+    };
+    const change = publish(f.session); await entered.promise;
+    f.socket.permission('read-only'); reply.resolve(undefined); await f.session.settled();
+    assert.equal(f.session.inspect().confirmed, 0);
+    assert.equal(f.session.inspect().ackUnknown, 1);
+    assert.equal(f.session.inspect().canEdit, false);
+    assert.equal(f.store.snapshot.packets[0]!.request.packet.updateId, change.event.eventId);
+  } finally { reply.resolve(undefined); await f.close(); }
 });
