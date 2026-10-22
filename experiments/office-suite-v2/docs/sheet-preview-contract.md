@@ -229,7 +229,7 @@ and its 5 tests retain the initial immutable evidence above. Real browser checks
 remain Integration-owned and were held until this follow-up. No amend/reset,
 engine edits, broad checks, server or browser were used for this repair.
 
-## Inactive follow-up phases and release boundary
+## Original Phase A follow-up plan and release boundary
 
 The UI states Session only and explicitly says reload discards changes. It never
 claims saved, synced or durable state. It has no storage, network, BroadcastChannel,
@@ -250,3 +250,173 @@ authorization and release are outside Phase A. M1/M2 products remain WAIT_M0.
 Word100 sampled RSS FAIL and M0 OPEN remain unchanged. Preview implementation,
 author checks, joined browser qualification and whole-Issue/M0 acceptance are
 separate states. Planner owns the whole acceptance decision.
+
+## Phase B implementation continuation
+
+Direct human request on 2026-10-22 activates two-tab native editing and each
+session's Undo. Planner's exact dispatch preserves the Phase A record above and
+assigns this same sole author scope. New checkout:
+`/Users/user/.codex/worktrees/533-sheet-preview-phase-b/barocss-editor`, branch
+`codex/533-sheet-preview-phase-b`, parent
+`1638944c6db0d39e994ba5f12367a4b56714f958`, tree
+`629e43f773bcab257e98d2d9f2061101244b56f6`. Frozen receipt:
+`/Users/user/barocss-editor/.omx/m0/533-sheet-preview-phase-b-frozen-receipt.json`.
+The old author checkpoint, Word55262, Sheet55263 and user documents stay preserved.
+Integration joins only in its new 522-sheet-bc-integration checkout. No native
+engine, shared/root/config/lock/relay/protocol/verification files are author writes.
+
+### Entry and native identity
+
+Integration owns `scripts/sheet-collaboration.mjs --source-head <exact> --mode peer`
+at separate 127.0.0.1:55264. It injects a meta element named
+`sheet-collaboration-mode` with content `peer`. Without that meta element the
+entry retains the original Phase A startup. `durable` mode is explicitly not
+implemented in this B candidate; it cannot silently fall back to peer storage.
+
+With peer mode, a fresh URL shows Start shared session. This explicit action
+creates a UUID room and one real native bootstrap. The creator exports those
+original Yjs bytes, destroys the temporary bootstrap replica and creates an
+independent editing replica with a distinct session identity. History changes
+the URL to `?room=<UUID>` without navigation. Open second screen opens that same
+room URL. Every URL with a room, including creator reload, is join-only. A missing
+room waits for a live peer. An invalid room refuses. Neither path silently seeds.
+After the last peer disappears, no durable recovery is claimed; Start another
+room is a separate explicit new-room action.
+
+Peers share the exact original bootstrap bytes and context; generation is the
+room UUID. An incoming full native state must validate through SheetReplica and
+contain the declared original bootstrap. An established peer also compares its
+bootstrap byte-for-byte. A join adopts only validated original native state.
+Full Yjs state is merged through receive; there is no workbook snapshot restore,
+event re-authoring, competing parser, calculation engine or editable mirror.
+
+### Binary delivery and recovery
+
+`peer-session.ts` is a controlled same-origin BroadcastChannel protocol. The wire
+has version, roomId, from, kind and optional target, original event ID and binary
+payload. The kinds are hello, state, update, ack and leave. Payload parsing checks
+fields and bounds before use. Native SheetReplica.receive validates a trial
+before live state changes. Wrong context, malformed bytes, omitted/mismatched
+bootstrap or the same packet ID with different bytes refuses without replacing
+the current projection. Accepted duplicates are idempotent.
+
+The controller forwards every actually appended native commit/Undo result before
+reporting its outcome, including pending/refused native events. Invalid parse
+appends nothing and sends nothing. An observer exception leaves the native result
+and local work intact, with an explicit delivery warning. Remote updates are not
+rebroadcast as newly authored events. The existing exact Core diff/calculation
+token path refreshes derived values.
+
+The pending map retains exact original event ID and copied bytes. Missing Yjs
+dependencies leave the live projection unchanged; the same packet is deferred
+and a hello requests the original native full state. The sender sends that state
+and its original outstanding packets. After validation, the receiver retries the
+same deferred bytes/ID and acknowledges only admitted packets. The lost original
+packet also receives its own receipt. Invalid deferred packets remain bounded
+and inspectable rather than being silently deleted.
+
+Pause tab link blocks both sends and native receive advancement. Local native
+events and incoming delta packets remain queued. Resume requests native state,
+retries original bytes and sends original outstanding deltas. This permits real
+independent concurrent edits to the same native cell. An ACK clears only its own
+pending ID; a late ACK cannot clear a newer packet. ACK means one controlled peer
+received the native delta. It is never saved/durable proof or an all-peer guarantee.
+
+Limits are explicit: 1,000,000 bytes per native delta and per combined
+bootstrap/state message, 256 entries and 8,000,000 bytes in each bounded packet
+collection, 64 observed peer identities. A full pending queue leaves the newest
+native edit local and reports a sticky blocked notice. A full receipt cache or
+oversized state refuses additional transport; there is no chunking/unlimited
+session claim. Observed peers are not authoritative liveness or authenticated
+users. Browser tab delivery is neither a server nor production authorization.
+
+### Drafts, alternatives and session Undo
+
+Remote receive invokes native synchronize and render without focus/selection
+changes or reconstructing the editor. Existing CellKey/generation/structure guards
+and composition rules remain. The DOM editor value is not assigned when it already
+matches the draft and is never assigned during composition. Actual DOM/focus/caret
+proof remains an Integration browser check; native tests verify controller state.
+
+The selected cell history displays up to 12 actual native retained entries with
+Current, Concurrent alternative, Earlier edit or Undone state and a session label.
+Display uses the native typed input/AST. Each controller records only its own
+local cell event IDs; bootstrap and received foreign IDs are excluded. A pending
+local ID remains recorded so it becomes eligible for native own Undo if dependencies
+later apply it. Undo chooses the latest currently applied local event. It never
+removes another session's contribution or restores a snapshot. A reloaded tab uses
+a fresh session/history and cannot undo the former tab's work.
+
+### Observer and DOM contracts
+
+Existing Phase A identifiers remain. New controls are `#create-room`, `#open-peer`
+(anchor, target blank), `#pause-link`, `#retry-link`, `#peer-status` (role status),
+`#peer-session`, `#peer-controls` (data-phase) and `#alternatives` within
+`#alternative-panel`. The status separates local application from temporary peer
+receipts; it never displays Saved. `#sheet-workbook` stays hidden until a native
+replica has been admitted.
+
+`sheetPreview.inspect()` adds actual Core nativeRevision, context, nativeEventIds,
+nativeSheets, nativeCells, selectedAlternatives, sessionId and transportWarning.
+Core revision is its exact canonical context/event-body encoding, never a local
+counter. Private verification can compare/hash actual native structures, inputs,
+ASTs and identities. Published metadata must contain hashes rather than user text.
+
+`sheetPeer.inspect()` returns only read-only peer metadata: room/session/context,
+phase, observed peer count, original bootstrap SHA256/byte length, pending/received/
+recovered counts and queued packet IDs/lengths/SHA256. Hash can be null while the
+asynchronous digest is pending. No raw packet bytes, credentials or mutation API
+are exposed. Bootstrap SHA256 uses the original bytes, not a synthetic workbook.
+Retry asks for native peer state; it does not create a new seed. Pagehide preserves
+BFCache input state and pauses delivery, pageshow requests recovery; actual
+BFCache behavior is unverified.
+
+### Phase B first failures and checks
+
+The first transport test run returned 5 PASS / 3 FAIL, 1661.341083ms, chunk
+`377513`. Two test mistakes were corrected to native semantics: call actual
+recalculate before read, and include retained bootstrap history when inspecting
+all alternatives. The third was a real delivery defect: native full state recovered
+content but a lost original packet was not resent and its receipt stayed missing
+(expected two received packets, actual one). Its oracle was preserved. The sender
+now resends original pending packets after its state reply. Missing-base recovery
+tests verify preserved pre-recovery projection, exact ID/bytes and receipts.
+The first transport type check returned TS2379, chunk `8530a7`: an optional byte
+copy might be undefined under exactOptionalPropertyTypes. The queue now checks
+bytes and ID before copying; no suppression or relaxed contract was added.
+
+The controller tests first passed 8/8. An added actual pending→applied→own Undo
+regression then returned 8 PASS / 1 FAIL, 1024.848292ms, chunk `23b66a`, because
+Undo returned false after the local event applied. The repair records all appended
+local cell IDs and chooses only currently applied ones for Undo. The same
+regression now passes. Native engine sources and Undo rules were not changed.
+
+Final author commands from experiments/office-suite-v2, Node 22.22.0:
+
+```sh
+node scripts/type-check.mjs preview/sheet
+node scripts/test.mjs preview/sheet
+```
+
+Result at source handoff: TypeScript 5.9.3, 11 roots/imports included, 0 diagnostics;
+5 test files, 45 PASS, 0 FAIL, 0 skipped, 4836.376208ms, chunk `ca3071`. This is
+changed-preview native/controller/transport/geometry evidence. It includes no
+author server/browser/full-root/Word/Core profile run. Integration must still
+qualify actual independent pages, pointer/keyboard input, matching native/visible
+results, concurrent alternatives and both Undo paths, late join/reload/no-peer
+behavior, remote DOM draft/composition/caret preservation and runtime boundaries.
+Synthetic composition and mock Canvas checks remain distinct from hardware IME
+and real pixels. Phase B browser/whole-scope acceptance is not claimed here.
+
+### Phase C dependency boundary
+
+The broader human goal authorizes C next, but C client edits/runtime wait for
+B qualification and its exact dependency pin. Collaboration #534 owns the shared
+browser-neutral `src/sheet-preview-protocol.ts` and Node relay. Its P1 contracts-only
+pin is `6768f95decf5f49168639184c06fec2fd42e6681`; service/runtime are separate.
+This B candidate neither imports nor duplicates those HTTP DTOs. Future persisted
+pending/ACK-unknown records with a missing/refused original credential must stay
+preserved with an error; a fresh-session fallback is prohibited. Local outbox
+persistence and peer ACK are not server durability. No Node store/PendingUpdates
+runtime import, SQLite, durable receipt, production adoption or M0 acceptance is
+included in B. Existing Word RSS FAIL and M1/M2 holds remain unchanged.
