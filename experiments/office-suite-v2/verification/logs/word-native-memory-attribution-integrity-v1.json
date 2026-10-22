@@ -1,0 +1,63 @@
+{
+  "schema": "office-v2-m0/word-native-memory-attribution-integrity-v1",
+  "rawSha256": "b39cf30726c32f71846b4e6509fe5cef6268d1359d64834a574de93406ab78d5",
+  "checks": {
+    "runtimeExit": 0,
+    "exactSourceFiles": 31,
+    "seams": 8,
+    "readsets": 16,
+    "seamReadBrackets": 88,
+    "completedSamplerAndRuntimeCommands": 33,
+    "samplingWindows": 3,
+    "profileResponseStatus": "SUPPORTED EMPTY all3",
+    "profileResponseBytes": [
+      39,
+      39,
+      39
+    ],
+    "totalResponseBytes": 117,
+    "perPidSums": "PASS",
+    "Runtime4Series": "available all16",
+    "nativeLiveDisposeCounts": "PASS",
+    "samplerStops": "ACK all3",
+    "guardConsolePageErrors": 0,
+    "wallMs": 6802.332917,
+    "firstFailure": null
+  },
+  "cleanup": {
+    "actualPids": [
+      45162,
+      45170,
+      45171,
+      45175
+    ],
+    "psExit": 1,
+    "psStdout": "",
+    "port": 55260,
+    "lsofExit": 1,
+    "lsofStdout": "",
+    "runnerCleanup": "Owned browser/server/Vite close completed within5s",
+    "slotReturnedBeforeOfflineInterpretation": true,
+    "samplerMayBeActive": false,
+    "allThreeStopsAcknowledged": true
+  },
+  "scope": {
+    "nativeSampling": "page-target CDP session created by context.newCDPSession(page)",
+    "runtimeHeap": "Same session, corresponding isolate total; not page/Runtime scoped",
+    "systemInfo": "Browser CDP session, optional exact OS PID role metadata only",
+    "nativeProfilePidJoin": "NONE: schema has no PID field; never automatically join nativeprofile to nearby RSS/role PIDs",
+    "pageUrl": "http://127.0.0.1:55260/word-native-memory-attribution.html"
+  },
+  "command": "PATH=/Users/user/.nvm/versions/node/v22.22.0/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin M0_WORD_NATIVE_MEMORY_ATTRIBUTION_LEASE=/Users/user/barocss-editor/.omx/m0/phase-c-word-native-memory-attribution-lease.json /Users/user/.nvm/versions/node/v22.22.0/bin/node experiments/office-suite-v2/verification/word-native-memory-attribution-runner.mjs",
+  "qualification": "UNCHANGED: native diagnostic attribution unresolved; normal100RSSFAIL/M0OPEN",
+  "offlineValidation": {
+    "exitCode": 0,
+    "rawAndProfileResponseHashes": "PASS",
+    "assessmentExactCopiesArithmetic": "PASS",
+    "priorMatrixEveryCriterionPreserved": "PASS",
+    "priorRawAssessmentsH7BudgetAndProtocolUnchanged": "PASS",
+    "Core10ExactSourceReuse": "PASS no rerun",
+    "heldSourcePinAndClean": "PASS",
+    "readOnlyNativeHelper": "Independent arithmetic/capability/emptyprofiles/noPID-GC-RSScausalboundaries verified; no tests/browser/edits"
+  }
+}

@@ -660,3 +660,44 @@ targeted negative checks before granting its serialized runtime window.
 Normal Word100 all3RSS failures, portal baseline failure, async portal unknowns
 and whole M0 OPEN remain unchanged, even if this diagnostic does not reproduce
 RSS pressure. This preparation makes no performance qualification claim.
+
+## Native memory attribution v1 — completed, attribution unresolved
+
+Raw: `reports/word-native-memory-attribution-2026-10-22T00-07-23-936Z/report.json`.
+Raw SHA256: `b39cf30726c32f71846b4e6509fe5cef6268d1359d64834a574de93406ab78d5`.
+Assessment: `reports/word-native-memory-attribution-assessment-v1.json`;
+current matrix: `reports/criteria-phase-c-v7.json`. Normal qualification remains
+bound to ee61/W4; the diagnostic source is separately bound to
+`6e7be70e0150e43f76587a8b9fb0a54c11ea8ef9`, tree
+`349324d5ff912dab82687785d58055feaadb5c7c`, with the same17production hashes.
+
+One fresh100/800 run completed8seams/16readsets,33recorder commands and3native
+start/get/stop sequences in6.802seconds. Runtime four fields were available in
+all16readsets. All3native profiles were SUPPORTED EMPTY: samples[]/modules[],
+39JSONbytes each/117total. The full responses remain in the raw file. Empty
+does not mean unsupported or zero allocations. No native allocation stack or
+module attribution was obtained. All3stops acknowledged; no sampler remained
+active. All4owned PIDs and55260 were absent after bounded cleanup, and the slot
+was returned before analysis. No retry or forced GC occurred.
+
+Closest adjacent readsets (previous second -> next first) show:
+
+| Interval | Runtime JS used bytes | Allocated JS heap bytes | Embedder GC heap used bytes | Backing bytes | Sampled owned RSS bytes |
+| --- | --- | --- | --- | --- | --- |
+| Baseline -> combined cold | +17340404 | +41271296 | +55788360 | +281151 | +139853824 |
+| Font query -> warm | -3856420 | +11534336 | -50352320 | -135983 | +45694976 |
+| Warm -> print | +1848576 | +262144 | +15562184 | +6892 | -20496384 |
+
+These are separate counters and delayed observations, not a memory equation or
+pure function allocations. The earlier diagnostic's warm used-heap increase did
+not repeat here. There is no observed GC event to explain the decreases. Readsets
+span51.993–202.644ms; pairs118.985–289.942ms. Native profile scope has no PID;
+no renderer-PID, function, file, lifetime or native resident-byte cause is proven.
+No new source repair is justified by these empty profiles and counter movements.
+
+Sampled diagnostic RSS maximum534102016bytes does not qualify512MiB or erase
+W4's normal100RSS failures597786624/590364672/545865728. Global swap-in57131008B,
+swap-out0 and pressurefree51->46percent are ambient, not browser-owned attribution.
+clearPrint/dispose remove attached native state while global nodes remain7857;
+that single cleanup observation does not establish a leak. Existing normal/Core
+evidence, original failures, portal limits and M0 OPEN remain unchanged.
