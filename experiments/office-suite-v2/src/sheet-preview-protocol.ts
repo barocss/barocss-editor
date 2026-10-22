@@ -27,6 +27,17 @@ export type SheetRelayAccountAdmissionResponse = Readonly<{
   expiresAt: number; grantExpiresAt: number; accountBinding: SheetRelayAccountBinding;
 }>;
 export const SHEET_RELAY_ACCOUNT_LIMITS = Object.freeze({ ticketMs: 5_000, tickets: 128, authorizationMs: 5_000, queuedOperations: 128, tokenBytes: 8_192 });
+export const SHEET_RELAY_ACCOUNT_LOGOUT_PATH = '/api/v1/sheet/logout';
+export type SheetRelayAccountLogoutRequest = Readonly<{ protocolVersion: 1 }>;
+export type SheetRelayAccountLogoutResponse = Readonly<{ protocolVersion: 1; status: 'logged-out' }>;
+export function parseSheetRelayAccountLogoutRequest(value: unknown): SheetRelayAccountLogoutRequest {
+  if (!object(value) || !fields(value, ['protocolVersion']) || value.protocolVersion !== 1) throw new Error('invalid-account-logout');
+  return { protocolVersion: 1 };
+}
+export function parseSheetRelayAccountLogoutResponse(value: unknown): SheetRelayAccountLogoutResponse {
+  if (!object(value) || !fields(value, ['protocolVersion', 'status']) || value.protocolVersion !== 1 || value.status !== 'logged-out') throw new Error('unconfirmed-account-logout');
+  return { protocolVersion: 1, status: 'logged-out' };
+}
 export function sheetRelayAccountAdmissionPath(tenantId: string, documentId: string): string {
   if (!uuid(tenantId) || !uuid(documentId)) throw new Error('invalid-account-scope');
   return `/api/v1/tenants/${tenantId}/sheets/${documentId}/admission`;
