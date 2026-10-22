@@ -1,0 +1,85 @@
+{
+  "schema": "office-v2-m0/phase-c-current-criteria-v8",
+  "capturedUtc": "2026-10-22T01:49:39.119Z",
+  "sourceHead": "e681e91fc3f0505d27c13e5a55298235522be7b8",
+  "sourceTree": "b596ec895663837469dbb3e447c0337299295fbc",
+  "priorCurrentMatrix": "reports/criteria-phase-c-v7.json",
+  "historicalRule": "Prior R/P2b/O/R531 normal failures and O/native diagnostic matrices/raw remain immutable. Current normal binds e681range532 via old17+separateextra-source sidecar; diagnostic pins remain separate.",
+  "criteria": [
+    {
+      "criterion": "sheet-frozen-v1.1-performance-reference",
+      "status": "PASS reused exact10bytes",
+      "boundary": "Corev2 measuredat6b3ea4a, all10source/harness/budget hashes exacte681reuse; noCoreprofile/providerUIclaim.",
+      "evidence": "reports/sheet-candidate-assessment-v2.json"
+    },
+    {
+      "criterion": "word-normal100-300-latency-and-fonts",
+      "status": "PASS bounded recorded reference",
+      "boundary": "Sixfresh normal samples, actualpage/root/surface/paragraphcounts and font identities match; all6timing/repeatabilitygates meet frozenv1.1.",
+      "evidence": "reports/word-candidate-assessment-v5.json"
+    },
+    {
+      "criterion": "word-printed-node-growth",
+      "status": "PASS frozen CDPcounter method",
+      "boundary": "Actual100deltas4501each,30013501each, ratio2.99955565<=3.5; globalcounterdeltas are not independent tree traversal or causalbyteproof.",
+      "evidence": "reports/word-candidate-assessment-v5.json"
+    },
+    {
+      "criterion": "word100-sampled-owned-RSS",
+      "status": "FAIL 1of3samples",
+      "boundary": "522420224/497008640 below536870912; sample2 574439424 exceeds.100sample0/1 have no print-tagpoll, sample0 has laterinventorypoll; no continuousHWM/print-onlycause claim.",
+      "evidence": "reports/word-candidate-assessment-v5.json"
+    },
+    {
+      "criterion": "word300-sampled-owned-RSS",
+      "status": "PASS bounded sampled reference",
+      "boundary": "742981632/803979264/760102912 below1073741824. All3 print-tagpolls exist; samples0/2 overallmax is warmtagged. Same200ms/sharedpage limits.",
+      "evidence": "reports/word-candidate-assessment-v5.json"
+    },
+    {
+      "criterion": "separate-Word-source-print-proof",
+      "status": "PASS bounded Integration receipt",
+      "boundary": "Integration Word46c123/root47PASS/browser4814PASS/PDF24rawtext+pixelsame531 atsource-equivalent45a82a7c->e681docs-only. RawTypesparent/candidateFAIL100identical, not convertedtoPASS.",
+      "evidence": "reports/word-candidate-assessment-v5.json"
+    },
+    {
+      "criterion": "word100-ONE-bounded-memory-diagnostic",
+      "status": "COMPLETED diagnostic only",
+      "boundary": "11seams/22sequentialreadsets; warm heap growth is larger than print heap growth, without exact RSS cause or allocation owner. Screen-media print DOM observed; one finalGC is diagnostic only. Existing normal Word100 RSSFAIL remains.",
+      "evidence": "reports/word-memory-diagnostic-assessment-v1.json"
+    },
+    {
+      "criterion": "word100-ONE-native-memory-attribution",
+      "status": "COMPLETED diagnostic; native attribution UNRESOLVED",
+      "boundary": "Runtime4series available; all3native commands accepted but samples/modules empty; not zeroallocations/notUNAVAILABLE/noPID/live/resident/causalRSSclaim. W4normalFAIL unchanged.",
+      "evidence": "reports/word-native-memory-attribution-assessment-v1.json"
+    },
+    {
+      "criterion": "M0-whole-acceptance",
+      "status": "OPEN",
+      "boundary": "100RSSstillFAILsample2 of3; olderall3failures remainhistory. PortaltextbaselineFAIL/asyncportalNOTVERIFIED remain. No retry/targetchange; Plannerownswholedecision.",
+      "evidence": null
+    }
+  ],
+  "noHeavyRepeat": true,
+  "noProductionEdits": true,
+  "diagnosticSourceHead": "6e3bcc03a5e2cb1f50fe7291e582aa92e85f659e",
+  "diagnosticSourceTree": "0fe8be1c63531c2b3eaa9f02fcdb076f652a3d0f",
+  "diagnosticDoesNotReplaceNormalQualification": true,
+  "knownIndependentLimits": {
+    "portalTextBaseline": "FAIL on original andcandidate; no performanceclosure",
+    "combinedAsyncPortalCleanup": "NOT VERIFIED; no performanceclosure"
+  },
+  "normalQualificationAfterDiagnostic": true,
+  "nativeAttributionSourceHead": "6e7be70e0150e43f76587a8b9fb0a54c11ea8ef9",
+  "nativeAttributionSourceTree": "349324d5ff912dab82687785d58055feaadb5c7c",
+  "nativeAttributionDoesNotReplaceNormalQualification": true,
+  "extraSourceBinding": {
+    "evidence": "reports/word-range532-extra-source-binding-v1.json",
+    "path": "packages/office-word/src/line-offsets.ts",
+    "outsideCurated17": true,
+    "gitBlob": "5dd28b9b44cdd79054413a6d62f2c29198e6fd87",
+    "sha256": "21be21264601f75a4465d3dec0475b4289647c6552e27dc6e240d887fd11d755",
+    "prePostVerified": true
+  }
+}

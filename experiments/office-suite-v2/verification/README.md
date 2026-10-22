@@ -701,3 +701,45 @@ swap-out0 and pressurefree51->46percent are ambient, not browser-owned attributi
 clearPrint/dispose remove attached native state while global nodes remain7857;
 that single cleanup observation does not establish a leak. Existing normal/Core
 evidence, original failures, portal limits and M0 OPEN remain unchanged.
+
+## Range532 normal window — Word evidence v5
+
+Measured clean source `e681e91fc3f0505d27c13e5a55298235522be7b8`, tree
+`b596ec895663837469dbb3e447c0337299295fbc`. Old17production/H7/font/frozenbudget
+bindings stay unchanged. line-offsets.ts is OUTSIDE old17 and is bound separately
+in `reports/word-range532-extra-source-binding-v1.json`: exact blob
+`5dd28b9b44cdd79054413a6d62f2c29198e6fd87`, SHA256
+`21be21264601f75a4465d3dec0475b4289647c6552e27dc6e240d887fd11d755`,6079bytes.
+Actual Integration root and immutable pin matched both before and after the run.
+The unchanged normal harness/raw source list is not silently expanded.
+
+Raw: `reports/word-performance-2026-10-22T01-45-59-393Z/report.json`.
+SHA256: `33dd68dcbee6f4d04ad2cc1f96df7ef335c94b69c35abf7ffd7a6a519e710dc5`.
+Assessment: `reports/word-candidate-assessment-v5.json`;
+current matrix: `reports/criteria-phase-c-v8.json`. Previous normal failures
+and native diagnostic records remain intact.
+
+| Profile | Cold ms, all3 | Warm ms, all3 | Print ms, all3 | Sampled owned RSS bytes, all3 |
+| --- | --- | --- | --- | --- |
+| 100pages | 332.6 / 317.8 / 320.1 | 103.0 / 105.2 / 103.7 | 26.0 / 26.4 / 27.1 | 522420224 / 497008640 / 574439424 |
+| 300pages | 1006.7 / 1026.7 / 1010.5 | 345.7 / 340.1 / 338.9 | 75.1 / 72.1 / 72.8 | 742981632 / 803979264 / 760102912 |
+
+All timing/repeatability, fonts/native counts, node-growth and300RSS gates meet
+frozen v1.1.100RSS stillFAILS: sample2exceeds536870912bytes; samples0/1are below.
+This is1of3failure on the new source, while R531's all3failures remain history.
+100sample0/1 have NO actual-print-tag RSS poll. Sample0has a later inventory
+poll487014400; sample1has neither print nor inventory poll. All100preprint maxima
+522420224/497008640/522764288are below the target; sample2's574439424maximum is
+print-tagged but includes adjacent readout/deferred work. No pure print cause,
+continuousHWM or missing peak is inferred. Native printed deltas4501/13501,
+ratio2.99955565, use Memory.getDOMCounters rather than separate Performance.Nodes.
+
+One default six-fresh-browser window exited0; no guard/console/page/cleanuperror.
+All24observed benchmark-owned PIDs and55260 were absent after cleanup. Userpreview
+PID12634/55262 stayed listening and was excluded from owned sums and cleanup;
+the IAB user document was not accessed or changed. The slot was returned before
+assessment. No sample override, GC, media, fixture, guard, budget, H7 or Core run
+change occurred. Integration Word123/root47/browser14/PDF24 receipts are reused
+separately; rawtypes remain parent/candidateFAIL100identical. Constructor-count
+proof is not RSS/native-release proof. Separate loaded windows, open preview and
+sampling gaps prevent causal savings claims. No retry follows. M0 stays OPEN.
