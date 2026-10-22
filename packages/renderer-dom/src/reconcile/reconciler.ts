@@ -68,9 +68,13 @@ export class Reconciler {
     const prevRootFiber = this.rootFiber;
     const prevVNode = prevRootFiber?.vnode;
     
-    // Initialize portal visit set (on root render entry)
-    const isTopLevel = this.currentVisitedPortalIds === null;
-    if (isTopLevel) this.currentVisitedPortalIds = new Set<string>();
+    // Each root owns its visits. A cancelled pass must not leave the next pass
+    // looking nested or let its queued callbacks publish stale state.
+    this.activeScheduler?.cancel();
+    this.activeScheduler = null;
+    const visited = new Set<string>();
+    this.currentVisitedPortalIds = visited;
+    const isCurrent = () => this.currentVisitedPortalIds === visited;
 
     // Build reconcile context for lifecycle stubs
     const context: any = {
@@ -99,7 +103,7 @@ export class Reconciler {
           const fiberDeps: FiberReconcileDependencies = {
             dom: this.dom,
             components: this.components,
-            currentVisitedPortalIds: this.currentVisitedPortalIds,
+            currentVisitedPortalIds: visited,
             portalHostsById: this.portalHostsById,
             context: safeContext
           };
@@ -116,7 +120,8 @@ export class Reconciler {
     const fiberDeps: FiberReconcileDependencies = {
       dom: this.dom,
       components: this.components,
-      currentVisitedPortalIds: this.currentVisitedPortalIds,
+      currentVisitedPortalIds: visited,
+      isCurrent,
       portalHostsById: this.portalHostsById,
       rootModel: context?.dataStore?.getNode(sid) || model, // Reference for model.text processing (dataStore takes priority)
       rootSid: sid, // rootVNode's sid
@@ -141,6 +146,7 @@ export class Reconciler {
     
     // Tasks to process after Fiber completes
     reconcileWithFiber(container, rootVNode, prevVNode, context, fiberDeps, (newRootFiber) => {
+      if (!isCurrent()) return;
       // Release the scheduler's closure before user callbacks can start a new
       // render. That closure includes this render's previous root and context.
       if (this.activeScheduler === renderScheduler) this.activeScheduler = null;
@@ -151,14 +157,15 @@ export class Reconciler {
       }
       
       // Perform portal cleanup at end of render
-      if (isTopLevel && this.currentVisitedPortalIds) {
-        const visited = this.currentVisitedPortalIds;
+      if (isCurrent()) {
         for (const [pid, entry] of this.portalHostsById.entries()) {
+          if (!isCurrent()) return;
           if (!visited.has(pid)) {
-            if (entry.host.parentElement) entry.host.parentElement.removeChild(entry.host);
             this.portalHostsById.delete(pid);
+            entry.host.remove();
           }
         }
+        if (!isCurrent()) return;
         this.currentVisitedPortalIds = null;
       }
       

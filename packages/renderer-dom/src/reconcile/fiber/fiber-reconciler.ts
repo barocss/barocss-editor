@@ -6,7 +6,7 @@ import { FiberScheduler, FiberReconcileFunction } from './fiber-scheduler';
 import { FiberPriority } from './types';
 import { DOMOperations } from '../../dom-operations';
 import { ComponentManager } from '../../component-manager';
-import { handlePortalVNode } from '../utils/portal-handler';
+import { preparePortalHost, type PortalEntry } from '../utils/portal-handler';
 import { handleVNodeTextProperty, handlePrimitiveTextChild } from '../utils/text-node-handlers';
 import { getVNodeId } from '../utils/vnode-utils';
 import {
@@ -43,6 +43,10 @@ export interface FiberReconcileDependencies {
    * started second.
    */
   onSchedulerStart?: (scheduler: { cancel: () => void }) => void;
+  /** Root ownership also guards synchronous commit callbacks that start a render. */
+  isCurrent?: () => boolean;
+  /** Detached preparation belongs only to this pass, not the committed map. */
+  preparedPortalHostsById?: Map<string, PortalEntry>;
 }
 
 /**
@@ -94,6 +98,7 @@ export function reconcileWithFiber(
   deps: FiberReconcileDependencies,
   onComplete?: (rootFiber: FiberNode) => void
 ): void {
+  deps = { ...deps, preparedPortalHostsById: new Map() };
   // React-style: set previous rootFiber as alternate
   const prevRootFiber = deps.prevRootFiber || null;
   
@@ -110,6 +115,7 @@ export function reconcileWithFiber(
   // 3. Custom FiberScheduler that sets __isReturningToParent flag when returning to parent
   class CustomFiberScheduler extends FiberScheduler {
     protected performUnitOfWork(fiber: FiberNode): FiberNode | null {
+      if (deps.isCurrent?.() === false) return null;
       // 1. Render current Fiber (Render Phase)
       this.reconcileFiber(fiber);
       
@@ -195,26 +201,19 @@ export function renderFiberNode(
   // IMPORTANT: When auto-generated sid is needed, use stype and index to generate consistent ID
   generateVNodeIdIfNeeded(vnode, fiber, deps.components);
   
-  // 1. Handle Portal
-  if (handlePortalVNode(
-    vnode,
-    dom,
-    (host, prev, next, ctx) => {
-      // Portal internal reconcile is handled separately
-      // Reconcile directly without following Fiber structure
-      const portalFiber = createFiberTree(host, next, prev, ctx);
-      const portalScheduler = new FiberScheduler((f: FiberNode) => {
-        renderFiberNode(f, deps, ctx);
-      }, () => {
-        // Portal also executes commit phase
-        commitFiberTree(portalFiber, deps, ctx);
-      });
-      portalScheduler.scheduleWork(portalFiber, FiberPriority.Normal);
-    },
-    currentVisitedPortalIds,
-    portalHostsById
-  )) {
-    // Portal is handled, so exit here
+  // Portal children already belong to this tree. Give them their target host;
+  // a second scheduler would render them again and escape root cancellation.
+  if (vnode.tag === VNodeTag.PORTAL && vnode.portal?.target) {
+    if ('__isReturningToParent' in fiber && fiber.__isReturningToParent) return;
+    const id = vnode.portal.portalId || 'portal-default';
+    const prepared = deps.preparedPortalHostsById;
+    const entry = preparePortalHost(vnode, dom, prepared?.get(id) ?? portalHostsById.get(id));
+    if (!entry) return;
+    prepared?.set(id, entry);
+    currentVisitedPortalIds?.add(id);
+    fiber.domElement = entry.host;
+    vnode.meta = { ...vnode.meta, domElement: entry.host };
+    updateChildFiberParents(fiber, entry.host);
     return;
   }
   
@@ -419,8 +418,10 @@ export function commitFiberTree(
   let currentFiber: FiberNode | null = rootFiber;
   
   while (currentFiber) {
+    if (deps.isCurrent?.() === false) return;
     // Commit current Fiber
     commitFiberNode(currentFiber, deps, context);
+    if (deps.isCurrent?.() === false) return;
     
     // If child exists, move to child
     if (currentFiber.child) {
@@ -434,6 +435,7 @@ export function commitFiberTree(
       processPrimitiveTextChildren(currentFiber, deps);
     }
     removeStaleChildren(currentFiber, deps);
+    if (deps.isCurrent?.() === false) return;
     
     // If sibling exists, move to sibling
     if (currentFiber.sibling) {
@@ -450,6 +452,7 @@ export function commitFiberTree(
         processPrimitiveTextChildren(parentFiber, deps);
       }
       removeStaleChildren(parentFiber, deps);
+      if (deps.isCurrent?.() === false) return;
       
       parentFiber = parentFiber.return;
     }
@@ -459,11 +462,31 @@ export function commitFiberTree(
         processPrimitiveTextChildren(parentFiber, deps);
       }
       removeStaleChildren(parentFiber, deps);
+      if (deps.isCurrent?.() === false) return;
       
       currentFiber = parentFiber.sibling;
     } else {
       currentFiber = null;
     }
+  }
+
+  // Source targets can be committed after their portal. Attach only after all
+  // source text/child cleanup, which could otherwise remove the portal host.
+  const placed = new Map<Element, Node>();
+  for (const [id, entry] of deps.preparedPortalHostsById ?? []) {
+    if (deps.isCurrent?.() === false) return;
+    deps.portalHostsById.set(id, entry);
+    if (entry.host.parentNode !== entry.target) entry.target.appendChild(entry.host);
+    // Moving DOM can synchronously invoke a custom element's lifecycle hook.
+    // A newer render or destroy then owns the map and all subsequent writes.
+    if (deps.isCurrent?.() === false) return;
+    const before = placed.get(entry.target);
+    if (before && before !== entry.host && before.parentNode === entry.target &&
+      (entry.host.compareDocumentPosition(before) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0) {
+      entry.target.insertBefore(entry.host, before.nextSibling);
+      if (deps.isCurrent?.() === false) return;
+    }
+    placed.set(entry.target, entry.host);
   }
 
   // Deletion and text cleanup above need the previous tree until the whole
@@ -497,14 +520,15 @@ export function commitFiberNode(
   // React approach: get prevVNode from alternate (fiber.prevVNode is deprecated)
   const prevVNode = fiber.alternate?.vnode || fiber.prevVNode;
   const parent = fiber.parent;
+
+  // Children commit to the prepared host. The host itself is attached at the
+  // end of commitFiberTree, never through ordinary source placement below.
+  if (vnode.tag === VNodeTag.PORTAL) return;
   
   // If no effectTag, do not process
   if (!fiber.effectTag) {
     return;
   }
-  
-  // Portal is handled separately (already processed in render phase)
-  // TODO: Portal should also be moved to commit phase
   
   // If no vnode, handle DELETION
   if (!vnode || typeof vnode !== 'object') {
@@ -1036,6 +1060,10 @@ export function removeStaleChildren(
   const usedDomElements = new Set<HTMLElement | Text>();
   const collectDomElements = (f: FiberNode | null) => {
     while (f) {
+      if (f.vnode.tag === VNodeTag.PORTAL) {
+        f = f.sibling;
+        continue;
+      }
       const el = f.domElement;
       if (el instanceof Element || el instanceof Text) {
         usedDomElements.add(el);
@@ -1048,6 +1076,11 @@ export function removeStaleChildren(
     }
   };
   collectDomElements(fiber.child);
+  // A target may itself be a source host; its portal hosts have a different
+  // child owner and must survive this source tree's stale-child sweep.
+  for (const { host: portalHost } of deps.portalHostsById.values()) {
+    if (portalHost.parentNode === host) usedDomElements.add(portalHost);
+  }
   
   // Find all child nodes in DOM
   const childNodes = Array.from(host.childNodes);
@@ -1058,6 +1091,7 @@ export function removeStaleChildren(
   // Text nodes are managed by handleVNodeTextProperty and processPrimitiveTextChildren,
   // and are not in usedDomElements (no Fiber for primitive/vnode.text).
   for (const childNode of childNodes) {
+    if (deps.isCurrent?.() === false) return;
     if (usedDomElements.has(childNode as HTMLElement | Text)) {
       continue; // Keep used elements
     }

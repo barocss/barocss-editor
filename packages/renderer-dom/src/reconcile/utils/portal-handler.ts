@@ -10,6 +10,19 @@ export interface PortalEntry {
   host: HTMLElement;
 }
 
+/** Prepare an owned host without touching the target or committed ownership. */
+export function preparePortalHost(
+  vnode: VNode,
+  dom: DOMOperations,
+  previous?: PortalEntry
+): PortalEntry | null {
+  if (vnode.tag !== VNodeTag.PORTAL || !vnode.portal?.target) return null;
+  const target = vnode.portal.target as HTMLElement;
+  const host = previous?.host ?? dom.createSimpleElement('div', target);
+  if (!previous) dom.setAttribute(host, 'data-bc-sid', vnode.portal.portalId || 'portal-default');
+  return { target, host };
+}
+
 /**
  * Handle portal VNode rendering
  * 
