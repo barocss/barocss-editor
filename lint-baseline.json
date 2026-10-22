@@ -1610,12 +1610,6 @@
   {
     "file": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
     "rule": "@typescript-eslint/no-unused-vars",
-    "message": "'deps' is defined but never used. Allowed unused args must match /^_/u.",
-    "count": 1
-  },
-  {
-    "file": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
-    "rule": "@typescript-eslint/no-unused-vars",
     "message": "'findOrCreateHost' is defined but never used.",
     "count": 1
   },
