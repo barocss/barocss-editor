@@ -621,3 +621,31 @@ test('WS operation model readonly access during a held reply cannot confirm the 
     assert.equal(f.store.snapshot.packets[0]!.request.packet.updateId, change.event.eventId);
   } finally { reply.resolve(undefined); await f.close(); }
 });
+
+for (const role of ['read-write', 'read-only'] as const) test(`controlled WS completed receipt fresh Open restores original history with ${role} access`, async () => {
+  const first = await socketSetup();
+  try {
+    const change = publish(first.session); await first.session.settled();
+    assert.equal(first.session.inspect().confirmed, 1);
+    const original = structuredClone(first.store.snapshot);
+    const originalHash = await hash(new TextEncoder().encode(JSON.stringify(original)));
+    first.session.close(); await first.session.settled();
+    let socket!: SocketOperations;
+    const next = new DurableSession({ clientId: 'client-1', newClient: false, store: first.store,
+      request: async () => { throw new Error('HTTP fallback forbidden'); },
+      transport: events => { socket = new SocketOperations(first.http, events); socket.role = role; return socket; }, changed: () => {} });
+    try {
+      await next.start();
+      assert.equal(next.inspect().phase, 'ready'); assert.equal(next.inspect().canEdit, role === 'read-write');
+      assert.equal(next.inspect().confirmed, 1); assert.equal(next.inspect().access, role);
+      assert.ok(next.replica); assert.equal(value(next.replica), 9);
+      assert.deepEqual(next.replica.identity, original.client!.session.identity);
+      assert.equal(next.replica.events.some(event => event.eventId === change.event.eventId), true);
+      assert.equal(next.inspect().packets[0]!.receiptFrontierSha256, await hash(base64ToBytes(original.packets[0]!.receipt!.frontierBase64)));
+      assert.deepEqual(first.store.snapshot, original);
+      assert.equal(await hash(new TextEncoder().encode(JSON.stringify(first.store.snapshot))), originalHash);
+      assert.deepEqual(base64ToBytes(first.store.snapshot.packets[0]!.request.packet.bytesBase64), change.update);
+      assert.equal(first.http.calls.filter(call => call.path === '/append').length, 1);
+    } finally { next.close(); await next.settled(); next.replica?.destroy(); }
+  } finally { await first.close(); }
+});

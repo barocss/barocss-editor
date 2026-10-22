@@ -12,7 +12,7 @@ import { CalculationEngine } from '../../src/calculation.ts';
 import { SheetController } from './controller.ts';
 import { bytesToBase64, base64ToBytes, relayAdmission } from '../../src/sheet-preview-protocol.ts';
 import type { SheetRelayAccountBinding, SheetRelayAccountSession, SheetRelayState, SheetRelayIdentity,
-  SheetRelayAppendRequest, SheetRelayReceipt, SheetRelaySessionRequest, SheetRelayWsSession } from '../../src/sheet-preview-protocol.ts';
+  SheetRelayAppendRequest, SheetRelayReceipt, SheetRelaySessionRequest, SheetRelayWsSession, SheetRelayAccess } from '../../src/sheet-preview-protocol.ts';
 
 // Memory persistence and transport models with real native packets. No IdP, PG, IDB or browser proof.
 const binding: SheetRelayAccountBinding = {
@@ -50,6 +50,7 @@ class AccountWire implements DurableTransport {
   readonly bootstrap: SheetRelayState['bootstrap'];
   readonly events: DurableTransportEvents;
   phase: WebSocketTransportView['phase'] = 'idle';
+  role: SheetRelayAccess = 'read-write';
   sequence = 1;
   authentication: (SheetRelayAccountSession | SheetRelayWsSession) | undefined;
   readonly calls: SheetRelaySessionRequest[] = [];
@@ -60,9 +61,13 @@ class AccountWire implements DurableTransport {
     this.native = native; this.session = session; this.bootstrap = bootstrap; this.events = events;
   }
   static async create(events: DurableTransportEvents, original?: AccountWire): Promise<AccountWire> {
-    if (original) return new AccountWire(new SheetReplica(original.session.context,
-      { actorId: 'model-receiver', sessionId: 'model-receiver-session' }, original.native.exportUpdate()),
-    original.session, original.bootstrap, events);
+    if (original) {
+      const wire = new AccountWire(new SheetReplica(original.session.context,
+        { actorId: 'model-receiver', sessionId: 'model-receiver-session' }, original.native.exportUpdate()),
+      original.session, original.bootstrap, events);
+      wire.sequence = original.sequence;
+      return wire;
+    }
     const context = createWorkbookContext({ documentId: binding.documentId, workbookId: binding.documentId, generation: 'account-model-generation' });
     const seed = new SheetReplica(context, { actorId: 'bootstrap-actor', sessionId: 'bootstrap-session' });
     try {
@@ -79,8 +84,8 @@ class AccountWire implements DurableTransport {
     } finally { seed.destroy(); }
   }
   async authenticate(request: SheetRelaySessionRequest) {
-    this.calls.push(structuredClone(request)); this.phase = 'ready'; this.events.access('read-write');
-    return { session: structuredClone(this.authentication ?? this.session), state: await this.state() };
+    this.calls.push(structuredClone(request)); this.phase = 'ready'; this.events.access(this.role);
+    return { session: structuredClone(this.authentication ?? { ...this.session, access: this.role }), state: await this.state() };
   }
   async open(owner: WebSocketSessionOwner): Promise<SheetRelayState> {
     assert.equal(owner.controlled, false); assert.equal(owner.credential, this.session.credential);
@@ -103,7 +108,7 @@ class AccountWire implements DurableTransport {
   setPaused(paused: boolean): void { this.phase = paused ? 'paused' : 'waiting'; }
   close(): void { this.phase = 'closed'; }
   inspect(): WebSocketTransportView { return { kind: 'websocket', phase: this.phase, generation: 1, framesSent: 0, framesReceived: 0,
-    access: 'read-write', reconnectAttempt: 0, pending: [], history: [] }; }
+    access: this.role, reconnectAttempt: 0, pending: [], history: [] }; }
 }
 function cell(replica: SheetReplica) { const result = new ReferenceIndex(replica.projection).keyAt('budget', 0, 0); assert.ok(result); return result; }
 function value(replica: SheetReplica) { const engine = new CalculationEngine(replica.projection); engine.recalculate(); const result = engine.read(cell(replica)); assert.equal(result.status, 'fresh'); return result.status === 'fresh' ? result.value : null; }
@@ -272,4 +277,29 @@ test('retirement between controller native commit and publish retains exact loca
     assert.ok(!m.session.inspect().notice.includes('reused an update ID'));
     assert.deepEqual(m.store.snapshot, stored); assert.equal(m.wire.appends.length, 0);
   } finally { await m.close(); }
+});
+
+for (const role of ['read-write', 'read-only'] as const) test(`account completed receipt fresh Open restores original history with ${role} access`, async () => {
+  const first = await setup();
+  try {
+    await first.session.start(); const change = edit(first.session); await first.session.settled();
+    assert.equal(first.session.inspect().confirmed, 1);
+    const original = structuredClone(first.store.snapshot);
+    const originalHash = await hash(new TextEncoder().encode(JSON.stringify(original)));
+    const store = new MemoryStore(); store.snapshot = structuredClone(original);
+    const next = await setup(store, binding, false, first.wire); next.wire.role = role;
+    try {
+      await next.session.start();
+      assert.equal(next.session.inspect().phase, 'ready'); assert.equal(next.session.inspect().canEdit, role === 'read-write');
+      assert.equal(next.session.inspect().confirmed, 1); assert.equal(next.session.inspect().access, role);
+      assert.ok(next.session.replica); assert.equal(value(next.session.replica), 9);
+      assert.deepEqual(next.session.replica.identity, original.client!.session.identity);
+      assert.equal(next.session.replica.events.some(event => event.eventId === change.event.eventId), true);
+      assert.equal(next.session.inspect().packets[0]!.receiptFrontierSha256, await hash(base64ToBytes(original.packets[0]!.receipt!.frontierBase64)));
+      assert.deepEqual(store.snapshot, original);
+      assert.equal(await hash(new TextEncoder().encode(JSON.stringify(store.snapshot))), originalHash);
+      assert.deepEqual(base64ToBytes(store.snapshot.packets[0]!.request.packet.bytesBase64), change.update);
+      assert.equal(next.wire.appends.length, 0); assert.equal(store.marks, 0); assert.equal(next.httpCalls(), 0);
+    } finally { await next.close(); }
+  } finally { await first.close(); }
 });
