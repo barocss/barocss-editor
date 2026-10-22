@@ -458,3 +458,130 @@ cleanup warning with a bare Editor. It does not represent a passed physical IME
 or authenticated Word flow. The controlled asynchronous scheduler test is a
 correctness regression, not a timing sample. Integration owns broader impacted
 checks; Verification owns genuine corrected 100/300 layout/print measurements.
+
+## Resumed Word memory investigation — direct human hold release
+
+Scope: existing #530 / M0, owner Execute Word Layout
+01a15f0a-7b41-7cc2-87f2-52eb044a3d73. The latest direct human instruction
+releases the earlier planning-only/no-more-measurement hold for bounded M0
+repair and verification. It does not change the frozen resource/fixture/font/
+media/no-GC/output/native/selection requirements.
+
+Exact current base7eca44213c9b9609c88b635dcfc0ee8412a7e21d /
+treee09d6f739d05407359c5a0af88cd309b3aac9949. New managed root
+/Users/user/.codex/worktrees/532-word-current-memory/barocss-editor,
+branchcodex/532-word-current-memory. Integration-owned frozen graph receipt:
+primary .omx/m0/532-word-current-memory-frozen-receipt.json
+(46dirs/799entries/654source-aware links, Node22.22.0/packageVitest1.6.1).
+No author dependency install/root/config/lock mutation. Existing527W,
+530O/S/D,532cb0,8380, all first failures and user previews remain preserved.
+
+Current first reproduction owns only print-pages.test.ts and this document.
+Production print-pages.ts is still unchanged: blobca55cec98ac5c3832b8660f7f4ee840f4cbe56cf /
+SHA2567de7bf402c10fa444502ff17ad2f9a835bd82bb14efeb8f9963c6729119eac21,
+equal to measured e681. A conditional minimal source change would remain in
+print-pages.ts. Renderer/View/verification/shared configuration are read-only;
+the already-qualified Range optimization is not repeated.
+
+### Facts, source leads and causal limits
+
+The actual W5 raw report remains bound to SHA256
+33dd68dcbee6f4d04ad2cc1f96df7ef335c94b69c35abf7ffd7a6a519e710dc5.
+Its100RSS522420224/497008640/574439424 still misses512MiB in1/3.
+The100 print native-counter deltas are4501, not the older pre-O16201 value.
+After-open JS heap is about38MB and after-print about58MB, but this interval
+also includes font query and warm rendering; it does not isolate print or prove
+a leak. Sampled aggregate/shared RSS is not physical/private memory or a
+continuous HWM.
+
+Read-only lifecycle review found one normal attach and dispose/afterprint
+cleanup, with no demonstrated surviving print root or duplicate normal event.
+A separate possible furniture prepare-render-throw restoration gap was found
+in runtime.ts, but no such throw occurs in the normal W5 report. It is not
+bundled as a memory fix.
+
+In snapshot(), typed line-height is read for every visited element, while
+inherit() consumes only document root/surface line-height. Nested values are
+unused. This is a source-supported redundant lookup lead, not proof that each
+computedStyleMap call allocates a new native object or a particular RSS amount.
+The larger compact-snapshot idea is not implemented from this observation.
+
+### First focused actual-function RED, before production change
+
+The test invokes the actual createPrintPages().build() on real jsdom elements,
+source selection and cloned DOM. Geometry is controlled; Typed OM is absent in
+jsdom, so the explicitly labelled shim counts production lookup work only.
+All2-page output checks pass before the count assertion: complete seam paragraph/
+table, descendant image overflow on both page copies, hidden subtree exclusion,
+unitless inherited line-height, custom property, original width/offset/footer
+transform, source DOM and exact selection preservation, and cleared owned output.
+
+Actual lookup count23; unused nonboundary lookups21; required boundaries are
+one root and one direct surface. In a real sample the surface count may differ,
+so the native diagnostic must derive boundaries rather than hardcode2.
+The full normalized output markup is retained in the proof below for exact
+before/after comparison. Only generated printer-instance IDs are normalized.
+
+Command, cwd packages/office-word:
+
+```
+/Users/user/.nvm/versions/node/v22.22.0/bin/node node_modules/vitest/vitest.mjs run test/print-pages.test.ts -t 'reads typed line-height only' --maxWorkers=1 --minWorkers=1 --no-file-parallelism
+```
+
+First result: exit1;1 failed,10 intentionally unselected; no source repair.
+Preserved full command output:
+
+```text
+RUN  v1.6.1 /Users/user/.codex/worktrees/532-word-current-memory/barocss-editor/packages/office-word
+
+stdout | test/print-pages.test.ts > page-local complete paint projections > reads typed line-height only at inherited print boundaries without changing complete paint
+PRINT_TYPEDOM_PROOF {"typedOMShim":true,"typedReads":23,"redundantReads":21,"descendantReads":["DIV","DIV","DIV","DIV","SPAN","DIV","DIV","SPAN","IMG","P","P","COL","COLGROUP","TD","TR","TR","TBODY","TABLE","LI","OL","P"],"projection":["<div class=\"w-print-page\" style=\"width: 600px; height: 800px;\"><div class=\"w-document w-print-copy\" style=\"--print-probe: preserved; line-height: 1.5; color: canvastext; width: 600px; left: 0px; top: 0px;\"><section class=\"w-surface\" style=\"position: absolute; display: flex; flex-direction: column; width: 600px; color: canvastext; line-height: 1.5; margin: 0px; left: 0px; top: 0px; height: 1620px; box-sizing: border-box;\"><div class=\"w-sheets\" style=\"position:absolute;inset:0\"><div class=\"w-sheet\" data-page=\"1\"></div><div class=\"w-footer\" style=\"position:absolute;top:780px;transform:translateY(-100%)\">Footer one</div></div><div data-word-print-space=\"\" style=\"flex: 0 0 auto; height: 80px; margin: 0px 0px 0px; padding: 0px; border: 0px;\"></div><p id=\"word-print-INSTANCE-0-0\" class=\"w-paragraph\" style=\"margin:20px 0\">FIRST<span id=\"word-print-INSTANCE-0-1\"> text</span><img alt=\"Overflow paint\"></p><div data-word-print-space=\"\" style=\"flex: 0 0 auto; height: 600px; margin: 0px 0px 0px; padding: 0px; border: 0px;\"></div><p id=\"word-print-INSTANCE-0-2\" class=\"w-paragraph\">Complete seam paragraph</p><div data-word-print-space=\"\" style=\"flex: 0 0 auto; height: 0px; margin: -100px 0px 0px; padding: 0px; border: 0px;\"></div><table id=\"word-print-INSTANCE-0-3\"><colgroup><col style=\"width:200px\"></colgroup><tbody><tr><td rowspan=\"2\">Merged</td></tr><tr></tr></tbody></table></section></div></div>","<div class=\"w-print-page\" style=\"width: 600px; height: 800px;\"><div class=\"w-document w-print-copy\" style=\"--print-probe: preserved; line-height: 1.5; color: canvastext; width: 600px; left: 0px; top: -820px;\"><section class=\"w-surface\" style=\"position: absolute; display: flex; flex-direction: column; width: 600px; color: canvastext; line-height: 1.5; margin: 0px; left: 0px; top: 0px; height: 1620px; box-sizing: border-box;\"><div class=\"w-sheets\" style=\"position:absolute;inset:0\"><div class=\"w-sheet\" data-page=\"2\"></div><div class=\"w-footer\" style=\"position:absolute;top:1600px;transform:translateY(-100%)\">Footer two</div><div class=\"w-line-numbers\"><span class=\"w-line-number\" style=\"position:absolute;top:900px\">9</span></div></div><div data-word-print-space=\"\" style=\"flex: 0 0 auto; height: 80px; margin: 0px 0px 0px; padding: 0px; border: 0px;\"></div><p id=\"word-print-INSTANCE-1-0\" class=\"w-paragraph\" style=\"margin:20px 0\">FIRST<span id=\"word-print-INSTANCE-1-1\"> text</span><img alt=\"Overflow paint\"></p><div data-word-print-space=\"\" style=\"flex: 0 0 auto; height: 600px; margin: 0px 0px 0px; padding: 0px; border: 0px;\"></div><p id=\"word-print-INSTANCE-1-2\" class=\"w-paragraph\">Complete seam paragraph</p><div data-word-print-space=\"\" style=\"flex: 0 0 auto; height: 0px; margin: -100px 0px 0px; padding: 0px; border: 0px;\"></div><table id=\"word-print-INSTANCE-1-3\"><colgroup><col style=\"width:200px\"></colgroup><tbody><tr><td rowspan=\"2\">Merged</td></tr><tr></tr></tbody></table><div data-word-print-space=\"\" style=\"flex: 0 0 auto; height: 70px; margin: 0px 0px 0px; padding: 0px; border: 0px;\"></div><ol id=\"word-print-INSTANCE-1-4\" class=\"w-list\"><li>Last item</li></ol></section></div></div>"]}
+
+ ❯ test/print-pages.test.ts  (11 tests | 1 failed | 10 skipped) 55ms
+   ❯ test/print-pages.test.ts > page-local complete paint projections > reads typed line-height only at inherited print boundaries without changing complete paint
+     → descendant typed line-height is never consumed by print inheritance: expected [ …(21) ] to have a length of +0 but got 21
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/print-pages.test.ts > page-local complete paint projections > reads typed line-height only at inherited print boundaries without changing complete paint
+AssertionError: descendant typed line-height is never consumed by print inheritance: expected [ …(21) ] to have a length of +0 but got 21
+
+- Expected
++ Received
+
+- 0
++ 21
+
+ ❯ test/print-pages.test.ts:212:94
+    210|     console.info('PRINT_TYPEDOM_PROOF', JSON.stringify({ typedOMShim: …
+    211|       redundantReads: redundant.length, descendantReads: redundant.map…
+    212|     expect(redundant, 'descendant typed line-height is never consumed …
+       |                                                                                              ^
+    213|     expect(typedReads.filter(el => el === source)).toHaveLength(1);
+    214|     expect(typedReads.filter(el => el === surface)).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+   Start at  18:35:11
+   Duration  552ms (transform 33ms, setup 0ms, collect 34ms, tests 55ms, environment 321ms, prepare 59ms)
+```
+
+### Native-path observation gap and next concrete action
+
+Integration prepares one finite real-browser pass-through diagnostic on exact
+current source: normal ?sample, one build/afterprint, actual original
+Element.computedStyleMap return objects unchanged, call counts and distinct
+returned identities classified by root/direct surface/other. Source/output
+geometry, native export, selection and owned cleanup remain fixed. Verification
+owns any harness observation; extra after-clear CDP counters cannot distinguish
+uncollected garbage from retention without further evidence. No forced GC,
+normal100/300 profile, RSS qualification or causal byte-saving claim is made.
+
+Production stays unchanged until this gap is answered or equivalent deterministic
+native-path evidence suffices. The smallest possible repair is to avoid unused
+typed line-height reads outside inheritance boundaries; it must preserve
+unitless/fixed semantics and full original geometry/output. No speculative
+cache/snapshot redesign, unowned renderer fix or repeated heavy profile.
+M0 and the Word100 resource gate remain OPEN.

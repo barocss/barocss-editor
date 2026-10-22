@@ -161,4 +161,56 @@ describe('page-local complete paint projections', () => {
     expect(document.querySelector<HTMLElement>('.w-print-copy')?.style.lineHeight).toBe(lineHeight);
     expect(document.querySelector<HTMLElement>('.w-print-copy .w-surface')?.style.lineHeight).toBe(lineHeight);
   });
+
+  it('reads typed line-height only at inherited print boundaries without changing complete paint', () => {
+    const source = fixture();
+    source.style.setProperty('--print-probe', 'preserved');
+    source.style.lineHeight = '1.5';
+    const surface = source.querySelector<HTMLElement>('.w-surface')!;
+    const image = document.createElement('img'); image.alt = 'Overflow paint';
+    source.querySelector('#first')!.append(image);
+    bounds(image, 900, 40, 100, 40);
+    const hidden = document.createElement('p'); hidden.style.display = 'none';
+    hidden.innerHTML = '<span>HIDDEN PAINT</span>'; surface.append(hidden);
+    bounds(hidden, 950, 40); bounds(hidden.firstElementChild!, 960, 20);
+    const typedReads: Element[] = [];
+    // jsdom has no native Typed OM. This pass-through-to-value shim measures
+    // production lookup work only; it does not count native allocations/bytes.
+    for (const element of [source, ...source.querySelectorAll('*')]) {
+      Object.defineProperty(element, 'computedStyleMap', { configurable: true, value: () => {
+        typedReads.push(element);
+        return { get: (name: string) => name === 'line-height' ? { toString: () => '1.5' } : undefined };
+      } });
+    }
+    const text = source.querySelector('#first')!.firstChild!;
+    const range = document.createRange(); range.setStart(text, 1); range.setEnd(text, 4);
+    const selection = getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+    const original = source.outerHTML;
+    const printer = createPrintPages(() => source);
+    expect(printer.build()).toBe(2);
+    const pages = [...document.querySelectorAll<HTMLElement>('.w-print-page')];
+    for (const page of pages) {
+      expect(page.querySelector('img')?.getAttribute('alt')).toBe('Overflow paint');
+      expect(page.textContent).toContain('Complete seam paragraph');
+      expect(page.textContent).not.toContain('HIDDEN PAINT');
+      expect(page.querySelector<HTMLElement>('.w-print-copy')?.style.lineHeight).toBe('1.5');
+      expect(page.querySelector<HTMLElement>('.w-surface')?.style.lineHeight).toBe('1.5');
+      expect(page.querySelector<HTMLElement>('.w-print-copy')?.style.getPropertyValue('--print-probe')).toBe('preserved');
+    }
+    expect(pages[1].querySelector<HTMLElement>('.w-print-copy')?.style.top).toBe('-820px');
+    expect(pages[0].querySelector<HTMLElement>('.w-footer')?.style.transform).toBe('translateY(-100%)');
+    expect(source.outerHTML).toBe(original);
+    expect(selection.anchorNode).toBe(text); expect(selection.anchorOffset).toBe(1);
+    expect(selection.focusNode).toBe(text); expect(selection.focusOffset).toBe(4);
+    const projection = pages.map(page => page.outerHTML.replace(/word-print-\d+-/g, 'word-print-INSTANCE-'));
+    printer.clear();
+    expect(document.querySelector('.w-print-pages')).toBeNull();
+    const boundaries = new Set<Element>([source, surface]);
+    const redundant = typedReads.filter(element => !boundaries.has(element));
+    console.info('PRINT_TYPEDOM_PROOF', JSON.stringify({ typedOMShim: true, typedReads: typedReads.length,
+      redundantReads: redundant.length, descendantReads: redundant.map(el => el.tagName), projection }));
+    expect(redundant, 'descendant typed line-height is never consumed by print inheritance').toHaveLength(0);
+    expect(typedReads.filter(el => el === source)).toHaveLength(1);
+    expect(typedReads.filter(el => el === surface)).toHaveLength(1);
+  });
 });
