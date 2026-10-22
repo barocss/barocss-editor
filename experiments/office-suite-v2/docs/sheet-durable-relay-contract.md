@@ -251,6 +251,63 @@ remains the final concurrent-open gate before registry/audit writes.
 
 ## Verification and first failures
 
+### Bounded-audit and retry-barrier successor over3913729c
+
+The reviewer found two source gaps after candidate
+`3913729c55287e80ce7edcde7dedfe3a313c5019`. Both were reproduced in owned tests
+before repair. The immutable predecessor and its94-case evidence remain intact.
+
+Packet audits now have a TOTAL limit of10,000 files (the native accepted-count
+limit) and32,000,000 actual encoded file bytes. Bootstrap, accepted packets and
+every rejected/prepared orphan all count. These are wrapper storage bounds,
+separate from unchanged native1MB packet/full-state and64KB frontier caps.
+The wrapper may exhaust this budget before the native accepted-row limit.
+It scans bounded directory entries/metadata before creating a NEW audit;
+`audit-count-limit` or `audit-byte-limit` rejects before file creation/native
+COMMIT. Reconnection and new packet IDs do not reset usage. No old audit is
+pruned, rewritten or promoted to accepted data. An existing exact packet retry
+remains available at quota, after current ACL and exact body/identity checks.
+Startup applies the same bounded metadata gate before full hash inventory or
+diagnostic copy; an over-quota original fails closed without normalization.
+
+Existing matching packet-audit and receipt-marker files now repeat their parent
+directory fsync before success. Initial immutable writes already fsync file bytes
+before linking, but a target can remain after a later directory barrier fails.
+Its mere presence must not bypass the failed durability barrier on retry.
+An audit barrier fails before native COMMIT; a receipt barrier fails after native
+COMMIT and stays ACK unknown. Restored barriers allow the exact original receipt;
+neither retry rewrites original files nor creates another accepted sequence.
+
+Focused successor commands, same frozen Node22.22 graph:
+
+```sh
+pnpm --ignore-workspace type-check -- relay/sheet/storage.ts relay/sheet/service.ts relay/sheet/audit-capacity.test.ts
+pnpm --ignore-workspace test -- relay/sheet/audit-capacity.test.ts relay/sheet/storage.test.ts
+pnpm --ignore-workspace type-check -- relay/sheet/control-files.ts relay/sheet/control-files.test.ts
+pnpm --ignore-workspace test -- relay/sheet/control-files.test.ts
+```
+
+Result:3-root and2-root strict checks0 diagnostics, exit0. Audit quota/barrier3
+plus affected storage57 cases60/60 PASS (14.847s); receipt barrier1/1 PASS
+(0.791s), all exit0/no failures/skips/cancellations. No94-case/full-root replay.
+The count fixture explicitly populates prepared orphans, then exercises actual
+native-rejected new IDs, quota refusal, unchanged accepted state/files and exact
+accepted retry at quota. The byte fixture fills actual encoded files to32MB,
+resumes the same store, refuses new input and rejects over-quota startup without
+altering the original. Filesystem-barrier tests inject only the matching Node
+directory fsync failure; actual native SQLite COMMIT/receipt bodies are unmocked.
+They do not prove hardware power-loss behavior or SQLite COMMIT loss.
+
+Preserved first successor failures: quota reproducer0PASS/1FAIL returned
+`native-update-rejected` where `audit-count-limit` was required; the new audit
+had been created before native rejection. Matching receipt-barrier reproducer
+0PASS/1FAIL returned durable on an exact retry while the injected directory
+fsync still failed, where ACK unknown was required. Initial quota-test strict
+reported5 diagnostics from two mutable test literals widening protocolVersion;
+explicit DTO type annotations fixed those without suppression or runtime change.
+
+### Initial service/WebSocket candidate3913729c
+
 Node22.22.0/pnpm8.15.0, isolated Integration-owned ws8.22 frozen graph;
 own checks ran sequentially with no shared runtime. Actual commands below use
 the experiment cwd. The PATH prefix on pnpm commands selects Node22.22.0.

@@ -64,6 +64,9 @@ export function recordReceipt(directory: string, receipt: SheetRelayReceipt): vo
   const value = { version: 1, receipt };
   if (existsSync(path)) {
     if (canonical(read(path)) !== canonical(value)) throw new Error('receipt-marker-collision');
+    // A previous link may have succeeded before its directory fsync failed.
+    // Matching bytes alone do not establish that directory entry's durability.
+    syncDirectory(target);
     return;
   }
   write(target, markerName(receipt.updateId), value, true);
