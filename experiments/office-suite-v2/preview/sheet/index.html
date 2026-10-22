@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sheet — Native engine preview</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header class="intro">
+        <div><p class="eyebrow">WONFFICE / M0 EXPERIMENT</p><h1>Sheet</h1><p class="description">An editable view of the native Sheet engine.</p></div>
+        <p class="session-label"><span aria-hidden="true">●</span> Session only · Changes reset on reload</p>
+      </header>
+      <section class="workbook" aria-label="Budget example workbook">
+        <div class="toolbar"><div><strong>Budget example</strong><span class="workbook-caption">32 rows × 12 columns per sheet</span></div><button type="button" id="undo" disabled>Undo my edit</button></div>
+        <div class="formula-bar"><output id="cell-address" aria-label="Selected cell"></output><span class="fx" aria-hidden="true">fx</span><output id="formula-source" aria-label="Native cell source"></output><button type="button" id="edit-cell">Edit cell</button></div>
+        <div id="sheet-grid" role="grid" aria-label="Sheet grid" aria-describedby="grid-help" tabindex="0">
+          <div id="sheet-scroll"><div id="sheet-sizer"></div></div>
+          <canvas id="sheet-canvas" aria-hidden="true"></canvas>
+          <div id="accessible-cells" class="sr-only"></div>
+          <input id="cell-editor" type="text" aria-label="Cell input" autocomplete="off" spellcheck="false" hidden />
+        </div>
+        <div class="sheet-footer"><div id="sheet-tabs" role="tablist" aria-label="Sheets"></div><span>Calculation: <output id="cell-status"></output></span></div>
+      </section>
+      <p id="preview-status" role="status" aria-live="polite">Starting native engine…</p>
+      <div class="guide"><p id="grid-help"><strong>Edit</strong> Double-click, Enter or F2. Enter applies. Escape cancels. Arrows and Tab move between cells. Start an edit before IME input.</p><p><strong>Try it</strong> Change Budget!B2 or Rates!B2. Budget!D4 uses SUM. Budget!D5 uses IF. Prefix text with an apostrophe to keep it literal.</p><p class="scope">Local session preview. Saving, sync, shared editing and XLSX are outside this phase.</p></div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
