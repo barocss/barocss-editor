@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { requireRuntime, root } from './paths.mjs';
 import { installAccountSourceImports } from './account-source-imports.mjs';
 import { createKeycloakAccountGates } from './account-keycloak-gates.mjs';
+import { createRelayOperatorControl } from './sheet-relay.mjs';
 
 const repository = resolve(root, '../..');
 const port = 55267;
@@ -15,17 +16,18 @@ const uuid = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 async function main(args) {
   requireRuntime();
   if (args.length === 1 && args[0] === '--help') {
-    console.log('node --experimental-transform-types scripts/sheet-account-relay.mjs --source-head <commit> --private-config <0600 JSON> (--create | --resume <owned-directory>) [--check]');
+    console.log('node --experimental-transform-types scripts/sheet-account-relay.mjs --source-head <commit> --private-config <0600 JSON> (--create | --resume <owned-directory>) [--operator-stdin] [--check]');
     return;
   }
   let expected, privatePath, directory;
-  let create = false, check = false;
+  let create = false, check = false, operator = false;
   for (let index = 0; index < args.length; index++) {
     if (args[index] === '--source-head' && expected === undefined) expected = args[++index];
     else if (args[index] === '--private-config' && privatePath === undefined) privatePath = args[++index];
     else if (args[index] === '--resume' && directory === undefined) directory = args[++index];
     else if (args[index] === '--create' && !create) create = true;
     else if (args[index] === '--check' && !check) check = true;
+    else if (args[index] === '--operator-stdin' && !operator) operator = true;
     else throw new Error('Unknown or repeated account relay option.');
   }
   if (!/^[a-f0-9]{40}$/.test(expected ?? '') || !privatePath || create === (directory !== undefined) ||
@@ -46,7 +48,7 @@ async function main(args) {
   const binding = { owner: 'Execute Integration #522', sourceHead: expected,
     sourceTree: git(['rev-parse', 'HEAD^{tree}']), sourceRoot: repository, pid: process.pid, node: process.versions.node,
     url: `http://127.0.0.1:${port}`, issuer: config.issuer, databasePort: 55271, applicationRole: 'wonffice_app',
-    controlled: false, operatorControl: 'off', startup: create ? 'create' : 'resume', versions };
+    controlled: false, operatorControl: operator ? 'receipt-only-private-stdin' : 'off', startup: create ? 'create' : 'resume', versions };
   if (check) { console.log(JSON.stringify({ status: 'Source and configuration checks passed; no server, store or DB connection started', ...binding })); return; }
   const hooks = installAccountSourceImports();
   const source = relative => pathToFileURL(resolve(repository, relative)).href;
@@ -59,8 +61,9 @@ async function main(args) {
   const { Pool } = fromService('pg');
   const pool = new Pool({ host: '127.0.0.1', port: 55271, user: 'wonffice_app', password: config.postgres.appPassword,
     database: config.postgres.database, max: 4, connectionTimeoutMillis: 5000 });
-  let account, listener, closing;
+  let account, listener, controls, closing;
   const close = () => closing ??= (async () => {
+    controls?.close();
     try { if (listener) await listener.close(); }
     finally { try { if (account) await account.close(); } finally { await pool.end(); hooks.deregister(); } }
   })();
@@ -76,7 +79,9 @@ async function main(args) {
     const options = { scope, context, authority, accessStore, allowedOrigins };
     account = create ? await AccountSheetRelay.create({ ...options, bootstrapActorId: config.accounts[0].userId }) :
       await AccountSheetRelay.resume(resolve(directory), options);
-    listener = await startSheetRelay({ mode: 'account', account, port, allowedOrigins });
+    if (operator) controls = createRelayOperatorControl(account, { controlledAuthority: false });
+    listener = await startSheetRelay({ mode: 'account', account, port, allowedOrigins,
+      ...(controls ? { holdAppendAck: controls.holdAppendAck } : {}) });
     const stop = () => { void close().catch(() => { process.exitCode = 1; }); };
     process.once('SIGINT', stop); process.once('SIGTERM', stop);
     console.log(JSON.stringify({ status: 'Account Sheet relay listening', ...binding, storage: account.binding() }));

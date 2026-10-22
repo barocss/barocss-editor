@@ -12,7 +12,7 @@ const entry = resolve(root, 'relay/sheet/index.ts');
 const port = 55265;
 
 /** Trusted local fixture control. This is not an HTTP or browser authority API. */
-function operatorControl(service) {
+export function createRelayOperatorControl(service, { controlledAuthority = true } = {}) {
   const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
   const emit = value => console.log(JSON.stringify(value));
   const id = value => typeof value === 'string' && /^[A-Za-z0-9-]{1,128}$/.test(value);
@@ -68,6 +68,7 @@ function operatorControl(service) {
         else if (request.action !== 'binding') throw new Error('invalid-operator-action');
         if (Object.keys(request).some(key => !allowed.includes(key))) throw new Error('invalid-operator-field');
         if (request.action === 'set-access' || request.action === 'revoke') {
+          if (!controlledAuthority) throw new Error('controlled-authority-unavailable');
           if (!credential(request.credential)) throw new Error('invalid-operator-credential');
           if (request.action === 'set-access') {
             if (request.access !== 'read-only' && request.access !== 'read-write') throw new Error('invalid-operator-access');
@@ -141,7 +142,7 @@ async function main(args) {
   const { SheetRelayService, startSheetRelay } = await import(pathToFileURL(entry).href);
   const service = create ? SheetRelayService.create() : SheetRelayService.resume(resolve(directory));
   console.log(JSON.stringify({ status: 'Owned Sheet storage opened', storage: service.binding(), ...binding }));
-  const controls = operator ? operatorControl(service) : undefined;
+  const controls = operator ? createRelayOperatorControl(service) : undefined;
   let listener;
   let closing;
   const close = () => closing ??= (async () => {
