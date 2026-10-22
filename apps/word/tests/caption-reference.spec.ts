@@ -31,6 +31,7 @@ test('caption reference tracks its source through renumbering, description edits
     return editor.dataStore.getNode(sel?.startNodeId)?.text;
   })).toBe('그림 ');
   await page.getByRole('img', { name: '첫 번째 그림', exact: true }).click();
+  await setWordWholeTools(page);
   await page.getByRole('tab', { name: '참조', exact: true }).click();
   await page.getByRole('button', { name: '캡션 삽입', exact: true }).click();
   await page.getByRole('textbox', { name: '캡션 설명' }).fill('앞쪽 캡션');
