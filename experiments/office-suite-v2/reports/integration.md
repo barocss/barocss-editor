@@ -1,5 +1,23 @@
 # M0 integration — previews, source and memory evidence
 
+## C source preparation — backend human hold
+
+Planner accepted the bounded B result below. C client source preparation uses
+the separate `533-sheet-preview-durable` checkout at11f6204f and frozen P1
+protocol6768f95d. The original B author/source remains preserved. Integration
+launcher912d2eab adds explicit durable mode, its client-entry guard and the
+same-origin55264 proxy to55265 with changeOrigin:true. Syntax/help/peer source
+check and changed-file lint pass; missing durable entry/mode and invalid mode
+refuse. These checks start no browser, service or storage.
+
+The relay author's later direct human instruction says "추가 실행은 하지 말고".
+Planner's resume question is pending. Do not adopt its uncommitted WIP, resume
+that lane or bypass the hold. C server runtime, saved/restart/reopen and outbox
+browser proof remain NOT RUN. Verification535 also keeps its read-only hold.
+The private C predata-v3 contains ten NOT RUN cases and exact-ID controlled
+ACK-delivery conditions. Final client/service pins and the actual capabilities
+must be bound before runtime. No server success follows from source preparation.
+
 ## Latest Sheet533 Phase B — actual two-tab collaboration
 
 The controlled two-tab preview passed 11 actual browser records on source
