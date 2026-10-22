@@ -86,7 +86,7 @@ async function modeledPage(run: (page: {
 }
 const button = (controls: Map<string, Control>, id: string): Button => controls.get(id)! as Button;
 
-test('modeled account page hides and freezes its workbook while canonical identity is still pending', async () => {
+test('modeled account page hides its workbook and serializes sign in while canonical identity is pending', async () => {
   const auth = authModel(); let complete!: (value: SheetAccountIdentity) => void;
   auth.state.identity = () => new Promise(resolve => { complete = resolve; });
   await modeledPage(async page => {
@@ -94,7 +94,11 @@ test('modeled account page hides and freezes its workbook while canonical identi
     assert.equal(page.controls.get('sheet-workbook')!.hidden, true);
     assert.equal(page.controls.get('sheet-workbook')!.inert, true);
     assert.equal(page.idbReads(), 0); assert.equal(page.socketOpens(), 0);
+    const signIn = button(page.controls, 'account-sign-in');
+    signIn.click(); signIn.dispatchEvent(new Event('click'));
+    const loginCallsDuringIdentity = auth.state.loginCalls;
     complete(structuredClone(identity)); await started;
+    assert.equal(loginCallsDuringIdentity, 0, 'A pending canonical identity read must settle before another Office login starts.');
     assert.equal(page.idbReads(), 0); assert.equal(page.rawRequests(), 0);
   });
 });
