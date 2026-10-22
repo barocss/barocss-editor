@@ -1,6 +1,29 @@
 # M0 integration — current source and memory evidence
 
-**M0 remains OPEN.** The actual renderer's retained Fiber history is bounded after completed renders, and the affected source/browser checks pass. The single new normal100/300 window still misses the frozen100-page512MiB sampled aggregate RSS target in all three samples. Local develop remains `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`; no Phase C develop, whole M0 or release acceptance follows.
+**M0 remains OPEN.** Range allocation #532 passes its source/code/browser checks. The new W5 normal window still misses the frozen100-page512MiB sampled aggregate RSS target in one of three samples. W4's three failed samples remain separate history. Local develop remains `f4ed8eddafdca39290b4d9a7b8ec14eb1405907f`; no Phase C develop, whole M0 or release acceptance follows.
+
+## Latest W5 normal reference — residual100RSS failure
+
+Verification evidence `3aee39f9bb50b162b9584e24cc67aba58ab26992`, parent `a271d2379fa1178abaa6a0ec4827682854fc7e3d`, tree `386b26ed312e0f8df22e42403f492c4ac8372034`, contains exactly six Verification metadata/raw paths. Integration reviewed immutable bytes, scope, identity, source bindings and assessments, then applied only that parent-to-child delta at `e2271f4a6a2d636018565bd0cfaa529d75721595`, tree `9dc8b83eeac43e417221b7bc4c5890151449c8f6`. No older Verification product tree was replayed. Its working product source is not the measurement authority.
+
+The measured source is clean `e681e91fc3f0505d27c13e5a55298235522be7b8`, tree `b596ec895663837469dbb3e447c0337299295fbc`, the documentation-only successor of tested45a82a7c. Actual old17production and unchangedH7 match both the measured git bytes and Integration working files. The additional line-offsets blob/SHA/6079bytes are separately verified before/after in [the extra source receipt](../verification/reports/word-range532-extra-source-binding-v1.json); old17does not cover this file. Font reference,v1.1 budget and Core10source/harness/budget bindings are exact. No Core rerun or normal method change occurred.
+
+Exactly one new default3fresh100+3fresh300 window completed all six samples/30phases with actual native counts, browser145, fonts, frozen media/noGC and guards. Command exit0 and no console/page/guard/monitor/cleanup error mean execution completed; they do not make the failed resource criterion PASS. [Raw report](../verification/reports/word-performance-2026-10-22T01-45-59-393Z/report.json) SHA-256 `33dd68dcbee6f4d04ad2cc1f96df7ef335c94b69c35abf7ffd7a6a519e710dc5`,152733bytes, is preserved unmodified.
+
+| Profile | Cold worst-of3 | Warm worst-of3 | Print worst-of3 | All three sampled owned aggregate RSS observations |
+| --- | ---: | ---: | ---: | --- |
+|100pages |332.6ms |105.2ms |27.1ms |522420224 /497008640 /574439424B;last sample exceeds536870912B,FAIL1of3. |
+|300pages |1026.7ms |345.7ms |75.1ms |742981632 /803979264 /760102912B;all below1073741824B. |
+
+All six timing targets and CV/spread repeatability gates pass. Actual native printed CDP node deltas are4501/4501/4501 and13501/13501/13501,ratio2.9995556543<=3.5. Use Memory.getDOMCounters before/after print,not the separately sampled Performance.Nodes series. See [assessmentv5](../verification/reports/word-candidate-assessment-v5.json) and [current criteriav8](../verification/reports/criteria-phase-c-v8.json).
+
+The100-page preprint observed maxima are522420224/497008640/522764288B,all below512MiB. Samples0/1have no actual-print-tag RSS poll;sample0has a later inventory poll487014400B while sample1has neither print nor inventory poll. Their warm-tagged overall maxima do not establish a measured print peak. Sample2's574439424B print-tagged poll includes adjacent readout/deferred work;it does not isolate synchronous print as the cause. All300samples have print-tagged observations,but samples0/2overall maxima are warm-tagged. Preserve overall maxima and sampling gaps. These200ms aggregate/shared-page observations are not continuous HWM or private physical bytes. After-open→after-print heap spans font/warm/print/readout. Constructor-count proof and Range.detach do not establish RSS savings or native release.
+
+Historical W4 at ee61remains FAILall3:597786624/590364672/545865728B. W5 is a separate loaded-source window with the user's preview open. Neither the change in passing sample count nor one window difference establishes a controlled A/B or causal benefit. Native attribution's accepted-empty profiles and other earlier failures remain unchanged;no sampler/flags/probes were added.
+
+All24observed benchmark-owned PIDs and55260listener are absent after bounded5s cleanup. The canonical normal lease was RETURNED before offline assessment. User preview12634/55262 remains listening and is excluded from owned RSS/cleanup;the IAB user document was not accessed,refreshed,reset or closed. Integration independently verified raw SHA/full17git+working bytes/H7/extra prepost/font/budget/Core10/RSSperPID sums+maxima/gate arithmetic and immutable six-path hashes. Primary independent receipts are `532-normal-raw-independent.json`,`532-normal-independent-gates.json` and `532-immutable-evidence-intake-review.json`. Source hold is RELEASED after immutable intake. No measurement job or lease remains active;the user preview stays open.
+
+**Next owner: Planner.** Design the next Sheet-centered M0 preview scope and record its explicit file/server authority before execution. No such new authority exists at this checkpoint. M1/M2 remain WAIT_M0. Do not retry this same Word candidate or assign a new Word micro-fix. Preserve Word100FAIL,M0OPEN,developf4,all original WIP/first failures,portal and old UI limits. No push,PR,deploy,existing DB mutation,unrelated process stop or automatic Issue/Goal closure occurred.
 
 ## Range allocation #532 — immutable code and browser qualification
 
