@@ -10,9 +10,14 @@
     <main>
       <header class="intro">
         <div><p class="eyebrow">WONFFICE / M0 EXPERIMENT</p><h1>Sheet</h1><p class="description">An editable view of the native Sheet engine.</p></div>
-        <p class="session-label"><span aria-hidden="true">●</span> Session only · Changes reset on reload</p>
+        <p class="session-label" id="session-label"><span aria-hidden="true">●</span> Session only · Changes reset on reload</p>
       </header>
-      <section class="workbook" aria-label="Budget example workbook">
+      <section id="peer-controls" class="peer-controls" aria-label="Two-screen session" hidden>
+        <div class="peer-actions"><button type="button" id="create-room">Start shared session</button><a id="open-peer" target="_blank" rel="noopener" hidden>Open second screen</a><button type="button" id="pause-link" disabled>Pause tab link</button><button type="button" id="retry-link" disabled>Retry tab connection</button><a id="new-room" target="_blank" rel="noopener">Start another room</a></div>
+        <p id="peer-session"></p><p id="peer-status" role="status" aria-live="polite">Start a session, then open a second screen.</p>
+        <p class="scope">Same-browser tab delivery only. Peer receipts are temporary and do not confirm saving.</p>
+      </section>
+      <section class="workbook" id="sheet-workbook" aria-label="Budget example workbook">
         <div class="toolbar"><div><strong>Budget example</strong><span class="workbook-caption">32 rows × 12 columns per sheet</span></div><button type="button" id="undo" disabled>Undo my edit</button></div>
         <div class="formula-bar"><output id="cell-address" aria-label="Selected cell"></output><span class="fx" aria-hidden="true">fx</span><output id="formula-source" aria-label="Native cell source"></output><button type="button" id="edit-cell">Edit cell</button></div>
         <div id="sheet-grid" role="grid" aria-label="Sheet grid" aria-describedby="grid-help" tabindex="0">
@@ -24,7 +29,8 @@
         <div class="sheet-footer"><div id="sheet-tabs" role="tablist" aria-label="Sheets"></div><span>Calculation: <output id="cell-status"></output></span></div>
       </section>
       <p id="preview-status" role="status" aria-live="polite">Starting native engine…</p>
-      <div class="guide"><p id="grid-help"><strong>Edit</strong> Double-click, Enter or F2. Enter applies. Escape cancels. Arrows and Tab move between cells. Start an edit before IME input.</p><p><strong>Try it</strong> Change Budget!B2 or Rates!B2. Budget!D4 uses SUM. Budget!D5 uses IF. Prefix text with an apostrophe to keep it literal.</p><p class="scope">Local session preview. Saving, sync, shared editing and XLSX are outside this phase.</p></div>
+      <details id="alternative-panel" class="alternative-panel" hidden><summary>Selected cell history and concurrent inputs</summary><p>Native retained inputs, up to 12 entries. Undo removes only this tab's edit.</p><ol id="alternatives"></ol></details>
+      <div class="guide"><p id="grid-help"><strong>Edit</strong> Double-click, Enter or F2. Enter applies. Escape cancels. Arrows and Tab move between cells. Start an edit before IME input.</p><p><strong>Try it</strong> Change Budget!B2 or Rates!B2. Budget!D4 uses SUM. Budget!D5 uses IF. Prefix text with an apostrophe to keep it literal.</p><p id="preview-scope" class="scope">Local session preview. Saving, sync, shared editing and XLSX are outside this phase.</p></div>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

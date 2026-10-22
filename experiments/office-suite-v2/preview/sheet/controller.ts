@@ -1,5 +1,5 @@
 import { CORE_LIMITS, encodeCellKey } from '../../src/contracts.ts';
-import type { CellInput, CellKey, EventOutcome, WorkbookProjection } from '../../src/contracts.ts';
+import type { CellAlternative, CellInput, CellKey, EventOutcome, WorkbookEvent, WorkbookProjection } from '../../src/contracts.ts';
 import { SheetReplica } from '../../src/collaboration.ts';
 import { CalculationEngine } from '../../src/calculation.ts';
 import type { CalculationRead } from '../../src/calculation.ts';
@@ -14,6 +14,7 @@ export interface Draft {
   readonly text: string;
   readonly composing: boolean;
 }
+export interface NativeLocalChange { readonly event: WorkbookEvent; readonly update: Uint8Array }
 const sameKey = (a: CellKey, b: CellKey): boolean => encodeCellKey(a) === encodeCellKey(b);
 const numberText = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
@@ -40,10 +41,13 @@ export class SheetController {
   private currentDraft: Draft | null = null;
   private structureEpoch = 0;
   private readonly ownEdits: string[] = [];
+  private readonly localEvent: ((change: NativeLocalChange) => void) | undefined;
+  transportWarning: string | null = null;
   message = 'Session only. Reload starts a new example.';
 
-  constructor(replica: SheetReplica) {
+  constructor(replica: SheetReplica, localEvent?: (change: NativeLocalChange) => void) {
     this.replica = replica;
+    this.localEvent = localEvent;
     this.current = replica.projection;
     this.references = new ReferenceIndex(this.current);
     const firstSheet = this.current.sheets.find(sheet => !sheet.deleted);
@@ -57,7 +61,15 @@ export class SheetController {
   get index(): ReferenceIndex { return this.references; }
   get selection(): CellKey { return { ...this.selectedKey }; }
   get draft(): Draft | null { return this.currentDraft ? { ...this.currentDraft, key: { ...this.currentDraft.key } } : null; }
-  get canUndo(): boolean { return this.ownEdits.length > 0 && !this.currentDraft; }
+  get canUndo(): boolean { return !this.currentDraft && this.ownEdits.some(id => this.current.outcomes[id]?.status === 'applied'); }
+  get sessionId(): string { return this.replica.identity.sessionId; }
+  get selectedAlternatives(): readonly CellAlternative[] { return this.current.cells[encodeCellKey(this.selectedKey)]?.alternatives ?? []; }
+
+  /** Transport observers cannot turn an applied native event into a false refusal. */
+  private forwardLocal(change: NativeLocalChange): void {
+    try { this.localEvent?.({ event: change.event, update: change.update.slice() }); }
+    catch (error) { this.transportWarning = `Peer delivery failed; input remains in this tab: ${errorText(error)}`; }
+  }
 
   private recalculate(): void {
     try { this.calculation.recalculate(); this.calculationReady = true; }
@@ -144,24 +156,29 @@ export class SheetController {
     const input = inputFromText(draft.text, draft.key, this.references);
     if (input.kind === 'invalid') { this.message = `Input refused: ${input.reason}`; return false; }
     try {
-      const { event } = this.replica.commit({ kind: 'cell.commit', key: draft.key, input });
+      const change = this.replica.commit({ kind: 'cell.commit', key: draft.key, input });
+      // Retain local identity even if native dependencies apply it later.
+      this.ownEdits.push(change.event.eventId);
+      this.forwardLocal(change);
+      const { event } = change;
       this.synchronize();
       if (!this.reportOutcome(this.current.outcomes[event.eventId])) return false;
-      this.ownEdits.push(event.eventId);
       this.currentDraft = null;
-      if (this.calculationReady) this.message = 'Applied in this session. Reload discards changes.';
+      if (this.calculationReady) this.message = this.localEvent ? 'Applied in this tab. Peer delivery is temporary.' : 'Applied in this session. Reload discards changes.';
       return true;
     } catch (error) { this.message = `Commit refused: ${errorText(error)}`; return false; }
   }
   undo(): boolean {
     if (this.currentDraft) { this.message = 'Finish or cancel the cell edit before Undo.'; return false; }
-    const target = this.ownEdits.at(-1);
+    const target = this.ownEdits.findLast(id => this.current.outcomes[id]?.status === 'applied');
     if (!target) { this.message = 'No cell edit from this session to undo.'; return false; }
     try {
-      const { event } = this.replica.undo(target);
+      const change = this.replica.undo(target);
+      this.forwardLocal(change);
+      const { event } = change;
       this.synchronize();
       if (!this.reportOutcome(this.current.outcomes[event.eventId])) return false;
-      this.ownEdits.pop();
+      this.ownEdits.splice(this.ownEdits.lastIndexOf(target), 1);
       if (this.calculationReady) this.message = 'Your last cell edit was undone in this session.';
       return true;
     } catch (error) { this.message = `Undo refused: ${errorText(error)}`; return false; }

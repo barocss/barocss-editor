@@ -2,6 +2,7 @@ import { SheetController } from './controller.ts';
 import { GRID, cellRect, columnLabel, drawGrid, hitTest, visibleRange } from './grid.ts';
 import type { Viewport } from './grid.ts';
 import type { CalculationRead } from '../../src/calculation.ts';
+import { displayFormula } from '../../src/formula.ts';
 
 export interface KeyInput {
   readonly key: string;
@@ -70,7 +71,7 @@ export function valueText(read: CalculationRead): string {
   return String(value);
 }
 
-export function mountSheetPreview(controller: SheetController): { destroy(): void } {
+export function mountSheetPreview(controller: SheetController): { refresh(): void; destroy(): void } {
   const element = (id: string): HTMLElement => {
     const result = document.getElementById(id);
     if (!result) throw new Error(`Missing Sheet preview element: ${id}`);
@@ -89,6 +90,7 @@ export function mountSheetPreview(controller: SheetController): { destroy(): voi
   const cellStatus = element('cell-status');
   const canvas = element('sheet-canvas');
   const editor = element('cell-editor');
+  const alternatives = document.getElementById('alternatives');
   if (!(canvas instanceof HTMLCanvasElement) || !(editor instanceof HTMLInputElement) || !(undo instanceof HTMLButtonElement)) throw new Error('Invalid Sheet DOM contract');
   let disposed = false;
   let frame = 0;
@@ -163,6 +165,21 @@ export function mountSheetPreview(controller: SheetController): { destroy(): voi
     source.textContent = controller.source() || '(empty)';
     cellStatus.textContent = controller.read(controller.selection).status;
     status.textContent = controller.message;
+    if (alternatives) {
+      const fragments = document.createDocumentFragment();
+      const states = { winner: 'Current', alternative: 'Concurrent alternative', superseded: 'Earlier edit', undone: 'Undone' };
+      for (const entry of controller.selectedAlternatives.slice(-12)) {
+        const item = document.createElement('li');
+        const input = entry.input;
+        const source = input.kind === 'formula' ? displayFormula(input.ast, controller.index) : input.kind === 'invalid' ? input.source : input.value === null ? '(empty)' : String(input.value);
+        item.dataset.eventId = entry.eventId;
+        item.dataset.sessionId = entry.sessionId;
+        item.dataset.state = entry.state;
+        item.textContent = `${states[entry.state]} · ${entry.sessionId === controller.sessionId ? 'This tab' : `Session ${entry.sessionId.slice(0, 8)}`} · ${source}`;
+        fragments.append(item);
+      }
+      alternatives.replaceChildren(fragments);
+    }
     undo.disabled = !controller.canUndo;
     const draft = controller.draft;
     editor.hidden = draft === null;
@@ -256,10 +273,14 @@ export function mountSheetPreview(controller: SheetController): { destroy(): voi
       generation: controller.projection.context.generation, source: controller.source(),
       readStatus: result.status, value: result.status === 'fresh' ? result.value : null,
       draft: controller.draft, visibleBounds: { ...bounds }, viewport: { ...view },
-      nativeEvents: controller.projection.eventIds.length, canUndo: controller.canUndo };
+      nativeEvents: controller.projection.eventIds.length, canUndo: controller.canUndo,
+      nativeRevision: controller.projection.revision, sessionId: controller.sessionId,
+      context: controller.projection.context, nativeEventIds: controller.projection.eventIds,
+      nativeSheets: controller.projection.sheets, nativeCells: controller.projection.cells,
+      selectedAlternatives: controller.selectedAlternatives, transportWarning: controller.transportWarning };
   } });
   render();
-  return { destroy: () => {
+  return { refresh: () => { controller.synchronize(); render(); }, destroy: () => {
     disposed = true; events.abort(); observer.disconnect(); density.removeEventListener('change', densityChange);
     if (frame) cancelAnimationFrame(frame);
     delete window.sheetPreview;
