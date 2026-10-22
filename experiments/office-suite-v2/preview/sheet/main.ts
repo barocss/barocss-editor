@@ -2,6 +2,7 @@ import { createPreviewReplica } from './fixture.ts';
 import { SheetController } from './controller.ts';
 import { mountSheetPreview } from './binding.ts';
 import { PeerSession } from './peer-session.ts';
+import { PeerLifecycle } from './lifecycle.ts';
 
 const element = (id: string): HTMLElement => {
   const found = document.getElementById(id);
@@ -31,6 +32,7 @@ function startPeerMode(): void {
   if (!('BroadcastChannel' in globalThis)) throw new Error('This browser does not provide BroadcastChannel.');
 
   let peer: PeerSession | undefined;
+  let lifecycle: PeerLifecycle | undefined;
   let channel: BroadcastChannel | undefined;
   let controller: SheetController | undefined;
   let view: ReturnType<typeof mountSheetPreview> | undefined;
@@ -80,6 +82,7 @@ function startPeerMode(): void {
     create.hidden = true;
     channel = new BroadcastChannel(`wonffice-sheet-preview-v1:${roomId}`);
     peer = new PeerSession({ roomId, create: isCreator, send: packet => { channel?.postMessage(packet); }, changed: update });
+    lifecycle = new PeerLifecycle(peer);
     channel.addEventListener('message', (event: MessageEvent<unknown>) => { peer?.receive(event.data); });
     peer.start();
     update();
@@ -101,14 +104,14 @@ function startPeerMode(): void {
   const room = new URL(location.href).searchParams.get('room');
   if (room !== null) { create.hidden = true; start(room, false); }
   window.addEventListener('pagehide', event => {
-    if (event.persisted) { peer?.setPaused(true); return; }
+    if (event.persisted) { lifecycle?.suspend(); return; }
     disposed = true;
     if (retryTimer) clearInterval(retryTimer);
     peer?.close(); channel?.close();
     if (view) view.destroy(); else peer?.replica?.destroy();
     delete window.sheetPeer;
   });
-  window.addEventListener('pageshow', event => { if (event.persisted) peer?.setPaused(false); });
+  window.addEventListener('pageshow', event => { if (event.persisted) lifecycle?.resume(); });
 }
 
 try {

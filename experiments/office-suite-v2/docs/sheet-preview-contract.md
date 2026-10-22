@@ -442,3 +442,35 @@ Node22.22 result: 10 PASS / 0 FAIL / 0 skipped, 1192.734541ms; strict 2 roots,
 0 diagnostics, chunk `f2e819`. The earlier 45-test source result remains historical;
 this follow-up reruns the changed controller area only. Browser qualification
 waits for this immutable corrected delta.
+
+### Manual Pause across page lifecycle
+
+Planner source review found `826b5532` resumed every persisted pageshow, even when
+the user had manually paused the link before pagehide. That could transmit queued
+work without the explicit Resume action. The unchanged original transition was
+first extracted from main into the small PeerLifecycle helper and wired back into
+the same listeners for a deterministic state regression. This is equivalent
+source behavior, not a claim that Node executed an actual browser BFCache event.
+With real PeerSession/native queued bytes, first run returned 1 PASS / 1 FAIL,
+486.868875ms, chunk `21c8c0`: expected paused after restore, actual ready.
+
+PeerLifecycle now records the pause choice before automatic suspension and restores
+that choice. A live link returns live. A manually paused link stays paused, keeps
+its pending native IDs and revision and sends zero messages until explicit Resume.
+Main still disposes only on non-persisted pagehide. No transport, engine, capacity
+or chunking expansion accompanies this correction. Actual BFCache remains NOT RUN.
+
+Changed-area commands: `node scripts/test.mjs preview/sheet/lifecycle.test.ts` and
+`node scripts/type-check.mjs preview/sheet/lifecycle.ts preview/sheet/lifecycle.test.ts preview/sheet/main.ts`.
+Node22.22 result: 2 PASS / 0 FAIL / 0 skipped, 267.084875ms; strict 3 roots,
+0 diagnostics, chunk `a4562c`. Earlier controller/transport evidence remains bound
+to its unchanged sources; a full preview rerun was not used for this small change.
+
+B's 1MB limit applies to an individual delta and combined bootstrap/state message.
+It is not a pre-commit cap on the accumulated live document. Repeated admitted
+deltas can make a later state transfer/join/reload refuse while current live peers
+still hold their native work. Existing peers can merge deltas; this does not imply
+reopen or saving guarantees. The 64 observed-peer identity limit is separate from
+the 256 deferred sender/packet records and each collection's 8MB bound. C's separate
+full-accepted-state 1MB pre-COMMIT admission remains a C server requirement; no B
+cap increase, native engine change or chunking is added to hide this boundary.
