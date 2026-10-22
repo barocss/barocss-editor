@@ -13,8 +13,8 @@ const port = 55264;
 async function main(args) {
   requireRuntime();
   if (args.length === 1 && args[0] === '--help') {
-    console.log('node scripts/sheet-collaboration.mjs --source-head <40-character commit> --mode peer [--check]');
-    console.log('Serves the native two-tab Sheet preview on http://127.0.0.1:55264/. Peer receipt is not durable storage.');
+    console.log('node scripts/sheet-collaboration.mjs --source-head <40-character commit> --mode <peer|durable> [--check]');
+    console.log('Serves the native Sheet preview on http://127.0.0.1:55264/. Peer receipts are temporary. Durable mode requires the separately started controlled relay on 55265.');
     return;
   }
   let expected;
@@ -28,12 +28,13 @@ async function main(args) {
     else throw new Error(`Unknown or repeated option: ${arg}`);
   }
   if (!/^[a-f0-9]{40}$/.test(expected ?? '')) throw new Error('An exact --source-head commit is required.');
-  if (mode !== 'peer') throw new Error('An explicit --mode peer is required. Durable transport is not ready.');
+  if (mode !== 'peer' && mode !== 'durable') throw new Error('Choose an explicit --mode peer or --mode durable.');
   const git = argv => execFileSync('git', argv, { cwd: repository, encoding: 'utf8' }).trim();
   const head = git(['rev-parse', 'HEAD']);
   if (head !== expected) throw new Error(`Source HEAD differs: expected ${expected}; received ${head}.`);
   if (git(['status', '--porcelain'])) throw new Error('Sheet collaboration requires a clean source checkout.');
-  for (const file of ['index.html', 'main.ts', 'peer-session.ts']) {
+  const transportEntries = mode === 'peer' ? ['peer-session.ts'] : ['durable-session.ts', 'outbox.ts'];
+  for (const file of ['index.html', 'main.ts', ...transportEntries]) {
     if (!existsSync(resolve(preview, file))) throw new Error(`Sheet preview entry is not ready: ${file}. No server started.`);
   }
 
@@ -51,7 +52,8 @@ async function main(args) {
     sourceHead: head, sourceTree: git(['rev-parse', 'HEAD^{tree}']), sourceRoot: repository,
     entry: resolve(preview, 'index.html'), pid: process.pid,
     node: process.versions.node, vite: viteVersion, yjs: yjsVersion,
-    storage: 'session-only', peerReceiptIsDurable: false,
+    storage: mode === 'peer' ? 'session-only' : 'controlled-relay', peerReceiptIsDurable: false,
+    relay: mode === 'durable' ? 'http://127.0.0.1:55265' : null,
   };
   if (check) {
     console.log(JSON.stringify({ status: 'Source and entry checks passed; no server started', ...binding }));
@@ -69,7 +71,13 @@ async function main(args) {
       },
     }],
     optimizeDeps: { entries: [resolve(preview, 'index.html')] },
-    server: { host: '127.0.0.1', port, strictPort: true, fs: { strict: true, allow: [root, dirname(vitePackage)] } },
+    server: {
+      host: '127.0.0.1', port, strictPort: true,
+      fs: { strict: true, allow: [root, dirname(vitePackage)] },
+      proxy: mode === 'durable' ? {
+        '/api/sheet-relay/v1': { target: 'http://127.0.0.1:55265', changeOrigin: true },
+      } : undefined,
+    },
     logLevel: 'warn',
   });
   let closing;
