@@ -14,7 +14,7 @@ import { base64ToBytes, bytesToBase64, decodeSheetRelayServerFrame, encodeSheetR
 import type { SheetRelayAppendRequest, SheetRelayClientFrame, SheetRelayServerFrame, SheetRelaySession } from '../../src/sheet-preview-protocol.ts';
 
 const key = { sheetId: 'sheet-rates', rowId: 'row-2', columnId: 'column-2' };
-function packet(session: SheetRelaySession, bytes: Uint8Array, updateId: string): SheetRelayAppendRequest {
+function packet(session: Pick<SheetRelaySession, 'context'>, bytes: Uint8Array, updateId: string): SheetRelayAppendRequest {
   return { protocolVersion: 1, context: session.context, admission: relayAdmission(session.context), packet: { updateId, bytesBase64: bytesToBase64(bytes), byteLength: bytes.length, sha256: updateHash(bytes) } };
 }
 async function fixture(service = SheetRelayService.create(), options: Pick<SheetRelayWebSocketOptions, 'holdAppendAck'> = {}) {
@@ -249,5 +249,15 @@ test('WS malformed/binary/oversize messages fail closed and authentication deadl
     assert.equal(refusal.type === 'rejected' && refusal.code, 'authentication-timeout'); await closing;
     assert(performance.now() - started >= SHEET_RELAY_WS_LIMITS.handshakeMs - 100);
     assert(performance.now() - started < SHEET_RELAY_WS_LIMITS.handshakeMs + 2_000);
+  } finally { await owned.close(); }
+});
+
+test('preserved controlled mode refuses account tickets without creating a controlled fallback', async () => {
+  const owned = await fixture(), connection = await client(owned.url), closed = once(connection.socket, 'close');
+  try {
+    connection.send({ protocolVersion: 1, type: 'authenticate-account', requestId: 'wrong-mode', ticket: 'a'.repeat(64) });
+    const denied = await connection.next(frame => frame.type === 'rejected');
+    assert.equal(denied.type === 'rejected' && denied.code, 'account-mode-required'); await closed;
+    assert.equal(owned.service.binding().latestSequence, 1);
   } finally { await owned.close(); }
 });

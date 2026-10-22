@@ -8,14 +8,16 @@ import type { WorkbookContext } from '../../src/contracts.ts';
 import { sheetUpdateValidator } from '../../src/collaboration.ts';
 import { DURABLE_LIMITS, updateHash } from '../../src/durable-store.ts';
 import { SHEET_RELAY_LIMITS, base64ToBytes, isSha256, isSheetRelayAdmission, isSheetRelayContext, parseSheetRelayAppendRequest, relayAdmission, sameRelayAdmission, sameRelayContext } from '../../src/sheet-preview-protocol.ts';
-import type { SheetRelayAccess, SheetRelayAdmission, SheetRelayIdentity, SheetRelayPacket, SheetRelayReceipt } from '../../src/sheet-preview-protocol.ts';
+import { parseSheetRelayAccountBinding } from '../../src/sheet-preview-protocol.ts';
+import type { SheetRelayAccess, SheetRelayAdmission, SheetRelayIdentity, SheetRelayPacket, SheetRelayReceipt, SheetRelayAccountBinding } from '../../src/sheet-preview-protocol.ts';
 
+export type AccountScope = Readonly<Pick<SheetRelayAccountBinding, 'tenantId' | 'workspaceId' | 'documentId'>>;
 export type RelayManifest = Readonly<{
-  version: 1; context: WorkbookContext; admission: SheetRelayAdmission;
+  version: 1 | 2; mode?: 'account'; scope?: AccountScope; context: WorkbookContext; admission: SheetRelayAdmission;
   bootstrap: Readonly<{ packet: SheetRelayPacket; identity: SheetRelayIdentity }>;
 }>;
-export type StoredSession = Readonly<{ credentialHash: string; identity: SheetRelayIdentity; active: boolean; access: SheetRelayAccess }>;
-export type SessionRegistry = Readonly<{ version: 1; sessions: readonly StoredSession[] }>;
+export type StoredSession = Readonly<{ credentialHash: string; identity: SheetRelayIdentity; active: boolean; access: SheetRelayAccess; accountBinding?: SheetRelayAccountBinding }>;
+export type SessionRegistry = Readonly<{ version: 1 | 2; mode?: 'account'; sessions: readonly StoredSession[] }>;
 export type AuditPacket = Readonly<{
   version: 1; context: WorkbookContext; admission: SheetRelayAdmission;
   packet: SheetRelayPacket; identity: SheetRelayIdentity;
@@ -56,15 +58,29 @@ function binding(context: unknown, admission: unknown): { context: WorkbookConte
   return { context, admission };
 }
 function manifest(value: unknown): RelayManifest {
-  if (!fields(value, ['version', 'context', 'admission', 'bootstrap']) || value.version !== 1 || !fields(value.bootstrap, ['packet', 'identity'])) fail('manifest');
+  if (!object(value)) fail('manifest');
+  const account = value.version === 2;
+  if (!fields(value, account ? ['version', 'mode', 'scope', 'context', 'admission', 'bootstrap'] : ['version', 'context', 'admission', 'bootstrap']) ||
+      (!account && value.version !== 1) || (account && value.mode !== 'account') || !fields(value.bootstrap, ['packet', 'identity'])) fail('manifest');
   const bound = binding(value.context, value.admission);
-  return { version: 1, ...bound, bootstrap: { packet: packet(value.bootstrap.packet, bound.context, bound.admission), identity: identity(value.bootstrap.identity) } };
+  let scope: AccountScope | undefined;
+  if (account) {
+    if (!fields(value.scope, ['tenantId', 'workspaceId', 'documentId']) ||
+        ![value.scope.tenantId, value.scope.workspaceId, value.scope.documentId, bound.context.workbookId, bound.context.generation].every(part => typeof part === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(part)) || value.scope.documentId !== bound.context.documentId) fail('account-manifest');
+    scope = value.scope as unknown as AccountScope;
+  }
+  return { version: account ? 2 : 1, ...(scope ? { mode: 'account' as const, scope } : {}), ...bound,
+    bootstrap: { packet: packet(value.bootstrap.packet, bound.context, bound.admission), identity: identity(value.bootstrap.identity) } };
 }
 function registry(value: unknown): SessionRegistry {
-  if (!fields(value, ['version', 'sessions']) || value.version !== 1 || !Array.isArray(value.sessions) || value.sessions.length > SHEET_RELAY_LIMITS.sessions) fail('registry');
+  if (!object(value)) fail('registry');
+  const account = value.version === 2;
+  if (!fields(value, account ? ['version', 'mode', 'sessions'] : ['version', 'sessions']) || (!account && value.version !== 1) ||
+      (account && value.mode !== 'account') || !Array.isArray(value.sessions) || value.sessions.length > SHEET_RELAY_LIMITS.sessions) fail('registry');
   const credentials = new Set<string>(), identities = new Set<string>();
   const sessions = Array.from(value.sessions, session => {
-    if ((!fields(session, ['credentialHash', 'identity', 'active']) && !fields(session, ['credentialHash', 'identity', 'active', 'access'])) ||
+    if ((account ? !fields(session, ['credentialHash', 'identity', 'active', 'access', 'accountBinding']) :
+        (!fields(session, ['credentialHash', 'identity', 'active']) && !fields(session, ['credentialHash', 'identity', 'active', 'access']))) ||
         !isSha256(session.credentialHash) || typeof session.active !== 'boolean' ||
         (Object.hasOwn(session, 'access') && session.access !== 'read-write' && session.access !== 'read-only')) fail('session');
     const authenticated = identity(session.identity), key = identityKey(authenticated);
@@ -73,9 +89,14 @@ function registry(value: unknown): SessionRegistry {
     // Legacy P1 records predate the server-only ACL seam. New writes always
     // include access; absence is the one supported legacy default.
     const access: SheetRelayAccess = session.access === 'read-only' ? 'read-only' : 'read-write';
-    return { credentialHash: session.credentialHash, identity: authenticated, active: session.active, access };
+    let accountBinding: SheetRelayAccountBinding | undefined;
+    if (account) {
+      try { accountBinding = parseSheetRelayAccountBinding(session.accountBinding); } catch { fail('account-binding'); }
+      if (accountBinding.userId !== authenticated.actorId) fail('account-actor');
+    }
+    return { credentialHash: session.credentialHash, identity: authenticated, active: session.active, access, ...(accountBinding ? { accountBinding } : {}) };
   });
-  return { version: 1, sessions };
+  return { version: account ? 2 : 1, ...(account ? { mode: 'account' as const } : {}), sessions };
 }
 function audit(value: unknown): AuditPacket {
   if (!fields(value, ['version', 'context', 'admission', 'packet', 'identity']) || value.version !== 1) fail('audit');
@@ -306,6 +327,10 @@ function readSnapshot(directory: string): LogicalStartup {
   const root = directoryPath(directory);
   const parsedManifest = manifest(readJson(join(root, manifestName)));
   const parsedRegistry = registry(readJson(join(root, registryName)));
+  if (parsedManifest.version !== parsedRegistry.version || parsedManifest.mode !== parsedRegistry.mode) fail('store-mode-mismatch');
+  if (parsedManifest.version === 2 && parsedRegistry.sessions.some(session => !session.accountBinding ||
+      session.accountBinding.tenantId !== parsedManifest.scope?.tenantId || session.accountBinding.workspaceId !== parsedManifest.scope?.workspaceId ||
+      session.accountBinding.documentId !== parsedManifest.scope?.documentId)) fail('account-store-scope');
   const audits = auditDirectory(root, false);
   for (const entry of readdirSync(audits)) {
     if (!/^[a-f0-9]{64}\.json$/.test(entry)) fail('audit-filename');
