@@ -145,7 +145,7 @@ node scripts/type-check.mjs preview/sheet
 node scripts/test.mjs preview/sheet
 ```
 
-Final author result: strict TypeScript 5.9.3, 8 roots/imports included,
+Initial author result at `d1feb609`: strict TypeScript 5.9.3, 8 roots/imports included,
 0 diagnostics. Native Node tests: 3 files, 21 PASS, 0 FAIL, 0 skipped,
 1451.024ms (last run, tool chunk `8c336d`). This covers actual controller/engine binding, keyboard handlers,
 composition guards, draft invalidation, input cancellation/errors, own Undo and
@@ -191,6 +191,43 @@ sheet switch, keyboard, cancel/refusal, persistent composition input node,
 scroll hit testing, DPR 1/2 and browser module boundaries on the joined immutable
 candidate. Real browser/Canvas pixels, hardware OS IME, screen-reader behavior,
 persistence and product acceptance remain unverified by the author.
+
+## P2 status preservation follow-up
+
+Planner found `d1feb609` called cancel on every changed selection, even without
+a draft. Enter/Tab successfully committed native values, then selection movement
+overwrote Applied with Edit cancelled. Movement could also hide an existing
+refusal message. The initial source/helper reviews and 21 tests missed this
+status behavior. Initial candidate and Integration's predecessor join remain
+preserved; they are not the corrected candidate.
+
+Before source repair, two new binding regression tests ran against the actual
+`d1feb609` controller. Command `node scripts/test.mjs preview/sheet/binding.test.ts`
+returned exit 1, 5 PASS / 2 FAIL / 307.324916ms, tool chunk `45aa52`. First failure:
+expected Applied in this session. Reload discards changes.; actual Edit cancelled.
+Cell content is unchanged. Second failure: expected the initial Session only
+message; actual Edit cancelled. These are actual status regressions, separate
+from the initial test-oracle/type failures.
+
+Minimum repair: select cancels only when a draft exists and the native key changes.
+No draft, IME, engine API or native value rule changes. Regressions verify actual
+binding Enter/Tab movement retains Applied, normal draft-free movement retains
+initial/applied/actual missing-cell refusal status, and movement with a real draft
+still cancels without changing the projection. They do not fabricate a native
+calculation-resource failure.
+
+Final focused commands on the corrected source, using Node 22.22.0:
+
+```sh
+node scripts/type-check.mjs preview/sheet/controller.ts preview/sheet/binding.test.ts
+node scripts/test.mjs preview/sheet/binding.test.ts preview/sheet/controller.test.ts
+```
+
+Result: 2 type roots/imports included, 0 diagnostics; 2 test files, 18 PASS,
+0 FAIL, 0 skipped, 601.288291ms, tool chunk `4d2476`. Unchanged grid helper source
+and its 5 tests retain the initial immutable evidence above. Real browser checks
+remain Integration-owned and were held until this follow-up. No amend/reset,
+engine edits, broad checks, server or browser were used for this repair.
 
 ## Inactive follow-up phases and release boundary
 

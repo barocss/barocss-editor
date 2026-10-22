@@ -95,7 +95,7 @@ export class SheetController {
   select(key: CellKey): boolean {
     if (this.currentDraft?.composing) { this.message = 'Finish text composition before changing cells.'; return false; }
     if (!this.references.position(key)) { this.message = 'Selection refused: missing native cell.'; return false; }
-    if (!sameKey(key, this.selectedKey)) this.cancel();
+    if (this.currentDraft && !sameKey(key, this.selectedKey)) this.cancel();
     this.selectedKey = { ...key };
     return true;
   }
