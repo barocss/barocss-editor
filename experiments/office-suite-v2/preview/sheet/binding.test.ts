@@ -102,3 +102,38 @@ test('value binding labels stale and uncalculated reads without showing cached v
     assert.equal(valueText(controller.read(controller.selection)), '#DIV/0!');
   } finally { controller.destroy(); }
 });
+
+test('successful Enter and Tab preserve the applied status after selection moves', () => {
+  const controller = setup();
+  try {
+    for (const command of ['Enter', 'Tab']) {
+      controller.startEdit('17');
+      editorKey(controller, key(command).event);
+      assert.equal(Boolean(controller.draft), false);
+      assert.equal(controller.message, 'Applied in this session. Reload discards changes.');
+    }
+  } finally { controller.destroy(); }
+});
+
+test('selection without a draft preserves status; cancelling an actual draft reports cancellation', () => {
+  const controller = setup();
+  try {
+    const initial = controller.message;
+    gridKey(controller, key('ArrowRight').event);
+    assert.equal(controller.message, initial);
+    controller.startEdit('19'); controller.commit();
+    const applied = controller.message;
+    gridKey(controller, key('ArrowRight').event);
+    assert.equal(controller.message, applied);
+    assert.equal(controller.select({ ...controller.selection, rowId: 'missing-row' }), false);
+    const refusal = controller.message;
+    gridKey(controller, key('ArrowDown').event);
+    assert.equal(controller.message, refusal);
+    controller.startEdit('draft only');
+    const before = controller.projection;
+    gridKey(controller, key('ArrowRight').event);
+    assert.equal(controller.draft, null);
+    assert.equal(controller.message, 'Edit cancelled. Cell content is unchanged.');
+    assert.equal(controller.projection, before);
+  } finally { controller.destroy(); }
+});
