@@ -48,6 +48,7 @@ export class SheetController {
   constructor(replica: SheetReplica, localEvent?: (change: NativeLocalChange) => void) {
     this.replica = replica;
     this.localEvent = localEvent;
+    if (localEvent) this.message = 'Two-screen session. Reload joins a live peer. Nothing is saved.';
     this.current = replica.projection;
     this.references = new ReferenceIndex(this.current);
     const firstSheet = this.current.sheets.find(sheet => !sheet.deleted);

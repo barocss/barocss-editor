@@ -420,3 +420,25 @@ preserved with an error; a fresh-session fallback is prohibited. Local outbox
 persistence and peer ACK are not server durability. No Node store/PendingUpdates
 runtime import, SQLite, durable receipt, production adoption or M0 acceptance is
 included in B. Existing Word RSS FAIL and M1/M2 holds remain unchanged.
+
+### Phase B initial peer status correction
+
+Integration source review of `81960494` found the peer controller retained the
+standalone initial message Reload starts a new example. Actual room reload was
+join-only, but the message described the wrong behavior. Before source repair,
+a new controller-peer regression returned 9 PASS / 1 FAIL, 1724.1205ms, chunk
+`7f9632`. Expected Two-screen session. Reload joins a live peer. Nothing is saved.;
+actual Session only. Reload starts a new example. This is a source/status finding,
+not an actual browser failure. The original candidate is preserved.
+
+The one-line correction initializes peer-mode status when the native local-event
+observer is supplied. Standalone status is unchanged. It runs before calculation,
+so a genuine calculation refusal still takes precedence. Native input, room,
+transport and Undo behavior are unchanged.
+
+Final correction commands: `node scripts/test.mjs preview/sheet/controller-peer.test.ts`
+and `node scripts/type-check.mjs preview/sheet/controller.ts preview/sheet/controller-peer.test.ts`.
+Node22.22 result: 10 PASS / 0 FAIL / 0 skipped, 1192.734541ms; strict 2 roots,
+0 diagnostics, chunk `f2e819`. The earlier 45-test source result remains historical;
+this follow-up reruns the changed controller area only. Browser qualification
+waits for this immutable corrected delta.

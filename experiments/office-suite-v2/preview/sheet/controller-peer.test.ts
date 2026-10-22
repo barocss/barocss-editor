@@ -7,6 +7,15 @@ import { createPreviewReplica } from './fixture.ts';
 import { SheetReplica } from '../../src/collaboration.ts';
 import type { CellKey } from '../../src/contracts.ts';
 
+test('peer initial status describes room rejoin while the standalone session default stays intact', () => {
+  const peer = new SheetController(createPreviewReplica('peer-status'), () => {});
+  const local = new SheetController(createPreviewReplica('local-status'));
+  try {
+    assert.equal(peer.message, 'Two-screen session. Reload joins a live peer. Nothing is saved.');
+    assert.equal(local.message, 'Session only. Reload starts a new example.');
+  } finally { peer.destroy(); local.destroy(); }
+});
+
 function pair(observer?: (change: NativeLocalChange) => void) {
   const bootstrap = createPreviewReplica('controller-peer-test-generation');
   let a: SheetReplica;
