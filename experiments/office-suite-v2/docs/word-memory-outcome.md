@@ -140,3 +140,13 @@ git show HEAD:packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts | no
 ```
 
 The first three commands exit zero; both scoped lint commands exit one with the baseline/current diagnostics described above. In that last baseline command HEAD was immutable 4961. The intermediate fragment-literal timing failure is retained in helper tool output `0578fe`, not a separate raw file; the other first failures are appended to `537-mixed-text-test.log`.
+
+## Genuine browser navigation reconciliation
+
+Integration's first expanded browser run on production-equivalent guard successor `7a956c3df424e4d8cad7f773148faf17df10dccc` stops before feature interaction: `bookmarks.spec.ts` waits for a reference Ribbon tab that is hidden by the unchanged compact default UI. Actual results are zero PASS, one FAIL and 18 NOT RUN, retry zero/maxFailures one. Primary `.omx/m0/word100-candidate-browser/` retains the result, screenshot/error context and trace. This is test navigation drift, not proof of a product failure or permission to remove feature assertions.
+
+Only `apps/word/tests/bookmarks.spec.ts` and `caption-reference.spec.ts` change: their reference-opening helpers call the existing `setWordWholeTools(page)`. It opens the visible document-panel menu, selects the actual whole-tools checkbox and asserts the retained tool group visible before the original reference tab/button clicks. No JavaScript exposes a hidden Ribbon. All five test bodies retain their original source/reference/rename/delete/Undo/save/reload/focus/native-selection/mouse/Enter assertions. Production source, fixture, layout and H7 are unchanged.
+
+Changed-file-only TypeScript diagnostics and options/config are zero using the existing app typecheck configuration; dependent diagnostics are excluded from this scoped claim. Scoped ESLint has zero errors; bookmarks' three and caption-reference's five existing warnings match HEAD. Browser execution remains Integration-owned. An initial shell heredoc write failed with no space left on device before either spec changed; a later minimal apply_patch succeeded after read-only free-space inspection. No unrelated file, trace, cache, user data or process was deleted.
+
+Integration separately ran the previously NOT RUN original 14 print browser cases once: all14 PASS, zero skipped/unexpected/flaky and no runner errors (`word100-candidate-print-browser/results.json`). The five bookmark/caption cases remain pending until the genuine test-navigation delta is applied; do not rerun the passed print set merely for this test-only change.
