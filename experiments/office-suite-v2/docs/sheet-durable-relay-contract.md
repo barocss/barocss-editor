@@ -2,15 +2,21 @@
 
 Base `1638944c6db0d39e994ba5f12367a4b56714f958`. Contracts-only P1
 `6768f95decf5f49168639184c06fec2fd42e6681` froze the browser-neutral DTOs first.
-The WebSocket contracts-only successor P2 adds shared frames and guards. Service
-source remains uncommitted work until its separate immutable candidate is handed off.
+WebSocket contracts-only P2 `190518cbd792ed3c1a44fe9c22ca075821fee19d` adds
+shared frames and guards. Its service successor supplies the actual HTTP/WS,
+durable startup wrapper, current access and owned native/port0 tests.
 Existing engine/store/fixture sources are imported read-only, never copied.
 Node22.22/pnpm8.15 frozen graph. B two-tab qualification precedes C runtime.
+Integration-owned dependency parent for the service candidate is
+`eb780159f0e456c0fe59737f6f96d4d2dd76c441` / tree
+`5628bcab89aa4708f7adc2d9ed245da26e5c6aa1`: ws8.22.0 and @types/ws8.18.2.
+Only the experiment manifest/lock changed in that separate Integration commit;
+Yjs13.6.29/TypeScript5.9.3 and the old live dependency graph stayed unchanged.
 
 `src/sheet-preview-protocol.ts` owns all shared DTOs and pure base64/admission
 helpers. It has only a type import from Core contracts. No Node/store/PendingUpdates
 runtime import belongs in the browser. Local outbox/sync/durable/ACK-unknown/error
-states are distinct. B BroadcastChannel and C HTTP are separate native update
+states are distinct. B BroadcastChannel and C WebSocket are separate native update
 adapters; neither may re-author remote input or replace workbook snapshots.
 
 All endpoints use prefix `/api/sheet-relay/v1`, JSON `protocolVersion: 1`.
@@ -63,6 +69,12 @@ never rejected. For injected `loseAck:true`, commit and marker really complete;
 peers can receive accepted state while the origin socket closes before its reply.
 `delayAckMs` holds a real accepted receipt, rechecks current access before sending,
 and keeps its original requestId/packet ID. It never fabricates a newer receipt.
+The Node-only `holdAppendAck({requestId,receipt}, signal):Promise<void>` listener
+option provides a deterministic operator hold after actual COMMIT for private
+checks. It receives the original receipt, no credential. It has the existing10s
+reply deadline and is aborted on socket/listener close. Timeout closes the socket
+as ACK unknown. Releasing it rechecks current write access before delivery. It
+does not add a client administrative frame or change storage budgets.
 
 Bounds: native packet/full state1,000,000 bytes, frontier64,000, WS text frame
 2,000,000 UTF-8 bytes, queued socket bytes4,000,000, connections128,
@@ -137,14 +149,16 @@ The relay retains owned storage on close for explicit restart.
 ```ts
 SheetRelayService.create(): SheetRelayService
 SheetRelayService.resume(directory: string): SheetRelayService
-startSheetRelay({service, port, allowedOrigins?}): Promise<{url, port, close()}>
+startSheetRelay({service, port, allowedOrigins?, holdAppendAck?}): Promise<{url, port, close()}>
 ```
 
 The service exposes readonly `directory`/`context`, `issueSession(request)`,
 `open(credential)`, `append(credential, request)`, `checkpoint(credential)`,
-`revokeSession(credential)`, `binding()` and `close()`. Revocation is a Node control
+`revokeSession(credential)`, `setSessionAccess(credential,access)`,
+`subscribeAccess(listener):unsubscribe`, `binding()` and `close()`. Revocation is a Node control
 seam, not a caller-authorized HTTP endpoint. HTTP/session bodies cannot choose an
 actor, role or session. Call listener `close()` first, then service `close()`.
+The listener serves both HTTP and the actual WS upgrade on that same owned port.
 Only that listener and writer are stopped. Temporary storage is retained; tests
 explicitly remove only their own newly allocated fixture directories.
 
@@ -162,8 +176,10 @@ cross-origin CORS grant. HTTP request/response bodies have the explicit 1.5 MB
 encoded cap. No Node store, service or PendingUpdates module is imported by the
 shared browser protocol; native store types/runtime remain Node-only.
 
-Controlled loss fault `loseAck:true` closes the HTTP response only after the real
-store append COMMIT and durable receipt marker. A request aborted before COMMIT
+Controlled loss fault `loseAck:true` closes the HTTP response after the real
+store append COMMIT and durable receipt marker. Separately, an actual marker
+write/fsync failure after COMMIT closes the response as ACK unknown; it must
+never classify the committed packet as rejected. A request aborted before COMMIT
 is not this proof. Header `x-sheet-relay-delay-ack-ms` accepts 0..1000 and delays
 the actual accepted response, allowing a newer packet to receive its own ACK
 first. It does not change packet identity or fabricate a receipt. Browser status
@@ -176,7 +192,13 @@ generation, event IDs, bootstrap actor/session and exact bootstrap packet bytes.
 It creates a fresh native `office-v2-m0-*` store, then write-once manifest, registry
 and bootstrap audit before native append. There is no independent workbook model.
 Each new session registry is atomically persisted/fsynced before its credential is
-returned. Current access is checked before body/hash/audit/dedup and again by the
+returned. Access is explicitly stored as read-write/read-only; missing access in
+legacy version1 registries is normalized to the historical read-write grant.
+That compatibility is not an external source of current account authority.
+Revoked historical identities remain available only for accepted-history replay.
+Trusted access changes persist before transport notification; subscriber errors
+cannot roll back or misreport a committed authority change. Current access is
+checked before body/hash/audit/dedup and again by the
 native store. Server recomputes SHA-256 before audit/dedup; matching hash format
 in the DTO parser alone is not proof. Each candidate's complete native export and
 frontier must fit 1 MB/64 KB BEFORE COMMIT, in addition to native caps. Bounds are
@@ -214,32 +236,67 @@ full workbookId/context, original bootstrap, known historical session identities
 continuous receipt sequence, exact audit hashes/bytes, pending/refused native
 outcomes, checkpoint prefix/frontier and later tail. Parent then validates the
 independent confirmed-receipt markers. Only after these gates does it open the
-ORIGINAL native store, acquire SQLite's exclusive writer, compare restored export
-against the validated bytes and replace a dead owner claim. A copy gate by itself
+ORIGINAL native store and acquire SQLite's exclusive writer. Under that lock it
+repeats diagnostic-copy replay and marker validation, compares exact logical
+manifest/registry/receipts/export and an authority hash over all sidecar paths,
+then compares the actual native export and included update IDs. The sidecar hash
+excludes only native-managed DB/WAL/SHM and the separately checked PID claim;
+opening SQLite can legitimately change their physical representation. If any
+authority changed between inspections, resume refuses rather than using stale
+grants or overwriting a newly issued session. Only then may it replace a dead
+owner claim. A copy gate by itself
 does not acquire writer authority. Unknown/reused live PID refuses conservatively;
 elapsed time never removes another owner's claim. Existing native exclusivity
 remains the final concurrent-open gate before registry/audit writes.
 
 ## Verification and first failures
 
-Node22.22.0/pnpm8.15.0, unchanged frozen graph; own checks ran sequentially:
+Node22.22.0/pnpm8.15.0, isolated Integration-owned ws8.22 frozen graph;
+own checks ran sequentially with no shared runtime. Actual commands below use
+the experiment cwd. The PATH prefix on pnpm commands selects Node22.22.0.
 
 ```sh
 pnpm --ignore-workspace type-check -- relay/sheet src/sheet-preview-protocol.ts test/sheet-preview-protocol.test.ts
-pnpm --ignore-workspace test -- relay/sheet test/sheet-preview-protocol.test.ts
+/Users/user/.nvm/versions/node/v22.22.0/bin/node scripts/type-check.mjs relay/sheet/service.ts relay/sheet/service.test.ts relay/sheet/storage.ts relay/sheet/storage.test.ts
+/Users/user/.nvm/versions/node/v22.22.0/bin/node scripts/test.mjs relay/sheet/storage.test.ts relay/sheet/service.test.ts
+pnpm --ignore-workspace type-check -- relay/sheet/websocket.ts relay/sheet/websocket.test.ts
+pnpm --ignore-workspace test -- relay/sheet/websocket.test.ts
+pnpm --ignore-workspace test -- relay/sheet/http.test.ts
 ```
 
-Result: 10 strict roots plus direct imports, **0 diagnostics**; **63/63 tests PASS**,
-0 failed/0 skipped, single test-file concurrency. Coverage: HTTP 2, service/recovery
-6, storage startup/corruption 52, pure protocol 3. Actual owned port0 HTTP verifies
+Final parent result:12 strict roots plus direct imports, **0 diagnostics**, exit0.
+Service/storage74/74 PASS (17/57), WS9/9 PASS, HTTP5/5 PASS, all exit0 and
+0 failed/skipped/cancelled. P2 pure protocol6/6 PASS is reused on the unchanged
+protocol source/test bytes: **94 distinct focused cases PASS** across these
+sequential commands. This is not a claim that one94-case combined run occurred.
+Service/storage run12.2865s, WS17.800s (includes real5s auth and10s reply
+deadlines), HTTP2.0856s. No whole-root or unchanged Word/Core suite was run.
+
+The pre-hold baseline was10 strict roots and63/63 PASS (HTTP2/service6/storage52/
+protocol3), followed by the actual receipt-persistence FAIL. That older baseline
+is preserved history, not the final service/WS result. Actual owned port0 HTTP verifies
 commit-before-socket-loss, exact retry, delayed real ACK identity, origin/body
 refusal. Service tests cover original registry/credential across checkpoint+tail,
 two-session convergence/undo, actual child process exit without DB close then
 resume, prepared-only versus committed-before-marker, confirmed-tail deletion,
 native actor/context/hash/revocation refusals and full-state cap BEFORE COMMIT.
+The final service cases also reproduce seven interleaving native-writer changes
+(issue/revoke/read-only/orphan audit/no-op receipt/marker removal/manifest rewrite)
+between copy inspection and native reopen; the locked second inspection refuses
+all stale bindings. Current read-only and revoked rights apply to read, append,
+retry, checkpoint, resumed credentials and access notifications as applicable.
 Storage cases verify missing/corrupt DB/metadata/manifest/bootstrap/registry/audit/
 receipts/checkpoint/tail, symlink denial, raw incomplete update, crash WAL, original
-file byte/list preservation and diagnostic cleanup.
+file byte/list preservation and diagnostic cleanup. WS tests use actual text
+frames and original native bytes: current read-only accepted-state push, immediate
+revocation/resume denial, actual commit-before-lost-reply, exact same-store retry,
+operator-held real old ACK with a newer unsent packet in test memory, permission
+recheck after delayed ACK, actual marker failure without rejection/broadcast,
+bounded pending replies, frame/fragment denial and handshake/hold deadlines.
+The public listener test verifies HTTP and WS share the actual owned port and
+idempotent listener close retains the live service/storage. Browser IndexedDB is
+not exercised by these Node tests. WS same-store reopen is in-process; the service
+child-process crash test is separate from the actual fixed WS-server restart gate.
 
 Preserved first failures:
 
@@ -254,7 +311,21 @@ Preserved first failures:
    That strategy was discarded; diagnostic-copy validation preserves the original.
 4. First copy-strategy 52-case run: 51 PASS/1 FAIL from an invalid unsupported
    operation in a test fixture (`first-unseen`); valid Core operation names fixed
-   that fixture. The final parent run above reran all 63 cases successfully.
+   that fixture. The pre-hold parent run reran all63 cases successfully.
+5. Later actual receipt-marker filesystem fault: service7 run6 PASS/1 FAIL with
+   `control-file-not-regular` after actual native COMMIT. The exception previously
+   escaped into HTTP rejected. The successor returns ACK unknown on that
+   post-COMMIT confirmation failure and closes the transport; exact retry can
+   obtain the original receipt after explicit test-only blocker removal.
+6. Two pre-fix race reproducers:0 PASS/2 FAIL, `Missing expected exception`.
+   A separate genuine native writer resumed, issued/revoked a session and closed
+   between copy inspection and original native reopen while CRDT export stayed
+   identical. Rechecking only export hash adopted stale authority. The successor
+   revalidates original sidecar authority and logical receipts under exclusivity.
+7. First WS-only strict run:8 diagnostics, including three omitted reply requestId
+   fields and five discriminated-union narrowing errors. Adding actual original
+   request IDs and an explicit append discriminator fixed them. No cast,
+   suppression or budget change was used; WS-only and final12-root strict pass.
 
 These are controlled source/service tests. B private-browser qualification, C
 fixed-port startup/proxy, fresh private-page close/new relay PID/same DB/UI reopen,
