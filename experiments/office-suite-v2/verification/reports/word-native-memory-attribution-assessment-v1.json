@@ -1,0 +1,1914 @@
+{
+  "schema": "office-v2-m0/word-native-memory-attribution-assessment-v1",
+  "status": "DIAGNOSTIC COMPLETE; native allocation attribution UNRESOLVED, normal qualification unchanged",
+  "capturedUtc": "2026-10-22T00:09:41.675Z",
+  "raw": "reports/word-native-memory-attribution-2026-10-22T00-07-23-936Z/report.json",
+  "rawSha256": "b39cf30726c32f71846b4e6509fe5cef6268d1359d64834a574de93406ab78d5",
+  "sourceHead": "6e7be70e0150e43f76587a8b9fb0a54c11ea8ef9",
+  "sourceTree": "349324d5ff912dab82687785d58055feaadb5c7c",
+  "productionReference": "ee61af6f66f74f84708e0e434077122d91394cf6",
+  "harnessCandidate": "414f9ff1c9821151cf6c990d7d756a608304aaa4",
+  "protocolSha256": "067ebfd78b617579c1f6b23b76f626e49de097b9254841cfdecae9bd255c0bdc",
+  "sourceBindingCount": 31,
+  "productionClosureFiles": 17,
+  "normalHarnessFiles": 7,
+  "readOnlySupportFiles": 1,
+  "attempts": 1,
+  "wallMs": 6802.332917,
+  "fullSeams": 8,
+  "pairedReadsets": 16,
+  "seamReadBracketsCompleted": 88,
+  "nativeCommandsCompleted": 33,
+  "profileSupport": "SUPPORTED EMPTY for all3; not UNAVAILABLE/not zero-allocation proof",
+  "retainedProfileResponseBytes": 117,
+  "windows": [
+    {
+      "name": "cold",
+      "status": "COMPLETED diagnostic window",
+      "sampler": "STARTED",
+      "profileStatus": "SUPPORTED EMPTY profile; not zero-allocation proof",
+      "sampleCount": 0,
+      "moduleCount": 0,
+      "receivedJsonBytes": 39,
+      "receivedJsonSha256": "f620aeb8f8173c0ede47eff246464dbcf91a985039304a1e74ac16d29427ec00",
+      "rawLocation": "nativeSampling.windows[0].response",
+      "stopStatus": "ACKNOWLEDGED",
+      "started": {
+        "utc": "2026-10-22T00:07:28.353Z",
+        "monotonicMs": 5308.228583
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:28.985Z",
+        "monotonicMs": 5940.291833
+      },
+      "observedWindowMs": 632.0632500000002,
+      "allocationAttribution": "UNRESOLVED: supported empty response, no allocation stack/module evidence"
+    },
+    {
+      "name": "warm",
+      "status": "COMPLETED diagnostic window",
+      "sampler": "STARTED",
+      "profileStatus": "SUPPORTED EMPTY profile; not zero-allocation proof",
+      "sampleCount": 0,
+      "moduleCount": 0,
+      "receivedJsonBytes": 39,
+      "receivedJsonSha256": "f620aeb8f8173c0ede47eff246464dbcf91a985039304a1e74ac16d29427ec00",
+      "rawLocation": "nativeSampling.windows[1].response",
+      "stopStatus": "ACKNOWLEDGED",
+      "started": {
+        "utc": "2026-10-22T00:07:29.377Z",
+        "monotonicMs": 6331.924
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:29.736Z",
+        "monotonicMs": 6690.903667
+      },
+      "observedWindowMs": 358.9796669999996,
+      "allocationAttribution": "UNRESOLVED: supported empty response, no allocation stack/module evidence"
+    },
+    {
+      "name": "print",
+      "status": "COMPLETED diagnostic window",
+      "sampler": "STARTED",
+      "profileStatus": "SUPPORTED EMPTY profile; not zero-allocation proof",
+      "sampleCount": 0,
+      "moduleCount": 0,
+      "receivedJsonBytes": 39,
+      "receivedJsonSha256": "f620aeb8f8173c0ede47eff246464dbcf91a985039304a1e74ac16d29427ec00",
+      "rawLocation": "nativeSampling.windows[2].response",
+      "stopStatus": "ACKNOWLEDGED",
+      "started": {
+        "utc": "2026-10-22T00:07:29.737Z",
+        "monotonicMs": 6691.767458
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:30.041Z",
+        "monotonicMs": 6995.911667
+      },
+      "observedWindowMs": 304.14420900000005,
+      "allocationAttribution": "UNRESOLVED: supported empty response, no allocation stack/module evidence"
+    }
+  ],
+  "rows": [
+    {
+      "seam": "module-baseline-after-dom-css",
+      "started": {
+        "utc": "2026-10-22T00:07:28.233Z",
+        "monotonicMs": 5188.310833
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:28.352Z",
+        "monotonicMs": 5307.295625
+      },
+      "pairCollectionSkewMs": 118.9847920000002,
+      "atomic": false,
+      "inlineReturnEdge": null,
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:28.236Z",
+            "monotonicMs": 5190.643042
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:28.300Z",
+            "monotonicMs": 5254.467
+          },
+          "collectionSkewMs": 63.82395799999995,
+          "ownedRssBytes": 383205376,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 84738048,
+              "cpuPercent": 32.2,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53542912,
+              "cpuPercent": 0,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 68763648,
+              "cpuPercent": 22.2,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 176160768,
+              "cpuPercent": 51.9,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 38512345,
+            "totalJSHeapSize": 42159689,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 3,
+              "Nodes": 39,
+              "LayoutCount": 0,
+              "LayoutDuration": 0,
+              "JSHeapUsedSize": 21019592,
+              "JSHeapTotalSize": 24625152
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 21019592,
+              "totalSize": 24625152,
+              "embedderHeapUsedSize": 6349128,
+              "backingStorageSize": 17534620
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 3,
+            "nodes": 39,
+            "jsEventListeners": 18
+          },
+          "nativeState": {
+            "rootId": null,
+            "surfaces": 0,
+            "pages": 0,
+            "paragraphs": 0,
+            "printedPages": 0,
+            "globalLayoutEntries": null,
+            "printApiPresent": false
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:28.300Z",
+            "monotonicMs": 5254.918208
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:28.352Z",
+            "monotonicMs": 5306.9115
+          },
+          "collectionSkewMs": 51.99329200000011,
+          "ownedRssBytes": 383746048,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 84738048,
+              "cpuPercent": 20.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53526528,
+              "cpuPercent": 0,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 68763648,
+              "cpuPercent": 14,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 176717824,
+              "cpuPercent": 33.9,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 38555132,
+            "totalJSHeapSize": 42159772,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 3,
+              "Nodes": 39,
+              "LayoutCount": 0,
+              "LayoutDuration": 0,
+              "JSHeapUsedSize": 21036180,
+              "JSHeapTotalSize": 24625152
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 21036180,
+              "totalSize": 24625152,
+              "embedderHeapUsedSize": 6349128,
+              "backingStorageSize": 17534620
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 3,
+            "nodes": 39,
+            "jsEventListeners": 18
+          },
+          "nativeState": {
+            "rootId": null,
+            "surfaces": 0,
+            "pages": 0,
+            "paragraphs": 0,
+            "printedPages": 0,
+            "globalLayoutEntries": null,
+            "printApiPresent": false
+          },
+          "printMatches": false
+        }
+      ]
+    },
+    {
+      "seam": "combined-native-open-layout-and-inventory",
+      "started": {
+        "utc": "2026-10-22T00:07:28.704Z",
+        "monotonicMs": 5658.973792
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:28.977Z",
+        "monotonicMs": 5931.547708
+      },
+      "pairCollectionSkewMs": 272.5739160000003,
+      "atomic": false,
+      "inlineReturnEdge": {
+        "pageUtc": "2026-10-22T00:07:28.697Z",
+        "pageMonotonicMs": 2851.899999976158,
+        "pageTimeOrigin": 1792627645845.9,
+        "media": {
+          "printMatches": false,
+          "note": "No emulateMedia or media-mode change"
+        },
+        "heap": {
+          "status": "available",
+          "usedJSHeapSize": 56129223,
+          "totalJSHeapSize": 83712219,
+          "jsHeapSizeLimit": 4294967296
+        },
+        "native": {
+          "rootId": "word:1",
+          "surfaces": 1,
+          "pages": 100,
+          "paragraphs": 800,
+          "printedPages": 0,
+          "globalLayoutEntries": 1,
+          "printApiPresent": true
+        }
+      },
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:28.711Z",
+            "monotonicMs": 5666.18575
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:28.914Z",
+            "monotonicMs": 5868.82925
+          },
+          "collectionSkewMs": 202.64350000000013,
+          "ownedRssBytes": 523599872,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 83050496,
+              "cpuPercent": 4.6,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 59555840,
+              "cpuPercent": 0.6,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 68763648,
+              "cpuPercent": 3.2,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 312229888,
+              "cpuPercent": 107.4,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 56177103,
+            "totalJSHeapSize": 83712219,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 3356,
+              "LayoutCount": 3,
+              "LayoutDuration": 0.053678,
+              "JSHeapUsedSize": 38376584,
+              "JSHeapTotalSize": 65896448
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 38376584,
+              "totalSize": 65896448,
+              "embedderHeapUsedSize": 62137488,
+              "backingStorageSize": 17815771
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 3356,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:28.915Z",
+            "monotonicMs": 5870.071292
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:28.976Z",
+            "monotonicMs": 5931.117208
+          },
+          "collectionSkewMs": 61.045916000000034,
+          "ownedRssBytes": 506576896,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 79020032,
+              "cpuPercent": 3.1,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 50069504,
+              "cpuPercent": 1,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 65945600,
+              "cpuPercent": 2,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 311541760,
+              "cpuPercent": 72.8,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 56193431,
+            "totalJSHeapSize": 83712219,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 3356,
+              "LayoutCount": 3,
+              "LayoutDuration": 0.053678,
+              "JSHeapUsedSize": 38392912,
+              "JSHeapTotalSize": 65896448
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 38392912,
+              "totalSize": 65896448,
+              "embedderHeapUsedSize": 62137488,
+              "backingStorageSize": 17815771
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 3356,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        }
+      ]
+    },
+    {
+      "seam": "after-actual-font-query",
+      "started": {
+        "utc": "2026-10-22T00:07:29.242Z",
+        "monotonicMs": 6196.847375
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:29.376Z",
+        "monotonicMs": 6330.57275
+      },
+      "pairCollectionSkewMs": 133.72537499999999,
+      "atomic": false,
+      "inlineReturnEdge": {
+        "pageUtc": "2026-10-22T00:07:29.240Z",
+        "pageMonotonicMs": 3395,
+        "pageTimeOrigin": 1792627645845.9,
+        "media": {
+          "printMatches": false,
+          "note": "No emulateMedia or media-mode change"
+        },
+        "heap": {
+          "status": "available",
+          "usedJSHeapSize": 56281817,
+          "totalJSHeapSize": 83712293,
+          "jsHeapSizeLimit": 4294967296
+        },
+        "native": {
+          "rootId": "word:1",
+          "surfaces": 1,
+          "pages": 100,
+          "paragraphs": 800,
+          "printedPages": 0,
+          "globalLayoutEntries": 1,
+          "printApiPresent": true
+        }
+      },
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:29.247Z",
+            "monotonicMs": 6202.156833
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:29.314Z",
+            "monotonicMs": 6269.089333
+          },
+          "collectionSkewMs": 66.93249999999989,
+          "ownedRssBytes": 496533504,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 76300288,
+              "cpuPercent": 0.9,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 50020352,
+              "cpuPercent": 0.1,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 63602688,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 306610176,
+              "cpuPercent": 17.2,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 56297985,
+            "totalJSHeapSize": 83712293,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 3356,
+              "LayoutCount": 3,
+              "LayoutDuration": 0.053678,
+              "JSHeapUsedSize": 38497392,
+              "JSHeapTotalSize": 65896448
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 38497392,
+              "totalSize": 65896448,
+              "embedderHeapUsedSize": 62231016,
+              "backingStorageSize": 17815845
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 3356,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:29.315Z",
+            "monotonicMs": 6269.759708
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:29.375Z",
+            "monotonicMs": 6329.878458
+          },
+          "collectionSkewMs": 60.118750000000546,
+          "ownedRssBytes": 488407040,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 76300288,
+              "cpuPercent": 0.6,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 50020352,
+              "cpuPercent": 0.1,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 61341696,
+              "cpuPercent": 0.3,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 300744704,
+              "cpuPercent": 10.8,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 56314165,
+            "totalJSHeapSize": 83712293,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 3356,
+              "LayoutCount": 3,
+              "LayoutDuration": 0.053678,
+              "JSHeapUsedSize": 38521024,
+              "JSHeapTotalSize": 65896448
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 38521024,
+              "totalSize": 65896448,
+              "embedderHeapUsedSize": 62231016,
+              "backingStorageSize": 17815845
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 3356,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        }
+      ]
+    },
+    {
+      "seam": "after-full-warm-native-completion-before-print",
+      "started": {
+        "utc": "2026-10-22T00:07:29.514Z",
+        "monotonicMs": 6468.616917
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:29.715Z",
+        "monotonicMs": 6669.555625
+      },
+      "pairCollectionSkewMs": 200.93870799999968,
+      "atomic": false,
+      "inlineReturnEdge": {
+        "pageUtc": "2026-10-22T00:07:29.506Z",
+        "pageMonotonicMs": 3660.3000000715256,
+        "pageTimeOrigin": 1792627645845.9,
+        "media": {
+          "printMatches": false,
+          "note": "No emulateMedia or media-mode change"
+        },
+        "heap": {
+          "status": "available",
+          "usedJSHeapSize": 52285240,
+          "totalJSHeapSize": 95110640,
+          "jsHeapSizeLimit": 4294967296
+        },
+        "native": {
+          "rootId": "word:1",
+          "surfaces": 1,
+          "pages": 100,
+          "paragraphs": 800,
+          "printedPages": 0,
+          "globalLayoutEntries": 1,
+          "printApiPresent": true
+        }
+      },
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:29.526Z",
+            "monotonicMs": 6480.480417
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:29.652Z",
+            "monotonicMs": 6606.882625
+          },
+          "collectionSkewMs": 126.40220800000043,
+          "ownedRssBytes": 534102016,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 76218368,
+              "cpuPercent": 0.6,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 50053120,
+              "cpuPercent": 0,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 60309504,
+              "cpuPercent": 0.1,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 347521024,
+              "cpuPercent": 20.3,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 52327630,
+            "totalJSHeapSize": 95110646,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 3356,
+              "LayoutCount": 3,
+              "LayoutDuration": 0.053678,
+              "JSHeapUsedSize": 34664604,
+              "JSHeapTotalSize": 77430784
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 34664604,
+              "totalSize": 77430784,
+              "embedderHeapUsedSize": 11878696,
+              "backingStorageSize": 17679862
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 3356,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:29.653Z",
+            "monotonicMs": 6607.547417
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:29.713Z",
+            "monotonicMs": 6668.281875
+          },
+          "collectionSkewMs": 60.734457999999904,
+          "ownedRssBytes": 534085632,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 76218368,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 50036736,
+              "cpuPercent": 0.2,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 60309504,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 347521024,
+              "cpuPercent": 52.4,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 52345422,
+            "totalJSHeapSize": 95110646,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 3356,
+              "LayoutCount": 3,
+              "LayoutDuration": 0.053678,
+              "JSHeapUsedSize": 34680852,
+              "JSHeapTotalSize": 77430784
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 34680852,
+              "totalSize": 77430784,
+              "embedderHeapUsedSize": 11878696,
+              "backingStorageSize": 17679862
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 3356,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        }
+      ]
+    },
+    {
+      "seam": "immediate-print-return",
+      "started": {
+        "utc": "2026-10-22T00:07:29.779Z",
+        "monotonicMs": 6733.729208
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:30.016Z",
+        "monotonicMs": 6970.793625
+      },
+      "pairCollectionSkewMs": 237.0644170000005,
+      "atomic": false,
+      "inlineReturnEdge": {
+        "pageUtc": "2026-10-22T00:07:29.775Z",
+        "pageMonotonicMs": 3929.100000023842,
+        "pageTimeOrigin": 1792627645845.9,
+        "media": {
+          "printMatches": false,
+          "note": "No emulateMedia or media-mode change"
+        },
+        "heap": {
+          "status": "available",
+          "usedJSHeapSize": 54178438,
+          "totalJSHeapSize": 95379682,
+          "jsHeapSizeLimit": 4294967296
+        },
+        "native": {
+          "rootId": "word:1",
+          "surfaces": 1,
+          "pages": 100,
+          "paragraphs": 800,
+          "printedPages": 100,
+          "globalLayoutEntries": 1,
+          "printApiPresent": true
+        }
+      },
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:29.795Z",
+            "monotonicMs": 6749.616042
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:29.930Z",
+            "monotonicMs": 6884.592458
+          },
+          "collectionSkewMs": 134.97641600000043,
+          "ownedRssBytes": 513589248,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 76136448,
+              "cpuPercent": 0.3,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 50053120,
+              "cpuPercent": 0.2,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 55705600,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 331694080,
+              "cpuPercent": 32.2,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54200846,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 4,
+              "LayoutDuration": 0.081387,
+              "JSHeapUsedSize": 36529428,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36529428,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27440880,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 100,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:29.931Z",
+            "monotonicMs": 6885.657292
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:30.015Z",
+            "monotonicMs": 6969.7045
+          },
+          "collectionSkewMs": 84.04720799999996,
+          "ownedRssBytes": 513032192,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 74629120,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53870592,
+              "cpuPercent": 0.8,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 53297152,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 331235328,
+              "cpuPercent": 26.3,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54217110,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 4,
+              "LayoutDuration": 0.081387,
+              "JSHeapUsedSize": 36545664,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36545664,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27440880,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 100,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        }
+      ]
+    },
+    {
+      "seam": "after-explicit-geometry-readout-and-three-raf",
+      "started": {
+        "utc": "2026-10-22T00:07:30.100Z",
+        "monotonicMs": 7054.804375
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:30.307Z",
+        "monotonicMs": 7261.659417
+      },
+      "pairCollectionSkewMs": 206.85504200000014,
+      "atomic": false,
+      "inlineReturnEdge": {
+        "pageUtc": "2026-10-22T00:07:30.064Z",
+        "pageMonotonicMs": 4218.700000047684,
+        "pageTimeOrigin": 1792627645845.9,
+        "media": {
+          "printMatches": false,
+          "note": "No emulateMedia or media-mode change"
+        },
+        "heap": {
+          "status": "available",
+          "usedJSHeapSize": 54238398,
+          "totalJSHeapSize": 95379682,
+          "jsHeapSizeLimit": 4294967296
+        },
+        "native": {
+          "rootId": "word:1",
+          "surfaces": 1,
+          "pages": 100,
+          "paragraphs": 800,
+          "printedPages": 100,
+          "globalLayoutEntries": 1,
+          "printApiPresent": true
+        }
+      },
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:30.106Z",
+            "monotonicMs": 7061.313917
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:30.176Z",
+            "monotonicMs": 7130.882833
+          },
+          "collectionSkewMs": 69.56891599999926,
+          "ownedRssBytes": 491929600,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 71876608,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53886976,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 45006848,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 321159168,
+              "cpuPercent": 16.1,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54269854,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 4,
+              "LayoutDuration": 0.081387,
+              "JSHeapUsedSize": 36598392,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36598392,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27387040,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 100,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:30.177Z",
+            "monotonicMs": 7131.6635
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:30.302Z",
+            "monotonicMs": 7256.590042
+          },
+          "collectionSkewMs": 124.92654200000015,
+          "ownedRssBytes": 491487232,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 71876608,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53870592,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 45006848,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 320733184,
+              "cpuPercent": 10.2,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54286762,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 4,
+              "LayoutDuration": 0.081387,
+              "JSHeapUsedSize": 36621620,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36621620,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27387040,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 100,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        }
+      ]
+    },
+    {
+      "seam": "after-clearPrint",
+      "started": {
+        "utc": "2026-10-22T00:07:30.325Z",
+        "monotonicMs": 7280.3425
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:30.615Z",
+        "monotonicMs": 7570.284708
+      },
+      "pairCollectionSkewMs": 289.9422080000004,
+      "atomic": false,
+      "inlineReturnEdge": {
+        "pageUtc": "2026-10-22T00:07:30.317Z",
+        "pageMonotonicMs": 4471.300000071526,
+        "pageTimeOrigin": 1792627645845.9,
+        "media": {
+          "printMatches": false,
+          "note": "No emulateMedia or media-mode change"
+        },
+        "heap": {
+          "status": "available",
+          "usedJSHeapSize": 54311626,
+          "totalJSHeapSize": 95379682,
+          "jsHeapSizeLimit": 4294967296
+        },
+        "native": {
+          "rootId": "word:1",
+          "surfaces": 1,
+          "pages": 100,
+          "paragraphs": 800,
+          "printedPages": 0,
+          "globalLayoutEntries": 1,
+          "printApiPresent": true
+        }
+      },
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:30.351Z",
+            "monotonicMs": 7305.708583
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:30.531Z",
+            "monotonicMs": 7486.098833
+          },
+          "collectionSkewMs": 180.39025000000038,
+          "ownedRssBytes": 490864640,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 71876608,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53886976,
+              "cpuPercent": 0.3,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 45006848,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 320094208,
+              "cpuPercent": 6.4,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54330558,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 5,
+              "LayoutDuration": 0.08142,
+              "JSHeapUsedSize": 36659096,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36659096,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27546224,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:30.532Z",
+            "monotonicMs": 7487.077333
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:30.614Z",
+            "monotonicMs": 7569.284333
+          },
+          "collectionSkewMs": 82.20699999999943,
+          "ownedRssBytes": 490897408,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 71860224,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53886976,
+              "cpuPercent": 0.6,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 45563904,
+              "cpuPercent": 0.1,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 319586304,
+              "cpuPercent": 5.5,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54346778,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 5,
+              "LayoutDuration": 0.08142,
+              "JSHeapUsedSize": 36675316,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36675316,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27546224,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 77
+          },
+          "nativeState": {
+            "rootId": "word:1",
+            "surfaces": 1,
+            "pages": 100,
+            "paragraphs": 800,
+            "printedPages": 0,
+            "globalLayoutEntries": 1,
+            "printApiPresent": true
+          },
+          "printMatches": false
+        }
+      ]
+    },
+    {
+      "seam": "after-runtime-dispose",
+      "started": {
+        "utc": "2026-10-22T00:07:30.624Z",
+        "monotonicMs": 7579.207167
+      },
+      "ended": {
+        "utc": "2026-10-22T00:07:30.831Z",
+        "monotonicMs": 7785.593333
+      },
+      "pairCollectionSkewMs": 206.38616600000023,
+      "atomic": false,
+      "inlineReturnEdge": {
+        "pageUtc": "2026-10-22T00:07:30.621Z",
+        "pageMonotonicMs": 4775.899999976158,
+        "pageTimeOrigin": 1792627645845.9,
+        "media": {
+          "printMatches": false,
+          "note": "No emulateMedia or media-mode change"
+        },
+        "heap": {
+          "status": "available",
+          "usedJSHeapSize": 54396182,
+          "totalJSHeapSize": 95379682,
+          "jsHeapSizeLimit": 4294967296
+        },
+        "native": {
+          "rootId": null,
+          "surfaces": 0,
+          "pages": 0,
+          "paragraphs": 0,
+          "printedPages": 0,
+          "globalLayoutEntries": null,
+          "printApiPresent": false
+        }
+      },
+      "pairs": [
+        {
+          "side": "before",
+          "started": {
+            "utc": "2026-10-22T00:07:30.649Z",
+            "monotonicMs": 7603.648792
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:30.768Z",
+            "monotonicMs": 7722.749375
+          },
+          "collectionSkewMs": 119.10058300000037,
+          "ownedRssBytes": 491110400,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 71892992,
+              "cpuPercent": 0.1,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53919744,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 45563904,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 319733760,
+              "cpuPercent": 3.2,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54417226,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 6,
+              "LayoutDuration": 0.081456,
+              "JSHeapUsedSize": 36746080,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36746080,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27485080,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 114
+          },
+          "nativeState": {
+            "rootId": null,
+            "surfaces": 0,
+            "pages": 0,
+            "paragraphs": 0,
+            "printedPages": 0,
+            "globalLayoutEntries": null,
+            "printApiPresent": false
+          },
+          "printMatches": false
+        },
+        {
+          "side": "after",
+          "started": {
+            "utc": "2026-10-22T00:07:30.769Z",
+            "monotonicMs": 7723.90625
+          },
+          "ended": {
+            "utc": "2026-10-22T00:07:30.830Z",
+            "monotonicMs": 7784.502458
+          },
+          "collectionSkewMs": 60.59620799999993,
+          "ownedRssBytes": 491094016,
+          "processes": [
+            {
+              "pid": 45162,
+              "parentPid": 45022,
+              "rssBytes": 71892992,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "browser",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45170,
+              "parentPid": 45162,
+              "rssBytes": 53903360,
+              "cpuPercent": 0.4,
+              "protocolReportedType": "GPU",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45171,
+              "parentPid": 45162,
+              "rssBytes": 45563904,
+              "cpuPercent": 0,
+              "protocolReportedType": "network.mojom.NetworkService",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            },
+            {
+              "pid": 45175,
+              "parentPid": 45162,
+              "rssBytes": 319733760,
+              "cpuPercent": 2.9,
+              "protocolReportedType": "renderer",
+              "roleBasis": "Exact protocol ID match only; null means unavailable"
+            }
+          ],
+          "pageHeap": {
+            "status": "available",
+            "usedJSHeapSize": 54433778,
+            "totalJSHeapSize": 95379682,
+            "jsHeapSizeLimit": 4294967296
+          },
+          "cdpPerformance": {
+            "status": "available",
+            "metrics": {
+              "Documents": 1,
+              "Nodes": 7857,
+              "LayoutCount": 6,
+              "LayoutDuration": 0.081456,
+              "JSHeapUsedSize": 36762560,
+              "JSHeapTotalSize": 77692928
+            }
+          },
+          "runtimeHeap": {
+            "status": "available",
+            "values": {
+              "usedSize": 36762560,
+              "totalSize": 77692928,
+              "embedderHeapUsedSize": 27485080,
+              "backingStorageSize": 17686754
+            },
+            "scope": "Corresponding isolate total, not page/Runtime scoped; embedder GC heap and backing storage are separate series, not all native/RSS"
+          },
+          "nativeDom": {
+            "documents": 1,
+            "nodes": 7857,
+            "jsEventListeners": 114
+          },
+          "nativeState": {
+            "rootId": null,
+            "surfaces": 0,
+            "pages": 0,
+            "paragraphs": 0,
+            "printedPages": 0,
+            "globalLayoutEntries": null,
+            "printApiPresent": false
+          },
+          "printMatches": false
+        }
+      ]
+    }
+  ],
+  "closestAdjacentReadsetDifferences": {
+    "combinedColdVsModuleBaseline": {
+      "basis": "Previous seam second readset -> next seam first readset, separately timestamped; not atomic/pure allocation",
+      "usedSize": 17340404,
+      "totalSize": 41271296,
+      "embedderHeapUsedSize": 55788360,
+      "backingStorageSize": 281151,
+      "ownedRssBytes": 139853824,
+      "nativeNodes": 3317
+    },
+    "warmVsActualFontQuery": {
+      "basis": "Previous seam second readset -> next seam first readset, separately timestamped; not atomic/pure allocation",
+      "usedSize": -3856420,
+      "totalSize": 11534336,
+      "embedderHeapUsedSize": -50352320,
+      "backingStorageSize": -135983,
+      "ownedRssBytes": 45694976,
+      "nativeNodes": 0
+    },
+    "printVsWarm": {
+      "basis": "Previous seam second readset -> next seam first readset, separately timestamped; not atomic/pure allocation",
+      "usedSize": 1848576,
+      "totalSize": 262144,
+      "embedderHeapUsedSize": 15562184,
+      "backingStorageSize": 6892,
+      "ownedRssBytes": -20496384,
+      "nativeNodes": 4501
+    }
+  },
+  "observedSampledOwnedRssMaximumBytes": 534102016,
+  "scope": {
+    "nativeSampling": "page-target CDP session created by context.newCDPSession(page)",
+    "runtimeHeap": "Same session, corresponding isolate total; not page/Runtime scoped",
+    "systemInfo": "Browser CDP session, optional exact OS PID role metadata only",
+    "nativeProfilePidJoin": "NONE: schema has no PID field; never automatically join nativeprofile to nearby RSS/role PIDs",
+    "pageUrl": "http://127.0.0.1:55260/word-native-memory-attribution.html"
+  },
+  "cleanup": {
+    "actualPids": [
+      45162,
+      45170,
+      45171,
+      45175
+    ],
+    "psExit": 1,
+    "psStdout": "",
+    "port": 55260,
+    "lsofExit": 1,
+    "lsofStdout": "",
+    "runnerCleanup": "Owned browser/server/Vite close completed within5s",
+    "slotReturnedBeforeOfflineInterpretation": true,
+    "samplerMayBeActive": false,
+    "allThreeStopsAcknowledged": true
+  },
+  "host": {
+    "before": {
+      "at": {
+        "utc": "2026-10-22T00:07:24.022Z",
+        "monotonicMs": 977.345875
+      },
+      "load": [
+        42.7978515625,
+        53.2890625,
+        66.6259765625
+      ],
+      "pageBytes": 16384,
+      "memoryFreePercent": 51,
+      "swapins": 7471996,
+      "swapouts": 10444007,
+      "swapusage": "vm.swapusage: total = 17408.00M  used = 15999.06M  free = 1408.94M  (encrypted)"
+    },
+    "after": {
+      "at": {
+        "utc": "2026-10-22T00:07:30.876Z",
+        "monotonicMs": 7831.287625
+      },
+      "load": [
+        38.3828125,
+        51.99560546875,
+        66.0107421875
+      ],
+      "pageBytes": 16384,
+      "memoryFreePercent": 46,
+      "swapins": 7475483,
+      "swapouts": 10444007,
+      "swapusage": "vm.swapusage: total = 17408.00M  used = 15943.06M  free = 1464.94M  (encrypted)"
+    },
+    "swapInBytes": 57131008,
+    "swapOutBytes": 0
+  },
+  "findings": [
+    "Actual Chromium145 accepted all Runtime.getHeapUsage reads and three native start/get/stop sequences. All three native responses were supported-empty: samples[] and modules[]. No native allocation stacks or module attribution was obtained. This does not mean zero allocations or unavailable command support.",
+    "Combined cold-open adjacent readsets show isolate JS used +17340404B, allocated JS heap +41271296B, embedder GC used +55788360B, backing +281151B, while sampled owned RSS +139853824B. The cold API combines fixture/admission/mount/font-ready/native completion and source inventory; no subphase/owner is identified.",
+    "After font query -> warm, JS used falls3856420B and embedder GC used falls50352320B, while allocated JS heap grows11534336B and sampled owned RSS grows45694976B. Counter movement is not monotonic. No GC event trace exists; do not assert when or why collection occurred.",
+    "Warm -> print adjacent readsets show JS used +1848576B, embedder GC used +15562184B, backing +6892B, sampled owned RSS -20496384B and native nodes +4501. The separate series do not yield causal RSS/native byte accounting.",
+    "clearPrint and dispose remove live native print/pages/surfaces, while final global native counter remains7857 and listener count114. No forced GC was requested. Global counters at this one cleanup seam do not prove a leak or object lifetime.",
+    "No new allocation owner, function cause or semantic source repair is justified. Supported-empty native profiles leave attribution unresolved. Preserve the observed combined cold/warm/print boundaries and existing renderer source-object proof as separate evidence; no new diagnostic/profile is authorized."
+  ],
+  "limits": [
+    "One instrumented fresh100/800 run.8seams x2 sequential readsets; timestamps/skews retained. Sampler start/profile capture, pair observations, fonts and geometry can alter allocation and scheduling. The profiles include observer work, not pure function allocation.",
+    "Runtime four fields are corresponding-isolate totals, not page/Runtime scoped; embedder GC and backing storage are not all native/browser resident bytes. Page performance.memory/CDP/Runtime remain separate series. Never sum/subtract them or RSS to derive native/live/resident/private bytes.",
+    "Native profile schema has no PID/time/free/live/resident fields; native profile is from page-target CDP, SystemInfo/RSS roles from browser/OS are separate. No automatic PID attribution or unresolved-address function inference.",
+    "No forced GC/pressure/purge/cache clear/JSallocation sampler/heapsnapshot/trace/vmmap/source patch was used. Ordinary collection may affect counters but was not separately measured.3RAF is not paint completion.",
+    "Observed sampled RSS max534102016 is not a normal qualification sample or continuous HWM. Global swap-in57131008B/swap-out0 and pressurefree51->46percent are ambient, not browser-attributed.",
+    "FullCDP response39B each/117B total fit frozen post-materialization/serialization storage caps; those caps never guaranteed a pre-receive allocation bound.",
+    "Normal W4 Word100RSS597786624/590364672/545865728 remainsFAILall3 versus536870912. Normal300/Corev2 results, originalR/P2b/O failures and diagnostic history remain unchanged. PortaltextbaselineFAIL/asyncportalNOTVERIFIED/M0OPEN remain."
+  ]
+}
