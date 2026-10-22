@@ -97,3 +97,46 @@ Existing consumers: 10 PASS across three files. Final strengthened navigation te
 Scoped ESLint on the five files: zero errors. Runtime's two pre-existing `any` warnings match HEAD; the other four files have no warnings. A TypeScript API `createProgram` uses existing `packages/office-word/tsconfig.typecheck.json`, no emit/incremental state, the five changed roots and syntax/semantic diagnostics requested only for those changed SourceFiles. Each changed file and options/config have zero diagnostics. After strengthening only the test, its type/lint checks were repeated and passed. Dependent-file diagnostics are excluded from this scoped check; this is not a whole-package/root type PASS. Integration owns the required complete candidate checks.
 
 Final new module SHA256 `9d8a79fffbaaf90cbf1c9e5fbfdb4bf426f93f1e763906d6a70233d4f8732592`; final navigation test SHA256 `bbddae6cddbd171dba6d7cd7d04fa6dc0378c199d4123fd03563951cf68bf35e`.
+
+## Candidate diagnostic and mixed-text qualification failure
+
+Immutable first candidate `4961f4c1474f064c7210d4990d573843dfda5919` has eight paths and clean source. Integration's one native-bucket diagnostic binds 1209 sources and 654 aliases. Actual 3315 Fibers now retain **6629** distinct tagged VNodes at cold and warm completion, versus 14840 in the previous diagnostic. Actual JavaScript responses are 490 /11110950 transformed bytes versus 630 /16721310. These demonstrate the intended structural and import-closure changes; diagnostic RSS is not a normal comparison.
+
+Three explicit native dumps use `deterministic:false` without forced GC. Assessment primary `.omx/m0/word100-native-buckets-v1/assessment.json`, SHA256 `981b3461950df0a5395a853cd1556180304e57146bd5af16674096f647112089`; trace 151759456 bytes SHA256 `db28f8cb4bde7c5dceb91f29ce786da785acc6d9167889e882da91d2049bf812`. The diagnostic adds a tracing service and allocates trace data. Its aggregate RSS must not be compared to H7 or used for budget acceptance. Native counters show BlinkGC committed capacity/free pools after allocation churn; buckets overlap and must not be summed into an RSS equation. No retained-JS-leak or single product source of the full native footprint is established.
+
+Independent review identified a changed-reference risk: primitive text placement reads parent `children[].meta.domElement`, now connected to the actual child Fiber. Existing weak tests checked text existence rather than exact mixed order. A new actual Reconciler/scheduler/commit test on 4961 has two FAIL: ordinary mixed mount is correct, but update yields `[text:updated,a:A2,b:B2]` instead of `[a:A2,text:updated,b:B2]`; fragment mount yields `[a:A,text:tail,b:B,c:C]` instead of `[a:A,b:B,text:tail,c:C]`. Element identities, source descendant immutability and completion/root preconditions pass. Later stages are NOT RUN after those assertions. Raw primary `.omx/m0/537-mixed-text-test.log` is preserved.
+
+Integration performed one actual baseline comparison on exact `cd384423`, copying only the same new observer test (SHA256 `9eb630f75bdd3c6f715a6999a616fb5e4c9449470c08a98dddc8415316f64511`). Both baseline tests fail earlier: ordinary mount is `[text:middle,a:A,b:B]`, fragment mount is `[text:tail,a:A,b:B,c:C]`. Original update/reorder are NOT REACHED, so their exact failures cannot be relabeled as pre-existing or resolved. Baseline result primary `.omx/m0/word100-mixed-commit-baseline.json`, SHA256 `ce205521a41a86fd28e3e084aece4ff23e10405818aa755b0047ccc5d08ad549`; all 1208 original bound files remain unchanged.
+
+Source trace shows the concrete mismatch: element commit can move around deferred primitive text, but primitive handling treats the final logical ordinal as a current DOM index. A fragment is also counted as one host although it expands to multiple direct nodes. The affected path needs actual DOM anchors, expanded fragments and protected Text VNodes rather than an ambiguous ordinal. Normal H7 qualification is held until this source correction and meaningful regressions complete; successful earlier native diagnostics and atomic preflight stages retain their exact source binding.
+
+## Affected primitive/fragment ordering correction
+
+An initial anchor-only implementation made ordinary mount/update/reorder pass and exposed a second failure: a virtual fragment's stale-child sweep removed its sibling C from the shared host. Deferring only its text was insufficient because following siblings had not finished moving. These intermediate failures remain in the appended RED transcript; no assertion was weakened.
+
+The final correction processes literal output once the nearest concrete owning host (or root fragment) has committed all children. It flattens only virtual fragments into ordered concrete-node/literal jobs, excludes portals, protects actual Text VNode identities and uses the following actual DOM node as the insertion anchor. Nested fragments sharing the ancestor's host defer both literal placement and stale-child sweeping to that complete owner. A root fragment still owns its container cleanup. All job arrays/sets are call-local; no global retained graph, cross-render cache or new Fiber field is added. The linear VNode-copy implementation and UI-free navigation remain byte-identical to 4961.
+
+Seven new actual commit cases now pass: ordinary mixed mount/update/reorder; fragment mount/update/reorder/deletion with sibling identity; adjacent primitives; protected tagged Text VNode identity; nested fragment literals; prefix before literal-only/duplicate-value fragments; root fragment stale cleanup. The final affected nine-file run is **63 PASS including these seven**, not 70. Source TypeScript exits zero. Existing renderer test type debt remains 123/123.
+
+Scoped ESLint exits one: current has one inherited unused `findOrCreateHost` import error and 20 existing `any` warnings. Actual HEAD source checked via ESLint stdin has two unused errors (including the old unused `deps` parameter) and the same 20 warnings. Current has no added lint diagnostic; the scoped command is not labeled PASS and no unrelated cleanup or budget suppression is applied. Integration must apply the unchanged repository guard.
+
+Final correction source SHA256 `fbd67337fcc429eb4d3e5d25a7609a6b4369fe1ce779479a754bc3a4728c874c`; new commit test SHA256 `dd522c3e6df7bb8e8ad6cd7aa88bd401437c646f45e5c50cd620f0f34ccc2d68`. Raw transcripts are primary `.omx/m0/537-mixed-text-{test,green}.log` and the source/test-type/lint/baseline-lint receipts retained beside them.
+
+Integration's literal `pnpm preflight` on immutable 4961 exits zero after 459.278 seconds, Node22.22/pnpm8.15. Record `.omx/m0/integration-logs/word100-candidate-preflight.json`, SHA256 `f8119e0599d7655b333ae1ddb1a5e1b3d722a884794b11373184cddec894de79`; complete ledger `.omx/m0/word100-candidate-preflight-ledger.json`. Original source targets/known-broken rows and 41 test-budget rows (1251 total allowed diagnostics, renderer123/Word7) remain unchanged. This run is bound to 4961; the correction needs affected checks, not a relabeled full preflight or per-edit repetition.
+
+Final correction commands use the same Node22.22 binary and renderer package Vitest4.0.18. In `packages/renderer-dom`:
+
+```sh
+node node_modules/vitest/vitest.mjs run test/core/fiber-vnode-commit-ownership.test.ts test/core/fiber-vnode-allocation.test.ts test/core/fiber-process-primitive-text.test.ts test/core/fiber-process-primitive-text-mark-wrapper.test.ts test/core/process-primitive-text-mark-wrapper-structure.test.ts test/core/m0-portal-lifecycle.test.ts test/core/m0-fiber-retention.test.ts test/core/fiber-reconcile-edge-cases.test.ts test/core/foreign-node-cleanup.test.ts --maxWorkers=1 --no-file-parallelism
+node node_modules/typescript/bin/tsc --noEmit --project tsconfig.json
+```
+
+From the author root:
+
+```sh
+node scripts/typecheck-tests.mjs renderer-dom
+node node_modules/eslint/bin/eslint.js packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts packages/renderer-dom/test/core/fiber-vnode-commit-ownership.test.ts
+git show HEAD:packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts | node node_modules/eslint/bin/eslint.js --stdin --stdin-filename packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts
+```
+
+The first three commands exit zero; both scoped lint commands exit one with the baseline/current diagnostics described above. In that last baseline command HEAD was immutable 4961. The intermediate fragment-literal timing failure is retained in helper tool output `0578fe`, not a separate raw file; the other first failures are appended to `537-mixed-text-test.log`.

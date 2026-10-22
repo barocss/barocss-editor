@@ -481,9 +481,7 @@ export function commitFiberTree(
     
     // If no child (all children committed), perform post-processing
     // Process primitive text and remove stale children
-    if (currentFiber.primitiveTextChildren && currentFiber.primitiveTextChildren.length > 0) {
-      processPrimitiveTextChildren(currentFiber, deps);
-    }
+    processPrimitiveTextChildren(currentFiber, deps);
     removeStaleChildren(currentFiber, deps);
     if (deps.isCurrent?.() === false) return;
     
@@ -498,9 +496,7 @@ export function commitFiberTree(
     let parentFiber: FiberNode | null = currentFiber.return;
     while (parentFiber && !parentFiber.sibling) {
       // Perform parent's post-processing
-      if (parentFiber.primitiveTextChildren && parentFiber.primitiveTextChildren.length > 0) {
-        processPrimitiveTextChildren(parentFiber, deps);
-      }
+      processPrimitiveTextChildren(parentFiber, deps);
       removeStaleChildren(parentFiber, deps);
       if (deps.isCurrent?.() === false) return;
       
@@ -508,9 +504,7 @@ export function commitFiberTree(
     }
     if (parentFiber) {
       // Perform parent's post-processing
-      if (parentFiber.primitiveTextChildren && parentFiber.primitiveTextChildren.length > 0) {
-        processPrimitiveTextChildren(parentFiber, deps);
-      }
+      processPrimitiveTextChildren(parentFiber, deps);
       removeStaleChildren(parentFiber, deps);
       if (deps.isCurrent?.() === false) return;
       
@@ -1102,6 +1096,11 @@ export function removeStaleChildren(
     return;
   }
 
+  // A virtual fragment owns only part of its ancestor's host. That ancestor
+  // sweeps the complete child set after all fragments commit; sweeping here
+  // would remove the fragment's siblings. A root fragment still owns its host.
+  if (!fiber.vnode.tag && fiber.vnode.text === undefined && fiber.parentFiber?.domElement === host) return;
+
   /**
    * Unless the node **owns its own DOM**, in which case none of it is this function's to judge.
    *
@@ -1217,81 +1216,59 @@ export function removeStaleChildren(
   }
 }
 
-/**
- * Process primitive text children
- * Called after all child Fibers are processed
- */
+/** A host child, or a literal waiting for its following concrete host child. */
+type PrimitiveHostChild = Node | { text: string | number; anchor: Node | null };
+
+/** Flatten only virtual fragments; actual elements and portals own other hosts. */
+function collectPrimitiveHostChildren(fiber: FiberNode, host: HTMLElement, children: PrimitiveHostChild[]): void {
+  let childFiber = fiber.child;
+  for (let index = 0; index < (fiber.vnode.children?.length ?? 0); index++) {
+    const child = fiber.vnode.children![index];
+    if (typeof child === 'string' || typeof child === 'number') {
+      children.push({ text: child, anchor: null });
+      continue;
+    }
+    while (childFiber && childFiber.index < index) childFiber = childFiber.sibling;
+    if (!childFiber || childFiber.index !== index || childFiber.vnode.tag === VNodeTag.PORTAL) continue;
+    if (childFiber.domElement === host) collectPrimitiveHostChildren(childFiber, host, children);
+    else if (childFiber.domElement?.parentNode === host) children.push(childFiber.domElement);
+  }
+}
+
+/** Place literals once their complete shared host has finished committing. */
 export function processPrimitiveTextChildren(
   fiber: FiberNode,
-  deps: FiberReconcileDependencies
+  _deps: FiberReconcileDependencies
 ): void {
-  if (!fiber.primitiveTextChildren || fiber.primitiveTextChildren.length === 0) {
-    return;
-  }
-  
   const host = fiber.domElement;
-  if (!host || !(host instanceof Element)) {
-    return;
-  }
-  
-  const vnode = fiber.vnode;
-  // React approach: get prevVNode from alternate
-  const prevVNode = fiber.alternate?.vnode || fiber.prevVNode;
-  const prevChildVNodes: (VNode | string | number)[] = prevVNode?.children || [];
-  
-  logger.debug(LogCategory.FIBER, 'processPrimitiveTextChildren start', {
-    hostTag: host instanceof Element ? host.tagName : VNodeTag.TEXT,
-    vnodeSid: vnode.sid,
-    primitiveCount: fiber.primitiveTextChildren.length,
-    prevChildrenCount: prevChildVNodes.length
-  });
-  
-  // Track already used text nodes (prevent duplicates)
+  if (!(host instanceof Element)) return;
+  // A fragment's following siblings can still move during commit. Its nearest
+  // owning host places all fragment literals after those siblings have settled.
+  if (!fiber.vnode.tag && fiber.vnode.text === undefined && fiber.parentFiber?.domElement === host) return;
+  if (!fiber.vnode.children?.length) return;
+
+  const children: PrimitiveHostChild[] = [];
+  collectPrimitiveHostChildren(fiber, host, children);
+  if (!children.some(child => !(child instanceof Node))) return;
+
+  // Text VNodes keep their own objects. Each literal claims another Text once,
+  // including literals contributed by nested or literal-only fragments.
   const usedTextNodes = new Set<Text>();
-  
-  // Process each primitive text
-  // Use handlePrimitiveTextChild to create/update text nodes at correct positions
-  // IMPORTANT: primitive text children must be mixed with VNode children,
-  // so use index as-is to insert at correct position
-  // DOM childNodes correspond 1:1 with VNode children, so can use index as-is
-  // However, processPrimitiveTextChildren is called after all child Fibers are processed,
-  // so must consider VNode children already added to DOM
-  // Calculate DOM node count of all children (VNode + primitive text) before index
-  // VNode children are already added to DOM, so check in DOM childNodes
-  // Primitive text is not yet added to DOM, so only count VNode children
-  for (const { text, index } of fiber.primitiveTextChildren) {
-    logger.debug(LogCategory.FIBER, 'processPrimitiveTextChildren', {
-      hostTag: (host as HTMLElement).tagName,
-      text,
-      index,
-      vnodeSid: vnode.sid,
-      prevText: prevChildVNodes[index]
-    });
-    // Calculate DOM node count of VNode children before index
-    // VNode children are already added to DOM, so check in DOM childNodes
-    let domNodeCount = 0;
-    if (vnode.children) {
-      for (let j = 0; j < index; j++) {
-        const prevChild = vnode.children[j];
-        if (typeof prevChild === 'object' && prevChild !== null) {
-          // VNode is already added to DOM, so count
-          const childVNode = prevChild as VNode;
-          const childDomElement = childVNode.meta?.domElement;
-          if (childDomElement && (childDomElement instanceof Element || childDomElement instanceof Text)) {
-            domNodeCount++;
-        }
-        }
-        // Primitive text is not yet added to DOM, so don't count
-        // (processed in same loop)
-      }
-    }
-    
-    // Process text node using handlePrimitiveTextChild
-    // childIndex uses domNodeCount (number of nodes already added to DOM before index)
-    // Pass usedTextNodes to exclude already used text nodes
-    const textNode = handlePrimitiveTextChild(host, text, domNodeCount, usedTextNodes);
-    
-    // Add used text node to tracking
-    usedTextNodes.add(textNode);
+  let anchor: Node | null = null;
+  for (let index = children.length - 1; index >= 0; index--) {
+    const child = children[index];
+    if (child instanceof Node) {
+      anchor = child;
+      if (child instanceof Text) usedTextNodes.add(child);
+    } else child.anchor = anchor;
+  }
+  for (const child of children) {
+    if (child instanceof Node) continue;
+    // Use the anchor's current position, not a final ordinal: moving an
+    // existing Text changes the DOM indices after its former position.
+    const anchorIndex = child.anchor
+      ? Array.from(host.childNodes).indexOf(child.anchor as ChildNode)
+      : host.childNodes.length;
+    usedTextNodes.add(handlePrimitiveTextChild(host, child.text, anchorIndex, usedTextNodes));
   }
 }
