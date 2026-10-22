@@ -1,5 +1,90 @@
 # Controlled Sheet relay v1 — #534
 
+## P3 real-account contract — new authenticated mode
+
+Human scope2026-10-22: bind real account authentication and current Sheet grants;
+verify two distinct accounts, read-only and revoke while preserving old screens.
+Base d7277c0098f39a59e87ca277090404f0dc1976bf is preserved. P3 is a
+contracts-only checkpoint; its frame tests do not prove actual login/PG/WS runtime.
+Old controlled stores, P1/P2 packets, receipts and native engine stay unchanged.
+
+Reuse existing browser `captureAuthorizedSession().requestFetch` and existing
+AuthCode+PKCE login. Do not expose a new browser JWT getter or copy identity code.
+POST `/api/v1/tenants/:tenantId/sheets/:documentId/admission`, same-origin Bearer
+from captured fetch, body `{protocolVersion:1,resumeCredential?}`. Server uses the
+existing OIDC `verifySession`, mandatory current-IdP session check and canonical
+PG Sheet authority. A binding-only probe omits resumeCredential and does not
+issue a native session or change the document. Response is no-store:
+
+```ts
+{ protocolVersion: 1, ticket, expiresAt, grantExpiresAt, accountBinding }
+```
+
+Both deadlines are Unix milliseconds. expiresAt is at most now+5s and no later
+than grantExpiresAt, the verified token/login expiry. Stable accountBinding has
+exact fields issuer,subject,userId,loginBindingId,tenantId,workspaceId,documentId.
+The UUID userId comes from canonical PG identity, not email/display name.
+loginBindingId is SHA256 of UTF-8 JSON tuple
+`['wonffice.sheet.login.v1',issuer,subject,sid]`; sid is the verified OIDC login
+session, separate from the native editor session. Expiry/access are ephemeral
+grants, never stable owner identity. Client account stamps do not grant access.
+
+Ticket is an unpredictable32-byte hex value, purpose/account/document/login/
+service-instance/allowed-origin bound, memory-only, one-use and capped128 live
+entries. Expired unused probes are removed before capacity checks. Consumption
+removes it atomically BEFORE asynchronous gates, even when that attempt fails;
+retry requires fresh authenticated admission. Queue wait cannot extend expiry.
+It never appears in URL/query/subprotocol, IDB, logs or public evidence. Raw Bearer
+is accepted only at private HTTP admission and is never persisted/echoed/logged.
+
+First WS frame `authenticate-account` contains only version,requestId,ticket.
+Reply `account-authenticated` correlates requestId and contains existing accepted
+state plus session fields protocolVersion,controlled:false,credential,identity,
+context,access,accountBinding,expiresAt (Unix milliseconds). Native context's
+documentId equals the actual PG Sheet document UUID. Legacy `authenticated`/
+controlled:true is a distinct mode and cannot be parsed as account auth. In
+account mode, legacy anonymous authenticate/HTTP session routes never fall back.
+Subsequent append/open/checkpoint and per-packet receipts retain P1/P2 DTOs.
+
+UI verifies current captured login and its own generation before/after every
+HTTP/WS/IDB asynchronous callback. captureAuthorizedSession.isCurrent alone does
+not check wall-clock expiry; UI also retires at the verified expiry and on local
+logout/account switch. Load private account IDB only after server current binding
+matches. Old controlled records or another account/tenant/document/login SID are
+not adopted, rewritten, deleted or exposed. A probe ticket is not permission to
+replace an old pending identity. Missing/denied original native credential with
+old pending packets remains refusal. Reconnect obtains a new ticket under the
+same verified account/login binding and original native credential; different
+login SID, even the same account, cannot silently take over old queued packets.
+Same-SID token renewal may reconnect after fresh admission; expired proof freezes.
+
+Authority sequence: mandatory async verified issuer/sub/sid/exp and live IdP gate;
+bounded per-document queue; canonical current tenant membership plus first-class
+Sheet document/grant PG shared locks; final expiry/connection-epoch checks; sync
+native operation and socket enqueue. Do not pass Promise into native currentAccess.
+All reads, state pushes, delayed ACKs, retries and resumed credentials repeat this
+gate. Holds wait outside the document/PG queue, then reacquire current write
+authority. PG errors after known native COMMIT yield ACK unknown, not a claim that
+accepted input was rejected; PG/native databases are not one atomic transaction.
+Transport reply deadline10s, live authorization gate5s, queued account operations
+128, existing WS pending32/socket; abort poisons late queued work before mutation.
+
+First-class Sheet metadata/grants reuse PG identities/tenant_memberships/workspaces
+and intersect tenant role with explicit document grant. Existing generic product
+enum and Yorkie capability do not cover Sheet; no Note relabel or Yorkie resume.
+New account manifest/registry use explicit new version/mode/new directory. Fresh
+authority is required after restart; persisted access snapshots do not restore
+grants. Integration alone registers/applies new migration and owns genuine local
+OIDC, private PG, fixed ports and browser qualification. Author fixtures/models
+are separate from two-account runtime evidence. See [JWT BCP](https://www.rfc-editor.org/rfc/rfc8725.html)
+and [token introspection](https://www.rfc-editor.org/rfc/rfc7662.html).
+
+P3 contracts-only checks on Node22.22.0/pnpm8.15.0 frozen graph: strict2 roots
+with0 diagnostics; pure protocol9/9 PASS,0failed/skipped/cancelled, exit0.
+Commands: `pnpm --ignore-workspace type-check -- src/sheet-preview-protocol.ts test/sheet-preview-protocol.test.ts`
+and `pnpm --ignore-workspace test -- test/sheet-preview-protocol.test.ts`.
+No account service/PG/IdP/browser runtime is claimed by this contract checkpoint.
+
 Base `1638944c6db0d39e994ba5f12367a4b56714f958`. Contracts-only P1
 `6768f95decf5f49168639184c06fec2fd42e6681` froze the browser-neutral DTOs first.
 WebSocket contracts-only P2 `190518cbd792ed3c1a44fe9c22ca075821fee19d` adds

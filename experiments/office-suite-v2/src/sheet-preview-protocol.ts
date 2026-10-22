@@ -10,6 +10,27 @@ export type SheetRelaySessionRequest = Readonly<{ protocolVersion: 1; resumeCred
 export type SheetRelayAccess = 'read-write' | 'read-only';
 export type SheetRelaySession = Readonly<{ protocolVersion: 1; controlled: true; credential: string; identity: SheetRelayIdentity; context: WorkbookContext }>;
 export type SheetRelayWsSession = SheetRelaySession & Readonly<{ access: SheetRelayAccess }>;
+/** P3 account scope is separate from the preserved controlled P1 session. */
+export type SheetRelayAccountBinding = Readonly<{
+  issuer: string; subject: string; userId: string; loginBindingId: string;
+  tenantId: string; workspaceId: string; documentId: string;
+}>;
+export type SheetRelayAccountSession = Readonly<Omit<SheetRelayWsSession, 'controlled'> & {
+  controlled: false; accountBinding: SheetRelayAccountBinding;
+  /** Verified login expiry, Unix milliseconds. Never part of stable owner binding. */
+  expiresAt: number;
+}>;
+export type SheetRelayAccountAdmissionRequest = SheetRelaySessionRequest;
+export type SheetRelayAccountAdmissionResponse = Readonly<{
+  protocolVersion: 1; ticket: string;
+  /** Single-use ticket expiry and verified login expiry, both Unix milliseconds. */
+  expiresAt: number; grantExpiresAt: number; accountBinding: SheetRelayAccountBinding;
+}>;
+export const SHEET_RELAY_ACCOUNT_LIMITS = Object.freeze({ ticketMs: 5_000, tickets: 128, authorizationMs: 5_000, queuedOperations: 128, tokenBytes: 8_192 });
+export function sheetRelayAccountAdmissionPath(tenantId: string, documentId: string): string {
+  if (!uuid(tenantId) || !uuid(documentId)) throw new Error('invalid-account-scope');
+  return `/api/v1/tenants/${tenantId}/sheets/${documentId}/admission`;
+}
 export type SheetRelayPacket = Readonly<{ updateId: string; bytesBase64: string; byteLength: number; sha256: string }>;
 export type SheetRelayAppendRequest = Readonly<{ protocolVersion: 1; context: WorkbookContext; admission: SheetRelayAdmission; packet: SheetRelayPacket; loseAck?: boolean }>;
 export type SheetRelayReceipt = Readonly<{ context: WorkbookContext; admission: SheetRelayAdmission; updateId: string; sha256: string; sequence: number; frontierBase64: string }>;
@@ -91,10 +112,12 @@ export const SHEET_RELAY_WS_LIMITS = Object.freeze({
 type Correlated = Readonly<{ protocolVersion: 1; requestId: string }>;
 export type SheetRelayClientFrame =
   (Correlated & Readonly<{ type: 'authenticate'; session: SheetRelaySessionRequest }>) |
+  (Correlated & Readonly<{ type: 'authenticate-account'; ticket: string }>) |
   (Correlated & Readonly<{ type: 'open' | 'checkpoint' }>) |
   (Correlated & Readonly<{ type: 'append'; request: SheetRelayAppendRequest; delayAckMs?: number }>);
 export type SheetRelayServerFrame =
   (Correlated & Readonly<{ type: 'authenticated'; session: SheetRelayWsSession; state: SheetRelayState }>) |
+  (Correlated & Readonly<{ type: 'account-authenticated'; session: SheetRelayAccountSession; state: SheetRelayState }>) |
   (Correlated & Readonly<{ type: 'state'; state: SheetRelayState }>) |
   (Correlated & Readonly<{ type: 'append-result'; result: SheetRelayAppendResult }>) |
   (Correlated & Readonly<{ type: 'checkpoint'; checkpoint: SheetRelayCheckpoint }>) |
@@ -103,6 +126,7 @@ export type SheetRelayServerFrame =
   Readonly<{ protocolVersion: 1; type: 'rejected'; requestId?: string; code: string; updateId?: string }>;
 
 const sequence = (value: unknown, minimum = 1): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum;
+const uuid = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const code = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_:#-]{1,200}$/.test(value);
 function nativeBytes(value: unknown, byteLength: unknown): boolean {
   return sequence(byteLength) && byteLength <= SHEET_RELAY_LIMITS.updateBytes && base64ToBytes(value).length === byteLength;
@@ -132,6 +156,30 @@ function parseSession(value: unknown): SheetRelayWsSession {
       !isRelayCredential(value.credential) || !isIdentity(value.identity) || !isSheetRelayContext(value.context) || (value.access !== 'read-write' && value.access !== 'read-only')) throw new Error('invalid-relay-session');
   return value as SheetRelayWsSession;
 }
+export function parseSheetRelayAccountBinding(value: unknown): SheetRelayAccountBinding {
+  if (!object(value) || !fields(value, ['issuer', 'subject', 'userId', 'loginBindingId', 'tenantId', 'workspaceId', 'documentId']) ||
+      typeof value.issuer !== 'string' || value.issuer.length < 1 || value.issuer.length > 2_048 || typeof value.subject !== 'string' || value.subject.length < 1 || value.subject.length > 255 ||
+      !uuid(value.userId) || !isSha256(value.loginBindingId) || !uuid(value.tenantId) || !uuid(value.workspaceId) || !uuid(value.documentId)) throw new Error('invalid-account-binding');
+  return value as SheetRelayAccountBinding;
+}
+export function sameSheetRelayAccountBinding(left: SheetRelayAccountBinding, right: SheetRelayAccountBinding): boolean {
+  return left.issuer === right.issuer && left.subject === right.subject && left.userId === right.userId && left.loginBindingId === right.loginBindingId &&
+    left.tenantId === right.tenantId && left.workspaceId === right.workspaceId && left.documentId === right.documentId;
+}
+export function parseSheetRelayAccountSession(value: unknown): SheetRelayAccountSession {
+  if (!object(value) || !fields(value, ['protocolVersion', 'controlled', 'credential', 'identity', 'context', 'access', 'accountBinding', 'expiresAt']) ||
+      value.protocolVersion !== 1 || value.controlled !== false || !isRelayCredential(value.credential) || !isIdentity(value.identity) || !isSheetRelayContext(value.context) ||
+      (value.access !== 'read-write' && value.access !== 'read-only') || !sequence(value.expiresAt)) throw new Error('invalid-account-session');
+  const accountBinding = parseSheetRelayAccountBinding(value.accountBinding);
+  if (value.context.documentId !== accountBinding.documentId) throw new Error('account-document-binding');
+  return value as SheetRelayAccountSession;
+}
+export function parseSheetRelayAccountAdmissionResponse(value: unknown): SheetRelayAccountAdmissionResponse {
+  if (!object(value) || !fields(value, ['protocolVersion', 'ticket', 'expiresAt', 'grantExpiresAt', 'accountBinding']) || value.protocolVersion !== 1 || !isRelayCredential(value.ticket) ||
+      !sequence(value.expiresAt) || !sequence(value.grantExpiresAt) || value.expiresAt > value.grantExpiresAt) throw new Error('invalid-account-admission');
+  parseSheetRelayAccountBinding(value.accountBinding);
+  return value as SheetRelayAccountAdmissionResponse;
+}
 function parseResult(value: unknown): SheetRelayAppendResult {
   if (!object(value) || value.protocolVersion !== 1) throw new Error('invalid-append-result');
   if (value.status === 'durable' && fields(value, ['protocolVersion', 'status', 'receipt'])) return { protocolVersion: 1, status: 'durable', receipt: parseSheetRelayReceipt(value.receipt) };
@@ -148,6 +196,7 @@ export function parseSheetRelayClientFrame(value: unknown): SheetRelayClientFram
   if (!object(value) || value.protocolVersion !== 1 || !id(value.requestId)) throw new Error('invalid-client-frame');
   const base = { protocolVersion: 1 as const, requestId: value.requestId };
   if (value.type === 'authenticate' && fields(value, ['protocolVersion', 'type', 'requestId', 'session'])) return { ...base, type: 'authenticate', session: parseSheetRelaySessionRequest(value.session) };
+  if (value.type === 'authenticate-account' && fields(value, ['protocolVersion', 'type', 'requestId', 'ticket']) && isRelayCredential(value.ticket)) return { ...base, type: 'authenticate-account', ticket: value.ticket };
   if ((value.type === 'open' || value.type === 'checkpoint') && fields(value, ['protocolVersion', 'type', 'requestId'])) return { ...base, type: value.type };
   if (value.type === 'append' && fields(value, ['protocolVersion', 'type', 'requestId', 'request'], ['delayAckMs'])) {
     if (Object.hasOwn(value, 'delayAckMs') && (!sequence(value.delayAckMs, 0) || value.delayAckMs > 1_000)) throw new Error('invalid-delay-ack');
@@ -168,6 +217,11 @@ export function parseSheetRelayServerFrame(value: unknown): SheetRelayServerFram
   }
   if (!id(value.requestId)) throw new Error('invalid-server-correlation');
   const base = { protocolVersion: 1 as const, requestId: value.requestId };
+  if (value.type === 'account-authenticated' && fields(value, ['protocolVersion', 'type', 'requestId', 'session', 'state'])) {
+    const session = parseSheetRelayAccountSession(value.session), state = parseSheetRelayState(value.state);
+    if (!sameRelayContext(session.context, state.context)) throw new Error('session-state-binding');
+    return { ...base, type: 'account-authenticated', session, state };
+  }
   if (value.type === 'authenticated' && fields(value, ['protocolVersion', 'type', 'requestId', 'session', 'state'])) {
     const session = parseSession(value.session), state = parseSheetRelayState(value.state);
     if (!sameRelayContext(session.context, state.context)) throw new Error('session-state-binding');
