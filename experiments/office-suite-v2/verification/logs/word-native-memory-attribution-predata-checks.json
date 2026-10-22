@@ -1,0 +1,123 @@
+{
+  "schema": "office-v2-m0/word-native-memory-attribution-predata-checks-v1",
+  "diagnosticData": "NOT RUN; no browser/attemptclaim",
+  "firstChecks": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "name": "tests",
+        "chunk_id": "6408db",
+        "wall_time_seconds": 0.846864209,
+        "exit_code": 0,
+        "original_token_count": 555,
+        "output": "Native Node TypeScript tests: 1 files.\nTAP version 13\n# Subtest: actual sampler orders start, operation, pairedreadout, get, stop and stores addresses unchanged\nok 1 - actual sampler orders start, operation, pairedreadout, get, stop and stores addresses unchanged\n  ---\n  duration_ms: 4.922208\n  type: 'test'\n  ...\n# Subtest: unsupported classification requires structured code; missing start skips future samplers without bogus stop\nok 2 - unsupported classification requires structured code; missing start skips future samplers without bogus stop\n  ---\n  duration_ms: 1.866791\n  type: 'test'\n  ...\n# Subtest: missing get still stops current sampler and skips later starts; unrelated errors fail\nok 3 - missing get still stops current sampler and skips later starts; unrelated errors fail\n  ---\n  duration_ms: 0.74825\n  type: 'test'\n  ...\n# Subtest: malformed withinlimit response is preserved before validation and stop; retry is refused\nok 4 - malformed withinlimit response is preserved before validation and stop; retry is refused\n  ---\n  duration_ms: 0.400209\n  type: 'test'\n  ...\n# Subtest: postreceipt individual and cumulative caps retain size/hash but omit oversized bodies and always stop\nok 5 - postreceipt individual and cumulative caps retain size/hash but omit oversized bodies and always stop\n  ---\n  duration_ms: 0.597417\n  type: 'test'\n  ...\n# Subtest: command timeout and late settlement fail; uncertain start receives one stop, failed stop is never retried\nok 6 - command timeout and late settlement fail; uncertain start receives one stop, failed stop is never retried\n  ---\n  duration_ms: 7.577875\n  type: 'test'\n  ...\n# Subtest: expired samplewall defers sampler stop to independent cleanup budget\nok 7 - expired samplewall defers sampler stop to independent cleanup budget\n  ---\n  duration_ms: 0.414917\n  type: 'test'\n  ...\n# Subtest: Runtime fields stay separate, missing values unavailable; verified missing command is not retried\nok 8 - Runtime fields stay separate, missing values unavailable; verified missing command is not retried\n  ---\n  duration_ms: 0.232167\n  type: 'test'\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 358.938667\n"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "name": "types",
+        "chunk_id": "25c7d8",
+        "wall_time_seconds": 2.185372083,
+        "exit_code": 1,
+        "original_token_count": 1844,
+        "output": "Strict TypeScript 5.9.3: 2 root files; imports included; 11 diagnostics.\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m9\u001b[0m:\u001b[93m136\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m9\u001b[0m  assert.deepEqual(calls,['Memory.startSampling','actual','paired','Memory.getSamplingProfile','Memory.stopSampling']);assert.deepEqual(r.windows[0].response,profile);assert.equal(r.mayBeActive,false);assert.equal(r.windows[0].status,'COMPLETED diagnostic window');\n\u001b[7m \u001b[0m \u001b[91m                                                                                                                                       ~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m9\u001b[0m:\u001b[93m214\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m9\u001b[0m  assert.deepEqual(calls,['Memory.startSampling','actual','paired','Memory.getSamplingProfile','Memory.stopSampling']);assert.deepEqual(r.windows[0].response,profile);assert.equal(r.mayBeActive,false);assert.equal(r.windows[0].status,'COMPLETED diagnostic window');\n\u001b[7m \u001b[0m \u001b[91m                                                                                                                                                                                                                     ~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m20\u001b[0m:\u001b[93m114\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m20\u001b[0m  assert.deepEqual(calls,['Memory.startSampling','Memory.getSamplingProfile','Memory.stopSampling']);assert.equal(r.windows[0].profileStatus,'UNAVAILABLE; future starts skipped');\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                 ~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m25\u001b[0m:\u001b[93m113\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m25\u001b[0m  await assert.rejects(r.window('cold',async()=>1,async()=>{}),/Invalid native profile arrays/);assert.deepEqual(r.windows[0].response,response);assert.equal(calls.at(-1),'Memory.stopSampling');await assert.rejects(r.window('warm',async()=>1,async()=>{}),/Prior native window failed/);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                ~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m29\u001b[0m:\u001b[93m106\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m29\u001b[0m  await assert.rejects(one.window('cold',async()=>1,async()=>{}),/post-receipt storage cap/);assert.equal(one.windows[0].response,undefined);assert.equal(one.windows[0].receivedJsonBytes,bytes);assert.match(String(one.windows[0].receivedJsonSha256),/^[a-f0-9]{64}$/);assert.equal(one.mayBeActive,false);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                         ~~~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m29\u001b[0m:\u001b[93m154\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m29\u001b[0m  await assert.rejects(one.window('cold',async()=>1,async()=>{}),/post-receipt storage cap/);assert.equal(one.windows[0].response,undefined);assert.equal(one.windows[0].receivedJsonBytes,bytes);assert.match(String(one.windows[0].receivedJsonSha256),/^[a-f0-9]{64}$/);assert.equal(one.mayBeActive,false);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                                                         ~~~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m29\u001b[0m:\u001b[93m214\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m29\u001b[0m  await assert.rejects(one.window('cold',async()=>1,async()=>{}),/post-receipt storage cap/);assert.equal(one.windows[0].response,undefined);assert.equal(one.windows[0].receivedJsonBytes,bytes);assert.match(String(one.windows[0].receivedJsonSha256),/^[a-f0-9]{64}$/);assert.equal(one.mayBeActive,false);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                                                                                                                     ~~~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m30\u001b[0m:\u001b[93m296\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m30\u001b[0m  const total=make(async method=>method==='Memory.getSamplingProfile'?profile:{},{totalLimitBytes:bytes});await total.window('cold',async()=>1,async()=>{});await assert.rejects(total.window('warm',async()=>1,async()=>{}),/storage cap/);assert.equal(total.retainedProfileBytes,bytes);assert.equal(total.windows[1].response,undefined);assert.equal(total.mayBeActive,false);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                                                                                                                                                                                                       ~~~~~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m34\u001b[0m:\u001b[93m170\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m34\u001b[0m  await assert.rejects(timed.window('cold',async()=>1,async()=>{}),/command timeout/);assert.deepEqual(calls,['Memory.startSampling','Memory.stopSampling']);assert.equal(timed.commands[0].status,'FAILED');assert.ok(timed.commands[0].started&&timed.commands[0].ended);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                                                                         ~~~~~~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m34\u001b[0m:\u001b[93m215\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m34\u001b[0m  await assert.rejects(timed.window('cold',async()=>1,async()=>{}),/command timeout/);assert.deepEqual(calls,['Memory.startSampling','Memory.stopSampling']);assert.equal(timed.commands[0].status,'FAILED');assert.ok(timed.commands[0].started&&timed.commands[0].ended);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                                                                                                                      ~~~~~~~~~~~~~~~~~\u001b[0m\n\u001b[96mverification/word-native-memory-attribution-record.test.ts\u001b[0m:\u001b[93m34\u001b[0m:\u001b[93m242\u001b[0m - \u001b[91merror\u001b[0m\u001b[90m TS2532: \u001b[0mObject is possibly 'undefined'.\n\n\u001b[7m34\u001b[0m  await assert.rejects(timed.window('cold',async()=>1,async()=>{}),/command timeout/);assert.deepEqual(calls,['Memory.startSampling','Memory.stopSampling']);assert.equal(timed.commands[0].status,'FAILED');assert.ok(timed.commands[0].started&&timed.commands[0].ended);\n\u001b[7m  \u001b[0m \u001b[91m                                                                                                                                                                                                                                                 ~~~~~~~~~~~~~~~~~\u001b[0m\n\n"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "name": "lint",
+        "chunk_id": "3684e4",
+        "wall_time_seconds": 1.7161683330000002,
+        "exit_code": 1,
+        "original_token_count": 100,
+        "output": "{\"file\":\"/Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-native-memory-attribution-record.ts\",\"messages\":[{\"ruleId\":\"no-unsafe-finally\",\"severity\":2,\"message\":\"Unsafe usage of ThrowStatement.\",\"line\":73,\"column\":125,\"nodeType\":\"ThrowStatement\",\"messageId\":\"unsafeUsage\",\"endLine\":73,\"endColumn\":137}]}\n{\"files\":4,\"errors\":1,\"warnings\":0}\n"
+      }
+    }
+  ],
+  "firstFailureResolution": "Initial tests8/8PASS; new strict types11possibly-undefined testaccesses fixed by safe checked accesses; ESLint1unsafe-finally fixed by retaining primary/stoperror then throwing afterfinally. No budget/config/suppression changes.",
+  "finalChecks": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "name": "tests",
+        "cmd": "/Users/user/.nvm/versions/node/v22.22.0/bin/node experiments/office-suite-v2/scripts/test.mjs verification/word-native-memory-attribution-record.test.ts",
+        "chunk_id": "2c6107",
+        "wall_time_seconds": 0.935023583,
+        "exit_code": 0,
+        "original_token_count": 738,
+        "output": "Native Node TypeScript tests: 1 files.\nTAP version 13\n# Subtest: actual sampler orders start, operation, pairedreadout, get, stop and stores addresses unchanged\nok 1 - actual sampler orders start, operation, pairedreadout, get, stop and stores addresses unchanged\n  ---\n  duration_ms: 11.082042\n  type: 'test'\n  ...\n# Subtest: unsupported classification requires structured code; missing start skips future samplers without bogus stop\nok 2 - unsupported classification requires structured code; missing start skips future samplers without bogus stop\n  ---\n  duration_ms: 0.278042\n  type: 'test'\n  ...\n# Subtest: missing get still stops current sampler and skips later starts; unrelated errors fail\nok 3 - missing get still stops current sampler and skips later starts; unrelated errors fail\n  ---\n  duration_ms: 0.687916\n  type: 'test'\n  ...\n# Subtest: malformed withinlimit response is preserved before validation and stop; retry is refused\nok 4 - malformed withinlimit response is preserved before validation and stop; retry is refused\n  ---\n  duration_ms: 0.342209\n  type: 'test'\n  ...\n# Subtest: postreceipt individual and cumulative caps retain size/hash but omit oversized bodies and always stop\nok 5 - postreceipt individual and cumulative caps retain size/hash but omit oversized bodies and always stop\n  ---\n  duration_ms: 0.455834\n  type: 'test'\n  ...\n# Subtest: command timeout and late settlement fail; uncertain start receives one stop, failed stop is never retried\nok 6 - command timeout and late settlement fail; uncertain start receives one stop, failed stop is never retried\n  ---\n  duration_ms: 6.342167\n  type: 'test'\n  ...\n# Subtest: expired samplewall defers sampler stop to independent cleanup budget\nok 7 - expired samplewall defers sampler stop to independent cleanup budget\n  ---\n  duration_ms: 1.82475\n  type: 'test'\n  ...\n# Subtest: Runtime fields stay separate, missing values unavailable; verified missing command is not retried\nok 8 - Runtime fields stay separate, missing values unavailable; verified missing command is not retried\n  ---\n  duration_ms: 0.352042\n  type: 'test'\n  ...\n# Subtest: stop budget loss before actual dispatch remains eligible for one independent cleanup stop\nok 9 - stop budget loss before actual dispatch remains eligible for one independent cleanup stop\n  ---\n  duration_ms: 0.609625\n  type: 'test'\n  ...\n# Subtest: supported empty profile remains supported, while malformed acknowledgements failclosed\nok 10 - supported empty profile remains supported, while malformed acknowledgements failclosed\n  ---\n  duration_ms: 0.7635\n  type: 'test'\n  ...\n# Subtest: actual common RSS read saves the crossing PID table then requests urgent owned kill\nok 11 - actual common RSS read saves the crossing PID table then requests urgent owned kill\n  ---\n  duration_ms: 4.691166\n  type: 'test'\n  ...\n1..11\n# tests 11\n# suites 0\n# pass 11\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 391.256917\n"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "name": "types",
+        "cmd": "/Users/user/.nvm/versions/node/v22.22.0/bin/node experiments/office-suite-v2/scripts/type-check.mjs verification/word-native-memory-attribution-record.ts verification/word-native-memory-attribution-record.test.ts",
+        "chunk_id": "b56e2b",
+        "wall_time_seconds": 2.844181292,
+        "exit_code": 0,
+        "original_token_count": 18,
+        "output": "Strict TypeScript 5.9.3: 2 root files; imports included; 0 diagnostics.\n"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "name": "lint",
+        "cmd": "/Users/user/.nvm/versions/node/v22.22.0/bin/node --input-type=module <<'NODE'\nimport {createRequire} from 'node:module';const root='/Users/user/.codex/worktrees/522-m0-integration/barocss-editor',own='/Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/';const {ESLint}=createRequire(root+'/package.json')('eslint');const lint=new ESLint({cwd:root,overrideConfigFile:root+'/.eslintrc.js',useEslintrc:false,ignore:false});const results=await lint.lintFiles(['runner.mjs','browser.mjs','record.ts','record.test.ts'].map(x=>own+'word-native-memory-attribution-'+x));let errors=0,warnings=0;for(const r of results){errors+=r.errorCount;warnings+=r.warningCount;if(r.messages.length)console.log(JSON.stringify({file:r.filePath,messages:r.messages}));}console.log(JSON.stringify({files:results.length,errors,warnings}));process.exitCode=errors||warnings?1:0;\nNODE",
+        "chunk_id": "c70f4c",
+        "wall_time_seconds": 2.1986102499999998,
+        "exit_code": 0,
+        "original_token_count": 9,
+        "output": "{\"files\":4,\"errors\":0,\"warnings\":0}\n"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "name": "syntax",
+        "cmd": "/Users/user/.nvm/versions/node/v22.22.0/bin/node --check experiments/office-suite-v2/verification/word-native-memory-attribution-runner.mjs && /Users/user/.nvm/versions/node/v22.22.0/bin/node --check experiments/office-suite-v2/verification/word-native-memory-attribution-browser.mjs",
+        "chunk_id": "a177a0",
+        "wall_time_seconds": 1.377306333,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    }
+  ],
+  "negativeLeases": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "chunk_id": "fbe650",
+        "wall_time_seconds": 0.000005958,
+        "exit_code": 1,
+        "original_token_count": 197,
+        "output": "file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-native-memory-attribution-runner.mjs:20\nif(!leasePath)throw new Error('A new diagnostic-kind Integration lease is required; no browser started');\n                    ^\n\nError: A new diagnostic-kind Integration lease is required; no browser started\n    at file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-native-memory-attribution-runner.mjs:20:21\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)\n\nNode.js v22.22.0\n"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "chunk_id": "7776f7",
+        "wall_time_seconds": 0.000007542,
+        "exit_code": 1,
+        "original_token_count": 269,
+        "output": "file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-native-memory-attribution-runner.mjs:22\nif(lease.status!=='granted'||lease.kind!=='diagnostic-word-native-memory-attribution-v1'||lease.max_runs!==1||lease.port!==55260||lease.protocol_sha256!==sha(protocolBytes))throw new Error('Diagnostic lease/protocol mismatch; no browser started');\n                                                                                                                                                                                   ^\n\nError: Diagnostic lease/protocol mismatch; no browser started\n    at file:///Users/user/.codex/worktrees/526-m0-verification/barocss-editor/experiments/office-suite-v2/verification/word-native-memory-attribution-runner.mjs:22:180\n    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)\n\nNode.js v22.22.0\n"
+      }
+    }
+  ],
+  "expectedNegativeExit": 1,
+  "nativeReadOnlyReview": {
+    "schema": "Pinned99a323dc Runtime4fields/Memoryprofile+start/get/stop types independentlyread; no actual145capability claim",
+    "findingsFixed": [
+      "stopAttempted set atactualdispatch, expired-before-dispatch remainscleanupeligible",
+      "nonurgentfailure stop-before-ownedkill;2GiBknownRSSurgent immediatekill fromcommonrss after savingPIDtable",
+      "profile/body/ackcap/empty/missingseries and distinctcleanup records preserved"
+    ],
+    "final": "No further concrete defect found; helper ran no tests/browser/files"
+  },
+  "runtimeBoundary": "Only tooling negative unit tests with controlled CDP/clock/process stubs; no browser/engine profile or qualification."
+}

@@ -1,0 +1,255 @@
+{
+  "schema": "office-v2-m0/word-native-memory-attribution-protocol-v1",
+  "status": "FROZEN BEFORE DATA: diagnostic only, never qualification PASS",
+  "authority": "Planner #521 direct ONE native-memory-attribution preparation under #526; browser requires NEW Integration lease",
+  "referenceProductionHead": "ee61af6f66f74f84708e0e434077122d91394cf6",
+  "referenceProductionTree": "342b1cdd7f7c8eb898c34852e24ea34ae3767e62",
+  "productionFiles": [
+    {
+      "path": "apps/word/src/runtime.ts",
+      "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+    },
+    {
+      "path": "packages/editor-view-dom/src/editor-view-dom.ts",
+      "sha256": "df476aec72a812df0e2c49ef657204cedd00a0cf24ee66892e16d9da466a9bfa"
+    },
+    {
+      "path": "packages/office-word/src/word-layout-pass.ts",
+      "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+    },
+    {
+      "path": "packages/office-word/src/measurement.ts",
+      "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+    },
+    {
+      "path": "packages/office-word/src/layout.ts",
+      "sha256": "664e15e422665531a6ecd4a37559fd28c16994c3a3b6c593967ceea94ec8ce89"
+    },
+    {
+      "path": "packages/office-word/src/pagination.ts",
+      "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+    },
+    {
+      "path": "packages/office-word/src/print-pages.ts",
+      "sha256": "7de7bf402c10fa444502ff17ad2f9a835bd82bb14efeb8f9963c6729119eac21"
+    },
+    {
+      "path": "packages/office-word/src/renderers/page.ts",
+      "sha256": "2f22023f5c0b7afd34a4e70ad864e00d0ec9d845d1bb83a16255f110e18dbcaa"
+    },
+    {
+      "path": "packages/office-word/src/ui.css",
+      "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+    },
+    {
+      "path": "packages/office-text/src/text.css",
+      "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+    },
+    {
+      "path": "packages/office-word/src/render-context.ts",
+      "sha256": "fe4e8f6a0acc3f0331f3abe2fa7362e95efbe8e09225e3c1bada85f653d84367"
+    },
+    {
+      "path": "packages/office-word/src/font-loader.ts",
+      "sha256": "6519ab82874bc8b1f0397838038a86f5e60743f06a806acf71901cee2968149d"
+    },
+    {
+      "path": "packages/renderer-dom/src/dom-renderer.ts",
+      "sha256": "d15729713f8e2b2ec8fe29bc2af461011ee73566158b1dcd627792e8195ad0ca"
+    },
+    {
+      "path": "packages/renderer-dom/src/scheduler.ts",
+      "sha256": "e79fa52c853b9bbc4511c2f6ae0318885ffea101504679639cf3def650551c9d"
+    },
+    {
+      "path": "packages/renderer-dom/src/reconcile/reconciler.ts",
+      "sha256": "9caee7b873e7b8033d07ac4b26122d286d425e4663deb10800aa2daa1f186a1a"
+    },
+    {
+      "path": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+      "sha256": "9d8d1489f6f4caab8329eb7a69e214301da89a9d5d5e35de9b6fa8abe870782e"
+    },
+    {
+      "path": "packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+      "sha256": "4c93720795a92e71266373572c1885dbb4040274e7ec6bc0ba6c3cca5a4bd28f"
+    }
+  ],
+  "normalHarnessFiles": [
+    {
+      "path": "word-performance-runner.mjs",
+      "sha256": "9f51c8c97b97270819660ee29f5f22dc9aa94e1b5777f46f8195a1939db2eb24"
+    },
+    {
+      "path": "word-performance-browser.mjs",
+      "sha256": "75fbfe2dee394bf0576d964da941af010b49bc1ec1bc19799e5b826bad7fe4d0"
+    },
+    {
+      "path": "performance-guards.ts",
+      "sha256": "5454187e7f79b8613a74467a2ae33eaafcbc0eb112a205484cae90f30ea2dbf4"
+    },
+    {
+      "path": "profiles.ts",
+      "sha256": "7e09c0bdf838c6216fb1bdfeeaee2a1020730ca64156464ed6d676434068c81a"
+    },
+    {
+      "path": "metrics.ts",
+      "sha256": "2709a731ffacfd2ca2444a075969b03d176b9c0d76c07adbdb4e581a9e6196d5"
+    },
+    {
+      "path": "font-metadata.py",
+      "sha256": "969a6c9f66e6a94b9c492118f4e3252013b231ca83951f7b3d03ee7cbb3c0ab7"
+    },
+    {
+      "path": "word-performance.html",
+      "sha256": "c967f2a610a5d5669bea064f13408fafff2edf7181226d1f58a1fa11c97e0708"
+    }
+  ],
+  "readOnlySupportFiles": [
+    {
+      "path": "word-memory-diagnostic-record.ts",
+      "sha256": "b0a1de227022949c628724fbd6f72109537ccb3fd8b548ad0bf3736febdaf998"
+    }
+  ],
+  "referenceFontReport": {
+    "path": "reports/word-phase-c-diagnostic.json",
+    "sha256": "dd2ed6442339c018b7890904a69617f1794eba385d5d339cdf9b8e40e7e67286"
+  },
+  "frozenBudgetSha256": "dbcd9612017bf47ac7f00d43cea2225e79bc6eb4c5de3a256af4d99271bac40d",
+  "input": {
+    "pages": 100,
+    "paragraphs": 800,
+    "viewport": {
+      "width": 1280,
+      "height": 900
+    },
+    "deviceScaleFactor": 1,
+    "sameNativeProfile": true,
+    "hostGeometry": {
+      "bodyMarginCssPx": 0,
+      "hostWidthCssPx": 1000,
+      "horizontalMargin": "auto",
+      "binding": "Same literal style block as unchanged normal word-performance.html; only title/script entry differ"
+    }
+  },
+  "seams": [
+    "module-baseline-after-dom-css",
+    "combined-native-open-layout-and-inventory",
+    "after-actual-font-query",
+    "after-full-warm-native-completion-before-print",
+    "immediate-print-return",
+    "after-explicit-geometry-readout-and-three-raf",
+    "after-clearPrint",
+    "after-runtime-dispose"
+  ],
+  "collection": {
+    "snapshotsPerSeam": 2,
+    "order": [
+      "ownedPID-parent-RSS",
+      "page-used-total-JSheap-numeric-state",
+      "CDPPerformance-JSheap-and-layout",
+      "Runtime.getHeapUsage-four-separate-isolate-series",
+      "native-CDP-DOM-counters"
+    ],
+    "timing": "Every read persists UTC+monotonic RUNNING start and completed/failed/aborted end/skew; pairs sequential, not atomic. Inline public API return numeric page heap/native state precedes pair/profile/extra geometry.",
+    "runtimeHeap": {
+      "usedSize": "Used JS heap bytes",
+      "totalSize": "Allocated JS heap bytes",
+      "embedderHeapUsedSize": "Embedder garbage-collected heap used bytes",
+      "backingStorageSize": "Array-buffer/external-string backing bytes",
+      "scope": "Corresponding isolate total, not Runtime/page scoped. Missing/nonfinite fields null/unavailable; valid actual zero retained. Never add/subtract series to infer native/live/resident/RSS/private bytes."
+    },
+    "nativeOpenBoundary": "Existing public open() combines fixture/admission/mount + document.fonts.ready + normal native stable completion + TreeWalker source inventory. Font-ready IS inside cold; only later actual-font QUERY observer is outside samplerwindows. No independent admission/font-ready allocation seam.",
+    "fontQuery": "Existing actual-font walk/computedstyle+CDP queries+CoreText identity outside all3samplingwindows; fonts not changed",
+    "deferredBoundary": "Geometry can force layout;3RAF notpaint. No extra computedstyle/stylesheet/media override.",
+    "media": "Observe matchMedia(print), no emulateMedia; screen printDOM notactual printmedia",
+    "failureRecords": "Persist each read RUNNING start before IO, then completed or failed/aborted bracket. Retain actual offending owned RSS/PID measurement before failclosed threshold exception. Phase deadlines checked on monotonic settlement as well as timers.",
+    "cdpScope": "Native sampling uses the actual page-target CDP session from context.newCDPSession(page), page URL recorded. Runtime is corresponding isolate-total. Browser CDP SystemInfo roles are separate exact-PID metadata; nativeprofile has NO PID and is NEVER automatically joined to an RSS renderer PID."
+  },
+  "nativeSampling": {
+    "windows": [
+      "cold",
+      "warm",
+      "print"
+    ],
+    "samplingInterval": 131072,
+    "suppressRandomness": false,
+    "sequence": "Persist START_REQUESTED/mayBeActive BEFORE command; start ACK -> actual existing API/completion -> inline numeric edge -> 2paired readsets -> getSamplingProfile -> finally stopSampling; no alltime/browser profile alternatives. Print closes before deferred geometry.",
+    "contamination": "Each profile includes allocation/scheduling caused by inline snapshots, paired reads, CDP commands and profile capture itself. Not pure function allocation, exhaustive/live/retained/resident bytes, PID timeline or leak attribution.",
+    "schema": {
+      "response": "{profile:{samples:[{size:number,total:number,stack:string[]}],modules:[{name:string,uuid:string,baseAddress:string,size:number}]}}",
+      "addresses": "Preserve unresolved stack strings and module baseAddress strings exactly; no symbol/function/PID/time/free/live/resident inference",
+      "get": "Since last startSampling",
+      "stop": "Returns {}, not a profile; fetch before stop"
+    },
+    "capabilityPolicy": "Only actual structured error.code===-32601 for the exact requested CDP command is UNAVAILABLE. Playwright may not expose code; message-only notfound then STOP. No parameter fallback/retry. Missing start -> mayBeActive false, current/future sampler unavailable. Missing get -> current stop required, future starts skipped; public API+readsets continue once. Missing/failed stop or other errors -> firstfailureSTOP and ownedkill.",
+    "limits": {
+      "maxProfiles": 3,
+      "perProfileJsonBytes": 16777216,
+      "totalRetainedProfileJsonBytes": 33554432,
+      "boundary": "Guard full CDP response JSON after response materialization/serialization BEFORE retaining body; NOT backend/network/preallocation receive bound. Retain withinlimit malformed body once plus error. Oversize body omitted, received bytes+SHA256/error retained; firstfailureSTOP."
+    },
+    "supportedEmpty": "Supported get with samples:[] remains SUPPORTED EMPTY, never unavailable or proof of zeroallocation."
+  },
+  "guards": {
+    "sampleWallMs": 45000,
+    "coldMs": 10000,
+    "printMs": 15000,
+    "ownedAggregateRssBytes": 2147483648,
+    "pollMs": 200,
+    "cleanupWallMs": 5000,
+    "hostReadoutPerCommandMs": 1000,
+    "failure": "First guard/monitor/console/cleanup error stops; no automatic retry or identical second attempt.",
+    "pidReadoutPerCommandMs": 1500,
+    "fontMetadataProcessMs": 5000,
+    "hostReadoutPerCommandMsMeaning": "vm_stat, memory_pressure and sysctl only; PID ps and font metadata have separate explicit limits, all within full samplewall where applicable",
+    "samplerCommandMs": 5000
+  },
+  "cleanup": "Separate total5s after samplewall/lease expiry. If sampler may be active and stop not yet attempted, attempt one stop under remaining cleanup budget; then close owned browser/server/Vite. Stop may consume entire cleanup deadline; deadline triggers ownedkill, records cleanup unconfirmed. Failed stop is never retried; ownedkill mandatory. Uncertain pendingstart can settle late, so any failed run kills ownedbrowser even after stop ACK. stopAttempted is set only at actual send dispatch, not an earlier budget check. If wall expires before dispatch, the distinct cleanup remains eligible. Urgent2GiB RSS guard kills ownedbrowser immediately for protection and recordsurgentOwnedKill; other errors attempt stop before ownedkill.",
+  "pinnedProtocol": {
+    "playwright": "1.58.0",
+    "playwrightCore": "1.58.0",
+    "sourcePath": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor/node_modules/.pnpm/playwright-core@1.58.0/node_modules/playwright-core/types/protocol.d.ts",
+    "sha256": "99a323dc5a6e506c78b69913b32beba93453bcd87aae8b507520234f387a4c30",
+    "commandsChecked": [
+      "Runtime.getHeapUsage",
+      "Memory.startSampling",
+      "Memory.getSamplingProfile",
+      "Memory.stopSampling",
+      "SystemInfo.getProcessInfo",
+      "Performance.getMetrics",
+      "Memory.getDOMCounters",
+      "DOM.enable",
+      "CSS.enable"
+    ],
+    "processMetadata": "SystemInfo.ProcessInfo defines type:string/id:number/cpuTime:number. Use only returned type joined on exact numeric PID if browser-root ID also matches; otherwise unavailable. Never infer roles from size or process order.",
+    "lineReferences": {
+      "Runtime.getHeapUsage": "21785-21807 isolate+fourfields",
+      "Memory.profile": "9766-9807 sample/modules",
+      "Memory.startSampling": "9883-9897",
+      "Memory.stopSampling": "9898-9904",
+      "Memory.getSamplingProfile": "9923-9930"
+    }
+  },
+  "taxonomy": {
+    "SystemInfo": "Optional unavailable only verified -32601, or root ID mismatch; no role inference; other error/shape/timeout STOP. Cached verified method absence avoids repeated calls.",
+    "Runtime": "Missing command verified -32601 -> unavailable/null future reads; missing individual fields partial/null; other command error STOP.",
+    "monitorSchemaClockGuardConsoleLease": "First failure saved; STOP, partial reads preserved, later seams NOT RUN; no automatic retry"
+  },
+  "lease": {
+    "env": "M0_WORD_NATIVE_MEMORY_ATTRIBUTION_LEASE",
+    "kind": "diagnostic-word-native-memory-attribution-v1",
+    "max_runs": 1,
+    "port": 55260,
+    "protocol_sha256": "Integration supplies committed protocol file SHA256",
+    "source_head": "Exact clean Integration descendant containing newharness and all17ee61production unchanged",
+    "source_root": "Actual lease root, NOT author worktree production; author branch c44 may retain oldO3renderer",
+    "oneAttemptClaim": "Exclusive ignored .cache/word-native-memory-attribution-v1-attempt.json; no retry/oldclaim reuse"
+  },
+  "limits": [
+    "Diagnostic only; normalR531100RSSall3FAIL unchanged even if diagnostic does not reproduce. WholeM0OPEN.",
+    "No GC/prepareForLeakDetection/pressure simulation/purge/cache clear/JSallocation sampler/fullheap snapshot/heavytrace/vmmap attach/sourcefix.",
+    "No engine/bootstrap copies, method patch, forced native call, fixture reduction, dependency/root/budget/normalH7 change, Core/profile rerun or performancequalification.",
+    "RSS aggregate includes shared pages, sampled200ms notHWM. No RSSsum/subtraction to derive nativebytes, object lifetime/function cause or savings.",
+    "Typedprotocol support does not guarantee actualChromium145 method acceptance. Only later authorizedactualrun establishes capability."
+  ]
+}

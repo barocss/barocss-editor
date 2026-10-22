@@ -1,0 +1,16 @@
+{
+  "status": "PASS before data",
+  "referenceProduction": "ee61af6f66f74f84708e0e434077122d91394cf6",
+  "actualIntegrationHead": "aeedd30d36a7e67bd1a17d0d47d32262ffe4c75e",
+  "productionHashes": 17,
+  "normalHarness": 7,
+  "readOnlySupport": 1,
+  "fontAndBudget": "unchanged",
+  "pinnedProtocolSha256": "99a323dc5a6e506c78b69913b32beba93453bcd87aae8b507520234f387a4c30",
+  "protocolSha256": "067ebfd78b617579c1f6b23b76f626e49de097b9254841cfdecae9bd255c0bdc",
+  "claimExists": false,
+  "diagnosticDataExists": false,
+  "oldDiagnosticsNormalW4AndRaw": "unchanged",
+  "sourceBoundary": "Production checked in actualIntegration root + immutableee61, not authorbranch currentproduction",
+  "normalHtmlHostGeometry": "PASS literal body margin0/host1000px centered identical"
+}
