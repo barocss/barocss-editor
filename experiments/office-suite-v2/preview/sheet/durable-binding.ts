@@ -5,6 +5,8 @@ import { openOutbox } from './outbox.ts';
 import type { OutboxStore } from './outbox.ts';
 import { acquireClientWriter } from './client-lock.ts';
 import { PeerLifecycle } from './lifecycle.ts';
+import { WebSocketTransport } from './websocket-transport.ts';
+import { SHEET_RELAY_WS_PATH } from '../../src/sheet-preview-protocol.ts';
 
 const element = (id: string): HTMLElement => {
   const found = document.getElementById(id);
@@ -19,7 +21,7 @@ const clientUrl = (clientId: string): URL => {
 };
 
 /** Page-owned writer lease. Credentials and packet bodies never enter the observer. */
-export function startDurableMode(): void {
+export function startDurableMode(mode: 'http' | 'websocket' = 'http'): void {
   const controls = element('durable-controls');
   const workbook = element('sheet-workbook');
   const create = element('create-client');
@@ -33,8 +35,8 @@ export function startDurableMode(): void {
   workbook.hidden = true;
   workbook.inert = true;
   element('alternative-panel').hidden = false;
-  element('session-label').textContent = 'Controlled relay · Per-update save receipts';
-  element('preview-scope').textContent = 'Experimental local relay and browser outbox. Account authorization, backup, installation and production storage are outside this preview.';
+  element('session-label').textContent = `${mode === 'websocket' ? 'WebSocket' : 'Controlled'} relay · Per-update save receipts`;
+  element('preview-scope').textContent = 'Experimental local relay and browser outbox. Controlled session permissions are enforced by this server. Production account authorization, backup, installation and production storage are outside this preview.';
   element('preview-status').textContent = 'Start a client or reopen its original client link.';
   another.href = clientUrl(crypto.randomUUID()).href;
 
@@ -75,17 +77,22 @@ export function startDurableMode(): void {
       history.replaceState(null, '', url);
     }
     view?.refresh();
-    workbook.inert = !view || state.phase === 'blocked' || state.phase === 'closed' || state.persistenceBlocked || !!controller?.transportWarning;
+    workbook.inert = !view || state.phase === 'blocked' || state.phase === 'closed' || state.persistenceBlocked || !!controller?.transportWarning ||
+      (mode === 'websocket' && !state.canEdit);
     controls.dataset.phase = state.phase;
-    element('client-identity').textContent = `Client: ${state.clientId} · Session: ${state.sessionId ?? 'not admitted'}`;
+    element('client-identity').textContent = `Client: ${state.clientId} · Session: ${state.sessionId ?? 'not admitted'}${mode === 'websocket' ? ` · Access: ${state.access ?? 'unconfirmed'} · Link: ${state.transport?.phase ?? 'opening'}` : ''}`;
     element('durable-status').textContent = `${state.notice}${controller?.transportWarning ? ` ${controller.transportWarning}` : ''}`;
     element('save-state').textContent = controller?.transportWarning ? 'Local delivery failed. Save confirmation is unavailable.' :
+      mode === 'websocket' && state.access === 'denied' ? 'Session access denied. Original input and outbox are retained.' :
+      mode === 'websocket' && state.access === 'read-only' ? 'Read-only access. New edits and delivery are disabled.' :
+      mode === 'websocket' && !state.canEdit && !state.persistenceBlocked ? 'WebSocket permission is unconfirmed. Original records are retained.' :
       state.localOnly > 0 ? 'Local input is not yet stored in this browser.' :
       state.pending + state.ackUnknown + state.rejected > 0 ? 'Some local input has no server confirmation.' :
       state.phase === 'ready' || state.phase === 'paused' ? 'All current local updates have server confirmation.' : 'Save confirmation is unavailable.';
     element('outbox-state').textContent = `Local only: ${state.localOnly} · Pending: ${state.pending} · ACK unknown: ${state.ackUnknown} · Rejected: ${state.rejected} · Server confirmed: ${state.confirmed}`;
     pause.disabled = state.phase === 'opening' || state.phase === 'blocked' || state.phase === 'closed';
-    pause.textContent = state.phase === 'paused' ? 'Resume relay link' : 'Pause relay link';
+    pause.textContent = mode === 'websocket' ? state.outgoingPaused ? 'Resume outgoing changes' : 'Pause outgoing changes' :
+      state.phase === 'paused' ? 'Resume relay link' : 'Pause relay link';
     retry.disabled = state.phase === 'opening' || state.phase === 'paused' || state.phase === 'closed' || state.phase === 'blocked';
   };
   const release = async (): Promise<void> => {
@@ -111,16 +118,19 @@ export function startDurableMode(): void {
       if (disposed) { writer.release(); lockState = 'released'; return; }
       store = await openOutbox();
       if (disposed) { store.close(); writer.release(); lockState = 'released'; return; }
-      session = new DurableSession({ clientId, newClient, store, changed: update });
+      const endpoint = new URL(SHEET_RELAY_WS_PATH, location.origin);
+      endpoint.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      session = new DurableSession({ clientId, newClient, store, changed: update,
+        ...(mode === 'websocket' ? { transport: events => new WebSocketTransport({ url: endpoint.href, ...events }) } : {}) });
       lifecycle = new PeerLifecycle(session);
-      window.sheetDurable = Object.freeze({ inspect: () => ({ ...session?.inspect(), mode: 'durable', clientId: startedClient, lockState }) });
+      window.sheetDurable = Object.freeze({ inspect: () => ({ ...session?.inspect(), mode: mode === 'websocket' ? 'websocket' : 'durable', clientId: startedClient, lockState }) });
       await session.start();
       if (disposed) return;
       update();
       if (session.inspect().phase !== 'blocked') {
         open.href = clientUrl(crypto.randomUUID()).href;
         open.hidden = false;
-        timer = setInterval(() => { void session?.refresh(); }, 1500);
+        if (mode === 'http') timer = setInterval(() => { void session?.refresh(); }, 1500);
       }
     } catch (error) {
       failure(error);
@@ -128,7 +138,12 @@ export function startDurableMode(): void {
     }
   };
   create.addEventListener('click', () => { void start(crypto.randomUUID(), true); });
-  pause.addEventListener('click', () => { if (session) session.setPaused(session.inspect().phase !== 'paused'); });
+  pause.addEventListener('click', () => {
+    if (session) {
+      if (mode === 'websocket') session.setOutgoingPaused(!session.inspect().outgoingPaused);
+      else session.setPaused(session.inspect().phase !== 'paused');
+    }
+  });
   retry.addEventListener('click', () => { void session?.retry(); });
   window.addEventListener('beforeunload', event => {
     if ((session?.inspect().localOnly ?? 0) > 0) { event.preventDefault(); event.returnValue = ''; }

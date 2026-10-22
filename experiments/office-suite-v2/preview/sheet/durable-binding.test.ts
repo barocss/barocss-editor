@@ -16,7 +16,7 @@ const ids = ['durable-controls', 'sheet-workbook', 'create-client', 'open-client
 
 async function modeledPage(manager: ClientLockManager | undefined, run: (page: {
   controls: Map<string, Control>; window: EventTarget; reads: () => number; requests: () => number;
-}) => Promise<void>): Promise<void> {
+}) => Promise<void>, mode: 'http' | 'websocket' = 'http'): Promise<void> {
   const controls = new Map(ids.map(id => [id, id === 'open-client' || id === 'new-client' ? new Anchor() :
     id === 'pause-relay' || id === 'retry-relay' ? new Button() : new Control()]));
   const page = new EventTarget();
@@ -31,7 +31,7 @@ async function modeledPage(manager: ClientLockManager | undefined, run: (page: {
   const previous = new Map(Object.keys(values).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   try {
     for (const [key, value] of Object.entries(values)) Object.defineProperty(globalThis, key, { configurable: true, value });
-    startDurableMode();
+    startDurableMode(mode);
     await run({ controls, window: page, reads: () => reads, requests: () => requests });
   } finally {
     page.dispatchEvent(Object.assign(new Event('pagehide'), { persisted: false }));
@@ -54,12 +54,13 @@ test('modeled page refuses duplicate writer before IDB or session request', asyn
   });
 });
 
-test('modeled page with unavailable locking never opens data or network', async () => {
+test('modeled WebSocket page with unavailable locking never opens data or network', async () => {
   await modeledPage(undefined, async page => {
     await setImmediate();
     assert.match(page.controls.get('durable-status')!.textContent, /locking is unavailable/);
     assert.equal(page.reads(), 0); assert.equal(page.requests(), 0);
-  });
+    assert.match(page.controls.get('session-label')!.textContent, /^WebSocket relay/);
+  }, 'websocket');
 });
 
 test('modeled nonpersisted pagehide before lock grant releases grant without opening IDB', async () => {

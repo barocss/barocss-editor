@@ -119,6 +119,7 @@ try {
   const mode = document.querySelector('meta[name="sheet-collaboration-mode"]')?.getAttribute('content');
   if (mode === 'peer') startPeerMode();
   else if (mode === 'durable') startDurableMode();
+  else if (mode === 'websocket') startDurableMode('websocket');
   else {
     const controller = new SheetController(createPreviewReplica());
     const view = mountSheetPreview(controller);
