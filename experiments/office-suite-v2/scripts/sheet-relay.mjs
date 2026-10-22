@@ -52,7 +52,7 @@ async function main(args) {
 
   const { SheetRelayService, startSheetRelay } = await import(pathToFileURL(entry).href);
   const service = create ? SheetRelayService.create() : SheetRelayService.resume(resolve(directory));
-  console.log(JSON.stringify({ status: 'Owned Sheet storage opened', directory: service.directory, context: service.context, ...binding }));
+  console.log(JSON.stringify({ status: 'Owned Sheet storage opened', storage: service.binding(), ...binding }));
   let listener;
   let closing;
   const close = () => closing ??= (async () => {
@@ -64,7 +64,7 @@ async function main(args) {
     listener = await startSheetRelay({ service, port, allowedOrigins: ['http://127.0.0.1:55264'] });
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);
-    console.log(JSON.stringify({ status: 'Sheet relay listening', url: listener.url, directory: service.directory, context: service.context, ...binding }));
+    console.log(JSON.stringify({ status: 'Sheet relay listening', url: listener.url, storage: service.binding(), ...binding }));
   } catch (error) {
     await close();
     throw error;
