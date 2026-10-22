@@ -1,0 +1,5 @@
+{
+  "extends": "../../../packages/renderer-dom/tsconfig.json",
+  "include": ["portal-independent.test.ts", "portal-vitest.config.ts"],
+  "exclude": []
+}
