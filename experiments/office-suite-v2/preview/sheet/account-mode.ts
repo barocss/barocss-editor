@@ -49,7 +49,8 @@ export async function startAccountMode(options: AccountModeOptions = {}): Promis
   let identity: SheetAccountIdentity | undefined;
   let page: DurablePageHandle | undefined;
   let guard: AccountBindingGuard | undefined;
-  let busy = false;
+  let busy = true;
+  signIn.disabled = true;
   let retired = false;
   const retire = (): void => {
     retired = true; guard?.retire(); page?.freeze();
@@ -113,9 +114,11 @@ export async function startAccountMode(options: AccountModeOptions = {}): Promis
     documentId.value = target.documentId ?? '';
     signIn.hidden = true; logout.disabled = false; open.disabled = identity.currentUserId == null || identity.tenants.length === 0;
     status.textContent = 'Choose your company and enter the Sheet document ID.';
-    if (target.tenantId && target.documentId && !open.disabled) open.click();
   } catch {
     status.textContent = 'Sign in to verify your current account and Sheet permissions.';
+  } finally {
+    busy = false; signIn.disabled = retired;
   }
+  if (!retired && identity && target.tenantId && target.documentId && !open.disabled) open.click();
   window.addEventListener('pagehide', event => { if (!event.persisted) { guard?.retire(); login.dispose(); } });
 }

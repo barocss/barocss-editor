@@ -881,3 +881,14 @@ changed TypeScript roots/imports: 0 diagnostics; 11 affected model test files:14
 - /tmp/533-account-tests.log: 36991 bytes, SHA256 096525a9608a4e3336191553eb4141cb3703c3c080fbe4e4bcbec1d248af9541
 - /tmp/533-account-lint.log: 0 bytes, SHA256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 No actual browser/server/IdP/PG run by the author. This initial immutable UI checkpoint still awaits the owner-published logout contract and its final wire.
+
+
+Follow-up to initial UI5469c338: source review found that initial callback/current
+identity loading left the Sign in handler available before initialization settled.
+A held-identity DOM model against exact5469 produced7 PASS/1 FAIL: a second Office
+beginLogin started during the first operation. Initial busy/disabled state now
+covers finishLogin/loadIdentity, and URL auto-open runs after the finally releases
+that gate. The same assertion now passes with0 concurrent begin calls; all8
+account-mode DOM models pass, including the existing URL admission probes.
+Narrow2-root imports-included strict check and2-file ESLint pass. The prior145
+aggregate remains bound to5469; it is not relabeled as a rerun on this follow-up.
