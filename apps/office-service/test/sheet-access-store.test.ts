@@ -190,3 +190,54 @@ test('MODEL a hidden thenable return violates the trusted synchronous callback c
   await assert.rejects(store.withCurrentAccess(principal, scope, 'write', () => Promise.resolve('not-synchronous')),
     (error: unknown) => error instanceof SheetAccessOperationUncertainError && !error.operationCompleted);
 });
+
+import { createAccountFixture, accountPacket, accountSignal } from '../../../experiments/office-suite-v2/relay/sheet/account-test-fixture.ts';
+import { RelayError } from '../../../experiments/office-suite-v2/relay/sheet/service.ts';
+import { SheetReplica } from '../../../experiments/office-suite-v2/src/collaboration.ts';
+import { base64ToBytes } from '../../../experiments/office-suite-v2/src/sheet-preview-protocol.ts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+/** Actual SheetAccessStore error transport with existing MODEL membership/SQL. */
+function useActualAccessStore(f: ReturnType<typeof createAccountFixture>): void {
+  const access = new SheetAccessStore({ async withAuthorizedTenant(verified, tenantId, operation) {
+    const person = verified.subject === 'account-a' ? 'a' : 'b';
+    const model = new MembershipModel({ rows: [{ ...f.scope, userId: f.users[person],
+      access: person === 'a' ? f.model.accessA : f.model.accessB, workbookId: f.context.workbookId,
+      generation: f.context.generation, grantVersion: 1, documentVersion: 1 }] });
+    return model.withAuthorizedTenant(verified, tenantId, operation);
+  } });
+  f.options.accessStore.withCurrentAccess = access.withCurrentAccess.bind(access);
+}
+const accountNoop = () => {};
+const accountKey = { sheetId: 'sheet-rates', rowId: 'row-2', columnId: 'column-2' };
+test('actual SheetAccessStore preserves pre-COMMIT account session mismatch as403', async () => {
+  const f = createAccountFixture(); useActualAccessStore(f);
+  try {
+    const a = await f.authenticate(), before = f.relay.binding();
+    const registry = readFileSync(join(f.relay.directory, 'relay-sessions.json'));
+    await assert.rejects(f.authenticate(f.tokens.b, a.session.credential), error =>
+      error instanceof RelayError && error.status === 403);
+    assert.deepEqual(f.relay.binding(), before);
+    assert.deepEqual(readFileSync(join(f.relay.directory, 'relay-sessions.json')), registry);
+    const resumed = await f.authenticate(f.tokens.a, a.session.credential);
+    assert.equal(resumed.session.credential, a.session.credential);
+  } finally { f.close(); }
+});
+
+test('actual SheetAccessStore cannot turn post-COMMIT callback denial into rejection', async () => {
+  const f = createAccountFixture(); useActualAccessStore(f); let replica: SheetReplica | undefined;
+  try {
+    const a = await f.authenticate(); replica = new SheetReplica(a.session.context, a.session.identity, base64ToBytes(a.state.state.bytesBase64));
+    const edit = replica.commit({ kind: 'cell.commit', key: accountKey, input: { kind: 'literal', value: 81 } });
+    const packet = accountPacket(a.session, edit.update, 'actual-store-postcommit-denial');
+    await assert.rejects(f.relay.withAuthorized(a.bound, 'write', accountSignal(), accountNoop, (native, session) => {
+      assert.equal(native.append(session.credential, packet).status, 'durable');
+      throw new RelayError('account-session-mismatch', 403);
+    }), error => error instanceof RelayError && error.code === 'native-commit-acknowledgment-unknown');
+    const retried = await f.relay.withAuthorized(a.bound, 'write', accountSignal(), accountNoop, (native, session) => native.append(session.credential, packet));
+    assert.ok(retried.status === 'durable'); assert.equal(retried.receipt.sequence, 2);
+    await assert.rejects(f.relay.withAuthorized(a.bound, 'read', accountSignal(), accountNoop, () => { throw new Error('private callback detail'); }),
+      error => error instanceof RelayError && error.status === 503 && error.message === 'account-authority-unavailable');
+  } finally { replica?.destroy(); f.close(); }
+});
