@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { define, element, getGlobalRegistry, portal } from '@barocss/dsl';
 import { DOMRenderer } from '../../src/dom-renderer';
 import { FiberScheduler } from '../../src/reconcile/fiber/fiber-scheduler';
+import { commitFiberNode } from '../../src/reconcile/fiber/fiber-reconciler';
+import { EffectTag } from '../../src/reconcile/fiber/types';
 import type { FiberNode } from '../../src/reconcile/fiber/types';
 
 const renderers: DOMRenderer[] = [];
@@ -136,6 +138,34 @@ afterEach(() => {
 });
 
 describe('M0 portal lifecycle', () => {
+  it('preserves the existing missing-VNode no-effect and deletion guards', () => {
+    const { renderer, container, first, render } = fixture();
+    render();
+    // Exercise the existing internal defensive branch with an actual rendered
+    // Fiber/DOM, without defining a null-VNode DOMRenderer input contract.
+    const reconciler = renderer['reconciler'];
+    const fiber = reconciler['rootFiber']!.child!;
+    const previous = fiber.vnode;
+    const node = fiber.domElement;
+    const context = fiber.context;
+    const unmount = vi.spyOn(renderer['componentManager'], 'unmountComponent');
+    const deps = {
+      dom: renderer['domOperations'], components: renderer['componentManager'],
+      currentVisitedPortalIds: null, portalHostsById: reconciler['portalHostsById']
+    };
+    fiber.prevVNode = previous;
+    expect(Reflect.deleteProperty(fiber, 'vnode')).toBe(true);
+    fiber.effectTag = null;
+    expect.soft(() => commitFiberNode(fiber, deps, context)).not.toThrow();
+    expect(container.contains(node)).toBe(true);
+    expect(unmount).not.toHaveBeenCalled();
+    fiber.effectTag = EffectTag.DELETION;
+    expect(() => commitFiberNode(fiber, deps, context)).not.toThrow();
+    expect(unmount).toHaveBeenCalledExactlyOnceWith(previous, context);
+    expect(node?.parentNode).toBeNull();
+    expect(first.querySelectorAll(contentSelector)).toHaveLength(1);
+  });
+
   it('updates text and title once while preserving the content element and Text node', () => {
     const { renderer, container, first, render } = fixture();
     render();

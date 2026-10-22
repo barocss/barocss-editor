@@ -521,10 +521,6 @@ export function commitFiberNode(
   const prevVNode = fiber.alternate?.vnode || fiber.prevVNode;
   const parent = fiber.parent;
 
-  // Children commit to the prepared host. The host itself is attached at the
-  // end of commitFiberTree, never through ordinary source placement below.
-  if (vnode.tag === VNodeTag.PORTAL) return;
-  
   // If no effectTag, do not process
   if (!fiber.effectTag) {
     return;
@@ -547,6 +543,10 @@ export function commitFiberNode(
     }
     return;
   }
+
+  // Children commit to the prepared host. The host itself is attached at the
+  // end of commitFiberTree, never through ordinary source placement below.
+  if (vnode.tag === VNodeTag.PORTAL) return;
   
   // If no tag and no text but has children, add children directly to parent
   if (!vnode.tag && vnode.children && vnode.children.length > 0) {

@@ -339,3 +339,39 @@ The prior portal text/title FAIL and async NOT VERIFIED statements above describ
 | `/tmp/531-portal-test-types-final-pin.log` | `10e38c332782a8e7cf5aec1b9b10721263d21cb36853f55989c9924207a8fb41` |
 | `/tmp/531-portal-lint-final-pin.json` | `ee6871119909dbca5a5002f44acf1ba77c4cc95852ecc574c993955e4acb63e7` |
 | `/tmp/531-portal-lint-comparison-final-pin.json` | `2f05bff26996bb9021fe96f664d09e28e8fe087411ed620a2601d133443b159e` |
+
+
+# Defensive commit guard successor — #531, 2026-10-22
+
+Planner's source review identified a concrete defensive-path regression in immutable `889f92d3c81bad6ead8e835e7bc68984c4dba54b`: the new portal early-return read `vnode.tag` before the existing no-effect and missing/non-object-VNode DELETION guards. This section supersedes only that guard ordering. All previous report bytes remain a preserved prefix (SHA-256 `b140b21fd987e02d2185f80cb8d0bdd08e9603dbb0a9d7141b7be5ea20c36846`). The initial889 source/tree,92PASS and all first failures remain bound to their original immutable source, not silently requalified.
+
+## Reachability and actual reproduction
+
+Source search found no current production writer assigning EffectTag.DELETION or deliberately removing Fiber.vnode; normal removal goes through stale-child cleanup/type replacement. FiberNode.vnode is statically non-null. Therefore this is not evidence of a currently reachable null-VNode public DOMRenderer call. However the internal commitFiberNode explicitly retains the missing-node deletion branch, also described in renderer-dom-spec.md, and the new portal dereference broke that existing defensive behavior.
+
+The one new case uses the actual DOMRenderer to create a Fiber and DOM node, then uses Reflect.deleteProperty on that real Fiber to exercise the **existing internal** missing-VNode state. It does not pass null to public render, construct a fake graph or introduce a new public contract. First with effectTag=null it requires no effect/no throw; then with DELETION and the actual previous VNode it requires exactly one real ComponentManager.unmountComponent call and removal of the prior actual DOM node. The unrelated portal content remains present.
+
+Before source repair, the selected new case failed with TypeError reading undefined.tag in **both** no-effect and deletion attempts (exit1;1 failed/16 filtered). Raw first failure is retained below. The only production change moves the unchanged portal early-return below the unchanged no-effect and missing-node guards. No scheduler, host ownership, matching, public input or API change is made.
+
+## Source bindings and checks
+
+Immediate parent: `889f92d3c81bad6ead8e835e7bc68984c4dba54b`, tree `993b070f5923e7b68d914b4847f8920726f27b49`. Same managed root/branch; successor changes exactly these two leased files plus this append. Canonical original parent remains7eca4421. Final successor head/tree is recorded in the Issue handoff.
+
+| Path | Git blob | SHA-256 |
+| --- | --- | --- |
+| `packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts` | `67a3b253f5b14fa3ee9421baf9064629d105e108` | `c2b3cac46caa46b76fba4df81f5cc9aa1c9ab1e16ac3b4ca2cc2225224d748e3` |
+| `packages/renderer-dom/test/core/m0-portal-lifecycle.test.ts` | `9352c1297f4bcfd7d2ff195bcd5d400e5f54ff24` | `8d88469f8201d7fdbd4ad83c0d69c8a399a9abb9d899486df12bb1bbbf1c9760` |
+
+- Targeted final command: `node node_modules/vitest/vitest.mjs run test/core/m0-portal-lifecycle.test.ts --maxWorkers=1 --fileParallelism=false`, cwd renderer-dom, Node22.22.0. Exit0, **17/17 PASS**, no skips. The same command with `-t 'missing-VNode'` produced the first failure above.
+- Focused new-test/imported-source TypeScript program using existing tsconfig.typecheck.json options: exit0,0 diagnostics. No config or budget change.
+- Two changed code files scoped ESLint: source retains2errors/20warnings; test0/0. Exact889 parent comparison grew0/shrank0, exit0. This is unchanged diagnostic debt, not zero-diagnostic source lint.
+- `git diff --check` PASS. No broader/full test or preflight repeated. Prior92PASS and123/123 package test-type debt remain889 receipts; no93-test or new full-package result is claimed.
+
+This is a defensive guard-order regression repair. It neither demonstrates a new public null-VNode lifecycle nor changes the earlier named native portal proof boundary. Post-move guard branch coverage, independent #526 candidate validation and browser/aggregate qualification remain as previously stated/pending. RSS failures and original raw data remain unchanged. Integration/Verification must bind final qualification to the actual successor. No source outside the lease, served root, dependency/config/lock, browser/profile, database, process or schedule was modified.
+
+| Guard successor raw evidence | SHA-256 |
+| --- | --- |
+| `/tmp/531-portal-guard-first-failure.log` | `bb137213cc67383543d4dee9631ae5d075c923f2957009348e499f8a0eb02807` |
+| `/tmp/531-portal-guard-final.log` | `a7737f23b19abe81af5285421e1b68fe6e5e5dd6e3c95f692e4a1607a33d0e3b` |
+| `/tmp/531-portal-guard-types.log` | `05733cf5ca835511fab84f5519a3c22aa540aa7c41ebe5435135675063b04e45` |
+| `/tmp/531-portal-guard-lint-comparison.json` | `28103eddfef41a61e294a848bef083765ce4d7fed23e099df8b08acb09819a65` |
