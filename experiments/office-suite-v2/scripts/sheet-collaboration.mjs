@@ -33,7 +33,7 @@ async function main(args) {
   const head = git(['rev-parse', 'HEAD']);
   if (head !== expected) throw new Error(`Source HEAD differs: expected ${expected}; received ${head}.`);
   if (git(['status', '--porcelain'])) throw new Error('Sheet collaboration requires a clean source checkout.');
-  for (const file of ['index.html', 'main.ts']) {
+  for (const file of ['index.html', 'main.ts', 'peer-session.ts']) {
     if (!existsSync(resolve(preview, file))) throw new Error(`Sheet preview entry is not ready: ${file}. No server started.`);
   }
 
