@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { constants, closeSync, existsSync, fsyncSync, fstatSync, linkSync, lstatSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { constants, closeSync, existsSync, fsyncSync, fstatSync, linkSync, lstatSync, mkdirSync, mkdtempSync, openSync, opendirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -25,6 +25,8 @@ const manifestName = 'relay-manifest.json';
 const registryName = 'relay-sessions.json';
 const auditName = 'packet-audit';
 const jsonLimit = SHEET_RELAY_LIMITS.httpBodyBytes;
+/** Includes bootstrap, accepted packets and every prepared/rejected orphan. */
+export const RELAY_AUDIT_LIMITS = Object.freeze({ files: DURABLE_LIMITS.updates, encodedBytes: 32_000_000 });
 
 function fail(code: string): never { throw new Error(`relay-storage:${code}`); }
 function object(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -124,6 +126,22 @@ function auditDirectory(directory: string, create: boolean): string {
   if (!stats.isDirectory() || stats.isSymbolicLink()) fail('audit-directory');
   return path;
 }
+function auditUsage(directory: string): { files: number; encodedBytes: number } {
+  const entries = opendirSync(directory);
+  let files = 0, encodedBytes = 0;
+  try {
+    for (let entry = entries.readSync(); entry !== null; entry = entries.readSync()) {
+      if (++files > RELAY_AUDIT_LIMITS.files) fail('audit-count-limit');
+      if (!/^[a-f0-9]{64}\.json$/.test(entry.name)) fail('audit-filename');
+      const path = join(directory, entry.name); regular(path);
+      const size = lstatSync(path).size;
+      if (size < 1 || size > jsonLimit) fail('json-file-bounds');
+      encodedBytes += size;
+      if (encodedBytes > RELAY_AUDIT_LIMITS.encodedBytes) fail('audit-byte-limit');
+    }
+    return { files, encodedBytes };
+  } finally { entries.closeSync(); }
+}
 function atomicJson(directory: string, filename: string, value: unknown, immutable: boolean): void {
   const path = join(directory, filename), encoded = `${canonical(value)}\n`;
   if (Buffer.byteLength(encoded) > jsonLimit) fail('json-file-bounds');
@@ -162,8 +180,14 @@ export function persistAudit(directory: string, value: AuditPacket): void {
   // Never overwrite an existing packet identity, including an unaccepted orphan.
   if (existsSync(path)) {
     if (canonical(audit(readJson(path))) !== canonical(parsed)) fail('audit-collision');
+    // A matching link may remain after an earlier directory fsync failed.
+    // Repeat that barrier before native append or a durable retry can proceed.
+    syncDirectory(target);
     return;
   }
+  const usage = auditUsage(target);
+  if (usage.files >= RELAY_AUDIT_LIMITS.files) fail('audit-count-limit');
+  if (usage.encodedBytes + Buffer.byteLength(`${canonical(parsed)}\n`) > RELAY_AUDIT_LIMITS.encodedBytes) fail('audit-byte-limit');
   atomicJson(target, filename, parsed, true);
 }
 
@@ -256,7 +280,10 @@ export function readStartup(directory: string): Startup {
   const root = directoryPath(directory);
   for (const name of [manifestName, registryName, 'updates.sqlite']) regular(join(root, name));
   optionalRegular(join(root, 'updates.sqlite-wal')); optionalRegular(join(root, 'updates.sqlite-shm'));
-  const sourceAudits = auditDirectory(root, false), before = inventory(root), beforeKey = canonical(before);
+  const sourceAudits = auditDirectory(root, false);
+  // Bound diagnostic work BEFORE hashing or copying any potentially large audit.
+  auditUsage(sourceAudits);
+  const before = inventory(root), beforeKey = canonical(before);
   const diagnostic = mkdtempSync(join(tmpdir(), 'office-v2-m0-relay-inspect-'));
   try {
     for (const name of [manifestName, registryName, 'updates.sqlite', 'updates.sqlite-wal', 'updates.sqlite-shm']) {

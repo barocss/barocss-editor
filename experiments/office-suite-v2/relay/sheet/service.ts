@@ -181,6 +181,7 @@ export class SheetRelayService {
       persistAudit(this.directory, { version: 1, context: this.context, admission: request.admission, packet: request.packet, identity: session.identity });
     } catch (error) {
       if (error instanceof Error && error.message === 'relay-storage:audit-collision') return reject('update-id-collision');
+      if (error instanceof Error && (error.message === 'relay-storage:audit-count-limit' || error.message === 'relay-storage:audit-byte-limit')) return reject(error.message.slice('relay-storage:'.length));
       throw error;
     }
     const result = this.#store.append(session.identity, { admission: request.admission, updateId: request.packet.updateId, bytes });
