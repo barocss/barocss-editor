@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { settled, placeCaret } from './helpers';
+import { settled, placeCaret, setWordWholeTools } from './helpers';
 async function start(page: Page) { await page.goto('/?sample=references'); await settled(page); }
 async function selectText(page: Page, text: string, from: number, to = from) {
   await page.evaluate(({ text, from, to }) => {
@@ -23,6 +23,7 @@ async function selectText(page: Page, text: string, from: number, to = from) {
   }, { text, from, to });
 }
 async function open(page: Page, name = '책갈피') {
+  await setWordWholeTools(page);
   await page.getByRole('tab', { name: '참조', exact: true }).click();
   await page.getByRole('button', { name, exact: true }).click();
   await expect(page.getByRole('dialog', { name, exact: true })).toBeVisible();

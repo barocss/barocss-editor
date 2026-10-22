@@ -1,9 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
+import { setWordWholeTools } from './helpers';
 
 async function openReference(page: Page) {
   const paragraph = page.locator('#editor .w-paragraph').filter({ hasText: '두 번째 그림에도 캡션을 추가해 보세요.' }).last();
   await paragraph.click();
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowRight' : 'End');
+  await setWordWholeTools(page);
   await page.getByRole('tab', { name: '참조', exact: true }).click();
   await page.getByRole('button', { name: '상호 참조', exact: true }).click();
   await page.getByRole('combobox', { name: '참조 종류', exact: true }).click();
