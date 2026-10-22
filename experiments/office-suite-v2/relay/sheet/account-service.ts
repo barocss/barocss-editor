@@ -159,9 +159,8 @@ export class AccountSheetRelay {
     return this.#authorized(stored.proof, intent, signal, assertCurrent, (_grant, binding, check) => {
       if (!sameSheetRelayAccountBinding(stored.binding, binding)) throw new RelayError('account-session-mismatch', 403);
       const native = this.#native.issueAccountSession(binding, stored.credential);
-      const { controlled: _controlled, ...session } = native;
       check();
-      return operation(this.#native, { ...session, controlled: false, accountBinding: binding, expiresAt: stored.proof.expiresAt * 1000 }, check);
+      return operation(this.#native, { ...native, controlled: false, accountBinding: binding, expiresAt: stored.proof.expiresAt * 1000 }, check);
     });
   }
   async logout(token: string, signal: AbortSignal): Promise<void> {
