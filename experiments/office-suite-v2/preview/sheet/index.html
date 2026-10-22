@@ -17,6 +17,12 @@
         <p id="peer-session"></p><p id="peer-status" role="status" aria-live="polite">Start a session, then open a second screen.</p>
         <p class="scope">Same-browser tab delivery only. Peer receipts are temporary and do not confirm saving.</p>
       </section>
+      <section id="durable-controls" class="peer-controls" aria-label="Controlled relay session" hidden>
+        <div class="peer-actions"><button type="button" id="create-client">Start relay client</button><a id="open-client" target="_blank" rel="noopener" hidden>Open second screen</a><button type="button" id="pause-relay" disabled>Pause relay link</button><button type="button" id="retry-relay" disabled>Retry original updates</button><a id="new-client" target="_blank" rel="noopener">Start another client</a></div>
+        <p id="client-identity"></p><p id="durable-status" role="status" aria-live="polite">Start a client, then open a second screen.</p>
+        <p id="save-state" role="status">Save confirmation is unavailable.</p><p id="outbox-state"></p>
+        <p class="scope">Keep the client link to resume this browser's original session. Each second screen gets a separate session. Server confirmation applies to individual updates. A client retains up to 256 updates or 8 MB, including confirmed history. At the limit, new input stays in this tab and cannot be saved by this client.</p>
+      </section>
       <section class="workbook" id="sheet-workbook" aria-label="Budget example workbook">
         <div class="toolbar"><div><strong>Budget example</strong><span class="workbook-caption">32 rows × 12 columns per sheet</span></div><button type="button" id="undo" disabled>Undo my edit</button></div>
         <div class="formula-bar"><output id="cell-address" aria-label="Selected cell"></output><span class="fx" aria-hidden="true">fx</span><output id="formula-source" aria-label="Native cell source"></output><button type="button" id="edit-cell">Edit cell</button></div>

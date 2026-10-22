@@ -15,6 +15,7 @@ export interface Draft {
   readonly composing: boolean;
 }
 export interface NativeLocalChange { readonly event: WorkbookEvent; readonly update: Uint8Array }
+export type SheetAdapterMode = 'local' | 'peer' | 'durable';
 const sameKey = (a: CellKey, b: CellKey): boolean => encodeCellKey(a) === encodeCellKey(b);
 const numberText = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
@@ -42,13 +43,16 @@ export class SheetController {
   private structureEpoch = 0;
   private readonly ownEdits: string[] = [];
   private readonly localEvent: ((change: NativeLocalChange) => void) | undefined;
+  private readonly mode: SheetAdapterMode;
   transportWarning: string | null = null;
   message = 'Session only. Reload starts a new example.';
 
-  constructor(replica: SheetReplica, localEvent?: (change: NativeLocalChange) => void) {
+  constructor(replica: SheetReplica, localEvent?: (change: NativeLocalChange) => void, mode: SheetAdapterMode = 'local') {
     this.replica = replica;
     this.localEvent = localEvent;
-    if (localEvent) this.message = 'Two-screen session. Reload joins a live peer. Nothing is saved.';
+    this.mode = mode;
+    if (mode === 'peer') this.message = 'Two-screen session. Reload joins a live peer. Nothing is saved.';
+    if (mode === 'durable') this.message = 'Controlled relay. Local input needs server confirmation.';
     this.current = replica.projection;
     this.references = new ReferenceIndex(this.current);
     const firstSheet = this.current.sheets.find(sheet => !sheet.deleted);
@@ -69,7 +73,7 @@ export class SheetController {
   /** Transport observers cannot turn an applied native event into a false refusal. */
   private forwardLocal(change: NativeLocalChange): void {
     try { this.localEvent?.({ event: change.event, update: change.update.slice() }); }
-    catch (error) { this.transportWarning = `Peer delivery failed; input remains in this tab: ${errorText(error)}`; }
+    catch (error) { this.transportWarning = `${this.mode === 'peer' ? 'Peer' : 'Update'} delivery failed; input remains in this tab: ${errorText(error)}`; }
   }
 
   private recalculate(): void {
@@ -165,7 +169,7 @@ export class SheetController {
       this.synchronize();
       if (!this.reportOutcome(this.current.outcomes[event.eventId])) return false;
       this.currentDraft = null;
-      if (this.calculationReady) this.message = this.localEvent ? 'Applied in this tab. Peer delivery is temporary.' : 'Applied in this session. Reload discards changes.';
+      if (this.calculationReady) this.message = this.mode === 'durable' ? 'Applied locally. Relay confirmation is shown separately.' : this.mode === 'peer' ? 'Applied in this tab. Peer delivery is temporary.' : 'Applied in this session. Reload discards changes.';
       return true;
     } catch (error) { this.message = `Commit refused: ${errorText(error)}`; return false; }
   }

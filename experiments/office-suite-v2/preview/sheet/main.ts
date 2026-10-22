@@ -3,6 +3,7 @@ import { SheetController } from './controller.ts';
 import { mountSheetPreview } from './binding.ts';
 import { PeerSession } from './peer-session.ts';
 import { PeerLifecycle } from './lifecycle.ts';
+import { startDurableMode } from './durable-binding.ts';
 
 const element = (id: string): HTMLElement => {
   const found = document.getElementById(id);
@@ -47,7 +48,7 @@ function startPeerMode(): void {
     const state = peer.inspect();
     const replica = peer.replica;
     if (replica && !controller) {
-      controller = new SheetController(replica, change => { peer?.publish(change.event.eventId, change.update); });
+      controller = new SheetController(replica, change => { peer?.publish(change.event.eventId, change.update); }, 'peer');
       view = mountSheetPreview(controller);
       workbook.hidden = false;
     }
@@ -117,7 +118,7 @@ function startPeerMode(): void {
 try {
   const mode = document.querySelector('meta[name="sheet-collaboration-mode"]')?.getAttribute('content');
   if (mode === 'peer') startPeerMode();
-  else if (mode === 'durable') throw new Error('Durable client is not enabled in this Phase B candidate.');
+  else if (mode === 'durable') startDurableMode();
   else {
     const controller = new SheetController(createPreviewReplica());
     const view = mountSheetPreview(controller);
