@@ -67,15 +67,13 @@ function anchorAt(spans: TextSpan[], offset: number): LineAnchor | undefined {
 }
 
 /** The top of the line the character at `offset` sits on. */
-function lineTopAt(spans: TextSpan[], offset: number): number | undefined {
+function lineTopAt(spans: TextSpan[], offset: number, range: Range): number | undefined {
   for (const span of spans) {
     if (offset < span.start || offset >= span.end) continue;
 
-    const range = span.node.ownerDocument.createRange();
     range.setStart(span.node, offset - span.start);
     range.setEnd(span.node, offset - span.start + 1);
     const rect = range.getBoundingClientRect();
-    range.detach?.();
     return rect.height > 0 ? rect.top : undefined;
   }
   return undefined;
@@ -102,53 +100,59 @@ export function lineStartOffsets(el: Element, bandTops?: number[]): LineAnchor[]
   const spans = textSpans(el);
   if (spans.length === 0) return [];
 
-  const total = spans[spans.length - 1].end;
-  const offsets: LineAnchor[] = [];
+  // One synchronous measurement owns its Range; never retain it across calls.
+  const range = el.ownerDocument.createRange();
+  try {
+    const total = spans[spans.length - 1].end;
+    const offsets: LineAnchor[] = [];
 
-  /**
-   * Which band a line top falls in. Without bands every boundary counts, which
-   * is what a block with nothing floated in it wants anyway.
-   */
-  const bandOf = (top: number): number => {
-    if (!bandTops || bandTops.length === 0) return Number.NaN;
-    let index = 0;
-    for (let i = 1; i < bandTops.length; i += 1) if (top >= bandTops[i] - 1) index = i;
-    return index;
-  };
+    /**
+     * Which band a line top falls in. Without bands every boundary counts, which
+     * is what a block with nothing floated in it wants anyway.
+     */
+    const bandOf = (top: number): number => {
+      if (!bandTops || bandTops.length === 0) return Number.NaN;
+      let index = 0;
+      for (let i = 1; i < bandTops.length; i += 1) if (top >= bandTops[i] - 1) index = i;
+      return index;
+    };
 
-  const firstTop = lineTopAt(spans, 0);
-  if (firstTop === undefined) return [];
-  let lineTop: number = firstTop;
+    const firstTop = lineTopAt(spans, 0, range);
+    if (firstTop === undefined) return [];
+    let lineTop: number = firstTop;
 
-  let cursor = 0;
-  while (cursor < total) {
-    // Find the first offset after `cursor` whose line differs. Linear scanning
-    // would be one range per character; this halves the interval instead, which
-    // matters on a paragraph of several thousand characters.
-    let low = cursor;
-    let high = total;
-    let found = -1;
+    let cursor = 0;
+    while (cursor < total) {
+      // Find the first offset after `cursor` whose line differs. Linear scanning
+      // would query every character; this halves the interval instead, which
+      // matters on a paragraph of several thousand characters.
+      let low = cursor;
+      let high = total;
+      let found = -1;
 
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2);
-      const top = lineTopAt(spans, mid);
-      if (top !== undefined && top > lineTop + 1) {
-        found = mid;
-        high = mid;
-      } else {
-        low = mid + 1;
+      while (low < high) {
+        const mid = Math.floor((low + high) / 2);
+        const top = lineTopAt(spans, mid, range);
+        if (top !== undefined && top > lineTop + 1) {
+          found = mid;
+          high = mid;
+        } else {
+          low = mid + 1;
+        }
       }
+
+      if (found < 0) break;
+      const nextTop = lineTopAt(spans, found, range) ?? lineTop;
+      const anchor = anchorAt(spans, found);
+      // NaN when there are no bands, and NaN === NaN is false — so every boundary
+      // counts, which is what a block with nothing floated in it wants.
+      if (anchor && bandOf(nextTop) !== bandOf(lineTop)) offsets.push(anchor);
+      lineTop = nextTop;
+      cursor = found;
     }
 
-    if (found < 0) break;
-    const nextTop = lineTopAt(spans, found) ?? lineTop;
-    const anchor = anchorAt(spans, found);
-    // NaN when there are no bands, and NaN === NaN is false — so every boundary
-    // counts, which is what a block with nothing floated in it wants.
-    if (anchor && bandOf(nextTop) !== bandOf(lineTop)) offsets.push(anchor);
-    lineTop = nextTop;
-    cursor = found;
+    return offsets;
+  } finally {
+    range.detach?.();
   }
-
-  return offsets;
 }
