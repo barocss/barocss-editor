@@ -1,13 +1,15 @@
 ---
 work_id: office-v2-m0/word100-memory-outcome-v1
 artifact_type: implementation_evidence
-status: running
+status: done
 owner_role: Execute Word Layout
 source_request: Planner actual user item 01a163cc-9d96-7be3-89cc-240864c124bb
 last_updated: 2026-10-22
 ---
 
 # Word100 memory outcome
+
+The bounded Word100 outcome is verified on local integrated source `36b0fa98447d1f1b43c42066c88ec975f96f6c93`, production-equivalent to author `174595dd`. One unchanged normal H7 window passes all six samples: Word100 **494.59375 /491.1875 /459.65625 MiB**, Word300 **804.296875 /807.859375 /804.015625 MiB**. All original timing/font/repeatability/node-growth/guard criteria pass. Final evidence and limits are recorded at the end. Historical first failures below remain intact.
 
 Parent #521; outcome #537. The human delegated cause analysis, justified structural repair and unchanged Word100 memory qualification as one outcome. Existing user screens, five servers, native data, planning WIP and all earlier Word/Renderer failures remain preserved. No push, deployment, schedule or model changes.
 
@@ -154,3 +156,34 @@ Integration separately ran the previously NOT RUN original 14 print browser case
 The next feature run on integrated test successor `64885376` reaches and passes real rename/delete/reference-missing assertions, then stops at another obsolete assumption: the Home tab after closing the dialog is hidden again. Result primary `.omx/m0/word100-feature-browser-v1/results.json`: zero completed PASS, one FAIL, four NOT RUN. These partial assertions are not promoted to a completed test PASS. The parent missed this subsequent navigation when reviewing the first helper change; its first failure remains intact.
 
 Audit of all four tab call sites in both specs adds the same genuine menu helper before the remaining Home navigation and the caption test's later direct Reference tab after selecting its image. Every tab navigation now opens the actual retained tool surface immediately beforehand. Only two lines change; all feature assertions remain intact. Scoped lint exits zero with the same eight existing warnings, and diff check passes. Product source and previous print/native evidence are unchanged. Integration may collect the first failure of each of the five distinct feature cases with one worker, zero retries and maxFailures five; any failure still holds H7, whose original resource/time first-failure STOP is unchanged.
+
+## Final source-bound qualification and independent review
+
+Integration applies only the verified one-error lint baseline decrease after author174595, then the two test-navigation deltas. Final measured HEAD `36b0fa98447d1f1b43c42066c88ec975f96f6c93`, tree `566bcdfbd902946ef68f6af92ceee14db89f7aee`, has the exact174595 production bytes. The intervening commits have easylogic author/committer and no coauthor. This is a local qualified candidate, not a local develop merge or production adoption claim.
+
+Final meaningful integrated checks: renderer151 PASS/one existing SKIP; View69 PASS; Word39 PASS; independent8 PASS. Required stages are covered by the one literal4961 preflight plus affected source/test/lint checks after the correction, recorded in `word100-final-preflight-ledger.json` SHA256 `88a7741991616135014e608b83c9962875ec39f1c58e4354956cd687c8d7f706`. Word app test types pass0/0 after test-only updates. The lint baseline drops exactly one observed occurrence,533→532; rules and limits are not raised.
+
+Genuine browser evidence:
+
+- Print14 PASS at7a956, zero skipped/retries/flaky/errors. Raw `.omx/m0/word100-candidate-print-browser/results.json`, SHA256 `360f8fb781c73cfb2c95337dd7b6c77081173c63d391b1a5ba1ed87c78ac5f15`.
+- Bookmark/caption5 PASS at36b0fa, zero skipped/retries/flaky/errors. Raw `.omx/m0/word100-feature-browser-v2/results.json`, SHA256 `685e6727a7287df8e118e09877f30a8849f862fda33083fb1d5613b57e2623dc`.
+- Print production remains byte-identical across these test-only descendants, so the passed14 are reused rather than rerun. Both earlier UI-navigation failures remain distinct preserved results.
+
+Exactly one final normal H7 window uses three fresh browser processes per size, original fixture/fonts/media/no-GC/guards and seven unchanged harness files. Raw primary `.omx/m0/word100-normal-qualification-v1/report.json`, 134876 bytes, SHA256 `16a8fe3ceb2e3fb30d9178eb47887945b5a14d466a4d040f915cf62a0473a856`; original raw in the Integration root has the same hash. Assessment SHA256 `8d76344f7ef7ade87d21536814d069d234ebd52476ef3dbeff3cccd3e6646794`.
+
+| Profile | Maximum sampled owned RSS, bytes | MiB | Limit | Result |
+| --- | --- | --- | --- | --- |
+| Word100 sample1 | 518619136 | 494.59375 | 512 MiB | PASS |
+| Word100 sample2 | 515047424 | 491.1875 | 512 MiB | PASS |
+| Word100 sample3 | 481984512 | 459.65625 | 512 MiB | PASS |
+| Word300 sample1 | 843366400 | 804.296875 | 1024 MiB | PASS |
+| Word300 sample2 | 847101952 | 807.859375 | 1024 MiB | PASS |
+| Word300 sample3 | 843071488 | 804.015625 | 1024 MiB | PASS |
+
+Worst-of-three cold/warm/print timings: Word100305.5/100.5/24.3ms; Word300989.6/345.3/66.8ms, all original targets pass. Actual pages and print pages match100/300, root IDs match DOM, all actual font identities are known, all repeatability checks pass and there are no page/console/resource/time-guard errors. Printed native node deltas4501/13501 give2.9995556543 growth, within3.5. Owned browser/server/Vite cleanup completes within5s.
+
+Independent author review rehashes both raw copies, recomputes all six RSS maxima and every poll's PID sum, verifies six distinct fresh browser root PIDs, compares the frozen budget/harness/workload/method/guards with the old failed run, and checks actual timings/fonts/pages/nodes/errors. Before binding SHA256 `bbf8dfb75538d13b8fd09697535e46e51dcb1ea7cfcda1b2b506a12fffdab8dd`, after binding `15f6780fcd2c5dc270fc97cd20de6ceec6ce446400aed0b31301dd638116b514`: all1215 file records and654 aliases match exactly. All1215 actual file hashes and654 current symlink targets also match. The curated17-file omissions are explicitly covered, including the new navigation module and changed fiber-tree. Review record: primary `.omx/m0/537-word100-author-review.json`.
+
+All24 observed normal browser PIDs are absent and private55260/55261 are closed. All five existing user server PIDs remain alive; existing primary planning WIP is unchanged. Earlier Word checkpoints, diagnostic full FAILs, failed normal samples and first test failures are preserved. Conditional office-text style resolution and lazy Word anchor proposals remain INACTIVE; no further source change or measurement is needed for this achieved outcome.
+
+Evidence boundary: RSS is a200ms sampled owned-process sum including shared pages, not continuous HWM/private bytes or a population-tail guarantee. Actual copy/module counts and native capacity observations identify concrete work/ownership issues, but these separate windows do not isolate per-change RSS causation. This accepts the bounded Word100 outcome and same-candidate300 regression, not whole M0/alpha/physical IME/release/deployment or full PDF/paper fidelity.
