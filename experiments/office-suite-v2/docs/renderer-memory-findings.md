@@ -222,3 +222,120 @@ Logs are retained at the local paths below. The initial failure and independent 
 | `/tmp/531-lint-comparison-final.json` | `44fcb8bf54d3769761ef0a4734480a4f75ec83d3072f7605b2ad8696ee9d991e` |
 | `/tmp/531-source-restoration.json` | `f4197e89ab0ee95e61dd5e2dd5e920b04ae8fed00d582e0165e67ef3826f5607` |
 | `/tmp/531-portal-diagnostic.ts.txt` | `9af1e880b78db1ee21d857cd21325fec082defbd5d9ce0528f4dc78cfa2bf1d1` |
+
+
+# Portal lifecycle successor — #531, 2026-10-22
+
+This section is additive. The entire preceding retention report and its original FAIL/raw bindings remain byte-identical to parent (prefix SHA-256 `06877ed5428d3e259193c0c08a627204596665a883e1e004bcbd2bb20934a1c0`). Old portal failures remain historical failures; the focused native behavior below is a new source-bound result. It does not accept all browser/portal/disposal behavior or resolve Word100 RSS.
+
+## Authority, source and ownership
+
+Planner reported the direct human answer “중지 해제하고 M0 수정·검증 계속” to the explicit Word/Renderer/Verification hold-release question. Scope is `wonffice-531/portal-lifecycle-next-v1`, same Issue #531 after duplicate checks; no second Issue. Parent owns production/review/final checks. Native `portal_tests` helper wrote only the new regression file and ran no tests. `lifecycle_audit` reviewed sources read-only, found two concrete initial-candidate defects, and ran no tests. Parent reproduced them and made all source fixes.
+
+- Exact parent: `7eca44213c9b9609c88b635dcfc0ee8412a7e21d`; tree `e09d6f739d05407359c5a0af88cd309b3aac9949`.
+- New managed root: `/Users/user/.codex/worktrees/531-portal-lifecycle-next/barocss-editor`; branch `codex/531-portal-lifecycle-next`; initially clean.
+- Existing `/Users/user/.codex/worktrees/531-renderer-memory/barocss-editor` at `981cc151` stays clean and unchanged. Primary and all served/checkpoint roots are preserved.
+- Renderer subtree equals prior e681/981: `ed0e19ca5f5eaa9e1fcd2b905da372a4a57e3cf2` on parent. This does not turn historical diagnostics into a fresh parent run.
+- Exact seven-path lease: the five source files below, new regression, and this append. Other renderer files/public API, scheduler/types, View, Word, verification, root/config/locks are unchanged.
+- Integration supplied source-aware frozen graph: receipt `/Users/user/barocss-editor/.omx/m0/531-portal-lifecycle-next-frozen-receipt.json`, 46 directories/799 entries/654 links. Node 22.22.0, pnpm8.15 policy and resolved Vitest4.0.18/TypeScript5.9.3/ESLint8.57.1 unchanged. No author install/link/config edits.
+
+Final source/test bindings (final immutable parent/head/tree is in the Issue handoff):
+
+| Path | Git blob | SHA-256 |
+| --- | --- | --- |
+| `packages/renderer-dom/src/reconcile/reconciler.ts` | `c67d6eb3205b4285325b15523685ab7f248e7674` | `a70bf6b4e5689535cc024ce7b7597b1c48447b1125f3e726dd1c7c69f1fb5d1d` |
+| `packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts` | `a0a8d38b32eb68847b7f9b25f96a120e0f071740` | `0e2792d6553a1f484acb29141471c921558afa875f42bd7ef01d3c0f2e6253d9` |
+| `packages/renderer-dom/src/reconcile/fiber/fiber-tree.ts` | `7c6a8a6a0f60f437bb3a66f2f66c4918bcd953f1` | `3a5b0bbad8f1f42ffd339b880cca6c6a1a01b988d61d04af30ad97964b8196b6` |
+| `packages/renderer-dom/src/reconcile/utils/portal-handler.ts` | `2d481b2421c06fcc5f9e6920d00e25e17690b08c` | `959bbbea33a5470895cb27cfceafb5677fa0de0cc91f53a919130d3dbff3698b` |
+| `packages/renderer-dom/src/reconcile/fiber/get-host-sibling.ts` | `b7f49a6a780b438fb25be58bdae859f5773ea87f` | `677c957983c341e1e0d1be7100af7e9b792ae0abd977321b8d78ffda2b0fe83f` |
+| `packages/renderer-dom/test/core/m0-portal-lifecycle.test.ts` | `fadb25314e0da4a804996b4afcc5249ad005106f` | `c0d56e3cd36bc23513be97b47351a6e0eea30342e2886ced6d2c1a53826c167f` |
+
+## Actual parent first failures
+
+All commands below ran the real DOMRenderer/DSL and actual FiberScheduler with Node22.22 PATH from `packages/renderer-dom`. The controlled clock/idle queue only forces actual scheduler yield boundaries; it does not replace the renderer, build a fake Fiber graph or force GC.
+
+1. Exact unchanged parent, new initial 9-case file:
+
+```sh
+node node_modules/vitest/vitest.mjs run test/core/m0-portal-lifecycle.test.ts --maxWorkers=1 --fileParallelism=false
+```
+
+Exit1, 9/9 FAIL. First mount had **2 content elements, expected1**. Reorder later had10, expected3. The independently observed before-portal-unit cancellation case had obsolete callback0 / newest callback1, but target child count2 (foreign + stale host), expected1 (foreign only). Thus the shared visited-set cleanup problem is now an actual failure on this source, rather than only the earlier static suspicion. The after-portal-unit case had content5, expected1. These failures remain separate from RSS.
+
+2. Still exact unchanged parent, enhanced 11-case file, only update case selected:
+
+```sh
+node node_modules/vitest/vitest.mjs run test/core/m0-portal-lifecycle.test.ts -t 'updates text and title once' --maxWorkers=1 --fileParallelism=false
+```
+
+Exit1, 1 failed /10 filtered. Soft assertions collect multiple failures without changing any expected result: initial count2 vs1; update count4 vs1; first content text `one` vs expected `two`, title `first` vs expected `second`; portal content incorrectly appears in source DOM (`beforetwo[a]after` vs `before[a]after`). Element/Text identity is still required. Soft assertions remain failing Vitest assertions, not accepted stale values. The first 9-case transcript stays preserved separately.
+
+The baseline source was not temporarily overlaid or repaired during either parent run. Later test-only corrections are explicit: deleting a portal may leave its content in a detached owned host, so the removal oracle requires target absence and detached host, not `content.parentNode === null`. DOM/Text identity arrays were strengthened to exact lengths and per-index `toBe`. No frozen fixture, gate, media, budget or expected correct content was relaxed.
+
+## Minimal repair and concrete review followups
+
+The old code built portal content as ordinary child Fibers **and** launched a second independent portal scheduler with no previous content. Parent-return processing could launch it again. Content accumulated in the target, stayed stale at the first node and could also appear in source DOM.
+
+The repair keeps portal content in the existing root Fiber tree and scheduler:
+
+- `preparePortalHost` prepares a detached owned host or reuses the committed owned host. It never adopts a matching DOM attribute on a foreign host. The old internal `handlePortalVNode` contract is retained for its existing direct callers/tests; the actual Fiber path uses detached preparation. No package public API was added or changed.
+- Each reconcile pass has its own prepared entries and visited set. The root cancellation/generation check guards unit processing, commit/sweeps, publication and external completion. Supersede and destroy invalidate old queued work; no portal-specific independent scheduler remains.
+- Portal children commit to the host once. The host itself bypasses ordinary source placement. Target movement reuses the same host/content/Text nodes. Hosts attach and reorder only **after all source commits and text cleanup**, before root completion/history release.
+- Source stale-child traversal and sibling lookup stop at portal boundaries. Committed owned hosts are preserved when a source host is also a portal target. Cleanup removes only hosts in this renderer's map, preserving unrelated target content and a foreign host with the same portal ID.
+- Portal identity uses portalId in sibling matching. For ordinary template elements, the existing `getVNodeId` contract says an explicit key wins over an inherited owner SID; `identityOf` was discarding that key. The first repair candidate exposed two actual source-sibling identity failures. Giving the existing truthy string key priority fixes those. VNode.key remains string, existing empty-key truthiness behavior is unchanged, and no numeric/zero key contract was invented. Actual **non-portal** inherited-SID keyed reorder/insert/delete and ordinary unkeyed positional Element/Text reuse are separate final tests.
+
+The initial candidate's 11 new +9 retention cases passed after the key correction. Read-only review then identified two concrete defects in that candidate and parent reproduced both before their fixes:
+
+| Initial-candidate defect | Actual focused RED | Fix |
+| --- | --- | --- |
+| Target is the later `.source-after` text-only source element | Expected1 portal content, actual0 after later text reconciliation; exit1, 1FAIL/1PASS/14 filtered | Attach hosts at the end of the whole commit, after source text cleanup. |
+| A custom-element disconnection during a target-change render calls destroy or a newer render | Both modes left committed map size1, expected0; exit1, 2FAIL/2PASS/12 filtered | Ownership checks after sweeps and before map writes; DOM movement checks immediately after append/insert. |
+
+The custom probe is inserted directly in the owned host and can be disconnected by the stale sweep before the final host move. Its final PASS therefore establishes **post-sweep reentrancy ownership**, not branch-specific execution coverage of the post-append/post-insert guards. Those guards' placement was reviewed from source. No universal custom-element, component or disposal acceptance is inferred. No further introduced blocking defect was found by the read-only final review.
+
+## Final targeted receipts
+
+All final rows below bind to the six source/test blobs above, not an earlier candidate. No subsequent source/test edit follows these checks.
+
+| Check | Actual result |
+| --- | --- |
+| New portal regression | 16/16 PASS; actual update/count/Element+Text identity, target move/removal, same-ID foreign host, portal/source order, nested removal, target-before and target-after, sweep callback destroy/supersede, explicit non-portal key and unkeyed positional rules, async before/after portal units, async completion reentry, reached-unit destroy/followup,20 completed portal updates. |
+| Existing unchanged Fiber retention regression | 9/9 PASS; 40-render result remains1generation/5Fibers/79enumerable objects, whole-DOM count and Element/Text identity unchanged. |
+| Directly affected selected set | Exit0; **11 files /92 PASS /0 skips**. Includes new16 + retention9 and existing67 checks. Full command below. |
+| Source types | Exit0;0 diagnostics: `node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json`. |
+| Test types | Exit0;123/123 unchanged debt: from root `node scripts/typecheck-tests.mjs renderer-dom`. No budget/adopt/config changes. |
+| Scoped lint | Five changed sources + new test have7 existing errors/45 warnings; new test0/0. Exact-parent `lintEntries/compareLint` grew0/shrank0, exit0. This is baseline compliance, not zero-diagnostic lint. |
+| Scope/integrity | `git diff --check` PASS; old report prefix and existing retention test preserved exactly; no nonleased source edits. |
+
+```sh
+node node_modules/vitest/vitest.mjs run test/core/m0-portal-lifecycle.test.ts test/core/m0-fiber-retention.test.ts test/core/reconciler-portal.test.ts test/core/reconcile-utils-portal-handler.test.ts test/core/fiber-tree.test.ts test/core/fiber-create-fiber-tree.test.ts test/core/fiber-reconciler.test.ts test/core/reconciler-lifecycle.test.ts test/core/mark-decorator-complex.test.ts test/core/dom-renderer-multiple-render.test.ts test/core/native-tag-is-never-a-component.test.ts --maxWorkers=1 --fileParallelism=false
+```
+
+Intermediate receipts are preserved, not promoted: initial repair20/20, then selected87/87 pre-review-fix and standalone25/25 before the final portal-key fallback simplification; the final92 run above supersedes those for final-source coverage. The final fallback uses portalId after the existing truthy explicit-key check, so an empty key does not override portalId. The final92/source-types/test-budget/lint comparison were repeated after that last source line. Review-focused filtered cases are recorded with their filtered counts; filtered cases were not PASS.
+
+Independent Verification #526 reported immutable parent RED candidate `0bea96d89a3299e0a199f347b30bf04986f985d3`:8 cases/4PASS4FAIL using public DOM/callbacks and real scheduler timing. That is independent baseline evidence, not a final-candidate PASS. Integration owns joining that unchanged verifier delta with this immutable source and any required aggregate/browser checks. The author did not run those independent files or mutate verification paths.
+
+The prior portal text/title FAIL and async NOT VERIFIED statements above describe the predecessor checkpoint. This successor proves only the named native/jsdom cases on the new source; real-browser aggregate acceptance remains pending Integration/Verification. Word100 W4/W5 RSS failures, native-attribution gaps and all original raw records remain unchanged. No RSS causality/savings, new Word100/300 qualification, whole M0 acceptance, release or universal cleanup claim follows. No browser/heavy profile/full package/repository tests, push/PR/deploy, DB mutation, unrelated process stop or schedule action was performed.
+
+## Successor raw evidence digests
+
+| Local raw evidence | SHA-256 |
+| --- | --- |
+| `/tmp/531-portal-parent-first-failure.log` | `94f92eefa43a61dfcb44d358387c2148e5ec69306a66901db5439865ea47fcf4` |
+| `/tmp/531-portal-parent-update-first-failure.log` | `d290ad5227dfb77be1303fef4c9cf4be5f407f603d1664b43ae17e0e93e540ba` |
+| `/tmp/531-portal-initial-fix.log` | `1122442b66bf65b031f1d652ca0ef992b267fbf72853782d349da45e847496dc` |
+| `/tmp/531-portal-fixed-focused.log` | `084256c846d335d75345fb71997187d66dc3c6ece75b53c07b45cb3ddb373e54` |
+| `/tmp/531-portal-targeted.log` | `0bf49581593a6ea6ec40ec6a3f883af56882b7c6ba5b194eebbc7cf3fdb9f31c` |
+| `/tmp/531-portal-review-first-failures.log` | `99953b8993498a253ca0690ec668c514aaa2c67541ca4c75466a5a1f60d8846c` |
+| `/tmp/531-portal-move-review-first-failures.log` | `0fe136468e96b9a65ce6230e4a1098b34a6aa7b05d500f4ce663533cc788c672` |
+| `/tmp/531-portal-final-focused.log` | `b3a21ddcd615c2f470e0c45c2e88a485235de5bf90de7eed5b537f4ce5bf85e5` |
+| `/tmp/531-portal-targeted-final.log` | `ae5a63d590e4b6befd5d98e187dce3effd461fa6b3bd10d76b2b3e56ccc87977` |
+| `/tmp/531-portal-source-types-final.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `/tmp/531-portal-test-types-final.log` | `10e38c332782a8e7cf5aec1b9b10721263d21cb36853f55989c9924207a8fb41` |
+| `/tmp/531-portal-lint-final.json` | `bc9551cec6be704fdf6a0fc198c2f070b8740a909db693dcff25d367c23b826a` |
+| `/tmp/531-portal-lint-comparison-final.json` | `2f05bff26996bb9021fe96f664d09e28e8fe087411ed620a2601d133443b159e` |
+| `/tmp/531-portal-targeted-final-pin.log` | `37d16f296af09f79e6ea0da6d4a6e62c873ddc5b26963d0109554a3c9d16c5ec` |
+| `/tmp/531-portal-source-types-final-pin.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `/tmp/531-portal-test-types-final-pin.log` | `10e38c332782a8e7cf5aec1b9b10721263d21cb36853f55989c9924207a8fb41` |
+| `/tmp/531-portal-lint-final-pin.json` | `ee6871119909dbca5a5002f44acf1ba77c4cc95852ecc574c993955e4acb63e7` |
+| `/tmp/531-portal-lint-comparison-final-pin.json` | `2f05bff26996bb9021fe96f664d09e28e8fe087411ed620a2601d133443b159e` |

@@ -1,4 +1,5 @@
 import { EffectTag, FiberNode } from './types';
+import { VNodeTag } from '../../vnode/types';
 
 /**
  * Implementation of React's getHostSibling algorithm
@@ -30,7 +31,7 @@ export function getHostSibling(fiber: FiberNode): Node | null {
     // Their DOM node is not in the tree yet, so it is not a usable anchor: using
     // it would make the caller insert relative to a node that has no position,
     // and treating it as "no anchor" would append and destroy sibling order.
-    if (sibling.effectTag === EffectTag.PLACEMENT) {
+    if (sibling.effectTag === EffectTag.PLACEMENT || sibling.vnode.tag === VNodeTag.PORTAL) {
       sibling = sibling.sibling;
       continue;
     }
@@ -45,6 +46,10 @@ export function getHostSibling(fiber: FiberNode): Node | null {
     if (sibling.child) {
       let childFiber: FiberNode | null = sibling.child;
       while (childFiber) {
+        if (childFiber.vnode.tag === VNodeTag.PORTAL) {
+          childFiber = childFiber.sibling;
+          continue;
+        }
         if (childFiber.domElement) {
           return childFiber.domElement;
         }
