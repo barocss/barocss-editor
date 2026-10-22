@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { base64ToBytes, bytesToBase64, parseSheetRelayAppendRequest, parseSheetRelaySessionRequest, relayAdmission, SHEET_RELAY_LIMITS,
   decodeSheetRelayClientFrame, decodeSheetRelayServerFrame, encodeSheetRelayWsFrame, parseSheetRelayClientFrame, parseSheetRelayServerFrame,
-  SHEET_RELAY_WS_LIMITS, SHEET_RELAY_WS_PATH } from '../src/sheet-preview-protocol.ts';
+  SHEET_RELAY_WS_LIMITS, SHEET_RELAY_WS_PATH, parseSheetRelayAccountBinding, parseSheetRelayAccountAdmissionResponse, parseSheetRelayAccountSession,
+  sameSheetRelayAccountBinding, sheetRelayAccountAdmissionPath } from '../src/sheet-preview-protocol.ts';
 import { createWorkbookContext } from '../src/workbook.ts';
 
 const context = createWorkbookContext({ documentId: 'controlled-sheet', workbookId: 'book', generation: 'generation' });
@@ -74,4 +75,45 @@ test('append DTO binds full context, admission, exact packet identity and declar
     { ...request, packet: { ...request.packet, sha256: 'not-a-hash' } },
     { ...request, packet: { ...request.packet, updateId: '' } },
   ]) assert.throws(() => parseSheetRelayAppendRequest(bad));
+});
+
+const accountBinding = { issuer: 'https://issuer.example/realm', subject: 'verified-subject', userId: '00000000-0000-4000-8000-000000000001', loginBindingId: '1'.repeat(64),
+  tenantId: '00000000-0000-4000-8000-000000000002', workspaceId: '00000000-0000-4000-8000-000000000003', documentId: '00000000-0000-4000-8000-000000000004' };
+const accountContext = createWorkbookContext({ documentId: accountBinding.documentId, workbookId: '00000000-0000-4000-8000-000000000005', generation: 'generation-account' });
+const accountState = { ...state, context: accountContext, admission: relayAdmission(accountContext) };
+const accountSession = { protocolVersion: 1, controlled: false, credential: '2'.repeat(64), identity: { actorId: 'server-account-actor', sessionId: 'server-native-session' }, context: accountContext,
+  access: 'read-only', accountBinding, expiresAt: 1_800_000_000_000 };
+test('P3 stable account binding isolates tenant/document/login; expiry stays ephemeral', () => {
+  assert.deepEqual(parseSheetRelayAccountBinding(accountBinding), accountBinding);
+  assert(sameSheetRelayAccountBinding(accountBinding, { ...accountBinding }));
+  for (const key of ['issuer', 'subject', 'userId', 'loginBindingId', 'tenantId', 'workspaceId', 'documentId'] as const) assert.equal(sameSheetRelayAccountBinding(accountBinding, { ...accountBinding, [key]: 'different' }), false);
+  assert.throws(() => parseSheetRelayAccountBinding({ ...accountBinding, expiresAt: accountSession.expiresAt }));
+  assert.throws(() => parseSheetRelayAccountBinding({ ...accountBinding, role: 'owner' }));
+  assert.throws(() => parseSheetRelayAccountBinding({ ...accountBinding, userId: 'client-selected' }));
+  assert.throws(() => parseSheetRelayAccountBinding({ ...accountBinding, loginBindingId: 'ambiguous-sid-string' }));
+  assert.deepEqual(parseSheetRelayAccountSession(accountSession), accountSession);
+  assert.throws(() => parseSheetRelayAccountSession({ ...accountSession, controlled: true }));
+  assert.throws(() => parseSheetRelayAccountSession({ ...accountSession, context }));
+});
+test('P3 admission uses a separate one-use ticket with two explicit Unix-millisecond deadlines', () => {
+  const admitted = { protocolVersion: 1, ticket: '3'.repeat(64), accountBinding, expiresAt: 1_799_999_995_000, grantExpiresAt: 1_800_000_000_000 };
+  assert.deepEqual(parseSheetRelayAccountAdmissionResponse(admitted), admitted);
+  assert.equal(sheetRelayAccountAdmissionPath(accountBinding.tenantId, accountBinding.documentId), `/api/v1/tenants/${accountBinding.tenantId}/sheets/${accountBinding.documentId}/admission`);
+  assert.throws(() => sheetRelayAccountAdmissionPath('../tenant', accountBinding.documentId));
+  assert.throws(() => parseSheetRelayAccountAdmissionResponse({ ...admitted, expiresAt: admitted.grantExpiresAt + 1 }));
+  assert.throws(() => parseSheetRelayAccountAdmissionResponse({ ...admitted, grantExpiresAt: Infinity }));
+  assert.throws(() => parseSheetRelayAccountAdmissionResponse({ ...admitted, accessToken: 'must-not-echo' }));
+  const auth = { protocolVersion: 1, type: 'authenticate-account', requestId: 'account-auth', ticket: admitted.ticket };
+  assert.deepEqual(decodeSheetRelayClientFrame(JSON.stringify(auth)), auth);
+  assert.throws(() => parseSheetRelayClientFrame({ ...auth, subject: accountBinding.subject }));
+  assert.throws(() => parseSheetRelayClientFrame({ ...auth, accessToken: 'not-ws-auth' }));
+});
+test('P3 account WS reply cannot masquerade as controlled auth or another native document', () => {
+  const reply = { protocolVersion: 1, type: 'account-authenticated', requestId: 'account-auth', session: accountSession, state: accountState };
+  assert.deepEqual(decodeSheetRelayServerFrame(JSON.stringify(reply)), reply);
+  assert.throws(() => parseSheetRelayServerFrame({ ...reply, type: 'authenticated' }));
+  assert.throws(() => parseSheetRelayServerFrame({ ...reply, session: { ...accountSession, controlled: true } }));
+  assert.throws(() => parseSheetRelayServerFrame({ ...reply, state }));
+  assert.throws(() => parseSheetRelayServerFrame({ ...reply, session: { ...accountSession, expiresAt: 0 } }));
+  assert.throws(() => parseSheetRelayServerFrame({ ...reply, session: { ...accountSession, access: 'admin' } }));
 });
