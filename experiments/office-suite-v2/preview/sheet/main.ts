@@ -5,6 +5,7 @@ import { PeerSession } from './peer-session.ts';
 import { PeerLifecycle } from './lifecycle.ts';
 import { startDurableMode } from './durable-binding.ts';
 import { startAccountMode } from './account-mode.ts';
+import { endAccountLogin } from './account-logout.ts';
 
 const element = (id: string): HTMLElement => {
   const found = document.getElementById(id);
@@ -118,7 +119,7 @@ function startPeerMode(): void {
 
 try {
   const mode = document.querySelector('meta[name="sheet-collaboration-mode"]')?.getAttribute('content');
-  if (mode === 'account') void startAccountMode().catch(showFailure);
+  if (mode === 'account') void startAccountMode({ logout: endAccountLogin }).catch(showFailure);
   else if (mode === 'peer') startPeerMode();
   else if (mode === 'durable') startDurableMode();
   else if (mode === 'websocket') startDurableMode('websocket');

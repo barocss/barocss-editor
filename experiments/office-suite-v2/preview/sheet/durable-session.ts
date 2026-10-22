@@ -326,10 +326,11 @@ export class DurableSession {
           this.#packets.set(packet.request.packet.updateId, packet);
         }
         for (const packet of snapshot.packets) if (packet.state === 'durable') {
+          if (!this.#active()) return;
           const receipt = this.#receipt(packet.receipt, packet);
           const frontierHash = await sha256(frontier(receipt.frontierBase64));
-        if (!this.#authorized() || (this.#transport && !this.#editable())) throw new Error('account-or-write-access-retired');
-        this.#receiptFrontiers.set(receipt.updateId, frontierHash);
+          if (!this.#active()) return;
+          this.#receiptFrontiers.set(receipt.updateId, frontierHash);
         }
         if (!this.#active()) return;
         const request = original ? { protocolVersion: 1 as const, resumeCredential: original.session.credential } : { protocolVersion: 1 as const };

@@ -892,3 +892,66 @@ that gate. The same assertion now passes with0 concurrent begin calls; all8
 account-mode DOM models pass, including the existing URL admission probes.
 Narrow2-root imports-included strict check and2-file ESLint pass. The prior145
 aggregate remains bound to5469; it is not relabeled as a rerun on this follow-up.
+
+
+## Final logout wire and completed-history restore follow-up
+
+Execute Sheet Accounts (`01a15eca-4aec-7d32-a2c4-37e6824c0b8e`) accepted the exact
+unfinished backend/protocol scope after Integration's stable frozen copy receipt.
+The old Collaboration root/chat/WIP remains stopped and preserved. No UI owner
+adopted its mutable files. New sole owner published logout addendum
+6a70c76ffaea60fbcd25e026de565bdbad679e02, parentCEC,
+tree d218ed0fbc465af185ae6c0150f66155ab9f82bb, exactly protocol/test/relay-manual.
+Integration adopted these exact three blobs into this UI root at
+f59f3e79b02ce6b9570e91fe1d9b21ebb5069cf3 /
+0be0bf9e0d3d36f1d672c232b720b71c52e04307, parent3fad1ebc. Receipt:
+primary `.omx/m0/533-sheet-account-logout-contract-intake.json`. UI independently
+compared all three source blobs; zero diff. The graph and disjoint UI WIP stayed
+unchanged. Shared logout parser/path remains producer-owned.
+
+This supersedes the temporary unwired state in the initial checkpoint above.
+Production `main.ts` now passes `endAccountLogin` to account mode. The consumer
+uses the shared request/path/response parsers, captured authorized fetch,
+same-origin credentials, no-store, redirect refusal, bounded5s abort/race, strict
+HTTP/application-json and1024-byte declared/actual response limit. Success is
+literal true only for the exact logged-out reply. Invalid status/schema/false200,
+redirects, overflow, malformed UTF8, network failure and even an adapter/body that
+ignores abort are unconfirmed. Failed headers, late bodies and stalled readers
+are cancelled without awaiting an untrusted cancellation promise. No token URL,
+new identity store, auth-client edit, navigation or duplicate logout DTO.
+
+The page hides and freezes the original native view/outbox before callback;
+local generation retirement and captured Office-session ownership protect late
+responses/finally from clearing a newer login. The optional no-server callback
+model still reports local-only exit, but production entry wires the owner API.
+Actual provider termination/current-session-inactive is a separate Integration
+gate. A successful shaped client response alone does not prove it.
+
+Parent's sequential logout/login/DOM models:25 PASS/0 FAIL/0skip;4 strict roots /
+imports0diagnostics; changed main/logout3-file ESLint0. New consumer models7 PASS
+(included in25), owner contract models10 PASS reported by its author, not rerun
+here. Raw logout check logs (separate from baseline145) follow.
+- /tmp/533-account-logout-types.log: 72 bytes, SHA256 56702823662a2b5a0f28b1a46f094d67408bf278a33d33ab95ec880f363b0991
+- /tmp/533-account-logout-tests.log: 6483 bytes, SHA256 d940dd62106a13a307f95c27f86afcd442e35174fc97cf21d1e9ecd1590fa4e5
+- /tmp/533-account-logout-lint.log: 0 bytes, SHA256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+
+An independent source review then found a real regression in completed-history
+restore. The historical durable-receipt loop at f59/3fad source blob
+561951d8becf5dac8a6d9b093d6925cbe5cb4fc8 required editable/write admission BEFORE
+authentication, when socketAdmitted was necessarily false. Four new meaningful
+models all FAILED: account+controlled WebSocket x read-write+read-only freshOpen,
+expected ready but blocked. Existing pending-only reopen tests had missed it.
+
+The minimum correction checks current account/lifecycle before and after the
+historical frontier hash. It does not require current writing to verify an old
+receipt. The live append-receipt write gate remains unchanged. Two complete
+session files now pass30/30 (account10, controlled20), including all4 RED→GREEN
+reopens, exact original credential/identity/packet bytes/receipt/frontier hash,
+entire stored snapshot/hash unchanged, no replay, read-only denial, held-ACK and
+retirement fences. Helper's2 test roots/type imports0 and2-file lint0; parent's
+final main/session/logout4-root types0 and4-file lint0. No145/root/browser rerun.
+
+All these are source/native/model checks. Actual configured two-account Sheet
+WS, currentACL/read-only/revoke, real browser IDB, provider logout and new-process
+recovery remain Integration-owned and NOT RUN by the UI author on this candidate.
+No old user page, source, process, store or unfinished input was modified.
