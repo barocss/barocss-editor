@@ -1,0 +1,138 @@
+--- a/apps/office/src/auth-client.ts
++++ b/apps/office/src/auth-client.ts
+@@ -587,3 +587,50 @@
+     return false;
+   }
+ }
++
++/** Initiates RP logout with form serialization. True means submitted, not confirmed. */
++export async function providerLogoutPost(): Promise<boolean> {
++  const idToken = activeSession?.idToken;
++  clearSession();
++  const epoch = sessionEpoch;
++  let form: HTMLFormElement | undefined;
++  try {
++    sessionStorage.setItem(forcePromptKey, '1');
++    announceLogout();
++    const discovery = await discover();
++    if (epoch !== sessionEpoch || !discovery.end_session_endpoint) return false;
++    const endpoint = new URL(discovery.end_session_endpoint);
++    if (endpoint.username || endpoint.password || endpoint.hash || endpoint.searchParams.has('id_token_hint')) return false;
++    const state = randomValue();
++    const fields: Record<string, string> = {
++      client_id: configuration().clientId,
++      post_logout_redirect_uri: location.origin + '/',
++      state,
++      ...(idToken ? { id_token_hint: idToken } : {}),
++    };
++    form = document.createElement('form');
++    form.method = 'POST';
++    form.action = endpoint.href;
++    form.enctype = 'application/x-www-form-urlencoded';
++    form.target = '_self';
++    form.hidden = true;
++    form.autocomplete = 'off';
++    for (const [name, value] of Object.entries(fields)) {
++      const input = document.createElement('input');
++      input.type = 'hidden';
++      input.name = name;
++      input.value = value;
++      form.append(input);
++    }
++    sessionStorage.setItem(logoutReturnKey, state);
++    document.body.append(form);
++    HTMLFormElement.prototype.submit.call(form);
++    return true;
++  } catch {
++    if (epoch === sessionEpoch) sessionStorage.removeItem(logoutReturnKey);
++    return false;
++  } finally {
++    // Submitted form data is captured synchronously; do not retain token DOM nodes.
++    form?.remove();
++  }
++}
+--- /dev/null
++++ b/experiments/office-suite-v2/preview/sheet/account-logout-post.test.ts
+@@ -0,0 +1,82 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import { runInNewContext } from 'node:vm';
++import ts from 'typescript';
++
++// Execute the actual leased export with private dependencies replaced by explicit models.
++// This proves form construction and lifecycle only, not real provider logout.
++const source = readFileSync(new URL('../../../../apps/office/src/auth-client.ts', import.meta.url), 'utf8');
++const parsed = ts.createSourceFile('auth-client.ts', source, ts.ScriptTarget.Latest, true);
++const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'providerLogoutPost');
++assert.ok(declaration);
++const isolated = ts.transpileModule(declaration.getText(parsed), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
++
++function model() {
++  const storage = new Map<string, string>();
++  const children: unknown[] = [];
++  let submitted: { method: string; action: string; fields: Record<string, string> } | undefined;
++  let removed = 0;
++  let endpoint: string | undefined = 'https://issuer.example/logout';
++  let failure = false;
++  let afterDiscovery = () => {};
++  const context = {
++    exports: {} as { providerLogoutPost?: () => Promise<boolean> },
++    activeSession: { idToken: 'private.id.token' } as { idToken: string } | null,
++    sessionEpoch: 0,
++    clearSession: () => { context.activeSession = null; ++context.sessionEpoch; },
++    forcePromptKey: 'prompt', logoutReturnKey: 'return',
++    sessionStorage: { setItem: (key: string, value: string) => { storage.set(key, value); }, removeItem: (key: string) => { storage.delete(key); } },
++    announceLogout: () => {},
++    discover: async () => { afterDiscovery(); return { end_session_endpoint: endpoint }; },
++    randomValue: () => 'opaque-state',
++    configuration: () => ({ clientId: 'public-client' }),
++    location: { origin: 'https://sheet.example' },
++    URL,
++    document: {
++      createElement: (tag: string) => tag === 'form' ? {
++        method: '', action: '', append: (input: unknown) => { children.push(input); }, remove: () => { ++removed; },
++      } : { type: '', name: '', value: '' },
++      body: { append: () => {} },
++    },
++    HTMLFormElement: { prototype: { submit: function (this: { method: string; action: string }) {
++      if (failure) throw new Error('Navigation unavailable');
++      submitted = { method: this.method, action: this.action,
++        fields: Object.fromEntries(children.map(child => { const input = child as { name: string; value: string }; return [input.name, input.value]; })) };
++    } } },
++  };
++  runInNewContext(isolated, context);
++  return { context, storage, submit: () => context.exports.providerLogoutPost!(),
++    submitted: () => submitted, removed: () => removed,
++    endpoint: (value: string | undefined) => { endpoint = value; },
++    failSubmit: () => { failure = true; },
++    switchDuringDiscovery: () => { afterDiscovery = () => { ++context.sessionEpoch; }; },
++  };
++}
++
++test('actual providerLogoutPost submits form body and retains only opaque return state', async () => {
++  const m = model();
++  assert.equal(await m.submit(), true);
++  assert.deepEqual(m.submitted(), { method: 'POST', action: 'https://issuer.example/logout', fields: {
++    client_id: 'public-client', post_logout_redirect_uri: 'https://sheet.example/', state: 'opaque-state', id_token_hint: 'private.id.token',
++  } });
++  assert.equal(m.context.activeSession, null);
++  assert.equal(m.storage.get('return'), 'opaque-state');
++  assert.ok(!JSON.stringify([...m.storage]).includes('private.id.token'));
++  assert.equal(m.removed(), 1);
++});
++
++test('unavailable/unsafe endpoint, failed submit and a changed login generation never report initiation', async () => {
++  for (const endpoint of [undefined, 'https://issuer.example/logout#fragment', 'https://issuer.example/logout?id_token_hint=unsafe', 'https://user:pass@issuer.example/logout']) {
++    const m = model(); m.endpoint(endpoint);
++    assert.equal(await m.submit(), false);
++    assert.equal(m.submitted(), undefined);
++  }
++  const failed = model(); failed.failSubmit();
++  assert.equal(await failed.submit(), false);
++  assert.equal(failed.storage.has('return'), false);
++  assert.equal(failed.removed(), 1);
++  const switched = model(); switched.switchDuringDiscovery();
++  assert.equal(await switched.submit(), false);
++  assert.equal(switched.submitted(), undefined);
++});

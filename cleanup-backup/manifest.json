@@ -1,0 +1,686 @@
+[
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-O-combined-browser.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-O-combined-browser.config.mjs",
+    "bytes": 1604,
+    "sha256": "817bdc807f750251cc9269fee4800e08818a5abac1aef6d85aa2155e6b635a6d"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-S-native-supplemental.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-S-native-supplemental.config.mjs",
+    "bytes": 1647,
+    "sha256": "8bad9a587b5586ac4b98bf780983946be1ab2bb9a5ae9c96a98b069697cd3f4e"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-native-supplemental.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-native-supplemental.config.mjs",
+    "bytes": 1643,
+    "sha256": "911f570c22f81c673180b63a56e1e62a1aad5220312b8260947cc5210773b0fc"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-word-print-p1-stage-a.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-word-print-p1-stage-a.config.mjs",
+    "bytes": 1610,
+    "sha256": "6002a70161dd1002c30fffaa46e68e08f514ac796d7887a3386b8bb5e4e64447"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-word-print-p2-stage-a.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-word-print-p2-stage-a.config.mjs",
+    "bytes": 1610,
+    "sha256": "70edcd01fdb74bb29bbcadd4668ea78affe3d9134509881b5cde6e5804cfb4a2"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-word-print-p2b-stage-a.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-word-print-p2b-stage-a.config.mjs",
+    "bytes": 1612,
+    "sha256": "7dc928d07a571794be00d4b19628c3506c8dbee02b87a0af2260043c29a3c9ca"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-word-print-p2b-stage-b.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-word-print-p2b-stage-b.config.mjs",
+    "bytes": 2680,
+    "sha256": "90db312835e39ff2c8111e44bfd31ec2c4f0763b049484d32b374ad69e1cb40f"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-word-print-stage-a.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-word-print-stage-a.config.mjs",
+    "bytes": 1522,
+    "sha256": "7e2a95def2a0caac9d5e290f3741f9523a2333fd83550110fc6745f1bf01b841"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/530-word-print-vite-frozen.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/530-word-print-vite-frozen.config.mjs",
+    "bytes": 660,
+    "sha256": "045f558e896356dc8fb87b04b380d24ad4b11b137b604cd2b25827d39deb12b7"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/531-integration-report-draft.md",
+    "path": "cleanup-backup/office-v2-m0/531-integration-report-draft.md",
+    "bytes": 6649,
+    "sha256": "fd5d49b079204a63794a645cec6db9ecc4587f71e82d386ab6aa4f3c579019f7"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/531-renderer-Word-print-browser.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/531-renderer-Word-print-browser.config.mjs",
+    "bytes": 1629,
+    "sha256": "aae373feb0054ea6267ecd0f8c43acc3c485d1ced8b8dde52b8571dd69e5ca2a"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/531-renderer-Word-vite-frozen.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/531-renderer-Word-vite-frozen.config.mjs",
+    "bytes": 664,
+    "sha256": "f2220572de4e30d15acf82e21bb539ef31f88a05b4327e7703fb8c9baaf0ede6"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-browser-observe.py",
+    "path": "cleanup-backup/office-v2-m0/532-browser-observe.py",
+    "bytes": 1704,
+    "sha256": "0625c3fa3e62719bed269f4a28c120bccf7ad639a807356ff99f5b37805ab6df"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-first-failure-findings-snapshot.md",
+    "path": "cleanup-backup/office-v2-m0/532-first-failure-findings-snapshot.md",
+    "bytes": 5735,
+    "sha256": "33352ae3291717216c1336ef4032dd44f6cf3bd6d2630d21d6229c95eee100c0"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-parent-line-offsets.ts",
+    "path": "cleanup-backup/office-v2-m0/532-parent-line-offsets.ts",
+    "bytes": 5867,
+    "sha256": "82150af69c83e901ac6a5bf7051b2ab1ffc8b25c62a7a684d55231384d9d0dc8"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-parent-tsc-overlay.cjs",
+    "path": "cleanup-backup/office-v2-m0/532-parent-tsc-overlay.cjs",
+    "bytes": 730,
+    "sha256": "016c53175e131b1a9858c01584ab14602580e24a145ff97d54f368f2b7dd3ab3"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-range-Word-print-browser.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/532-range-Word-print-browser.config.mjs",
+    "bytes": 1620,
+    "sha256": "21a86215d5cb5161a8ec0d3ff7b52119e7a5c5641dc640c767f4c3d351a86c38"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-range-Word-vite-frozen.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/532-range-Word-vite-frozen.config.mjs",
+    "bytes": 664,
+    "sha256": "f2220572de4e30d15acf82e21bb539ef31f88a05b4327e7703fb8c9baaf0ede6"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-runtime-binding.py",
+    "path": "cleanup-backup/office-v2-m0/532-runtime-binding.py",
+    "bytes": 1088,
+    "sha256": "f7d405232980cc20ba10b5c3ba29258add028914885e21b0c85e04f5bb1bbfbc"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/532-verification-evidence-only.patch",
+    "path": "cleanup-backup/office-v2-m0/532-verification-evidence-only.patch",
+    "bytes": 219305,
+    "sha256": "56a3ab9c49c93650b1c35c71106261a8271459d640d198534cdc5178d1b54309"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/533-account-final-evidence/restore/green-durable-session.source.ts",
+    "path": "cleanup-backup/office-v2-m0/533-account-final-evidence/restore/green-durable-session.source.ts",
+    "bytes": 37115,
+    "sha256": "10743a7208aeee3c191708b2d58ae199d40abb7af80d588d60164f6bcd23f304"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/533-account-final-evidence/restore/red-durable-session.source.ts",
+    "path": "cleanup-backup/office-v2-m0/533-account-final-evidence/restore/red-durable-session.source.ts",
+    "bytes": 37162,
+    "sha256": "57576d0a367855281d9215280d1fee7005898f9576ccadb723177a85731f87d9"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/533-account-final-evidence/restore/runtime-paths.source.mjs",
+    "path": "cleanup-backup/office-v2-m0/533-account-final-evidence/restore/runtime-paths.source.mjs",
+    "bytes": 1914,
+    "sha256": "68995bafe4db2435dd948c4e0652a3f22c37aabd6d829e26e76a493ec2623dda"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/534-account-final-evidence/README.md",
+    "path": "cleanup-backup/office-v2-m0/534-account-final-evidence/README.md",
+    "bytes": 3501,
+    "sha256": "e31a53d4439fee94a122795aa36b7862dea2a9db56fa7a2e404dc1ac3efd768e"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/534-account-final-evidence/extract_receipts.py",
+    "path": "cleanup-backup/office-v2-m0/534-account-final-evidence/extract_receipts.py",
+    "bytes": 15531,
+    "sha256": "51fff38ffc1cee71a2ace7fde914f11e24c53ace77c1b570484bbbb82c7e779c"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/535-c-read-only-predata-review.md",
+    "path": "cleanup-backup/office-v2-m0/535-c-read-only-predata-review.md",
+    "bytes": 1979,
+    "sha256": "b93e6122438f414286b93dc979258b06eb7b7a835715aa70275617624968c700"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/535-c4-read-only-predata-review.md",
+    "path": "cleanup-backup/office-v2-m0/535-c4-read-only-predata-review.md",
+    "bytes": 1539,
+    "sha256": "f8a05be24b2573af159309cf0e38eec8cdfa2b80e3a4f3191a9e61344ebd5406"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/535-read-only-predata-review.md",
+    "path": "cleanup-backup/office-v2-m0/535-read-only-predata-review.md",
+    "bytes": 6783,
+    "sha256": "05e249ba58c73294bd5b6122bb56fa2dcb37283106c3c4562a12876a239df445"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/535-websocket-read-only-matrix.md",
+    "path": "cleanup-backup/office-v2-m0/535-websocket-read-only-matrix.md",
+    "bytes": 5752,
+    "sha256": "4d5d9f6718f34eab4b61f813202dc8774aadbd3d768ac19dff3061e55c6745c1"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/account-auth-preserved-alternatives/v1/533-unused-rp-logout.patch",
+    "path": "cleanup-backup/office-v2-m0/account-auth-preserved-alternatives/v1/533-unused-rp-logout.patch",
+    "bytes": 6567,
+    "sha256": "c9e6dc9d01b9c51d68246f8ade6da8e70a6dd5b11662fe47e33f8a782971f099"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/account-auth-preserved-alternatives/v1/auth-client-working.diff",
+    "path": "cleanup-backup/office-v2-m0/account-auth-preserved-alternatives/v1/auth-client-working.diff",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/account-auth-preserved-alternatives/v1/auth-client-working.snapshot.ts",
+    "path": "cleanup-backup/office-v2-m0/account-auth-preserved-alternatives/v1/auth-client-working.snapshot.ts",
+    "bytes": 36173,
+    "sha256": "28a2933aafa9a679e155e87cf205d3f8689d38a9fed395a134a124eb8ffa61ff"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/capture-word-runtime-bindings.py",
+    "path": "cleanup-backup/office-v2-m0/capture-word-runtime-bindings.py",
+    "bytes": 4633,
+    "sha256": "65140b122d1fb85982d5a1c2d2f55af6983b66ccc3caf1122d0fd2d99329a1e5"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/current-m0-execution-checkpoint.md",
+    "path": "cleanup-backup/office-v2-m0/current-m0-execution-checkpoint.md",
+    "bytes": 8355,
+    "sha256": "2e0036d2e1a57a0e752c2d256d0eede1c2beecae61c82222088b07a0f27c484f"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/final-receipt.json",
+    "path": "cleanup-backup/office-v2-m0/final-receipt.json",
+    "bytes": 3333,
+    "sha256": "6c6c92d8a88cff3bba020ee2ae41da34bd12c5a5eae5fd82fdd1de45f4de3705"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/final-word-browser/playwright.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/final-word-browser/playwright.config.mjs",
+    "bytes": 1955,
+    "sha256": "8958bb385a6a56f03c374fb4c7c66461ede410d7268719433917057c532d4410"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/final-word-browser/vite.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/final-word-browser/vite.config.mjs",
+    "bytes": 801,
+    "sha256": "0ea6d611be023716a88103ce8775195963c27e59ca359600f9ceba9d5193081f"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/m0-final-evidence-reuse-map-v1.json",
+    "path": "cleanup-backup/office-v2-m0/m0-final-evidence-reuse-map-v1.json",
+    "bytes": 117691,
+    "sha256": "4cffaa6f1e5e1449e89f44495defe0ce6d48a40884f0a46a1fad936a159bcc19"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/m0-final-integration-frozen-receipt.json",
+    "path": "cleanup-backup/office-v2-m0/m0-final-integration-frozen-receipt.json",
+    "bytes": 203049,
+    "sha256": "d88edab69ac03b64fff1527d9f53ebfa3df8a76defa97a980b4b5bbaee54f12f"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/m0-final-integration-result-v1.json",
+    "path": "cleanup-backup/office-v2-m0/m0-final-integration-result-v1.json",
+    "bytes": 9573,
+    "sha256": "a5e381965f5f1c56a3527286553a90cb603741df9228051b4fc0712aab4de1ae"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/m0-final-preflight-reuse-ledger-v1.json",
+    "path": "cleanup-backup/office-v2-m0/m0-final-preflight-reuse-ledger-v1.json",
+    "bytes": 3481,
+    "sha256": "0f4289eb43946c97a289ead637f69e325934647b6ff0b6db6bf7254c77c950b2"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/m0-final-preservation-20261023.json",
+    "path": "cleanup-backup/office-v2-m0/m0-final-preservation-20261023.json",
+    "bytes": 2619,
+    "sha256": "9bde2d7ad9ffa7cb83dd6648ffb9f2857a44ba07607b8bf75a18d9a76846a0ea"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/m0-next-outcomes-2026-10-23.json",
+    "path": "cleanup-backup/office-v2-m0/m0-next-outcomes-2026-10-23.json",
+    "bytes": 6613,
+    "sha256": "9e1fe2b4a9314e4d0b7e8458bccb88ce5e76936264b6f5d659cc36aab08c5b9d"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/m0-planner-acceptance-20261023.json",
+    "path": "cleanup-backup/office-v2-m0/m0-planner-acceptance-20261023.json",
+    "bytes": 2132,
+    "sha256": "8c6cc8c33cccef4754d382ab9af1a16b800c40a708da8e2c881cfa28cfca82dd"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/native-attribution-integration-section-draft.md",
+    "path": "cleanup-backup/office-v2-m0/native-attribution-integration-section-draft.md",
+    "bytes": 3981,
+    "sha256": "75b810ed47557b086d539b3d3b8463330a72baf3551e61826ace9284e787641a"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/phase-c-link-graph.py",
+    "path": "cleanup-backup/office-v2-m0/phase-c-link-graph.py",
+    "bytes": 3179,
+    "sha256": "990221c43a12f38c543a8cd0ebba203bb0d66be7e76661f2d8e2e61155986a2c"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/phase-c-policy-section.md",
+    "path": "cleanup-backup/office-v2-m0/phase-c-policy-section.md",
+    "bytes": 1269,
+    "sha256": "ee8a4fe5923c0f333cd6bd9baf03bbffad5cc112972dc4dff1affc4840c8c354"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/planner-account-browser-evidence/README.md",
+    "path": "cleanup-backup/office-v2-m0/planner-account-browser-evidence/README.md",
+    "bytes": 1869,
+    "sha256": "985277c8786a859a8d8c1de74beb7e2ac9fea539bd5847a59b0e5914b8a6672a"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/planner-ui-final-evidence/0071616-20261022/README.md",
+    "path": "cleanup-backup/office-v2-m0/planner-ui-final-evidence/0071616-20261022/README.md",
+    "bytes": 1465,
+    "sha256": "7a160d42ddec00375be0dc48ee98e900e94b08840e7fa213ccaec86b0127d18c"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/planner-ui-final-evidence/0071616-20261022/helper-originals/README.md",
+    "path": "cleanup-backup/office-v2-m0/planner-ui-final-evidence/0071616-20261022/helper-originals/README.md",
+    "bytes": 1205,
+    "sha256": "4f052645f27a7598fba5f375946ee7730a7a5d7a38743b768ae784e87bb6217b"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/planner-ui-final-evidence/0071616-20261022/restore-guard-fix.diff",
+    "path": "cleanup-backup/office-v2-m0/planner-ui-final-evidence/0071616-20261022/restore-guard-fix.diff",
+    "bytes": 1211,
+    "sha256": "cc2ffa4187cf1f0782ac306df018cf93a8050e6ddff7958ca6b7a51ac273d8ae"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/prepare-current-source-graph.py",
+    "path": "cleanup-backup/office-v2-m0/prepare-current-source-graph.py",
+    "bytes": 4466,
+    "sha256": "ad49864f0087560778c12ff54f108d39aeb0057c0c64db441e6a60d2b7de6804"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/prepare-m0-final-source-graph.py",
+    "path": "cleanup-backup/office-v2-m0/prepare-m0-final-source-graph.py",
+    "bytes": 4555,
+    "sha256": "fa163975b45e3f7c5fde58f0f89b9a7b78fe39cca349be50585e0a7bc9352af5"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/prepare-slides-m0-source-graph.py",
+    "path": "cleanup-backup/office-v2-m0/prepare-slides-m0-source-graph.py",
+    "bytes": 4302,
+    "sha256": "f29d2e8153ec78cdf3eb59c8d5ad18e73d7ba7277e26f28088ccd4071215cc4c"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/prepare-word100-outcome-source-graph.py",
+    "path": "cleanup-backup/office-v2-m0/prepare-word100-outcome-source-graph.py",
+    "bytes": 4654,
+    "sha256": "dc7ad2244081afe20d61aac0e5242ebf69db2ad9e2cdf6f0e6aa2799ad9a8e7c"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/run-command.py",
+    "path": "cleanup-backup/office-v2-m0/run-command.py",
+    "bytes": 1167,
+    "sha256": "f32b687181f958d8f3a5a23ef6cdb31348510fa82876fe40f0e44220f4d9977b"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/sheet-initial-signin-fix-evidence/README.md",
+    "path": "cleanup-backup/office-v2-m0/sheet-initial-signin-fix-evidence/README.md",
+    "bytes": 1434,
+    "sha256": "78176a4502c4aab2a6212aa645c38aed0fcee1117466db6f6eec7d4db72d2e93"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/sheet-initial-signin-fix-evidence/candidate.diff",
+    "path": "cleanup-backup/office-v2-m0/sheet-initial-signin-fix-evidence/candidate.diff",
+    "bytes": 10016,
+    "sha256": "fd5f2ba6b0bba835169b81932e68ff827fbe92c6b6f49315e31dea2705c31162"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slide-baseline-impact.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/slide-baseline-impact.config.mjs",
+    "bytes": 1186,
+    "sha256": "fa621950b45d1abb895fca75fe0e420a998ae799284c9745f71a6a3d0749ab55"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slide-impact.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/slide-impact.config.mjs",
+    "bytes": 1175,
+    "sha256": "1ea6d8afafa1fd6a12033beb802eec60e84323d3176b302540508b9b3cefc3e0"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/connector-input.ts",
+    "path": "cleanup-backup/office-v2-m0/slides538-browser-v1/connector-input.ts",
+    "bytes": 71916,
+    "sha256": "4189fd67594084568414b3e9286757a5ff128d712fc99b9f328ff54e45f233e5"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/playwright.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/slides538-browser-v1/playwright.config.mjs",
+    "bytes": 2858,
+    "sha256": "3e9bdeb657543e11df4c68d52415ac1f2e4fa013d4b829d8a576c74df033f8bb"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/run.py",
+    "path": "cleanup-backup/office-v2-m0/slides538-browser-v1/run.py",
+    "bytes": 3408,
+    "sha256": "0220a83b6bc5b1f3a500fb4ef2fc25353fe81cede7df22a0dea0e64540b09156"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/vite.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/slides538-browser-v1/vite.config.mjs",
+    "bytes": 819,
+    "sha256": "b5993159affe21b09f762cabb1dea92892ff126d11385fa02fb729042b5fee3d"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/playwright.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/slides538-renderer-impact-v1/playwright.config.mjs",
+    "bytes": 1519,
+    "sha256": "394e4be0d52e8624009351ffbabcd00e269b4ec934966736566b344a556a07b7"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/run-prelaunch-error.py",
+    "path": "cleanup-backup/office-v2-m0/slides538-renderer-impact-v1/run-prelaunch-error.py",
+    "bytes": 3412,
+    "sha256": "68673b5795e14ae0541571e825e06e0a8f38d93c5051bde06bca4938ca725472"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/run.py",
+    "path": "cleanup-backup/office-v2-m0/slides538-renderer-impact-v1/run.py",
+    "bytes": 3414,
+    "sha256": "c64117584291b2cda83263b9beab1dd3ea16b9383b89ad80c835243cb84bdadc"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/verify-runner.py",
+    "path": "cleanup-backup/office-v2-m0/verify-runner.py",
+    "bytes": 1494,
+    "sha256": "10e81900d84b11adf0749a9a70e7ac875bce0cc5369f52ac0142c2ed2aef0075"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-final/report.json",
+    "path": "cleanup-backup/office-v2-m0/word-runtime-normal-final/report.json",
+    "bytes": 131994,
+    "sha256": "efc93e3d5484f8ee225612aeb084644f08a5e93d78af824a22bfa634a9b85f1a"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-final-assessment.json",
+    "path": "cleanup-backup/office-v2-m0/word-runtime-normal-final-assessment.json",
+    "bytes": 8277,
+    "sha256": "8ac083b4518415d8168ff7370372f5707e8dc0f75ef30f0b46703ec259ddc463"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-runtime-tranche-final-result.json",
+    "path": "cleanup-backup/office-v2-m0/word-runtime-tranche-final-result.json",
+    "bytes": 5499,
+    "sha256": "44e19a9c254abec3b46dc7c8f6f058722d65a2e6c081479eb4250e662f1a163c"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/freeze.py",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/freeze.py",
+    "bytes": 4512,
+    "sha256": "559fef48ee7a20d0c86773d18355af527520686930b57825ac25df985c651a39"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/probe.md",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/probe.md",
+    "bytes": 3875,
+    "sha256": "e7cc4191c68c0fa1cc5180c19cbb92a96a83e78e60c0ade3dc03ad6e2b7805cf"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/probe.mjs",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/probe.mjs",
+    "bytes": 14973,
+    "sha256": "dfd7813149d893e416dd180d81eaf524a4c66e7f38d3165ac2a58ce21df2bb25"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/probe.test.mjs",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/probe.test.mjs",
+    "bytes": 8740,
+    "sha256": "449e961ef86052f826d55db14132932b1d62a520fbb209b779853cdeaf35da98"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/run.mjs",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/run.mjs",
+    "bytes": 8338,
+    "sha256": "3788c980558349f9c14b452c22ae524cd2379d1627b9a6c93f32ab1adddcd7f4"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/apps/word/src/app.tsx",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/apps/word/src/app.tsx",
+    "bytes": 38981,
+    "sha256": "5f4f60344a150a216130f6a48d7c458b5beceee3f3a5c85af49b8e784bca1069"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/apps/word/src/main.tsx",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/apps/word/src/main.tsx",
+    "bytes": 2336,
+    "sha256": "2045c53b62c03bbf629f020bb7475752b3709a153a1a4c628fa2bb6fba29ce5c"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/apps/word/src/runtime.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/apps/word/src/runtime.ts",
+    "bytes": 36331,
+    "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/apps/word/vite.config.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/apps/word/vite.config.ts",
+    "bytes": 2630,
+    "sha256": "947f140bd48fea1fced6c91dec8c75014ddae2ae93d3756f1e00d353d3eed241"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/editor-view-dom/src/editor-view-dom.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/editor-view-dom/src/editor-view-dom.ts",
+    "bytes": 135393,
+    "sha256": "df476aec72a812df0e2c49ef657204cedd00a0cf24ee66892e16d9da466a9bfa"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/font-loader.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/font-loader.ts",
+    "bytes": 4195,
+    "sha256": "6519ab82874bc8b1f0397838038a86f5e60743f06a806acf71901cee2968149d"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/layout.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/layout.ts",
+    "bytes": 11913,
+    "sha256": "664e15e422665531a6ecd4a37559fd28c16994c3a3b6c593967ceea94ec8ce89"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/measurement.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/measurement.ts",
+    "bytes": 25198,
+    "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/pagination.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/pagination.ts",
+    "bytes": 13988,
+    "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/print-pages.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/print-pages.ts",
+    "bytes": 14226,
+    "sha256": "7de7bf402c10fa444502ff17ad2f9a835bd82bb14efeb8f9963c6729119eac21"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/print.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/print.ts",
+    "bytes": 3985,
+    "sha256": "a57bd3f7117b6d6b2abd7f30a261b74d08d5986a0f2603a453c9432a4983f90f"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/render-context.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/render-context.ts",
+    "bytes": 7774,
+    "sha256": "fe4e8f6a0acc3f0331f3abe2fa7362e95efbe8e09225e3c1bada85f653d84367"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/renderers/page.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/renderers/page.ts",
+    "bytes": 23851,
+    "sha256": "2f22023f5c0b7afd34a4e70ad864e00d0ec9d845d1bb83a16255f110e18dbcaa"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/sample-document.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/sample-document.ts",
+    "bytes": 44942,
+    "sha256": "d72ae1396e4701c17f46521eb2b7221e0941782e672629cfbc38d1a9782266a0"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/office-word/src/word-layout-pass.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/office-word/src/word-layout-pass.ts",
+    "bytes": 14831,
+    "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/dom-renderer.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/dom-renderer.ts",
+    "bytes": 19072,
+    "sha256": "d15729713f8e2b2ec8fe29bc2af461011ee73566158b1dcd627792e8195ad0ca"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+    "bytes": 49038,
+    "sha256": "9d8d1489f6f4caab8329eb7a69e214301da89a9d5d5e35de9b6fa8abe870782e"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+    "bytes": 8376,
+    "sha256": "4c93720795a92e71266373572c1885dbb4040274e7ec6bc0ba6c3cca5a4bd28f"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/reconcile/reconciler.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/reconcile/reconciler.ts",
+    "bytes": 14695,
+    "sha256": "9caee7b873e7b8033d07ac4b26122d286d425e4663deb10800aa2daa1f186a1a"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/scheduler.ts",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/source-snapshot/packages/renderer-dom/src/scheduler.ts",
+    "bytes": 2787,
+    "sha256": "e79fa52c853b9bbc4511c2f6ae0318885ffea101504679639cf3def650551c9d"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word-typed-native-v1/vite.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word-typed-native-v1/vite.config.mjs",
+    "bytes": 930,
+    "sha256": "9c14dc21fc13943f41a7f54889272e66a38c168a77058ea5bbbb295a06350f61"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-bindings.py",
+    "path": "cleanup-backup/office-v2-m0/word100-bindings.py",
+    "bytes": 3421,
+    "sha256": "399dc39e65cd7b34d3f9c24232fdea3cc3eb411cbd12bb2e9c65891116289e34"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-candidate-browser/playwright.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-candidate-browser/playwright.config.mjs",
+    "bytes": 2029,
+    "sha256": "732adb90eed4d170935080ae6a325f8e65b1dfed6ef402ad6cb14e2d9468a6d2"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-candidate-browser/vite.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-candidate-browser/vite.config.mjs",
+    "bytes": 812,
+    "sha256": "8cfdd1bc9bd0f879b98eab60ba580d92d7e2468c7ddafb3a2b8dc5ed86f8dfd2"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-candidate-print-browser/playwright.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-candidate-print-browser/playwright.config.mjs",
+    "bytes": 1997,
+    "sha256": "bc1f8b92101bfce365af644f14fe18c1a94d7f03e3cd44a0d73d2a64d99955d8"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-candidate-print-browser/vite.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-candidate-print-browser/vite.config.mjs",
+    "bytes": 818,
+    "sha256": "6ac065304e761cbaf49fa00bf9d467d6b781f674d9792f95229361d526562b69"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-diagnostic-v1/browser.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-diagnostic-v1/browser.mjs",
+    "bytes": 4940,
+    "sha256": "766e4b9563856e919c9d528978e6de9f6fd34b5c2625bcc510cd5f02397fe4a8"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-diagnostic-v1/run.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-diagnostic-v1/run.mjs",
+    "bytes": 9744,
+    "sha256": "412f2ac4e0c10d71f04b8955c7b1cfd6991833c9f0f96e01dfda04a7bf960c51"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-feature-browser-v1/playwright.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-feature-browser-v1/playwright.config.mjs",
+    "bytes": 2009,
+    "sha256": "e870d7d3a04e7b147fc874dad5932ea62424bc01a84e51db7d32188736321c3a"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-feature-browser-v1/vite.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-feature-browser-v1/vite.config.mjs",
+    "bytes": 813,
+    "sha256": "d4212ea5d976f588d5d21beb753305d27b15ec649933aa34cae24c93b1301957"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-feature-browser-v2/playwright.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-feature-browser-v2/playwright.config.mjs",
+    "bytes": 2012,
+    "sha256": "039e8ff1a0979b13f779290cdef8186853fd02a243c2d7866554cd34bd42e2a0"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-feature-browser-v2/vite.config.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-feature-browser-v2/vite.config.mjs",
+    "bytes": 813,
+    "sha256": "0c6b72ec5ceb9ea669bbefc2d3b7eb7adbb68732613aa711980e67deed330fc4"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-final-integration-section.md",
+    "path": "cleanup-backup/office-v2-m0/word100-final-integration-section.md",
+    "bytes": 5327,
+    "sha256": "0d5799a5152573d6c62a58d056a96851350c6c05b213a9450a501216816abe05"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-final-preflight-ledger.json",
+    "path": "cleanup-backup/office-v2-m0/word100-final-preflight-ledger.json",
+    "bytes": 3098,
+    "sha256": "88a7741991616135014e608b83c9962875ec39f1c58e4354956cd687c8d7f706"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-final-preservation-receipt.json",
+    "path": "cleanup-backup/office-v2-m0/word100-final-preservation-receipt.json",
+    "bytes": 1443,
+    "sha256": "4f983cb2acc08b23b3dbead2e072505002cf81b1ff46b470f2492af2f269de00"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-native-buckets-v1/run.mjs",
+    "path": "cleanup-backup/office-v2-m0/word100-native-buckets-v1/run.mjs",
+    "bytes": 8568,
+    "sha256": "19f717e4a79323c1fa8c342bcfe5560d15477061c8dbec6e41f44d5bbb09c147"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/report.json",
+    "path": "cleanup-backup/office-v2-m0/word100-normal-qualification-v1/report.json",
+    "bytes": 134876,
+    "sha256": "16a8fe3ceb2e3fb30d9178eb47887945b5a14d466a4d040f915cf62a0473a856"
+  },
+  {
+    "original": "/Users/user/barocss-editor/.omx/m0/word100-outcome-final-result.json",
+    "path": "cleanup-backup/office-v2-m0/word100-outcome-final-result.json",
+    "bytes": 7268,
+    "sha256": "ce45cdb36a72c3adfd983fe5ff33f4ef980ab55c5b2ed3d2f78186008d699663"
+  }
+]

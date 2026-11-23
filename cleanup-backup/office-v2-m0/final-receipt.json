@@ -1,0 +1,77 @@
+{
+  "scope": "office-v2-m0/integration-v1",
+  "status": "phase-b-bounded-source-checkpoint-complete",
+  "observed_utc": "2026-10-21T15:08:20.844917+00:00",
+  "final_head": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+  "final_tree": "b0093963b96cccf62c2595dca09417e8cab0306d",
+  "parent": "acc669ec5363b660dae22e874fe4d6731d268e22",
+  "branch": "codex/522-m0-integration",
+  "worktree": "/Users/user/.codex/worktrees/522-m0-integration/barocss-editor",
+  "local_develop": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+  "working_tree": "clean",
+  "primary_main_WIP_unchanged": true,
+  "identity": {
+    "author": "easylogic <cyberuls@gmail.com>",
+    "committer": "easylogic <cyberuls@gmail.com>",
+    "coauthor": false
+  },
+  "owned_final_delta": [
+    "experiments/office-suite-v2/reports/integration.md"
+  ],
+  "owner_blobs_verified": 110,
+  "C_unchanged": true,
+  "final_check": {
+    "source": "bfda7d531a8e8924219e8b4c7cf6ca71737249d5",
+    "source_tree": "ffb6680184ab3f1020cb5351627742ba3aa8fcc7",
+    "command": "pnpm --ignore-workspace check",
+    "exit": 0,
+    "elapsed_seconds": 6.286,
+    "strict_root_files": 26,
+    "strict_diagnostics": 0,
+    "native_test_files": 16,
+    "tests": 104,
+    "passed": 104,
+    "failed": 0,
+    "skipped": 0,
+    "log": "/Users/user/barocss-editor/.omx/m0/integration-logs/16-V-final-combined-check.txt",
+    "report_only_successor_code_closure_unchanged": true
+  },
+  "root_preflight": "NOT RUN: isolated prototype; production/root manifest/config/lock/budgets unchanged; final report-only amendment",
+  "scale_repeat": "NOT RUN: exact fixed-source raw scale/native-reader evidence reused; no new heavy browser/scale loop",
+  "resource_cleanup": [
+    {
+      "port": 55260,
+      "status": "no listener",
+      "observed_utc": "2026-10-21T15:06:36.761905+00:00"
+    },
+    {
+      "port": 55261,
+      "status": "no listener",
+      "observed_utc": "2026-10-21T15:06:36.815879+00:00"
+    }
+  ],
+  "M0": "OPEN",
+  "remaining": [
+    "Word100 actual45s stabilization timeout unresolved/UNKNOWN under unqualified environment",
+    "Word300 NOT RUN",
+    "Exact font/fallback provenance and qualified named-machine numeric performance budgets incomplete",
+    "Full collaborative-provider scale and production auth/UI/file adapters remain separate scopes",
+    "Complete Planner M0 decision and exact M1/M2 production Issue/file leases pending"
+  ],
+  "next_owner": "Planner",
+  "active_owned_command": null,
+  "next_action": "Stop current scoped source turn; Planner collects evidence and decides next bounded prerequisite. No autonomous unchanged-performance retry/backlog/schedule.",
+  "prior_report_commit": "acc669ec5363b660dae22e874fe4d6731d268e22",
+  "report_clarification": "Final native104suite includes existing2000cell correctness/microtiming diagnostic; separate10k/50k profile and browser were not rerun. No correctness rerun for report text.",
+  "result_deliveries": {
+    "artifact": "/Users/user/barocss-editor/.omx/m0/result-deliveries.json",
+    "targets": [
+      "01a15ec9-fcab-7e82-8c3d-54453bb2a1c3",
+      "01a15eca-4aec-7d32-a2c4-37e6824c0b8e",
+      "01a15eca-963e-70e2-a2b2-51c0fd559751",
+      "01a15eca-e1d3-7910-9aa1-d590162dbf18",
+      "01a15e6a-f62a-7fd0-9160-ec987ffddcfe"
+    ],
+    "status": "tool accepted enqueue; no read acknowledgment assumed"
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "scope": "M0 remaining acceptance and next roadmap outcomes",
+  "date": "2026-10-23 Asia/Seoul",
+  "state": "COMPLETE: original M0 accepted by Planner; all three delegated outcomes integrated locally",
+  "base": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+  "base_root": "/Users/user/.codex/worktrees/537-word100-integration/barocss-editor",
+  "parent_issue": 521,
+  "human_request": "M0에서 남은 게 뭔지 정리하고 다음 큰 작업을 Execute Work들에 맡겨서 계속 진행. 완료된 검사 반복 금지, 기존 화면 유지.",
+  "reuse": [
+    {
+      "area": "Word100/300 resource and runtime/print/reference behavior",
+      "evidence": ".omx/m0/word100-outcome-final-result.json",
+      "status": "PASS within recorded original budgets and profile"
+    },
+    {
+      "area": "Sheet headless10k rows100columns50k populated10k formulas",
+      "evidence": "verification/reports/sheet-candidate-assessment-v2.json",
+      "status": "PASS bounded reference; no UI/provider capacity inference"
+    },
+    {
+      "area": "Native Core/Formula/prose/structural conflict and own Undo",
+      "evidence": "verification/reports/criteria.json and later source-bound receipts",
+      "status": "Bounded native PASS; reuse after dependency mapping"
+    },
+    {
+      "area": "Sheet WS durable recovery and two-account current permissions",
+      "evidence": [
+        ".omx/m0/ws-final-runtime-receipt.json",
+        ".omx/m0/account-final-runtime-receipt.json"
+      ],
+      "status": "Bounded actual runtime acceptance; preserve manual-retry and privacy/lifecycle limits"
+    }
+  ],
+  "remaining": [
+    {
+      "outcome": "Slides baseline user flows and connector reliability",
+      "owner": "Planner native Execute Slides Baseline",
+      "thread": "01a15f0a-7b41-7cc2-87f2-52eb044a3d73",
+      "scope": [
+        "apps/slide/src/**",
+        "apps/slide/tests/**",
+        "packages/office-slides/src/**",
+        "packages/office-slides/test/**",
+        "experiments/office-suite-v2/docs/slides-m0-*"
+      ],
+      "input": "Historical21PASS5FAIL17NOTRUN; five baseline failures reproduced onf4. Current source/test-path analysis first.",
+      "done": "Classify actual product defect vs stale UI test; repair relevant user paths with preserved assertions; focused native then serial real-browser evidence; report original unrun cases honestly.",
+      "issue": 538,
+      "relationship_to_original_M0": "Separately authorized Slides baseline UI repair; original criterion7 corpus baseline does not require completing this added repair. Continue independently; do not block original M0 closure.",
+      "state": "COMPLETE within recorded scope; integrated at 9c00b73fd9f021dd012051d48eedd4f47ba12403"
+    },
+    {
+      "outcome": "Current M0 acceptance, format capability and adoption decision package",
+      "owner": "Execute Verification",
+      "thread": "01a15eca-e1d3-7910-9aa1-d590162dbf18",
+      "scope": [
+        "experiments/office-suite-v2/verification/**"
+      ],
+      "done": "Map original criteria to current immutable evidence; validate reusable source closure; complete genuine M0 evidence gaps only; publish supported/refused/lossy/NOT RUN format matrix and explicit M1/M2 adoption boundaries. Preserve original failures.",
+      "final_candidate": "3621190e7310244170ee7e77373964446357b871",
+      "state": "COMPLETE within recorded scope; integrated at 9c00b73fd9f021dd012051d48eedd4f47ba12403"
+    },
+    {
+      "outcome": "Final local integration and ready-to-decide M0 candidate",
+      "owner": "Execute Integration",
+      "thread": "01a15e91-4846-7aa2-8445-7bfc513479ee",
+      "scope": [
+        "shared root/config/graph and runtime resources",
+        "experiments/office-suite-v2/reports/integration.md",
+        "local develop serial integration"
+      ],
+      "done": "Reconcile immutable deltas and exact evidence reuse, execute only justified affected checks, preserve screens and WIP, provide final candidate and original-criterion matrix to Planner.",
+      "state": "COMPLETE within recorded scope; integrated at 9c00b73fd9f021dd012051d48eedd4f47ba12403"
+    }
+  ],
+  "role_transition": "Prior Word100 source/helpers completed clean immutable candidates; no active author producer. Reuse Word Layout role for Slides M0 outcome, preserving old roots. Verification completed prior read-only review; latest direct M0 continuation authorizes this new evidence package. Integration remains sole shared writer. No schedule or model changes.",
+  "scope_limits": [
+    "M0 format baseline requires honest capability/loss evidence; full DOCX/XLSX/PPTX parity belongs to later product stages.",
+    "Do not invent whole-provider/UI/physicalIME gates from headless evidence; map to original criteria and later stages.",
+    "M1/M2 production implementation is not activated by this M0 dispatch.",
+    "No automatic whole-M0 acceptance or issue closure before final Planner decision."
+  ],
+  "testing": "No repeated passing Word/Sheet/account/profile runs merely for handoff or documentation. Real changed dependencies or missing original criteria justify affected runs. Authors targeted only; Integration required meaningful aggregate/preflight stages, source-bound unchanged evidence reused.",
+  "protected": "All user tabs,55262-55266producers/data/operatorOFF, primary4planningWIP, originalraw/candidates, existing branches; no reset/stash/push/deploy.",
+  "human_message_id": "01a16457-618b-7142-b1f9-46365273b52c",
+  "observedUTC": "2026-10-22T16:06:17.605653+00:00",
+  "slides_owner_transition": {
+    "at": "2026-10-22T16:18:16.773780+00:00",
+    "reason": "Existing Slides chat twice reverted to old planning-only context after independently reading current human execution authority. Latest turn01a16467 completed idle reporting no writes; no new human STOP observed.",
+    "predecessor": "01a15f0a-7b41-7cc2-87f2-52eb044a3d73",
+    "successor": "Planner native /root/slides_baseline",
+    "safe_checkpoint": "Latest predecessor final: no implementation/measurement/file changes; preserve all previous Word/Slides roots/candidates.",
+    "base": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+    "scope": [
+      "apps/slide/src/**",
+      "apps/slide/tests/**",
+      "packages/office-slides/src/**",
+      "packages/office-slides/test/**",
+      "experiments/office-suite-v2/docs/slides-m0-*"
+    ],
+    "integration": "01a15e91-4846-7aa2-8445-7bfc513479ee sole shared writer",
+    "schedules": "unchanged"
+  },
+  "planner_decision": ".omx/m0/m0-planner-acceptance-20261023.json",
+  "final_candidate": "9c00b73fd9f021dd012051d48eedd4f47ba12403"
+}

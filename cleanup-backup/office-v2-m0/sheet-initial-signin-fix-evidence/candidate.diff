@@ -1,0 +1,167 @@
+diff --git a/experiments/office-suite-v2/docs/sheet-preview-contract.md b/experiments/office-suite-v2/docs/sheet-preview-contract.md
+index ac818f81..5a3caacb 100644
+--- a/experiments/office-suite-v2/docs/sheet-preview-contract.md
++++ b/experiments/office-suite-v2/docs/sheet-preview-contract.md
+@@ -955,3 +955,41 @@ All these are source/native/model checks. Actual configured two-account Sheet
+ WS, currentACL/read-only/revoke, real browser IDB, provider logout and new-process
+ recovery remain Integration-owned and NOT RUN by the UI author on this candidate.
+ No old user page, source, process, store or unfinished input was modified.
++
++## R1 initial anonymous sign-in correction
++
++Work: `wonffice-533/initial-signin-fix-v1`. Owner: the bounded initial-sign-in
++author. Base: `857b6b0ff85d2bc46853fbde71f36a91794b3c5e`, tree
++`4ba6e29c3851d01dd471cbfdd46f8d4a07307f14`. This is a local candidate for
++Integration's R1 browser retest, not account-browser or whole-Issue acceptance.
++
++Integration's first genuine R1 product visit found Sign in disabled before any
++login in two fresh Chromium contexts. Original evidence remains in primary
++`.omx/m0/account-runtime/account-first-failure-initial-login.json` and its two
++screenshots. The actual Office `captureAuthorizedSession()` returns a capture
++whose `isCurrent()` is false when no initial token exists. It does not throw.
++The older DOM port threw instead, so it missed the retirement notification that
++disabled Sign in and exposed the fresh-login link.
++
++The Sheet adapter now rejects an absent first session without retiring the page
++or starting identity, IDB or transport work. A current captured session or a
++successful callback arms the existing retirement guards. Callback success sets
++this sticky state only after the operation-generation check. After authentication,
++session loss still retires all consumers. The state is never cleared to reopen
++an already retired page. Office PKCE/token ownership, account-mode privacy state,
++late-operation generation checks, expiry guards and native/outbox rules are unchanged.
++
++The corrected DOM port models the actual false capture. The same two test files
++first produced 18 PASS / 2 FAIL (exit 1), then 20 PASS / 0 FAIL (exit 0). They cover
++initial Sign in availability, zero private reads before login, callback return
++scope, and the converse authenticated-session-loss retirement. Existing late
++HTTP/JSON, old-logout/new-login, old-begin/new-return, expiry and logout checks
++remain in those files. Four relevant TypeScript roots had zero diagnostics;
++four-file ESLint with `--max-warnings 0` exited 0. Only these scoped checks ran.
++
++Raw commands, exit codes, exact log copies, hashes and candidate source bindings
++are preserved in primary `.omx/m0/sheet-initial-signin-fix-evidence/`. Dependency
++preparation is separately recorded in primary
++`.omx/m0/sheet-initial-signin-fix-frozen-receipt.json`. No dependencies were installed.
++Actual OIDC, two-account Sheet editing, PostgreSQL/current ACL, browser IDB and
++recovery were NOT RUN by this author. Integration owns the R1 retest.
+diff --git a/experiments/office-suite-v2/preview/sheet/account-login.test.ts b/experiments/office-suite-v2/preview/sheet/account-login.test.ts
+index 8207ddc7..2cb10a16 100644
+--- a/experiments/office-suite-v2/preview/sheet/account-login.test.ts
++++ b/experiments/office-suite-v2/preview/sheet/account-login.test.ts
+@@ -13,10 +13,10 @@ function deferred<T>() {
+   const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail; });
+   return { promise, resolve, reject };
+ }
+-function model() {
++function model(initialCurrent = true) {
+   let href = `https://sheet.example${sheetReturnPath(target)}`;
+   let now = 1000;
+-  let current = true;
++  let current = initialCurrent;
+   let storageListener: ((event: StorageEvent) => void) | undefined;
+   const storage = new Map<string, string>();
+   const timers = new Set<() => void>();
+@@ -56,6 +56,37 @@ function model() {
+   };
+ }
+ 
++test('an absent initial Office session refuses private work without retiring the fresh sign-in page', async () => {
++  const m = model(false);
++  let retirements = 0;
++  m.login.subscribeRetirement(() => { ++retirements; });
++  await assert.rejects(m.login.loadIdentity());
++  assert.equal(retirements, 0);
++  assert.throws(() => m.login.captureAuthorizedSession());
++  assert.equal(retirements, 0);
++  await m.login.beginLogin(target);
++  assert.ok(m.calls.includes('begin:user:false:/'));
++  m.navigate('https://sheet.example/auth/callback?code=one-time&state=office-state');
++  m.auth.finishLogin = async () => { m.establishAccount(); m.browser.replace('/'); return 'user'; };
++  assert.deepEqual(await m.login.finishLogin(), target);
++  const lease = m.login.captureAuthorizedSession(2000);
++  assert.equal(lease.isCurrent(), true);
++  m.switchAccount();
++  assert.equal(lease.isCurrent(), false);
++  assert.equal(retirements, 2); // Explicit begin retires once; the real account change retires again.
++});
++
++test('an invalid new capture still retires a previously authenticated Office session', () => {
++  const m = model();
++  let retirements = 0;
++  m.login.subscribeRetirement(() => { ++retirements; });
++  const lease = m.login.captureAuthorizedSession(2000);
++  m.switchAccount();
++  assert.throws(() => m.login.captureAuthorizedSession(), /retired/);
++  assert.equal(retirements, 1);
++  assert.equal(lease.isCurrent(), false);
++});
++
+ test('validated Sheet location survives Office fixed root callback and preserves new-client intent', async () => {
+   const m = model();
+   await m.login.beginLogin(target, true);
+diff --git a/experiments/office-suite-v2/preview/sheet/account-login.ts b/experiments/office-suite-v2/preview/sheet/account-login.ts
+index 10881cd9..b1c9179a 100644
+--- a/experiments/office-suite-v2/preview/sheet/account-login.ts
++++ b/experiments/office-suite-v2/preview/sheet/account-login.ts
+@@ -78,6 +78,7 @@ export class SheetAccountLogin {
+   readonly #leases = new Set<() => void>();
+   #generation = 0;
+   #disposed = false;
++  #hasAuthenticatedSession = false;
+ 
+   constructor(auth: AuthClientPort, browser: AccountLoginBrowser) {
+     this.#auth = auth;
+@@ -132,6 +133,7 @@ export class SheetAccountLogin {
+     // Office consumes state/PKCE and scrubs the callback code before network I/O.
+     const intent = await this.#auth.finishLogin();
+     this.#checkGeneration(generation);
++    this.#hasAuthenticatedSession = true;
+     const resume = this.#auth.consumeResumeIntent();
+     if (intent !== 'user' || resume !== 'user' || !raw) throw new Error('Missing Sheet login return context.');
+     const saved: unknown = JSON.parse(raw);
+@@ -169,6 +171,10 @@ export class SheetAccountLogin {
+   captureAuthorizedSession(expiresAtMs?: number): SheetAccountLease {
+     this.#checkAlive();
+     const captured = this.#auth.captureAuthorizedSession();
++    // An initial anonymous visit has no private authority to retire. Later loss
++    // of an established login must still freeze every retained consumer below.
++    if (!this.#hasAuthenticatedSession && !captured.isCurrent()) throw new Error('Sheet account sign in required.');
++    this.#hasAuthenticatedSession = true;
+     const generation = this.#generation;
+     let expiry = Infinity;
+     let retired = false;
+diff --git a/experiments/office-suite-v2/preview/sheet/account-mode.test.ts b/experiments/office-suite-v2/preview/sheet/account-mode.test.ts
+index 8a60e1c5..a6bb5309 100644
+--- a/experiments/office-suite-v2/preview/sheet/account-mode.test.ts
++++ b/experiments/office-suite-v2/preview/sheet/account-mode.test.ts
+@@ -43,7 +43,8 @@ function authModel() {
+     loadIdentity: async () => { state.identityCalls++; return state.identity(); },
+     confirmTenant: async requested => { assert.equal(requested, tenantId); return 'editor'; },
+     listWorkspaces: async () => ({ items: [], nextCursor: null }),
+-    captureAuthorizedSession: () => { state.captures++; if (!state.current) throw new Error('Missing Office session'); return { requestFetch, isCurrent: () => state.current }; },
++    // Office captures an absent token without throwing; that capture stays invalid.
++    captureAuthorizedSession: () => { state.captures++; const present = state.current; return { requestFetch, isCurrent: () => present && state.current }; },
+     announceLogout: () => { state.announceCalls++; }, clearSession: () => { state.current = false; state.clearCalls++; },
+     isLogoutEvent: event => event.key === 'modeled-office-logout',
+   };
+@@ -58,6 +59,7 @@ async function modeledPage(run: (page: {
+   const controls = new Map(ids.map(id => [id, id === 'account-tenant' ? new Select() : id === 'account-document' ? new Input() :
+     id === 'account-fresh-login' ? new Anchor() : ['account-sign-in', 'account-logout', 'account-open'].includes(id) ? new Button() : new Control()]));
+   controls.get('account-logout')!.disabled = true;
++  controls.get('account-fresh-login')!.hidden = true;
+   const window = new EventTarget(), storage = new Map<string, string>(), replacements: string[] = [];
+   let idbReads = 0, socketOpens = 0, rawRequests = 0;
+   const location = { origin: new URL(href).origin, pathname: new URL(href).pathname, href };
+@@ -109,8 +111,12 @@ test('modeled missing Office session offers sign in without opening IDB or any n
+     await page.start({ auth: auth.port });
+     assert.match(page.controls.get('account-status')!.textContent, /Sign in to verify/);
+     assert.equal(page.controls.get('account-sign-in')!.hidden, false);
++    assert.equal(page.controls.get('account-sign-in')!.disabled, false);
++    assert.equal(page.controls.get('account-fresh-login')!.hidden, true);
+     assert.equal(auth.state.identityCalls, 0); assert.equal(auth.state.requests.length, 0);
+     assert.equal(page.idbReads(), 0); assert.equal(page.socketOpens(), 0); assert.equal(page.rawRequests(), 0);
++    button(page.controls, 'account-sign-in').click();
++    assert.equal(auth.state.loginCalls, 1);
+   });
+ });
+ 

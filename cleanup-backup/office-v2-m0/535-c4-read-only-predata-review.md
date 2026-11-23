@@ -1,0 +1,7 @@
+# Execute Verification C4 controlled ACK-delivery review
+
+Source chat: 01a15eca-e1d3-7910-9aa1-d590162dbf18
+No execution authority inferred.
+
+C4 proposal read-only feedback: condition-based actual-response hold는이전타이밍gap을해결합니다. 남은구체적조건은4개입니다. 1 exactold/newID뿐아니라각request의identity/context/admission/bodySHA/packetSHA/length를결합해bind; route.fetch는old원본1회만전송하고자동재시도/redirect로추가append가발생하지않는설정또는실제횟수관측. privatecredentials는공개금지. 2 newpacket은메모리pending만아니라영구outbox완료후라는관측을요구; BFM/coalescing으로bytes변경됐으면새로측정한동일ID/bytes를고정하고secondappend가wire를통과하지않았다는service측수신/commit불포함관측. 3 actualResponse body rawSHA와browser가받은bodySHA/receiptID/hash/sequence/frontier일치확인. route.fulfill는실제네트워크의자연지연이아닌controlled delivery fault라고기록. nativecontent/receipt생성없음. 4 oldACK전newpending존재와oldACK후newpending보존/unsaved를관측; 다른poll/state/ retry채널을포함해newID수신이없음을확인. conditionwait도기존appendReceipt10s등미리정한deadline내로bounded;timeout은첫실패로보존. 마지막에는new원본packet을별도명시적재전송해그자체receipt를받아야만Saved가되는것까지확인. finalclient/servicepin과실제capability없이는NOTRUN,기존534/535HOLD유지,추가실행요청아님.
+

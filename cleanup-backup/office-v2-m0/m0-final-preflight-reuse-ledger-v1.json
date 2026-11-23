@@ -1,0 +1,63 @@
+{
+  "schema": "m0/final-preflight-reuse-ledger-v1",
+  "candidateBeforeIntegrationReport": "d227c056374c6efc4b3a5bed8336dbb2b09914a4",
+  "base": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+  "requiredPreflightStagesSatisfied": true,
+  "literalFullCommandRerun": false,
+  "reason": "Currentdelta is verificationdocumentation/Pythonmetadata+oneSlidesbrowsertest-navigationfile only; allproduction/rootconfig/lock/scripts unchanged. Latesthuman prohibits repeatingcompletedunaffectedchecks.",
+  "actualFullPreflight": {
+    "head": "4961f4c1474f064c7210d4990d573843dfda5919",
+    "exitCode": 0,
+    "seconds": 459.278,
+    "ledgerSHA256": "a6ec9f3c329fbcf2aab757e473476811564abd39ca9ca24177aeae2edbbea160"
+  },
+  "postFullRequiredDeltaLedger": {
+    "path": "/Users/user/barocss-editor/.omx/m0/word100-final-preflight-ledger.json",
+    "sha256": "88a7741991616135014e608b83c9962875ec39f1c58e4354956cd687c8d7f706",
+    "requiredStagesPassAfterDelta": true,
+    "limits": "Full4961 + affectedrenderer174source/test/nativelint and7a actualguarddecrease; Wordtest-onlynavigationfollowups retainstageevidence withactualapp0/0."
+  },
+  "stages": {
+    "checks/release/npm/docs": "Reusefull4961; scripts/manifests/packageREADMEs unchanged, verificationREADME notaninput to packagecatalogue generation.",
+    "lint": "Retainrecordedactual532errors/7381warnings/noincreased afterone-entrybaseline decrease. Onlynewlinteligiblefiledelta connector.spec.ts: authortargetedESLint0errors/80existinganywarnings, noothereligibleJSTSinputdelta. Python/JSON/Markdown/gzip excluded by unchanged lint regex. No full lint rerun claimed.",
+    "sourceTypes": "Reusefull45targets/3knownbroken + recordedaffectedrenderer source0; no production source since4dc.",
+    "testTypes": "Reusefull41rows/1251debt + renderer123/123 and Wordapp0/0; solechangedSlide spec authoredguardapps/slide0/0 underfrozenNode22.22/TS5.9.3 graph. No budgetincrease.",
+    "newMetadata": "Freshintegration verify.py --verify-originals PASS on362:10criteria/1547overlapentries/47evidence/17originalsnapshots; no productruntime/tests executed."
+  },
+  "unchangedRootInputs": [
+    {
+      "path": "package.json",
+      "sha256": "56185c44a4c95124aa54e4943b5761fc05e8ab0eaaba9e94063fb85099093489"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "06104c0864771ea78c4b182bb3065d659674b28e36b438b31c91610a1d49dd9d"
+    },
+    {
+      "path": ".nvmrc",
+      "sha256": "4137094e7792cb49fe1afddc3f87208f0ef4adfef7d3acd1def0198786d393c2"
+    },
+    {
+      "path": "typecheck-budgets.json",
+      "sha256": "d92fd19dd6493245408b44a3b58dcf95381c05a7da5e5f7dc72cb52d682186c2"
+    },
+    {
+      "path": "scripts/lint.mjs",
+      "sha256": "b0f2e167630207f2493647c07d01f3885a8ee08ad978ade47f353d9828410b1a"
+    },
+    {
+      "path": "scripts/typecheck-all.mjs",
+      "sha256": "11886fd9e79deb73d3d2628dcd383dfab67c3768d445e7ff450a85b0b2eef451"
+    },
+    {
+      "path": "scripts/typecheck-tests.mjs",
+      "sha256": "88b833e24468aa13006056da5301650bf9bc4622cac4ff9877bed751efc23bcb"
+    }
+  ],
+  "current1215WordQualificationInputsMatch": true,
+  "sourceGraphReceiptSHA256": "d88edab69ac03b64fff1527d9f53ebfa3df8a76defa97a980b4b5bbaee54f12f",
+  "slideTestExecutedSHA256": "4189fd67594084568414b3e9286757a5ff128d712fc99b9f328ff54e45f233e5",
+  "slideRawReportSHA256": "9c1dac96aa5adc8ff87b5e20a3df078ea099e64e1f17847d9ca2b887580959dc",
+  "nativeTestsOrBrowserPerfRepeated": false,
+  "atUTC": "2026-10-22T16:36:32.801221+00:00"
+}

@@ -1,0 +1,262 @@
+{
+  "schema": "m0/word-runtime-print-final-assessment-v1",
+  "at": "2026-10-22T11:16:19.040779+00:00",
+  "measuredSource": {
+    "head": "760bb716bdd35b23ca28159b0b909e7cf43f9098",
+    "tree": "e4dc22a3f0c5b9d9931a4944c91b8a10684844ed",
+    "dirty": "",
+    "files": [
+      {
+        "path": "apps/word/src/runtime.ts",
+        "sha256": "97849b9bd27041f64a43bbaed8d8c6c93a429e02e3af88f8335d381f13428d10"
+      },
+      {
+        "path": "packages/editor-view-dom/src/editor-view-dom.ts",
+        "sha256": "df476aec72a812df0e2c49ef657204cedd00a0cf24ee66892e16d9da466a9bfa"
+      },
+      {
+        "path": "packages/office-word/src/word-layout-pass.ts",
+        "sha256": "a20d1c14e171ecf36adf9975c5e33de73dfc1cadee90e6b6d6cd1cb3651f1761"
+      },
+      {
+        "path": "packages/office-word/src/measurement.ts",
+        "sha256": "3b3a03d2eba42f81d38cca4c2594f27cbe71d777eff61e6619d3b935570d0efd"
+      },
+      {
+        "path": "packages/office-word/src/layout.ts",
+        "sha256": "664e15e422665531a6ecd4a37559fd28c16994c3a3b6c593967ceea94ec8ce89"
+      },
+      {
+        "path": "packages/office-word/src/pagination.ts",
+        "sha256": "8b1f3c205584f7f4e676de6a32ef375fdc6a3c9bc91ab6ecd0dbe86eea1b5b76"
+      },
+      {
+        "path": "packages/office-word/src/print-pages.ts",
+        "sha256": "85840ea09bf1bd3b41d9b6e216c947460dcf83aa4531a60eb1ed628ec3fd4c32"
+      },
+      {
+        "path": "packages/office-word/src/renderers/page.ts",
+        "sha256": "2f22023f5c0b7afd34a4e70ad864e00d0ec9d845d1bb83a16255f110e18dbcaa"
+      },
+      {
+        "path": "packages/office-word/src/ui.css",
+        "sha256": "f26bbc5c21c9553b9a718b8ed99be727f286c8259a7be6fa34b20764aac11a2d"
+      },
+      {
+        "path": "packages/office-text/src/text.css",
+        "sha256": "4b93925d153c3a14be5c5afaa14e68149c4f2ea73c42aac6949b24b9115efdbc"
+      },
+      {
+        "path": "packages/office-word/src/render-context.ts",
+        "sha256": "fe4e8f6a0acc3f0331f3abe2fa7362e95efbe8e09225e3c1bada85f653d84367"
+      },
+      {
+        "path": "packages/office-word/src/font-loader.ts",
+        "sha256": "6519ab82874bc8b1f0397838038a86f5e60743f06a806acf71901cee2968149d"
+      },
+      {
+        "path": "packages/renderer-dom/src/dom-renderer.ts",
+        "sha256": "d15729713f8e2b2ec8fe29bc2af461011ee73566158b1dcd627792e8195ad0ca"
+      },
+      {
+        "path": "packages/renderer-dom/src/scheduler.ts",
+        "sha256": "e79fa52c853b9bbc4511c2f6ae0318885ffea101504679639cf3def650551c9d"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/reconciler.ts",
+        "sha256": "4a5a263c4e28215397a47a7f9d4d5b0501a9bf3d80e73a1745d85649c1276bf5"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/fiber/fiber-reconciler.ts",
+        "sha256": "44d699640e62a0155ed7c73565483842de31c82a8d363d4ddda6a71abdb98903"
+      },
+      {
+        "path": "packages/renderer-dom/src/reconcile/fiber/fiber-scheduler.ts",
+        "sha256": "4c93720795a92e71266373572c1885dbb4040274e7ec6bc0ba6c3cca5a4bd28f"
+      }
+    ]
+  },
+  "sourceHead": "760bb716bdd35b23ca28159b0b909e7cf43f9098",
+  "sourceTree": "e4dc22a3f0c5b9d9931a4944c91b8a10684844ed",
+  "rawOriginal": "/Users/user/.codex/worktrees/522-m0-portal-joint/barocss-editor/experiments/office-suite-v2/verification/reports/word-performance-2026-10-22T11-10-19-102Z/report.json",
+  "rawPreserved": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-final/report.json",
+  "rawSHA256": "efc93e3d5484f8ee225612aeb084644f08a5e93d78af824a22bfa634a9b85f1a",
+  "rawBytes": 131994,
+  "runtimeExecution": "COMPLETED six fresh samples;exit0; no guards/errors, not a criterionPASS",
+  "profiles": [
+    {
+      "pages": 100,
+      "RSSBytes": [
+        581976064,
+        529956864,
+        552681472
+      ],
+      "RSSMiB": [
+        555.015625,
+        505.40625,
+        527.078125
+      ],
+      "RSSLimitBytes": 536870912,
+      "RSSMisses": 2,
+      "RSSCriterion": "FAIL",
+      "timings": {
+        "open": {
+          "p95ms": 346,
+          "limitms": 1000,
+          "status": "PASS"
+        },
+        "render": {
+          "p95ms": 103.89999997615814,
+          "limitms": 250,
+          "status": "PASS"
+        },
+        "print": {
+          "p95ms": 25.199999928474426,
+          "limitms": 1000,
+          "status": "PASS"
+        }
+      },
+      "printedNodeDelta": [
+        4501,
+        4501,
+        4501
+      ],
+      "allFontsQualified": true,
+      "repeatability": {
+        "open": {
+          "count": 3,
+          "mean": 323.9333333174388,
+          "populationStandardDeviation": 15.697416644352225,
+          "coefficientOfVariation": 0.048458787749914974,
+          "absoluteSpreadMs": 35.200000047683716,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 100,
+          "populationStandardDeviation": 2.8647280077842603,
+          "coefficientOfVariation": 0.028647280077842605,
+          "absoluteSpreadMs": 6.799999952316284,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 24.99999992052714,
+          "populationStandardDeviation": 0.21602468626805038,
+          "coefficientOfVariation": 0.008640987478190974,
+          "absoluteSpreadMs": 0.5,
+          "qualified": true
+        }
+      }
+    },
+    {
+      "pages": 300,
+      "RSSBytes": [
+        800309248,
+        744669184,
+        794951680
+      ],
+      "RSSMiB": [
+        763.234375,
+        710.171875,
+        758.125
+      ],
+      "RSSLimitBytes": 1073741824,
+      "RSSMisses": 0,
+      "RSSCriterion": "PASS",
+      "timings": {
+        "open": {
+          "p95ms": 1035.7000000476837,
+          "limitms": 3000,
+          "status": "PASS"
+        },
+        "render": {
+          "p95ms": 341.89999997615814,
+          "limitms": 750,
+          "status": "PASS"
+        },
+        "print": {
+          "p95ms": 70.79999995231628,
+          "limitms": 3000,
+          "status": "PASS"
+        }
+      },
+      "printedNodeDelta": [
+        13501,
+        13501,
+        13501
+      ],
+      "allFontsQualified": true,
+      "repeatability": {
+        "open": {
+          "count": 3,
+          "mean": 1020.6999999682108,
+          "populationStandardDeviation": 11.365151466599974,
+          "coefficientOfVariation": 0.01113466392373267,
+          "absoluteSpreadMs": 27.50000011920929,
+          "qualified": true
+        },
+        "render": {
+          "count": 3,
+          "mean": 337.5999999841054,
+          "populationStandardDeviation": 3.0430248065007994,
+          "coefficientOfVariation": 0.009013699071812998,
+          "absoluteSpreadMs": 6.600000023841858,
+          "qualified": true
+        },
+        "print": {
+          "count": 3,
+          "mean": 70.36666663487752,
+          "populationStandardDeviation": 0.5436501758482665,
+          "coefficientOfVariation": 0.007725961763531997,
+          "absoluteSpreadMs": 1.1999999284744263,
+          "qualified": true
+        }
+      }
+    }
+  ],
+  "nodeGrowth": {
+    "ratio": 2.9995556542990447,
+    "maximumRatio": 3.5,
+    "status": "PASS"
+  },
+  "methodQuality": "PASS exactsource/knownactualfonts/3freshperprofile/repeatability/guards/noGC; before-and-after1208files+654aliases unchanged",
+  "word100Criterion": "FAIL:2of3 exceed536870912bytes",
+  "word300Criterion": "PASS RSS and timing targets",
+  "allTimingTargets": "PASS",
+  "cleanup": {
+    "ownedPIDs": [
+      95383,
+      95467,
+      95471,
+      95480,
+      96383,
+      96397,
+      96399,
+      96400,
+      96891,
+      96903,
+      96904,
+      96906,
+      97341,
+      97351,
+      97353,
+      97355,
+      98033,
+      98048,
+      98049,
+      98051,
+      98905,
+      98932,
+      98933,
+      98938
+    ],
+    "remainingOwnedPIDs": [],
+    "privatePorts55260and55261": "Checked absent separately",
+    "runner": "Owned browser/server/Vite close completed within5s"
+  },
+  "wholeM0": "OPEN",
+  "causality": "No allocation/retention/RSS-cause or controlled old/new improvement claim",
+  "originalObserver": "Separate oldsource one-cycle fullFAIL remains; no new observer cycle",
+  "scopeCompletion": "Requested implementation/integrated/nativebrowser/normalWord100revalidation delivered; memory criterion remains unmet; no unchanged retry"
+}

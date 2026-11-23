@@ -1,0 +1,131 @@
+{
+  "schema": "m0/word-runtime-print-tranche-final-result-v1",
+  "completedUTC": "2026-10-22T11:24:28.004488+00:00",
+  "humanTask": "01a16334-04b6-7491-99fe-e08dcf398ad0",
+  "humanTrancheSteering": "01a16335-c7d5-7c91-b844-2e07e067bf29",
+  "deliveryOwner": "Execute Integration #522",
+  "implementationLead": "Planner core_rendering, Word print office_products predecessor preserved",
+  "measuredSource": "760bb716bdd35b23ca28159b0b909e7cf43f9098",
+  "measuredTree": "e4dc22a3f0c5b9d9931a4944c91b8a10684844ed",
+  "currentDocsSuccessor": "cd384423c4fd3503a95031f7f0fc229f7d68743f",
+  "currentTree": "15c35e6b61ad10fb5859d382989f05ad9a987d12",
+  "docsOnlySuccessorVerified": true,
+  "production1208FileSnapshotStillMatches": true,
+  "nativeResults": {
+    "Renderer": 113,
+    "View": 69,
+    "independent": 8,
+    "WordPrint": 25,
+    "WordPrintBinding": "Same relevant source; prior integrated25 reused aftertest-only recovery"
+  },
+  "browserResult": "14PASS/0skip/0retry/0flaky",
+  "preflightResult": "AllrequiredstagesPASS via explicit recoveryledger; originalfailedCLI/typeguard retained",
+  "normalExecution": "6fresh samples completed;exit0;no guard/font/console/page/cleanup failure",
+  "Word100RSS": {
+    "bytes": [
+      581976064,
+      529956864,
+      552681472
+    ],
+    "limit": 536870912,
+    "misses": 2,
+    "criterion": "FAIL"
+  },
+  "Word300RSS": {
+    "bytes": [
+      800309248,
+      744669184,
+      794951680
+    ],
+    "limit": 1073741824,
+    "criterion": "PASS"
+  },
+  "otherPerformance": "Alltimingtargets/fontidentity/repeatability/nodegrowthPASS",
+  "wholeM0": "OPEN; Word100512MiB gate remains unmet",
+  "causality": "No controlled old/new improvement or RSS cause established; no unchanged retry",
+  "cleanup": "All24observedPIDs absent atreturn,private55260/61closed,lease returned",
+  "preservation": "All4primaryplanningWIP hashes,account finalreceipt,old/newusertabs,5userPIDs/ports55262-55266/operatorOFF andlocaldevelopf4ed unchanged",
+  "report": "/Users/user/.codex/worktrees/522-m0-portal-joint/barocss-editor/experiments/office-suite-v2/reports/integration.md",
+  "artifacts": [
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-final-source-pin.json",
+      "bytes": 590,
+      "sha256": "3a067f1a14cdddac786a5f032c5aeef6d70587c34e40a5ca4e77d20e07e39537"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-preflight-ledger.json",
+      "bytes": 7986,
+      "sha256": "496e42f08c7aea63c043a3b0c31bea6634b877a3068c82642c471109f95e6a7d"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/final-renderer-impact.json",
+      "bytes": 40504,
+      "sha256": "c510f332ad8a536a25d948ca5e6f03f50197227a31074dd0432aae248c11208d"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/final-view-impact.json",
+      "bytes": 23922,
+      "sha256": "735495fc4dd6b58a569b46179cdf8ff1c8020ca631698ccc2344b16ed052583a"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/final-independent.json",
+      "bytes": 3546,
+      "sha256": "44b0d80190cbd175283974964669c4302e19b3d39f18bc6ba89019a698067c79"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/joint-word-print-impact.json",
+      "bytes": 8291,
+      "sha256": "80fce7a1f0744c93971a338497081a38abcc4415f70bde8bed53251e4ab57a25"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/final-word-browser/results.json",
+      "bytes": 6735110,
+      "sha256": "7680c667e5f037de3eab7ac2136598504477db94328f59590531ee7328acfef1"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-final/report.json",
+      "bytes": 131994,
+      "sha256": "efc93e3d5484f8ee225612aeb084644f08a5e93d78af824a22bfa634a9b85f1a"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-final-assessment.json",
+      "bytes": 8277,
+      "sha256": "8ac083b4518415d8168ff7370372f5707e8dc0f75ef30f0b46703ec259ddc463"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-final/source-review.json",
+      "bytes": 18244,
+      "sha256": "7a375a9a5a57c41783b6f1dd8a83588f627f5cee1348c57d02831a086a972ccf"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-bindings-before-browser-qualified.json",
+      "bytes": 498715,
+      "sha256": "80c677d82bb20ce7dc89456ff6285a44db8e74221c49caf0ba7c5115fb406b3a"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-bindings-after-browser-qualified.json",
+      "bytes": 498714,
+      "sha256": "3b334231c9160b3e3cc133f0588af3ff9304c871868d33f1de9031cfecab4c76"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-bindings-before-performance-qualified.json",
+      "bytes": 498719,
+      "sha256": "c18a6e4cfb60766393f0c232f8ddac53f41852c1dede6a8b76080b6dd056ae3e"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-bindings-after-performance-qualified.json",
+      "bytes": 498812,
+      "sha256": "fb35011063e8c3f8287c235e30caa394ea70e6efd4a25609a87a2c6d4b419df5"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-performance-lease-v1-granted-snapshot.json",
+      "bytes": 2529,
+      "sha256": "7adbf653bed33444dbfb425a5b749f384c21791cd475c20d325cf64b01f98486"
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-performance-lease-v1.json",
+      "bytes": 2827,
+      "sha256": "7ec331a5340698aaa89de6687f2e6d4384bf91ec5cdd5d4d9ec6929e30411fda"
+    }
+  ]
+}

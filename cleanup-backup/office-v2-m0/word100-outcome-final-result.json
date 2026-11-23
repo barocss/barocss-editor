@@ -1,0 +1,171 @@
+{
+  "schema": "m0/word100-memory-outcome-final-result-v1",
+  "status": "COMPLETE bounded Word100 outcome; original qualification gates met and independently confirmed",
+  "issue": 537,
+  "integrationOwner": "Execute Integration #522",
+  "sourceOwner": "Execute Word Layout",
+  "measuredSource": {
+    "head": "36b0fa98447d1f1b43c42066c88ec975f96f6c93",
+    "tree": "566bcdfbd902946ef68f6af92ceee14db89f7aee"
+  },
+  "finalDocumentationPin": {
+    "head": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+    "tree": "9f36d320aff6780f86216bff5c9217114cf20634",
+    "onlyDelta": [
+      "experiments/office-suite-v2/docs/word-memory-outcome.md",
+      "experiments/office-suite-v2/reports/integration.md"
+    ],
+    "all1215QualificationInputsUnchanged": true,
+    "finalReviewReferenceFrozen": true
+  },
+  "root": "/Users/user/.codex/worktrees/537-word100-integration/barocss-editor",
+  "branch": "codex/537-word100-integration",
+  "word100MiB": [
+    494.59375,
+    491.1875,
+    459.65625
+  ],
+  "word100LimitMiB": 512,
+  "word300MiB": [
+    804.296875,
+    807.859375,
+    804.015625
+  ],
+  "word300LimitMiB": 1024,
+  "allRSSAndOriginalTimingFontRepeatabilityNodeGrowthGatesPass": true,
+  "focusedNative": {
+    "rendererPass": 151,
+    "rendererExistingSkip": 1,
+    "viewPass": 69,
+    "wordPass": 39,
+    "independentPass": 8,
+    "fail": 0
+  },
+  "genuineBrowser": {
+    "printPass": 14,
+    "referencesPass": 5,
+    "fail": 0,
+    "skipRetryFlaky": 0,
+    "sourceBoundAcrossTestOnlyChanges": true
+  },
+  "preflight": "Literal full PASS at4961; required affected delta source/test/lint guards and test-only app guards PASS; genuine one-entry lint debt decrease recorded, never raised. No literal fresh fullpreflight claim on finalhead.",
+  "sourceClosure": "1215files/654actualaliases equal before/after H7 and docs;244workspacealiases point inside exactnewroot",
+  "conditionalStyleResolver": "INACTIVE; no further sourceoptimization or measurement needed",
+  "wholeM0": "OPEN; no alpha/release/develop integration acceptance",
+  "localDevelop": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+  "limits": "200ms sampled aggregate including sharedpages, three freshobservations; not privatebytes/HWM or per-fixcausal attribution.",
+  "preserved": "Old failures/source/diagnostics/user5producers/data/tabs/planningWIP retained. No file/cache deletion, push/deploy/model/schedule change.",
+  "evidence": [
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/report.json",
+      "sha256": "16a8fe3ceb2e3fb30d9178eb47887945b5a14d466a4d040f915cf62a0473a856",
+      "bytes": 134876
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/assessment.json",
+      "sha256": "8d76344f7ef7ade87d21536814d069d234ebd52476ef3dbeff3cccd3e6646794",
+      "bytes": 7624
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/granted-snapshot.json",
+      "sha256": "14de59d4b668914c226979c20d5eca9530dbc386fa02aebacf77ab7bd0b362c6",
+      "bytes": 1964
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/lease.json",
+      "sha256": "c8bf611b7ae4600003b0e2f22fef37a2835139bd6d7b0b3e7a583f5549e4bf89",
+      "bytes": 2411
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-bindings-before-h7-v1.json",
+      "sha256": "bbf8dfb75538d13b8fd09697535e46e51dcb1ea7cfcda1b2b506a12fffdab8dd",
+      "bytes": 495462
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-bindings-after-h7-v1.json",
+      "sha256": "15f6780fcd2c5dc270fc97cd20de6ceec6ce446400aed0b31301dd638116b514",
+      "bytes": 495556
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-bindings-after-docs.json",
+      "sha256": "8c7ee5b77b1b86e018fadb52637fafd211b5741aca572e3a497a1e20e75c01d8",
+      "bytes": 495556
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-candidate-preflight-ledger.json",
+      "sha256": "a6ec9f3c329fbcf2aab757e473476811564abd39ca9ca24177aeae2edbbea160",
+      "bytes": 1936
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-final-preflight-ledger.json",
+      "sha256": "88a7741991616135014e608b83c9962875ec39f1c58e4354956cd687c8d7f706",
+      "bytes": 3098
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-final-renderer.json",
+      "sha256": "c5793a06d1dd8a8b65bac5fe9724832ee1af9b7eb02f9274552cef7613ed1111",
+      "bytes": 56513
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-final-view.json",
+      "sha256": "8d6627ee2283845b26ad74b7d677b4238dad7526fd08a46220a8b66512d309c5",
+      "bytes": 23950
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-final-word.json",
+      "sha256": "e4eba0d8596e60c8408175faf3052b2807ba49623fe5a74ecf445826cefd077b",
+      "bytes": 13613
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-final-independent.json",
+      "sha256": "357b74ba198209994e57f5d73ee2de04853c0c7c77015f37ccc5563f9df95780",
+      "bytes": 3547
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-candidate-print-browser/results.json",
+      "sha256": "360f8fb781c73cfb2c95337dd7b6c77081173c63d391b1a5ba1ed87c78ac5f15",
+      "bytes": 6735261
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-feature-browser-v2/results.json",
+      "sha256": "685e6727a7287df8e118e09877f30a8849f862fda33083fb1d5613b57e2623dc",
+      "bytes": 7939
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-final-preservation-receipt.json",
+      "sha256": "4f983cb2acc08b23b3dbead2e072505002cf81b1ff46b470f2492af2f269de00",
+      "bytes": 1443
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-diagnostic-v1/assessment.json",
+      "sha256": "50c32f86b92ca296a306046f0c42b1b20329ccf1951e23a72215f8ee50609e6a",
+      "bytes": 32766
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-native-buckets-v1/assessment.json",
+      "sha256": "981b3461950df0a5395a853cd1556180304e57146bd5af16674096f647112089",
+      "bytes": 159087
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word-runtime-normal-final/report.json",
+      "sha256": "efc93e3d5484f8ee225612aeb084644f08a5e93d78af824a22bfa634a9b85f1a",
+      "bytes": 131994
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/word100-normal-qualification-v1/author-review-final.json",
+      "sha256": "5bbea983d7810987dba9c36e575b96eaec5ed711d2c2664c1658a972d1a293b9",
+      "bytes": 2109
+    }
+  ],
+  "completedUTC": "2026-10-22T14:31:19.626499+00:00",
+  "metadataHistory": {
+    "previousSnapshot": "/Users/user/barocss-editor/.omx/m0/word100-outcome-final-result-initial.json",
+    "sha256": "e2cb98829173d46ace3fa9a697d6adb0ead6addf4f9fb7eb86d74be1d5ce03d0",
+    "reason": "Author augmented preservation fields after initial review capture; freeze final review bytes and update documentation reference. Runtime/qualification unchanged."
+  },
+  "finalDocsBridge": {
+    "lastActual1215FileClosureHead": "f902bf4dbb85c9d8235c08c6519b7d3ce4590ef5",
+    "lastDeltaToFinal": "One report reference path/hash only, outside qualification source set",
+    "noFurtherRuntimeOrChecks": true
+  }
+}

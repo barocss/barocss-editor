@@ -1,0 +1,75 @@
+{
+  "atUTC": "2026-10-22T16:44:33.015265+00:00",
+  "primaryHEAD": "034a42c36924bc9a9808847d065e542cb5390c4c",
+  "primaryExpectedHEADUnchanged": true,
+  "primaryWIP": " M docs/ROADMAP.md\n?? .dev/plans/office-suite-v2/\n?? docs/specs/office-suite-v2.md\n",
+  "planningFiles": [
+    {
+      "path": "docs/ROADMAP.md",
+      "sha256": "e71ebaf85bb7d0a35c3636e310f9de1120cc9c20f4356cd7f9d4bbe05cd6caf6",
+      "currentSHA256": "e71ebaf85bb7d0a35c3636e310f9de1120cc9c20f4356cd7f9d4bbe05cd6caf6",
+      "unchanged": true
+    },
+    {
+      "path": "docs/specs/office-suite-v2.md",
+      "sha256": "ea119a4d9d3d8f6b2c0b72d7c8b29c2e71ab5a899f2b604cd4f26d6298f61c95",
+      "currentSHA256": "ea119a4d9d3d8f6b2c0b72d7c8b29c2e71ab5a899f2b604cd4f26d6298f61c95",
+      "unchanged": true
+    },
+    {
+      "path": ".dev/plans/office-suite-v2/10-feature-brief.md",
+      "sha256": "bb908c6f7b7b4c99dcdebc0a04d119f993b1a1b52b983c44deb4a02da024a895",
+      "currentSHA256": "bb908c6f7b7b4c99dcdebc0a04d119f993b1a1b52b983c44deb4a02da024a895",
+      "unchanged": true
+    },
+    {
+      "path": ".dev/plans/office-suite-v2/20-m0-execution.md",
+      "sha256": "3331f284157fc81cb4b99783bb68fb628102f07fd5508583d18e269d7f1d7aed",
+      "currentSHA256": "3331f284157fc81cb4b99783bb68fb628102f07fd5508583d18e269d7f1d7aed",
+      "unchanged": true
+    }
+  ],
+  "protectedFiveProducerPIDs": [
+    {
+      "pid": 12634,
+      "present": true,
+      "observation": "12634 /Users/user/.nvm/versions/node/v22.22.0/bin/node"
+    },
+    {
+      "pid": 21740,
+      "present": true,
+      "observation": "21740 /Users/user/.nvm/versions/node/v22.22.0/bin/node"
+    },
+    {
+      "pid": 72188,
+      "present": true,
+      "observation": "72188 /Users/user/.nvm/versions/node/v22.22.0/bin/node"
+    },
+    {
+      "pid": 48909,
+      "present": true,
+      "observation": "48909 /Users/user/.nvm/versions/node/v22.22.0/bin/node"
+    },
+    {
+      "pid": 37462,
+      "present": true,
+      "observation": "37462 /Users/user/.nvm/versions/node/v22.22.0/bin/node"
+    }
+  ],
+  "allFivePresent": true,
+  "ownPrivatePortsListening": {
+    "55260": false,
+    "55261": false
+  },
+  "bothSource538LeasesReturned": true,
+  "oldWordFailureRawUnchanged": true,
+  "accountReceiptUnchanged": true,
+  "allOtherRootsUntouched": "No reset/stash/checkout/sourcewrites/stop/reload in oldservedroots",
+  "noRawCacheDataDeletion": true,
+  "noUserTabOperations": true,
+  "localDevelopAuthorizedChange": {
+    "before": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+    "after": "9c00b73fd9f021dd012051d48eedd4f47ba12403"
+  },
+  "noPushDeployScheduleModelChange": true
+}

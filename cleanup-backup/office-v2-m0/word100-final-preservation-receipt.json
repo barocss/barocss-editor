@@ -1,0 +1,36 @@
+{
+  "atUTC": "2026-10-22T14:24:12.894076+00:00",
+  "primaryHEAD": "034a42c36924bc9a9808847d065e542cb5390c4c",
+  "localDevelop": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+  "primaryWIP": " M docs/ROADMAP.md\n?? .dev/plans/office-suite-v2/\n?? docs/specs/office-suite-v2.md\n",
+  "planningFiles": [
+    {
+      "path": "docs/ROADMAP.md",
+      "sha256": "e71ebaf85bb7d0a35c3636e310f9de1120cc9c20f4356cd7f9d4bbe05cd6caf6"
+    },
+    {
+      "path": "docs/specs/office-suite-v2.md",
+      "sha256": "ea119a4d9d3d8f6b2c0b72d7c8b29c2e71ab5a899f2b604cd4f26d6298f61c95"
+    },
+    {
+      "path": ".dev/plans/office-suite-v2/10-feature-brief.md",
+      "sha256": "bb908c6f7b7b4c99dcdebc0a04d119f993b1a1b52b983c44deb4a02da024a895"
+    },
+    {
+      "path": ".dev/plans/office-suite-v2/20-m0-execution.md",
+      "sha256": "3331f284157fc81cb4b99783bb68fb628102f07fd5508583d18e269d7f1d7aed"
+    }
+  ],
+  "protectedFiveProducerPIDs": [
+    "12634 /Users/user/.nvm/versions/node/v22.22.0/bin/node",
+    "21740 /Users/user/.nvm/versions/node/v22.22.0/bin/node",
+    "37462 /Users/user/.nvm/versions/node/v22.22.0/bin/node",
+    "48909 /Users/user/.nvm/versions/node/v22.22.0/bin/node",
+    "72188 /Users/user/.nvm/versions/node/v22.22.0/bin/node"
+  ],
+  "oldNormalFailureRawUnchanged": true,
+  "accountReceiptUnchanged": true,
+  "noCacheRawDataDeleted": true,
+  "userTabsNotOperatedDuringWordOutcome": true,
+  "noPushDeployOrScheduleModelChange": true
+}

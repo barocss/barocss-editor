@@ -1,0 +1,37 @@
+{
+  "schema": "office-v2-m0/planner-decision-v1",
+  "atUTC": "2026-10-22T16:46:00.476691+00:00",
+  "humanItem": "01a16457-618b-7142-b1f9-46365273b52c",
+  "decision": "ACCEPTED_ORIGINAL_M0_ARCHITECTURE_AND_EVIDENCE_SCOPE",
+  "issue": 521,
+  "candidate": {
+    "head": "9c00b73fd9f021dd012051d48eedd4f47ba12403",
+    "tree": "0cfd5743ec8fd70db3272eaf018c3b02c1aa02ec",
+    "root": "/Users/user/.codex/worktrees/m0-final-integration/barocss-editor",
+    "currentBranch": "develop",
+    "preservedCandidateBranch": "codex/522-m0-final",
+    "trackedClean": true,
+    "fullStatus": ""
+  },
+  "integrationReceiptSHA256": "a5e381965f5f1c56a3527286553a90cb603741df9228051b4fc0712aab4de1ae",
+  "review": {
+    "originalCriteria": 10,
+    "criterion9": "Planner reviewed final decision pack and completed local integration receipt",
+    "receiptEvidenceHashes": 21,
+    "ancestry": "base4dc, Verification362 and prior developf4 verified ancestors",
+    "slidesFinalTwoBlobs": "equal f9e47b48",
+    "testsRepeated": false
+  },
+  "decisionBasis": "Native Sheet engine and typed AST, stable IDs, domain validation, Yjs transport, own WebSocket, separate local/synchronized/durable states and per-original receipt/checkpoint replay are adopted for the next stage. Original M0 is an architecture and bounded evidence gate.",
+  "preservedLimits": [
+    "DOCX feature losses remain FAIL; product XLSX/PPTX adapters unimplemented.",
+    "Native Sheet scale evidence does not qualify Canvas/provider capacity.",
+    "Account runtime evidence is actual configured local OIDC/PG; manual Retry and recorded lifecycle/privacy limits remain.",
+    "Structural Undo conflict is safe refusal, not remote work deletion.",
+    "Slides25 current passing tests and18 historical only; no fresh43/43 claim.",
+    "No full Office, alpha, deployment or M1/M2 acceptance."
+  ],
+  "nextStageContracts": "#528 M1 and #529 M2 exact owner/interface contracts prepared; implementation inactive in this M0 dispatch.",
+  "protected": "Existing user tabs, five server PIDs, documents/data, primary four WIP files and old evidence preserved.",
+  "remoteCodeMutation": false
+}

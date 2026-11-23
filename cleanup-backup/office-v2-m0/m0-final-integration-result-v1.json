@@ -1,0 +1,240 @@
+{
+  "schema": "office-v2-m0/final-local-integration-result-v1",
+  "status": "READY_FOR_PLANNER_WHOLE_M0_DECISION; authorizedlocaldevelopintegration complete",
+  "humanItem": "01a16457-618b-7142-b1f9-46365273b52c",
+  "scope": "Original#52110criteria/evidence/architecturedecision + separatelyscoped#538connectorflowfollowup, noM1implementation",
+  "candidate": {
+    "head": "9c00b73fd9f021dd012051d48eedd4f47ba12403",
+    "tree": "0cfd5743ec8fd70db3272eaf018c3b02c1aa02ec",
+    "root": "/Users/user/.codex/worktrees/m0-final-integration/barocss-editor",
+    "currentBranch": "develop",
+    "preservedCandidateBranch": "codex/522-m0-final",
+    "trackedClean": true,
+    "fullStatus": ""
+  },
+  "localDevelop": {
+    "before": "f4ed8eddafdca39290b4d9a7b8ec14eb1405907f",
+    "after": "9c00b73fd9f021dd012051d48eedd4f47ba12403",
+    "method": "git switch develop; git merge --ff-only codex/522-m0-final",
+    "remoteDevelop1190AncestorOfPriorDevelop": true,
+    "noOtherWorktreeHeldDevelop": true,
+    "finalTreeEqualsQualifiedCandidate": true,
+    "remoteMutation": false
+  },
+  "immutableIntakes": [
+    {
+      "parent": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+      "author": "4414ab1b337335685a1b790f5112bf91114134bf",
+      "method": "FF once"
+    },
+    {
+      "parent": "4414ab1b337335685a1b790f5112bf91114134bf",
+      "author": "3621190e7310244170ee7e77373964446357b871",
+      "method": "FF once"
+    },
+    {
+      "parent": "4dc191bc442c260ab320f3d8a229fe2c3db98d9f",
+      "author": "f08bde2285bb6926c57cbc43bb129e3b322cef6c",
+      "integrated": "d227c056374c6efc4b3a5bed8336dbb2b09914a4",
+      "method": "exact2pathcherry-pick once"
+    },
+    {
+      "parent": "f08bde2285bb6926c57cbc43bb129e3b322cef6c",
+      "author": "f9e47b48c1ac1a10e4af23e999e5dfacd5fa1b8b",
+      "integrated": "49a8430c9d97efe951c3bbab57c76fb534e33521",
+      "method": "exact1doccherry-pick once"
+    }
+  ],
+  "originalCriteria": [
+    {
+      "id": 1,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE"
+    },
+    {
+      "id": 2,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE"
+    },
+    {
+      "id": 3,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE"
+    },
+    {
+      "id": 4,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE"
+    },
+    {
+      "id": 5,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE"
+    },
+    {
+      "id": 6,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE"
+    },
+    {
+      "id": 7,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE_WITH_DECLARED_LOSSES"
+    },
+    {
+      "id": 8,
+      "evidenceStatus": "BOUNDED_EVIDENCE_COMPLETE"
+    },
+    {
+      "id": 9,
+      "evidenceStatus": "DELIVERED_FOR_PLANNER_REVIEW"
+    },
+    {
+      "id": 10,
+      "evidenceStatus": "BOUNDARY_COMPLETE"
+    }
+  ],
+  "metadataIntegrity": {
+    "criteria": 10,
+    "overlappingSourceGroupEntries": 1547,
+    "notUniqueFileCount": true,
+    "evidenceEntries": 47,
+    "originalSnapshots": 17,
+    "result": "PASS source/evidence metadata only, no productruntime/tests repeated"
+  },
+  "preflight": "Requiredexactsource-bound stages satisfied; full4961literalPASS plusrecordedaffectedguards andnewSlidesapp0/0/lint0error. No new blanketfullcommand orzero-debtclaim. No budgetsraised.",
+  "reused": [
+    "Word100/300 originalfixedgates allPASS",
+    "Sheet10k/100col/50kpopulated/10kformula headlessprofile allfixedgatesPASS",
+    "Core/Formula/prose/native conflict/ownUndo original126PASS",
+    "controlledSQLite/WS receipts onoriginalpins",
+    "actuallocalOIDC/PG/twoaccounts/currentACL/recovery withrecordedlimits"
+  ],
+  "newSlides": {
+    "currentCasesPassed": 25,
+    "disjointRuns": [
+      22,
+      3
+    ],
+    "otherCasesHistoricalPassOnly": 18,
+    "freshWhole43Claim": false,
+    "productionDefectDemonstrated": false,
+    "sourceChange": "Currentmenu/panel/rolelocators, preservedalloriginaldraw/modelassertions; no productioncode change",
+    "workers": 1,
+    "retriesFlakySkipped": 0,
+    "perCaseTimeoutMs": 30000,
+    "globalTimeoutMs": 120000,
+    "leasesReturned": true
+  },
+  "sourceClosure": "No production/rootconfig/locks changed after4dc; verificationmetadata plusoneexistingSlidebrowsertest+docs only. Word1215/alias654/currentworkspace244,Sheet10,native21,account299 scopes retained. OldWS46deltas remain historical.",
+  "preservationReceiptSHA256": "9bde2d7ad9ffa7cb83dd6648ffb9f2857a44ba07607b8bf75a18d9a76846a0ea",
+  "wholeM0Acceptance": "Planner decision required; no automaticIssue/Goalclosure",
+  "nextStages": "528/529interfaceandownercontracts delivered INACTIVE; M3/M4limits explicit",
+  "noAdditionalWorkAuthorized": [
+    "M1/M2implementation",
+    "push/PR/deploy",
+    "model/schedulechanges",
+    "unrelatedprocessstop/data/cachedeletion"
+  ],
+  "evidence": [
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/m0-final-preflight-reuse-ledger-v1.json",
+      "sha256": "0f4289eb43946c97a289ead637f69e325934647b6ff0b6db6bf7254c77c950b2",
+      "bytes": 3481
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/m0-local-develop-fast-forward-v1.json",
+      "sha256": "47e55ce5ebb835eefbf9c45823ecab7dd54a32911372d143f7dd1372292b19cd",
+      "bytes": 1151
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/m0-final-preservation-20261023.json",
+      "sha256": "9bde2d7ad9ffa7cb83dd6648ffb9f2857a44ba07607b8bf75a18d9a76846a0ea",
+      "bytes": 2619
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/m0-final-evidence-reuse-map-v1.json",
+      "sha256": "4cffaa6f1e5e1449e89f44495defe0ce6d48a40884f0a46a1fad936a159bcc19",
+      "bytes": 117691
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/m0-final-word-reuse-binding-v1.json",
+      "sha256": "5c52f81d879c44440f0a6a018fdee96702a43ea5bc59848b18fdb780a2ee9fcf",
+      "bytes": 202134
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/integration-logs/m0-decision-pack-integration-integrity-v2.json",
+      "sha256": "6fa1a75d258b61e92fe743427f4985f4d8a4cb4ee3a56f4ce67ee69ae7e5a276",
+      "bytes": 608
+    },
+    {
+      "path": "/Users/user/.codex/worktrees/m0-final-integration/barocss-editor/experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/current-matrix.json",
+      "sha256": "5e7e5b294b98e24afe22f1580327af32416731c64049ab426f616fcfc7210762",
+      "bytes": 28199
+    },
+    {
+      "path": "/Users/user/.codex/worktrees/m0-final-integration/barocss-editor/experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/evidence-index.json",
+      "sha256": "e00aae23b2e1feb81bc959332a741844cec80a3d1822e336a9cf7c250f6b9cc8",
+      "bytes": 21016
+    },
+    {
+      "path": "/Users/user/.codex/worktrees/m0-final-integration/barocss-editor/experiments/office-suite-v2/verification/reports/m0-decision-pack-v1/source-bindings.json",
+      "sha256": "a743bf5a7f0dc45cbb4d8235701db6ff0fd8345ac7483e428920d200f00eda0f",
+      "bytes": 403937
+    },
+    {
+      "path": "/Users/user/.codex/worktrees/m0-final-integration/barocss-editor/experiments/office-suite-v2/verification/decision-pack/criteria-v1.json",
+      "sha256": "2c7c7e30fcd18187422dc6bd291931e4405b5df356ec0c08bea850273ebd9fe8",
+      "bytes": 17451
+    },
+    {
+      "path": "/Users/user/.codex/worktrees/m0-final-integration/barocss-editor/experiments/office-suite-v2/verification/decision-pack/file-capabilities-v1.json",
+      "sha256": "a8f7e4ef45704c7f9e6a5c3d0895ef671d1584bdce690972ee67dbcaa3de291b",
+      "bytes": 6073
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/execution.json",
+      "sha256": "18036228dbd5c80edcebb48316663cd68b137c56117958cd3572c0dd2bf6c751",
+      "bytes": 7306
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/result.json",
+      "sha256": "9c1dac96aa5adc8ff87b5e20a3df078ea099e64e1f17847d9ca2b887580959dc",
+      "bytes": 29777
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/selection.json",
+      "sha256": "9961c40821123951f2abad3795eda6d52336bc2441c75cc966e2998f4bd73430",
+      "bytes": 4379
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/granted-snapshot.json",
+      "sha256": "d61b3a21b39d8680d715dd373591e485736c4509c1c8ae89a8e70e43e8b03aef",
+      "bytes": 2708
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-browser-v1/lease.json",
+      "sha256": "6b578442693574d8efcc98fa61270d31a88544688fac6bbe2a89273a71d3ea49",
+      "bytes": 2988
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/execution.json",
+      "sha256": "3a02ecb47c84c291242f67e8c42425857979abbb1a5cb2bdde6f6963e38cc72c",
+      "bytes": 3409
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/result.json",
+      "sha256": "3353800f039a498dea9c13ff15bba90cd3468c51e7a4659a94c7e27b65139e2f",
+      "bytes": 6404
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/selection.json",
+      "sha256": "c48a9218897b07c962ced5651e631baf3d607530977c3bce6cb3e42edd361618",
+      "bytes": 141
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/granted-snapshot.json",
+      "sha256": "6a3709c5add6421b4ef63d45dd6453464681e576f3635ce1285189cb57f55c94",
+      "bytes": 2015
+    },
+    {
+      "path": "/Users/user/barocss-editor/.omx/m0/slides538-renderer-impact-v1/lease.json",
+      "sha256": "7da8ec5d3b19fcf33e5cf6eb12863973d6e2c1596ff624e3b41ba3cfa68b1b9a",
+      "bytes": 2210
+    }
+  ],
+  "completedUTC": "2026-10-22T16:44:33.306389+00:00"
+}

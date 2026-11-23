@@ -1,0 +1,68 @@
+{
+  "head": "7a956c3df424e4d8cad7f773148faf17df10dccc",
+  "productionParent": "174595dd9c3f6ce83bcad4a045495dbf76376640",
+  "fullPreflightParent": "4961f4c1474f064c7210d4990d573843dfda5919",
+  "fullPreflightLiteralPass": true,
+  "requiredStagesPassAfterDelta": true,
+  "checks": [
+    {
+      "label": "word100-candidate-preflight",
+      "metadataSHA256": "f8119e0599d7655b333ae1ddb1a5e1b3d722a884794b11373184cddec894de79",
+      "exitCode": 0,
+      "logSHA256": "1eb380f2063750a43349cb3bd8248e345a946673465bd22fbad3db4eb98eebc5"
+    },
+    {
+      "label": "word100-final-root-lint",
+      "metadataSHA256": "8692bb35f768e6b2aa1cac52cd013dc59542e55b775b69a037a32e41858dfda8",
+      "exitCode": 1,
+      "logSHA256": "89212c389e7432c413cfd279f24ddd7fea3a2daa8850efab10c6d7756be7b9c7"
+    },
+    {
+      "label": "word100-final-lint-baseline-decrease",
+      "metadataSHA256": "b6237f6af90bce629e4a51a46d4340662e00394b064385ff235eaf4c766564a2",
+      "exitCode": 0,
+      "logSHA256": "c3d92fb9d2c60d4f1355e3650d31a67c0362cdb3d47bb8cfb831cbae85c93cd8"
+    },
+    {
+      "label": "word100-final-renderer-source-types",
+      "metadataSHA256": "def6be60b32221c0cf3f055b77fc0552e88374af6ff8004cf7c647dbcbb46e85",
+      "exitCode": 0,
+      "logSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "word100-final-renderer-test-types",
+      "metadataSHA256": "6bd37b5aebf75b73a40ae5642b6d24bd4a57c8baecbc17cd4576414b5a2ebf49",
+      "exitCode": 0,
+      "logSHA256": "10e38c332782a8e7cf5aec1b9b10721263d21cb36853f55989c9924207a8fb41"
+    },
+    {
+      "label": "word100-final-renderer",
+      "metadataSHA256": "0b482af26ba3d17491bc0b9901a9fa53046d58f2a29d60432eb425daaaaa18d8",
+      "exitCode": 0,
+      "logSHA256": "74efb6b382c268bd52a734f7e90dbe8fe06ce43125d9f2cc81aa88ae563b25cf"
+    },
+    {
+      "label": "word100-final-view",
+      "metadataSHA256": "18b0ed3f71822a05ae89c00f7b7afa33ad087331c84688abc25c70b5e8675a15",
+      "exitCode": 0,
+      "logSHA256": "d967d9f9f168360557858e784b97cd657e17cccbea1e62e15a84185c6db132b6"
+    },
+    {
+      "label": "word100-final-word",
+      "metadataSHA256": "b7e2ccd27bfc073de70e47848cf6d91093a518f79db2efb3cb72878eb1bc9aa8",
+      "exitCode": 0,
+      "logSHA256": "3ab01093f1337f11e14a99b89e36bd8d0d4987dfea1e676110d53b5a8dd9da6a"
+    },
+    {
+      "label": "word100-final-independent",
+      "metadataSHA256": "4a3441718671c293013d681f48d39008d8d141d9e855fd48978b34b5c5c72066",
+      "exitCode": 0,
+      "logSHA256": "a839abf04e32a9ccebdc84a5b73d51daf8fec488b98755fa20028290036c50af"
+    }
+  ],
+  "delta": "Renderer primitive ordering source/new regression checked; required root lint baseline exactly one removed deps-unused occurrence,533\u2192532. No growth/rule/threshold increase.",
+  "unchangedProductionAcrossLintCommit": true,
+  "noFreshFullPreflightOnFinalHead": true,
+  "reused": "Full predecessor checks/release/npm/docs and unaffected source/test targets. Renderer own source/tests guard and rootlint freshly ran after its delta.",
+  "atUTC": "2026-10-22T14:06:32.727229+00:00"
+}
