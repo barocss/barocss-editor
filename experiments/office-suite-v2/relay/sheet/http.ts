@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { SHEET_RELAY_LIMITS, SHEET_RELAY_PATH } from '../../src/sheet-preview-protocol.ts';
+import { SHEET_RELAY_ACCOUNT_LIMITS, SHEET_RELAY_ACCOUNT_LOGOUT_PATH, SHEET_RELAY_LIMITS, SHEET_RELAY_PATH, SHEET_RELAY_WS_LIMITS,
+  parseSheetRelayAccountLogoutRequest, sheetRelayAccountAdmissionPath } from '../../src/sheet-preview-protocol.ts';
 import { RelayError } from './service.ts';
 import { parseSheetRelayAppendRequest, parseSheetRelaySessionRequest } from '../../src/sheet-preview-protocol.ts';
 import { attachSheetRelayWebSocket } from './websocket.ts';
@@ -32,12 +33,46 @@ function json(response: ServerResponse, status: number, value: unknown): void {
 export async function startSheetRelay(options: SheetRelayWebSocketOptions & { port: number }): Promise<{ url: string; port: number; close(): Promise<void> }> {
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535) throw new RelayError('invalid-port');
   const origins = new Set(options.allowedOrigins ?? []);
+  const accountControllers = new Set<AbortController>();
+  let accountRequests = 0;
   const server = createServer(async (request, response) => {
     try {
-      if (request.headers.origin !== undefined && !origins.has(request.headers.origin)) throw new RelayError('origin-denied', 403);
       const address = server.address();
       if (!address || typeof address === 'string' || request.headers.host !== `127.0.0.1:${address.port}`) throw new RelayError('host-denied', 403);
+      const ownOrigin = `http://127.0.0.1:${address.port}`;
+      if (request.headers.origin !== undefined && request.headers.origin !== ownOrigin && !origins.has(request.headers.origin)) throw new RelayError('origin-denied', 403);
       const path = request.url;
+      if (options.mode === 'account') {
+        const scope = options.account.scope;
+        const logout = path === SHEET_RELAY_ACCOUNT_LOGOUT_PATH;
+        if (request.method !== 'POST' || (!logout && path !== sheetRelayAccountAdmissionPath(scope.tenantId, scope.documentId))) throw new RelayError('account-admission-route-required', 404);
+        const authorization = request.headers.authorization;
+        if (typeof authorization !== 'string' || Buffer.byteLength(authorization) > SHEET_RELAY_ACCOUNT_LIMITS.tokenBytes || !/^Bearer [^\s]+$/.test(authorization)) throw new RelayError('account-authentication-required', 401);
+        if (accountRequests >= SHEET_RELAY_ACCOUNT_LIMITS.queuedOperations) throw new RelayError('account-queue-limit', 503);
+        accountRequests++;
+        const control = new AbortController(); accountControllers.add(control);
+        const abort = () => control.abort();
+        const timer = setTimeout(() => { control.abort(); response.destroy(); }, SHEET_RELAY_WS_LIMITS.replyMs);
+        request.once('aborted', abort); response.once('close', abort);
+        try {
+          const value = await body(request);
+          if (control.signal.aborted || response.destroyed) return;
+          if (logout) {
+            try { parseSheetRelayAccountLogoutRequest(value); } catch { throw new RelayError('invalid-logout-request'); }
+            await options.account.logout(authorization.slice(7), control.signal);
+            if (!control.signal.aborted && !response.destroyed) json(response, 200, { protocolVersion: 1, status: 'logged-out' });
+            return;
+          }
+          let session: ReturnType<typeof parseSheetRelaySessionRequest>;
+          try { session = parseSheetRelaySessionRequest(value); } catch { throw new RelayError('invalid-session-request'); }
+          const admitted = await options.account.admit({ tenantId: scope.tenantId, documentId: scope.documentId, bearer: authorization.slice(7),
+            origin: request.headers.origin ?? ownOrigin, ...(session.resumeCredential === undefined ? {} : { resumeCredential: session.resumeCredential }) }, control.signal);
+          if (!control.signal.aborted && !response.destroyed) json(response, 200, admitted);
+        } finally {
+          clearTimeout(timer); control.abort(); accountControllers.delete(control); accountRequests--; request.off('aborted', abort); response.off('close', abort);
+        }
+        return;
+      }
       if (request.method === 'POST' && path === `${SHEET_RELAY_PATH}/session`) {
         const session = options.service.issueSession(parseSheetRelaySessionRequest(await body(request)));
         // Keep the original HTTP/P1 persisted shape; live access is WS metadata.
@@ -66,8 +101,8 @@ export async function startSheetRelay(options: SheetRelayWebSocketOptions & { po
       throw new RelayError('route-not-found', 404);
     } catch (error) {
       if (response.destroyed) return;
-      const status = error instanceof RelayError ? error.status : 400;
-      const code = error instanceof RelayError ? error.code : 'invalid-request';
+      const status = error instanceof RelayError ? error.status : options.mode === 'account' ? 503 : 400;
+      const code = error instanceof RelayError && /^[A-Za-z0-9_:#-]{1,200}$/.test(error.code) ? error.code : options.mode === 'account' ? 'account-authority-unavailable' : 'invalid-request';
       json(response, status, { protocolVersion: 1, status: 'rejected', code });
     }
   });
@@ -81,6 +116,7 @@ export async function startSheetRelay(options: SheetRelayWebSocketOptions & { po
   let closing: Promise<void> | undefined;
   return { url: `http://127.0.0.1:${address.port}`, port: address.port,
     close: () => closing ??= (async () => {
+      for (const control of accountControllers) control.abort();
       await websocket.close();
       await new Promise<void>((resolve, reject) => { server.close(error => error ? reject(error) : resolve()); server.closeAllConnections(); });
     })() };

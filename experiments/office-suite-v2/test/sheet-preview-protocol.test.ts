@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { base64ToBytes, bytesToBase64, parseSheetRelayAppendRequest, parseSheetRelaySessionRequest, relayAdmission, SHEET_RELAY_LIMITS,
   decodeSheetRelayClientFrame, decodeSheetRelayServerFrame, encodeSheetRelayWsFrame, parseSheetRelayClientFrame, parseSheetRelayServerFrame,
   SHEET_RELAY_WS_LIMITS, SHEET_RELAY_WS_PATH, parseSheetRelayAccountBinding, parseSheetRelayAccountAdmissionResponse, parseSheetRelayAccountSession,
-  sameSheetRelayAccountBinding, sheetRelayAccountAdmissionPath } from '../src/sheet-preview-protocol.ts';
+  sameSheetRelayAccountBinding, sheetRelayAccountAdmissionPath, parseSheetRelayAccountLogoutRequest, parseSheetRelayAccountLogoutResponse, SHEET_RELAY_ACCOUNT_LOGOUT_PATH } from '../src/sheet-preview-protocol.ts';
 import { createWorkbookContext } from '../src/workbook.ts';
 
 const context = createWorkbookContext({ documentId: 'controlled-sheet', workbookId: 'book', generation: 'generation' });
@@ -116,4 +116,12 @@ test('P3 account WS reply cannot masquerade as controlled auth or another native
   assert.throws(() => parseSheetRelayServerFrame({ ...reply, state }));
   assert.throws(() => parseSheetRelayServerFrame({ ...reply, session: { ...accountSession, expiresAt: 0 } }));
   assert.throws(() => parseSheetRelayServerFrame({ ...reply, session: { ...accountSession, access: 'admin' } }));
+});
+test('P3 logout permits no caller-selected account/session target or unconfirmed success', () => {
+  assert.equal(SHEET_RELAY_ACCOUNT_LOGOUT_PATH, '/api/v1/sheet/logout');
+  assert.deepEqual(parseSheetRelayAccountLogoutRequest({ protocolVersion: 1 }), { protocolVersion: 1 });
+  for (const extra of [{ sessionId: 'foreign-sid' }, { subject: 'another-user' }, { role: 'admin' }, { tenantId: accountBinding.tenantId }]) assert.throws(() => parseSheetRelayAccountLogoutRequest({ protocolVersion: 1, ...extra }));
+  assert.deepEqual(parseSheetRelayAccountLogoutResponse({ protocolVersion: 1, status: 'logged-out' }), { protocolVersion: 1, status: 'logged-out' });
+  assert.throws(() => parseSheetRelayAccountLogoutResponse({ protocolVersion: 1, status: 'initiated' }));
+  assert.throws(() => parseSheetRelayAccountLogoutResponse({ protocolVersion: 1, status: 'logged-out', token: 'must-not-echo' }));
 });

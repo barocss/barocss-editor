@@ -85,6 +85,23 @@ Commands: `pnpm --ignore-workspace type-check -- src/sheet-preview-protocol.ts t
 and `pnpm --ignore-workspace test -- test/sheet-preview-protocol.test.ts`.
 No account service/PG/IdP/browser runtime is claimed by this contract checkpoint.
 
+P3 logout addendum follows the final Planner routing: one in-place authenticated
+POST `/api/v1/sheet/logout`, exact body `{protocolVersion:1}`, with Bearer supplied
+by existing captured authorized fetch. Existing auth-client stays read-only;
+there is no parallel RP logout path, browser token getter or token-bearing URL.
+The backend verifies the JWT and derives only its own signed issuer/subject/sid;
+the browser cannot choose a logout target. A private server-side provider adapter
+terminates that verified session, with a finite5s gate and no public admin scope.
+Confirmed reply is exactly `{protocolVersion:1,status:'logged-out'}` only after
+provider confirmation and inactive current-session verification. Provider failure
+returns unconfirmed/unavailable; UI retires/hides the old account immediately and
+preserves its draft/outbox even on failure. Logout does not require a Sheet grant;
+revoked document permission must not prevent terminating one's verified login.
+Expired/invalid JWT cannot authorize a server logout target; UI still retires and
+reports unconfirmed provider logout. No arbitrary-subject or global logout API.
+Pure addendum checks: strict2 roots0 diagnostics, protocol10/10 PASS; actual IdP
+termination/inactive-token/old-WS denial remains Integration runtime evidence.
+
 Base `1638944c6db0d39e994ba5f12367a4b56714f958`. Contracts-only P1
 `6768f95decf5f49168639184c06fec2fd42e6681` froze the browser-neutral DTOs first.
 WebSocket contracts-only P2 `190518cbd792ed3c1a44fe9c22ca075821fee19d` adds
