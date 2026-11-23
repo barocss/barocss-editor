@@ -1,5 +1,47 @@
 # Barocss Suite — Roadmap
 
+## Current direction — Office suite v2, 2026-10-21
+
+The current human request replaces the earlier product sequence: build an Office suite with **our own Sheet engine** and collaboration designed from the start. Use the fresh code analysis at `034a42c36924bc9a9808847d065e542cb5390c4c` as the source baseline. Earlier plans and completion records below are history, not current assignments or new implementation evidence.
+
+The canonical [Office suite v2 architecture](specs/office-suite-v2.md) defines the product boundaries, full reuse/rework/new matrix, Sheet semantics, collaboration/durable-save contract, file compatibility and milestone gates. The [feature brief](../.dev/plans/office-suite-v2/10-feature-brief.md) records the current request and planning acceptance.
+
+Tracking: [suite roadmap #520](https://github.com/barocss/barocss-editor/issues/520), [first M0 Issue #521](https://github.com/barocss/barocss-editor/issues/521), and [M0 milestone](https://github.com/barocss/barocss-editor/milestone/19). Only M0 has an execution milestone now; M1–M5 are dependency-gated roadmap stages. The planning files are local and uncommitted; the Issues are published planning records.
+
+### Architecture decisions
+
+- Share workspace, identity, current access, assets and document lifecycle. Keep prose, page layout, scenes and workbooks as separate domains.
+- Own the Sheet model, cell/range commands, formula parser/references/dependencies/recalculation, Canvas2D grid and collaboration binding. A third-party spreadsheet SDK is not the selected path.
+- Give each document one engine/mutation protocol. Existing DataStore and new collaborative state cannot independently write the same document.
+- Use DOM for application UI and prose input, DOM/SVG for initial Slides, an explicit Word layout result, and Canvas2D with DOM input/accessibility for Sheet.
+- Selective undo, concurrent structural edits, durable ACKs and reconnect/restart recovery are core correctness gates.
+- Preserve old native files in their current engine. Versioned migration creates an explicit new copy. DOCX/XLSX/PPTX support is a tested capability matrix.
+
+### Delivery sequence
+
+| Stage | Delivery | Depends on | Required completion evidence |
+| --- | --- | --- | --- |
+| M0 | Native Sheet architecture and collaboration risk proof | Current code analysis and current request | Two-client prose + formula-bearing Sheet prototypes; structural/reference/undo conflict rules; retry/restart probes; chosen primitive/mappings; format and performance decision pack. Word/Slides interop and layout baselines start here. |
+| M1 | Common host, current access and durable state | M0 decisions | Actual Office two-account save/open/re-edit, durable update/checkpoint replay, ACK-loss idempotency, revocation, asset consistency and version admission. |
+| M2 | End-to-end collaborative Note and Sheet | M1 | Each flow works on one integrated candidate: create/open, simultaneous editing, session undo, saved receipt, reconnect/fresh reopen, re-edit and supported export. |
+| M3 | Usable in-house Sheet | M2 | Declared formula/reference profile, ranges/clipboard/fill, row/column edits, formats/merge/filter/freeze, XLSX corpus, concurrency, keyboard/IME/accessibility and measured performance. |
+| M4 | Word and Slides completion | M2, with file/layout risks measured in M0 | Page/table/footnote/print and scene collaboration, native round trips, declared DOCX/PPTX compatibility. |
+| M5 | Integrated suite release candidate | M3 + M4 | Cross-product flows, safe migration, access isolation, backup/restore/update, target browsers, real user workflows and fixed performance budgets. Release and deployment remain separate decisions. |
+
+Only M0 may be scoped for execution now. M3 is the primary product expansion; M4 can use independent capacity after M2 when its exact dependencies and file ownership are clear. No date or full Microsoft Office parity is promised. An M0 prototype is not whole-product acceptance.
+
+### First ownership and tracking boundary
+
+Planner owns this direction and milestone acceptance. The planned technical lanes are Native Sheet Core, Formula, Collaboration, Prose/Layout, Runtime/Integration and Verification. These are responsibility boundaries, not instructions to create six Works immediately. Assign only ready disjoint scopes with one versioned interface and exact source/file ownership. Integration is the unique shared-root/config/lock/runtime writer.
+
+The first decision pack must settle stable row/column IDs and ordering, A1 reference/copy/move/range/deletion behavior, granular CRDT bindings, session-local selective undo, native format/checkpoints, supported file/function profile, and benchmark environments/budgets. Existing generic collaboration adapters, inverse-offset history and Note database arrays do not satisfy those contracts.
+
+Existing Issues, paused Works, archived candidates and Draft PR #519 are preserved. This new plan does not bulk reopen/close Issues, replay old branches, resume schedules, merge the Draft PR or start product implementation. Future issue mapping must compare actual code and current scope.
+
+## Historical roadmap — retained for reference
+
+The entries below retain their original dates and evidence boundaries. Their previous priority and staffing statements do not override Office suite v2 above.
+
 ## 현재 제품 목표와 로드맵 판단 기준 — 사용자 결정, 2026-10-01
 
 **사람과 AI가 회사의 업무 내용을 함께 작성하고, 의미와 근거를 연결하며, 검토·확정할 수 있는 업무 문서 플랫폼.** 이 목표가 과거의 제품군 확장·서식 기능 중심 설명보다 우선한다. 제품 구현이나 출시 완료를 뜻하지 않는다.
